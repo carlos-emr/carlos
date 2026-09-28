@@ -321,6 +321,11 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             order.verify(mockConsentDao).lockPatientForConsentChange(100);
             order.verify(mockConsentDao).refresh(consent);
             order.verify(mockConsentDao).merge(consent);
+            // Audited once, as an opt-out, after the outcome is known.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+                    "PatientConsentManager.optoutConsent[consentID]", " ConsentId: 10"));
+            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+                    "PatientConsentManager.optoutConsent[consentID]", " ConsentId: 10 skipped: no live record"), never());
         }
 
         @Test
@@ -719,7 +724,10 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), nullable(String.class)))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> manager.getConsentsByTypeAndEditDate(loggedInInfo, createActiveConsentType(1, "email"), new Date(0L)))
+            ConsentType emailType = createActiveConsentType(1, "email");
+            Date since = new Date(0L);
+
+            assertThatThrownBy(() -> manager.getConsentsByTypeAndEditDate(loggedInInfo, emailType, since))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_demographic)");
             verifyNoInteractions(mockConsentDao);

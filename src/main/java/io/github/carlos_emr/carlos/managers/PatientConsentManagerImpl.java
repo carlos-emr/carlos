@@ -77,6 +77,8 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
     /** Audit-log content name for entries about one consent record. */
     private static final String CONSENT_LOG_CONTENT = "consent";
+    private static final String LOG_CONSENT_ID = " ConsentId: ";
+    private static final String LOG_CONSENT_TYPE_ID = " ConsentTypeId: ";
 
     @Autowired
     private ConsentDao consentDao;
@@ -248,7 +250,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             consentDao.merge(duplicate);
             LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.retireDuplicateConsent", CONSENT_LOG_CONTENT,
                     String.valueOf(duplicate.getId()), demographic_no, " Demographic: " + demographic_no
-                            + " ConsentTypeId: " + consentTypeId + " ConsentId: " + duplicate.getId() + " KeptConsentId: " + kept.getId());
+                            + LOG_CONSENT_TYPE_ID + consentTypeId + LOG_CONSENT_ID + duplicate.getId() + " KeptConsentId: " + kept.getId());
         }
     }
 
@@ -318,7 +320,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
         if (consent == null || consent.isDeleted()) {
             LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]",
-                    " ConsentId: " + consentId + " skipped: no live record");
+                    LOG_CONSENT_ID + consentId + " skipped: no live record");
             return;
         }
 
@@ -328,7 +330,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         consent.setEditDate(date);
         consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
         consentDao.merge(consent);
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", " ConsentId: " + consentId);
+        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", LOG_CONSENT_ID + consentId);
     }
 
     /**
@@ -416,7 +418,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         }
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.getConsentByDemographicAndConsentType",
-                " Demographic: " + demographic_no + " ConsentTypeId: " + consentType.getId());
+                " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentType.getId());
 
         return consentDao.findByDemographicAndConsentTypeId(demographic_no, consentType.getId());
     }
@@ -480,7 +482,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         List<Consent> consentList = consentDao.findLastEditedByConsentTypeId(consentType.getId(), editedAfter);
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.getConsentsByTypeAndEditDate",
-                " ConsentTypeId: " + consentType.getId());
+                LOG_CONSENT_TYPE_ID + consentType.getId());
 
         return consentList;
     }
@@ -514,7 +516,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             consentDao.merge(consent);
             LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.deleteConsent()", CONSENT_LOG_CONTENT,
                     String.valueOf(consent.getId()), demographic_no,
-                    " Demographic: " + demographic_no + " ConsentTypeId: " + consentTypeId + " ConsentId: " + consent.getId());
+                    " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentTypeId + LOG_CONSENT_ID + consent.getId());
         }
     }
 
