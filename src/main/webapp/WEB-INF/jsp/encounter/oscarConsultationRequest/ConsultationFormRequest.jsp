@@ -2768,6 +2768,13 @@ if (userAgent != null) {
                                                 <carlos:encode value='<%= thisForm.geteReferralService() %>' context="html"/>
                                                 <% } else { %>
                                                 <input type="hidden" id="service" name="service" value=""/>
+                                                <%-- Marks the EDITABLE service picker. The health-care-team variant of this
+                                                     row posts a hidden name="service" fixed at "0" instead, so "a service was
+                                                     posted" does not mean "the clinician could choose one" -- without this
+                                                     marker the print preview would overlay that 0 onto a referral that has a
+                                                     real saved service and print a blank service. See
+                                                     ConsultationPreviewOverlay. --%>
+                                                <input type="hidden" name="serviceRendered" value="1"/>
                                                 <input type="text" id="serviceInput" class="form-control form-control-sm"
                                                        autocomplete="off"
                                                        placeholder="<fmt:message key='consultationList.header.service'/>"/>

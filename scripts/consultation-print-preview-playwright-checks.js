@@ -164,9 +164,19 @@ function pdfText(pdfBuffer) {
   return parts.join('\n');
 }
 
-/** Pick a service through the autocomplete, the only thing that fills the posted field. */
+/**
+ * Pick a service through the autocomplete, the only thing that fills the posted field.
+ *
+ * Answers false when the deployment renders no picker: with
+ * ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS on, the form posts a hidden service fixed at
+ * "0" and there is nothing to choose. This check runs in the core tier for every province, so it
+ * must not fail at a locator that such a deployment legitimately does not have.
+ */
 async function chooseService(page, timeout) {
   const input = page.locator('#serviceInput');
+  if (await input.count() === 0) {
+    return false;
+  }
   await input.click({ timeout });
   await input.pressSequentially(SERVICE_SEARCH, { delay: 50 });
   const suggestion = page.locator('ul.ui-autocomplete li:visible, ul.ui-menu li:visible').first();
@@ -175,6 +185,7 @@ async function chooseService(page, timeout) {
   const chosen = await page.evaluate(() => (document.getElementById('service') || {}).value);
   assert(chosen && chosen !== '0',
     'no consultation service could be picked, and the form refuses to submit without one');
+  return true;
 }
 
 async function main() {
@@ -231,7 +242,11 @@ async function main() {
     await newPage.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
     await newPage.locator('textarea[name="reasonForConsultation"]').fill(`REASON ${saved}`);
     await newPage.locator('textarea[name="clinicalInformation"]').fill(`CLINICAL ${saved}`);
-    await chooseService(newPage, timeout);
+    const servicePicked = await chooseService(newPage, timeout);
+    if (!servicePicked) {
+      console.log('  no service picker on this deployment (health care team mode); '
+        + 'the referral is created without one');
+    }
     // Wait for the save POST itself, not a guessed interval: on a slow CI host a fixed wait can
     // expire before the row exists, and the SQL lookup below then fails for a reason that has
     // nothing to do with what this check is testing.

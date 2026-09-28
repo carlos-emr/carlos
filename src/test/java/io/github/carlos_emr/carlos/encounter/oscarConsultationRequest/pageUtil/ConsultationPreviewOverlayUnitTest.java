@@ -141,11 +141,25 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
     void shouldShowPickedService_whenSelectionPosted() {
         EctConsultationFormRequestUtil form = storedForm();
 
-        ConsultationPreviewOverlay.apply(form, postOf(Map.of("service", "42")), NO_LOOKUP);
+        ConsultationPreviewOverlay.apply(
+                form, postOf(Map.of("service", "42", "serviceRendered", "1")), NO_LOOKUP);
 
         // The id only. The PDF prints getServiceName(service), which resolves the name from the
         // database, so a posted id can change which service is printed but never its wording.
         assertThat(form.service).isEqualTo("42");
+    }
+
+    @Test
+    @DisplayName("should keep the stored service when the health care team form posts its sentinel")
+    void shouldKeepStoredService_whenPickerWasNotRendered() {
+        EctConsultationFormRequestUtil form = storedForm();
+
+        // ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS renders no picker and posts a hidden
+        // service fixed at "0". Overlaying it would print a blank service for a referral that has
+        // a real one, on a field the clinician cannot edit in that configuration.
+        ConsultationPreviewOverlay.apply(form, postOf(Map.of("service", "0")), NO_LOOKUP);
+
+        assertThat(form.service).isEqualTo("11");
     }
 
     @Test

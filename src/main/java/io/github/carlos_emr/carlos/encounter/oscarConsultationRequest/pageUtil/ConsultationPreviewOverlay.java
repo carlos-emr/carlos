@@ -94,9 +94,6 @@ final class ConsultationPreviewOverlay {
                     Map.entry("currentMedications", (form, value) -> form.currentMedications = value),
                     Map.entry("allergies", (form, value) -> form.allergies = value),
                     Map.entry("urgency", (form, value) -> form.urgency = value),
-                    // The posted id only. getServiceName() resolves the display name server-side
-                    // from the id, so the name the PDF prints is never taken from the request.
-                    Map.entry("service", (form, value) -> form.service = value),
                     Map.entry("referalDate", (form, value) -> form.referalDate = value),
                     Map.entry("appointmentNotes", (form, value) -> form.appointmentNotes = value),
                     Map.entry("appointmentDate", (form, value) -> form.appointmentDate = value),
@@ -116,6 +113,26 @@ final class ConsultationPreviewOverlay {
      * not show the control at all. The marker is what tells the two apart.</p>
      */
     private static final String PATIENT_WILL_BOOK_RENDERED_PARAMETER = "patientWillBookRendered";
+
+    /**
+     * The service the clinician picked. Handled apart from the map because a posted value does not
+     * by itself mean the clinician could pick one: see {@link #SERVICE_RENDERED_PARAMETER}.
+     *
+     * <p>The posted id only. {@code getServiceName()} resolves the display name server-side from
+     * that id, so the wording the PDF prints is never taken from the request.</p>
+     */
+    private static final String SERVICE_PARAMETER = "service";
+
+    /**
+     * Hidden marker the form renders beside the editable service picker.
+     *
+     * <p>When {@code ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS} is on, the form renders no
+     * picker and posts a hidden {@code service} fixed at {@code "0"}. Overlaying that would replace
+     * a referral's real saved service with an id that resolves to nothing, printing a blank service
+     * on a field the clinician cannot even edit there. The marker is what tells a real selection
+     * from that sentinel.</p>
+     */
+    private static final String SERVICE_RENDERED_PARAMETER = "serviceRendered";
 
     /** The appointment instruction the clinician picked; the PDF prints its resolved label. */
     private static final String APPOINTMENT_INSTRUCTIONS_PARAMETER = "appointmentInstructions";
@@ -191,6 +208,16 @@ final class ConsultationPreviewOverlay {
         // would clear a stored patient-will-book and print an appointment date instead.
         if (request.getParameter(PATIENT_WILL_BOOK_RENDERED_PARAMETER) != null) {
             form.pwb = request.getParameter(PATIENT_WILL_BOOK_PARAMETER) != null ? "1" : "0";
+        }
+
+        // The service is posted either way, so presence alone cannot be the rule: the health-care-team
+        // form posts a hidden "0" with no picker on the page, and overlaying that would blank a
+        // referral's real saved service. Only a posted selection from the rendered picker counts.
+        if (request.getParameter(SERVICE_RENDERED_PARAMETER) != null) {
+            String service = request.getParameter(SERVICE_PARAMETER);
+            if (service != null) {
+                form.service = service;
+            }
         }
 
         // The instruction is posted as a lookup value while the PDF prints the matching label, so
