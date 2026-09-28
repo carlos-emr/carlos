@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
 import io.github.carlos_emr.carlos.commn.dao.IncomingLabRulesDao;
+import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentCommentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClassDao;
@@ -16,6 +17,8 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemo
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService;
+import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -71,6 +74,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     private HRMDocumentSubClassDao hrmDocumentSubClassDao;
     private HRMDocumentCommentDao hrmDocumentCommentDao;
     private IncomingLabRulesDao incomingLabRulesDao;
+    private MrpRoutingService mrpRoutingService;
     private SecurityInfoManager securityInfoManager;
     private PlatformTransactionManager transactions;
     private TransactionStatus transactionStatus;
@@ -83,6 +87,8 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        var patients = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class);
+        when(patients.getDemographicById(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
         hrmDocumentDao = mock(HRMDocumentDao.class);
         hrmDocumentToDemographicDao = mock(HRMDocumentToDemographicDao.class);
         hrmDocumentToProviderDao = mock(HRMDocumentToProviderDao.class);
@@ -102,6 +108,12 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(HRMDocumentSubClassDao.class, hrmDocumentSubClassDao);
         registerMock(HRMDocumentCommentDao.class, hrmDocumentCommentDao);
         registerMock(IncomingLabRulesDao.class, incomingLabRulesDao);
+        // The real routing service over the mocked DAOs, so assignProvider is still verified at
+        // the DAO level; Provider Linking Rules are stubbed per test.
+        registerMock(HrmProviderRoutingService.class,
+                new HrmProviderRoutingService(hrmDocumentToProviderDao, incomingLabRulesDao));
+        mrpRoutingService = mock(MrpRoutingService.class);
+        registerMock(MrpRoutingService.class, mrpRoutingService);
         registerMock(SecurityInfoManager.class, securityInfoManager);
 
         request = new MockHttpServletRequest("POST", "/hospitalReportManager/Modify");
@@ -595,7 +607,7 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReportFailure_whenClearingExistingDemographicLinkThrows() throws Exception {
         // Writing the new link after a failed cleanup leaves the report on the old chart AND the
         // new one while the reply says "Success" — an HRM report on two patients at once.
-        when(hrmDocumentToDemographicDao.findByHrmDocumentId(7))
+        when(hrmDocumentToDemographicDao.deleteByHrmDocumentId(7))
                 .thenThrow(new RuntimeException("database down"));
         request.addParameter("method", "assignDemographic");
         request.addParameter("reportId", "7");
@@ -745,4 +757,119 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"success\":true");
         verify(hrmDocumentToProviderDao, never()).merge(any(HRMDocumentToProvider.class));
     }
+
+    @Test
+    void shouldUnlinkWithNullAuditActor_whenActorLookupReturnsNullAfterAuthorization() throws Exception {
+        // execute() and removeDemographic() each authorize the real identity; only the later
+        // audit-actor lookup inside the report lock comes back empty.
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request))
+                .thenReturn(loggedInInfo, loggedInInfo, null);
+        request.addParameter("method", "removeDemographic");
+        request.addParameter("reportId", "7");
+
+        assertThat(new HRMModifyDocument2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        verify(hrmDocumentToDemographicDao).deleteByHrmDocumentId(7);
+        verify(mrpRoutingService).routeMatchedHrmToMrp(7, null, null);
+        verify(transactions).commit(transactionStatus);
+    }
+
+    @Test
+    void shouldRefuseUnlink_whenSessionHasNoLoggedInInfo() {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
+        request.addParameter("method", "removeDemographic");
+        request.addParameter("reportId", "7");
+
+        assertThatThrownBy(() -> new HRMModifyDocument2Action().execute())
+                .isInstanceOf(SecurityException.class);
+
+        verify(hrmDocumentToDemographicDao, never()).deleteByHrmDocumentId(anyInt());
+        verifyNoInteractions(mrpRoutingService);
+    }
+
+    @Test
+    @DisplayName("should route a matched report to the patient's MRP when provider linking rules are on")
+    void shouldReportMrpRouted_whenLinkingRulesRouteToMrp() throws Exception {
+        when(mrpRoutingService.routeMatchedHrmToMrp(7, 123, "999998")).thenReturn(true);
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("reportId", "7");
+        request.addParameter("demographicNo", "123");
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"success\":true").contains("\"mrpRouted\":true");
+        verify(hrmDocumentToDemographicDao).merge(any(HRMDocumentToDemographic.class));
+        verify(mrpRoutingService).routeMatchedHrmToMrp(7, 123, "999998");
+    }
+
+    @Test
+    @DisplayName("should report no MRP routing when provider linking rules are off")
+    void shouldReportMrpNotRouted_whenLinkingRulesAreOff() throws Exception {
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("reportId", "7");
+        request.addParameter("demographicNo", "123");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":true").contains("\"mrpRouted\":false");
+    }
+
+    @Test
+    @DisplayName("should roll the patient match back when MRP routing fails")
+    void shouldRollBackMatch_whenMrpRoutingFails() throws Exception {
+        // One transaction: a report matched to a patient but half-routed to the MRP would be
+        // reported as a success the clinician cannot see is incomplete.
+        when(mrpRoutingService.routeMatchedHrmToMrp(7, 123, "999998"))
+                .thenThrow(new RuntimeException("database down"));
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("reportId", "7");
+        request.addParameter("demographicNo", "123");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":false").contains("\"mrpRouted\":false");
+        verify(transactions).rollback(transactionStatus);
+        verify(transactions, never()).commit(any());
+    }
+
+    @Test
+    @DisplayName("should apply forwarding rules and clear unclaimed rows when a provider is assigned")
+    void shouldApplyForwardingAndClearUnclaimed_whenProviderIsAssigned() throws Exception {
+        stubReportExists(7);
+        IncomingLabRules rule = new IncomingLabRules();
+        rule.setFrwdProviderNo("456");
+        io.github.carlos_emr.carlos.commn.model.IncomingLabRulesType hrmType =
+                new io.github.carlos_emr.carlos.commn.model.IncomingLabRulesType();
+        hrmType.setType("HRM");
+        rule.setForwardTypes(new java.util.ArrayList<>(java.util.List.of(hrmType)));
+        when(incomingLabRulesDao.findCurrentByProviderNo("123")).thenReturn(java.util.List.of(rule));
+        request.addParameter("method", "assignProvider");
+        request.addParameter("reportId", "7");
+        request.addParameter("providerNo", "123");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        verify(hrmDocumentToProviderDao).persist(org.mockito.ArgumentMatchers.<HRMDocumentToProvider>argThat(
+                row -> "123".equals(row.getProviderNo())));
+        verify(hrmDocumentToProviderDao).persist(org.mockito.ArgumentMatchers.<HRMDocumentToProvider>argThat(
+                row -> "456".equals(row.getProviderNo())));
+        verify(hrmDocumentToProviderDao).deleteByHrmDocumentIdAndProviderNo(7, "-1");
+    }
+    @Test
+    void shouldPreserveCurrentPatient_whenReplacementPatientDoesNotExist() throws Exception {
+        when(io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                io.github.carlos_emr.carlos.commn.dao.DemographicDao.class).getDemographicById(123)).thenReturn(null);
+        request.addParameter("method", "assignDemographic");
+        request.addParameter("reportId", "7");
+        request.addParameter("demographicNo", "123");
+        new HRMModifyDocument2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("\"success\":false");
+        verify(hrmDocumentToDemographicDao, never()).deleteByHrmDocumentId(anyInt());
+        verifyNoInteractions(mrpRoutingService);
+    }
+
 }

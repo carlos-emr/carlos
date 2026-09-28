@@ -12,6 +12,6 @@ Applied together with `common/` for a BC install (`flyway.locations=filesystem:.
 changes go here as `V1.0.N__short_description.sql` (sequential, next free version number). The
 version line is global across every location. The highest migration in this branch, including
 on the BC path, is `common/V1.0.40`; `V1.0.31` and `V1.0.35` are intentionally unused and
-`V1.0.37`–`V1.0.39` are claimed by open PRs #3996 and #4000, so the next unallocated version is `V1.0.41`. Numbers used only by Ontario are still taken — see
+`V1.0.37`–`V1.0.38` are claimed by open PR #3996, so the next unallocated version is `V1.0.41`. Numbers used only by Ontario are still taken — see
 `../README.md` for migration ordering and why numbers at or below the global high-water
 mark must never be reused.

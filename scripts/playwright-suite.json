@@ -1715,6 +1715,56 @@
       "timeoutSec": 300
     },
     {
+      "name": "patient-letters-envelopes",
+      "script": "scripts/patient-letters-envelopes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DEMOGRAPHIC_NO",
+        "LETTER_DOCUMENT_DIR",
+        "MYSQL_DOCKER_CONTAINER"
+      ]
+    },
+    {
+      "name": "rx-fax-pharmacy-phone",
+      "script": "scripts/rx-fax-pharmacy-phone-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 5100,
+      "env": [
+        "RX_FAX_PROVIDER_NO",
+        "RX_FAX_ROUND_TRIP_TIMEOUT_MS",
+        "RX_FAX_DOCUMENT_DIR",
+        "RX_FAX_SPOOL_DIR"
+      ]
+    },
+    {
+      "name": "rx-legacy-null-fields",
+      "script": "scripts/rx-legacy-null-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ARTIFACT_DIR"
+      ]
+    },
+    {
       "name": "rx-fax-record-binding",
       "script": "scripts/rx-fax-record-binding-playwright-checks.js",
       "tiers": [
@@ -2162,6 +2212,21 @@
       "env": [
         "TICKLER_DEMOGRAPHIC_NO",
         "TICKLER_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "tickler-validation-messages",
+      "script": "scripts/tickler-validation-messages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TICKLER_DIRECT_LIST"
       ]
     },
     {
@@ -2796,6 +2861,19 @@
         "all"
       ],
       "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "provider-linking-rules",
+      "script": "scripts/provider-linking-rules-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
       "env": []
     },
     {

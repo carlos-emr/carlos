@@ -49,14 +49,23 @@ Applied together with the selected province (`common` + `on`, or `common` + `bc`
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
 next free number accounts for province deltas too. The highest migration in this branch is `common/V1.0.40`.
-`V1.0.31` and `V1.0.35` are intentionally unused and `V1.0.37`–`V1.0.39` are claimed by open PRs
-#3996 and #4000, so the next unallocated version for ANY location is `V1.0.41` (see `../README.md`). Consult every active
+`V1.0.31` and `V1.0.35` are intentionally unused and `V1.0.37`–`V1.0.38` are claimed by open PR
+#3996, so the next unallocated version for ANY location is `V1.0.41` (see `../README.md`). Consult every active
 branch inventory before assigning a version. Never edit a published migration or silently enable
 out-of-order application during promotion.
 
 Messenger membership coordination (PR #3986, issue #3964) adds
-`common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations in version order; if their merge
-order changes after a release, renumber the still-unreleased migration before
-shipping it. The coordination table contains no clinical data and does not
+`common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations
+in version order; if their merge order changes after a release, renumber the still-unreleased
+migration before shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized
 membership writer before relying on cross-instance duplicate prevention.
+
+## V1.0.39 — Automatic MRP routing provenance
+
+PR #4000 adds nullable `mrpDemographicNo` to `HRMDocumentToProvider` and
+`providerLabRouting`. Existing rows remain independent (`NULL`); new automatic MRP and
+forwarded access can then be revoked safely when a patient match is corrected or removed.
+The two `ADD COLUMN IF NOT EXISTS` statements can be retried after interrupted DDL.
+For the #3985–4000 batch, deploy #3986 (V1.0.36) and #3996 (V1.0.37/V1.0.38) first,
+then V1.0.39, to keep Flyway versions in order across Ontario and British Columbia.

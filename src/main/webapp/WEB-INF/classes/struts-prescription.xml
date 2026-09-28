@@ -99,6 +99,10 @@
             <result name="repcbLongTerm">/WEB-INF/jsp/rx/prescribe.jsp</result>
             <result name="represcribe">/WEB-INF/jsp/rx/prescribe.jsp</result>
         </action>
+        <action name="rx/prescribing" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action" method="viewPrescribing">
+            <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+            <allowed-methods>viewPrescribing</allowed-methods>
+        </action>
         <action name="rx/search" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action">
             <result name="prescribe">/WEB-INF/jsp/rx/prescribe.jsp</result>
         </action>

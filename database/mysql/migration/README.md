@@ -32,6 +32,7 @@ migration/
            V1.0.32__add_nrtf_tuning_fork_measurement_type.sql
            V1.0.33__aacp_provided_revised_reviewed_validation.sql
            V1.0.36__serialize_messenger_membership_changes.sql
+           V1.0.39__track_automatic_mrp_routing.sql
            V1.0.40__enforce_provider_signature_identity.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
@@ -49,8 +50,8 @@ migration/
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
 `V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.40`.
-`V1.0.31` and `V1.0.35` are intentionally unused gaps, and `V1.0.37`–`V1.0.39` are claimed by open
-PRs #3996 and #4000; the next unallocated number for ANY location — shared or province — is `V1.0.41`.
+`V1.0.31` and `V1.0.35` are intentionally unused gaps, and `V1.0.37`–`V1.0.38` are claimed by open
+PR #3996; the next unallocated number for ANY location — shared or province — is `V1.0.41`.
 The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
@@ -98,8 +99,8 @@ Both province CI jobs run it before their full Flyway migration/upgrade checks.
 **Provider signature identity numbered `V1.0.40` (release 2026.08).** `V1.0.31` was reserved
 for PR #3694, but `V1.0.32`–`V1.0.34` and `V1.0.36` merged first, so databases on this line may
 already have run past `V1.0.31` and Flyway (no `outOfOrder`) would never apply it there. Per the
-rule above, PR #3694 was renumbered above the high-water mark and above the versions claimed by
-open PRs (`V1.0.37`–`V1.0.39`). `V1.0.31`, like the intentional `V1.0.35` gap, stays unused.
+rule above, PR #3694 was renumbered above the high-water mark and above the versions then claimed
+by open PRs #3996 and #4000 (`V1.0.37`–`V1.0.39`; #4000's `V1.0.39` has since merged). `V1.0.31`, like the intentional `V1.0.35` gap, stays unused.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 
