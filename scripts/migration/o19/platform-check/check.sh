@@ -291,22 +291,42 @@ verdict "$([ "$three" = "1 --default-character-set=utf8mb4" ]; echo $?)" \
 verdict "$(bash -n scripts/migration/o19/build-o19-fixture.sh; echo $?)" \
   "build-o19-fixture.sh parses" "build-o19-fixture.sh syntax"
 
-hdr "carlos_ctl unit suite under this python3"
+# The carlos-ctl CLI is its own repository since the split
+# (carlos-emr/carlos-ctl); CARLOS_CTL_SRC names a checkout of it. The
+# checks below run against THAT tree, with this tree's manifests and this
+# tree as CARLOS_SRC (its contract tests then run rather than skip).
+CTL_SRC="${CARLOS_CTL_SRC:-}"
+if [ -z "$CTL_SRC" ] || [ ! -f "$CTL_SRC/carlos_ctl/o19_preflight.py" ]; then
+  echo "CARLOS_CTL_SRC must name a checkout of carlos-emr/carlos-ctl" >&2
+  exit 2
+fi
+PREFLIGHT="$CTL_SRC/carlos_ctl/o19_preflight.py"
+export CARLOS_CTL_O19_MANIFEST_DIR="$PWD/debian/assets/o19-manifest"
+
+hdr "carlos_ctl unit suite under this python3 (with this tree as CARLOS_SRC)"
 # the status is CAPTURED, not piped: `... | tail -3` reports tail's exit
 # code, so a suite that failed to even import would have been summarised
 # in three quiet lines and counted as a pass by a harness whose whole job
 # is catching that.
-suite_out=$(cd debian/assets && python3 -m unittest discover \
-    -s carlos_ctl/tests -t . 2>&1)
+suite_out=$(cd "$CTL_SRC" && CARLOS_SRC="$OLDPWD" python3 -m unittest discover \
+    -s tests -t . 2>&1)
 suite_rc=$?
 echo "$suite_out" | tail -3
 verdict "$suite_rc" "unit suite passes on this interpreter" \
   "unit suite FAILED on this interpreter"
 
+hdr "generator and shipped-manifest suite under this python3"
+gen_out=$(CARLOS_CTL_SRC="$CTL_SRC" python3 -m unittest discover \
+    -s scripts/migration/o19/tests -t . 2>&1)
+gen_rc=$?
+echo "$gen_out" | tail -3
+verdict "$gen_rc" "generator suite passes on this interpreter" \
+  "generator suite FAILED on this interpreter"
+
 hdr "o19_preflight.py is standalone and import-clean"
 python3 -c "
 import ast,sys
-src=open('debian/assets/carlos_ctl/o19_preflight.py').read()
+src=open('$PREFLIGHT').read()
 t=ast.parse(src)
 bad=[]
 for n in ast.walk(t):
@@ -318,7 +338,7 @@ print('  package imports:', bad or 'none')
 sys.exit(1 if bad else 0)
 "
 verdict $? "no carlos_ctl imports (standalone)" "imports the package"
-python3 debian/assets/carlos_ctl/o19_preflight.py --help >/dev/null 2>&1
+python3 "$PREFLIGHT" --help >/dev/null 2>&1
 verdict $? "runs --help" "--help failed"
 
 # The file's own docstring promises "no f-strings, no annotations" because it
@@ -329,7 +349,7 @@ verdict $? "runs --help" "--help failed"
 # f-strings that would genuinely break it, in one pass.)
 python3 -c "
 import ast,sys
-src=open('debian/assets/carlos_ctl/o19_preflight.py').read()
+src=open('$PREFLIGHT').read()
 bad=[]
 for n in ast.walk(ast.parse(src)):
     if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)):

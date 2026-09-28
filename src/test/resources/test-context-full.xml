@@ -616,6 +616,11 @@
     <bean id="ticklerManager" class="io.github.carlos_emr.carlos.managers.TicklerManagerImpl" autowire="byName" />
     <bean id="securityInfoManager" class="io.github.carlos_emr.carlos.test.mocks.MockSecurityInfoManager" />
     <bean id="nioFileManager" class="io.github.carlos_emr.carlos.managers.NioFileManagerImpl" autowire="byName" />
+    <!-- Provider Linking Rules (issue #3971). HRMModifyDocument2Action and PatientMatch2Action
+         resolve these from SpringUtils in their no-arg constructors. -->
+    <bean id="providerLinkingRulesService" class="io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService" autowire="constructor" />
+    <bean id="hrmProviderRoutingService" class="io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService" autowire="constructor" />
+    <bean id="mrpRoutingService" class="io.github.carlos_emr.carlos.lab.service.MrpRoutingService" autowire="constructor" />
     <!-- Real FaxManagerImpl so @Transactional gets a genuine tx proxy (tx:annotation-driven above);
          FaxManagerImplTransactionIntegrationTest exercises real per-recipient persist rollback.
          Its @Autowired FaxDocumentManager/FaxSchedulerJob dependencies are mocked below (a real

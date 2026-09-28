@@ -75,7 +75,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
@@ -104,7 +103,6 @@
     }
 %>
 <%
-    boolean caisiEnabled = CarlosProperties.getInstance().isPropertyActive("caisi");
     String ticklerNoStr = request.getParameter("tickler_no");
 
     Integer ticklerNo = null;
@@ -133,10 +131,6 @@
     String stActive = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.stActive");
     String stComplete = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.stComplete");
     String stDeleted = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.stDeleted");
-
-    String prHigh = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.priority.high");
-    String prNormal = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.priority.normal");
-    String prLow = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.priority.low");
 
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -250,6 +244,7 @@
         <%
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script type="application/javascript">
             //open a new popup window
             function popupPage(vheight, vwidth, varpage) {
@@ -350,17 +345,9 @@
                 if (btn) { btn.disabled = false; }
             }
 
-            function validateSelectedProgram() {
-                if (document.serviceform.program_assigned_to && document.serviceform.program_assigned_to.value === "none") {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
-                    return false;
-                }
-                return true;
-            }
-
             function validate(form) {
-                if (validateDate(form) <%=caisiEnabled?"&& validateSelectedProgram()":""%>) {
+                CarlosTicklerValidation.reset();
+                if (validateDate(form)) {
                     // Disable update button to prevent double-submit
                     var btn = document.querySelector('.action-bar-bottom [name="updateTickler"]');
                     if (btn) { btn.disabled = true; }
@@ -450,8 +437,7 @@
 
             function validateDate(form) {
                 if (form.xml_appointment_date.value === "" || !IsDate(form.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
+                    CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
                     return false;
                 } else {
                     return true;
@@ -470,7 +456,7 @@
             <div class="page-header-bar">
                 <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>
             </div>
-            <div id="error" class="alert alert-danger" style="display:none;"></div>
+            <div id="error" class="alert alert-danger" style="display:none;" role="alert"></div>
 
             <%-- 1. Compact demographic card --%>
             <div class="demo-card">
@@ -568,12 +554,12 @@
 
                         <label for="priority"><fmt:message key="tickler.ticklerEdit.priority"/></label>
                         <select class="form-select" name="priority" id="priority">
-                            <% if (t.getPriorityWeb().equals(prHigh)) { selected = "selected"; } else { selected = ""; }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.high"/>"><fmt:message key="tickler.ticklerMain.priority.high"/></option>
-                            <% if (t.getPriorityWeb().equals(prNormal)) { selected = "selected"; } else { selected = ""; }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.normal"/>"><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
-                            <% if (t.getPriorityWeb().equals(prLow)) { selected = "selected"; } else { selected = ""; }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.low"/>"><fmt:message key="tickler.ticklerMain.priority.low"/></option>
+                            <% if (t.getPriority() == Tickler.PRIORITY.High) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="High"><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+                            <% if (t.getPriority() == Tickler.PRIORITY.Normal) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="Normal"><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                            <% if (t.getPriority() == Tickler.PRIORITY.Low) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="Low"><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
 
                         <label for="assignedToProviders"><fmt:message key="tickler.ticklerEdit.assignedTo"/></label>
