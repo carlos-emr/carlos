@@ -131,7 +131,9 @@ public final class ApptStatusData {
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale);
 
         if (statusEditable) {
-            return getStr("desc");
+            // Callers (the day sheet) call length() on this; an unknown status has no row.
+            String desc = getStr("desc");
+            return desc == null ? "" : desc;
         }
         String value = "";
         if (bundle != null) {
@@ -241,7 +243,12 @@ public final class ApptStatusData {
         String strStatus = "";
 
 
-        List<AppointmentStatus> apptStatuses = AppointmentStatusMgrImpl.getCachedActiveStatuses();
+        // The status cycle walks active rows only; display metadata (icon, title, colour,
+        // short letters) must also resolve a status that was deactivated after appointments
+        // were booked with it, or the day sheet renders null metadata.
+        List<AppointmentStatus> apptStatuses = kind.equals("nextstatus")
+                ? AppointmentStatusMgrImpl.getCachedActiveStatuses()
+                : AppointmentStatusMgrImpl.getCachedAllStatuses();
 
 
         // Collections.sort(apptStatuses, new BeanComparator("id"));

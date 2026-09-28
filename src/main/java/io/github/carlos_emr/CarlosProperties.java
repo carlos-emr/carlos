@@ -454,7 +454,9 @@ public class CarlosProperties extends Properties {
      * @return {@code true} unless the key is set to a non-active value
      */
     public boolean isAppointmentStatusEditingEnabled() {
-        String value = getProperty("ENABLE_EDIT_APPT_STATUS");
+        // Raw read: an absent key is the normal, enabled case here, so it must not trip
+        // getProperty(String)'s "property is missing" warning.
+        String value = super.getProperty("ENABLE_EDIT_APPT_STATUS");
         if (value == null || value.trim().isEmpty()) {
             return true;
         }

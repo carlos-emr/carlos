@@ -31,6 +31,7 @@ import org.mockito.MockedStatic;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mockStatic;
@@ -38,11 +39,12 @@ import static org.mockito.Mockito.mockStatic;
 /**
  * {@link ApptStatusData#getNextStatus()} on the database-driven path (appointment status
  * editing is on by default): the schedule click-through must walk the active
- * {@code appointment_status} rows without running off the end of the list.
+ * {@code appointment_status} rows without running off the end of the list, and display metadata
+ * must still resolve a status that was deactivated after appointments were booked with it.
  *
  * @since 2026-09-28
  */
-@DisplayName("ApptStatusData next status from appointment_status rows")
+@DisplayName("ApptStatusData next status and metadata from appointment_status rows")
 @Tag("unit")
 @Tag("appointment")
 class ApptStatusDataNextStatusUnitTest {
@@ -86,15 +88,54 @@ class ApptStatusDataNextStatusUnitTest {
         assertThat(nextOf("B")).isEmpty();
     }
 
+    @Test
+    void shouldResolveTitleAndColour_forDeactivatedStatus() {
+        AppointmentStatus retired = row("x", 0);
+        retired.setDescription("Retired");
+        retired.setColor("#123456");
+        statusMgr = mockStatic(AppointmentStatusMgrImpl.class);
+        statusMgr.when(AppointmentStatusMgrImpl::getCachedActiveStatuses).thenReturn(List.of(row("t", 1)));
+        statusMgr.when(AppointmentStatusMgrImpl::getCachedAllStatuses).thenReturn(List.of(row("t", 1), retired));
+
+        ApptStatusData data = new ApptStatusData();
+        data.setApptStatus("x");
+
+        assertThat(data.getTitleString(Locale.CANADA)).isEqualTo("Retired");
+        assertThat(data.getBgColor()).isEqualTo("#123456");
+    }
+
+    @Test
+    void shouldReturnEmptyTitle_forUnknownStatus() {
+        serve("t", "T");
+
+        ApptStatusData data = new ApptStatusData();
+        data.setApptStatus("q");
+
+        assertThat(data.getTitleString(Locale.CANADA)).isEmpty();
+    }
+
+    @Test
+    void shouldSkipDeactivatedRows_whenCycling() {
+        // Only active rows take part in the cycle, even though display lookups see all rows.
+        statusMgr = mockStatic(AppointmentStatusMgrImpl.class);
+        statusMgr.when(AppointmentStatusMgrImpl::getCachedActiveStatuses).thenReturn(List.of(row("t", 1), row("H", 1)));
+        statusMgr.when(AppointmentStatusMgrImpl::getCachedAllStatuses).thenReturn(List.of(row("t", 1), row("T", 0), row("H", 1)));
+
+        assertThat(nextOf("t")).isEqualTo("H");
+    }
+
     private void serve(String... codes) {
-        List<AppointmentStatus> rows = Arrays.stream(codes).map(code -> {
-            AppointmentStatus status = new AppointmentStatus();
-            status.setStatus(code);
-            status.setActive(1);
-            return status;
-        }).toList();
+        List<AppointmentStatus> rows = Arrays.stream(codes).map(code -> row(code, 1)).toList();
         statusMgr = mockStatic(AppointmentStatusMgrImpl.class);
         statusMgr.when(AppointmentStatusMgrImpl::getCachedActiveStatuses).thenReturn(rows);
+        statusMgr.when(AppointmentStatusMgrImpl::getCachedAllStatuses).thenReturn(rows);
+    }
+
+    private static AppointmentStatus row(String code, int active) {
+        AppointmentStatus status = new AppointmentStatus();
+        status.setStatus(code);
+        status.setActive(active);
+        return status;
     }
 
     private static String nextOf(String current) {
