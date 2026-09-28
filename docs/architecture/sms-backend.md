@@ -88,16 +88,16 @@ SMS has three security objects. A role's grant is a ladder, `x` > `w` > `u` > `r
 | `_admin.sms` | SMS configuration and the operational views (queue backlog, failures) | `w` to change, `r` to view | `admin`: `x` |
 | `_msgSMS` | Reading a stored message body through `SmsMessageBodyReadService` (audited) | `r`, plus `_demographic` `r` when the transaction has a patient | `admin` and `doctor`: `x` |
 
-- `_msgSMS` is enforced by `CarlosSmsMessageBodyAuthorizationService`, and `_admin.sms` by `ConfigureSms2Action` (Administration > SMS: `r` to view the page, `w` to save or send a system test). `_sms` is seeded ahead of the code (`V1.0.31__add_sms_security_objects.sql`) so the grants exist before its first gate ships; nothing checks it yet. `_msgSMS` is seeded by `V1.0.25`.
+- `_msgSMS` is enforced by `CarlosSmsMessageBodyAuthorizationService`; `_sms` `r` by `ViewSmsHistory2Action` (the patient's SMS history, #3839, together with `_demographic` `r` for that patient); and `_admin.sms` by `ConfigureSms2Action` (Administration > SMS, #3836: `r` to view the page, `w` to save or send a system test). `_msgSMS` is seeded by `V1.0.25`, and `_sms` and `_admin.sms` by `V1.0.31__add_sms_security_objects.sql`.
 - Both migrations leave any existing clinic row for a role and object untouched, whatever its privilege.
 - Grants take effect on the next request: privileges are read from `secObjPrivilege` on every check and nothing caches them, so no restart is needed after the migration.
 - A clinic that wants a role to view history without sending grants it `r` on `_sms`.
 - `_admin` = `x` confers nothing on `_admin.sms`; a dotted object needs its own row.
 
-The settings page (#3836) is the first action to check `_admin.sms`; the rest arrive with #3838, #3839 and #3841. They follow the security-check rules in `CLAUDE.md` and `docs/soap-rbac-hardening.md`: the paren-form `SecurityException` message, and the patient's `demographicNo` rather than `null` whenever the patient is known. Two things each new action has to handle:
+The history view (#3839) and the settings page (#3836) are the first actions to check `_sms` and `_admin.sms`; the rest arrive with #3838 and #3841. They follow the security-check rules in `CLAUDE.md` and `docs/soap-rbac-hardening.md`: the paren-form `SecurityException` message, and the patient's `demographicNo` rather than `null` whenever the patient is known. Two things each new action has to handle:
 
-- A Struts action's refusal is handled as a 403 only if its package maps `java.lang.SecurityException` to a `securityError` global result (see `struts-form.xml`); otherwise the exception reaches the container error page. The admin package, which holds `admin/ConfigureSms`, has both. The messenger and eform packages define neither the mapping nor the result today, and `carlos-default` supplies no result, so an SMS action placed there must add both.
-- `CarlosSmsMessageBodyAuthorizationService` throws `commn.exception.AccessDeniedException`, which no Struts package maps to a refusal.
+- A Struts action's refusal is handled as a 403 only if its package maps `java.lang.SecurityException` to a `securityError` global result (see `struts-form.xml`); otherwise the exception reaches the container error page. The demographic package (`sms/ViewSmsHistory`) and the admin package (`admin/ConfigureSms`) have both. The messenger and eform packages define neither the mapping nor the result today, and `carlos-default` supplies no result, so an SMS action placed there must add both.
+- `CarlosSmsMessageBodyAuthorizationService` throws `commn.exception.AccessDeniedException`, which no Struts package maps to a refusal. The caller must catch it: `ViewSmsHistory2Action.showMessage` renders a denial page instead of the text.
 
 ## Required before real SMS traffic
 
