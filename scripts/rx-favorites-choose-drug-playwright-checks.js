@@ -89,6 +89,14 @@ async function useFavorite(session, page, demographicNo, favoriteId) {
   return { status: response.status(), body: text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400) };
 }
 
+/** Native form submission serializes textarea line breaks as CRLF; HTML textarea.value uses LF. */
+function clinicalFieldDifferences(columns, actual, expected) {
+  if (actual.length !== columns.length || expected.length !== columns.length) return ['column_count'];
+  const canonical = (column, value) => column === 'special' && typeof value === 'string'
+    ? value.replace(/\r\n/g, '\n') : value;
+  return columns.filter((column, index) => canonical(column, actual[index]) !== canonical(column, expected[index]));
+}
+
 async function workflow(session) {
   const { sql, patient, provider, marker, config } = session;
   session.cleanup(() => sql.execute(`DELETE FROM favorites WHERE favoritename LIKE ${h.sqlString(`${marker}%`)}`));
@@ -408,8 +416,16 @@ async function workflow(session) {
       AND customName=${h.sqlString(legacyName)}`);
     const expectedClinical = [rxDate, writtenDate, '1', '2', frequency, '2', 'W', '37', 'mL', `mL's <&>`,
       'Apply', 'TOP', '3', '1', '1', '1', '0', `Dr O'Fixture <&>`, '123456', instructions];
-    h.assert(clinical.length === 1 && JSON.stringify(clinical[0]) === JSON.stringify(expectedClinical),
-      'legacy Print changed the clinical fields between the editor and persisted medication');
+    const clinicalColumns = ['rx_date', 'written_date', 'takemin', 'takemax', 'freqcode', 'duration',
+      'durunit', 'quantity', 'unit', 'unitName', 'method', 'route', 'repeat', 'prn', 'nosubs', 'long_term',
+      'patient_compliance', 'outside_provider_name', 'outside_provider_ohip', 'special'];
+    h.assert(clinical.length === 1, 'legacy Print did not persist exactly one clinical row');
+    const differences = clinicalFieldDifferences(clinicalColumns, clinical[0], expectedClinical);
+    if (differences.length === 0 && clinical[0][19] !== expectedClinical[19]) {
+      console.log(`  INFO textarea persistence differs only by CRLF serialization (${clinical[0][19].length} stored / ${expectedClinical[19].length} editor characters)`);
+    }
+    h.assert(differences.length === 0,
+      `legacy Print changed clinical field(s): ${differences.join(', ')}; values withheld`);
     const duplicate = await postCapturedEditor();
     h.assert(duplicate.status() === 409 && (await duplicate.json()).error === 'STALE_RX_STASH',
       'duplicate legacy Print was accepted');
@@ -485,7 +501,11 @@ async function workflow(session) {
     await session.step(`the ${label} favorite link restores the draft before staging exactly one card`, async () => {
       const name = `${marker}-sidebar-${sidebarPages.findIndex(entry => entry[0] === label)}`;
       const favoriteId = insertFavorite(sql, provider, name);
-      const page = await session.context.newPage();
+      // Each handoff owns an explicit pending draft. Earlier steps now save/remove their cards,
+      // so relying on them to leave one behind masks whether this handoff preserves the draft.
+      const page = await openRx(session, patient);
+      const priorName = `${name}-pending`;
+      const priorKey = await stageCustomDrug(page, priorName);
       await h.gotoApp(page, config.baseUrl, url);
       await h.assertNotErrorPage(page, `${label} sidebar`);
       let releaseStash;
@@ -520,11 +540,12 @@ async function workflow(session) {
         await page.waitForLoadState('networkidle');
         const cards = await page.locator('input[id^="drugName_"]').evaluateAll(inputs =>
           inputs.map(input => ({ id: input.id, name: input.value })));
-        h.assert(cards.filter(card => card.name.includes(name)).length === 1,
+        h.assert(cards.filter(card => card.name === name).length === 1,
           'sidebar favorite did not produce exactly one visible card');
         h.assert(new Set(cards.map(card => card.id)).size === cards.length,
           'the initial draft response duplicated favorite card identifiers');
-        h.assert(cards.length >= 2, 'favorite handoff discarded the previously staged custom drug');
+        h.assert(cards.some(card => card.id === `drugName_${priorKey}` && card.name === priorName),
+          'favorite handoff discarded or changed its previously staged custom drug');
       } finally {
         releaseStash();
         await page.unroute(routePattern);
@@ -576,4 +597,4 @@ async function workflow(session) {
 }
 
 if (require.main === module) runWorkflow('rx-favorites-choose-drug', workflow);
-module.exports = { workflow };
+module.exports = { workflow, clinicalFieldDifferences };
