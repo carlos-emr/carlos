@@ -572,61 +572,6 @@ case "$1" in
             : > "${HEALTH_TRACKER_SENTINEL}"
         fi
 
-        # One-time migration (2026.08): the stock carlos.properties shipped the
-        # OSCAR pre-installer template values for these clinic features (off),
-        # while the OSCAR installer that template belonged to always switched
-        # them on. Alpha testers coming from OSCAR saw them as regressions (no
-        # Rx fax, no eForm signature pad, no schedule notes/alerts, no tickler
-        # edit, no document split/rotate, 2007 lab requisition, ...). The stock
-        # defaults now match the OSCAR installer. Same contract as the flips
-        # above: rewrite ONLY the exact old stock line of each key, ONLY on
-        # upgrade, ONLY once; the sentinel is written on fresh installs too so a
-        # value the operator sets later is never flipped back. A key defined
-        # more than once is skipped entirely (the later definition is the
-        # operator's override). Keys that were
-        # commented out in the old stock file (invoice_due_date,
-        # privateConsentEnabled) need no rewrite: the WAR's classpath default
-        # applies under the /etc override. Keep this list in step with
-        # OSCAR_DEFAULT_MIGRATIONS in scripts/deb-upgrade-baseline.sh.
-        OSCAR_DEFAULTS_SENTINEL="${STATE}/.oscar-feature-defaults-migrated"
-        if [ ! -e "${OSCAR_DEFAULTS_SENTINEL}" ]; then
-            if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ]; then
-                while IFS='|' read -r old_line new_line; do
-                    [ -n "${old_line}" ] || continue
-                    # Only a key defined exactly once is the untouched stock
-                    # line. A second definition (an appended override, even
-                    # an identical one) is the operator's, and java.util.
-                    # Properties honours the last one, so leave the key alone.
-                    key="${old_line%%=*}"
-                    defs="$(grep -c "^${key}[[:space:]]*[=:]" "${PROPERTIES}" || true)"
-                    [ "${defs}" = 1 ] || continue
-                    if grep -qxF "${old_line}" "${PROPERTIES}"; then
-                        sed -i "s/^${old_line}\$/${new_line}/" "${PROPERTIES}"
-                        echo "carlos-emr: ${old_line} -> ${new_line} (migrated the old stock default; edit ${PROPERTIES} to change it back)"
-                    fi
-                done <<'OSCAR_DEFAULTS'
-new_flowsheet_enabled=false|new_flowsheet_enabled=true
-workflow_enhance=false|workflow_enhance=true
-rx_fax_enabled=false|rx_fax_enabled=true
-eform_signature_enabled=false|eform_signature_enabled=true
-eform_generator_indivica_signature_enabled=false|eform_generator_indivica_signature_enabled=true
-eform_generator_indivica_print_enabled=false|eform_generator_indivica_print_enabled=true
-eform_generator_indivica_fax_enabled=false|eform_generator_indivica_fax_enabled=true
-tickler_edit_enabled=false|tickler_edit_enabled=true
-consultation_dynamic_labelling_enabled=false|consultation_dynamic_labelling_enabled=true
-onare_labreqver=07|onare_labreqver=10
-lab_req_include_chartno=false|lab_req_include_chartno=true
-use_lab_clientreference=false|use_lab_clientreference=true
-ALLOW_UPDATE_DOCUMENT_CONTENT= false|ALLOW_UPDATE_DOCUMENT_CONTENT= true
-displayNotesOnScheduleScreen=false|displayNotesOnScheduleScreen=true
-displayAlertsOnScheduleScreen=false|displayAlertsOnScheduleScreen=true
-DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=false|DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=true
-OSCAR_DEFAULTS
-            fi
-            mkdir -p "${STATE}"
-            : > "${OSCAR_DEFAULTS_SENTINEL}"
-        fi
-
         # Normalise the legacy yes/no spellings of the same key to true/false.
         # Until this release the two buttons that start a consultation fax were
         # rendered by a tag that compared the raw string against the literal
@@ -869,6 +814,66 @@ except ValueError:
         # finish-install also does. Released when this script exits.
         PROVISION_LOCK_HELD=1
         acquire_provision_lock || PROVISION_LOCK_HELD=0
+
+        # One-time migration (2026.08): the stock carlos.properties shipped the
+        # OSCAR pre-installer template values for these clinic features (off),
+        # while the OSCAR installer that template belonged to always switched
+        # them on. Alpha testers coming from OSCAR saw them as regressions (no
+        # Rx fax, no eForm signature pad, no schedule notes/alerts, no tickler
+        # edit, no document split/rotate, 2007 lab requisition, ...). The stock
+        # defaults now match the OSCAR installer. Same contract as the flips
+        # above: rewrite ONLY the exact old stock line of each key, ONLY on
+        # upgrade, ONLY once; the sentinel is written on fresh installs too so a
+        # value the operator sets later is never flipped back. A key defined
+        # more than once is skipped entirely (the later definition is the
+        # operator's override). Keys that were
+        # commented out in the old stock file (invoice_due_date,
+        # privateConsentEnabled) need no rewrite: the WAR's classpath default
+        # applies under the /etc override. Keep this list in step with
+        # OSCAR_DEFAULT_MIGRATIONS in scripts/deb-upgrade-baseline.sh.
+        #
+        # Runs under the provisioning lock: carlos-ctl init-config and
+        # finish-install rewrite this same file, and an interleaved write would
+        # lose one side. Without the lock nothing is rewritten and the sentinel
+        # is not written, so the next configure retries.
+        OSCAR_DEFAULTS_SENTINEL="${STATE}/.oscar-feature-defaults-migrated"
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OSCAR_DEFAULTS_SENTINEL}" ]; then
+            if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ]; then
+                while IFS='|' read -r old_line new_line; do
+                    [ -n "${old_line}" ] || continue
+                    # Only a key defined exactly once is the untouched stock
+                    # line. A second definition (an appended override, even
+                    # an identical one) is the operator's, and java.util.
+                    # Properties honours the last one, so leave the key alone.
+                    key="${old_line%%=*}"
+                    defs="$(grep -c "^${key}[[:space:]]*[=:]" "${PROPERTIES}" || true)"
+                    [ "${defs}" = 1 ] || continue
+                    if grep -qxF "${old_line}" "${PROPERTIES}"; then
+                        sed -i "s/^${old_line}\$/${new_line}/" "${PROPERTIES}"
+                        echo "carlos-emr: ${old_line} -> ${new_line} (migrated the old stock default; edit ${PROPERTIES} to change it back)"
+                    fi
+                done <<'OSCAR_DEFAULTS'
+new_flowsheet_enabled=false|new_flowsheet_enabled=true
+workflow_enhance=false|workflow_enhance=true
+rx_fax_enabled=false|rx_fax_enabled=true
+eform_signature_enabled=false|eform_signature_enabled=true
+eform_generator_indivica_signature_enabled=false|eform_generator_indivica_signature_enabled=true
+eform_generator_indivica_print_enabled=false|eform_generator_indivica_print_enabled=true
+eform_generator_indivica_fax_enabled=false|eform_generator_indivica_fax_enabled=true
+tickler_edit_enabled=false|tickler_edit_enabled=true
+consultation_dynamic_labelling_enabled=false|consultation_dynamic_labelling_enabled=true
+onare_labreqver=07|onare_labreqver=10
+lab_req_include_chartno=false|lab_req_include_chartno=true
+use_lab_clientreference=false|use_lab_clientreference=true
+ALLOW_UPDATE_DOCUMENT_CONTENT= false|ALLOW_UPDATE_DOCUMENT_CONTENT= true
+displayNotesOnScheduleScreen=false|displayNotesOnScheduleScreen=true
+displayAlertsOnScheduleScreen=false|displayAlertsOnScheduleScreen=true
+DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=false|DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=true
+OSCAR_DEFAULTS
+            fi
+            mkdir -p "${STATE}"
+            : > "${OSCAR_DEFAULTS_SENTINEL}"
+        fi
 
         DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"
         if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${DB_NAME_SENTINEL}" ]; then

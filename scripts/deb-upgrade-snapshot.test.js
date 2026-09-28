@@ -133,8 +133,22 @@ test('upgrade verifier accepts the one-time OSCAR feature-defaults migration', t
   assert.match(result.stdout, /OSCAR feature-defaults migration sentinel written/);
 });
 
+test('upgrade verifier rejects one line that joins two definitions of a migrated key', t => {
+  // Two lines "k=false" + "k=true" must not snapshot the same as the single line
+  // "k=false;k=true", which changes the effective value.
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, 'rx_fax_enabled=false\nrx_fax_enabled=true\nonare_labreqver=07\nother=kept\n');
+  fixture.baseline();
+  fs.writeFileSync(props, 'rx_fax_enabled=false;rx_fax_enabled=true\nonare_labreqver=10\nother=kept\n');
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, '.oscar-feature-defaults-migrated'), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
+
 for (const [name, after, sentinel, error] of [
-  ['an unsanctioned change to a migrated key', 'rx_fax_enabled=false\nonare_labreqver=07\nother=changed\n', false,
+  ['an unsanctioned change to a migrated key', 'rx_fax_enabled=off\nonare_labreqver=07\nother=kept\n', false,
     /FAIL cfg.carlos.properties.sha changed/],
   ['a migration that skipped its sentinel', 'rx_fax_enabled=true\nonare_labreqver=10\nother=kept\n', false,
     /FAIL OSCAR feature-defaults migration sentinel missing/],

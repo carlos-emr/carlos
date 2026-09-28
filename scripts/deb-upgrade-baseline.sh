@@ -86,8 +86,9 @@ value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true);
 migrated_keys_re="^(health_tracker$(printf '|%s' "${OSCAR_DEFAULT_MIGRATIONS[@]}"))="
 for k in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
     # A key the operator redefined appears more than once; join the lines so
-    # the snapshot stays one record per key.
-    value=$(grep -E "^$k=" "$CARLOS_ETC_DIR/carlos.properties" | paste -sd';' - || true); emit "cfg.oscarDefault.$k" "$value"
+    # the snapshot stays one record per key. Percent-encode '%' and ';' first
+    # so one line containing ';' can never read the same as two joined lines.
+    value=$(grep -E "^$k=" "$CARLOS_ETC_DIR/carlos.properties" | sed 's/%/%25/g; s/;/%3B/g' | paste -sd';' - || true); emit "cfg.oscarDefault.$k" "$value"
 done
 value=$(grep -vE "$migrated_keys_re" "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
