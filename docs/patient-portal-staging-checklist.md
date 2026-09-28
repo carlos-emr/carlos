@@ -97,8 +97,9 @@ Set these in the deployment's override properties, not in the committed `carlos.
       except `false` or blank is a configuration error, including a `#` comment on the same line.
       Setting it back to `false` later switches the portal off without removing the credentials
       below.
-- [ ] `patient_portal.base_url`: the internal API origin, `https://`, with no credentials, query or
-      fragment.
+- [ ] `patient_portal.base_url`: the internal API origin, `https://`, with no path, credentials,
+      query or fragment. CARLOS refuses a path at startup, because the portal serves
+      `/internal/carlos/` only at the root of its origin, even when patients use a prefix.
 - [ ] `patient_portal.clinic_id`: the same value as the portal's.
 - [ ] `patient_portal.service_token`, `patient_portal.staff_assertion.private_key`,
       `patient_portal.staff_assertion.key_id`, `patient_portal.certificate.pins`: from section 2.
