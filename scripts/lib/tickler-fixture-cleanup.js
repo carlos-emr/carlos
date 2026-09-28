@@ -22,7 +22,10 @@ function cleanupTicklerFixture({ sql, patient, stamp, noteTexts = [] }) {
   const notes = noteTexts.length ? ids(sql(`SELECT DISTINCT n.note_id FROM casemgmt_note n
     JOIN casemgmt_note_link l ON l.note_id=n.note_id
     WHERE l.table_name=10 AND l.table_id IN (${ticklerIds})
-    AND n.demographic_no=${patient} AND n.note IN (${noteTexts.map(sqlString).join(',')})`)) : [];
+    AND n.demographic_no=${patient} AND n.note IN (${noteTexts.map(sqlString).join(',')})
+    AND NOT EXISTS (SELECT 1 FROM casemgmt_note_link remaining
+      WHERE remaining.note_id=n.note_id
+      AND NOT (remaining.table_name=10 AND remaining.table_id IN (${ticklerIds})))`)) : [];
   // Remove every link owned by the ticklers being deleted, retaining excluded notes.
   sql(`DELETE FROM casemgmt_note_link WHERE table_name=10 AND table_id IN (${ticklerIds})`);
   if (notes.length) {

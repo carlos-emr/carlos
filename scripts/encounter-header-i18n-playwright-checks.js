@@ -46,8 +46,11 @@
  *      the calculators.
  *   4. The note-template search legend and its input placeholder are in the
  *      configured bundle (new translations remain marked English placeholders until verified).
+ *   5. A reload of the same chart renders the same header as its FIRST open, and
+ *      the page's own lang attributes name the language the server negotiated
+ *      (an alpha15 report described an English first open that an F5 corrected).
  * and across the supported languages:
- *   5. The French header is not the English header. This is the assertion that
+ *   6. The French header is not the English header. This is the assertion that
  *      fails if the locale is ever taken from the JVM again.
  *
  * ENTERED THE WAY A CLINIC ENTERS IT: login, Search, the patient's Master
@@ -104,6 +107,8 @@ const LANGUAGES = [
   {
     tag: 'en-CA',
     acceptLanguage: 'en-CA,en;q=0.9',
+    // language subtag the server must state it negotiated (html lang / #header-top-row lang)
+    expectedLanguage: 'en',
     // demographic.demographicaddrecordhtm.formSex / global.age  (Java-rendered)
     javaLabels: ENGLISH_LABELS,
     // encounter.Index.calculators  (JSP-rendered, same header)
@@ -115,6 +120,7 @@ const LANGUAGES = [
   {
     tag: 'fr-CA',
     acceptLanguage: 'fr-CA,fr;q=0.9',
+    expectedLanguage: 'fr',
     javaLabels: FRENCH_LABELS,
     calculators: 'calculatrices',
     templateLegend: 'Template Search',
@@ -123,6 +129,7 @@ const LANGUAGES = [
   {
     tag: 'de-AT',
     acceptLanguage: 'de-AT,de;q=0.9',
+    expectedLanguage: 'en',
     javaLabels: ENGLISH_LABELS,
     calculators: 'calculators',
     templateLegend: 'Template Search',
@@ -131,6 +138,7 @@ const LANGUAGES = [
   {
     tag: 'de-DE',
     acceptLanguage: 'de-DE,fr;q=0.9,en;q=0.8',
+    expectedLanguage: 'fr',
     javaLabels: FRENCH_LABELS,
     calculators: 'calculatrices',
     templateLegend: 'Template Search',
@@ -216,6 +224,21 @@ async function readHeader(chartPage, timeout) {
   };
 }
 
+/**
+ * The negotiated language as the server states it: the chart page's html lang
+ * and the header container's lang (newEncounterLayout.jsp, newEncounterHeader.jsp).
+ * Attributes only; no text, no values.
+ */
+async function readLangAttributes(chartPage) {
+  return chartPage.evaluate(() => {
+    const header = document.getElementById('header-top-row');
+    return {
+      page: document.documentElement.getAttribute('lang') || '',
+      header: header ? header.getAttribute('lang') || '' : '',
+    };
+  });
+}
+
 /** Everything one language has to satisfy on its own. */
 function assertLanguage(language, header) {
   for (const id of ['patient-sex', 'patient-dob', 'patient-age', 'patient-next-appointment', 'patient-mrp']) {
@@ -266,6 +289,44 @@ async function walkInLanguage(browser, config, language, options) {
     });
     const chartPage = await openChart(context, masterPage, recorder, timeout);
     const header = await readHeader(chartPage, timeout);
+
+    // FIRST OPEN MUST EQUAL RELOAD. An alpha15 field report said the chart's
+    // FIRST open rendered the header in English and only an F5 produced the
+    // browser's language. Everything above reads the first open of this chart in
+    // this session; reading it again after a reload of the same URL pins the two
+    // renders to each other, so a regression that depends on per-session or
+    // first-request state fails here rather than passing on whichever render a
+    // single-read check happened to see. The lang attributes are the server's
+    // own statement of the language it negotiated for each render.
+    const firstLang = await readLangAttributes(chartPage);
+    // The chart releases its note lock from an unload beacon, which a reload
+    // cancels before Chromium reports it delivered; release it the way teardown
+    // does, then keep the strict recorder blind to that one cancelled beacon and
+    // to nothing else.
+    await releaseChartLocks(context, config.baseUrl, [chartPage]);
+    const failuresBeforeReload = recorder.requestFailures.length;
+    await chartPage.reload({ waitUntil: 'load', timeout });
+    const addedByReload = recorder.requestFailures.splice(failuresBeforeReload);
+    recorder.requestFailures.push(...addedByReload.filter((entry) => !(entry.resourceType === 'ping'
+      && entry.errorText === 'net::ERR_ABORTED')));
+    const reloaded = await readHeader(chartPage, timeout);
+    const reloadLang = await readLangAttributes(chartPage);
+    assert(JSON.stringify(reloaded.identityLabelsById) === JSON.stringify(header.identityLabelsById)
+      && reloaded.calculatorText === header.calculatorText
+      && reloaded.legend === header.legend && reloaded.placeholder === header.placeholder,
+      `The ${language.tag} chart header differs between its first open and a reload: first `
+      + `${JSON.stringify(header.identityLabels)}, reloaded ${JSON.stringify(reloaded.identityLabels)}`);
+    assert(firstLang.page === reloadLang.page && firstLang.header === reloadLang.header,
+      `The ${language.tag} chart negotiated ${JSON.stringify(firstLang)} on first open but `
+      + `${JSON.stringify(reloadLang)} on reload`);
+    assert(firstLang.page && firstLang.page === firstLang.header,
+      `The ${language.tag} chart page and its header state different negotiated languages: ${JSON.stringify(firstLang)}`);
+    assert(firstLang.page.toLowerCase().startsWith(language.expectedLanguage),
+      `The ${language.tag} chart states negotiated language ${JSON.stringify(firstLang.page)}, `
+      + `expected a ${language.expectedLanguage} tag`);
+    // The reload above re-renders the notes panel asynchronously (viewFullChart
+    // POSTs ChartNotes.jsp into #notCPP), and caseNote is assigned by that render.
+    await chartPage.waitForFunction(() => Boolean(globalThis.caseNote), null, { timeout }).catch(() => {});
     const noteId = await chartPage.evaluate(() => globalThis.caseNote);
     assert(noteId, 'The chart must expose its active note editor');
     const activeNote = chartPage.locator('textarea[id="' + noteId + '"]');

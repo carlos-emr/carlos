@@ -36,8 +36,8 @@ def expect(sql, expected):
 
 def main():
     schema = (ROOT / 'database/mysql/migration/common/V1__baseline_schema.sql').read_text()
-    migration = (ROOT / 'database/mysql/migration/common/V1.0.38__consultation_eform_lab_sources.sql').read_text()
-    tickler_migration = (ROOT / 'database/mysql/migration/common/V1.0.37__tickler_docs.sql').read_text()
+    migration = (ROOT / 'database/mysql/migration/common/V1.0.43__consultation_eform_lab_sources.sql').read_text()
+    tickler_migration = (ROOT / 'database/mysql/migration/common/V1.0.42__tickler_docs.sql').read_text()
     query(f'CREATE DATABASE `{DATABASE}` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci')
     try:
         for table in ['consultationRequests', 'consultationResponse', 'eform_data', 'patientLabRouting',

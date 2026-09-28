@@ -793,6 +793,23 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @DisplayName("should bind hostile provider text without broadening document access")
+        void shouldTreatHostileProviderTextAsLiteralParameter() {
+            Document authorized = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            createDocumentWithCtl("consult", "999002", 'A', DEMO_ID);
+            entityManager.flush();
+            entityManager.clear();
+
+            // Both rows satisfy patient, date and program filters. An interpolated OR clause
+            // would expose them; a bound provider value must instead match neither row.
+            assertThat(documentDao.findByProgramProviderDemographicUpdateDate(
+                    1, "' OR '1'='1", DEMO_ID, yesterday, 10)).isEmpty();
+            assertThat(documentDao.findByProgramProviderDemographicUpdateDate(
+                    1, PROVIDER_NO, DEMO_ID, yesterday, 10))
+                    .extracting(Document::getDocumentNo).containsExactly(authorized.getDocumentNo());
+        }
+
+        @Test
         @DisplayName("should respect items limit")
         void shouldRespectLimit_whenMoreRowsAvailable() {
             // Given

@@ -56,6 +56,7 @@ const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
  */
 
 const { chromium } = require('playwright');
+const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -78,14 +79,9 @@ const messageB = `${stamp}_B stale-data leak check`;
 const firstNoteText = `${stamp} first note text`;
 const secondNoteText = `${stamp} second note text (edited)`;
 
-// casemgmt_note_link.table_name value identifying a tickler-linked note (see
-// CaseManagementNoteLink.TICKLER in the Java model).
-const NOTE_LINK_TABLE_TICKLER = 10;
-
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
-let createdTicklerIds = [];
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -98,7 +94,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -360,7 +360,6 @@ async function closeDialogIfOpen(page) {
 
     const ticklerAId = await createTickler(context, messageA);
     const ticklerBId = await createTickler(context, messageB);
-    createdTicklerIds = [ticklerAId, ticklerBId];
 
     const page = await context.newPage();
     wirePage(page, 'tickler-main');

@@ -237,7 +237,53 @@
 <body>
 <form id="attachDocumentsForm">
     <%-- Script placed in body so functions are available when loaded via jQuery .load() into a parent page --%>
+    <script src="${pageContext.request.contextPath}/js/document-preview-retry.js"></script>
     <script type="text/javascript">
+        if (typeof attachmentPreviewController !== 'undefined') {
+            attachmentPreviewController.cancel();
+        }
+        var attachmentPreviewController = (function (owner) {
+            return CarlosDocumentPreviewRetry.create({
+                beforeStart: function () {
+                    // Cached previews return before starting a request. For a new render, clear
+                    // the old document before a busy response releases the blocking spinner.
+                    previewBlobUrl = CarlosDocumentPreviewRetry.clearDisplay(
+                        document, URL.revokeObjectURL.bind(URL), previewBlobUrl);
+                },
+                send: function (parameters, callbacks) {
+                    return jQuery.ajax({
+                        type: 'POST',
+                        url: "${pageContext.request.contextPath}/previewDocs",
+                        data: parameters,
+                        dataType: 'json',
+                        success: callbacks.success,
+                        error: callbacks.error
+                    });
+                },
+                isCurrent: function () {
+                    return owner.isConnected && jQuery(owner).is(':visible');
+                }
+            });
+        }(document.getElementById('attachDocumentsForm')));
+
+        function cancelAttachmentPreview() {
+            attachmentPreviewController.cancel();
+            HideSpin();
+            var waiting = document.getElementById('preview-waiting');
+            if (waiting) waiting.classList.add('d-none');
+        }
+
+        // This fragment is reloaded into both jQuery UI and Bootstrap dialogs. Namespace and
+        // replace handlers so reopening does not accumulate listeners or retain old controllers.
+        jQuery(document).off('.carlosDocumentPreview').on(
+            'dialogclose.carlosDocumentPreview hidden.bs.modal.carlosDocumentPreview',
+            function (event) {
+                var owner = document.getElementById('attachDocumentsForm');
+                if (owner && event.target.contains(owner)) cancelAttachmentPreview();
+            });
+        jQuery(window).off('pagehide.carlosDocumentPreview').on(
+            'pagehide.carlosDocumentPreview', cancelAttachmentPreview);
+
         function toggleLabVersionList(collapseBtn) {
             jQuery(collapseBtn).toggleClass('caret-down');
             jQuery(collapseBtn).parent().find('.collapsible-content').slideToggle(100);
@@ -356,6 +402,7 @@
         }
 
         function getPdf(attachmentName, attachmentId, parameters) {
+            cancelAttachmentPreview();
             // Please include "<%=request.getContextPath()%>/WEB-INF/jsp/includes/spinner.jspf" into the parent page to control the visibility of the spinner (show/hide).
             ShowSpin(true);
             const cached = getPdfAttachment(attachmentName, attachmentId);
@@ -365,12 +412,15 @@
                 return;
             }
 
-            jQuery.ajax({
-                type: 'POST',
-                url: "${ pageContext.request.contextPath }/previewDocs",
-                data: parameters,
-                dataType: "json",
-                success: function (data) {
+            attachmentPreviewController.start(parameters, {
+                waiting: function () {
+                    // Release the blocking spinner so waiting remains cancellable. The next
+                    // admitted request keeps this notice visible until its PDF actually arrives.
+                    HideSpin();
+                    document.getElementById('preview-waiting').classList.remove('d-none');
+                },
+                success: function (data, currentParameters) {
+                    document.getElementById('preview-waiting').classList.add('d-none');
                     if (data.base64Data) {
                         addPdfAttachment(attachmentName, attachmentId, data.base64Data, data.advisoryIssues);
                         showPDF(data.base64Data);
@@ -417,14 +467,15 @@
                         }
                         if (data.renderApproval
                                 && confirm(data.errorMessage + details + severeConsoleDetailText + "\n\nApprove these issues and render?")) {
-                            getPdf(attachmentName, attachmentId, parameters
-                                + "&renderApproval=" + encodeURIComponent(data.renderApproval));
+                            getPdf(attachmentName, attachmentId,
+                                CarlosDocumentPreviewRetry.replaceApproval(currentParameters, data.renderApproval));
                         }
                     } else {
                         showError(data.errorMessage);
                     }
                 },
                 error: function (xhr, status, error) {
+                    document.getElementById('preview-waiting').classList.add('d-none');
                     // A non-JSON response (typically a login redirect after session expiry) lands here.
                     // Give the actionable hint instead of the context-free generic message.
                     if (xhr.responseJSON && xhr.responseJSON.errorMessage) {
@@ -693,6 +744,10 @@
                  be told. Severe page-script errors are blocking and reach this preview only after
                  an exact approval. --%>
             <div id="preview-advisory" class="preview-advisory d-none" role="status"></div>
+            <div id="preview-waiting" class="preview-advisory d-none" role="status">
+                The eForm renderer is busy. Waiting for your preview.
+                <button type="button" onclick="cancelAttachmentPreview()">Cancel preview</button>
+            </div>
             <iframe id="pdfObject" class="d-none" title="Attachment preview"></iframe>
             <div id="preview-filler" class="preview-filler">
                 <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.clickAnyItemToPreview"/>

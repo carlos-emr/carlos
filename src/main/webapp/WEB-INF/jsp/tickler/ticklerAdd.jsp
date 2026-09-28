@@ -550,8 +550,6 @@
             }
         }
 
-
-
         function IsDate(value) {
             let dateWrapper = new Date(value);
             return !isNaN(dateWrapper.getDate());

@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import java.util.Objects;
+import org.apache.commons.lang3.time.DateUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -119,7 +119,7 @@ public class EditTickler2Action extends ActionSupport {
         try {
             ticklerNo = Integer.parseInt(ticklerNoStr.trim());
         } catch (NumberFormatException e) {
-            logger.warn("Invalid ticklerNo parameter");
+            logger.warn("Tickler edit rejected: invalid identifier");
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
@@ -181,7 +181,6 @@ public class EditTickler2Action extends ActionSupport {
             tuOriginal.setPriority(t.getPriority().toString());
             tuOriginal.setAssignedTo(t.getTaskAssignedTo());
             tuOriginal.setServiceDate(t.getServiceDate());
-
         }
 
         /*
@@ -226,7 +225,7 @@ public class EditTickler2Action extends ActionSupport {
             isUpdate = true;
         }
 
-        if (!Objects.equals(parsedServiceDate, t.getServiceDate())) {
+        if (t.getServiceDate() == null || !DateUtils.isSameDay(parsedServiceDate, t.getServiceDate())) {
             tu.setServiceDate(parsedServiceDate);
             t.setServiceDate(parsedServiceDate);
             isUpdate = true;
@@ -247,7 +246,7 @@ public class EditTickler2Action extends ActionSupport {
                     return "error";
                 }
             } catch (Exception e) {
-                logger.error("Failed to update tickler: ticklerNo={}, providerNo={}", ticklerNo, providerNo, e);
+                logger.error("Tickler update failed: {}", e.getClass().getSimpleName());
                 addActionError(getText("tickler.ticklerEdit.arg.error"));
                 return "error";
             }
@@ -287,7 +286,10 @@ public class EditTickler2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
 
-        if (!requirePost()) return NONE;
+        if (!requirePost()) {
+            return NONE;
+        }
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (activeText == null) {

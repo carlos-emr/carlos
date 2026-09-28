@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
-import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
+import io.github.carlos_emr.carlos.eform.util.EFormSavedRenderResponse;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
@@ -378,6 +378,10 @@ public class AddEForm2Action extends ActionSupport {
                     // general handler this was a dead end with no way to review and proceed.
                     return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
                 } catch (PDFGenerationException e) {
+                    if (e.isRetryable()) {
+                        return offerSavedRenderCapacity(loggedInInfo, (String) request.getAttribute("fdid"),
+                                demographic_no, EFormRenderApprovalService.Operation.EDOC, true);
+                    }
                     setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
                     return "error";
                 }
@@ -407,6 +411,10 @@ public class AddEForm2Action extends ActionSupport {
                     // decide. Mirrors the fax path.
                     return offerDownloadApproval(loggedInInfo, e, fdid, demographic_no, submitAndPdf);
                 } catch (PDFGenerationException e) {
+                    if (e.isRetryable()) {
+                        return offerSavedRenderCapacity(loggedInInfo, fdid, demographic_no,
+                                EFormRenderApprovalService.Operation.DOWNLOAD, submitAndPdf);
+                    }
                     setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
                 }
@@ -470,6 +478,10 @@ public class AddEForm2Action extends ActionSupport {
                     // Same subclass-before-superclass ordering as the save branch above.
                     return offerDownloadApproval(loggedInInfo, e, prev_fdid, demographic_no, submitAndPdf);
                 } catch (PDFGenerationException e) {
+                    if (e.isRetryable()) {
+                        return offerSavedRenderCapacity(loggedInInfo, prev_fdid, demographic_no,
+                                EFormRenderApprovalService.Operation.DOWNLOAD, submitAndPdf);
+                    }
                     setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
                 }
@@ -507,6 +519,10 @@ public class AddEForm2Action extends ActionSupport {
                     // general handler this was a dead end with no way to review and proceed.
                     return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
                 } catch (PDFGenerationException e) {
+                    if (e.isRetryable()) {
+                        return offerSavedRenderCapacity(loggedInInfo, (String) request.getAttribute("fdid"),
+                                demographic_no, EFormRenderApprovalService.Operation.EDOC, true);
+                    }
                     setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
                     return "error";
                 }
@@ -686,33 +702,16 @@ public class AddEForm2Action extends ActionSupport {
                     : PDF_DOWNLOAD_FAILURE_MESSAGE, e);
             return "error";
         }
-        String token = approvalService.issue(request, loggedInInfo, requestFdid, demographicNo,
-                operation, e.getReport(), null, e.getFdid());
-        EFormRenderCompletenessReport report = e.getReport();
-        request.setAttribute("renderApproval", token);
-        request.setAttribute("fdid", fdid);
-        request.setAttribute("demographicNo", demographicNo);
-        request.setAttribute("missingContentMessage", message);
-        request.setAttribute("approvalAction", approvalAction);
-        // A bundle KEY, not a label: the JSP resolves it with <fmt:message>, so the approve button
-        // is translated like every other string on that page instead of being hardcoded English
-        // here. The action has no ResourceBundle and should not acquire one just to render a label.
-        request.setAttribute("approvalButtonLabelKey", approvalButtonLabelKey);
-        request.setAttribute("failedContentResources", report.failedContentResources());
-        request.setAttribute("excludedContentElements", report.excludedContentElements());
-        request.setAttribute("severeConsoleErrors", report.severeConsoleErrors());
-        // PHI-safe per-error descriptions (type + line:col) for the informed-override screen.
-        // Display only: NOT part of the completeness report and NOT bound into the approval
-        // digest, which stays anchored to the counts above.
-        request.setAttribute("severeConsoleErrorDetails", e.getSevereConsoleDetails());
-        request.setAttribute("containedInteractions", report.containedInteractions());
-        request.setAttribute("decorativeExcludedElements", report.decorativeExcludedElements());
-        request.setAttribute("signatureMissing", report.signatureMissing());
-        request.setAttribute("timerCompatibilityFailure", report.timerCompatibilityFailure());
-        request.setAttribute("stabilizationCapped", report.stabilizationCapped());
-        request.setAttribute("labDecisionSupportStubbed", report.labDecisionSupportStubbed());
-        request.setAttribute("providerStampMissing", report.providerStampMissing());
-        return "missingContent";
+        return EFormSavedRenderResponse.missing(request, approvalService, loggedInInfo, e,
+                requestFdid, demographicNo, operation, null, false,
+                message, approvalAction, approvalButtonLabelKey);
+    }
+
+    private String offerSavedRenderCapacity(LoggedInInfo user, String fdid, String patient,
+            EFormRenderApprovalService.Operation operation, boolean autoClose) {
+        return EFormSavedRenderResponse.busy(request, response,
+                SpringUtils.getBean(EFormRenderApprovalService.class), user, Integer.parseInt(fdid),
+                patient, operation, null, autoClose);
     }
 
     /** Offers approval for an eForm the completeness gate refused to archive as an eDoc. */

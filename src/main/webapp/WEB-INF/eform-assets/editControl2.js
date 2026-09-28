@@ -1283,9 +1283,12 @@ function submitFaxButton() {
 	// consult_sig_<provider_no>.png. They normally arrive as hidden inputs on the form, but an
 	// install whose stored Rich Text Letter form_html predates those inputs has none, so they are
 	// listed here too: the lookup that resolves the stamp then also fetches the identity it needs.
+	// Every key listed must exist in apconfig.xml: the lookup reports an unconfigured key as a
+	// "could not be filled in" banner. The legacy "stamp_name" key never did, and was dropped once
+	// that banner made every Stamp click show a false warning.
 	cache.addMapping({
 		name: "stamp", 
-		values: ["stamp_name", "doctor", "current_user",
+		values: ["doctor", "current_user",
 			"current_user_id", "current_user_ohip_no", "doctor_provider_no"], 
 		storeInCacheHandler: function(_key,_val) { 
 				// Re-probe: on a form_html without the hidden inputs the identity only becomes known

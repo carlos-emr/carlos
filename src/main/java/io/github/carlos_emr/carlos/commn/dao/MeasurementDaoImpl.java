@@ -56,6 +56,24 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @Override
+    public void reassignLabPatient(Measurement measurement, String labNo, int demographicNo) {
+        if (demographicNo <= 0 || measurement == null || !entityManager.contains(measurement)) {
+            throw new IllegalArgumentException("A managed lab measurement and valid patient are required");
+        }
+        // Measurement's lifecycle callback intentionally prohibits editing clinical values.
+        // This constrained correction changes only ownership, never values or annotations.
+        int changed = entityManager.createQuery("update Measurement m set m.demographicId=:patient "
+                + "where m.id=:id and m.demographicId=:previous and exists "
+                + "(select e.id from MeasurementsExt e where e.measurementId=m.id "
+                + "and e.keyVal='lab_no' and e.val=:lab)")
+                .setParameter("patient", demographicNo).setParameter("id", measurement.getId())
+                .setParameter("previous", measurement.getDemographicId()).setParameter("lab", labNo)
+                .executeUpdate();
+        if (changed != 1) throw new IllegalStateException("Lab measurement ownership changed during correction");
+        entityManager.refresh(measurement);
+    }
+
+    @Override
     public List<Measurement> findByDemographicIdUpdatedAfterDate(Integer demographicId, Date updatedAfterThisDate) {
 
         // using create date since this object is not updateable

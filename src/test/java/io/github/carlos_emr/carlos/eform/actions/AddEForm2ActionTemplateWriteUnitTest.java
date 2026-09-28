@@ -218,6 +218,42 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void busyArchivePreservesSavedFormAndTemplateAndContinuesOnlyArchive() throws Exception {
+        mockRequest.setParameter("saveAsEdoc", "true");
+        mockRequest.setParameter("clinicalNote", "must not be replayed");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("capacity", true))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+        when(mockRenderApprovalService.issueCapacityContinuation(any(), any(), eq(42), eq("123"),
+                eq(EFormRenderApprovalService.Operation.EDOC))).thenReturn("continuation-ticket");
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("renderBusy");
+        assertThat(mockResponse.getStatus()).isEqualTo(503);
+        assertThat(mockRequest.getAttribute("renderCapacityAction")).isEqualTo("/eform/saveEFormAsEDoc");
+        assertThat(mockRequest.getAttribute("renderCapacityFields")).isEqualTo(java.util.Map.of(
+                "fdid", "42", "demographicNo", "123", "renderApproval", "continuation-ticket", "autoClose", "true"));
+        org.mockito.Mockito.verify(mockEformDataManager, org.mockito.Mockito.times(1)).saveEformData(any(), any());
+        verifyTemplateWritten(true);
+    }
+
+    @Test
+    void busySubmitAndPdfPreservesSavedFormAndTemplateAndDownloadIntent() throws Exception {
+        mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "false");
+        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("capacity", true));
+        when(mockRenderApprovalService.issueCapacityContinuation(any(), any(), eq(42), eq("123"),
+                eq(EFormRenderApprovalService.Operation.DOWNLOAD))).thenReturn("continuation-ticket");
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("renderBusy");
+        assertThat(mockResponse.getStatus()).isEqualTo(503);
+        assertThat(mockRequest.getAttribute("renderCapacityAction")).isEqualTo("/eform/downloadEFormPdf");
+        assertThat(mockRequest.getAttribute("renderCapacityFields")).isEqualTo(java.util.Map.of(
+                "fdid", "42", "demographicNo", "123", "renderApproval", "continuation-ticket", "autoClose", "true"));
+        org.mockito.Mockito.verify(mockEformDataManager, org.mockito.Mockito.times(1)).saveEformData(any(), any());
+        verifyTemplateWritten(true);
+    }
+
+    @Test
     @DisplayName("should carry the Submit & PDF auto-close intent into the download approval page")
     void shouldCarryAutoCloseIntoApproval_whenSubmitAndPdfRefused() throws Exception {
         // The approval page posts to eform/downloadEFormPdf, not back to this action, so the only

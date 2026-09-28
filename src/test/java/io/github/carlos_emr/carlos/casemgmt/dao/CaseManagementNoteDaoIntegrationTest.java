@@ -61,6 +61,24 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("casemgmt")
 public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoBaseIntegrationTest {
 
+    @Test
+    @DisplayName("should load legacy notes with a NULL appointment number and preserve the primitive API")
+    void shouldLoadNote_whenAppointmentNumberIsNull() {
+        CaseManagementNote note = createNote("3946", "FAKE export note without an appointment");
+        entityManager.flush();
+        entityManager.createNativeQuery("UPDATE casemgmt_note SET appointmentNo=NULL WHERE note_id=?1")
+                .setParameter(1, note.getId()).executeUpdate();
+        entityManager.clear();
+
+        CaseManagementNote loaded = caseManagementNoteDAO.getNote(note.getId());
+        assertThat(loaded.getAppointmentNo()).isZero();
+        assertThat(loaded.getNote()).isEqualTo("FAKE export note without an appointment");
+        loaded.setAppointmentNo(12345);
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(caseManagementNoteDAO.getNote(note.getId()).getAppointmentNo()).isEqualTo(12345);
+    }
+
     /** Tests for CRUD operations on CaseManagementNote entities. */
     @Nested
     @DisplayName("CRUD operations")

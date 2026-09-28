@@ -39,7 +39,26 @@ GitHub release
 (https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
 workflow, alongside their .sha256 checksums and build-provenance
 attestations. The carlos-emr package on a release ships that release's own
-published WAR byte for byte.
+published WAR's application payload, with the Debian build identity stamped
+in carlos-build.properties and the explicit package-only jdbc-defaults.properties
+resource described below. All other EMR WAR entries remain unchanged.
+
+The Debian MariaDB default appends useInformationSchema=false to the JDBC URL
+only when no explicit (including URL-encoded) useInformationSchema option exists.
+Connector/J's default MySQL keyword query references
+INFORMATION_SCHEMA.KEYWORDS.RESERVED, which MariaDB does not provide; Hibernate
+otherwise boots using incomplete fallback metadata. This setting keeps JDBC
+metadata enabled using Connector/J's alternate metadata implementation. The
+ordinary WAR's jdbc-defaults.properties is empty and keeps normal driver defaults.
+Existing /etc/carlos-emr/carlos.properties is preserved: an explicit
+ db_default_use_information_schema=true
+changes the optional default, while
+ db_default_use_information_schema=
+(empty) disables it. Existing explicit URL options and explicit driver connection
+properties retain their normal precedence. The timezone behavior is unchanged.
+Restart the EMR after an operator change. JVM -D properties do not override these
+Spring placeholders. An older operator file without this key receives the package
+default on upgrade without having its URL or credentials rewritten for this fix.
 
 Fetching them from a shell (a server has no browser; from WSL this is far
 easier than copying files across): on the release page, right-click each
@@ -107,11 +126,18 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
                                          and read-only to the service account
   /usr/share/carlos-emr/webapp/drugref2/ DrugRef2 (carlos-emr-drugref)
   /usr/share/carlos-emr/schema/          the Flyway migration set, readable
+  /usr/share/carlos-emr/o19-manifest/    the OSCAR 19 import manifests (JSON;
+                                         read by carlos-ctl import-o19)
   /usr/lib/carlos-emr/                   the administrative helpers
   /usr/lib/carlos-emr/chromium/          the eForm PDF browser and its
                                          chromedriver (run by the
                                          carlos-emr-render-browser service)
-  /usr/sbin/carlos-ctl                    the administration command
+  /usr/sbin/carlos-ctl                    the administration command -- the
+                                         separate carlos-ctl package, which
+                                         carlos-emr depends on (its code is
+                                         under /usr/lib/carlos-ctl; through
+                                         2026.08.0~alpha15 it was part of
+                                         carlos-emr)
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit
   /etc/carlos-emr/carlos.properties      application configuration + credentials

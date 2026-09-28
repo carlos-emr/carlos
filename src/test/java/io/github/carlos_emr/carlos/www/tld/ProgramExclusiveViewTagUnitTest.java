@@ -13,7 +13,7 @@ import static org.mockito.Mockito.*;
 @org.junit.jupiter.api.Tag("unit")
 class ProgramExclusiveViewTagUnitTest {
     @Test
-    void shouldNotRetainPreviousView_whenTagIsReused() throws Exception {
+    void shouldResetExclusiveView_whenPooledTagChangesProvider() throws Exception {
         ProviderDefaultProgramDao dao = mock(ProviderDefaultProgramDao.class);
         Program program = new Program();
         program.setExclusiveView("appointment");

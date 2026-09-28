@@ -30,8 +30,12 @@ migration/
            V1.0.30__add_ocean_setting.sql
            V1.0.32__add_nrtf_tuning_fork_measurement_type.sql
            V1.0.33__aacp_provided_revised_reviewed_validation.sql
-           V1.0.37__tickler_docs.sql
-           V1.0.38__consultation_eform_lab_sources.sql
+           V1.0.36__serialize_messenger_membership_changes.sql
+           V1.0.39__track_automatic_mrp_routing.sql
+           V1.0.40__widen_lab_labels.sql
+           V1.0.41__rtl_provider_stamp_fields.sql
+           V1.0.42__tickler_docs.sql
+           V1.0.43__consultation_eform_lab_sources.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -47,14 +51,16 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.38`
-(`common/V1.0.38`, shared; the highest Ontario-only one is `on/V1.0.34`), and the next free
-number for ANY location — shared or province — is `V1.0.39`. `V1.0.36` is reserved by #3986 (Messenger coordination), which must
-merge and migrate before this change. The version line is global:
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.43`.
+The next unallocated number for ANY location — shared or province — is `V1.0.44`.
+PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
+V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
+The V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
+do not enable `outOfOrder` to fill gaps. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.38` on both provinces today. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.33`) but would silently
+run — including `common/V1.0.43` on either province after this change. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.43`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province.
@@ -129,3 +135,14 @@ Add a forward migration under the right location — `common/` for shared change
 province-specific ones — named `V1.0.N__short_description.sql` (next free number), and make it idempotent. A
 fresh `flyway migrate` applies `V1` then your delta; existing databases apply only the new delta.
 See `docs/database-schema-management.md` for the model and CI verification (`db-schema-verify.yml`).
+
+Messenger membership coordination (#3964) adds
+`common/V1.0.36__serialize_messenger_membership_changes.sql`. Automatic MRP routing adds
+`common/V1.0.39__track_automatic_mrp_routing.sql`. Full lab labels add
+`common/V1.0.40__widen_lab_labels.sql`. The Rich Text Letter signature-stamp inputs reach
+upgraded installs through `common/V1.0.41__rtl_provider_stamp_fields.sql`. The next unallocated
+version is `V1.0.42`. Apply/merge these forward migrations in version order; if their merge
+order changes after a release, renumber the still-unreleased migration before
+shipping it. The coordination table contains no clinical data and does not
+rewrite legacy memberships. All application instances must run the serialized
+membership writer before relying on cross-instance duplicate prevention.

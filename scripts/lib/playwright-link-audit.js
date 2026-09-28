@@ -84,6 +84,27 @@ function bodyFingerprint(previous) {
 
 const ERROR_PAGE_RE = /CARLOS has encountered an unexpected error|HTTP Status 5\d\d|Exception Report|There is no Action mapped|Whitelabel Error Page/i;
 
+/** One browser-side identity reader for both cataloguing and pre-click checks. */
+function anchorIdentities(elements) {
+  return (Array.isArray(elements) ? elements : [elements]).map(anchor => {
+    const ancestorIds = [];
+    for (let parent = anchor.parentElement; parent; parent = parent.parentElement) {
+      if (parent.id) ancestorIds.push(parent.id);
+    }
+    return {
+      text: (anchor.textContent || '').replace(/\s+/g, ' ').trim(),
+      href: anchor.getAttribute('href') || '',
+      onclick: anchor.getAttribute('onclick') || anchor.getAttribute('onClick') || '',
+      rel: anchor.getAttribute('rel') || '',
+      target: anchor.getAttribute('target') || '',
+      id: anchor.getAttribute('id') || '',
+      baseURI: document.baseURI,
+      ancestorIds,
+      connected: anchor.isConnected !== false,
+    };
+  });
+}
+
 /**
  * Read every navigable item out of the live page.
  *
@@ -93,10 +114,9 @@ const ERROR_PAGE_RE = /CARLOS has encountered an unexpected error|HTTP Status 5\
  */
 async function catalogueLinks(page, options = {}) {
   const selector = options.selector || 'a';
-  const items = await page.$$eval(selector, (anchors) => anchors.map((anchor, index) => {
-    const text = (anchor.textContent || '').replace(/\s+/g, ' ').trim();
-    const href = anchor.getAttribute('href') || '';
-    const onclick = anchor.getAttribute('onclick') || anchor.getAttribute('onClick') || '';
+  const identities = await page.$$eval(selector, anchorIdentities);
+  const items = identities.map((identity, index) => {
+    const { text, href, onclick } = identity;
     // A javascript: HREF IS AN OPENER TOO, and 256 anchors across the webapp
     // write theirs that way -- five in admin.jsp alone, e.g.
     //   <a href='javascript: popupPage(500, 900, "<ctx>/quickBillingBC");'>
@@ -119,7 +139,7 @@ async function catalogueLinks(page, options = {}) {
     // Only when it looks like a PATH. rel is a standard HTML attribute whose
     // ordinary values are keywords (noopener, noreferrer, nofollow, stylesheet);
     // requiring a slash keeps those out without maintaining a keyword list.
-    const relAttribute = (anchor.getAttribute('rel') || '').trim();
+    const relAttribute = identity.rel.trim();
     const relRoute = /^[./]/.test(relAttribute) || /^[A-Za-z0-9_][A-Za-z0-9_.-]*\//.test(relAttribute)
       ? relAttribute
       : '';
@@ -160,13 +180,16 @@ async function catalogueLinks(page, options = {}) {
       // 'DemographicEdit?demographic_no=1' means "next to the page I am on",
       // and resolving it against the context root instead sends it outside the
       // application. See resolveRoute in anonymous-access-refused.
-      baseURI: document.baseURI,
-      // WHY THE INDEX. It is the item's identity for clicking. Two admin items
+      baseURI: identity.baseURI,
+      // WHY THE INDEX. It identifies the original position for evidence and
+      // static-page callers. Refreshing surfaces opt into full identity below.
+      // Two admin items
       // routinely share link text while pointing at different routes ("Search",
       // "Report", a module name under two headings); locating by text would
       // click the first one both times, so the second route would never be
       // opened while the check still reported two successes.
       index,
+      ...(options.identity ? { identity } : {}),
       text,
       href: hasRealHref ? href : '',
       route,
@@ -177,11 +200,11 @@ async function catalogueLinks(page, options = {}) {
       // item's destination, which passes for every broken popup.
       hasClickHandler: Boolean(opener),
       opensPopup: /popup|newWindow|postToPopup|window\.open/i.test(opener)
-        || (anchor.getAttribute('target') || '').toLowerCase() === '_blank',
+        || identity.target.toLowerCase() === '_blank',
     };
-  }).filter(Boolean));
-  // The selector travels with the item so the click resolves against the same
-  // list the index was taken from.
+  }).filter(Boolean);
+  // The selector travels with the item so both the initial position and an
+  // optional strict identity lookup use the same anchor population.
   return items.map((item) => ({ ...item, selector }));
 }
 
@@ -189,7 +212,7 @@ async function catalogueLinks(page, options = {}) {
 function dedupe(items) {
   const seen = new Set();
   return items.filter((item) => {
-    const key = `${item.text}|${item.href || item.route}`;
+    const key = item.identity ? JSON.stringify(item.identity) : `${item.text}|${item.href || item.route}`;
     if (seen.has(key)) {
       return false;
     }
@@ -279,6 +302,42 @@ function itemLocator(hostPage, item) {
   return hostPage.locator(item.selector || 'a').nth(item.index);
 }
 
+function sameAnchorIdentity(first, second) {
+  return JSON.stringify(first) === JSON.stringify(second);
+}
+
+/** Resolve refreshed markup by its full original identity, then pin the DOM node. */
+async function resolveAuditLink(hostPage, item, timeout) {
+  if (!item.identity) return itemLocator(hostPage, item);
+  const current = await catalogueLinks(hostPage, { selector: item.selector || 'a', identity: true });
+  const matches = current.filter(candidate => sameAnchorIdentity(candidate.identity, item.identity));
+  assert(matches.length === 1,
+    `catalogued link "${item.text}" is ${matches.length ? 'ambiguous' : 'missing or changed'} in its original container; refusing another destination`);
+  const handle = await itemLocator(hostPage, matches[0]).elementHandle({ timeout });
+  assert(handle, `catalogued link "${item.text}" disappeared before it could be selected`);
+  const verify = async () => {
+    const [actual] = await handle.evaluate(anchorIdentities);
+    assert(sameAnchorIdentity(actual, item.identity),
+      `catalogued link "${item.text}" changed after identity resolution; refusing another destination`);
+  };
+  try {
+    await verify();
+  } catch (error) {
+    await handle.dispose();
+    throw error;
+  }
+  // A locator with a fresh index can still retarget if markup changes again.
+  // The element handle stays bound to the verified node; detached/replaced
+  // nodes fail, and an in-place destination change is checked at click time.
+  return new Proxy(handle, {
+    get(target, property) {
+      if (property === 'click') return async options => { await verify(); return target.click(options); };
+      const value = target[property];
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
 // Menu entries remain in the DOM when their menu is closed. Reveal them using
 // the same dropdown, tab, collapse or hover controls an operator uses.
 async function revealAuditLink(page, link, timeout) {
@@ -324,7 +383,15 @@ async function revealAuditLink(page, link, timeout) {
 }
 
 async function openItem(context, hostPage, item, recorder, label, timeout) {
-  const link = itemLocator(hostPage, item);
+  const link = await resolveAuditLink(hostPage, item, timeout);
+  try {
+    return await openResolvedItem(context, hostPage, item, recorder, label, timeout, link);
+  } finally {
+    if (item.identity) await link.dispose();
+  }
+}
+
+async function openResolvedItem(context, hostPage, item, recorder, label, timeout, link) {
   const stillThere = ((await link.textContent({ timeout }).catch(() => null)) || '').replace(/\s+/g, ' ').trim();
   assert(stillThere === item.text,
     `the page changed under the audit: item ${item.index} was "${item.text}" when catalogued and is "${stillThere}" now`);
@@ -536,6 +603,7 @@ async function auditCatalogue(options) {
     const before = snapshotRecorder(recorder);
     let target = null;
     try {
+      if (options.beforeItem) await options.beforeItem(item);
       target = await openItem(context, hostPage, item, recorder, label, timeout);
       target.cameFrom = target.cameFrom || hostUrl;
       const body = await destinationText(target, inPlaceTarget, timeout);
@@ -598,6 +666,7 @@ function assertAuditClean(result, options = {}) {
 }
 
 module.exports = {
+  anchorIdentities, sameAnchorIdentity, resolveAuditLink,
   bodyFingerprint, destinationText, isCurrentDocumentLink,
   revealAuditLink, ERROR_PAGE_RE,
   assertAuditClean,

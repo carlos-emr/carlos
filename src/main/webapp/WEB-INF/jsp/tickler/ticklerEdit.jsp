@@ -274,6 +274,7 @@
         <%
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script type="application/javascript">
             //open a new popup window
             function popupPage(vheight, vwidth, varpage) {
@@ -373,8 +374,6 @@
                 var btn = document.querySelector('.action-bar-bottom [name="updateTickler"]');
                 if (btn) { btn.disabled = false; }
             }
-
-
 
             function validate(form) {
                 CarlosTicklerValidation.reset();

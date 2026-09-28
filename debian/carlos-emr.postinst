@@ -282,6 +282,20 @@ install_once() {
 
 case "$1" in
     configure)
+        # The carlos-ctl command moved to its own package (from
+        # 2026.08.0~alpha16; developer builds from 2026.09.0~snapshot25). dpkg
+        # has removed the modules the pre-split carlos-emr shipped under
+        # /usr/lib/carlos-emr/carlos_ctl, but the bytecode cache no package
+        # ever owned (root ran the tool, so it existed on every host) keeps
+        # that directory alive; take it with us so the old copy is really
+        # gone. Judged by presence, not by the old version: this package
+        # never ships that directory, so anything there is the orphan.
+        # Nothing under /usr/lib/carlos-ctl is touched: that is the new
+        # package's.
+        if [ -d /usr/lib/carlos-emr/carlos_ctl ]; then
+            rm -rf /usr/lib/carlos-emr/carlos_ctl/__pycache__
+            rmdir /usr/lib/carlos-emr/carlos_ctl 2>/dev/null || true
+        fi
         # --- accounts -------------------------------------------------------
         # dh_installsysusers has already run systemd-sysusers by this point on
         # a systemd host. This is the fallback for a chroot or container image
@@ -537,6 +551,25 @@ case "$1" in
             fi
             mkdir -p "${STATE}"
             : > "${CONSULT_SIG_SENTINEL}"
+        fi
+
+        # One-time migration (2026.08): the Health Tracker nav entry shipped
+        # behind health_tracker=false, so every packaged install copied that
+        # into the persistent /etc override and never showed the tracker, which
+        # OSCAR 19 lists first in the encounter Measurements module (reported by
+        # alpha testers). The stock default is now true. Same contract as the
+        # consultation-signature flip above: rewrite ONLY the exact old stock
+        # line, ONLY on upgrade, ONLY once; the sentinel is written on fresh
+        # installs too so a false the operator sets later is never flipped back.
+        HEALTH_TRACKER_SENTINEL="${STATE}/.health-tracker-default-migrated"
+        if [ ! -e "${HEALTH_TRACKER_SENTINEL}" ]; then
+            if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
+                && grep -qx 'health_tracker=false' "${PROPERTIES}"; then
+                sed -i 's/^health_tracker=false$/health_tracker=true/' "${PROPERTIES}"
+                echo "carlos-emr: enabled the Health Tracker nav entry (migrated the old stock default off -> on; set health_tracker=false in ${PROPERTIES} to hide it)"
+            fi
+            mkdir -p "${STATE}"
+            : > "${HEALTH_TRACKER_SENTINEL}"
         fi
 
         # Normalise the legacy yes/no spellings of the same key to true/false.

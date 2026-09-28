@@ -21,9 +21,9 @@ include the fixes tracked in #4020–#4022 and #4012.
 - Keep stored nullable consultation fields unchanged while displaying blank controls.
 - Supply the persisted eForm subject only when the template lacks a subject control. Jsoup
   serializes its raw text once, preserving quotes, ampersands and angle brackets.
-- Deploy #3986's V1.0.36 before this PR's V1.0.37 tickler and V1.0.38 lab-source migrations.
-  The unused V1.0.35 gap is intentional. Both attachment migrations are unreleased; numbering
-  either below V1.0.36 would leave it unapplied on upgraded installations without outOfOrder.
+- Current deployment: apply release migrations through V1.0.41, then this PR's V1.0.42 tickler and V1.0.43 lab-source migrations. The earlier validation below used their unpublished V1.0.37/V1.0.38 names.
+  The unused V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Both attachment migrations are
+  unreleased; numbering either below the release high-water mark would skip it on upgrades.
 
 ## Validation performed
 
@@ -114,3 +114,30 @@ The original configuration was restored byte-for-byte. All **327 original note-l
 and every original attachment-table row retained their exact fingerprints. Fixtures and
 selector probe were removed, the temporary attachment schema was restored, final health
 and installed-file verification passed, and the VM was stopped with zero automatic restarts.
+
+## Release merge validation — 2026-09-28
+
+Merged `release/2026.08` at `67e8fd028a087de9d8f2e67cbb9c171a04c4ebd6` into
+this feature branch. Conflict resolutions retain transactional attachment edits and
+session-provider attribution, the release's same-day service-time preservation and
+privacy-safe diagnostics, shared-note cleanup protection, and both sets of browser
+workflow registrations. Removed the duplicate tickler mutator contract entry caught
+by the existing Node regression.
+
+The unpublished attachment migrations are now V1.0.42 and V1.0.43, above the
+release's V1.0.41. All 37 released SQL migration files are byte-for-byte unchanged.
+The next available migration version is V1.0.44.
+
+Validation of this merge:
+
+- 769 focused Java unit/integration and mutator contract tests passed, zero failures,
+  errors or skips; all production and test Java sources compiled.
+- All 2,088 Node regressions passed, zero failures or skips.
+- All 986 JSPs compiled without errors.
+- The isolated MariaDB migration checks passed source normalization, ownership,
+  original audit metadata, soft-deleted-row preservation, all three consultation/eForm
+  attachment stores, idempotent reruns, and the shipped demo inserts. The scratch
+  database was removed and the temporary server stopped.
+
+The Debian installation and browser results above belong to the prior revision;
+this conflict-resolution pass did not rebuild or reinstall the Debian packages.

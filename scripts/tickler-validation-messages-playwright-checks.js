@@ -270,6 +270,8 @@ async function workflow(s) {
     await editPopup.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
     h.assert(new URL(editPopup.url()).searchParams.get('tickler_no') === ticklerNo,
       'the edit popup opened a tickler other than the one this check saved');
+    const priorityBefore = sql.value(`SELECT priority FROM tickler WHERE tickler_no=${ticklerNo}`);
+    const historyBefore = sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${ticklerNo}`);
     const unsafeGet = await s.context.request.get(h.appUrl(s.config.baseUrl, '/tickler/EditTickler'), {
       params: { method: 'editTickler', ticklerNo, status: 'C', priority: 'High',
         assignedToProviders: provider, xml_appointment_date: editDate, newMessage: 'must not save via GET' },
@@ -277,7 +279,26 @@ async function workflow(s) {
     });
     h.assert(unsafeGet.status() === 405 && unsafeGet.headers().allow === 'POST',
       'Tickler edits must reject GET with Allow: POST');
-    const historyBefore = sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${ticklerNo}`);
+    h.assert(sql.value(`SELECT priority FROM tickler WHERE tickler_no=${ticklerNo}`) === priorityBefore,
+      'A rejected GET changed the tickler priority');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${ticklerNo}`) === historyBefore,
+      'A rejected GET changed history');
+    // An unchanged date-only form must retain a legacy service timestamp.
+    sql.execute(`UPDATE tickler SET service_date=${h.sqlString(`${addDate} 14:35:00`)} WHERE tickler_no=${ticklerNo}`);
+    const unchangedForm = await editPopup.locator('form[name="serviceform"]').evaluate(form => ({
+      url: form.action, fields: Object.fromEntries(new FormData(form)),
+    }));
+    h.assert(unchangedForm.fields['CSRF-TOKEN'], 'The edit form has no CSRF token');
+    const unchangedSave = await s.context.request.post(unchangedForm.url, {
+      form: { ...unchangedForm.fields, xml_appointment_date: addDate, newMessage: '' },
+      headers: { 'CSRF-TOKEN': unchangedForm.fields['CSRF-TOKEN'] }, maxRedirects: 0,
+    });
+    h.assert(unchangedSave.status() === 200 && (await unchangedSave.text()).includes('tickler-edit-ok'),
+      'An unchanged calendar-day save did not succeed');
+    h.assert(sql.value(`SELECT service_date FROM tickler WHERE tickler_no=${ticklerNo}`) === `${addDate} 14:35:00`,
+      'An unchanged calendar-day save erased the service time');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${ticklerNo}`) === historyBefore,
+      'An unchanged calendar-day save invented history');
     await postInvalidForm(s.context, editPopup, {
       xml_appointment_date: '2026-02-29', newMessage: 'rejected comment', status: 'C',
     }, 200, 'tickler-edit-ok');
@@ -299,6 +320,7 @@ async function workflow(s) {
       'the valid edit save did not reach the database');
     if (!editPopup.isClosed()) await editPopup.close();
   });
+
   await s.step('French edits retain and submit stable priorities while displaying translated labels', async () => {
     for (const priority of ['Low', 'Normal', 'High', 'High']) {
       const stored = sql.value(`SELECT priority FROM tickler WHERE tickler_no=${ticklerNo}`);

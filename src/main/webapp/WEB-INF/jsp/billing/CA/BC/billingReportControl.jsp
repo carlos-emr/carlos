@@ -28,6 +28,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    billingReportControl.jsp - British Columbia billing report selection and results.
+    Features: provider/date filters and independent, default-off No-Show and
+    Cancelled opt-ins for unbilled appointments. Lowercase custom statuses remain eligible.
+    Request parameters: reportAction, providerview, xml_vdate, xml_appointment_date,
+    includeNoShow and includeCancelled. Each status opt-in requires one true value;
+    missing or repeated values preserve the exclusion default.
+    @since 2026-09-26 (status opt-ins)
+--%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -75,6 +84,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.report.UnbilledReportStatusParameters" %>
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
@@ -129,9 +139,9 @@
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr bgcolor="#FFFFFF">
         <div align="right"><a href=#
-                              onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport')"><font
-                face="Arial, Helvetica, sans-serif" size="1">Manage Provider
-            List </font></a></div>
+                              onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport'); return false;"><span
+                style="font-family: Arial, Helvetica, sans-serif; font-size: xx-small">Manage Provider
+            List </span></a></div>
     </tr>
 </table>
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -204,15 +214,28 @@
                 <div align="center"><input type="text" name="xml_vdate"
                                            value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>"> <font size="1"
                                                                          face="Arial, Helvetica, sans-serif"><a href="#"
-                                                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_vdate&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">Begin:</a></font>
+                                                                                                                onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_vdate&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300'); return false;">Begin:</a></font>
                 </div>
             </td>
             <td width="40%"><input type="text" name="xml_appointment_date"
                                    value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"> <font size="1"
                                                                             face="Arial, Helvetica, sans-serif"><a
                     href="#"
-                    onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>
+                    onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300'); return false;">End:</a></font>
             </td>
+        </tr>
+        <tr>
+            <%-- Unbilled report only: No-Show / Cancelled visits stay excluded unless
+                 opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
+            <td style="width:30%;text-align:right;font-size:small;color:#333;font-family:Verdana,Arial,Helvetica,sans-serif">
+                <b><fmt:message key="billing.unbilled.label"/>:</b>
+                <label><input type="checkbox" name="includeNoShow" value="true"
+                    <%= UnbilledReportStatusParameters.includeNoShow(request) ? "checked" : "" %>><fmt:message key="billing.unbilled.includeNoShow"/></label>
+                <label><input type="checkbox" name="includeCancelled" value="true"
+                    <%= UnbilledReportStatusParameters.includeCancelled(request) ? "checked" : "" %>><fmt:message key="billing.unbilled.includeCancelled"/></label>
+            </td>
+            <td></td>
+            <td></td>
         </tr>
     </form>
 </table>
