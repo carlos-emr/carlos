@@ -344,6 +344,14 @@ the eForm images directory, matched against `current_user` first and then the MR
 single shared `stamp.png`. Those two were the *only* sources before 2026.09, which is why a
 multi-provider clinic without a `stamps.js` signed every letter with the same image.
 
+**Checks.** `scripts/rtl-signature-stamp.test.js` executes the stamp functions out of the real asset,
+pins the Flyway V1.0.41 `UPDATE` to the `updates/` script, and pins that the `stamp` and
+`_ClosingSalutation` mappings request only AP keys `apconfig.xml` defines (an undefined key raises
+the "could not be filled in" banner; the legacy `stamp_name` key did, on every Stamp click).
+`scripts/eform-rtl-signature-stamp-playwright-checks.js` drives Stamp and Closing Salutation in a
+browser against a running install and needs a `consult_sig_<provider_no>.png` for the signer in
+the eForm images directory.
+
 ---
 
 ## Token System

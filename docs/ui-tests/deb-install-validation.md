@@ -28,6 +28,22 @@ has not been re-run on a later snapshot.
 against the unfixed release head and against each half of the fix swapped back
 in isolation (old page: Add Contact enabled before a pick; old action: a
 duplicate add answered 200 instead of 409).
+`eform-rtl-signature-stamp-playwright-checks.js` (alpha-tester report: Rich
+Text Letters signed without the provider's signature after a package upgrade)
+was added on 2026-09-28 and run on the **upgrade path** the tester used: the
+published 2026.08.0-alpha13 debs installed into an Ubuntu 26.04 container with
+the demo dataset (its Rich Text Letter has no `user_ohip_no` input), then
+upgraded to a 2026.09.0~snapshot25 package built from the fix branch.
+`common/V1.0.41` applied on the upgrade and added the three identity inputs
+exactly once; `deb-upgrade-verify.sh` 44/44 and `carlos-ctl check` clean. The
+new check **PASS**es 9/9 through `:443` (fixture b), alongside
+`eform-rtl-print-pdf` (21/21 with fixture c) and the four
+`eform-rtl-attachment-*` checks. With the inputs stripped back out of the
+stored form (the tester's pre-fix state) it **FAILS** its input assertions;
+against the pre-fix `editControl2.js` it **FAILS** on the false "could not be
+filled in automatically: stamp_name" banner every Stamp click raised. A fresh
+install of the same packages with demo data also passes 9/9 (V1.0.41 is a
+no-op on the empty schema; the demo load adds the inputs once).
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
@@ -438,7 +454,8 @@ handoff before the suite runs.
 #    done
 #    then chown carlos:carlos and chmod 0640 the pushed files.
 
-# b) Provider stamp for the consultation-signature checks: any small PNG,
+# b) Provider stamp for the consultation-signature checks and
+#    eform-rtl-signature-stamp-playwright-checks.js: any small PNG,
 #    named consult_sig_<providerNo>.png in the eForm image directory.
 #    (Any PNG will do, e.g.: convert -size 240x80 xc:white consult_sig_999998.png,
 #    or reuse a repo image such as release/4422-84v9-1.png renamed.)
