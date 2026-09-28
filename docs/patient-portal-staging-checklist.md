@@ -109,8 +109,8 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Database
 
-- [ ] Flyway applied `V1.0.30` (portal security objects) and `V1.0.31` (invitation delivery table
-      and default grants).
+- [ ] Flyway applied `V1.0.41` (portal security objects), `V1.0.42` (portal email delivery
+      columns on `emailLog`) and `V1.0.43` (invitation delivery table and default grants).
 
 ### Email
 
@@ -124,7 +124,7 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Who can do what
 
-`V1.0.31` gives the `doctor` role `_portal.invite` (full) and `_portal.account` (read), and leaves
+`V1.0.43` gives the `doctor` role `_portal.invite` (full) and `_portal.account` (read), and leaves
 `_portal.account.unlock` with `admin`. Sending also needs `_email` write and `_edoc` write.
 
 - [ ] A staging user whose only role is `doctor` exists, to prove the default grants are enough.
