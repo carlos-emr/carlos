@@ -23,7 +23,8 @@
     smsHistory.jsp: patient SMS history popup.
 
     Purpose: lists one patient's text messages, newest first, 25 per page, with direction, type,
-    status, the last four digits of the number, the consent reason code and any error code.
+    status, the last four digits of the number, the consent recorded for the send (the raw consent
+    reason code for rows from before consent snapshots were kept) and any error code.
     Message text is never on this page. Each row whose text is stored offers "Show message", a
     POST form that asks for a reason and opens smsMessageBody.jsp through the audited read path.
 
@@ -88,7 +89,14 @@
                         <td><fmt:message key="sms.purpose.${row.purpose}"/></td>
                         <td><fmt:message key="sms.status.${row.status}"/></td>
                         <td><carlos:encode value="${row.phone}"/></td>
-                        <td><carlos:encode value="${row.consentReason}"/></td>
+                        <td>
+                            <c:choose>
+                                <c:when test="${not empty row.consentStatus}">
+                                    <fmt:message key="sms.consentStatus.${row.consentStatus}"/>
+                                </c:when>
+                                <c:otherwise><carlos:encode value="${row.consentReason}"/></c:otherwise>
+                            </c:choose>
+                        </td>
                         <td><carlos:encode value="${row.errorCode}"/></td>
                         <td><carlos:encode value="${row.completedAt}"/></td>
                         <td>

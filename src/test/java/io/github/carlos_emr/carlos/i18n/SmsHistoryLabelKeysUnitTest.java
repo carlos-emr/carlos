@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.i18n;
 
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsMessageBodyReadReason;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
@@ -38,7 +39,7 @@ import java.util.Properties;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The SMS history page builds its status, direction, purpose and reason labels from enum names
+ * The SMS history page builds its status, direction, purpose, consent and reason labels from enum names
  * ({@code sms.status.SENT} and so on), so a new enum value without a key would show the raw key.
  */
 @Tag("unit")
@@ -46,7 +47,7 @@ class SmsHistoryLabelKeysUnitTest {
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
 
     @Test
-    @DisplayName("should define an SMS history label for every status, direction, purpose and reason in every locale")
+    @DisplayName("should define an SMS history label for every status, direction, purpose, consent status and reason in every locale")
     void shouldDefineLabel_forEveryEnumValueInEveryLocale() throws IOException {
         List<String> keys = new ArrayList<>();
         for (SmsStatus value : SmsStatus.values()) {
@@ -57,6 +58,9 @@ class SmsHistoryLabelKeysUnitTest {
         }
         for (SmsMessagePurpose value : SmsMessagePurpose.values()) {
             keys.add("sms.purpose." + value.name());
+        }
+        for (SmsConsentStatus value : SmsConsentStatus.values()) {
+            keys.add("sms.consentStatus." + value.name());
         }
         for (SmsMessageBodyReadReason value : SmsMessageBodyReadReason.values()) {
             keys.add("sms.history.reason." + value.name());

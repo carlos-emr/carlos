@@ -58,12 +58,17 @@ public record SmsHistoryViewModel(String demographicNo, String patientDisplayNam
      * @param purpose       {@code SmsMessagePurpose} name, shown through the {@code sms.purpose.*} labels
      * @param status        {@code SmsStatus} name, shown through the {@code sms.status.*} labels
      * @param phone         last four digits only, for example {@code ***1212}
-     * @param consentReason consent reason code when consent blocked the send, otherwise empty
+     * @param consentStatus {@code SmsConsentStatus} name recorded for the send, shown through the
+     *                      {@code sms.consentStatus.*} labels; empty for rows recorded before consent
+     *                      snapshots were kept
+     * @param consentReason consent reason code when consent blocked the send, otherwise empty; shown
+     *                      only when there is no consent status
      * @param errorCode     provider or queue error code, otherwise empty
      * @param completedAt   when it was delivered, received or sent, in that order of preference
      * @param bodyStored    whether the text is still stored and can be opened
      */
     public record Row(String id, String createdAt, String direction, String purpose, String status, String phone,
-                      String consentReason, String errorCode, String completedAt, boolean bodyStored) {
+                      String consentStatus, String consentReason, String errorCode, String completedAt,
+                      boolean bodyStored) {
     }
 }

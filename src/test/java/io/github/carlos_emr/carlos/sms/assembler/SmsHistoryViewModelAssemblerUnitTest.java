@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.sms.assembler;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -41,9 +42,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -135,6 +138,31 @@ class SmsHistoryViewModelAssemblerUnitTest {
                 .containsExactly("CONSENT_BLOCKED", "SMS_CONSENT_UNKNOWN", false, "");
         assertThat(model.rows()).allSatisfy(row ->
                 assertThat(row.phone()).doesNotContain("416").doesNotContain("555"));
+    }
+
+    @Test
+    @DisplayName("assemble passes the recorded consent status for translation, and the reason code only for rows without one")
+    void shouldPassConsentStatus_andFallBackToReasonCodeForOlderRows() {
+        SmsTransaction sent = outbound(11L);
+        sent.recordConsentDecision(SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z")));
+        SmsTransaction implied = outbound(12L);
+        implied.markConsentBlocked(SmsConsentDecisionDto.blocked(SmsStatus.CONSENT_BLOCKED,
+                "SMS_CONSENT_NOT_EXPLICIT", "Only implied consent is recorded.", SmsConsentStatus.NOT_EXPLICIT, 4322, null));
+        SmsTransaction older = outbound(13L);
+        older.markConsentBlocked(SmsConsentDecisionDto.blocked(
+                SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN", "No SMS consent is recorded for this patient."));
+        when(smsTransactionDao.countByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(3L);
+        when(smsTransactionDao.findByDemographicNo(DEMOGRAPHIC_NO, 0, 25)).thenReturn(List.of(sent, implied, older));
+
+        SmsHistoryViewModel model = assembler().assemble(loggedInInfo, DEMOGRAPHIC_NO, 1);
+
+        assertThat(model.rows())
+                .extracting(SmsHistoryViewModel.Row::consentStatus, SmsHistoryViewModel.Row::consentReason)
+                .containsExactly(
+                        tuple("OPT_IN", ""),
+                        tuple("NOT_EXPLICIT", "SMS_CONSENT_NOT_EXPLICIT"),
+                        tuple("", "SMS_CONSENT_UNKNOWN"));
     }
 
     @Test

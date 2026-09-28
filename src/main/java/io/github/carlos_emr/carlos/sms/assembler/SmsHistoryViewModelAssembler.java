@@ -115,6 +115,7 @@ public class SmsHistoryViewModelAssembler {
                 code(transaction.getMessagePurpose()),
                 code(transaction.getStatus()),
                 lastFourDigits(inbound ? transaction.getFromPhoneNumber() : transaction.getToPhoneNumber()),
+                code(transaction.getConsentStatus()),
                 nullToEmpty(transaction.getConsentReasonCode()),
                 nullToEmpty(transaction.getErrorCode()),
                 format(completedAt(transaction)),
