@@ -374,6 +374,20 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         outcome = delivery.send(user, log, data, this::encrypt, this::send);
         assertThat(outcome.isTransportAccepted()).isTrue();
         assertThat(outcome.isFollowUpRequired()).isTrue();
+        assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDeliveryService.PUBLISH_PENDING);
+        assertThat(operations).containsExactly("create", "encrypt", "send");
+    }
+
+    @Test void shouldTellStaffToSendAgain_whenRecoveryWithdrewThePasswordDuringTheSend() {
+        when(logs.transitionPortalDelivery(log, PortalDeliveryState.SENDING, PortalDeliveryState.SENT, 77L)).thenReturn(false);
+        EmailLog withdrawn = new EmailLog();
+        withdrawn.setPortalDeliveryState(PortalDeliveryState.REVOKE_PENDING);
+        when(logs.find(45)).thenReturn(withdrawn);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
+        assertThat(outcome.isTransportAccepted()).isTrue();
+        assertThat(outcome.isFollowUpRequired()).isTrue();
+        assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDeliveryService.SENT_AFTER_REVOCATION);
+        assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.REVOKE_PENDING);
         assertThat(operations).containsExactly("create", "encrypt", "send");
     }
 

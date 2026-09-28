@@ -52,6 +52,7 @@ public class PortalEmailDeliveryService {
     public static final String UNCERTAIN = "Email delivery could not be confirmed. Do not resend until the mail provider's delivery record has been checked.";
     public static final String PUBLISH_PENDING = "Email was sent, but its password is not yet confirmed available in the patient portal. Retry password publication; do not resend the email.";
     public static final String REVOKED_NOT_SENT = "Email was not sent. Its portal password has been revoked.";
+    public static final String SENT_AFTER_REVOCATION = "Email was sent, but its portal password was withdrawn while it was sending, so the patient cannot open it. Send it again as a new email.";
     /** Used when the caller supplied no localized notice; the reference line is always appended. */
     static final String DEFAULT_BODY_NOTICE = "An encrypted PDF from your clinic is attached. Sign in to your usual "
             + "patient portal and open Email passwords to find its password.";
@@ -221,9 +222,16 @@ public class PortalEmailDeliveryService {
             } catch (RecoveryRefusedException raced) {
                 // Recovery decided while this send was still running and the provider has now
                 // accepted it. Record that loudly: the stored state may contradict the delivery.
+                boolean withdrawn = withdrawnByRecovery(log);
                 logger.error("Portal email accepted after its portal state was changed by recovery; "
                         + "emailLogId={}; portalState={}", log.getId(), log.getPortalDeliveryState());
                 audit(user, log, "PortalEmailDeliveryService.send.acceptedAfterRecovery");
+                if (withdrawn) {
+                    // The password is revoked or being revoked, so publication can never succeed;
+                    // "retry publication" would send staff after something that cannot happen.
+                    log.setErrorMessage(SENT_AFTER_REVOCATION);
+                    return EmailSendResult.accepted(log, false, true);
+                }
                 throw raced;
             }
             publish(client, staff, log);
@@ -382,6 +390,27 @@ public class PortalEmailDeliveryService {
         return EmailStatus.PENDING.equals(log.getStatus())
                 && (log.getTimestamp() == null || log.getTimestamp().getTime()
                         > System.currentTimeMillis() - EmailManager.PENDING_RESOLUTION_MIN_AGE_MILLIS);
+    }
+
+    /**
+     * Re-reads the stored portal state after recovery won a race with this send, and reports
+     * whether it withdrew the password. Recovery may instead have confirmed the send, in which case
+     * publication is still possible. An unreadable state is treated as not withdrawn, which keeps
+     * the "retry publication" path that the recovery page can re-check.
+     */
+    private boolean withdrawnByRecovery(EmailLog log) {
+        try {
+            var stored = logs.find(log.getId());
+            if (stored == null || stored.getPortalDeliveryState() == null) {
+                return false;
+            }
+            logs.detach(stored);
+            log.setPortalDeliveryState(stored.getPortalDeliveryState());
+            return stored.getPortalDeliveryState() == PortalDeliveryState.REVOKE_PENDING
+                    || stored.getPortalDeliveryState() == PortalDeliveryState.REVOKED;
+        } catch (RuntimeException unreadable) {
+            return false;
+        }
     }
 
     public EmailLog findForRecovery(LoggedInInfo user, int emailLogId) {
