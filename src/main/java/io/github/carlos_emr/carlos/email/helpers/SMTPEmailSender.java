@@ -272,7 +272,7 @@ public class SMTPEmailSender implements OutboundEmailTransport {
 
     /**
      * Returns which address the server refused when the failure proves the message never left
-     * ({@link Refusal#NONE} for a failure at connect time), or empty when it cannot be shown.
+     * ({@link Refusal#NONE} when no address was refused), or empty when it cannot be shown.
      */
     private Optional<Refusal> definitelyUnsent(Exception failure) {
         if (!(failure instanceof org.springframework.mail.MailSendException sendFailure)) {
@@ -319,8 +319,8 @@ public class SMTPEmailSender implements OutboundEmailTransport {
      * carrying the command it sent, so no part of the message has been transmitted.
      *
      * <p>The signal is CARLOS's own command, not the server's text. The same exception class is
-     * thrown at DATA, where acceptance cannot be ruled out, so matching on the class alone would
-     * be wrong. Angus never lists a sent address in this exception; the check keeps a future
+     * thrown after the message content (command {@code "."}), where acceptance cannot be ruled
+     * out, so matching on the class alone would be wrong. Angus never lists a sent address in this exception; the check keeps a future
      * library change from turning a possibly delivered message into a definite failure.</p>
      */
     private static boolean isRefusedAtSender(Exception messageFailure) {
@@ -339,8 +339,14 @@ public class SMTPEmailSender implements OutboundEmailTransport {
      * {@code SMTPSendFailedException} carrying that command. The content is sent only after a 354.
      *
      * <p>The command is matched exactly. A failure after the content carries {@code "."} as its
-     * command and may follow acceptance, so it must never match, and BDAT (chunking) sends content
-     * with the command. As at MAIL FROM, a listed sent address keeps the outcome uncertain.</p>
+     * command and may follow acceptance, so it must never match. BDAT (chunking) would send content
+     * with the command; CARLOS does not enable it, and Angus reports its failures differently, but
+     * the exact match keeps it out regardless. As at MAIL FROM, a listed sent address keeps the
+     * outcome uncertain.</p>
+     *
+     * <p>Only an orderly close or an unreadable reply becomes code -1. A read error at DATA (a
+     * timeout or reset), or a failure of the RSET Angus sends after the refusal, surfaces as a
+     * plain {@code MessagingException} instead and stays uncertain.</p>
      */
     private static boolean isRefusedAtData(Exception messageFailure) {
         return messageFailure instanceof SMTPSendFailedException refused
@@ -356,9 +362,9 @@ public class SMTPEmailSender implements OutboundEmailTransport {
      * recipient is refused (5xx, or 4xx such as greylisting) and partial sends are off, which
      * {@link #applyAllOrNothingRecipients} pins, the transport resets the session before DATA and
      * throws exactly {@code SendFailedException}: no valid-sent address, and every address listed
-     * as invalid or valid-but-unsent. The exact class matters. The DATA-stage
-     * {@code SMTPSendFailedException} is a subclass, and a failure there may follow acceptance,
-     * so it must never match. Any valid-sent address likewise means a copy may have gone out.</p>
+     * as invalid or valid-but-unsent. The exact class matters. {@code SMTPSendFailedException} is
+     * a subclass, and at the end of the content (command {@code "."}) a failure may follow
+     * acceptance, so it must never match. Any valid-sent address likewise means a copy may have gone out.</p>
      */
     private static boolean isRefusedAtRecipients(Exception messageFailure) {
         if (messageFailure == null || messageFailure.getClass() != SendFailedException.class) {

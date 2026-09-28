@@ -825,7 +825,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
                 (smtpSender, context) -> {
                     when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
-                    // The sender keeps a DATA-stage refusal uncertain (#3857); only the label changes.
+                    // The sender keeps an end-of-data (".") refusal uncertain (#3857); only the label changes.
                     doThrow(new EmailSendingException("SMTP transport did not confirm whether the message was accepted.",
                             aggregated, true))
                             .when(smtpSender).sendPrepared();

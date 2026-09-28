@@ -37,6 +37,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -173,8 +174,10 @@ class SMTPEmailSenderTransportIntegrationTest {
     void shouldReportDefiniteFailure_whenServerRefusesData(String refusal) throws Exception {
         try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
             receiver.setSoTimeout(10_000);
-            CompletableFuture<Boolean> dataReceived = new CompletableFuture<>();
-            Thread.ofPlatform().daemon(true).start(() -> refuseCommand(receiver, dataReceived, "DATA", refusal));
+            CompletableFuture<Boolean> sessionEnded = new CompletableFuture<>();
+            List<String> afterRefusal = new CopyOnWriteArrayList<>();
+            Thread.ofPlatform().daemon(true).start(
+                    () -> refuseCommand(receiver, sessionEnded, "DATA", refusal, afterRefusal));
             SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
                     new String[]{"recipient@example.test"}, "Synthetic refused data", "Body", List.of());
             sender.prepareArtifactBytes();
@@ -184,7 +187,10 @@ class SMTPEmailSenderTransportIntegrationTest {
                         assertThat(failure.isDeliveryOutcomeUncertain()).isFalse();
                         assertThat(failure.getRefusal()).isEqualTo(Refusal.NONE);
                     });
-            assertThat(dataReceived.get(10, TimeUnit.SECONDS)).isFalse();
+            sessionEnded.get(10, TimeUnit.SECONDS);
+            // The premise of the change: after a refused DATA the client resets and quits, and no
+            // header, body line or end-of-data "." ever reaches the server.
+            assertThat(afterRefusal).containsExactly("RSET", "QUIT");
         }
     }
 
@@ -206,6 +212,12 @@ class SMTPEmailSenderTransportIntegrationTest {
      */
     private static void refuseCommand(ServerSocket receiver, CompletableFuture<Boolean> dataReceived,
             String refusedCommand, String refusal) {
+        refuseCommand(receiver, dataReceived, refusedCommand, refusal, new CopyOnWriteArrayList<>());
+    }
+
+    /** As above, also recording every line the client sends after the refused command. */
+    private static void refuseCommand(ServerSocket receiver, CompletableFuture<Boolean> dataReceived,
+            String refusedCommand, String refusal, List<String> afterRefusal) {
         try (Socket connection = receiver.accept()) {
             connection.setSoTimeout(10_000);
             var output = connection.getOutputStream();
@@ -213,10 +225,15 @@ class SMTPEmailSenderTransportIntegrationTest {
             output.write("220 synthetic SMTP ready\r\n".getBytes(StandardCharsets.US_ASCII));
             output.flush();
             String line;
+            boolean refused = false;
             while ((line = input.readLine()) != null) {
+                if (refused) {
+                    afterRefusal.add(line);
+                }
                 String reply;
                 if (line.startsWith(refusedCommand)) {
                     reply = refusal;
+                    refused = true;
                 } else if (line.equals("DATA")) {
                     // Refuse at once so a regression fails fast instead of waiting out the I/O timeout.
                     dataReceived.complete(true);

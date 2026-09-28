@@ -201,7 +201,7 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should keep a DATA-stage rejection uncertain even when it lists refused addresses")
+    @DisplayName("should keep an end-of-data (\".\") rejection uncertain even when it lists refused addresses")
     void shouldClassifyDataStageRejection_asUncertainOutcome() throws Exception {
         // The shape issueSendCommand builds after a partial RCPT and a non-250 reply to ".":
         // no valid-sent address, invalid addresses present, but DATA was already sent.
