@@ -27,11 +27,16 @@
     c, fmt and carlos taglibs it declares.
 
     Security: rows are redacted view-model records: no message text, only the recipient's last four
-    digits, and the patient only as a plain demographic number (no link). Every value is encoded; the
-    status label key is built only from the SmsStatus enum name.
+    digits, and the patient only as a plain demographic number (no link), shown only when
+    smsQueue.demographicNumbersShown is set. Every value is encoded; the status label key is built only
+    from the SmsStatus enum name.
+
+    The page already declares the bundle; repeating it here keeps the fragment self-contained for the
+    i18n lint, which checks each changed JSP and fragment on its own.
 
     @since 2026-09-28
 --%>
+<fmt:setBundle basename="oscarResources"/>
 <c:if test="${queueRowsTotal > smsQueue.listLimit}">
     <p class="small text-muted mb-1">
         <fmt:message key="sms.queue.listCapped">
