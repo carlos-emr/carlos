@@ -115,6 +115,41 @@ class CarlosPropertiesRuntimeDefaultsTest extends CarlosUnitTestBase {
         assertThat(loadCarlosProperties().getProperty("ENABLE_EDIT_APPT_STATUS")).isEqualTo("yes");
     }
 
+    /**
+     * Clinic features the OSCAR installer switched on for every install. The stock file
+     * carried the pre-installer template values (off), which alpha testers coming from OSCAR
+     * reported as missing features; the packaged upgrade migrates the old stock lines once
+     * (debian/carlos-emr.postinst, OSCAR_DEFAULTS).
+     */
+    @Test
+    @DisplayName("should ship the OSCAR installer feature defaults in carlos properties")
+    void shouldShipOscarInstallerFeatureDefaults_inCarlosProperties() throws IOException {
+        Properties properties = loadCarlosProperties();
+
+        for (String key : List.of(
+                "new_flowsheet_enabled",
+                "workflow_enhance",
+                "rx_fax_enabled",
+                "eform_signature_enabled",
+                "eform_generator_indivica_signature_enabled",
+                "eform_generator_indivica_print_enabled",
+                "eform_generator_indivica_fax_enabled",
+                "tickler_edit_enabled",
+                "consultation_dynamic_labelling_enabled",
+                "lab_req_include_chartno",
+                "use_lab_clientreference",
+                "ALLOW_UPDATE_DOCUMENT_CONTENT",
+                "displayNotesOnScheduleScreen",
+                "displayAlertsOnScheduleScreen",
+                "privateConsentEnabled",
+                "DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM")) {
+            assertThat(properties.getProperty(key)).as(key).isNotNull();
+            assertThat(properties.getProperty(key).trim()).as(key).isEqualTo("true");
+        }
+        assertThat(properties.getProperty("onare_labreqver")).isEqualTo("10");
+        assertThat(properties.getProperty("invoice_due_date")).isEqualTo("30");
+    }
+
     private String readCarlosPropertiesContent() throws IOException {
         try (InputStream inputStream = openCarlosProperties()) {
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
