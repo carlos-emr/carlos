@@ -24,7 +24,7 @@ All adapters implement `send(command, clientReferenceId)`. There is no overload 
 
 `CarlosSmsConsentService` gates every outbound message on the patient's current consent record. It reads the existing `Consent` / `consentType` tables; SMS has no consent store of its own.
 
-- The `sms_communication` row in the `property` table names the consent type to check, the same way `email_communication` does for email. `V1.0.29__add_sms_consent.sql` seeds it to a dedicated `sms_communication_consent` type. SMS deliberately does not reuse `electronic_communication_consent`: that wording never mentions text messages, and a text is visible on a locked screen. Existing patients therefore start blocked until SMS consent is recorded for them.
+- The `sms_communication` row in the `property` table names the consent type to check, the same way `email_communication` does for email. `V1.0.32__add_sms_consent.sql` seeds it to a dedicated `sms_communication_consent` type. SMS deliberately does not reuse `electronic_communication_consent`: that wording never mentions text messages, and a text is visible on a locked screen. Existing patients therefore start blocked until SMS consent is recorded for them.
 - The consent type is seeded **inactive** because its wording is a draft awaiting compliance sign-off: an active consent type is shown on every patient record at every clinic. While it is inactive every patient SMS is blocked as `SMS_CONSENT_NOT_CONFIGURED` and staff never see the wording: the add-patient form, the patient record and the consent REST API all list active consent types only. There is no administration screen for consent types, so a clinic, or a later migration carrying the approved wording, turns it on with `UPDATE consentType SET active = 1 WHERE type = 'sms_communication_consent';`. The patient record renders the stored `description`, so the wording can be corrected the same way, with an `UPDATE` in a new migration (never by editing a released one); consents already recorded are not tied to a wording version, which is part of the consent history work in issue #2674.
 - Decisions, in order:
 
@@ -68,7 +68,28 @@ A direct-send response reflects the persisted result, including a delivery webho
 
 Run `mvn '-Dtest=**/sms/**/*Test' test` for the module's unit, persistence and competing-transaction tests. Tests use synthetic data. There is no browser flow to validate until a UI/API entry point is implemented.
 
-Schema installation uses `V1.0.25__add_sms_system_of_record.sql` and `V1.0.29__add_sms_consent.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before this migration: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
+Schema installation uses `V1.0.25__add_sms_system_of_record.sql` and `V1.0.31__add_sms_security_objects.sql` and `V1.0.32__add_sms_consent.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before `V1.0.25`: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
+
+## Security objects
+
+SMS has three security objects. A role's grant is a ladder, `x` > `w` > `u` > `r`, so a role granted `w` also passes an `r` check; `d` sits outside the ladder and only `d` or `x` satisfies it. `(roleUserGroup, objectName)` is the primary key of `secObjPrivilege`, so a role has one grant per object.
+
+| Object | Purpose | Ask for | Seeded default |
+| --- | --- | --- | --- |
+| `_sms` | Sending patient text messages and viewing SMS history | `w` to send, `r` to view history | `admin` and `doctor`: `x` |
+| `_admin.sms` | SMS configuration and the operational views (queue backlog, failures) | `w` to change, `r` to view | `admin`: `x` |
+| `_msgSMS` | Reading a stored message body through `SmsMessageBodyReadService` (audited) | `r`, plus `_demographic` `r` when the transaction has a patient | `admin` and `doctor`: `x` |
+
+- Only `_msgSMS` is enforced today, by `CarlosSmsMessageBodyAuthorizationService`. `_sms` and `_admin.sms` are seeded ahead of the code (`V1.0.31__add_sms_security_objects.sql`) so the grants exist before the first gate ships; nothing checks them yet. `_msgSMS` is seeded by `V1.0.25`.
+- Both migrations leave any existing clinic row for a role and object untouched, whatever its privilege.
+- Grants take effect on the next request: privileges are read from `secObjPrivilege` on every check and nothing caches them, so no restart is needed after the migration.
+- A clinic that wants a role to view history without sending grants it `r` on `_sms`.
+- `_admin` = `x` confers nothing on `_admin.sms`; a dotted object needs its own row.
+
+The actions that check `_sms` and `_admin.sms` arrive with #3836, #3838, #3839 and #3841. They follow the security-check rules in `CLAUDE.md` and `docs/soap-rbac-hardening.md`: the paren-form `SecurityException` message, and the patient's `demographicNo` rather than `null` whenever the patient is known. Two things for the first of those PRs to settle, because the current code does not:
+
+- A Struts action's refusal is handled as a 403 only if its package maps `java.lang.SecurityException` to a `securityError` global result (see `struts-form.xml`); otherwise the exception reaches the container error page. The messenger and eform packages define neither the mapping nor the result today, and `carlos-default` supplies no result, so both must be added.
+- `CarlosSmsMessageBodyAuthorizationService` throws `commn.exception.AccessDeniedException`, which no Struts package maps to a refusal.
 
 ## Required before real SMS traffic
 
