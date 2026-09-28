@@ -60,7 +60,9 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -493,6 +495,30 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
                 .isEqualTo(EmailManager.EmailResolutionResult.RESOLVED);
         verify(emailLogDao).transitionEmailStatus(eq(42), eq(EmailStatus.PENDING), eq(EmailStatus.RESOLVED),
                 nullable(String.class), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("should not look up the delivery of an invitation email its status already rules out")
+    void shouldSkipTheDeliveryLookup_whenTheStatusRulesTheRowOut() {
+        // The email list asks this of every row, and the lookup is a query.
+        EmailLog sent = portalInvitation(41, EmailStatus.SUCCESS);
+        EmailLog freshPending = portalInvitation(42, EmailStatus.PENDING);
+
+        assertThat(emailManager.isManuallyResolvable(sent)).isFalse();
+        assertThat(emailManager.isManuallyResolvable(freshPending)).isFalse();
+        verifyNoInteractions(inviteDeliveries);
+    }
+
+    @Test
+    @DisplayName("should look up an invitation's delivery once per resolution")
+    void shouldLookUpTheDeliveryOnce_whenResolving() {
+        EmailLog stalePending = stale(portalInvitation(42, EmailStatus.PENDING));
+        deliveryFor(42, PatientPortalInviteDelivery.State.SENT);
+        when(emailLogDao.find((Object) 42)).thenReturn(stalePending);
+
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isEqualTo(EmailManager.EmailResolutionResult.RESOLVED);
+        verify(inviteDeliveries, times(1)).findByEmailLogId(42);
     }
 
     @Test

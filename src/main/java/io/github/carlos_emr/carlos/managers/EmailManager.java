@@ -876,14 +876,16 @@ public class EmailManager {
             return EmailResolutionResult.NOT_FOUND;
         }
         // Portal recovery and an open invitation delivery own these whatever their age, so "too recent"
-        // would be the wrong reason.
+        // would be the wrong reason. The delivery is looked up once, here; past this point only the row's
+        // own status decides, exactly as isManuallyResolvable would.
         if (emailLog.isPortalDeliveryUnresolved() || isOwnedByOpenInvite(emailLog)) {
             return EmailResolutionResult.NOT_RESOLVABLE;
         }
-        if (EmailStatus.PENDING.equals(emailLog.getStatus()) && !isManuallyResolvable(emailLog)) {
+        boolean resolvable = isResolvableByStatus(emailLog);
+        if (EmailStatus.PENDING.equals(emailLog.getStatus()) && !resolvable) {
             return EmailResolutionResult.PENDING_TOO_RECENT;
         }
-        if (!isManuallyResolvable(emailLog)) {
+        if (!resolvable) {
             return EmailResolutionResult.NOT_RESOLVABLE;
         }
 
@@ -915,11 +917,17 @@ public class EmailManager {
         if (emailLog.isPortalDeliveryUnresolved()) {
             return false;
         }
-        // While an invitation's delivery is open, its record, not this row, says whether a live code is out,
-        // and staff resolve it on the portal page. Resolving the row here would leave the code live.
-        if (isOwnedByOpenInvite(emailLog)) {
+        // Checked before the invitation below, which costs a query: the email list asks this of every row.
+        if (!isResolvableByStatus(emailLog)) {
             return false;
         }
+        // While an invitation's delivery is open, its record, not this row, says whether a live code is out,
+        // and staff resolve it on the portal page. Resolving the row here would leave the code live.
+        return !isOwnedByOpenInvite(emailLog);
+    }
+
+    /** A failed row, or a pending one older than {@link #PENDING_RESOLUTION_MIN_AGE_MILLIS}, judged by status alone. */
+    private static boolean isResolvableByStatus(EmailLog emailLog) {
         if (EmailStatus.FAILED.equals(emailLog.getStatus())) {
             return true;
         }
@@ -938,6 +946,11 @@ public class EmailManager {
      * A patient portal invitation whose delivery has not finished. Once it has, or when no delivery names
      * the row, the row is resolvable like any other: a status write that failed after the send (see
      * {@code completeAcceptedSend}) leaves it PENDING with nothing else able to clear it.
+     *
+     * <p>"It did not arrive" claims the delivery by moving it to REVOKED before revoking the code, and
+     * releases the claim if the revocation fails, so for that moment the delivery reads as finished and
+     * the row can be resolved here. That is harmless: the code was already dropped from the stored body
+     * when the send settled, and the portal page still offers the attempt once the claim is released.
      */
     private boolean isOwnedByOpenInvite(EmailLog emailLog) {
         if (!isPortalInvite(emailLog) || emailLog.getId() == null) {

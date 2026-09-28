@@ -1065,8 +1065,9 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should warn when the portal no longer lists the earlier invitation")
         void shouldRecordUnconfirmed_whenTheEarlierInvitationIsUnlisted() {
+            // The new code still reads as never activated, so only the earlier invitation's absence warns.
             PatientPortalInviteDelivery row = queuedResend();
-            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "pending")));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "prepared")));
 
             PatientPortalInviteDelivery resolved =
                     service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
@@ -1074,12 +1075,14 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             assertThat(resolved.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
         }
 
-        @Test
+        @ParameterizedTest
+        @ValueSource(strings = {"unreachable", "refused"})
         @DisplayName("should warn, and still stop the resend, when the portal cannot say whether it was activated")
-        void shouldRecordUnconfirmed_whenTheStatusCannotBeRead() {
+        void shouldRecordUnconfirmed_whenTheStatusCannotBeRead(String listing) {
             PatientPortalInviteDelivery row = queuedResend();
-            when(portal.listInvites(anyInt(), any()))
-                    .thenThrow(PatientPortalException.ofTransportFailure("/invites", null));
+            when(portal.listInvites(anyInt(), any())).thenThrow("unreachable".equals(listing)
+                    ? PatientPortalException.ofTransportFailure("/invites", null)
+                    : PatientPortalException.ofStatus(503, "/invites", "portal unavailable"));
 
             PatientPortalInviteDelivery resolved =
                     service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
@@ -1144,6 +1147,22 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             logActionMock.verify(() -> LogAction.addLog(user, "PortalInviteDeliveryService.recover.confirmNotSent",
                     "PortalInviteDelivery", String.valueOf(row.getId()), String.valueOf(PATIENT),
                     "state=REVOKED&outcome=CONFIRMED_NOT_SENT"));
+        }
+
+        @Test
+        @DisplayName("should audit a confirmed arrival even when closing its email row then fails")
+        void shouldAuditTheConfirmation_whenClosingTheEmailFails() {
+            when(emailLogs.transitionEmailStatus(any(), any(), any(), any(), any()))
+                    .thenThrow(new IllegalStateException("outbox unavailable"));
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_SENT, staff))
+                    .isInstanceOf(IllegalStateException.class);
+
+            assertThat(row.getState()).isEqualTo(State.SENT);
+            logActionMock.verify(() -> LogAction.addLog(user, "PortalInviteDeliveryService.recover.confirmSent",
+                    "PortalInviteDelivery", String.valueOf(row.getId()), String.valueOf(PATIENT),
+                    "state=SENT&outcome=CONFIRMED_SENT"));
         }
 
         @Test
