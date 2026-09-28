@@ -59,6 +59,9 @@ public class PortalInviteException extends RuntimeException {
                 "Portal invitations are not configured on this server. Ask an administrator to set "
                         + PortalInviteSettings.PUBLIC_BASE_URL_KEY + " and "
                         + PortalInviteSettings.SENDER_EMAIL_KEY + "."),
+        SENDER_UNAVAILABLE("invite_sender_unavailable",
+                "The portal invitation sender address has no active email account in CARLOS. Ask an administrator "
+                        + "to add or activate the account set in " + PortalInviteSettings.SENDER_EMAIL_KEY + "."),
         DELIVERY_NOT_FOUND("delivery_not_found",
                 "That invitation delivery was not found for this patient. Refresh the panel."),
         RECOVERY_TOO_EARLY("recovery_too_early",

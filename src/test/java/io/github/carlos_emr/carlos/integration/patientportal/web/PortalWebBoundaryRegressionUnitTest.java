@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettin
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.Set;
@@ -67,7 +68,8 @@ class PortalWebBoundaryRegressionUnitTest {
         try (var servlet = mockStatic(ServletActionContext.class);
              var login = mockStatic(LoggedInInfo.class);
              var settings = mockStatic(PatientPortalSettings.class);
-             var spring = mockStatic(SpringUtils.class)) {
+             var spring = mockStatic(SpringUtils.class);
+             var logs = LogCapture.forLogger(PortalJsonAction.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(session);
@@ -80,6 +82,9 @@ class PortalWebBoundaryRegressionUnitTest {
             assertThat(response.getStatus()).isEqualTo(503);
             assertThat(response.getContentAsString()).contains("portal_configuration_invalid");
             assertThat(response.getContentType()).startsWith("application/json");
+            // The portal exception names the bad key; the bean's own message may carry configured values.
+            assertThat(logs.messages()).anySatisfy(message -> assertThat(message).endsWith(": bad timeout"));
+            assertThat(logs.messages()).noneSatisfy(message -> assertThat(message).contains("configuration failed"));
         }
     }
 

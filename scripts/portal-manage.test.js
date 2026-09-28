@@ -61,6 +61,15 @@ test('calls only a delivered invitation good news', () => {
   assert.equal(page.isGoodNews(undefined), true, 'a request that returns no delivery, such as a revoke');
 });
 
+test('says why an unfinished attempt offers no decision: still settling, or another portal connection', () => {
+  const page = logic({
+    'deliveries.waiting': 'Wait 15 minutes.',
+    'refusal.portal_connection_changed': 'Restore that connection.'
+  });
+  assert.equal(page.waitingFor({finished: false, onCurrentConnection: true}), 'Wait 15 minutes.');
+  assert.equal(page.waitingFor({finished: false, onCurrentConnection: false}), 'Restore that connection.');
+});
+
 test('offers withdrawing a stuck attempt once, never again on the retry', () => {
   const page = logic({});
   const stuck = {ok: false, reason: 'stale_attempt_exists'};

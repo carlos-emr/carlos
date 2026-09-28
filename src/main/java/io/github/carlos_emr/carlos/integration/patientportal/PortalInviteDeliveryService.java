@@ -266,7 +266,7 @@ public class PortalInviteDeliveryService {
                 || row.getDemographicNo().intValue() != patient.getDemographicNo()) {
             throw new PortalInviteException(Reason.DELIVERY_NOT_FOUND);
         }
-        if (!onCurrentConnection(row)) {
+        if (!isOnCurrentConnection(row)) {
             throw new PortalInviteException(Reason.PORTAL_CONNECTION_CHANGED);
         }
         if (!decisionsFor(row.getState()).contains(decision)) {
@@ -614,7 +614,7 @@ public class PortalInviteDeliveryService {
             boolean withdraw) {
         List<PatientPortalInviteDelivery> stale = unfinishedFor(patient.getDemographicNo()).stream()
                 .filter(row -> decisionsFor(row.getState()).contains(Decision.ABANDON))
-                .filter(this::onCurrentConnection)
+                .filter(this::isOnCurrentConnection)
                 .filter(this::isRecoverable)
                 .toList();
         if (stale.isEmpty()) {
@@ -631,7 +631,11 @@ public class PortalInviteDeliveryService {
         return rows == null ? List.of() : rows;
     }
 
-    private boolean onCurrentConnection(PatientPortalInviteDelivery row) {
+    /**
+     * @return whether the attempt was made on the portal connection configured now; only such an attempt can
+     *     be resolved, because its code lives on that portal
+     */
+    public boolean isOnCurrentConnection(PatientPortalInviteDelivery row) {
         return portalSettings.baseUrl().equals(row.getPortalOrigin())
                 && portalSettings.clinicId().equals(row.getClinicId());
     }

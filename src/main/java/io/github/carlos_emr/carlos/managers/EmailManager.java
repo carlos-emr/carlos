@@ -231,8 +231,13 @@ public class EmailManager {
      * sending anything.
      *
      * @return the message a blocked send would record, or {@code null} when the send is allowed
+     * @throws SecurityException if the user lacks _email READ privilege
      */
     public String consentBlockMessage(LoggedInInfo loggedInInfo, EmailData emailData) {
+        // A patient's consent state, as EmailComposeManager.getEmailConsentStatus guards it.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
         EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
         return isBlockedByConsent(consentResult, emailData) ? getConsentBlockMessage(consentResult) : null;
     }
@@ -1121,7 +1126,7 @@ public class EmailManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_email)");
         }
-        addEmailNote(loggedInInfo, emailLog, new EmailNoteUtil(loggedInInfo, emailLog).createNote());
+        writeEmailNote(loggedInInfo, emailLog, new EmailNoteUtil(loggedInInfo, emailLog).createNote());
     }
 
     /**
@@ -1135,13 +1140,24 @@ public class EmailManager {
      * @param emailLog the sent email the note documents
      * @param emailNote the note text; it must not contain anything the chart may not hold
      * @throws RuntimeException if user lacks _email READ privilege
+     * @throws SecurityException if the user may not open the patient's record
      * @since 2026-09-22
      */
     public void addEmailNote(LoggedInInfo loggedInInfo, EmailLog emailLog, String emailNote) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_email)");
         }
+        // Called by workflows outside the send (a portal invitation, possibly confirmed by staff later), so the
+        // chart this writes to is checked here rather than trusted from the caller.
+        Integer demographicNo = emailLog.getDemographic() == null ? null : emailLog.getDemographic().getDemographicNo();
+        if (demographicNo == null || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        writeEmailNote(loggedInInfo, emailLog, emailNote);
+    }
 
+    /** Writes, signs and links the note; callers have checked the privileges. */
+    private void writeEmailNote(LoggedInInfo loggedInInfo, EmailLog emailLog, String emailNote) {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String programId = new EctProgram(loggedInInfo.getSession()).getProgram(providerNo);
         Date creationDate = new Date();

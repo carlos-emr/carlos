@@ -33,7 +33,8 @@ import java.util.function.Function;
  * optional here, so an unconfigured invitation workflow never stops the rest of the portal
  * integration; the workflow refuses to send until they are set.
  *
- * @param publicBaseUrl the patient-facing portal origin, or {@code null} when unset
+ * @param publicBaseUrl the patient-facing portal URL: an origin, optionally followed by the path the portal's
+ *     patient pages are served under; {@code null} when unset
  * @param senderEmail the sender address of an active CARLOS email account, or {@code null} when unset
  * @since 2026-09-22
  */

@@ -94,12 +94,12 @@ public abstract class PortalJsonAction extends ActionSupport {
         } catch (SecurityException exception) {
             return forbidden(ServletActionContext.getResponse(), exception);
         } catch (PatientPortalConfigurationException exception) {
-            return configurationFailure(ServletActionContext.getResponse());
+            return configurationFailure(ServletActionContext.getResponse(), exception);
         } catch (BeanCreationException exception) {
             if (!exception.contains(PatientPortalConfigurationException.class)) {
                 throw exception;
             }
-            return configurationFailure(ServletActionContext.getResponse());
+            return configurationFailure(ServletActionContext.getResponse(), exception);
         } catch (PortalRequestPreparationException exception) {
             // CARLOS refused to build the request from its own data, e.g. a provider name the portal
             // cannot accept. Only this type is caught: any other IllegalArgumentException is a
@@ -115,9 +115,15 @@ public abstract class PortalJsonAction extends ActionSupport {
 
     protected abstract String handleRequest() throws IOException;
 
-    private String configurationFailure(HttpServletResponse response) throws IOException {
-        // BeanCreationException may contain configured values in a nested cause. Never log it.
-        logger.error("patient portal configuration is invalid; check deployment settings");
+    private String configurationFailure(HttpServletResponse response, RuntimeException failure) throws IOException {
+        // BeanCreationException may contain configured values in its own message or a nested cause. Never log
+        // it. Only the PatientPortalConfigurationException in the chain is named: its message names the key.
+        Throwable cause = failure;
+        while (cause != null && !(cause instanceof PatientPortalConfigurationException)) {
+            cause = cause.getCause();
+        }
+        logger.error("patient portal configuration is invalid; check deployment settings: {}",
+                cause == null ? "no detail" : cause.getMessage());
         return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
                 "portal_configuration_invalid",
                 "The patient portal connection is not configured correctly. Contact an administrator.");

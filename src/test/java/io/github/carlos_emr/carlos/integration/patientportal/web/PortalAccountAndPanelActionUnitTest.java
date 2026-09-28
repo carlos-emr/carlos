@@ -559,6 +559,7 @@ class PortalAccountAndPanelActionUnitTest {
             row.setOutcome(PatientPortalInviteDelivery.Outcome.SEND_UNCONFIRMED);
             when(invites.recentFor(DEMOGRAPHIC_NO)).thenReturn(List.of(row));
             when(invites.isRecoverable(row)).thenReturn(true);
+            when(invites.isOnCurrentConnection(row)).thenReturn(true);
 
             panelWithDeliveries().execute();
 

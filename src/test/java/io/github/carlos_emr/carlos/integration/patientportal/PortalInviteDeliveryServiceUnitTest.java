@@ -308,6 +308,17 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     Reason.NOT_CONFIGURED);
         }
 
+        @Test
+        @DisplayName("should say the sender has no active email account, not that a setting is missing")
+        void shouldRefuse_whenTheSenderHasNoActiveAccount() {
+            service = new PortalInviteDeliveryService(portal, portalSettings("https://portal-api.clinic.example"),
+                    new PortalInviteSettings("https://portal.clinic.example", "retired@example.invalid"),
+                    emailManager, deliveries, mock(EmailConfigDao.class), emailLogs, clockAtNow());
+
+            assertRefusedBeforePortal(() -> service.invite(user, patient(), staff, emailRequest()),
+                    Reason.SENDER_UNAVAILABLE);
+        }
+
         private void assertRefusedBeforePortal(Runnable call, Reason reason) {
             assertThatThrownBy(call::run)
                     .isInstanceOfSatisfying(PortalInviteException.class,
@@ -621,6 +632,17 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     .isInstanceOfSatisfying(PortalInviteException.class,
                             exception -> assertThat(exception.reason()).isEqualTo(Reason.PORTAL_CONNECTION_CHANGED));
             verifyNoInteractions(portal);
+        }
+
+        @Test
+        @DisplayName("should tell the panel whether an attempt was made on the current portal connection")
+        void shouldReportTheConnection_ofAnAttempt() {
+            PatientPortalInviteDelivery here = storedRow(State.QUEUED, Duration.ofHours(1));
+            PatientPortalInviteDelivery elsewhere = deliveries.claim(new PatientPortalInviteDelivery("inv-other",
+                    PATIENT, "othertown", "https://portal-api.clinic.example", Channel.EMAIL, null, "999998"));
+
+            assertThat(service.isOnCurrentConnection(here)).isTrue();
+            assertThat(service.isOnCurrentConnection(elsewhere)).isFalse();
         }
 
         @Test
