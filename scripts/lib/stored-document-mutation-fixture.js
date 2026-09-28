@@ -100,7 +100,7 @@ function loadRecovery(options, expected) {
 }
 
 /** Exact ownership journal: uncertain operations are deliberately retained for recovery. */
-function createStoredDocumentFixture(session, program, recovery) {
+function createStoredDocumentFixture(session, program, recovery, options = {}) {
   const {sql, marker, patient, provider} = session;
   id(patient); id(program);
   const configured = process.env.RX_FAX_DOCUMENT_DIR || process.env.DOCUMENT_DIR;
@@ -110,11 +110,11 @@ function createStoredDocumentFixture(session, program, recovery) {
   const documents = new Map(), columns = new Map();
   const filename = `${marker}-stored.pdf`, sourceFile = path.join(store, filename);
   let uncertain = false, initialised = false, closed = false, cleaned = false, transportUncertain = false, baseline, sourceId, journal, acceptedSplitId, recoveryOf;
-  const removed = [];
+  const removed = [], metadataReceipts = [];
   function checkpoint(phase) {
     if (!journal) return;
     const content = JSON.stringify({marker, patient, provider, program, store, sourceId, acceptedSplitId, uncertain, initialised, closed, cleaned, transportUncertain, phase,
-      documents: [...documents], baseline, removed, recoveryOf}, null, 2);
+      documents: [...documents], baseline, removed, recoveryOf, metadataReceipts}, null, 2);
     const temporary = journal + '.new';
     fs.writeFileSync(temporary, content, {mode: 0o600, flag: 'wx'});
     const descriptor = fs.openSync(temporary, 'r');
@@ -286,9 +286,9 @@ function createStoredDocumentFixture(session, program, recovery) {
   const ownerStat = fs.statSync(store); fs.chownSync(sourceFile, ownerStat.uid, ownerStat.gid);
   uncertain = true; checkpoint('inserting');
   sourceId = id(sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,program_id,
-    updatedatetime,status,contenttype,contentdatetime,public1,number_of_pages,restrictToProgram)
+    updatedatetime,status,contenttype,contentdatetime,public1,number_of_pages,restrictToProgram${options.metadataSchema ? ',observationdate' : ''})
     VALUES ('Lab',${h.sqlString(marker + ' stored mutation')},${h.sqlString(filename)},${h.sqlString(provider)},${h.sqlString(provider)},${program},
-    NOW(),'A','application/pdf',NOW(),0,3,1); SELECT LAST_INSERT_ID()`));
+    NOW(),'A','application/pdf',NOW(),0,3,1${options.metadataSchema ? ',DATE(NOW())' : ''}); SELECT LAST_INSERT_ID()`));
   checkpoint('document-inserted');
   sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${sourceId},'A');
     INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type,created) VALUES (${patient},${sourceId},'DOC',NOW());
@@ -304,6 +304,49 @@ function createStoredDocumentFixture(session, program, recovery) {
       documents.forEach((record, number) => verify(number));
       equal(otherDocuments(), baseline, 'Rejected operation changed another document');
       uncertain = false; checkpoint('mutation-rejected');
+    },
+    acceptMetadataTransition(receipt) {
+      h.assert(options.metadataSchema && !recovery && initialised && !closed && !cleaned
+        && uncertain && !transportUncertain && !acceptedSplitId && removed.length === 0 && documents.size === 1,
+      'Metadata acceptance requires an active unambiguous owned operation');
+      const {captureMetadataState, validateTransition} = require('./document-metadata-check');
+      const intent = receipt.intent;
+      h.assert(['metadata', 'queue', 'unlink'].includes(receipt.kind) && intent.kind === receipt.kind
+        && intent.document === sourceId && intent.patient === patient && intent.provider === provider,
+      'Metadata acceptance escaped its owned scope');
+      h.assert(/^[a-f0-9]{64}$/.test(receipt.requestBodySha256)
+        && createHash('sha256').update(intent.body).digest('hex') === receipt.requestBodySha256
+        && receipt.response?.success === true && receipt.response.accepted === true
+        && receipt.response.document === Number(sourceId), 'Metadata acceptance proof incomplete');
+      if (receipt.kind === 'metadata') h.assert(receipt.response.patientId === patient
+        && intent.description.startsWith(marker + ' '), 'Metadata target or marker changed');
+      if (receipt.kind === 'unlink') h.assert(Array.isArray(receipt.response.linkedProviders)
+        && receipt.response.linkedProviders.every(link => link && typeof link.providerNo === 'string' && link.providerNo !== provider),
+      'Provider unlink was not confirmed');
+      const record = documents.get(sourceId);
+      const fullSnapshot = proof => Object.fromEntries(Object.entries(proof.rows).map(([table, rows]) => [table, rows.map(row => row.slice(0, -1))]));
+      equal(fullSnapshot(receipt.before), record.snapshot, 'Metadata proof did not start from the durable owned snapshot');
+      equal(receipt.before.file, record.fileProof, 'Metadata proof changed its starting file');
+      owner(); noForeignReferences(sourceId); equal(otherDocuments(), baseline, 'Metadata changed another document');
+      const current = captureMetadataState(sql, {document: sourceId, patient, provider, marker, file: sourceFile, store}, options.metadataSchema, receipt.kind);
+      equal(current, receipt.after, 'Metadata changed after acceptance was read');
+      validateTransition(receipt.kind, receipt.before, current, intent);
+      const file = path.join(path.dirname(journal), `metadata-${metadataReceipts.length + 1}.json`);
+      // Immutable proof deliberately omits raw body/session token. The original full
+      // row snapshot is retained here even after journal advancement.
+      const bytes = Buffer.from(JSON.stringify({kind: receipt.kind, document: sourceId, patient, provider,
+        requestBodySha256: receipt.requestBodySha256, response: receipt.response,
+        before: receipt.before, after: current}, null, 2));
+      const descriptor = fs.openSync(file, 'wx', 0o600);
+      try {fs.writeFileSync(descriptor, bytes); fs.fsyncSync(descriptor);} finally {fs.closeSync(descriptor);}
+      const directory = fs.openSync(path.dirname(journal), 'r');
+      try {fs.fsyncSync(directory);} finally {fs.closeSync(directory);}
+      metadataReceipts.push({file, sha256: createHash('sha256').update(bytes).digest('hex'), kind: receipt.kind});
+      record.snapshot = fullSnapshot(current);
+      record.stable = sql.value(`SELECT ${digest('document', true)} FROM document WHERE document_no=${sourceId}`);
+      uncertain = false;
+      try {checkpoint('metadata-confirmed');}
+      catch (error) {uncertain = true; throw error;}
     },
     acceptMutation(pages, expectedPages) {
       const record = documents.get(sourceId);

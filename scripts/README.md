@@ -28,3 +28,33 @@ actual dispatched write marks a mutation pending. A lost or unconfirmed write
 retains the fixture and its private recovery journal; a failure before dispatch
 does not imply an uncertain write. Never clear unrelated signatures, change shared
 preferences or delete unowned documents to satisfy these checks.
+
+## Stored document metadata coverage
+
+Run the same named check separately with `STORED_DOCUMENT_METADATA=true` to
+exercise metadata rather than content editing. This phase uses a fresh fixture
+with an explicit observation date; it does not require enabling assigned-document
+content changes and does not replace either content-policy mode above.
+
+It verifies real classification saves from two independent authenticated sessions,
+unchanged DOC route identities, metadata acceptance before queue completion,
+manual retry of only a refused queue phase, and actual provider unlink. Controlled
+500, HTML and dropped responses are injected before forwarding and must preserve
+the draft without replay. A real forwarded transport failure retains the fixture.
+Only exact accepted JSON plus full database/file proofs advances a fsynced private
+receipt and fixture journal. Cleanup preserves these receipts.
+
+Schema preflight runs before patient creation. Document-owned/reference tables
+must be transactional. Parent cleanup uses a separate exact lifecycle: the initial
+INSERT sets seven JPA-normalized fields empty, then an immutable full-row hash is
+retained. After browser closure and child cleanup, one fresh MariaDB connection
+locks the parent for writing and all discovered clinical reference tables for
+reading with NOWAIT, checks the original hash and zero references, and deletes
+only that parent. Only the specifically reviewed `formRourke2009` Aria table is
+permitted as a read-locked reference; other unsupported engines, triggers,
+cascades, schema changes or a busy lock refuse cleanup. Clinical tables are never
+converted to make a check pass. A lost cleanup acknowledgement retains the private
+journal and forbids replay. Generic patient/support-row deletion is not used by
+this metadata phase. Cross-user authorization denial additionally requires
+suitable independent restricted-account credentials;
+the two-session phase uses the configured account and does not claim that coverage.

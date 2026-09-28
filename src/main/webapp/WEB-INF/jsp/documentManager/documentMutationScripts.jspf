@@ -1,12 +1,16 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later --%>
 <script src="${pageContext.request.contextPath}/js/documentMutation.js"></script>
+<script src="${pageContext.request.contextPath}/js/documentMetadataSave.js"></script>
 <% {
     java.util.ResourceBundle documentMutationBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 <script>
+window.CarlosDocumentMetadataContext = "<%= org.owasp.encoder.Encode.forJavaScriptBlock(request.getContextPath()) %>";
 window.CarlosDocumentMutationMessages = {
     sourceChanged: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.sourceChanged")) %>",
     sourceUnavailable: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.sourceUnavailable")) %>",
+    queueRejected: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.queueRejected")) %>",
+    queueUncertain: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.queueUncertain")) %>",
     pending: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.pending")) %>",
     waiting: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.waiting")) %>",
     cancel: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.cancel")) %>",

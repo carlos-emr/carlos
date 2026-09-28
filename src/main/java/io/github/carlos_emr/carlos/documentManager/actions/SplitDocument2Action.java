@@ -109,10 +109,10 @@ public class SplitDocument2Action extends ActionSupport {
             authorize(info, documentNo);
             File directory = PathValidationUtils.validateConfiguredDirectory(
                     CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-            File source = PathValidationUtils.validateExistingPath(new File(directory, document.getDocfilename()), directory);
+            File source = StoredDocumentRevision.resolveStoredChild(directory, document.getDocfilename());
             try (IncomingDocumentMutationLock.Lease lease = IncomingDocumentMutationLock.acquire(source, directory)) {
                 document = requireDocument(documentValue);
-                File current = PathValidationUtils.validateExistingPath(new File(directory, document.getDocfilename()), directory);
+                File current = StoredDocumentRevision.resolveStoredChild(directory, document.getDocfilename());
                 if (!current.getCanonicalFile().equals(lease.source())) throw new SecurityException("Document changed while waiting");
                 authorize(info, documentNo);
                 StoredDocumentRevision.requireMatch(lease.source().toPath(), observedRevision);
@@ -209,7 +209,7 @@ public class SplitDocument2Action extends ActionSupport {
             Document current = documentDao.findForPageMutation(sourceNo);
             if (current == null || current.getStatus() == 'D') throw new IllegalArgumentException("Document no longer available");
             File root = publication.prepared.directory.getParent().toFile();
-            File currentFile = PathValidationUtils.validateExistingPath(new File(root, current.getDocfilename()), root);
+            File currentFile = StoredDocumentRevision.resolveStoredChild(root, current.getDocfilename());
             try {
                 if (!currentFile.getCanonicalFile().toPath().equals(publication.source)) throw new SecurityException("Document identity changed");
             } catch (IOException failure) { throw new UncheckedIOException(failure); }

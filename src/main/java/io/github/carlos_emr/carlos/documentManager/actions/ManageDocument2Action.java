@@ -277,124 +277,172 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     public void documentUpdateAjax() {
-        String observationDate = request.getParameter("observationDate"); // :2008-08-22<
-        String documentDescription = request.getParameter("documentDescription"); // :test2<
-        String documentId = request.getParameter("documentId"); // :29<
-        String docType = request.getParameter("docType"); // :consult<
-        String demog = request.getParameter("demog");
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
-        }
-
-        if (documentId == null || !documentId.matches("\\d{1,9}")) {
-            log.warn("documentUpdateAjax: invalid or missing documentId");
-            return;
-        }
-        if (demog == null || !demog.matches("\\d{1,9}")) {
-            log.warn("documentUpdateAjax: invalid or missing demog");
-            return;
-        }
-
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
-
-        String[] flagproviders = request.getParameterValues("flagproviders");
-        // String demoLink=request.getParameter("demoLink");
-
-        // TODO: if demoLink is "on", check if msp is in flagproviders, if not save to providerInboxRouting, if yes, don't save.
-
-        // DONT COPY THIS !!!
-        if (flagproviders != null && flagproviders.length > 0) { // TODO: THIS NEEDS TO RUN THRU THE lab forwarding rules!
-            try {
-                for (String proNo : flagproviders) {
-                    // Sanitize provider number to prevent any potential header injection
-                    // Provider numbers should only contain alphanumeric characters, hyphens, and underscores
-                    if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
-                        providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
-                    } else {
-                        log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    }
-                }
-
-                // Removes the link to the "0" providers so that the document no longer shows up as "unclaimed"
-                providerInboxRoutingDAO.removeLinkFromDocument("DOC", Integer.parseInt(documentId), "0");
-            } catch (NumberFormatException e) {
-                log.error("Invalid document ID format during provider routing: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-            } catch (Exception e) {
-                log.error("Failed to route document {} to providers", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-            }
-        }
-
-        //Check to see if we have to route document to patient
-        PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-        List<PatientLabRouting> patientLabRoutingList = patientLabRoutingDao.findByLabNoAndLabType(Integer.parseInt(documentId), docType);
-        if (patientLabRoutingList == null || patientLabRoutingList.size() == 0) {
-            PatientLabRouting patientLabRouting = new PatientLabRouting();
-            patientLabRouting.setDemographicNo(Integer.parseInt(demog));
-            patientLabRouting.setLabNo(Integer.parseInt(documentId));
-            patientLabRouting.setLabType("DOC");
-            patientLabRoutingDao.persist(patientLabRouting);
-        }
-
-
-        Document d = documentDao.getDocument(documentId);
-
-        if (d != null) {
-            d.setDocdesc(documentDescription);
-            d.setDoctype(docType);
-            Date obDate = UtilDateUtilities.StringToDate(observationDate);
-
-            if (obDate != null) {
-                d.setObservationdate(obDate);
-            }
-
-            documentDao.merge(d);
-        }
-
-
-        try {
-
-            CtlDocument ctlDocument = ctlDocumentDao.getCtrlDocument(Integer.parseInt(documentId));
-            int demographicNumber = Integer.parseInt(demog);
-            // If this ctlDocument is a document module type and is not for the demographic being saved then create a new entry and remove the old one
-            if (ctlDocument != null && (ctlDocument.isDemographicDocument() && demographicNumber != ctlDocument.getId().getModuleId())) {
-
-                CtlDocument matchedCtlDocument = new CtlDocument();
-                matchedCtlDocument.getId().setDocumentNo(ctlDocument.getId().getDocumentNo());
-                matchedCtlDocument.getId().setModule(ctlDocument.getId().getModule());
-                matchedCtlDocument.getId().setModuleId(Integer.parseInt(demog));
-                matchedCtlDocument.setStatus(ctlDocument.getStatus());
-
-                ctlDocumentDao.persist(matchedCtlDocument);
-
-                ctlDocumentDao.remove(ctlDocument.getId());
-
-                // save a document created note
-                if (ctlDocument.isDemographicDocument()) {
-                    // save note
-                    saveDocNote(request, d.getDocdesc(), demog, documentId);
-                }
-            }
-        } catch (NumberFormatException e) {
-            log.error("Invalid number format during CTL document update for documentId: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-        } catch (Exception e) {
-            log.error("Failed to update CTL document for documentId: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-        }
-
-        HashMap hm = new HashMap();
-        hm.put("patientId", demog);
-        ObjectNode jsonObject = objectMapper.valueToTree(hm);
+        if (!requireMetadataPost()) return;
+        MetadataUpdate result;
+        try { result = updateStoredMetadata(true); }
+        catch (RuntimeException failure) { writeMetadataFailure(failure, request.getParameter("documentId")); return; }
+        ObjectNode jsonObject = objectMapper.createObjectNode().put("success", true).put("accepted", true)
+                .put("document", Integer.parseInt(result.documentId()));
+        if (result.patient() == null) jsonObject.putNull("patientId");
+        else jsonObject.put("patientId", result.patient());
         try {
             response.setContentType("application/json;charset=UTF-8");
-            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type; patientId is validated numeric
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON response; patientId is a validated numeric identifier or null
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("IOException writing JSON response in documentUpdateAjax", e);
-            if (!response.isCommitted()) {
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            }
+            if (!response.isCommitted()) response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
+    }
 
+    /** Both metadata entry points authorize the actual source and serialize routing on its row. */
+    private MetadataUpdate updateStoredMetadata(boolean ajax) {
+        String documentId = singleMetadataParameter("documentId");
+        String alias = singleMetadataParameter("doc_no");
+        if (documentId == null || documentId.isEmpty()) documentId = alias;
+        else if (alias != null && !alias.equals(documentId)) throw new SecurityException("Conflicting document selection");
+        if (!IncomingDocumentCapacityResponse.positiveId(documentId)) throw new SecurityException("Invalid document selection");
+        String destination = singleMetadataParameter("demog");
+        if (destination != null && destination.isEmpty()) destination = null;
+        if (destination != null && !"0".equals(destination) && !"-1".equals(destination)
+                && !IncomingDocumentCapacityResponse.positiveId(destination)) throw new SecurityException("Invalid patient selection");
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, documentId);
+        String sourceId = documentId;
+        String requestedPatient = destination;
+        return metadataTransaction(() -> {
+            Document document = documentDao.findForPageMutation(Integer.parseInt(sourceId));
+            if (document == null) throw new SecurityException("Document is not available");
+            // Recheck after waiting for another metadata/page operation's row lock.
+            IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, sourceId);
+            CtlDocument primary = ctlDocumentDao.getCtrlDocument(Integer.parseInt(sourceId));
+            String patient = authorizedMetadataPatient(info, primary, requestedPatient);
+            String[] providers = validatedMetadataProviders();
+            // No audit, metadata, routing or note write precedes all authorization checks.
+            LogAction.addLog(info.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, sourceId, request.getRemoteAddr(), patient);
+            if (providers.length > 0) {
+                for (String provider : new LinkedHashSet<>(Arrays.asList(providers))) {
+                    providerInboxRoutingDAO.addToProviderInboxStrict(provider, Integer.parseInt(sourceId), LabResultData.DOCUMENT);
+                }
+                if (ajax && !providerInboxRoutingDAO.removeLinkFromDocument("DOC", Integer.parseInt(sourceId), "0")) {
+                    throw new IllegalStateException("Unassigned provider cleanup was not confirmed");
+                }
+            }
+            document.setDocdesc(request.getParameter("documentDescription"));
+            document.setDoctype(request.getParameter("docType"));
+            Date observation = UtilDateUtilities.StringToDate(request.getParameter("observationDate"));
+            if (observation != null) document.setObservationdate(observation);
+            documentDao.merge(document);
+            if (patient != null) routeMetadataPatient(sourceId, document, primary, patient);
+            return new MetadataUpdate(sourceId, patient);
+        });
+    }
+
+    private String authorizedMetadataPatient(LoggedInInfo info, CtlDocument primary, String requestedPatient) {
+        String patient = IncomingDocumentCapacityResponse.positiveId(requestedPatient) ? requestedPatient : null;
+        if (primary != null && !primary.isDemographicDocument() && patient != null) {
+            // Provider viewers echo their module ID as demog; it is not a patient ID.
+            if (!("provider".equals(primary.getId().getModule()) || "providers".equals(primary.getId().getModule()))
+                    || !patient.equals(String.valueOf(primary.getId().getModuleId()))) {
+                throw new SecurityException("Patient selection does not match document module");
+            }
+            return null;
+        }
+        if (patient != null) IncomingDocumentCapacityResponse.requirePatientDocumentWriteAccess(securityInfoManager, info, patient);
+        return patient;
+    }
+
+    private String[] validatedMetadataProviders() {
+        String[] providers = request.getParameterValues("flagproviders");
+        if (providers == null) return new String[0];
+        for (String provider : providers) {
+            if (provider == null || !provider.matches("[a-zA-Z0-9_-]+")) throw new SecurityException("Invalid provider selection");
+        }
+        return providers;
+    }
+
+    private void routeMetadataPatient(String sourceId, Document document, CtlDocument primary, String patient) {
+        PatientLabRoutingDao routes = SpringUtils.getBean(PatientLabRoutingDao.class);
+        int target = Integer.parseInt(patient);
+        // DOC is the routing discriminator; docType is only the clinical classification.
+        // The document lock makes this check/insert atomic across these two entry points.
+        boolean routed = routes.findByLabNoAndLabType(Integer.parseInt(sourceId), "DOC").stream()
+                .anyMatch(route -> Objects.equals(route.getDemographicNo(), target));
+        if (!routed) {
+            PatientLabRouting route = new PatientLabRouting();
+            route.setDemographicNo(target); route.setLabNo(Integer.parseInt(sourceId)); route.setLabType("DOC");
+            routes.persist(route);
+        }
+        if (primary != null && primary.isDemographicDocument() && !Objects.equals(primary.getId().getModuleId(), target)) {
+            boolean linked = ctlDocumentDao.findByDocumentNoAndModule(Integer.parseInt(sourceId), "demographic").stream()
+                    .anyMatch(link -> Objects.equals(link.getId().getModuleId(), target));
+            if (!linked) {
+                CtlDocument replacement = new CtlDocument();
+                replacement.setId(new CtlDocumentPK("demographic", target, Integer.parseInt(sourceId)));
+                replacement.setStatus(primary.getStatus());
+                ctlDocumentDao.persist(replacement);
+            }
+            ctlDocumentDao.remove(primary.getId());
+            saveDocNote(request, document.getDocdesc(), patient, sourceId);
+        }
+    }
+
+    private String singleMetadataParameter(String name) {
+        String[] values = request.getParameterValues(name);
+        if (values == null) return null;
+        if (values.length != 1) throw new SecurityException("Ambiguous document update selection");
+        return values[0];
+    }
+
+    private record MetadataUpdate(String documentId, String patient) { }
+
+    private static final class MetadataWriteFailure extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        private final boolean accepted;
+        MetadataWriteFailure(RuntimeException cause, boolean accepted) { super("Document update failed", cause); this.accepted = accepted; }
+    }
+
+    private <T> T metadataTransaction(java.util.function.Supplier<T> mutation) {
+        org.springframework.transaction.support.TransactionTemplate transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        int[] completion = {-1}; // No callback yet means no mutation; unknown completion must prohibit replay.
+        try {
+            return Objects.requireNonNull(transaction.execute(status -> {
+                completion[0] = org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN;
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void afterCompletion(int result) { completion[0] = result; }
+                        });
+                return mutation.get();
+            }), "Document transaction did not return a result");
+        } catch (RuntimeException failure) {
+            throw new MetadataWriteFailure(failure, completion[0] != -1
+                    && completion[0] != org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+        }
+    }
+
+    private void writeMetadataFailure(RuntimeException failure, String documentId) {
+        boolean accepted = failure instanceof MetadataWriteFailure write && write.accepted;
+        Throwable cause = failure instanceof MetadataWriteFailure ? failure.getCause() : failure;
+        int status = accepted ? 500 : cause instanceof SecurityException ? 403 : cause instanceof IllegalArgumentException ? 400 : 500;
+        ObjectNode data = objectMapper.createObjectNode().put("success", false).put("accepted", accepted).put("retryable", false)
+                .put("error", accepted ? "Document outcome is unconfirmed; do not submit again" : "Document update was refused");
+        if (IncomingDocumentCapacityResponse.positiveId(documentId)) data.put("document", Integer.parseInt(documentId));
+        try {
+            response.setStatus(status); response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(data.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (IOException writeFailure) {
+            log.error("Could not report document update outcome", writeFailure);
+        }
+    }
+
+    private boolean requireMetadataPost() {
+        if ("POST".equals(request.getMethod())) return true;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     /**
@@ -436,27 +484,43 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     public void removeLinkFromDocument() {
-        String docType = request.getParameter("docType");
+        if (!requireMetadataPost()) return;
         String docId = request.getParameter("docId");
-        String providerNo = request.getParameter("providerNo");
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+        ObjectNode jsonObject;
+        try {
+            String docType = singleMetadataParameter("docType");
+            String selectedId = singleMetadataParameter("docId");
+            String providerNo = singleMetadataParameter("providerNo");
+            if (!"DOC".equals(docType) || !IncomingDocumentCapacityResponse.positiveId(selectedId)
+                    || providerNo == null || !providerNo.matches("[a-zA-Z0-9_-]+")) {
+                throw new SecurityException("Invalid document provider selection");
+            }
+            LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+            IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, selectedId);
+            jsonObject = metadataTransaction(() -> {
+                int number = Integer.parseInt(selectedId);
+                if (documentDao.findForPageMutation(number) == null) throw new SecurityException("Document is not available");
+                IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, selectedId);
+                if (!providerInboxRoutingDAO.removeLinkFromDocument("DOC", number, providerNo)) {
+                    throw new IllegalStateException("Provider unlink was not confirmed");
+                }
+                ObjectNode data = objectMapper.createObjectNode().put("success", true).put("accepted", true).put("document", number);
+                // Unlink preserves the routing audit row with status X. Match the viewer's
+                // active-provider list instead of reporting that retained row as still linked.
+                data.set("linkedProviders", objectMapper.valueToTree(providerInboxRoutingDAO.getProvidersWithRoutingForDocument("DOC", number)
+                        .stream().filter(link -> !"X".equals(link.getStatus())).toList()));
+                return data;
+            });
+        } catch (RuntimeException failure) {
+            writeMetadataFailure(failure, docId);
+            return;
         }
-
-        providerInboxRoutingDAO.removeLinkFromDocument(docType, Integer.parseInt(docId), providerNo);
-        HashMap hm = new HashMap();
-        hm.put("linkedProviders", providerInboxRoutingDAO.getProvidersWithRoutingForDocument(docType, Integer.parseInt(docId)));
-
-        ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
             response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             MiscUtils.getLogger().error("IOException writing JSON response in removeLinkFromDocument", e);
-            if (!response.isCommitted()) {
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            }
+            if (!response.isCommitted()) response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -555,105 +619,21 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     public String documentUpdate() {
-        String observationDate = request.getParameter("observationDate"); // :2008-08-22<
-        String documentDescription = request.getParameter("documentDescription"); // :test2<
-        String documentId = request.getParameter("documentId"); // :29<
-        // Also check for doc_no parameter (used by display method URLs)
-        if (documentId == null || documentId.trim().isEmpty()) {
-            documentId = request.getParameter("doc_no");
+        if (!requireMetadataPost()) return NONE;
+        MetadataUpdate result;
+        try { result = updateStoredMetadata(false); }
+        catch (RuntimeException failure) {
+            String documentId = request.getParameter("documentId");
+            writeMetadataFailure(failure, documentId == null ? request.getParameter("doc_no") : documentId);
+            return NONE;
         }
-        String docType = request.getParameter("docType"); // :consult<
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
-        }
-
-        if (documentId == null || documentId.trim().isEmpty()) {
-            log.error("Document ID is null or empty, cannot process document update");
-            addActionError("Document ID is missing. Cannot process document update.");
-            return "error";
-        }
-
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr());
-
-        String demog = request.getParameter("demog");
-
-        String[] flagproviders = request.getParameterValues("flagproviders");
-        // String demoLink=request.getParameter("demoLink");
-
-        // TODO: if demoLink is "on", check if msp is in flagproviders, if not save to providerInboxRouting, if yes, don't save.
-
-        // DONT COPY THIS !!!
-        if (flagproviders != null && flagproviders.length > 0) { // TODO: THIS NEEDS TO RUN THRU THE lab forwarding rules!
-            try {
-                for (String proNo : flagproviders) {
-                    // Sanitize provider number to prevent any potential header injection
-                    // Provider numbers should only contain alphanumeric characters
-                    if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
-                        providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
-                    } else {
-                        log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    }
-                }
-            } catch (NumberFormatException e) {
-                log.error("Invalid document ID format: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                addActionError("Invalid document ID format. Please check the document ID and try again.");
-                return "error";
-            } catch (Exception e) {
-                log.error("Failed to route document {} to providers", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-            }
-        }
-        Document d = documentDao.getDocument(documentId);
-
-        if (d != null) {
-            d.setDocdesc(documentDescription);
-            d.setDoctype(docType);
-            Date obDate = UtilDateUtilities.StringToDate(observationDate);
-
-            if (obDate != null) {
-                d.setObservationdate(obDate);
-            }
-
-            documentDao.merge(d);
-        }
-
-        if (documentId != null && !documentId.trim().isEmpty()) {
-            try {
-                CtlDocument ctlDocument = ctlDocumentDao.getCtrlDocument(Integer.parseInt(documentId));
-                if (ctlDocument != null) {
-                    if (demog != null && !demog.trim().isEmpty()) {
-                        ctlDocument.getId().setModuleId(Integer.parseInt(demog));
-                        ctlDocumentDao.merge(ctlDocument);
-                        // save a document created note
-                        if (ctlDocument.isDemographicDocument() && d != null) {
-                            // save note
-                            saveDocNote(request, d.getDocdesc(), demog, documentId);
-                        }
-                    } else {
-                        log.warn("Demographics parameter is null or empty, skipping ctlDocument update");
-                    }
-                }
-            } catch (NumberFormatException e) {
-                log.error("Invalid number format for documentId: {} or demog: {}", LogSafe.sanitize(documentId), LogSafe.sanitize(demog), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-            } catch (Exception e) {
-                log.error("Failed to update CTL document for documentId: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-            }
-        } else {
-            log.warn("Document ID is null or empty, skipping ctlDocument operations");
-        }
-
-        String providerNo = request.getParameter("providerNo");
-        String searchProviderNo = request.getParameter("searchProviderNo");
-        String ackStatus = request.getParameter("status");
-        String demoName = getDemoName(LoggedInInfo.getLoggedInInfoFromSession(request), demog);
+        String demoName = result.patient() == null ? "" : getDemoName(LoggedInInfo.getLoggedInInfoFromSession(request), result.patient());
         request.setAttribute("demoName", demoName);
-        request.setAttribute("segmentID", documentId);
-        request.setAttribute("providerNo", providerNo);
-        request.setAttribute("searchProviderNo", searchProviderNo);
-        request.setAttribute("status", ackStatus);
-
+        request.setAttribute("segmentID", result.documentId());
+        request.setAttribute("providerNo", request.getParameter("providerNo"));
+        request.setAttribute("searchProviderNo", request.getParameter("searchProviderNo"));
+        request.setAttribute("status", request.getParameter("status"));
         return "displaySingleDoc";
-
     }
 
     /**

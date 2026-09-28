@@ -24,7 +24,19 @@ public final class StoredDocumentRevision {
     public static String forDocumentFile(String filename) throws IOException {
         File directory = PathValidationUtils.validateConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        return sha256(PathValidationUtils.validateExistingPath(new File(directory, filename), directory).toPath());
+        return sha256(resolveStoredChild(directory, filename).toPath());
+    }
+
+    /**
+     * Resolves a persisted filename under the caller's validated document directory.
+     * Canonical containment rejects parent traversal and escaping symlinks without
+     * flattening legitimate nested paths. As with validateExistingPath, callers
+     * still enforce existence, regular-file requirements and their source lease.
+     */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "The only File construction is immediately checked by PathValidationUtils canonical directory containment, including symlink resolution, before returning; stored nested filenames retain existing semantics")
+    public static File resolveStoredChild(File directory, String filename) {
+        return PathValidationUtils.validateExistingPath(new File(directory, filename), directory);
     }
 
     public static boolean valid(String revision) {

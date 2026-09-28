@@ -17,6 +17,41 @@ import static org.assertj.core.api.Assertions.*;
 class StoredDocumentRevisionUnitTest {
     @TempDir Path directory;
 
+    @Test void storedChildPreservesContainedNestedAndNormalizedPaths() throws Exception {
+        Path root = Files.createDirectory(directory.resolve("documents"));
+        Path nested = Files.createDirectory(root.resolve("historical"));
+        Path source = Files.writeString(nested.resolve("scan with spaces.pdf"), "owned document");
+        assertThat(StoredDocumentRevision.resolveStoredChild(root.toFile(), "historical/scan with spaces.pdf").toPath())
+                .isEqualTo(source);
+        assertThat(StoredDocumentRevision.resolveStoredChild(root.toFile(), "historical/../historical/scan with spaces.pdf").getCanonicalFile())
+                .isEqualTo(source.toFile().getCanonicalFile());
+        Files.createSymbolicLink(root.resolve("contained-alias"), nested);
+        assertThat(StoredDocumentRevision.resolveStoredChild(root.toFile(), "contained-alias/scan with spaces.pdf").getCanonicalFile())
+                .isEqualTo(source.toFile().getCanonicalFile());
+    }
+
+    @Test void storedChildRejectsParentTraversalAndSiblingPrefixCollision() throws Exception {
+        Path root = Files.createDirectory(directory.resolve("documents"));
+        Path sibling = Files.createDirectory(directory.resolve("documents-other"));
+        Path privateFile = Files.writeString(sibling.resolve("private.pdf"), "another document store");
+        assertThatThrownBy(() -> StoredDocumentRevision.resolveStoredChild(root.toFile(), "../documents-other/private.pdf"))
+                .isInstanceOf(SecurityException.class);
+        assertThat(Files.readString(privateFile)).isEqualTo("another document store");
+    }
+
+    @Test void storedChildRejectsEscapingDirectoryAndLeafSymlinks() throws Exception {
+        Path root = Files.createDirectory(directory.resolve("documents"));
+        Path outside = Files.createDirectory(directory.resolve("private"));
+        Path privateFile = Files.writeString(outside.resolve("private.pdf"), "private bytes");
+        Files.createSymbolicLink(root.resolve("linked-directory"), outside);
+        Files.createSymbolicLink(root.resolve("linked.pdf"), privateFile);
+        assertThatThrownBy(() -> StoredDocumentRevision.resolveStoredChild(root.toFile(), "linked-directory/private.pdf"))
+                .isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> StoredDocumentRevision.resolveStoredChild(root.toFile(), "linked.pdf"))
+                .isInstanceOf(SecurityException.class);
+        assertThat(Files.readString(privateFile)).isEqualTo("private bytes");
+    }
+
     @Test void contentHashDetectsEqualLengthReplacementEvenWhenModificationTimeIsPreserved() throws Exception {
         Path source = directory.resolve("source.pdf");
         Files.writeString(source, "page-A,page-B,page-C");

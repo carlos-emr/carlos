@@ -159,15 +159,9 @@
         }
 
         function removeLink(docType, docId, providerNo, e) {
-            var url = contextpath + "/documentManager/ManageDocument";
-            var data = 'method=removeLinkFromDocument&docType=' + docType + '&docId=' + docId + '&providerNo=' + providerNo;
-            CarlosAjax.request(url, {
-                method: 'post', parameters: data, onSuccess: function (transport) {
-                    refreshView();
-                }
+            return window.CarlosDocumentMetadata.unlink(docType, docId, providerNo, e, function () {
+                refreshView();
             });
-
-            //e.parentNode.remove(e);
         }
 
         function handleDocSave(docid, action) {
@@ -2165,151 +2159,53 @@
 
         }
 
-        function updateDocStatusInQueue(docid) {//change status of queue document link row to I=inactive
-            //console.log('in updateDocStatusInQueue, docid '+docid);
-            var url = "<%=request.getContextPath()%>/documentManager/inboxManage", data = "docid=" + docid + "&method=updateDocStatusInQueue";
-            CarlosAjax.request(url, {
-                method: 'post', parameters: data, onSuccess: function (transport) {
+        function updateDocument(eleId, isNext) {
+            if (!checkObservationDate(eleId)) return false;
+            return window.CarlosDocumentMetadata.save(eleId, function (json, num) {
+                var patientId = json.patientId;
+                if (patientId !== null && addDocToPatient(num, patientId) && updatePatientDocLabNav(num, patientId)) {
+                    var input = document.getElementById('autocompletedemo' + num);
+                    if (input) input.disabled = true;
                 }
-            });
-
-
+                if (isNext) {
+                    var row = document.getElementById('labdoc_' + num);
+                    if (row) row.style.display = 'none';
+                    updateSideNav(num, true);
+                    removeDocFromQueue(num);
+                }
+            }, isNext === true);
         }
 
-        function updateDocument(eleId, isNext) {//save doc info
-            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument", data = new URLSearchParams(new FormData(document.getElementById(eleId))).toString();
-            CarlosAjax.request(url, {
-                method: 'post', parameters: data, onSuccess: function (transport) {
-                    var json = JSON.parse(transport.responseText);
-                    var patientId;
-                    //oscarLog(json);
-                    if (json != null) {
-                        patientId = json.patientId;
-
-                        var ar = eleId.split("_");
-                        var num = ar[1];
-                        num = num.replace(/\s/g, '');
-                        $("saveSucessMsg_" + num).show();
-                        $('saved' + num).value = 'true';
-                        //console.log('before update global data');
-                        var success = addDocToPatient(num, patientId);
-                        //console.log('result of update global data='+success);
-                        if (success) {
-                            success = updatePatientDocLabNav(num, patientId);
-                            //console.log('result of update patient doc lab nav '+success);
-                            if (success) {
-                                //console.log('before disable autocompletedemo '+num+'--'+$('autocompletedemo'+num));
-                                //disable demo input
-                                if ($('autocompletedemo' + num))
-                                    $('autocompletedemo' + num).disabled = true;
-                                //console.log('updated by save');
-                                //console.log(patientDocs);
-                                //console.log("isNext "+isNext);
-                                if (isNext) {
-                                    //console.log("isNext is true");
-                                    //blind up
-                                    var _el = document.getElementById('labdoc_' + num); if (_el) { _el.style.transition = 'max-height 0.3s ease, opacity 0.3s ease'; _el.style.overflow = 'hidden'; _el.style.maxHeight = '0'; _el.style.opacity = '0'; setTimeout(function() { _el.style.display = 'none'; }, 300); }
-                                    //make the document out of the queue
-                                    updateDocStatusInQueue(num);
-                                    //update side navigation for queue
-                                    updateSideNav(num, true);
-                                    //remove doc from queueDocNos
-                                    removeDocFromQueue(num);
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-            return false;
-        }
-
-        function updateStatus(formid, inQueue) {//acknowledge
-
-            if (inQueue === true) {
-                //console.log('inqueue is string true');
-                var num = formid.split("_");
-                var doclabid = num[1].trim();
-                if (doclabid) {
-                    var demoId = $('demofind' + doclabid).value;
-                    var saved = $('saved' + doclabid).value;
-                    if (demoId == '-1' || saved == 'false') {
-                        alert('Document is not assigned and saved to a patient,please file it');
-                    } else {
-                        var url = contextpath + "/oscarMDS/UpdateStatus";
-                        var data = new URLSearchParams(new FormData(document.getElementById(formid))).toString();
-
-                        CarlosAjax.request(url, {
-                            method: 'post', parameters: data, onSuccess: function (transport) {
-                                //console.log('after updatestatus ,doclabid '+doclabid);
-
-                                var _el = document.getElementById('labdoc_' + doclabid); if (_el) { _el.style.transition = 'max-height 0.3s ease, opacity 0.3s ease'; _el.style.overflow = 'hidden'; _el.style.maxHeight = '0'; _el.style.opacity = '0'; setTimeout(function() { _el.style.display = 'none'; }, 300); }
-                                updateDocLabData(doclabid, inQueue);
-                                if (inQueue) {
-                                    //console.log(' inqueue is true ');
-                                    //make the document out of the queue
-                                    updateDocStatusInQueue(doclabid);
-                                    //remove doc from queueDocNos
-                                    removeDocFromQueue(doclabid);
-                                } else {
-                                    //console.log('inqueue is false');
-                                }
-
-                            }
-                        });
-                    }
-                }
+        function updateStatus(formid, inQueue) {
+            if (inQueue !== true) return false;
+            var id = formid.split('_')[1];
+            if (!id) return false;
+            if ($('demofind' + id).value === '-1' || $('saved' + id).value !== 'true') {
+                alert('Document is not assigned and saved to a patient,please file it');
+                return false;
             }
+            return window.CarlosDocumentMetadata.acknowledge(formid, function () {
+                var row = document.getElementById('labdoc_' + id);
+                if (row) row.style.display = 'none';
+                updateDocLabData(id, true);
+                removeDocFromQueue(id);
+            });
         }
-
 
         function fileDoc(docId) {
-            if (docId) {
-                docId = docId.replace(/\s/, '');
-                if (docId.length > 0) {
-                    var demoId = $('demofind' + docId).value;
-                    var isFile = true;
-                    if (demoId == '-1') {
-                        isFile = confirm('Document is not assigned to any patient, do you still want to file it?');
-                    }
-                    if (isFile) {
-                        var type = 'DOC';
-                        if (type) {
-                            var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs';
-                            var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-                            CarlosAjax.request(url, {
-                                method: 'post', parameters: data, onSuccess: function (transport) {
-                                    var _el = document.getElementById('labdoc_' + docId); if (_el) { _el.style.transition = 'opacity 0.3s ease'; _el.style.opacity = '0'; setTimeout(function() { _el.style.display = 'none'; }, 300); }
-                                    updateDocLabData(docId, true);
-                                    removeDocFromQueue(doclabid);
-                                }
-                            });
-                        }
-                    }
-                }
-            }
+            docId = String(docId).trim();
+            if ($('demofind' + docId).value === '-1' && !confirm('Document is not assigned to any patient, do you still want to file it?')) return false;
+            return forceFileDoc(docId);
         }
 
         function forceFileDoc(docId) {
-            if (docId) {
-                docId = docId.replace(/\s/, '');
-                if (docId.length > 0) {
-
-                    var type = 'DOC';
-                    if (type) {
-                        var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs';
-                        var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-                        CarlosAjax.request(url, {
-                            method: 'post', parameters: data, onSuccess: function (transport) {
-                                var _el = document.getElementById('labdoc_' + docId); if (_el) { _el.style.transition = 'opacity 0.3s ease'; _el.style.opacity = '0'; setTimeout(function() { _el.style.display = 'none'; }, 300); }
-                                updateDocLabData(docId, true);
-                                removeDocFromQueue(doclabid);
-                            }
-                        });
-                    }
-                }
-            }
-
+            docId = String(docId).trim();
+            return window.CarlosDocumentMetadata.file(docId, function () {
+                var row = document.getElementById('labdoc_' + docId);
+                if (row) row.style.display = 'none';
+                updateDocLabData(docId, true);
+                removeDocFromQueue(docId);
+            });
         }
 
         function showPatientPreview(pid, providerNo, searchProviderNo, ackStatus) {

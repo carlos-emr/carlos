@@ -41,7 +41,58 @@ include independent-session denial of cached bytes and authorization of the
 actual edit identifier selected by JSP attribute precedence. All 425 focused
 Java unit/integration cases passed after correcting two existing test fixtures
 to provide the authenticated session and routing DAO required by the real gate.
-Full-suite Java and newly packaged installed verification remain pending.
+The iteration 9 full Java/JSP/WAR build at `61f55a12f6` then passed with
+15,563 reported tests, no failures or errors and three host Selenium skips;
+those browser cases require the installed VM phase. Subsequent changes below
+still need their own full-suite and newly packaged installed verification.
+
+The follow-up review found metadata saves and provider unlinking checking only
+the global document privilege. Both now check the actual stored patient's,
+program's and queue's access, enforce POST and serialize on the document row.
+Patient routing uses the fixed `DOC` discriminator and checks the target before
+writing, preventing duplicate routes when the clinical classification is Lab
+or Consult. Independent-session integration cases pass for waiting,
+deduplication and rollback after real database writes.
+
+Save & Next also issued an unchecked queue update before hiding the document.
+Queue completion now rechecks source access after obtaining the same document
+lock and checks every affected queue before changing any link. The browser
+requires an explicit confirmed outcome before navigating. A known refusal can
+be retried separately from already-saved metadata; an uncertain mutation is
+preserved for reconciliation and is never automatically replayed. Installed
+validation of these changes remains pending.
+
+The same review found lab filing removing document queue links by numeric ID
+without checking the report type. Lab IDs and document IDs are separate
+namespaces; non-document filing now leaves document queues untouched. Document
+filing checks source and queue access and keeps provider filing and queue
+completion in one transaction. Document acknowledgements and comments also
+check stored access before and after waiting on the document row. The 111
+focused browser-handler regressions passed, including explicit success,
+refusal, uncertain replies and queue-only retries; real installed browser
+validation is still required.
+
+The completed follow-up source run passed all 600 focused Java cases and all
+1,949 Node cases, with no failures or skips. The focused run includes real JPA
+transactions proving metadata/queue rollback and two independent sessions
+waiting on the document lock. It also verifies canonical report-type validation
+against case/padding aliases and resolves the ACK audit patient after waiting.
+The pushed `61f55a12f6` baseline has no failed CI checks, and its Sonar quality
+gate reports A for new reliability and security. These results do not substitute
+for CI on the next follow-up commit or its installed browser checks.
+
+The installed metadata harness now has a separate opt-in phase for real saves,
+queue-only retries and provider unlinking across independent sessions. Its
+fixture cleanup preserves exact ownership, original row hashes and all patient
+references, including declared audit references. The VM catalog contains one
+legacy Aria reference table, `formRourke2009`; cleanup protects it with a READ
+lock while deleting only owned InnoDB rows. A disposable database proof on the
+installed VM passed real rollback, competing-writer waiting, reference refusal
+and uncertain acknowledgment cases. It first exposed a MariaDB warning that
+rolled back but allowed a success receipt; warnings now raise an explicit error
+after rollback. Both runs remain recorded. The 170 focused lifecycle tests and
+full final Node suite of 2,021 tests passed with no failures or skips. These are
+harness and source results; the actual installed metadata workflow is pending.
 
 ## Review scope
 
@@ -596,5 +647,8 @@ access. The splitter's redundant nullable-result branch is replaced with an
 explicit non-null contract. Its remaining S2583 findings cross Spring transaction
 callbacks and the second source-revision check; a method-local suppression names
 the regressions that exercise these branches. The accepted/uncertain outcome
-guards remain active to prevent duplicate writes. Validation and a fresh quality
-gate are still required for these follow-up changes.
+guards remain active to prevent duplicate writes. The full build at
+`61f55a12f6` passed, and its fresh Sonar quality gate passed with new reliability
+and security rated A. Four subsequent SpotBugs path annotations have a shared
+canonical containment check and focused regression coverage prepared; the next
+commit still requires its own analysis and installed verification.

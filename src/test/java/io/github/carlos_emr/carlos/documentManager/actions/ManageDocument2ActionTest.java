@@ -135,6 +135,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     private TestManageDocument2Action action;
     private String previousIncomingDocumentDir;
     private String previousDocumentDir;
+    private final MetadataTransactions metadataTransactions = new MetadataTransactions();
 
     @TempDir
     private Path tempDir;
@@ -181,6 +182,189 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         if (mocks != null) {
             mocks.close();
         }
+    }
+
+    private Document prepareMetadata() {
+        authorizeEdocWrite();
+        request.setMethod("POST"); request.setParameter("documentId", "42"); request.setParameter("demog", "10");
+        request.setParameter("documentDescription", "Updated description"); request.setParameter("docType", "Lab");
+        request.setParameter("observationDate", "2026-09-28");
+        Document document = new Document(42); document.setRestrictToProgram(false); document.setStatus('A');
+        when(documentDao.find(42)).thenReturn(document); when(documentDao.findForPageMutation(42)).thenReturn(document);
+        when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(patientLink(10));
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(10)));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), eq("10"))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), eq("20"))).thenReturn(true);
+        when(providerInboxRoutingDao.removeLinkFromDocument(eq("DOC"), eq(42), anyString())).thenReturn(true);
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, metadataTransactions);
+        return document;
+    }
+
+    private void metadata(String route) {
+        try (MockedStatic<EDocUtil> edoc = mockStatic(EDocUtil.class)) {
+            if ("ajax".equals(route)) action.documentUpdateAjax();
+            else if ("legacy".equals(route)) action.documentUpdate();
+            else {request.removeParameter("method"); action.execute();}
+        }
+    }
+
+    private void assertNoMetadataWrites() {
+        verify(documentDao, Mockito.never()).merge(any(Document.class));
+        verify(patientLabRoutingDao, Mockito.never()).persist(any());
+        verify(ctlDocumentDao, Mockito.never()).persist(any());
+        verify(ctlDocumentDao, Mockito.never()).remove(any(CtlDocumentPK.class));
+        verifyNoInteractions(providerInboxRoutingDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest @CsvSource({"ajax,GET", "ajax,HEAD", "legacy,GET", "legacy,HEAD", "fallback,GET", "fallback,HEAD"})
+    void metadataRequiresPostEvenThroughNoMethodFallback(String route, String verb) {
+        prepareMetadata(); request.setMethod(verb); metadata(route);
+        assertThat(response.getStatus()).isEqualTo(405); assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertNoMetadataWrites(); verify(documentDao, Mockito.never()).findForPageMutation(anyInt());
+    }
+
+    @ParameterizedTest @CsvSource({"ajax,ctl", "legacy,ctl", "ajax,routing", "legacy,routing", "ajax,program", "legacy,program", "ajax,queue", "legacy,queue", "ajax,target", "legacy,target", "ajax,targetPrivilege", "legacy,targetPrivilege"})
+    void metadataDeniesEverySourceScopeAndDestinationBeforeAnyWrite(String route, String denial) throws Exception {
+        Document document = prepareMetadata();
+        switch (denial) {
+            case "ctl" -> {
+                when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(10), patientLink(20)));
+                when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(20))).thenReturn(false);
+            }
+            case "routing" -> {
+                var linked = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting(); linked.setDemographicNo(20);
+                when(patientLabRoutingDao.findByLabNoAndLabType(42, "DOC")).thenReturn(List.of(linked));
+                when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(20))).thenReturn(false);
+            }
+            case "program" -> {document.setRestrictToProgram(true); document.setProgramId(17);}
+            case "queue" -> {
+                var queues = Mockito.mock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class);
+                var link = new io.github.carlos_emr.carlos.commn.model.QueueDocumentLink(); link.setQueueId(7); link.setStatus("A");
+                when(queues.getQueueFromDocument(42)).thenReturn(List.of(link));
+                registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class, queues);
+            }
+            case "target" -> {request.setParameter("demog", "20"); when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(20))).thenReturn(false);}
+            case "targetPrivilege" -> {request.setParameter("demog", "20"); when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), eq("20"))).thenReturn(false);}
+            default -> throw new AssertionError();
+        }
+        metadata(route); assertThat(response.getStatus()).isEqualTo(403); assertNoMetadataWrites();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("accepted").asBoolean()).isFalse(); assertThat(json.path("document").asInt()).isEqualTo(42);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"ajax", "legacy"})
+    void metadataRechecksProgramAfterWaitingForDocumentLock(String route) {
+        Document document = prepareMetadata();
+        when(documentDao.findForPageMutation(42)).thenAnswer(invocation -> {document.setRestrictToProgram(true); document.setProgramId(99); return document;});
+        metadata(route); assertThat(response.getStatus()).isEqualTo(403); assertNoMetadataWrites();
+        assertThat(metadataTransactions.rollbacks).isEqualTo(1);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"ajax", "legacy"})
+    void metadataRejectsDuplicateTargetsAndMalformedProviderLists(String route) {
+        prepareMetadata(); request.setParameter("demog", new String[]{"10", "20"}); metadata(route);
+        assertThat(response.getStatus()).isEqualTo(403); assertNoMetadataWrites();
+        response.reset(); request.setParameter("demog", "10"); request.setParameter("flagproviders", new String[]{"999998", "bad provider"}); metadata(route);
+        assertThat(response.getStatus()).isEqualTo(403); assertNoMetadataWrites();
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"ajax", "legacy"})
+    void repeatedMetadataClassificationSaveDoesNotDuplicateDocRouting(String route) throws Exception {
+        Document document = prepareMetadata();
+        var routes = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.model.PatientLabRouting>();
+        when(patientLabRoutingDao.findByLabNoAndLabType(42, "DOC")).thenReturn(routes);
+        Mockito.doAnswer(invocation -> {routes.add(invocation.getArgument(0)); return null;}).when(patientLabRoutingDao).persist(any());
+        metadata(route); response.reset(); request.setParameter("docType", "Consult"); metadata(route);
+        assertThat(response.getStatus()).isEqualTo(200); assertThat(document.getDoctype()).isEqualTo("Consult");
+        assertThat(routes).hasSize(1); assertThat(routes.get(0).getLabType()).isEqualTo("DOC");
+        assertThat(routes.get(0).getDemographicNo()).isEqualTo(10);
+        verify(patientLabRoutingDao, Mockito.never()).findByLabNoAndLabType(42, "Lab");
+        verify(patientLabRoutingDao, Mockito.never()).findByLabNoAndLabType(42, "Consult");
+        assertThat(metadataTransactions.commits).isEqualTo(2);
+        if ("ajax".equals(route)) {
+            var data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+            assertThat(data.path("success").asBoolean()).isTrue(); assertThat(data.path("accepted").asBoolean()).isTrue();
+            assertThat(data.path("document").asInt()).isEqualTo(42); assertThat(data.path("patientId").asText()).isEqualTo("10");
+        }
+    }
+
+    @ParameterizedTest @CsvSource({"ajax,0", "legacy,0", "ajax,-1", "legacy,-1", "ajax,provider", "legacy,provider"})
+    void metadataOnlyUnfiledAndProviderCasesNeverCreateOrRewritePatientLinks(String route, String target) {
+        prepareMetadata();
+        if ("provider".equals(target)) {
+            CtlDocument link = new CtlDocument(); link.setId(new CtlDocumentPK("provider", 999998, 42));
+            when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(link); request.setParameter("demog", "999998");
+        } else request.setParameter("demog", target);
+        metadata(route); assertThat(response.getStatus()).isEqualTo(200);
+        verify(patientLabRoutingDao, Mockito.never()).persist(any()); verify(ctlDocumentDao, Mockito.never()).persist(any());
+        verify(ctlDocumentDao, Mockito.never()).remove(any(CtlDocumentPK.class));
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"ajax", "legacy"})
+    void routingFailureRollsBackAndUnknownCommitNeverClaimsUnaccepted(String route) throws Exception {
+        prepareMetadata(); request.setParameter("flagproviders", "999998");
+        doThrow(new IllegalStateException("routing failed")).when(providerInboxRoutingDao).addToProviderInboxStrict("999998", 42, "DOC");
+        metadata(route); assertThat(response.getStatus()).isEqualTo(500); assertThat(metadataTransactions.rollbacks).isEqualTo(1);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertThat(mapper.readTree(response.getContentAsString()).path("accepted").asBoolean()).isFalse();
+        response.reset(); request.removeParameter("flagproviders"); metadataTransactions.failCommit = true;
+        metadata(route); assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(mapper.readTree(response.getContentAsString()).path("accepted").asBoolean()).isTrue();
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"GET", "HEAD"})
+    void providerUnlinkRequiresPost(String verb) {
+        prepareMetadata(); request.setMethod(verb); action.removeLinkFromDocument();
+        assertThat(response.getStatus()).isEqualTo(405); assertNoMetadataWrites();
+    }
+
+    @Test void providerUnlinkChecksTypeAndActualSourceBeforeRemovingAnything() throws Exception {
+        Document document = prepareMetadata(); request.setParameter("docId", "42"); request.setParameter("providerNo", "999998");
+        request.setParameter("docType", "HL7"); action.removeLinkFromDocument();
+        assertThat(response.getStatus()).isEqualTo(403); verifyNoInteractions(providerInboxRoutingDao);
+        response.reset(); request.setParameter("docType", "DOC"); document.setRestrictToProgram(true); document.setProgramId(99);
+        action.removeLinkFromDocument(); assertThat(response.getStatus()).isEqualTo(403); verifyNoInteractions(providerInboxRoutingDao);
+        response.reset(); document.setRestrictToProgram(false); action.removeLinkFromDocument();
+        assertThat(response.getStatus()).isEqualTo(200); verify(providerInboxRoutingDao).removeLinkFromDocument("DOC", 42, "999998");
+        var data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(data.path("success").asBoolean()).isTrue(); assertThat(data.path("document").asInt()).isEqualTo(42);
+        assertThat(data.path("linkedProviders").isArray()).isTrue();
+    }
+
+    @Test void providerUnlinkFailureCannotClaimSuccess() throws Exception {
+        prepareMetadata(); request.setParameter("docId", "42"); request.setParameter("providerNo", "999998"); request.setParameter("docType", "DOC");
+        when(providerInboxRoutingDao.removeLinkFromDocument("DOC", 42, "999998")).thenReturn(false);
+        action.removeLinkFromDocument();
+        assertThat(response.getStatus()).isEqualTo(500); assertThat(metadataTransactions.rollbacks).isEqualTo(1);
+        var data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(data.path("success").asBoolean()).isFalse(); assertThat(data.path("accepted").asBoolean()).isFalse();
+    }
+
+    @Test void providerUnlinkResponseExcludesRetainedAuditRows() throws Exception {
+        prepareMetadata(); request.setParameter("docId", "42"); request.setParameter("providerNo", "999998"); request.setParameter("docType", "DOC");
+        var removed = new io.github.carlos_emr.carlos.commn.model.ProviderInboxItem();
+        removed.setProviderNo("999998"); removed.setStatus("X");
+        var remaining = new io.github.carlos_emr.carlos.commn.model.ProviderInboxItem();
+        remaining.setProviderNo("999997"); remaining.setStatus("N");
+        when(providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", 42)).thenReturn(List.of(removed, remaining));
+        action.removeLinkFromDocument();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(data.path("linkedProviders")).hasSize(1);
+        assertThat(data.path("linkedProviders").get(0).path("providerNo").asText()).isEqualTo("999997");
+        assertThat(removed.getStatus()).isEqualTo("X");
+    }
+
+    private static final class MetadataTransactions extends org.springframework.transaction.support.AbstractPlatformTransactionManager {
+        int commits, rollbacks; boolean failCommit;
+        @Override protected Object doGetTransaction() {return new Object();}
+        @Override protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) { }
+        @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
+            if (failCommit) throw new org.springframework.transaction.TransactionSystemException("Unconfirmed commit"); commits++;
+        }
+        @Override protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) {rollbacks++;}
     }
 
     @Test

@@ -947,28 +947,7 @@
          * The inbox list view keeps its original removeLink from oscarMDSIndex.js.
          */
         window.removeLink = function(docTypeStr, docId, providerNo, e) {
-            var data = new URLSearchParams({
-                method: 'removeLinkFromDocument',
-                docType: docTypeStr,
-                docId: docId,
-                providerNo: providerNo,
-                'CSRF-TOKEN': getCsrfToken()
-            });
-            fetch(contextpath + '/documentManager/ManageDocument', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: data.toString()
-            }).then(function(response) {
-                if (response.ok) {
-                    if (e && e.parentNode) {
-                        e.parentNode.remove();
-                    }
-                } else {
-                    console.error('Error removing provider link: ' + response.statusText);
-                }
-            }).catch(function(error) {
-                console.error('Error removing provider link:', error);
-            });
+            return window.CarlosDocumentMetadata.unlink(docTypeStr, docId, providerNo, e);
         };
     }
 

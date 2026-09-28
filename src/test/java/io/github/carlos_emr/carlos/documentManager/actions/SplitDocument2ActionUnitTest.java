@@ -116,6 +116,71 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     JsonNode result() throws Exception { return new ObjectMapper().readTree(response.getContentAsString()); }
 
+    @ParameterizedTest @ValueSource(strings = {"traversal", "directory-symlink", "leaf-symlink"})
+    void escapingStoredFilenameIsRejectedBeforePreparationOrPersistence(String kind) throws Exception {
+        Path store = Files.createDirectory(directory.resolve("store"));
+        Path outside = directory.resolve("source.pdf");
+        byte[] original = Files.readAllBytes(outside);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(store.toString());
+        switch (kind) {
+            case "traversal" -> document.setDocfilename("../source.pdf");
+            case "directory-symlink" -> {
+                Files.createSymbolicLink(store.resolve("linked"), directory);
+                document.setDocfilename("linked/source.pdf");
+            }
+            case "leaf-symlink" -> {
+                Files.createSymbolicLink(store.resolve("linked.pdf"), outside);
+                document.setDocfilename("linked.pdf");
+            }
+            default -> throw new IllegalArgumentException();
+        }
+        action.split();
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(result().path("accepted").asBoolean()).isFalse();
+        assertThat(result().path("retryable").asBoolean()).isFalse();
+        assertThat(action.preparations).isZero();
+        assertThat(Files.readAllBytes(outside)).isEqualTo(original);
+        verify(documents, never()).findForPageMutation(anyInt());
+        edocs.verify(() -> EDocUtil.addDocumentSQL(any()), never());
+        verifyNoInteractions(inbox);
+    }
+
+    @Test void containedNestedStoredFilenameStillSplitsSuccessfully() throws Exception {
+        Path nested = Files.createDirectory(directory.resolve("historical"));
+        Files.move(directory.resolve("source.pdf"), nested.resolve("source.pdf"));
+        document.setDocfilename("historical/source.pdf");
+        byte[] original = Files.readAllBytes(nested.resolve("source.pdf"));
+        action.split();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(result().path("newDocNum").asInt()).isEqualTo(77);
+        assertThat(Files.readAllBytes(nested.resolve("source.pdf"))).isEqualTo(original);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"after-admission", "before-publication"})
+    void escapingFilenameIntroducedAfterInitialValidationStillCannotPublish(String phase) throws Exception {
+        Path store = Files.createDirectory(directory.resolve("store"));
+        Path outside = directory.resolve("source.pdf");
+        Path source = Files.copy(outside, store.resolve("source.pdf"));
+        byte[] original = Files.readAllBytes(source);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(store.toString());
+        if ("after-admission".equals(phase)) {
+            Document changed = new Document(42);
+            changed.setDocfilename("../source.pdf"); changed.setStatus('A');
+            when(documents.getDocument("42")).thenReturn(document, changed);
+        } else {
+            action.afterPreparation = () -> document.setDocfilename("../source.pdf");
+        }
+        action.split();
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(result().path("accepted").asBoolean()).isFalse();
+        assertThat(result().path("retryable").asBoolean()).isFalse();
+        assertThat(action.preparations).isEqualTo("after-admission".equals(phase) ? 0 : 1);
+        assertThat(Files.readAllBytes(source)).isEqualTo(original);
+        assertThat(Files.readAllBytes(outside)).isEqualTo(original);
+        edocs.verify(() -> EDocUtil.addDocumentSQL(any()), never());
+        verifyNoInteractions(inbox);
+    }
+
     @ParameterizedTest @ValueSource(strings = {"split", "rotate90", "rotate180", "removeFirstPage"})
     void directEntryRejectsGetBeforeAnyLookup(String operation) throws Exception {
         request.setMethod("GET");

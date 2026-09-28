@@ -791,53 +791,124 @@ public class CommonLabResultData {
     }
 
     public static boolean fileLabs(ArrayList<String[]> flaggedLabs, LoggedInInfo loggedInInfo) {
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
-        return fileLabs(flaggedLabs, loggedInInfo.getLoggedInProviderNo());
-
+        return fileLabsChecked(flaggedLabs, loggedInInfo.getLoggedInProviderNo(), loggedInInfo);
     }
 
+    /** Legacy non-document callers cannot supply the authenticated document-access context. */
     public static boolean fileLabs(ArrayList<String[]> flaggedLabs, String provider) {
+        return fileLabsChecked(flaggedLabs, provider, null);
+    }
 
+    private static boolean fileLabsChecked(ArrayList<String[]> flaggedLabs, String provider, LoggedInInfo info) {
+        if (flaggedLabs == null || flaggedLabs.isEmpty() || provider == null || provider.isBlank()) {
+            throw new IllegalArgumentException("Missing filing selection");
+        }
+        // Validate and authorize the complete selection before any per-item commit.
+        for (String[] selection : flaggedLabs) {
+            if (selection == null || selection.length != 2 || selection[1] == null
+                    || !io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.positiveId(selection[0])
+                    || (!java.util.Arrays.asList(getLabTypes()).contains(selection[1])
+                        && !java.util.Set.of(LabResultData.HRM, LabResultData.Spire, LabResultData.ALPHAHL7, LabResultData.TRUENORTH).contains(selection[1]))) {
+                throw new IllegalArgumentException("Invalid filing selection");
+            }
+            if ("DOC".equals(selection[1])) requireDocumentFilingAccess(info, Integer.parseInt(selection[0]));
+        }
+        boolean committed = false;
         CommonLabResultData data = new CommonLabResultData();
-        // Accumulate the real per-lab outcome and return it, instead of overwriting a single flag each
-        // iteration and returning an unconditional TRUE. Do NOT remove entries from flaggedLabs
-        // mid-iteration: the previous `if(!success) flaggedLabs.remove(i)` shifted the next lab into
-        // the current index and the `i++` then skipped it — filing N labs silently processed only
-        // some. A real acknowledgement failure now throws out of updateReportStatus (see it), so
-        // allFiled reflects genuine per-lab success.
-        boolean allFiled = true;
-        for (int i = 0; i < flaggedLabs.size(); i++) {
-
-            String[] strarr = flaggedLabs.get(i);
-            String lab = strarr[0];
-            String labType = strarr[1];
-            String labs = data.getMatchingLabs(lab, labType);
-
-            if (labs != null && !labs.equals("")) {
-                String[] labArray = labs.split(",");
-                for (int j = 0; j < labArray.length; j++) {
-                    allFiled = updateReportStatus(Integer.parseInt(labArray[j]), provider, 'F', "", labType) && allFiled;
-                    removeFromQueue(Integer.parseInt(labArray[j]));
+        for (String[] selection : flaggedLabs) {
+            try {
+                if ("DOC".equals(selection[1])) {
+                    fileDocument(Integer.parseInt(selection[0]), provider, info);
+                    committed = true;
+                    continue;
                 }
-
-            } else {
-                allFiled = updateReportStatus(Integer.parseInt(lab), provider, 'F', "", labType) && allFiled;
-                removeFromQueue(Integer.parseInt(lab));
+                String matching = data.getMatchingLabs(selection[0], selection[1]);
+                String[] versions = matching == null || matching.isEmpty() ? new String[]{selection[0]} : matching.split(",");
+                for (String version : versions) {
+                    // Lab numeric IDs are a separate namespace: never touch document queues here.
+                    // Existing lab status writes own their transactions. An exception can include
+                    // an uncertain commit, so it must not advertise a safely replayable batch.
+                    boolean filed;
+                    try { filed = updateReportStatus(Integer.parseInt(version), provider, 'F', "", selection[1]); }
+                    catch (RuntimeException failure) { throw new FilingFailure(failure, true); }
+                    if (!filed) throw new FilingFailure(new IllegalStateException("Lab filing was not confirmed"), true);
+                    committed = true;
+                }
+            } catch (RuntimeException failure) {
+                boolean accepted = committed || failure instanceof FilingFailure filing && filing.accepted();
+                throw new FilingFailure(failure, accepted);
             }
         }
-        return allFiled;
+        return true;
     }
 
-
-    private static void removeFromQueue(Integer lab_no) {
-        List<QueueDocumentLink> queues = queueDocumentLinkDao.getQueueFromDocument(lab_no);
-
-        for (QueueDocumentLink queue : queues) {
-            queueDocumentLinkDao.remove(queue.getId());
+    private static void requireDocumentFilingAccess(LoggedInInfo info, int document) {
+        if (info == null) throw new SecurityException("Authenticated document filing context required");
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(
+                securityInfoManager, info, String.valueOf(document));
+        for (QueueDocumentLink queue : queueDocumentLinkDao.getQueueFromDocument(document)) {
+            if (queue.getStatus() != null && !"I".equals(queue.getStatus())) {
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(
+                        securityInfoManager, info, String.valueOf(queue.getQueueId()));
+            }
         }
+    }
+
+    private static void fileDocument(int document, String provider, LoggedInInfo info) {
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        int[] completion = {-1};
+        try {
+            transaction.executeWithoutResult(status -> {
+                completion[0] = org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN;
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void afterCompletion(int result) { completion[0] = result; }
+                        });
+                Document source = SpringUtils.getBean(DocumentDao.class).findForPageMutation(document);
+                if (source == null) throw new SecurityException("Document is not available");
+                requireDocumentFilingAccess(info, document);
+                if (!updateReportStatus(document, provider, 'F', "", "DOC")) {
+                    throw new IllegalStateException("Document provider filing was not confirmed");
+                }
+                removeFromQueue(document, info);
+            });
+        } catch (RuntimeException failure) {
+            throw new FilingFailure(failure, completion[0] != -1
+                    && completion[0] != org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+        }
+    }
+
+    /** Called only for an authorized DOC while its document row and transaction are held. */
+    private static void removeFromQueue(Integer document, LoggedInInfo info) {
+        List<QueueDocumentLink> queues = queueDocumentLinkDao.getQueueFromDocument(document);
+        // Authorize the exact rows about to be changed, including a queue linked
+        // by a legacy writer after the earlier authorization snapshot.
+        for (QueueDocumentLink queue : queues) {
+            if (queue.getStatus() != null && !"I".equals(queue.getStatus())) {
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(
+                        securityInfoManager, info, String.valueOf(queue.getQueueId()));
+            }
+        }
+        for (QueueDocumentLink queue : queues) {
+            if (queue.getStatus() != null && !"I".equals(queue.getStatus())) {
+                queue.setStatus("I");
+                queueDocumentLinkDao.merge(queue);
+            }
+        }
+    }
+
+    /** A batch can contain earlier committed items even if the latest item rolled back. */
+    public static final class FilingFailure extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        private final boolean accepted;
+        public FilingFailure(RuntimeException cause, boolean accepted) { super("Filing was not confirmed", cause); this.accepted = accepted; }
+        public boolean accepted() { return accepted; }
     }
 
     // //

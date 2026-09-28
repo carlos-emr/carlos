@@ -232,6 +232,7 @@
 %>
     </script>
 <script src="${pageContext.request.contextPath}/js/documentImageLoader.js"></script>
+<%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
 </head>
 <body>
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
@@ -503,71 +504,25 @@
                                             window.opener.location.reload();
                                         }
                                         updateStatus = function (formid) {
-                                            var num = formid.split("_");
-                                            var doclabid = num[1];
-                                            if (doclabid) {
-                                                var demoId = document.getElementById('demofind' + doclabid).value;
-                                                var saved = document.getElementById('saved' + doclabid).value;
-                                                if (demoId == '-1' || saved == 'false' || saved == false) {
-                                                    alert('Document is not assigned to a patient,please file it');
-                                                } else {
-                                                    var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus";
-                                                    var formEl = document.getElementById(formid);
-                                                    var data = new URLSearchParams(new FormData(formEl)).toString();
-                                                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                                                    var csrfToken = csrfEl ? csrfEl.value : '';
-
-                                                    fetch(url, {
-                                                        method: 'POST',
-                                                        headers: {
-                                                            'Content-Type': 'application/x-www-form-urlencoded',
-                                                            'X-Requested-With': 'XMLHttpRequest',
-                                                            'CSRF-TOKEN': csrfToken
-                                                        },
-                                                        credentials: 'same-origin',
-                                                        body: data
-                                                    }).then(function() {
-                                                        refreshParent();
-                                                        window.close();
-                                                    });
-                                                }
+                                            var id = formid.split('_')[1];
+                                            if (!id) return false;
+                                            if (document.getElementById('demofind' + id).value === '-1' || document.getElementById('saved' + id).value !== 'true') {
+                                                alert('Document is not assigned to a patient,please file it');
+                                                return false;
                                             }
+                                            return window.CarlosDocumentMetadata.acknowledge(formid, function () {
+                                                refreshParent();
+                                                window.close();
+                                            });
                                         }
 
                                         fileDoc = function (docId) {
-                                            if (docId) {
-                                                docId = docId.replace(/\s/, '');
-                                                if (docId.length > 0) {
-                                                    var demoId = document.getElementById('demofind' + docId).value;
-                                                    var saved = document.getElementById('saved' + docId).value;
-                                                    var isFile = true;
-                                                    if (demoId == '-1' || saved == 'false' || saved == false) {
-                                                        isFile = confirm('Document is not assigned and saved to any patient, do you still want to file it?');
-                                                    }
-                                                    if (isFile) {
-                                                        var type = 'DOC';
-                                                        if (type) {
-                                                            var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs';
-                                                            var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-                                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                                                            var csrfToken = csrfEl ? csrfEl.value : '';
-                                                            fetch(url, {
-                                                                method: 'POST',
-                                                                headers: {
-                                                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                                                    'X-Requested-With': 'XMLHttpRequest',
-                                                                    'CSRF-TOKEN': csrfToken
-                                                                },
-                                                                credentials: 'same-origin',
-                                                                body: data
-                                                            }).then(function() {
-                                                                refreshParent();
-                                                                window.close();
-                                                            });
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                            docId = String(docId).trim();
+                                            if ((document.getElementById('demofind' + docId).value === '-1' || document.getElementById('saved' + docId).value !== 'true') && !confirm('Document is not assigned and saved to any patient, do you still want to file it?')) return false;
+                                            return window.CarlosDocumentMetadata.file(docId, function () {
+                                                refreshParent();
+                                                window.close();
+                                            });
                                         }
 
                                         function sendMRP(ele) {
@@ -631,40 +586,14 @@
                                         }
 
                                         updateDocument = function (eleId) {
-                                            if (!checkObservationDate(eleId)) {
-                                                return false;
-                                            }
-                                            //save doc info
-                                            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument";
-                                            var formEl = document.getElementById(eleId);
-                                            var data = new URLSearchParams(new FormData(formEl)).toString();
-                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                                            var csrfToken = csrfEl ? csrfEl.value : '';
-                                            fetch(url, {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                                    'X-Requested-With': 'XMLHttpRequest',
-                                                    'CSRF-TOKEN': csrfToken
-                                                },
-                                                credentials: 'same-origin',
-                                                body: data
-                                            }).then(function() {
-                                                var ar = eleId.split("_");
-                                                var num = ar[1];
-                                                num = num.replace(/\s/g, '');
-                                                var successMsg = document.getElementById("saveSucessMsg_" + num);
-                                                if (successMsg) successMsg.style.display = '';
-                                                var savedEl = document.getElementById('saved' + num);
-                                                if (savedEl) savedEl.value = 'true';
+                                            if (!checkObservationDate(eleId)) return false;
+                                            return window.CarlosDocumentMetadata.save(eleId, function (json, num) {
                                                 var autoEl = document.getElementById('autocompletedemo' + num);
-                                                if (autoEl) autoEl.disabled = true;
+                                                if (autoEl && json.patientId !== null) autoEl.disabled = true;
                                                 var removeEl = document.getElementById('removeProv' + num);
                                                 if (removeEl) removeEl.parentNode.removeChild(removeEl);
-
                                                 refreshParent();
                                             });
-                                            return false;
                                         }
 
                                         function checkObservationDate(formid) {

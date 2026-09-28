@@ -296,17 +296,6 @@ function appendHtmlWithScripts(container, html) {
     });
 }
 
-function updateDocStatusInQueue(docid) {//change status of queue document link row to I=inactive
-    console.log('in updateDocStatusInQueue, docid ' + docid);
-    const url = ctx + "/documentManager/inboxManage";
-    const data = "docid=" + docid + "&method=updateDocStatusInQueue";
-
-    postForm(url, data)
-        .then(response => response.text())
-        .then(text => console.log(text))
-        .catch(error => console.error('Error:', error));
-}
-
 function saveNext(docid) {
     updateDocumentAndNext('forms_' + docid);
 }
@@ -1978,122 +1967,32 @@ function decreaseCount(eleId) {
     }
 }
 
-function updateDocumentAndNext(eleId) {//save doc info
-    const url = "../documentManager/ManageDocument"
-    const formEl = document.getElementById(eleId);
-    const data = serializeForm(formEl);
-
-    postForm(url, data)
-        .then(response => response.json())
-        .then(json => {
-        if (json != null) {
-            const patientId = json.patientId;
-
-            const ar = eleId.split("_");
-            const num = ar[1].replace(/\s/g, '');
-
-            showElement("saveSucessMsg_" + num);
-            const savedEl = document.getElementById('saved' + num);
-            if (savedEl) savedEl.value = 'true';
-
-            const msgBtnEl = document.getElementById("msgBtn_" + num);
-            if (msgBtnEl) {
-                msgBtnEl.onclick = function () {
-                    popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
-                };
-            }
-
-            updateDocStatusInQueue(num);
-
-            if (typeof _in_window !== 'undefined' && _in_window) {
-                if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                    // Typed: segment ids are not unique across report types, and an untyped
-                    // call can remove another type's row and decrement its total instead.
-                    self.opener.removeReport(num, 'DOC');
-                }
-                window.close();
-            } else {
-                //Hide document with slide up animation
-                labDocumentRows(num, 'DOC').slideUp();
-                const success = updateGlobalDataAndSideNav(num, patientId);
-                if (success) {
-                    const innerSuccess = updatePatientDocLabNav(num, patientId);
-                    if (innerSuccess) {
-                        //disable demo input
-                        const autocompletedemoEl = document.getElementById('autocompletedemo' + num);
-                        if (autocompletedemoEl) autocompletedemoEl.disabled = true;
-                    }
-                }
-            }
+function confirmedDocumentMetadata(json, num, next) {
+    const patientId = json.patientId;
+    const msgBtn = document.getElementById('msgBtn_' + num);
+    if (msgBtn && patientId !== null) msgBtn.onclick = function () {
+        popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
+    };
+    if (typeof _in_window !== 'undefined' && _in_window) {
+        if (self.opener && typeof self.opener.removeReport === 'function') self.opener.removeReport(num, 'DOC');
+        if (next) window.close();
+    } else {
+        if (next) labDocumentRows(num, 'DOC').slideUp();
+        if (patientId !== null && updateGlobalDataAndSideNav(num, patientId) && updatePatientDocLabNav(num, patientId)) {
+            const input = document.getElementById('autocompletedemo' + num);
+            if (input) input.disabled = true;
         }
-    })
-    .catch(error => console.error('Error:', error));
+    }
+}
 
-    return false;
+function updateDocumentAndNext(eleId) {
+    if (!checkObservationDate(eleId)) return false;
+    return window.CarlosDocumentMetadata.save(eleId, (json, num) => confirmedDocumentMetadata(json, num, true), true);
 }
 
 function updateDocument(eleId) {
-    if (!checkObservationDate(eleId)) {
-        return false;
-    }
-
-    //save doc info
-    const url = "../documentManager/ManageDocument";
-    const formEl = document.getElementById(eleId);
-    const data = serializeForm(formEl);
-
-    postForm(url, data)
-        .then(response => response.text())
-        .then(responseText => {
-        const ar = eleId.split("_");
-        const num = ar[1].replace(/\s/g, '');
-
-        const msg = document.getElementById("saveSucessMsg_" + num);
-        if (msg) msg.style.display = "inline";
-
-        const savedField = document.getElementById("saved" + num);
-        if (savedField) savedField.value = "true";
-
-        let success = false;
-        let patientId = null;
-
-        try {
-            const json = JSON.parse(responseText);
-            if (json && json.patientId) {
-                patientId = json.patientId;
-
-                const msgBtn = document.getElementById("msgBtn_" + num);
-                if (msgBtn) {
-                    msgBtn.onclick = function () {
-                        popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
-                    };
-                }
-
-                if (typeof _in_window !== 'undefined' && _in_window) {
-                    if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                        // Typed, for the same reason as updateDocumentAndNext above.
-                        self.opener.removeReport(num, 'DOC');
-                        success = true;
-                    }
-                } else {
-                    success = updateGlobalDataAndSideNav(num, patientId);
-                }
-
-                if (success) {
-                    const updateSuccess = updatePatientDocLabNav(num, patientId);
-                    if (updateSuccess) {
-                        const ac = document.getElementById("autocompletedemo" + num);
-                        if (ac) ac.disabled = true;
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn("Not JSON");
-        }
-    })
-    .catch(error => console.error("Save failed:", error));
-
-    return false;
+    if (!checkObservationDate(eleId)) return false;
+    return window.CarlosDocumentMetadata.save(eleId, (json, num) => confirmedDocumentMetadata(json, num, false));
 }
 
 function checkObservationDate(formid) {
@@ -2262,10 +2161,8 @@ function updateStatus(formid) {//acknowledge
         if (jQuery('#saved' + doclabid).length) {
             saved = jQuery('#saved' + doclabid).val();
         }
-        console.log("Update status for demoid: " + demoId + " doclabid: " + doclabid);
-        console.log("Previously saved: " + saved);
 
-        if (demoId === '-1' || !saved) {
+        if (demoId === '-1' || saved === false || saved === 'false') {
             alert('Document is not assigned and saved to a patient,please file it');
         } else {
             const url = contextpath + "/oscarMDS/UpdateStatus";
@@ -2277,18 +2174,8 @@ function updateStatus(formid) {//acknowledge
             // have the hidden field (showDocument, MultiPageDocDisplay, labDisplayAjax); the
             // lab display's does not, and its acknowledgement is the multi-version case.
             data.ajaxcall = 'yes';
-            console.log("Updating status. URL: " + url);
-            console.log(data);
 
-            jQuery.post(url, data).done(function (responseBody) {
-                // Only a DOCUMENT has an inbox queue link. This handler serves lab (HL7) and
-                // document acknowledge forms alike, and doclabid is whichever id the form
-                // carries -- lab segment ids and document ids are separate sequences, so
-                // posting a lab id here inactivated the queue link of an unrelated document
-                // that happened to share the number.
-                if (data.labType === 'DOC') {
-                    updateDocStatusInQueue(doclabid);
-                }
+            function acknowledged(responseBody) {
 				// How many routing rows the server took out of NEW. Only it knows: it derives
 				// the HL7 version chain itself rather than trusting the posted multiID, and it
 				// alone can see which of those rows were still NEW. Absent — an older server,
@@ -2320,49 +2207,23 @@ function updateStatus(formid) {//acknowledge
                     labDocumentRows(doclabid, data.labType).slideUp();
                     updateGlobalDataAndSideNav(doclabid, null);
                 }
-            })
+            }
+            if (data.labType === 'DOC') window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
+            else jQuery.post(url, data).done(acknowledged);
         }
     }
 }
 
 function fileDoc(docId) {
-    if (docId) {
-        docId = docId.replace(/\s/, '');
-        if (docId.length > 0) {
-            const demofindEl = document.getElementById('demofind' + docId);
-            const demoId = demofindEl ? demofindEl.value : '-1';
-            let isFile = true;
-            if (demoId == '-1') {
-                isFile = confirm('Document is not assigned to any patient, do you still want to file it?');
-            }
-            if (isFile) {
-                const type = 'DOC';
-                if (type) {
-                    const url = '../oscarMDS/FileLabs';
-                    const data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-
-                    postForm(url, data)
-                        .then(response => response.text())
-                        .then(responseText => {
-                            updateDocStatusInQueue(docId);
-
-                            if (typeof _in_window !== 'undefined' && _in_window) {
-                                if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                                    // 'type' is the labType this filing was posted under.
-                                    self.opener.removeReport(docId, type);
-                                }
-
-                                window.close();
-                            } else {
-                                // Slide up animation using jQuery
-                                labDocumentRows(docId, type).slideUp();
-                            }
-                        })
-                        .catch(error => console.error('Error:', error));
-                }
-            }
-        }
-    }
+    docId = String(docId).trim();
+    const demographic = document.getElementById('demofind' + docId);
+    if ((!demographic || demographic.value === '-1') && !confirm('Document is not assigned to any patient, do you still want to file it?')) return false;
+    return window.CarlosDocumentMetadata.file(docId, function () {
+        if (typeof _in_window !== 'undefined' && _in_window) {
+            if (self.opener && typeof self.opener.removeReport === 'function') self.opener.removeReport(docId, 'DOC');
+            window.close();
+        } else labDocumentRows(docId, 'DOC').slideUp();
+    });
 }
 
 function handleQueueListChange(queueListSelectElement, refileBtnElement) {
@@ -2415,17 +2276,9 @@ function addDocToList(provNo, provName, docId) {
 }
 
 function removeLink(docType, docId, providerNo, e) {
-    const url = "../documentManager/ManageDocument";
-    const data = 'method=removeLinkFromDocument&docType=' + docType + '&docId=' + docId + '&providerNo=' + providerNo;
-
-    postForm(url, data)
-    .then(response => response.text())
-    .then(responseText => {
+    return window.CarlosDocumentMetadata.unlink(docType, docId, providerNo, e, function () {
         updateDocLabData(docId);
-    })
-    .catch(error => console.error('Error:', error));
-
-    e.parentNode.remove(e);
+    });
 }
 
 function replaceQueryString(url, param, value) {

@@ -14,6 +14,13 @@ const {runWorkflow} = require('./lib/workflow-session');
 const {prepareIncomingFilingProgram} = require('./lib/incoming-filing-program-fixture');
 const {createStoredDocumentFixture} = require('./lib/stored-document-mutation-fixture');
 const {withStoredCapacityCheck} = require('./lib/stored-document-capacity-check');
+const {preflightMetadataSchema} = require('./lib/document-metadata-check');
+const {metadataEnabled, runInstalledMetadata} = require('./lib/document-metadata-installed');
+const {preflightMetadataPatient, createMetadataPatientFixture} = require('./lib/document-metadata-patient-fixture');
+function metadataPreflight(sql) {
+  const patientCleanup = preflightMetadataPatient(sql);
+  return preflightMetadataSchema(sql, {patientCleanup});
+}
 
 function validateOwnedPost(body, expected, ownedIds) {
   const fields = new URLSearchParams(body || '');
@@ -70,6 +77,7 @@ async function probeAssignedPolicy(requester, endpoint, fields, intended, fixtur
 }
 async function workflow(s) {
   const contentUpdates = expectedContentUpdates();
+  const metadataSchema = metadataEnabled() ? metadataPreflight(s.sql) : null;
   let fixture, fixtureStarted = false;
   const {program} = prepareIncomingFilingProgram({...s, cleanup(callback) {
     s.cleanup(() => {
@@ -78,7 +86,11 @@ async function workflow(s) {
     });
   }});
   fixtureStarted = true;
-  fixture = createStoredDocumentFixture(s, program);
+  fixture = createStoredDocumentFixture(s, program, undefined, {metadataSchema});
+  if (metadataSchema) {
+    await runInstalledMetadata(s, fixture, metadataSchema);
+    return; // Explicit separate phase; does not claim content-policy/mutation coverage.
+  }
   fixture.rememberStable();
   const mutations = createMutationTracker(fixture);
   const id = fixture.sourceId, context = s.context;
@@ -346,5 +358,7 @@ async function workflow(s) {
     fixture.closeAfterDrain();
   }
 }
-if (require.main === module) runWorkflow('stored-document-mutations', workflow, {openPatient: true, openMaster: false});
+if (require.main === module) runWorkflow('stored-document-mutations', workflow, {openPatient: true, openMaster: false,
+  preflight: ({sql}) => {if (metadataEnabled()) metadataPreflight(sql);},
+  patientFixtureFactory: metadataEnabled() ? createMetadataPatientFixture : undefined});
 module.exports = {workflow, validateOwnedPost, expectedContentUpdates, validatePolicyRefusal, createMutationTracker, probeAssignedPolicy};
