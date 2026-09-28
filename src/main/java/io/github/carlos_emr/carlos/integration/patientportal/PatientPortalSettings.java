@@ -112,6 +112,9 @@ public record PatientPortalSettings(
     private static final String NO_HOST_MESSAGE = "%s must name a host";
     private static final String PORT_MESSAGE = "%s must use a port between 1 and 65535";
     private static final String USER_INFO_MESSAGE = "%s must not embed credentials";
+    private static final String PATH_MESSAGE =
+            "%s must be the portal's origin only, with no path; CARLOS calls /internal/carlos/ at"
+                    + " the root of that origin";
     private static final String QUERY_MESSAGE = "%s must not carry a query string or fragment";
     private static final String TIMEOUT_MESSAGE = "%s must be a positive number of milliseconds";
     private static final String CLINIC_ID_MESSAGE =
@@ -152,7 +155,7 @@ public record PatientPortalSettings(
      * validation so they produce a configuration error instead of looking like an absent portal.
      */
     public static boolean isConfigured() {
-        return isConfigured(key -> CarlosProperties.getInstance().getProperty(key));
+        return isConfigured(key -> (String) CarlosProperties.getInstance().get(key));
     }
 
     static boolean isConfigured(Function<String, String> lookup) {
@@ -330,10 +333,14 @@ public record PatientPortalSettings(
      * CVE-2024-38827 class of defect that CARLOS tracks in issue #2496; an operator writing {@code
      * HTTPS://} gets a clear error rather than a silently locale-sensitive comparison.
      *
-     * <p>A path prefix is supported for a portal mounted below its origin. User-info is rejected
-     * because credentials in a URL leak into logs and proxy traces. A query or fragment is rejected
-     * because endpoint paths are appended by string concatenation, so {@code https://host?a=1}
-     * would swallow the entire endpoint path into the query string.
+     * <p>A path is rejected: the URL names the portal's origin only. The portal serves its internal
+     * API at {@code /internal/carlos/} on the root of that origin, whatever prefix its patient pages
+     * use. Its reference proxy answers {@code /<prefix>/internal/} with 404, and a proxy that strips
+     * a prefix instead changes the raw path the request signature binds, so a prefixed base URL
+     * could never authenticate. User-info is rejected because credentials in a URL leak into logs
+     * and proxy traces. A query or fragment is rejected because endpoint paths are appended by
+     * string concatenation, so {@code https://host?a=1} would swallow the entire endpoint path into
+     * the query string.
      */
     private static String validatedBaseUrl(String configured) {
         if (!configured.startsWith(REQUIRED_SCHEME_PREFIX)) {
@@ -360,6 +367,11 @@ public record PatientPortalSettings(
         if (uri.getUserInfo() != null) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, USER_INFO_MESSAGE, BASE_URL_KEY));
+        }
+        String path = uri.getRawPath();
+        if (path != null && !path.chars().allMatch(c -> c == '/')) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, PATH_MESSAGE, BASE_URL_KEY));
         }
         if (uri.getQuery() != null || uri.getFragment() != null) {
             throw new PatientPortalConfigurationException(
