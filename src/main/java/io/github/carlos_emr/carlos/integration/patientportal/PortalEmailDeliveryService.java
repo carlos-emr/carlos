@@ -222,15 +222,22 @@ public class PortalEmailDeliveryService {
             } catch (RecoveryRefusedException raced) {
                 // Recovery decided while this send was still running and the provider has now
                 // accepted it. Record that loudly: the stored state may contradict the delivery.
-                boolean withdrawn = withdrawnByRecovery(log);
+                PortalDeliveryState stored = storedStateAfterRace(log);
                 logger.error("Portal email accepted after its portal state was changed by recovery; "
-                        + "emailLogId={}; portalState={}", log.getId(), log.getPortalDeliveryState());
+                        + "emailLogId={}; portalState={}", log.getId(), stored);
                 audit(user, log, "PortalEmailDeliveryService.send.acceptedAfterRecovery");
-                if (withdrawn) {
+                if (stored == PortalDeliveryState.REVOKE_PENDING || stored == PortalDeliveryState.REVOKED) {
                     // The password is revoked or being revoked, so publication can never succeed;
-                    // "retry publication" would send staff after something that cannot happen.
+                    // "retry publication" would send staff after something that cannot happen. The
+                    // in-memory state stays SENDING so the compose page still offers recovery, where
+                    // staff can compose the email again; REVOKED would read as settled.
                     log.setErrorMessage(SENT_AFTER_REVOCATION);
                     return EmailSendResult.accepted(log, false, true);
+                }
+                if (stored == PortalDeliveryState.PUBLISHED) {
+                    // Recovery confirmed the send and published the password: nothing is left.
+                    log.setPortalDeliveryState(stored);
+                    return EmailSendResult.accepted(log, false);
                 }
                 throw raced;
             }
@@ -393,24 +400,22 @@ public class PortalEmailDeliveryService {
     }
 
     /**
-     * Re-reads the stored portal state after recovery won a race with this send, and reports
-     * whether it withdrew the password. Recovery may instead have confirmed the send, in which case
-     * publication is still possible. An unreadable state is treated as not withdrawn, which keeps
-     * the "retry publication" path that the recovery page can re-check.
+     * Re-reads the stored portal state after recovery won a race with this send. Recovery may have
+     * withdrawn the password, confirmed and published it, or confirmed it with publication still to
+     * do. Returns {@code null} when the state cannot be read, which keeps the "retry publication"
+     * path that the recovery page can re-check. The caller decides what to copy onto {@code log}.
      */
-    private boolean withdrawnByRecovery(EmailLog log) {
+    private PortalDeliveryState storedStateAfterRace(EmailLog log) {
         try {
             // find(int), as findForRecovery uses; an Integer argument would bind to find(Object).
             var stored = logs.find(log.getId().intValue());
-            if (stored == null || stored.getPortalDeliveryState() == null) {
-                return false;
+            if (stored == null) {
+                return null;
             }
             logs.detach(stored);
-            log.setPortalDeliveryState(stored.getPortalDeliveryState());
-            return stored.getPortalDeliveryState() == PortalDeliveryState.REVOKE_PENDING
-                    || stored.getPortalDeliveryState() == PortalDeliveryState.REVOKED;
+            return stored.getPortalDeliveryState();
         } catch (RuntimeException unreadable) {
-            return false;
+            return null;
         }
     }
 

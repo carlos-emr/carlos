@@ -18,6 +18,15 @@ public interface SmsTransactionService {
 
     SmsTransaction markConsentBlocked(SmsTransaction transaction, SmsConsentDecisionDto decision);
 
+    /**
+     * Rewrites the consent snapshot of a claimed row with the permitting decision its send relies on.
+     * Callers must continue with the returned row: the write advances the row version.
+     *
+     * @throws RuntimeException when the snapshot was not written, including when the row changed or
+     *                          disappeared under the claim; the caller must not send
+     */
+    SmsTransaction recordConsentDecision(SmsTransaction transaction, SmsConsentDecisionDto decision);
+
     SmsTransaction markSending(SmsTransaction transaction, Date attemptAt);
 
     SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult);

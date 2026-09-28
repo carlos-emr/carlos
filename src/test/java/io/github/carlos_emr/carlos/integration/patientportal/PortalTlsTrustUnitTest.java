@@ -247,8 +247,8 @@ class PortalTlsTrustUnitTest {
             String origin = startServer(otherHost);
             try (var transport = new PatientPortalHttpClientExchange(quick(), quick(),
                     Set.of(PortalCertificatePinning.pinFor(otherHost.certificate())))) {
-                // A CertificateException root cause means the handshake itself refused the name;
-                // HttpClient's later verifier would fail without one.
+                // Only a refusal inside the handshake leaves a CertificateException as the root
+                // cause; a failure in the verifier that runs afterwards has none.
                 assertThatThrownBy(() -> transport.send(request(origin)))
                         .isInstanceOf(IOException.class)
                         .hasRootCauseInstanceOf(CertificateException.class)
@@ -634,13 +634,19 @@ class PortalTlsTrustUnitTest {
         }
 
         @Override
-        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+        public void checkClientTrusted(X509Certificate[] chain, String authType) {
+            // The portal client never checks a client certificate.
+        }
 
         @Override
-        public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket) {}
+        public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket) {
+            // The portal client never checks a client certificate.
+        }
 
         @Override
-        public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine) {}
+        public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine) {
+            // The portal client never checks a client certificate.
+        }
 
         @Override
         public X509Certificate[] getAcceptedIssuers() {

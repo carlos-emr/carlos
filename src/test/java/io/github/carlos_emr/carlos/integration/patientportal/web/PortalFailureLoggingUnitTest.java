@@ -216,7 +216,7 @@ class PortalFailureLoggingUnitTest {
     @DisplayName("should name the master switch in the log when its value is mistyped")
     void shouldNameTheSwitch_whenItsValueIsMistyped() throws IOException {
         assertThat(configurationLogOf(PatientPortalSettings.ENABLED_VALUE_MESSAGE))
-                .contains("patient_portal.enabled must be true or false");
+                .contains("check deployment settings: patient_portal.enabled");
     }
 
     /** How it arrives in production: Spring wraps the settings failure in bean-creation errors. */
@@ -237,7 +237,7 @@ class PortalFailureLoggingUnitTest {
                                                 PatientPortalSettings.ENABLED_VALUE_MESSAGE))));
 
         assertThat(configurationLogOf(wrapped))
-                .contains("patient_portal.enabled must be true or false");
+                .contains("check deployment settings: patient_portal.enabled");
     }
 
     @Test

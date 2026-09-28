@@ -36,7 +36,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
@@ -107,32 +111,36 @@ public abstract class PortalJsonAction extends ActionSupport {
 
     private String configurationFailure(HttpServletResponse response, Exception exception)
             throws IOException {
-        // BeanCreationException may contain configured values in a nested cause. Never log it.
-        // The one exception is the master-switch message, a fixed string naming only its key, so a
-        // mistyped patient_portal.enabled can be found from the log.
-        if (isSwitchValueError(exception)) {
-            logger.error("patient portal configuration is invalid: {}",
-                    PatientPortalSettings.ENABLED_VALUE_MESSAGE);
-        } else {
-            logger.error("patient portal configuration is invalid; check deployment settings");
-        }
+        // BeanCreationException may carry configured values in its own message or a nested cause,
+        // and so could a configuration message, so neither is logged as it stands. The log names
+        // only the patient_portal.* settings the configuration message mentions.
+        String settings = settingsNamedBy(exception);
+        logger.error("patient portal configuration is invalid; check deployment settings: {}", settings);
         return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
                 "portal_configuration_invalid",
                 "The patient portal connection is not configured correctly. Contact an administrator.");
     }
 
-    private static boolean isSwitchValueError(Throwable exception) {
+    /**
+     * The {@code patient_portal.*} keys a configuration failure names, or "no detail". Only key
+     * names are kept, so a message that ever quoted a configured value still cannot log it.
+     */
+    static String settingsNamedBy(Throwable exception) {
         // Spring wraps the settings failure two or three levels deep. The bound stops a cause
         // cycle, which getCause() does not prevent once it spans more than one exception.
         Throwable cause = exception;
         for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; depth++) {
-            if (cause instanceof PatientPortalConfigurationException
-                    && PatientPortalSettings.ENABLED_VALUE_MESSAGE.equals(cause.getMessage())) {
-                return true;
+            if (cause instanceof PatientPortalConfigurationException && cause.getMessage() != null) {
+                Set<String> keys = new LinkedHashSet<>();
+                Matcher matcher = SETTING_KEY.matcher(cause.getMessage());
+                while (matcher.find()) {
+                    keys.add(matcher.group());
+                }
+                return keys.isEmpty() ? NO_DETAIL : String.join(", ", keys);
             }
             cause = cause.getCause();
         }
-        return false;
+        return NO_DETAIL;
     }
 
     static void requirePatientAccess(SecurityInfoManager security, LoggedInInfo session, int patient) {
@@ -156,6 +164,9 @@ public abstract class PortalJsonAction extends ActionSupport {
     /** Jakarta's HttpServletResponse predates RFC 6585 and has no constant for this. */
     private static final int TOO_MANY_REQUESTS = 429;
     private static final int MAX_CAUSE_DEPTH = 16;
+    /** A single character class, not a repeated group, so no input can recurse the matcher deeply. */
+    private static final Pattern SETTING_KEY = Pattern.compile("patient_portal\\.[a-z_.]*[a-z_]");
+    private static final String NO_DETAIL = "no detail";
     private static final String MISSING_PRIVILEGE = "missing required sec object (%s)";
 
     private static final String CONFLICT_DEFAULT =

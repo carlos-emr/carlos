@@ -116,9 +116,7 @@ public record PatientPortalSettings(
             "patient portal is not enabled: set " + ENABLED_KEY + "=true to use it";
     /** A fixed message naming only the key, so callers may log it; it never carries a value. */
     public static final String ENABLED_VALUE_MESSAGE = ENABLED_KEY + " must be true or false";
-    private static final String PLAINTEXT_MESSAGE =
-            "%s must begin with a lowercase https:// ; refusing to send the portal token over"
-                    + " plaintext";
+    private static final String PLAINTEXT_MESSAGE = "%s must begin with a lowercase https://";
     private static final String MALFORMED_MESSAGE = "%s is not a valid URL";
     private static final String NO_HOST_MESSAGE = "%s must name a host";
     private static final String PORT_MESSAGE = "%s must use a port between 1 and 65535";
