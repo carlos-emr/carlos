@@ -706,11 +706,17 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             SecurityInfoManager restricted = mock(SecurityInfoManager.class);
             when(restricted.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
             registerMock(SecurityInfoManager.class, restricted);
+            MockHttpServletRequest viewRequest = new MockHttpServletRequest("GET", "/email/emailComposeAction");
+            viewRequest.setSession(request.getSession());
+            viewRequest.setParameter(EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM, viewId);
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(viewRequest);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            EmailCompose2Action action = new EmailCompose2Action();
 
-            assertThatThrownBy(() -> view(servletActionContext, request.getSession(), viewId,
-                    new MockHttpServletResponse(), "compose"))
+            assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_demographic)");
+            assertThat(viewRequest.getAttribute("emailPDFPassword")).isNull();
             verify(restricted).hasPrivilege(any(), eq("_demographic"), eq("r"), eq(123));
             verify(mocks.pdfPreviewCapabilityService(), never()).resolve(any(), any(), any());
             verify(mocks.pdfPreviewCapabilityService(), times(1)).issue(any(), any(), any());

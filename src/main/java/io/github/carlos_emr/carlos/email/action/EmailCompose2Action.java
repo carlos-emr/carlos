@@ -5,8 +5,10 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.web.util.WebUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
@@ -481,7 +484,9 @@ public class EmailCompose2Action extends ActionSupport {
      * instant can still interleave, as they always could.</p>
      */
     private static StagedCompose takeStagedCompose(HttpSession session) {
-        synchronized (session) {
+        // The session itself unless HttpSessionMutexListener is registered; either way one lock
+        // per session that every prepare request agrees on.
+        synchronized (WebUtils.getSessionMutex(session)) {
             StagedCompose staged = new StagedCompose(
                     isTrue(session.getAttribute("attachEFormItSelf")),
                     (String) session.getAttribute("fdid"),
@@ -529,6 +534,52 @@ public class EmailCompose2Action extends ActionSupport {
             Object openEFormAfterEmail,
             Object deleteEFormAfterEmail
     ) {
+        // A record compares and prints array components by identity; compare their contents.
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof StagedCompose that
+                    && attachEFormItSelf == that.attachEFormItSelf
+                    && Objects.equals(fdid, that.fdid)
+                    && Objects.equals(demographicId, that.demographicId)
+                    && Arrays.equals(attachedDocuments, that.attachedDocuments)
+                    && Arrays.equals(attachedLabs, that.attachedLabs)
+                    && Arrays.equals(attachedForms, that.attachedForms)
+                    && Arrays.equals(attachedEForms, that.attachedEForms)
+                    && Arrays.equals(attachedHRMDocuments, that.attachedHRMDocuments)
+                    && Objects.equals(senderEmail, that.senderEmail)
+                    && Objects.equals(subjectEmail, that.subjectEmail)
+                    && Objects.equals(bodyEmail, that.bodyEmail)
+                    && Objects.equals(encryptedMessageEmail, that.encryptedMessageEmail)
+                    && Objects.equals(emailPatientChartOption, that.emailPatientChartOption)
+                    && Objects.equals(isEmailEncrypted, that.isEmailEncrypted)
+                    && Objects.equals(isEmailAttachmentEncrypted, that.isEmailAttachmentEncrypted)
+                    && Objects.equals(isEmailAutoSend, that.isEmailAutoSend)
+                    && Objects.equals(openEFormAfterEmail, that.openEFormAfterEmail)
+                    && Objects.equals(deleteEFormAfterEmail, that.deleteEFormAfterEmail);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hash(attachEFormItSelf, fdid, demographicId, senderEmail, subjectEmail, bodyEmail,
+                    encryptedMessageEmail, emailPatientChartOption, isEmailEncrypted, isEmailAttachmentEncrypted,
+                    isEmailAutoSend, openEFormAfterEmail, deleteEFormAfterEmail);
+            result = 31 * result + Arrays.hashCode(attachedDocuments);
+            result = 31 * result + Arrays.hashCode(attachedLabs);
+            result = 31 * result + Arrays.hashCode(attachedForms);
+            result = 31 * result + Arrays.hashCode(attachedEForms);
+            return 31 * result + Arrays.hashCode(attachedHRMDocuments);
+        }
+
+        /** The attachment ids only: the subject, message and addresses are patient information. */
+        @Override
+        public String toString() {
+            return "StagedCompose[fdid=" + fdid
+                    + ", attachedDocuments=" + Arrays.toString(attachedDocuments)
+                    + ", attachedLabs=" + Arrays.toString(attachedLabs)
+                    + ", attachedForms=" + Arrays.toString(attachedForms)
+                    + ", attachedEForms=" + Arrays.toString(attachedEForms)
+                    + ", attachedHRMDocuments=" + Arrays.toString(attachedHRMDocuments) + "]";
+        }
     }
 
     private static boolean shouldAutoSendEmail(Object autoSendValue, Object encryptedValue) {

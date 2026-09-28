@@ -13,7 +13,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <fmt:message key="email.compose.title" var="emailComposeTitle"/>

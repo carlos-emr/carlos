@@ -191,15 +191,18 @@ public class EmailComposeSubmissionStateService {
             EmailComposeWorkingDirectory workingDirectory,
             boolean cancelOnly
     ) {
-        return store(session, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, context,
-                workingDirectory, cancelOnly, null, null);
+        return store(session, new StagedContent(emailPDFPassword, emailPDFPasswordClue, emailAttachmentList),
+                context, workingDirectory, cancelOnly, null, null);
+    }
+
+    /** The password, its clue and the attachments a stored compose state carries. */
+    private record StagedContent(String emailPDFPassword, String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList) {
     }
 
     private String store(
             HttpSession session,
-            String emailPDFPassword,
-            String emailPDFPasswordClue,
-            List<EmailAttachment> emailAttachmentList,
+            StagedContent content,
             EmailComposeSubmissionContext context,
             EmailComposeWorkingDirectory workingDirectory,
             boolean cancelOnly,
@@ -210,9 +213,9 @@ public class EmailComposeSubmissionStateService {
         String token = UUID.randomUUID().toString();
         long createdAtMillis = clock.millis();
         EmailComposeSubmissionState state = new EmailComposeSubmissionState(
-                emailPDFPassword,
-                emailPDFPasswordClue,
-                copyAttachments(emailAttachmentList),
+                content.emailPDFPassword(),
+                content.emailPDFPasswordClue(),
+                copyAttachments(content.emailAttachmentList()),
                 createdAtMillis,
                 context == null ? EmailComposeSubmissionContext.direct("") : context,
                 workingDirectory,
@@ -341,8 +344,8 @@ public class EmailComposeSubmissionStateService {
         String emailPDFPasswordClue = resolveEmailPdfPasswordDeliveryInstruction(request);
         String viewId = UUID.randomUUID().toString();
         String emailPDFPasswordToken = store(
-                request.getSession(), emailPDFPassword, emailPDFPasswordClue,
-                emailAttachmentList, context, workingDirectory, false, view, viewId);
+                request.getSession(), new StagedContent(emailPDFPassword, emailPDFPasswordClue, emailAttachmentList),
+                context, workingDirectory, false, view, viewId);
         return new PreparedEmailComposeView(viewId, new EmailPdfPasswordSubmissionState(
                 emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken));
     }
