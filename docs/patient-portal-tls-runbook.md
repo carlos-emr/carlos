@@ -171,8 +171,9 @@ Then:
 1. A second person computes the pin independently from `live.key` with the last command, and gets
    the same value.
 2. Put the pin in `approved-pins.txt`, and in `patient_portal.certificate.pins` in the deployment's
-   override properties (the file `-Dcarlos_override_properties` names, conventionally
-   `over_ride_config.properties`), not in the committed `carlos.properties`. The `sha256/` prefix
+   override properties (the file the `carlos_override_properties` JVM system property names; on the
+   Debian package, `/etc/carlos-emr/carlos.properties`), not in the `carlos.properties` built into
+   the WAR. The `sha256/` prefix
    is part of the value. Generate the standby key now, as in
    [Keep a standby key pinned](#keep-a-standby-key-pinned), and add its pin to both as well; pins in
    the setting are comma-separated.
@@ -188,7 +189,9 @@ Then:
    `ssl_certificate_key /etc/portal-tls/live.key;`, then `nginx -t && systemctl reload nginx`.
 5. Install the renewal job (section 5), and an external monitor that alerts on the expiry of the
    certificate the portal serves.
-6. Set `patient_portal.enabled=true`, restart CARLOS and open a patient's **Patient portal** page;
+6. Set `patient_portal.enabled=true` (on a build with the switch; see
+   [What CARLOS enforces](#what-carlos-enforces)), restart CARLOS and open a patient's
+   **Patient portal** page;
    it loads without a portal error. The CARLOS log shows
    `patient portal transport: certificate pinning active (2 pin(s))`.
 
@@ -314,8 +317,8 @@ if [ -e standby.key ]; then echo "standby.key exists; not overwriting it" >&2; e
 fi
 ```
 
-Add its pin to CARLOS and `approved-pins.txt`, with a second-person check. Keep `standby.key`
-offline, protected like any private key; `standby.csr` is public and may be kept with it.
+Add its pin to CARLOS and `approved-pins.txt`, with a second-person check, then restart CARLOS and
+open the page; the log shows one more pin. Keep `standby.key` offline, protected like any private key; `standby.csr` is public and may be kept with it.
 
 If the standby key is lost or may be compromised, remove its pin from the setting and from
 `approved-pins.txt`, restart CARLOS, open the page, destroy the old `standby.key` and
@@ -404,12 +407,15 @@ once. If the steps below cannot be finished quickly, switch the portal off (see
 **If the portal host itself may be compromised**, switch the portal off and rebuild the host.
 Never bring the standby key onto a host that may be in an attacker's hands. On the rebuilt host,
 do the first setup with `standby.key` and `standby.csr` copied in as `live.key` and `live.csr` (the
-guard then skips key generation), set the pins to that key's pin **only**, and switch the portal on;
-the log then shows 1 pin. The old host also held CARLOS's `patient_portal.service_token` and the
-portal's other secrets: replace them following the portal's own secret-rotation procedure. Revoke
-the old certificate: copy its `cert.pem` off the old host before wiping it (it is public), or
-revoke through the certificate authority. Then destroy the old `standby.key` and `standby.csr`
-(they are now the live key) and create a new standby as below.
+guard then skips key generation), with one change to its step 2: set the pins to that key's pin
+**only** and leave the new standby for last; never keep the old live pin. Switch the portal on;
+unlike step 6 of the first setup, the log then shows 1 pin. The old host also held CARLOS's
+`patient_portal.service_token` and the portal's other secrets: replace them following the portal's
+own secret-rotation procedure. Revoke the old certificate: copy its `cert.pem` off the old host
+before wiping it (it is public), or revoke through the certificate authority. Then destroy the old
+`standby.key` and `standby.csr` (they are now the live key), create a new standby as in
+[Keep a standby key pinned](#keep-a-standby-key-pinned), restart CARLOS and check that the log shows
+2 pins.
 
 **If the key is lost but not compromised** (the host still serves it from its files), there is no
 need to switch off: do a scheduled rotation.
@@ -508,7 +514,8 @@ To find the cause, compute the pin of the certificate nginx serves, from the fil
   - The CARLOS host's clock is correct.
   - The CARLOS JVM trusts the issuer. A private CA, as on an internal hostname, must be in the
     truststore the JVM uses: the file `javax.net.ssl.trustStore` names, if the CARLOS JVM sets it
-    (`keytool -list -keystore <file>`); otherwise the JDK's default (`keytool -list -cacerts`).
+    (`keytool -list -keystore <file>`); otherwise `$JAVA_HOME/lib/security/jssecacerts` if it
+    exists, else the JDK's `cacerts` (`keytool -list -cacerts`).
   - nginx offers TLS 1.2 or 1.3.
   - What CARLOS is actually served. From the CARLOS host:
 
