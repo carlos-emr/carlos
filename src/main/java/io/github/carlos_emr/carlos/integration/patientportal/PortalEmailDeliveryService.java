@@ -400,7 +400,8 @@ public class PortalEmailDeliveryService {
      */
     private boolean withdrawnByRecovery(EmailLog log) {
         try {
-            var stored = logs.find(log.getId());
+            // find(int), as findForRecovery uses; an Integer argument would bind to find(Object).
+            var stored = logs.find(log.getId().intValue());
             if (stored == null || stored.getPortalDeliveryState() == null) {
                 return false;
             }
