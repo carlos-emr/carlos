@@ -181,6 +181,14 @@ for (const change of ['patient', 'description', 'token', 'replaced form', 'pageh
         if (change === 'replaced form') assert.equal(f.nodes.get('saved42').value, 'true', 'Do not rewrite replacement form state');
     });
 }
+test('bfcache restore accepts new actions but keeps pre-departure outcomes uncertain', async () => {
+    const f = fixture(); f.event('pagehide'); f.event('pageshow');
+    f.save(); assert.equal(f.requests.length, 1, 'restored page must not refuse a fresh save');
+    await f.answer(0); assert.equal(f.status(), f.messages.saved);
+    const g = fixture(); g.save(); g.event('pagehide'); g.event('pageshow');
+    await g.answer(0); assert.equal(g.calls.length, 0); assert.equal(g.status(), g.messages.uncertain);
+    g.save(); assert.equal(g.requests.length, 1, 'an in-flight request from before departure stays blocking');
+});
 test('missing CSRF and inconsistent document aliases refuse before transport', () => {
     const f = fixture(); f.csrf.value = ''; f.save(); assert.equal(f.requests.length, 0);
     assert.equal(f.status(), f.messages.rejected); assert.equal(f.nodes.get('save42').disabled, false);
