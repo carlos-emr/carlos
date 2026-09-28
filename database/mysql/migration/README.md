@@ -33,6 +33,7 @@ migration/
            V1.0.36__serialize_messenger_membership_changes.sql
            V1.0.39__track_automatic_mrp_routing.sql
            V1.0.40__widen_lab_labels.sql
+           V1.0.41__rtl_provider_stamp_fields.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -48,8 +49,8 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.40`.
-The next unallocated number for ANY location — shared or province — is `V1.0.41`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.41`.
+The next unallocated number for ANY location — shared or province — is `V1.0.42`.
 PR #3996 remains open and its tickler/consultation attachment feature is not included in alpha16.
 Its proposed `V1.0.37` and `V1.0.38` are not prerequisites for `V1.0.39`; version gaps are valid.
 Before that feature merges after this promotion, renumber its unpublished migrations above the
@@ -137,8 +138,9 @@ See `docs/database-schema-management.md` for the model and CI verification (`db-
 Messenger membership coordination (#3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Automatic MRP routing adds
 `common/V1.0.39__track_automatic_mrp_routing.sql`. Full lab labels add
-`common/V1.0.40__widen_lab_labels.sql`. The next unallocated version is
-`V1.0.41`. Apply/merge these forward migrations in version order; if their merge
+`common/V1.0.40__widen_lab_labels.sql`. The Rich Text Letter signature-stamp inputs reach
+upgraded installs through `common/V1.0.41__rtl_provider_stamp_fields.sql`. The next unallocated
+version is `V1.0.42`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

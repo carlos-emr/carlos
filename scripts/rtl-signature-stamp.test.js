@@ -201,3 +201,42 @@ test('the stamp URL falls back to the extensionless route when cfg_isrc is unset
     '<img src="../eform/displayImage?imagefile=consult_sig_999998.png"'
     + ' data-carlos-stamp="1" width="200" height="100" />');
 });
+
+test('the upgrade migration applies the same form_html edit as the updates/ script', () => {
+  // The updates/ script is only replayed by fresh demo-data loads and the O19 importer; a package
+  // upgrade runs Flyway alone. An install whose letter predates the inputs therefore depends on
+  // the Flyway copy, and the two must not drift: a different anchor or guard would patch one path
+  // and not the other.
+  const root = path.join(__dirname, '..', 'database', 'mysql');
+  const updateStatement = (file) => {
+    const sql = fs.readFileSync(path.join(root, file), 'utf8');
+    const match = sql.match(/UPDATE eform[\s\S]*?;/);
+    assert.ok(match, `${file} has no UPDATE eform statement`);
+    return match[0].replace(/\s+/g, ' ');
+  };
+  const legacy = updateStatement('updates/update-2026-09-20-rtl-provider-stamp-fields.sql');
+  const flyway = updateStatement('migration/common/V1.0.41__rtl_provider_stamp_fields.sql');
+  assert.equal(flyway, legacy);
+  for (const id of ['user_id', 'user_ohip_no', 'doctor_provider_no']) {
+    assert.ok(flyway.includes(`id="${id}"`), `migration does not add ${id}`);
+  }
+  assert.ok(flyway.includes(`NOT LIKE '%id="user_ohip_no"%'`), 'migration is not idempotent');
+});
+
+test('the stamp and closing-salutation lookups only request configured AP keys', () => {
+  // efmformapconfig_lookup reports a key apconfig.xml does not define as a "could not be filled
+  // in" banner; the dead legacy "stamp_name" key put that banner on every Stamp click.
+  const source = fs.readFileSync(EDIT_CONTROL_2_JS, 'utf8');
+  const apconfig = fs.readFileSync(path.join(__dirname,
+    '../src/main/resources/oscar/eform/apconfig.xml'), 'utf8');
+  const configured = new Set(Array.from(apconfig.matchAll(/<ap-name>([^<]+)<\/ap-name>/g), (m) => m[1].trim()));
+  for (const name of ['stamp', '_ClosingSalutation']) {
+    const mapping = source.match(new RegExp(`name: "${name}",\\s*values: \\[([^\\]]*)\\]`));
+    assert.ok(mapping, `${name} mapping not found in editControl2.js`);
+    const keys = Array.from(mapping[1].matchAll(/"([^"]+)"/g), (m) => m[1]);
+    assert.ok(keys.length > 0, `${name} mapping lists no keys`);
+    for (const key of keys) {
+      assert.ok(configured.has(key), `${name} requests AP key "${key}", which apconfig.xml does not define`);
+    }
+  }
+});

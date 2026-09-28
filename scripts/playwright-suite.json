@@ -1000,6 +1000,26 @@
       ]
     },
     {
+      "name": "eform-rtl-signature-stamp",
+      "script": "scripts/eform-rtl-signature-stamp-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RTL_DEMOGRAPHIC_NO",
+        "RTL_FORM_NAME",
+        "RTL_EXPECT_SIGNER",
+        "RTL_STAMP_ALLOW_AP_FALLBACK",
+        "RTL_SCREENSHOT_DIR"
+      ],
+      "fixtures": "Needs consult_sig_<signer>.png in the eForm images directory (deb-install-validation.md fixture b); read-only, never saves the letter."
+    },
+    {
       "name": "eform-runtime-compat",
       "script": "scripts/eform-runtime-compat-playwright-checks.js",
       "tiers": [
