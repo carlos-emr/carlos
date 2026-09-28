@@ -40,13 +40,24 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        var provider = new Provider(); provider.setProviderNo("999998"); user.setLoggedInProvider(provider);
-        var demographic = new Demographic(); demographic.setDemographicNo(123); demographic.setEmail("patient@example.org");
-        org.springframework.test.util.ReflectionTestUtils.setField(log, "id", 45); log.setDemographic(demographic); log.setPassword(""); log.setPasswordClue(""); log.setStatus(EmailStatus.PENDING);
-        data.setDemographicNo(123); data.setRecipients(new String[]{"patient@example.org"}); data.setIsEncrypted(true);
+        var provider = new Provider();
+        provider.setProviderNo("999998");
+        user.setLoggedInProvider(provider);
+        var demographic = new Demographic();
+        demographic.setDemographicNo(123);
+        demographic.setEmail("patient@example.org");
+        org.springframework.test.util.ReflectionTestUtils.setField(log, "id", 45);
+        log.setDemographic(demographic);
+        log.setPassword("");
+        log.setPasswordClue("");
+        log.setStatus(EmailStatus.PENDING);
+        data.setDemographicNo(123);
+        data.setRecipients(new String[]{"patient@example.org"});
+        data.setIsEncrypted(true);
         when(security.hasPrivilege(eq(user), anyString(), anyString(), eq("123"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(user, 123)).thenReturn(true);
-        when(settings.clinicId()).thenReturn("clinic"); when(settings.baseUrl()).thenReturn("https://portal.example.org");
+        when(settings.clinicId()).thenReturn("clinic");
+        when(settings.baseUrl()).thenReturn("https://portal.example.org");
         when(logs.initializePortalDelivery(log)).thenReturn(true);
         when(logs.transitionPortalDelivery(eq(log), any(), any(), nullable(Long.class))).thenReturn(true);
         when(logs.find(45)).thenReturn(log);
@@ -56,8 +67,14 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
             operations.add("create");
             return new PatientPortalUnlockSecretDto(77, true, PortalSecret.of("synthetic-password-29"), call.getArgument(1), "pending");
         });
-        when(portal.publishUnlockSecret(eq(77L), any())).thenAnswer(call -> { operations.add("publish"); return null; });
-        when(portal.revokeUnlockSecret(eq(77L), eq("email_not_sent"), any())).thenAnswer(call -> { operations.add("revoke"); return null; });
+        when(portal.publishUnlockSecret(eq(77L), any())).thenAnswer(call -> {
+            operations.add("publish");
+            return null;
+        });
+        when(portal.revokeUnlockSecret(eq(77L), eq("email_not_sent"), any())).thenAnswer(call -> {
+            operations.add("revoke");
+            return null;
+        });
         delivery = new PortalEmailDeliveryService(security, logs, () -> portal, () -> settings);
     }
 
@@ -77,8 +94,12 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         operations.add("send");
     }
     private void stored(PortalDeliveryState state) {
-        log.setPortalDeliveryState(state); log.setTimestamp(new java.util.Date(System.currentTimeMillis()-16L*60L*1000L)); log.setPortalSecretId(77L); log.setPortalSourceReference("email-fixed-reference");
-        log.setPortalOrigin(settings.baseUrl()); log.setPortalClinicId(settings.clinicId());
+        log.setPortalDeliveryState(state);
+        log.setTimestamp(new java.util.Date(System.currentTimeMillis()-16L*60L*1000L));
+        log.setPortalSecretId(77L);
+        log.setPortalSourceReference("email-fixed-reference");
+        log.setPortalOrigin(settings.baseUrl());
+        log.setPortalClinicId(settings.clinicId());
     }
 
     @Test void shouldPublishPassword_onlyAfterEncryptionAndTransportAcceptance() {
@@ -259,7 +280,8 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldKeepRecoveryAway_fromRecentActiveSends() {
-        stored(PortalDeliveryState.SENDING); log.setTimestamp(new java.util.Date());
+        stored(PortalDeliveryState.SENDING);
+        log.setTimestamp(new java.util.Date());
         assertThatThrownBy(() -> delivery.recover(user, 45, "confirmSent", true))
                 .isInstanceOf(PortalEmailDeliveryService.RecoveryRefusedException.class);
         verifyNoInteractions(portal);
@@ -273,7 +295,8 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldRejectRecovery_againstDifferentPortal() {
-        stored(PortalDeliveryState.SENT); log.setPortalOrigin("https://old.example.org");
+        stored(PortalDeliveryState.SENT);
+        log.setPortalOrigin("https://old.example.org");
         assertThatThrownBy(() -> delivery.recover(user, 45, "retry", false)).isInstanceOf(PortalEmailDeliveryService.RecoveryRefusedException.class);
         verifyNoInteractions(portal);
     }
@@ -281,7 +304,8 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @org.junit.jupiter.params.provider.EnumSource(value = PortalDeliveryState.class, names = {"PREPARING", "READY", "SENT"})
     void shouldRefuseRecovery_whenPendingSendMayStillBeRunning(PortalDeliveryState state) {
-        stored(state); log.setTimestamp(new java.util.Date());
+        stored(state);
+        log.setTimestamp(new java.util.Date());
         assertThatThrownBy(() -> delivery.recover(user, 45, "retry", false))
                 .isInstanceOf(PortalEmailDeliveryService.RecoveryRefusedException.class);
         verifyNoInteractions(portal);
@@ -289,7 +313,9 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldAllowRecovery_whenRecentSendAlreadyHasAnOutcome() {
-        stored(PortalDeliveryState.SENT); log.setTimestamp(new java.util.Date()); log.setStatus(EmailStatus.SUCCESS);
+        stored(PortalDeliveryState.SENT);
+        log.setTimestamp(new java.util.Date());
+        log.setStatus(EmailStatus.SUCCESS);
         delivery.recover(user, 45, "retry", false);
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.PUBLISHED);
     }
@@ -311,7 +337,8 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldPublishNotRevoke_whenAcceptedSendLostItsSentTransition() {
-        stored(PortalDeliveryState.SENDING); log.setStatus(EmailStatus.SUCCESS);
+        stored(PortalDeliveryState.SENDING);
+        log.setStatus(EmailStatus.SUCCESS);
         assertThat(PortalEmailDeliveryService.classify(log)).isEqualTo(PortalEmailDeliveryService.RecoveryView.RETRY_PUBLISH);
         assertThatThrownBy(() -> delivery.recover(user, 45, "confirmNotSent", true))
                 .isInstanceOf(PortalEmailDeliveryService.RecoveryRefusedException.class);
@@ -321,7 +348,8 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldRevokeNotPublish_whenFailedSendLostItsRevokeTransition() {
-        stored(PortalDeliveryState.SENDING); log.setStatus(EmailStatus.FAILED);
+        stored(PortalDeliveryState.SENDING);
+        log.setStatus(EmailStatus.FAILED);
         assertThat(PortalEmailDeliveryService.classify(log)).isEqualTo(PortalEmailDeliveryService.RecoveryView.RETRY_REVOKE);
         assertThatThrownBy(() -> delivery.recover(user, 45, "confirmSent", true))
                 .isInstanceOf(PortalEmailDeliveryService.RecoveryRefusedException.class);
@@ -331,7 +359,8 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldRefuseAllRecovery_whenStateContradictsStatus() {
-        stored(PortalDeliveryState.READY); log.setStatus(EmailStatus.SUCCESS);
+        stored(PortalDeliveryState.READY);
+        log.setStatus(EmailStatus.SUCCESS);
         assertThat(PortalEmailDeliveryService.classify(log)).isEqualTo(PortalEmailDeliveryService.RecoveryView.INCONSISTENT);
         assertThatThrownBy(() -> delivery.recover(user, 45, "retry", false))
                 .isInstanceOf(PortalEmailDeliveryService.RecoveryRefusedException.class);
@@ -357,15 +386,19 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldReportContradictions_asInconsistentAndUnresolved() {
-        stored(PortalDeliveryState.PUBLISHED); log.setStatus(EmailStatus.FAILED);
+        stored(PortalDeliveryState.PUBLISHED);
+        log.setStatus(EmailStatus.FAILED);
         assertThat(PortalEmailDeliveryService.classify(log)).isEqualTo(PortalEmailDeliveryService.RecoveryView.INCONSISTENT);
         assertThat(log.isPortalDeliveryUnresolved()).isTrue();
-        stored(PortalDeliveryState.REVOKED); log.setStatus(EmailStatus.SUCCESS);
+        stored(PortalDeliveryState.REVOKED);
+        log.setStatus(EmailStatus.SUCCESS);
         assertThat(PortalEmailDeliveryService.classify(log)).isEqualTo(PortalEmailDeliveryService.RecoveryView.INCONSISTENT);
         assertThat(log.isPortalDeliveryUnresolved()).isTrue();
-        stored(PortalDeliveryState.PUBLISHED); log.setStatus(EmailStatus.SUCCESS);
+        stored(PortalDeliveryState.PUBLISHED);
+        log.setStatus(EmailStatus.SUCCESS);
         assertThat(log.isPortalDeliveryUnresolved()).isFalse();
-        stored(PortalDeliveryState.REVOKED); log.setStatus(EmailStatus.FAILED);
+        stored(PortalDeliveryState.REVOKED);
+        log.setStatus(EmailStatus.FAILED);
         assertThat(log.isPortalDeliveryUnresolved()).isFalse();
     }
 
@@ -406,7 +439,8 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldClearThePendingNote_afterPublishingOnRetry() {
-        stored(PortalDeliveryState.SENT); log.setStatus(EmailStatus.SUCCESS);
+        stored(PortalDeliveryState.SENT);
+        log.setStatus(EmailStatus.SUCCESS);
         log.setErrorMessage(PortalEmailDeliveryService.PUBLISH_PENDING);
         // The row is already SUCCESS, so the PENDING compare-and-set cannot match.
         when(logs.transitionEmailStatus(eq(45), eq(EmailStatus.PENDING), any(), anyString(), any())).thenReturn(0);

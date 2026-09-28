@@ -76,15 +76,19 @@ class PortalWebBoundaryRegressionUnitTest {
             settings.when(PatientPortalSettings::isConfigured).thenReturn(true);
             spring.when(() -> SpringUtils.getBean(PatientPortalService.class)).thenThrow(
                     new org.springframework.beans.factory.BeanCreationException("patientPortalService",
-                            "configuration failed", new PatientPortalConfigurationException("bad timeout")));
+                            "configuration failed", new PatientPortalConfigurationException(
+                                    "patient_portal.timeout.request.ms must be at most 59000 milliseconds")));
             assertThatCode(() -> new PortalAccount2Action(security, null, resolver).execute())
                     .doesNotThrowAnyException();
             assertThat(response.getStatus()).isEqualTo(503);
             assertThat(response.getContentAsString()).contains("portal_configuration_invalid");
             assertThat(response.getContentType()).startsWith("application/json");
-            // The portal exception names the bad key; the bean's own message may carry configured values.
-            assertThat(logs.messages()).anySatisfy(message -> assertThat(message).endsWith(": bad timeout"));
+            // Only the setting the portal exception names is logged; the bean's own message, and the
+            // rest of the configuration message, may carry configured values.
+            assertThat(logs.messages()).anySatisfy(message ->
+                    assertThat(message).endsWith(": patient_portal.timeout.request.ms"));
             assertThat(logs.messages()).noneSatisfy(message -> assertThat(message).contains("configuration failed"));
+            assertThat(logs.messages()).noneSatisfy(message -> assertThat(message).contains("59000"));
         }
     }
 
