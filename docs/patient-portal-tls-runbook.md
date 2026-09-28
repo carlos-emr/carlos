@@ -148,7 +148,8 @@ nginx must serve the **full chain**: Java does not fetch missing intermediates, 
   `fail "certificate expires within 30 days: upload live.csr and save new-*.pem"`, so the job fails
   daily from 30 days before expiry as the reminder. Renew by uploading `live.csr`, saving the
   result as `new-cert.pem`, `new-chain.pem` and `new-fullchain.pem` in `/etc/portal-tls`, running
-  the renewal job (which checks and installs them), and opening the **Patient portal** page.
+  the renewal job (which checks and installs them), and opening the **Patient portal** page. Stop
+  the renewal job while saving them: until `new-fullchain.pem` exists, a run deletes the other two.
 
 ### First setup
 
@@ -284,17 +285,18 @@ if [ ! -e new-fullchain.pem ] && ! openssl x509 -in fullchain.pem -noout -checke
 fi
 if [ -e new-fullchain.pem ]; then
   for f in new-cert.pem new-chain.pem; do
-    [ -s "$f" ] || fail "$f is missing; save all three new-*.pem files"
+    [ -s "$f" ] || fail "$f is missing; save all three new-*.pem files, or delete them to retry"
   done
   [ "$(openssl x509 -in new-cert.pem -pubkey -noout | pin_of)" = "$key_pin" ] \
     || fail "new-cert.pem is not for live.key; delete the new-*.pem files to retry"
   [ "$(openssl x509 -in new-fullchain.pem -noout -fingerprint -sha256)" \
     = "$(openssl x509 -in new-cert.pem -noout -fingerprint -sha256)" ] \
     || fail "new-fullchain.pem does not begin with new-cert.pem"
-  openssl verify ${CAFILE:+-CAfile "$CAFILE"} -untrusted new-chain.pem -verify_hostname "$HOST" \
-    new-cert.pem >/dev/null || fail "new-cert.pem does not verify with new-chain.pem (missing intermediates?)"
+  # Verify against the chain nginx will serve: Java does not fetch missing intermediates.
+  openssl verify ${CAFILE:+-CAfile "$CAFILE"} -untrusted new-fullchain.pem -verify_hostname "$HOST" \
+    new-cert.pem >/dev/null || fail "new-fullchain.pem does not verify (missing intermediates?)"
   mv new-cert.pem cert.pem && mv new-chain.pem chain.pem && mv new-fullchain.pem fullchain.pem \
-    || fail "could not install the new-*.pem files; check /etc/portal-tls"
+    || fail "could not install the new-*.pem files; finish the moves by hand, or delete them to retry"
 fi
 
 want=$(openssl x509 -in fullchain.pem -noout -fingerprint -sha256)
@@ -428,10 +430,11 @@ need to switch off: do a scheduled rotation.
 
 **With a standby key:**
 
-1. At once, set `patient_portal.certificate.pins` and `approved-pins.txt` to the standby key's pin
-   **only**, and restart CARLOS. CARLOS stops trusting the stolen key immediately; portal calls
-   fail, before any request is sent, until step 2 installs the standby key.
-2. Stop the renewal job. Copy `standby.key` and `standby.csr` to `/etc/portal-tls` as `next.key`
+1. At once, stop the renewal job, set `patient_portal.certificate.pins` and `approved-pins.txt`
+   to the standby key's pin **only**, and restart CARLOS. CARLOS stops trusting the stolen key
+   immediately. Until step 2 installs the standby key, portal calls fail before any request is
+   sent, and so does encrypted email while `patient_portal.email.enabled=true`.
+2. Copy `standby.key` and `standby.csr` to `/etc/portal-tls` as `next.key`
    and `next.csr`, then issue and install them with the rotation step 3 commands. Open the
    **Patient portal** page; it must load. If this fails, switch the portal off and leave the
    renewal job stopped until it is fixed.
@@ -448,13 +451,14 @@ need to switch off: do a scheduled rotation.
 
 1. Switch the portal off.
 2. Stop the renewal job. Generate `next.key` and `next.csr` (first setup commands with `next`),
-   have a second person check the pin, and issue and install them with the rotation step 3
-   commands.
+   and have a second person check the pin.
 3. Set `patient_portal.certificate.pins` and `approved-pins.txt` to the new pin **only**. Never keep
-   the compromised pin alongside it.
-4. Switch the portal on, restart CARLOS and open the page; it must load.
-5. Revoke, delete and restart the timer as in steps 3 and 4 above, then create a standby key.
-6. Record what happened in the deployment record's change log.
+   the compromised pin alongside it. The rotation commands in the next step refuse a key that is
+   not in `approved-pins.txt`.
+4. Issue and install the certificate with the rotation step 3 commands.
+5. Switch the portal on, restart CARLOS and open the page; it must load.
+6. Revoke, delete and restart the timer as in steps 3 and 4 above, then create a standby key.
+7. Record what happened in the deployment record's change log.
 
 > Record: the certificate authority and renewal method, the renewal job, the rotation interval
 > and next date, and where the standby key is kept.
