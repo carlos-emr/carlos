@@ -4,6 +4,7 @@
     dose, duration/unit, quantity, repeat and instruction fields to updateFavorite2.
     Duration options retain the saved unit independently from its numeric duration.
     All free-text medication fields are encoded for their HTML output context.
+    Each editable control has a row-specific id and an associated accessible label.
 --%>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -70,6 +71,19 @@
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
         %>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
+        <style>
+            .rx-favorite-label-hidden {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }
+        </style>
 
 
         <%
@@ -262,10 +276,10 @@
                                                 style = "style='background-color:#F5F5F5'";
                                         %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line1">
-                                            <td colspan=2><b>Favorite Name:</b><input type=hidden
+                                            <td colspan=2><label for="fldFavoriteName<%= i%>"><b>Favorite Name:</b></label><input type=hidden
                                                                                       name="fldFavoriteId<%= i%>"
                                                                                       value="<%= f.getFavoriteId() %>"/>
-                                                <input type=text size="50" name="fldFavoriteName<%= i%>"
+                                                <input type=text size="50" id="fldFavoriteName<%= i%>" name="fldFavoriteName<%= i%>"
                                                        class=tblRow size=80 value="<%= SafeEncode.forHtmlAttribute(f.getFavoriteName()) %>"/>&nbsp;&nbsp;&nbsp;
                                             </td>
                                             <td>
@@ -284,26 +298,27 @@
                                             <td colspan=5><b>Generic Name:</b><%= SafeEncode.forHtmlContent(f.getGN()) %>
                                             </td>
                                             <td colspan=1>&nbsp; <input type="hidden"
-                                                                        name="fldCustomName<%= i%>" value=""/></td>
+                                                                        id="fldCustomName<%= i%>" name="fldCustomName<%= i%>" value=""/></td>
                                         </tr>
                                         <% } else { %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line2">
-                                            <td colspan=7><b>Custom Drug Name:</b> <input type=text
+                                            <td colspan=7><label for="fldCustomName<%= i%>"><b>Custom Drug Name:</b></label> <input type=text
                                                                                           size="50"
-                                                                                          name="fldCustomName<%= i%>"
+                                                                                          id="fldCustomName<%= i%>" name="fldCustomName<%= i%>"
                                                                                           class=tblRow size=80
                                                                                           value="<%= SafeEncode.forHtmlAttribute(f.getCustomName()) %>"/>
                                             </td>
                                         </tr>
                                         <% } %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line3">
-                                            <td nowrap><b>Take:</b> <input type=text
-                                                                           name="fldTakeMin<%= i%>" class=tblRow size=3
+                                            <td nowrap><label for="fldTakeMin<%= i%>"><b>Take:</b></label> <input type=text
+                                                                           id="fldTakeMin<%= i%>" name="fldTakeMin<%= i%>" class=tblRow size=3
                                                                            value="<%= f.getTakeMin() %>"/>
-                                                <span>to</span> <input
-                                                        type=text name="fldTakeMax<%= i%>" class=tblRow size=3
-                                                        value="<%= f.getTakeMax() %>"/> <select
-                                                        name="fldFrequencyCode<%= i%>" class=tblRow>
+                                                <span>to</span> <label class="rx-favorite-label-hidden" for="fldTakeMax<%= i%>">Maximum dose</label><input
+                                                        type=text id="fldTakeMax<%= i%>" name="fldTakeMax<%= i%>" class=tblRow size=3
+                                                        value="<%= f.getTakeMax() %>"/>
+                                                <label class="rx-favorite-label-hidden" for="fldFrequencyCode<%= i%>">Frequency</label><select
+                                                        id="fldFrequencyCode<%= i%>" name="fldFrequencyCode<%= i%>" class=tblRow>
                                                     <%
                                                         for (j = 0; j < freq.length; j++) {
                                                     %>
@@ -323,10 +338,11 @@
                                                         String duration = f.getDuration() == null ? "" : f.getDuration();
 
                                                     %>
-                                                </select> <b>For:</b> <input type=text name="fldDuration<%= i%>"
+                                                </select> <label for="fldDuration<%= i%>"><b>Duration:</b></label> <input type=text id="fldDuration<%= i%>" name="fldDuration<%= i%>"
                                                                              class=tblRow size=3
-                                                                             value="<%= SafeEncode.forHtmlAttribute(duration) %>"/> <select
-                                                        name="fldDurationUnit<%= i%>" class=tblRow>
+                                                                             value="<%= SafeEncode.forHtmlAttribute(duration) %>"/>
+                                                <label class="rx-favorite-label-hidden" for="fldDurationUnit<%= i%>">Duration unit</label><select
+                                                        id="fldDurationUnit<%= i%>" name="fldDurationUnit<%= i%>" class=tblRow>
                                                     <option
                                                             <%
                                                                 if ("D".equals(f.getDurationUnit())) { %>
@@ -354,20 +370,20 @@
                                                 </select></td>
                                             <td></td>
 
-                                            <td nowrap><b>Quantity:</b> <input type=text
-                                                                               name="fldQuantity<%= i%>" class=tblRow
+                                            <td nowrap><label for="fldQuantity<%= i%>"><b>Quantity:</b></label> <input type=text
+                                                                               id="fldQuantity<%= i%>" name="fldQuantity<%= i%>" class=tblRow
                                                                                size=5
                                                                                value="<%= SafeEncode.forHtmlAttribute(f.getQuantity()) %>"/></td>
                                             <td></td>
-                                            <td><b>Repeats:</b><input type=text name="fldRepeat<%= i%>"
+                                            <td><label for="fldRepeat<%= i%>"><b>Repeats:</b></label><input type=text id="fldRepeat<%= i%>" name="fldRepeat<%= i%>"
                                                                       class=tblRow size=3 value="<%= f.getRepeat() %>"/>
                                             </td>
 
-                                            <td><b>No Subs:</b><input type=checkbox
-                                                                      name="fldNosubs<%= i%>" <% if (f.getNosubs() == true) { %>
+                                            <td><label for="fldNosubs<%= i%>"><b>No Subs:</b></label><input type=checkbox
+                                                                      id="fldNosubs<%= i%>" name="fldNosubs<%= i%>" <% if (f.getNosubs() == true) { %>
                                                                       checked
                                                     <%} %> class=tblRow size=1 value="on"/></td>
-                                            <td><b>PRN:</b><input type=checkbox name="fldPrn<%= i%>"
+                                            <td><label for="fldPrn<%= i%>"><b>PRN:</b></label><input type=checkbox id="fldPrn<%= i%>" name="fldPrn<%= i%>"
                                                     <% if (f.getPrn() == true) { %> checked <%} %> class=tblRow size=1
                                                                   value="on"/></td>
                                         </tr>
@@ -375,9 +391,9 @@
                                             <td colspan=7>
                                                 <table>
                                                     <tr>
-                                                        <td><b>Special Instructions:</b><br/>
-                                                            Custom Instructions:&nbsp;<input type="checkbox"
-                                                                                             name="customInstr<%=i%>" <% if(f.getCustomInstr()) { %>
+                                                        <td><label for="fldSpecial<%= i%>"><b>Special Instructions:</b></label><br/>
+                                                            <label for="customInstr<%=i%>">Custom Instructions:</label>&nbsp;<input type="checkbox"
+                                                                                             id="customInstr<%=i%>" name="customInstr<%=i%>" <% if(f.getCustomInstr()) { %>
                                                                                              checked
                                                                     <%}%>></td>
                                                         <td width="100%">
@@ -386,7 +402,7 @@
                                                                 if (s == null || s.equals("null"))
                                                                     s = "";
                                                             %>
-                                                            <textarea name="fldSpecial<%= i%>" style="width: 100%"
+                                                            <textarea id="fldSpecial<%= i%>" name="fldSpecial<%= i%>" style="width: 100%"
                                                                       rows=5><%=SafeEncode.forHtmlContent(s.trim())%></textarea></td>
                                                     </tr>
                                                 </table>

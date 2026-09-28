@@ -72,11 +72,22 @@ async function workflow(s) {
     const identity = editor.locator(`input[name^="fldFavoriteId"][value="${ids[0]}"]`);
     await identity.waitFor({ state: 'attached' });
     const index = (await identity.getAttribute('name')).replace('fldFavoriteId', '');
-    h.assert(await editor.locator(`[name="fldFrequencyCode${index}"]`).inputValue() === 'OD',
+    const nameRow = editor.locator(`tr[name="record${index}Line1"]`);
+    const doseRow = editor.locator(`tr[name="record${index}Line3"]`);
+    const favoriteName = nameRow.getByLabel('Favorite Name:', { exact: true });
+    await nameRow.locator(`label[for="fldFavoriteName${index}"]`).click();
+    h.assert(await favoriteName.evaluate(input => input === document.activeElement),
+      'Favorite name label did not focus its own row control');
+    const duration = doseRow.getByLabel('Duration:', { exact: true });
+    await doseRow.locator(`label[for="fldDuration${index}"]`).click();
+    h.assert(await duration.evaluate(input => input === document.activeElement),
+      'Duration label did not focus its own row control');
+    h.assert(await duration.inputValue() === '7', 'Duration label resolved to another favorite row');
+    h.assert(await doseRow.getByLabel('Frequency', { exact: true }).inputValue() === 'OD',
       'Editing fixture did not retain the frequency needed for the duplicate regression');
-    const unit = editor.locator(`[name="fldDurationUnit${index}"]`);
+    const unit = doseRow.getByLabel('Duration unit', { exact: true });
     h.assert(await unit.inputValue() === 'W', 'Opening the editor silently reset weeks to days');
-    await editor.locator(`[name="fldFavoriteName${index}"]`).fill(names[1]);
+    await favoriteName.fill(names[1]);
     const [saved] = await Promise.all([
       editor.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/updateFavorite2')
         && response.request().method() === 'POST'),

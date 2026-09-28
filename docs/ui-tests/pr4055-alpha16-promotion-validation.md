@@ -26,7 +26,9 @@ CLI implementation now maintained in `carlos-emr/carlos-ctl`. The review
 compared the former Python data definitions with the shipped JSON manifests:
 all 41 runtime fields matched after tuple/list normalization. CodeRabbit
 skipped its initial review because the PR exceeds its 300-file limit; its
-initial successful status must not be interpreted as a completed review.
+initial successful status must not be interpreted as a completed review. The
+requested incremental review at `6a3d4b5203` was also refused: 527 files exceed
+the same 300-file limit. No CodeRabbit approval is claimed.
 
 ## Findings corrected
 
@@ -46,6 +48,8 @@ initial successful status must not be interpreted as a completed review.
   provider's ownership. Creation deduplication compares all persisted prescribing
   fields, so different routes, doses, drug identifiers and dispensing settings
   cannot silently alias another favorite. The parameter-free editor GET remains available.
+  Editor controls receive associated labels after Sonar identified missing
+  accessible names on the favorite-name and duration fields.
 - Rx patient lookup and vacancy criteria resolve DAOs/managers from the
   active Spring context, avoiding stale statically cached dependencies.
 - Queue-name lookup binds the supplied name instead of concatenating HQL.
@@ -75,7 +79,11 @@ initial successful status must not be interpreted as a completed review.
   fallback is available. Explicit CLI source selection takes precedence over
   an installed CLI in generator and migration verification tools.
 - Packaging Python discovery avoids collision with the system
-  `python-debian` package.
+  `python-debian` package. Full regeneration against the pinned OSCAR19 source
+  also found four stale manifest entries: both province profiles omitted the
+  two MRP provenance columns added by migration `1.0.39`. The corrected manifest
+  has a general regression comparing every destination column inventory with
+  the current migration sources; import conversion mappings are unchanged.
 - The Struts source validator follows modular includes and rejects an empty
   action inventory instead of reporting success after checking zero actions.
   The live source inventory now validates 1,083 actions across 18 configs.
@@ -112,19 +120,31 @@ rule execution remain in scope.
 
 - Initial configured Java suite: 14,161 reported, zero failures/errors,
   51 existing skips.
-- Expanded full Java checkpoint: 15,157 reported, zero failures/errors; the
-  three Chromium Selenium checks remain pending on the installed VM.
+- Final full Java/JSP/WAR run at application revision `6a3d4b5203`: 15,166
+  reported, zero failures/errors; the three Chromium Selenium checks remain
+  pending on the installed VM. The last favorite regressions separately passed
+  54 tests before the complete rerun.
+- JSP compilation: 985 JSPs, zero errors. Javadoc: completed, 34 warnings, no
+  errors. WAR commit identity verified against the pushed application revision.
+- JaCoCo promotion changed-line audit: 2,265/2,454 executable Java lines covered
+  (92.3%); the only unmapped file is documentation-only `package-info.java`.
+  Review fixes: 159/176 (90.3%). Additional vacancy lifecycle/context, inbox
+  fallback-date and favorite privilege regressions passed 66 tests with no skips.
 - Final full Node suite: 1,308 passed, zero failures/skips, one test file at a time.
 - Packaging contracts/subprocesses: 38 passed.
-- Manifest generator and loaders: 248 passed.
+- Manifest generator and loaders: 249 passed. Full manifest regeneration
+  matched the acquired upstream archive at `a7900d569d3faf741993e5e1da8c14021bbefede`.
+  The evidence runner supplies only the archive commit provenance absent from
+  a non-Git checkout; generation and comparison execute unchanged.
+- Entity audit: 1,760 field pairs across 255 shared entities, no name mismatches.
+  Implicit fields, `@JoinColumn` and Hibernate XML mappings are outside that audit.
 - Pinned CLI source suite: 1,464 reported, with 19 opt-in MariaDB integration
   skips pending the installed VM run.
 - Installation recovery: 33 passed. Coverage helper: 14 passed.
 - Encoder, security-message, BDD naming, Struts DTD, JSP-taglib and locale
   checks passed before the final installed validation.
 
-Final expanded Java, JSP/WAR/DEB, installed VM and browser results will be
-recorded below once completed. The browser inventory contains 181 registered
+Installed DEB/VM and browser results will be recorded below once completed. The browser inventory contains 181 registered
 checks, including the manual packaged first-login check and ON/BC checks.
 
 ## Migration and publication requirements

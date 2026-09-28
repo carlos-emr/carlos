@@ -501,11 +501,37 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
                     false, null, null, false, null, before, after);
             assertThat(results).hasSize(1);
-            assertThat(results.get(0).getDateObj()).isEqualTo(today);
+            assertThat(results.get(0).getDateObj().getTime()).isEqualTo(today.getTime());
             assertThat(results.get(0).dateTime).isEqualTo("2026-03-04 12:00:00");
             assertThat(inboxResultsDao.populateDocumentResultsData(
                     PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
                     false, null, null, false, null, after, new Date(after.getTime() + 1000))).isEmpty();
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+        void shouldKeepDocumentInInbox_whenObservationDateIsMissing(boolean updateDateAlsoMissing) {
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            // Model @PreUpdate correctly stamps ordinary edits with the current time.
+            // Seed historical/missing dates directly, then discard the cached entity.
+            var seedDates = entityManager.createNativeQuery("UPDATE document SET observationdate=NULL, updatedatetime="
+                    + (updateDateAlsoMissing ? "NULL" : ":updated") + " WHERE document_no=:id");
+            seedDates.setParameter("id", doc.getDocumentNo());
+            if (!updateDateAlsoMissing) seedDates.setParameter("updated", new java.sql.Timestamp(today.getTime()));
+            seedDates.executeUpdate();
+            entityManager.clear();
+
+            ArrayList<LabResultData> results = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
+                    false, null, null, false, null);
+
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).segmentID).isEqualTo(doc.getDocumentNo().toString());
+            assertThat(results.get(0).getDateObj().getTime()).isEqualTo(today.getTime());
+            assertThat(results.get(0).dateTime).isEqualTo(updateDateAlsoMissing
+                    ? "2026-03-04 12:00:00" : "2026-03-04");
         }
 
         @Test

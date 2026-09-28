@@ -66,6 +66,23 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         servlet.close();
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRejectEditWithoutLookup_whenPrescriptionUpdatePrivilegeIsMissing(boolean ajax) {
+        when(security.hasPrivilege(login, "_rx", "u", null)).thenReturn(false);
+        try (var data = mockConstruction(RxPrescriptionData.class)) {
+            var action = new RxUpdateFavorite2Action();
+            action.setFavoriteId("42");
+
+            assertThatThrownBy(() -> {
+                if (ajax) action.ajaxEditFavorite();
+                else action.execute();
+            }).isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_rx)");
+            assertThat(data.constructed()).isEmpty();
+            verifyNoInteractions(bean);
+        }
+    }
+
     private String useFavorite(boolean ajax, String id) throws Exception {
         RxUseFavorite2Action action = new RxUseFavorite2Action();
         action.setFavoriteId(id);
