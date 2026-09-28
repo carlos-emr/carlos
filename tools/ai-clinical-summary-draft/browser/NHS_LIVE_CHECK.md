@@ -81,3 +81,9 @@ explicit test inputs. They are not inferred clinical recommendations. Use a fres
 same fixture verifies that the existing approvals replay without duplicate rows;
 the result records how many approval receipts existed before each patient run. Screenshots and the result identify only these
 verified synthetic fixtures. Keep login storage and database credentials private.
+
+The September 28 follow-up also checks the real 403/405 security responses,
+forged review tokens, retention of edits on other cards, fresh approval after a
+response, and refresh-safe redirects. Each of the three patients passed 21 checks.
+See [the prepared morning trial](../quality/2026-09-28/morning-trial.md) for the
+separate fresh workspace instance; the fixture gateway still makes no model calls.

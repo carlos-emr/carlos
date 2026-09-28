@@ -103,7 +103,7 @@ Run the Java tests from the repository root:
 mvn -o -B -Dcheckstyle.skip=true '-Dtest=*ChartUpdate*UnitTest,*DocumentSummary*UnitTest,ChartUpdateTransactionIntegrationTest' test
 ```
 
-Verified in this worktree: 190 Python tests and 73 focused Java tests pass. The
+Verified in this worktree: 190 Python tests and 75 focused Java tests pass. The
 Java tests include native tickler and signed-history persistence, source links,
 signature hash, durable receipt replay, and rollback after an injected receipt
 failure. Database tests use isolated H2, with the MySQL-specific engine check
@@ -155,5 +155,5 @@ those results do not measure AI extraction quality.
 The [September 28 CARLOS/MariaDB results](quality/2026-09-28/chart-update-integration.md)
 cover NHSSYN001–003, signed history, reminders, source links, access auditing and
 replay protection. The run found and fixed the read-only transaction that rejected
-access-audit inserts. All three patient walkthroughs and 73 focused Java tests
+access-audit inserts. All three patient walkthroughs and 75 focused Java tests
 passed; the proposal source was a fixed fixture gateway, with no model inference.

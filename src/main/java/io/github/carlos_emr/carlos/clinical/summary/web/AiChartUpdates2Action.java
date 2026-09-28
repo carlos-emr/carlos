@@ -133,6 +133,8 @@ public final class AiChartUpdates2Action extends ActionSupport {
                     return NONE;
                 }
             }
+        // SecurityException deliberately propagates to the document package's securityError
+        // mapping: CarlosExceptionMappingInterceptor records the refusal and returns HTTP 403.
         } catch (IllegalArgumentException | IllegalStateException | ClinicalSummaryGenerationException expected) {
             request.setAttribute("chartUpdateError", expected.getMessage());
             try {

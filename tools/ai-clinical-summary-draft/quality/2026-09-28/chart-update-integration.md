@@ -35,7 +35,7 @@ write. The browser regression asserts both a successful review page and a new
 `ChartUpdates.read` audit row. The existing mocked/H2 checks had not caught the
 MySQL-specific read-only connection failure.
 
-## Verification
+## Initial verification
 
 All three patient walkthroughs passed. The [machine-readable result](chart-update-integration.json) records
 the agent type and checks per patient.
@@ -77,3 +77,34 @@ proposal gateway were stopped after verification; the database copy and local
 artifacts were retained for inspection.
 
 See [reproduction instructions](../../browser/NHS_LIVE_CHECK.md).
+
+## Overnight follow-up
+
+The updated CARLOS walkthrough passed **21 checks for each of NHSSYN001–003**.
+All three runs reused the earlier saved records and confirmed no duplicate
+reminders, notes or receipts. New checks verified:
+
+- Missing CSRF tokens return 403; GET mutation requests return 405.
+- An inaccessible document returns the shared, audited 403 response. The
+  `document` Struts package maps `SecurityException` through
+  `CarlosExceptionMappingInterceptor`; it does not fall through to a 500.
+- A forged review token cannot dismiss or save an item.
+- Saving one card retains edits and destination choices on other cards,
+  while clearing their approval checkboxes.
+- Successful posts redirect to GET, and refreshing retains drafts without
+  another model request or chart write.
+
+All **75 focused Java tests**, **190 Python tests**, and **eight isolated browser
+scenarios** passed. The migration-version checks and translation key/encoding
+checks passed. The new controls were translated into Spanish, French, Polish and
+Brazilian Portuguese. The unpublished receipt migration moved to V1.0.33 because
+`develop` already contains migrations through V1.0.32.
+
+The GitHub full build passed on 7917523c7c; its full test and JSP jobs were still
+running when this checkpoint was recorded. See PR #4065 for the latest CI state.
+No live AI calls were made. Proposal provenance is now displayed on the review
+page, including the fixed gateway's explicit no-model label.
+
+A separate fresh database copy and trial instance are prepared for the
+[morning walkthrough](morning-trial.md), preserving the tested database and its
+evidence. The feature remains disabled by default.

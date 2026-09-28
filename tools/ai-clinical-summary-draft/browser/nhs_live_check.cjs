@@ -72,12 +72,16 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(missingCsrf.status(), 403, 'Missing CSRF token must reject generation');
       const getMutation = await page.request.get(`${config.baseUrl}/documentManager/ApplyAiChartUpdate?documentId=${doc}`);
       assert.equal(getMutation.status(), 405, 'GET must never apply an update');
+      // An inaccessible document exercises the real Struts SecurityException mapping.
+      const forbidden = await page.request.get(`${config.baseUrl}/documentManager/AiChartUpdates?documentId=99999999`);
+      assert.equal(forbidden.status(), 403, 'Document access failures must use the controlled forbidden response');
+      assert(!(await forbidden.text()).includes('class="proposal-form"'), 'Forbidden response must not render the review');
       assert.equal(count(), receiptsBefore);
-      details.checks.push('real CSRF rejection', 'GET mutation rejection');
+      details.checks.push('real CSRF rejection', 'GET mutation rejection', 'controlled 403 access refusal');
       const generate = page.getByRole('button', { name: /Generate/ });
       await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 650000 }), generate.click()]);
       assert.equal(await page.locator('.alert-danger').count(), 0, 'Proposal generation must succeed');
-      assert.equal(new URL(page.url()).pathname, '/carlos/documentManager/AiChartUpdates', 'Generation must redirect to GET');
+      assert.equal(new URL(page.url()).pathname, new URL(config.baseUrl).pathname.replace(/\/$/, '') + '/documentManager/AiChartUpdates', 'Generation must redirect to GET');
       const proposals = page.locator('article.proposal');
       assert(await proposals.count() >= 3, 'This walkthrough expects at least three source-backed proposals');
       assert.equal(count(), receiptsBefore, 'Generation must not write chart updates');
