@@ -82,19 +82,26 @@ time it is used to send. An unauthenticated `LOCAL` relay never uses a secret
 and is never affected; a secret left on a `LOCAL` row is reported once so it can
 be removed.
 
-**Where the key comes from.** On its first start, CARLOS generates a key and
-saves it to the override properties file if none is set, and it refuses to start
-with an invalid one. A running server therefore always has a key. That makes the
-key itself the thing to protect:
+**Where the key comes from.** A packaged (Debian) install gets its key from
+`carlos-ctl init-config`, which writes it to `/etc/carlos-emr/carlos.properties`.
+If no key is set at startup, CARLOS generates one and appends it to
+`<context>.properties` in the Tomcat user's home directory (for example
+`~/carlos.properties`), which it reads after the override properties file, so a
+key there takes precedence. On a packaged install that directory is not writable,
+so CARLOS refuses to start instead. It also refuses to start with an invalid key.
+A running server therefore always has a key. That makes the key itself the thing
+to protect:
 
 - **Back it up** with the rest of the server's configuration. Everything
   encrypted with it, email and fax credentials alike, can only be decrypted with
   that exact key.
 - **Never replace it** on a server that has been running. A new key does not
   decrypt what the old one encrypted.
-- **If it is lost**, CARLOS starts with a newly generated key, written to the
-  override file, and the old credentials stop working. Replace that generated
-  key with the original and restart. Any credential entered while the generated
+- **If it is lost**, CARLOS may start with a newly generated key, written to the
+  home-directory file above, and the old credentials stop working. Remove the
+  generated key line from that file, restore the original key where it was
+  configured, and restart (on a packaged install, see README.Debian for restoring
+  `/etc/carlos-emr`). Any credential entered while the generated
   key was in use then stops working in turn, so re-enter it. If the original
   cannot be recovered, keep the new key and re-enter every account's password or
   API key.
@@ -216,7 +223,10 @@ subjects, body text, and password clues accordingly.
   [issue #3112](https://github.com/carlos-emr/carlos/issues/3112) /
   [PR #3130](https://github.com/carlos-emr/carlos/pull/3130).
 - Require the encryption key for credentialed email:
-  [issue #3673](https://github.com/carlos-emr/carlos/issues/3673).
+  [issue #3673](https://github.com/carlos-emr/carlos/issues/3673) /
+  [PR #3924](https://github.com/carlos-emr/carlos/pull/3924). Whether Startup
+  should generate a key at all when encrypted data exists is
+  [issue #3939](https://github.com/carlos-emr/carlos/issues/3939).
 - Temp PDF cleanup:
   [issue #3114](https://github.com/carlos-emr/carlos/issues/3114).
 - Single message field:

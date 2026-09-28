@@ -69,8 +69,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Covers the #3673 policy that credentialed email needs the application encryption key: warn by
- * default, refuse before any transport when {@code email.credentials.require_encryption_key=true}.
+ * Covers the #3673 policy that credentialed email needs the application encryption key. Encrypted
+ * credentials that do not decrypt with the current key (replaced, missing or damaged) are always
+ * refused before any transport. Plaintext credentials without a key are sent with a warning by
+ * default, and refused when {@code email.credentials.require_encryption_key=true}.
  *
  * @since 2026-09-24
  */
@@ -204,7 +206,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
                 assertThat(emailManager.credentialKeyRefusal(config)).isEqualTo(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR);
 
                 assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
-                        .contains("config id=14").contains("Restore the original key"));
+                        .contains("config id=14").contains("cannot be decrypted").contains("Restore the original key"));
                 assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
                         .containsAnyOf("plain-secret", "{ENC}", "{\""));
             }
@@ -230,6 +232,20 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             EmailConfig relay = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL,
                     "{\"host\":\"127.0.0.1\",\"port\":\"25\"}");
 
+            assertThat(emailManager.credentialKeyRefusal(relay)).isNull();
+        }
+
+        @Test
+        @DisplayName("should not refuse a LOCAL relay whose unused leftover password was encrypted under an old key")
+        void shouldAllowLocalRelay_whenUnusedPasswordWasEncryptedUnderOldKey() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String encrypted = EmailConfigSecrets.encryptSecrets("{\"host\":\"127.0.0.1\",\"port\":\"25\",\"password\":\"stale-secret\"}");
+            EncryptionKeyTestSupport.seedFreshKey();
+            requireKey(true);
+            EmailConfig relay = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL, encrypted);
+            injectDependency(relay, "id", 16);
+
+            // The LOCAL sender never reads the password, so the key mismatch must not block mail.
             assertThat(emailManager.credentialKeyRefusal(relay)).isNull();
         }
 
@@ -400,7 +416,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
                 verify(archiveService, never()).archive(any(), any());
                 // CarlosUnitTestBase keeps LogAction statically mocked for every test.
                 logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
-                        eq("Email"), eq("emailLogId=81&senderConfigId=12"), eq("123"), eq("")));
+                        eq("Email"), eq("emailLogId=81&senderConfigId=12&reason=keyRequired"), eq("123"), eq("")));
             }
         }
 
@@ -408,8 +424,13 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse credentials encrypted under a replaced key before any transport, with enforcement off")
         void shouldFailBeforeTransport_whenKeyWasReplaced() throws Exception {
             EncryptionKeyTestSupport.seedFreshKey();
-            EmailConfig stale = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL,
-                    EmailConfigSecrets.encryptSecrets(PLAINTEXT_SMTP));
+            // A stale encrypted password beside a plaintext api_key: re-encrypting the row before
+            // refusing would put the api_key under the new key and the password under the old one.
+            String encryptedSmtp = EmailConfigSecrets.encryptSecrets(PLAINTEXT_SMTP);
+            // Before the closing brace only: the {ENC} marker inside the value contains one too.
+            String staleDetails = encryptedSmtp.substring(0, encryptedSmtp.lastIndexOf('}'))
+                    + ",\"api_key\":\"plain-api-key\"}";
+            EmailConfig stale = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL, staleDetails);
             injectDependency(stale, "id", 12);
             EncryptionKeyTestSupport.seedFreshKey();
             requireKey(false);
@@ -422,7 +443,10 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
                 assertThat(transports.constructed()).isEmpty();
                 verify(emailLogDao).transitionEmailStatus(eq(81), eq(EmailLog.EmailStatus.PENDING),
                         eq(EmailLog.EmailStatus.FAILED), eq(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR), any());
+                verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
                 verify(archiveService, never()).archive(any(), any());
+                logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
+                        eq("Email"), eq("emailLogId=81&senderConfigId=12&reason=keyMismatch"), eq("123"), eq("")));
             }
         }
 
@@ -434,12 +458,16 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
 
             try (MockedConstruction<SMTPEmailSender> transports = mockConstruction(SMTPEmailSender.class,
                     (transport, context) -> when(transport.prepareArtifactBytes())
-                            .thenReturn("message".getBytes(StandardCharsets.UTF_8)))) {
+                            .thenReturn("message".getBytes(StandardCharsets.UTF_8)));
+                 LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
                 EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
 
                 assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.ACCEPTED);
                 verify(transports.constructed().get(0)).sendPrepared();
                 verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
+                // Without a key the at-rest upgrade is skipped quietly, not attempted and logged on every send.
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
+                        .contains("Unable to encrypt email transport credentials at rest"));
             }
         }
 

@@ -241,7 +241,6 @@ public class EmailManager {
             }
             EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
             EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
-            upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
             applyConsentSnapshot(emailLog, consentResult, emailData);
             logPreparedEmail(loggedInInfo, emailLog);
             if (isBlockedByConsent(consentResult, emailData)) {
@@ -256,11 +255,16 @@ public class EmailManager {
             String credentialRefusal = credentialKeyRefusal(emailLog.getEmailConfig());
             if (credentialRefusal != null) {
                 updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, credentialRefusal);
+                String reason = CREDENTIAL_KEY_MISMATCH_ERROR.equals(credentialRefusal) ? "keyMismatch" : "keyRequired";
                 LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.refusedCredentialKey", EMAIL_AUDIT_CONTENT,
-                        "emailLogId=" + emailLog.getId() + "&senderConfigId=" + emailLog.getEmailConfig().getId(),
+                        "emailLogId=" + emailLog.getId() + "&senderConfigId=" + emailLog.getEmailConfig().getId()
+                                + "&reason=" + reason,
                         String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
                 return EmailSendResult.failed(emailLog, EmailStatus.FAILED.equals(emailLog.getStatus()));
             }
+            // Only once the send may proceed: re-encrypting a row that was just refused could mix
+            // fields under two keys (a stale {ENC} password beside a newly encrypted api_key).
+            upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
 
             try {
                 if (emailData.getIsEncrypted()) {
@@ -694,8 +698,10 @@ public class EmailManager {
                 return null;
             }
             if (keyConfigured) {
-                logger.error("Email send refused: sender config id={} holds credentials encrypted under a different key "
-                        + "than the current {}. Restore the original key; generating a new one does not recover them.",
+                logger.error("Email send refused: sender config id={} holds credentials that cannot be decrypted with "
+                        + "the current {}: they were encrypted under a different key, or the stored value is damaged. "
+                        + "Restore the original key if it changed (generating a new one does not recover them); "
+                        + "otherwise re-enter the credentials.",
                         id, EncryptionUtils.SECRET_KEY_ENV_VAR);
             } else {
                 logger.error("Email send refused: sender config id={} holds encrypted credentials but {} is not available. "
