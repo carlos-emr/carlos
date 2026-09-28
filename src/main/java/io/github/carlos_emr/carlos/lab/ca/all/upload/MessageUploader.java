@@ -44,7 +44,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.regex.Pattern;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -347,7 +346,7 @@ public final class MessageUploader {
 
     // Allowed column names for provider search to prevent SQL injection
     private static final java.util.Set<String> VALID_SEARCH_COLUMNS = java.util.Set.of(
-            "ohip_no", "provider_no", "last_name", "first_name", "practitioner_no");
+            "ohip_no", "provider_no", "last_name", "first_name", "practitionerno", "hso_no");
 
     /**
      * Attempt to match the doctors from the lab to a providers
@@ -758,35 +757,26 @@ public final class MessageUploader {
      * String arrays are delineated with a pipe |
      */
     public static String mergeLabLabels(List<Hl7TextInfo> currentLabs, String incoming) {
-        // If a past lab with the same AccessionNumber exist carry over the label
-        String mergedLabel = StringUtils.trimToEmpty(incoming);
-        if (currentLabs == null) {
-            currentLabs = Collections.emptyList();
-        }
-        for (Hl7TextInfo matchingLab : currentLabs) {
-            String currentLabel = matchingLab.getLabel();
-            // if the lab has an entered label to carry over
-            if (!StringUtils.isBlank(currentLabel) && !StringUtils.isBlank(mergedLabel)) {
-                // compare labels and eliminate duplicates.
-                String[] labelArray = mergedLabel.split("\\s?\\|\\s?");
-                for (String labelItem : labelArray) {
-                    if (!labelItem.isEmpty()) {
-                        String regex = Pattern.quote(labelItem) + "\\s?\\|?\\s?";
-                        currentLabel = currentLabel.replaceAll(regex, "");
-                    }
-                }
-                currentLabel = StringUtils.trimToEmpty(currentLabel);
-
-                if (!currentLabel.isEmpty()) {
-                    mergedLabel = currentLabel + " | " + mergedLabel;
-                }
-
-                if (mergedLabel.startsWith("|")) {
-                    mergedLabel = mergedLabel.substring(1);
-                    mergedLabel = mergedLabel.trim();
-                }
+        LinkedHashSet<String> merged = labelTokens(incoming);
+        if (currentLabs != null) {
+            for (Hl7TextInfo matchingLab : currentLabs) {
+                LinkedHashSet<String> previous = labelTokens(matchingLab.getLabel());
+                // Compare whole panel/manual label tokens, never substrings (ALT is not SALT).
+                // Preserve the existing ordering: carried labels precede the incoming label.
+                previous.removeAll(merged);
+                previous.addAll(merged);
+                merged = previous;
             }
         }
-        return mergedLabel;
+        return String.join(" | ", merged);
+    }
+
+    private static LinkedHashSet<String> labelTokens(String label) {
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        for (String token : StringUtils.trimToEmpty(label).split("\\|")) {
+            String trimmed = token.trim();
+            if (!trimmed.isEmpty()) tokens.add(trimmed);
+        }
+        return tokens;
     }
 }

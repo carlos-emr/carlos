@@ -144,8 +144,20 @@ Then:
 2. On the preparation branch, change the Maven project version from the planned
    snapshot to the exact release and change `project.scm.tag` from `HEAD` to the
    same exact value.
-3. Run and pass all required checks. Merge the preparation PR with a merge
-   commit into the publication target selected above.
+3. Run and pass all required checks. Verify the CLI release named by
+   `debian/carlos-ctl.pin` is published and its asset passes both integrity
+   and provenance verification:
+
+   ```bash
+   debian/fetch-carlos-ctl.sh "$(mktemp -d)"
+   ```
+
+   Run with authenticated `gh` and without `CARLOS_CTL_DEB` or
+   `CARLOS_CTL_SKIP_ATTESTATION`. A green PR that used the pin's fallback
+   commit validates source compatibility only; it does not establish that
+   the required release asset exists. Publish the CLI release first, then
+   repeat this check. Then merge the preparation PR with a merge commit into
+   the publication target selected above.
 4. Fetch the merged target and confirm that its head commit, `pom.xml` version,
    and SCM tag are the exact values intended for publication.
 5. Create and push an annotated tag on that exact commit. For example:

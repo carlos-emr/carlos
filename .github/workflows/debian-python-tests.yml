@@ -25,8 +25,9 @@ on:
     paths:
       - 'debian/**'
       - 'scripts/migration/o19/**'
-      # the manifest generator's inputs (generate_manifests.py --check runs
-      # here): the Flyway set and the legacy patches it reads, the entity
+      # the manifest generator's inputs (schema/overlay parity tests run
+      # here; full --check also needs an OSCAR 19 checkout): the Flyway set
+      # and the legacy patches it reads, the entity
       # classes its primitive-column scan walks, and the three resource
       # files whose values it ships
       - 'src/main/java/**'
@@ -43,8 +44,9 @@ on:
     paths:
       - 'debian/**'
       - 'scripts/migration/o19/**'
-      # the manifest generator's inputs (generate_manifests.py --check runs
-      # here): the Flyway set and the legacy patches it reads, the entity
+      # the manifest generator's inputs (schema/overlay parity tests run
+      # here; full --check also needs an OSCAR 19 checkout): the Flyway set
+      # and the legacy patches it reads, the entity
       # classes its primitive-column scan walks, and the three resource
       # files whose values it ships
       - 'src/main/java/**'
@@ -101,7 +103,9 @@ jobs:
       - name: Install the CLI's runtime dependency
         run: pip install bcrypt==5.0.0
       - name: Packaging-contract tests
-        run: python3 -m unittest discover -s debian/assets/tests -t .
+        # Do not import these as debian.assets: python-debian, installed on
+        # Debian development hosts, owns the top-level debian package.
+        run: python3 -m unittest discover -s debian/assets/tests
       - name: Manifest generator and shipped-manifest tests
         run: python3 -m unittest discover -s scripts/migration/o19/tests -t .
       - name: The pinned carlos-ctl suite against this checkout

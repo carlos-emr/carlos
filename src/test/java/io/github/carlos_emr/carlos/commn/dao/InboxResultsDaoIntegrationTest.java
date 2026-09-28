@@ -26,10 +26,10 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -69,9 +69,9 @@ import static org.assertj.core.api.Assertions.*;
  *   <li>Return types use {@code Object[]} arrays with position-dependent column access</li>
  * </ul>
  *
- * <p><strong>SQL Injection Risk</strong>: {@code isSentToProvider} uses
- * string concatenation instead of parameterized queries. This is a known
- * security issue documented here for future remediation.</p>
+ * <p>{@code isSentToProvider} binds document and provider identifiers as query
+ * parameters. The full Spring test context supplies the document and preference
+ * DAOs used while assembling inbox results.</p>
  *
  * @since 2026-03-04
  * @see InboxResultsDao
@@ -334,7 +334,6 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     class PopulateDocumentResultsDataFull {
 
         @Test
-        @Disabled("Requires DocumentDao and other beans in test context (SpringUtils.getBean calls in populateDocumentResultsData)")
         @DisplayName("should return documents for specific demographic when routing exists")
         @SuppressWarnings("unchecked")
         void shouldReturnDocuments_forDemographicWithRouting() {
@@ -356,7 +355,6 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
-        @Disabled("Requires DocumentDao and other beans in test context (SpringUtils.getBean calls in populateDocumentResultsData)")
         @DisplayName("should return documents filtered by status")
         @SuppressWarnings("unchecked")
         void shouldReturnDocuments_filteredByStatus() {
@@ -466,7 +464,6 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     class PopulateDocumentResultsDataDateFiltering {
 
         @Test
-        @Disabled("Requires DocumentDao and other beans in test context (SpringUtils.getBean calls in populateDocumentResultsData)")
         @DisplayName("should filter documents by start and end dates")
         @SuppressWarnings("unchecked")
         void shouldFilterDocuments_byDateRange() {
@@ -488,6 +485,27 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("should preserve time boundaries when filtering by received date")
+        void shouldFilterDocumentsByTime_whenReceivedDatePreferenceIsSelected() {
+            entityManager.persist(new SystemPreferences("inboxDateSearchType", "receivedCreated"));
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            Date before = new Date(today.getTime() - 1000);
+            Date after = new Date(today.getTime() + 1000);
+
+            ArrayList<LabResultData> results = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
+                    false, null, null, false, null, before, after);
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getDateObj()).isEqualTo(today);
+            assertThat(results.get(0).dateTime).isEqualTo("2026-03-04 12:00:00");
+            assertThat(inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
+                    false, null, null, false, null, after, new Date(after.getTime() + 1000))).isEmpty();
         }
 
         @Test

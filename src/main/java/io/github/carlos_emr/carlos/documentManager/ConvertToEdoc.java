@@ -115,7 +115,6 @@ public final class ConvertToEdoc {
     private static final String BACKGROUND_ATTRIBUTE = "background";
     private static final String STYLE_ATTRIBUTE = "style";
     private static String realPath;
-    private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
 
     /**
      * Converts an EForm into a PDF and returns an EDoc wrapping the result.
@@ -130,7 +129,7 @@ public final class ConvertToEdoc {
         String eformString = eform.getFormData();
         String demographicNo = eform.getDemographicId() + "";
         String filename = buildFilename(eform.getFormName(), demographicNo);
-        String eDocDescription = eform.getSubject().trim().isEmpty() ? eform.getFormName() : eform.getSubject();
+        String eDocDescription = (eform.getSubject() == null || eform.getSubject().trim().isEmpty()) ? eform.getFormName() : eform.getSubject();
         EDoc edoc = null;
         Path path = execute(eformString, filename);
 
@@ -160,7 +159,7 @@ public final class ConvertToEdoc {
     public synchronized static EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
         String demographicNo = eForm.getDemographicId() + "";
         String filename = buildFilename(eForm.getFormName(), demographicNo);
-        String eDocDescription = eForm.getSubject().trim().isEmpty() ? eForm.getFormName() : eForm.getSubject();
+        String eDocDescription = (eForm.getSubject() == null || eForm.getSubject().trim().isEmpty()) ? eForm.getFormName() : eForm.getSubject();
         EDoc edoc = null;
 
         if (Files.isReadable(eFormPDFPath)) {
@@ -299,7 +298,8 @@ public final class ConvertToEdoc {
         String document = tidyDocument(eformString);
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             renderPDF(document, os);
-            path = nioFileManager.saveTempFile(filename, os);
+            // Resolve against the current context; do not retain a bean across context reloads.
+            path = SpringUtils.getBean(NioFileManager.class).saveTempFile(filename, os);
             if (logger.isDebugEnabled()) {
                 // Filename embeds demographic_no (buildFilename), so it is sanitized before logging.
                 logger.debug("Rendered temporary PDF ({} bytes) for {}", os.size(), LogSafe.sanitize(filename));

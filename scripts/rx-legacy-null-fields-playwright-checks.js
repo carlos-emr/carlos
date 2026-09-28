@@ -51,6 +51,58 @@ async function workflow(s) {
     await expectValue(s.sql, `SELECT COUNT(*) FROM favorites WHERE provider_no=${h.sqlString(s.provider)} AND favoritename=${h.sqlString(s.marker)} AND \`repeat\`=0 AND special='One tablet daily'`, '1', 'Legacy favorite did not preserve instructions and default repeats');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE drugid=${drug} AND demographic_no=${s.patient} AND \`repeat\` IS NULL AND quantity IS NULL`) === '1', 'Reading the legacy drug rewrote its nullable fields');
   });
+  await s.step('favorite edits retain their row identity and week/month duration units', async () => {
+    const names = [`${s.marker}-edit-a`, `${s.marker}-edit-b`];
+    const ownedNames = names.map(h.sqlString).join(',');
+    s.cleanup(() => {
+      s.sql.execute(`DELETE FROM favorites WHERE provider_no=${h.sqlString(s.provider)}
+        AND favoritename IN (${ownedNames})`);
+      h.assert(s.sql.value(`SELECT COUNT(*) FROM favorites WHERE provider_no=${h.sqlString(s.provider)}
+        AND favoritename IN (${ownedNames})`) === '0', 'Owned editing favorites were not removed');
+    });
+    const ids = names.map((name, index) => s.sql.value(`INSERT INTO favorites
+      (provider_no,favoritename,BN,GCN_SEQNO,customName,takemin,takemax,freqcode,duration,durunit,
+       quantity,\`repeat\`,nosubs,prn,special,GN,unitName,custom_instructions,dispenseInternal)
+      VALUES(${h.sqlString(s.provider)},${h.sqlString(name)},'Synthetic brand','0','Synthetic drug',
+        1,1,'OD','7','W','7',0,0,0,'Synthetic instructions','Synthetic generic','tablet',0,${index === 0 ? 1 : 0});
+      SELECT LAST_INSERT_ID()`));
+    h.assert(ids.every(id => /^[1-9][0-9]*$/.test(id)), 'Editing favorite fixtures were not created');
+    const editor = await s.context.newPage();
+    await h.gotoApp(editor, s.config.baseUrl, '/rx/updateFavorite');
+    const identity = editor.locator(`input[name^="fldFavoriteId"][value="${ids[0]}"]`);
+    await identity.waitFor({ state: 'attached' });
+    const index = (await identity.getAttribute('name')).replace('fldFavoriteId', '');
+    h.assert(await editor.locator(`[name="fldFrequencyCode${index}"]`).inputValue() === 'OD',
+      'Editing fixture did not retain the frequency needed for the duplicate regression');
+    const unit = editor.locator(`[name="fldDurationUnit${index}"]`);
+    h.assert(await unit.inputValue() === 'W', 'Opening the editor silently reset weeks to days');
+    await editor.locator(`[name="fldFavoriteName${index}"]`).fill(names[1]);
+    const [saved] = await Promise.all([
+      editor.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/updateFavorite2')
+        && response.request().method() === 'POST'),
+      editor.locator(`a[onclick="javascript:ajaxUpdateRow(${index});"]`).click(),
+    ]);
+    h.assert(saved.status() === 200, 'Favorite edit failed');
+    await editor.locator(`#saveSuccess_${index}`).waitFor({ state: 'visible' });
+    await expectValue(s.sql, `SELECT COUNT(*) FROM favorites WHERE favoriteid=${ids[0]}
+      AND provider_no=${h.sqlString(s.provider)} AND favoritename=${h.sqlString(names[1])} AND durunit='W' AND dispenseInternal=1`,
+    '1', 'Editing a matching favorite saved to the wrong row or changed its duration unit');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM favorites WHERE favoriteid=${ids[1]}
+      AND favoritename=${h.sqlString(names[1])} AND durunit='W' AND dispenseInternal=0`) === '1', 'The matching favorite was modified');
+    const csrf = await editor.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl,
+      `/rx/updateFavorite2?method=ajaxEditFavorite&favoriteId=${ids[0]}&favoriteName=unsafe`),
+    { headers: { 'CSRF-TOKEN': csrf } });
+    h.assert(rejected.status() === 405, 'A GET request was allowed to edit a favorite');
+    s.sql.execute(`UPDATE favorites SET durunit='M' WHERE favoriteid=${ids[0]}
+      AND provider_no=${h.sqlString(s.provider)} AND favoritename=${h.sqlString(names[1])}`);
+    await editor.reload();
+    const monthIdentity = editor.locator(`input[name^="fldFavoriteId"][value="${ids[0]}"]`);
+    const monthIndex = (await monthIdentity.getAttribute('name')).replace('fldFavoriteId', '');
+    h.assert(await editor.locator(`[name="fldDurationUnit${monthIndex}"]`).inputValue() === 'M',
+      'Opening the editor silently reset months to days');
+    await editor.close();
+  });
   await s.step('stage re-prescribing only after both protected history requests succeed', async () => {
     await page.waitForLoadState('networkidle');
     await page.locator('input[value="Represcribe"]').click();

@@ -1,6 +1,6 @@
 {
   "$comment": [
-    "The browser-check suite manifest: one entry per scripts/*-playwright-checks.js.",
+    "The browser-check suite manifest: one entry per scripts/**/*-playwright-checks.js.",
     "",
     "scripts/run-playwright-suite.js reads this instead of the bash for-loop that used",
     "to live in docs/ui-tests/deb-install-validation.md section 6, where the tier, the",
@@ -38,6 +38,22 @@
     "in the PR that measures the tier, not by guess."
   ],
   "checks": [
+    {
+      "name": "annotate-document",
+      "script": "scripts/e2e/fax/annotate-document-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOC_ID",
+        "TEST_NEW_PASSWORD"
+      ]
+    },
     {
       "name": "provider-quick-links",
       "script": "scripts/provider-quick-links-playwright-checks.js",
@@ -1151,6 +1167,19 @@
       ]
     },
     {
+      "name": "inbox-document-dates",
+      "script": "scripts/inbox-document-dates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "inbox-lab-versions",
       "script": "scripts/inbox-lab-versions-playwright-checks.js",
       "tiers": [
@@ -1620,7 +1649,9 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": ["EXPECT_PROGRAM_DOMAIN_RESTRICTION"],
+      "env": [
+        "EXPECT_PROGRAM_DOMAIN_RESTRICTION"
+      ],
       "fixtures": "Owns synthetic patients, an unused DOB year, a program and admissions; verifies REST count/results, invalid inputs, domain restrictions, POST search/picker handoffs, merged pagination and unmerge; removes owned fixtures on success or failure."
     },
     {

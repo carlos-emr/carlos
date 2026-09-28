@@ -149,7 +149,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         try (var data = mockConstruction(RxPrescriptionData.class)) {
             var action = new RxUpdateFavorite2Action();
             action.setFavoriteId("42");
-            assertThat(ajax ? action.ajaxEditFavorite() : action.execute()).isNull();
+            assertThat(ajax ? action.ajaxEditFavorite() : action.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(404);
             verify(data.constructed().getFirst()).getFavorite(42);
             verifyNoMoreInteractions(data.constructed().getFirst());
@@ -163,7 +163,7 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         try (var data = mockConstruction(RxPrescriptionData.class)) {
             var action = new RxUpdateFavorite2Action();
             action.setFavoriteId("bad");
-            assertThat(ajax ? action.ajaxEditFavorite() : action.execute()).isNull();
+            assertThat(ajax ? action.ajaxEditFavorite() : action.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(400);
             assertThat(data.constructed()).isEmpty();
         }
@@ -189,6 +189,84 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
             assertThat(useFavorite(ajax, "42")).isNull();
             assertThat(response.getStatus()).isEqualTo(409);
             assertThat(data.constructed()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    void shouldRejectUnsupportedMethods_beforeEditingFavorite(String method) throws Exception {
+        request.setMethod(method);
+        try (var data = mockConstruction(RxPrescriptionData.class)) {
+            var action = new RxUpdateFavorite2Action();
+            assertThat(action.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+            assertThat(action.ajaxEditFavorite()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            assertThat(data.constructed()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldOpenFavoriteEditor_whenNoEditWasRequested(String method) throws Exception {
+        request.setMethod(method);
+        request.removeParameter("favoriteId");
+        try (var data = mockConstruction(RxPrescriptionData.class)) {
+            assertThat(new RxUpdateFavorite2Action().execute()).isEqualTo("success");
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(data.constructed()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRejectForeignFavorite_beforeApplyingEdits(boolean ajax) throws Exception {
+        var favorite = mock(RxPrescriptionData.Favorite.class);
+        when(favorite.getProviderNo()).thenReturn("999997");
+        when(bean.getProviderNo()).thenReturn("999998");
+        try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
+                when(mock.getFavorite(42)).thenReturn(favorite))) {
+            var action = new RxUpdateFavorite2Action();
+            action.setFavoriteId("42");
+            assertThat(ajax ? action.ajaxEditFavorite() : action.execute()).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(404);
+            verify(favorite).getProviderNo();
+            verifyNoMoreInteractions(favorite);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRejectEditWithoutSession_beforeLookingUpFavorite(boolean ajax) throws Exception {
+        request.getSession().removeAttribute("RxSessionBean");
+        try (var data = mockConstruction(RxPrescriptionData.class)) {
+            var action = new RxUpdateFavorite2Action();
+            action.setFavoriteId("42");
+            assertThat(ajax ? action.ajaxEditFavorite() : action.execute()).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(data.constructed()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = {"true", "false"})
+    void shouldApplyExplicitDispensingFlag_whenSavingOwnFavorite(String flag) throws Exception {
+        var favorite = mock(RxPrescriptionData.Favorite.class);
+        when(favorite.getProviderNo()).thenReturn("999998");
+        when(bean.getProviderNo()).thenReturn("999998");
+        request.setParameter("takeMin", "1");
+        request.setParameter("takeMax", "1");
+        request.setParameter("repeat", "0");
+        for (String field : new String[] {"nosubs", "prn", "customInstr"}) request.setParameter(field, "false");
+        if (flag != null) request.setParameter("dispenseInternal", flag);
+        try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
+                when(mock.getFavorite(42)).thenReturn(favorite))) {
+            assertThat(new RxUpdateFavorite2Action().ajaxEditFavorite()).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(200);
+            if (flag == null) verify(favorite, org.mockito.Mockito.never()).setDispenseInternal(any());
+            else verify(favorite).setDispenseInternal("true".equals(flag));
+            verify(favorite).Save();
         }
     }
 

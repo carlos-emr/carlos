@@ -18,7 +18,11 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))))))
 os.environ.setdefault("CARLOS_CTL_O19_MANIFEST_DIR",
                       os.path.join(_ROOT, "debian", "assets", "o19-manifest"))
-for _cand in (os.environ.get("CARLOS_CTL_SRC"), "/usr/lib/carlos-ctl"):
-    if _cand and os.path.isdir(os.path.join(_cand, "carlos_ctl")) \
-            and _cand not in sys.path:
-        sys.path.append(_cand)
+_checkout = os.environ.get("CARLOS_CTL_SRC")
+if _checkout and os.path.isdir(os.path.join(_checkout, "carlos_ctl")):
+    if _checkout in sys.path:
+        sys.path.remove(_checkout)
+    sys.path.insert(0, _checkout)
+_installed = "/usr/lib/carlos-ctl"
+if os.path.isdir(os.path.join(_installed, "carlos_ctl")) and _installed not in sys.path:
+    sys.path.append(_installed)

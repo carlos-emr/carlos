@@ -1,3 +1,10 @@
+<%--
+    Edits the prescribing session provider's favorite medication templates.
+    The parameter-free GET renders this page; saving posts favoriteId and the edited
+    dose, duration/unit, quantity, repeat and instruction fields to updateFavorite2.
+    Duration options retain the saved unit independently from its numeric duration.
+    All free-text medication fields are encoded for their HTML output context.
+--%>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
@@ -259,7 +266,7 @@
                                                                                       name="fldFavoriteId<%= i%>"
                                                                                       value="<%= f.getFavoriteId() %>"/>
                                                 <input type=text size="50" name="fldFavoriteName<%= i%>"
-                                                       class=tblRow size=80 value="<%= f.getFavoriteName() %>"/>&nbsp;&nbsp;&nbsp;
+                                                       class=tblRow size=80 value="<%= SafeEncode.forHtmlAttribute(f.getFavoriteName()) %>"/>&nbsp;&nbsp;&nbsp;
                                             </td>
                                             <td>
                                                 <a id="saveSuccess_<%=i%>" style="display:none;color:red">Changes
@@ -272,9 +279,9 @@
                                         </tr>
                                         <% if (!isCustom) { %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line2">
-                                            <td><b>Brand Name:</b><%= f.getBN() %>
+                                            <td><b>Brand Name:</b><%= SafeEncode.forHtmlContent(f.getBN()) %>
                                             </td>
-                                            <td colspan=5><b>Generic Name:</b><%= f.getGN() %>
+                                            <td colspan=5><b>Generic Name:</b><%= SafeEncode.forHtmlContent(f.getGN()) %>
                                             </td>
                                             <td colspan=1>&nbsp; <input type="hidden"
                                                                         name="fldCustomName<%= i%>" value=""/></td>
@@ -301,14 +308,14 @@
                                                         for (j = 0; j < freq.length; j++) {
                                                     %>
                                                     <option
-                                                            value="<%= freq[j].getFreqCode() %>"
+                                                            value="<%= SafeEncode.forHtmlAttribute(freq[j].getFreqCode()) %>"
                                                             <%
                                                                 if (freq[j].getFreqCode().equals(f.getFrequencyCode())) {
                                                             %>
                                                             selected="selected"
                                                             <%
                                                                 }
-                                                            %>><%=freq[j].getFreqCode()%>
+                                                            %>><%= SafeEncode.forHtmlContent(freq[j].getFreqCode()) %>
                                                     </option>
                                                     <%
                                                         }
@@ -318,11 +325,11 @@
                                                     %>
                                                 </select> <b>For:</b> <input type=text name="fldDuration<%= i%>"
                                                                              class=tblRow size=3
-                                                                             value="<%= duration %>"/> <select
+                                                                             value="<%= SafeEncode.forHtmlAttribute(duration) %>"/> <select
                                                         name="fldDurationUnit<%= i%>" class=tblRow>
                                                     <option
                                                             <%
-                                                                if (duration.equals("D")) { %>
+                                                                if ("D".equals(f.getDurationUnit())) { %>
                                                             selected="selected"
                                                             <% }
                                                             %>
@@ -330,7 +337,7 @@
                                                     </option>
                                                     <option
                                                             <%
-                                                                if (duration.equals("W")) { %>
+                                                                if ("W".equals(f.getDurationUnit())) { %>
                                                             selected="selected"
                                                             <% }
                                                             %>
@@ -338,7 +345,7 @@
                                                     </option>
                                                     <option
                                                             <%
-                                                                if (duration.equals("M")) { %>
+                                                                if ("M".equals(f.getDurationUnit())) { %>
                                                             selected="selected"
                                                             <% }
                                                             %>
@@ -350,7 +357,7 @@
                                             <td nowrap><b>Quantity:</b> <input type=text
                                                                                name="fldQuantity<%= i%>" class=tblRow
                                                                                size=5
-                                                                               value="<%= f.getQuantity() %>"/></td>
+                                                                               value="<%= SafeEncode.forHtmlAttribute(f.getQuantity()) %>"/></td>
                                             <td></td>
                                             <td><b>Repeats:</b><input type=text name="fldRepeat<%= i%>"
                                                                       class=tblRow size=3 value="<%= f.getRepeat() %>"/>

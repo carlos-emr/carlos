@@ -41,22 +41,39 @@ import java.util.List;
 import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
 @DisplayName("VacancyTemplateManager")
 @Tag("unit")
 class VacancyTemplateManagerUnitTest extends CarlosUnitTestBase {
 
+    private CriteriaDao criteriaDAO;
+    private CriteriaTypeDao criteriaTypeDAO;
+    private CriteriaTypeOptionDao criteriaTypeOptionDAO;
+    private CriteriaSelectionOptionDao criteriaSelectionOptionDAO;
+
     @BeforeEach
     void setUp() {
         createAndRegisterMock(VacancyTemplateDao.class);
-        createAndRegisterMock(CriteriaDao.class);
-        createAndRegisterMock(CriteriaTypeDao.class);
-        createAndRegisterMock(CriteriaTypeOptionDao.class);
-        createAndRegisterMock(CriteriaSelectionOptionDao.class);
+        criteriaDAO = createAndRegisterMock(CriteriaDao.class);
+        criteriaTypeDAO = createAndRegisterMock(CriteriaTypeDao.class);
+        criteriaTypeOptionDAO = createAndRegisterMock(CriteriaTypeOptionDao.class);
+        criteriaSelectionOptionDAO = createAndRegisterMock(CriteriaSelectionOptionDao.class);
         createAndRegisterMock(ProgramDao.class);
         createAndRegisterMock(VacancyDao.class);
+    }
+
+    @Test
+    void shouldUseCurrentDao_whenSpringContextChanges() {
+        Criteria original = new Criteria();
+        when(criteriaDAO.find((Object) 17)).thenReturn(original);
+        assertThat(VacancyTemplateManager.getCriteriaByCriteriaId(17)).isSameAs(original);
+        CriteriaDao replacement = createAndRegisterMock(CriteriaDao.class);
+        Criteria current = new Criteria();
+        when(replacement.find((Object) 17)).thenReturn(current);
+
+        assertThat(VacancyTemplateManager.getCriteriaByCriteriaId(17)).isSameAs(current);
+        org.mockito.Mockito.verify(replacement).find((Object) 17);
     }
 
     @Test
@@ -94,13 +111,11 @@ class VacancyTemplateManagerUnitTest extends CarlosUnitTestBase {
         criteriaType.setFieldName("Minimum Age");
         criteriaType.setFieldType("number");
 
-        reset(VacancyTemplateManager.criteriaDAO, VacancyTemplateManager.criteriaTypeDAO,
-                VacancyTemplateManager.criteriaTypeOptionDAO, VacancyTemplateManager.criteriaSelectionOptionDAO);
-        when(VacancyTemplateManager.criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(99, null, 5))
+        when(criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(99, null, 5))
                 .thenReturn(criteria);
-        when(VacancyTemplateManager.criteriaTypeDAO.find((Object) 5)).thenReturn(criteriaType);
-        when(VacancyTemplateManager.criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(5)).thenReturn(List.of());
-        when(VacancyTemplateManager.criteriaSelectionOptionDAO.getCriteriaSelectedOptionsByCriteriaId(17))
+        when(criteriaTypeDAO.find((Object) 5)).thenReturn(criteriaType);
+        when(criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(5)).thenReturn(List.of());
+        when(criteriaSelectionOptionDAO.getCriteriaSelectedOptionsByCriteriaId(17))
                 .thenReturn(List.of());
 
         String html = VacancyTemplateManager.renderAllSelectOptions(99, null, 5);

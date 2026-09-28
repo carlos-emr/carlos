@@ -39,7 +39,8 @@ GitHub release
 (https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
 workflow, alongside their .sha256 checksums and build-provenance
 attestations. The carlos-emr package on a release ships that release's own
-published WAR byte for byte.
+published WAR's application payload, with the Debian build identity stamped
+in carlos-build.properties.
 
 Fetching them from a shell (a server has no browser; from WSL this is far
 easier than copying files across): on the release page, right-click each

@@ -57,13 +57,13 @@ else
     curl -fsSL --retry 3 -o "$dest/$name" "$base/$name"
     curl -fsSL --retry 3 -o "$dest/$name.sha256" "$base/$name.sha256"
 fi
-(cd "$dest" && sha256sum -c "$name.sha256")
+(cd "$dest" && sha256sum -c "$name.sha256") >&2
 if [ "${CARLOS_CTL_SKIP_ATTESTATION:-0}" != 1 ]; then
     if command -v gh >/dev/null 2>&1; then
         # The .sha256 travels with the .deb, so it only catches a corrupt
         # download; the attestation binds the bytes to the workflow run that
         # built them, and nobody with mere contents:write can forge it.
-        gh attestation verify "$dest/$name" --repo "$repo"
+        gh attestation verify "$dest/$name" --repo "$repo" >&2
     else
         echo "fetch-carlos-ctl: gh is not installed, so the build-provenance attestation of $name was NOT verified (set CARLOS_CTL_SKIP_ATTESTATION=1 to silence this on a developer machine)" >&2
     fi
