@@ -59,17 +59,20 @@ path, query and UTF-8 body bytes that it hashes. Proxies must preserve the path,
 query, and body seen by the portal. Rewriting these values invalidates
 authentication; do not enable legacy authentication to work around a mismatch.
 
-`patient_portal.base_url` names the portal's origin only (`https://host[:port]`),
-and a path is rejected at startup. CARLOS calls `/internal/carlos/` at the root
+`patient_portal.base_url` names the portal's origin only (`https://host[:port]`).
+A path is rejected when the portal client is first used after a restart, because
+its settings are read lazily. CARLOS calls `/internal/carlos/` at the root
 of that origin even when patients reach the portal under a prefix. The portal's
 reference proxy answers `/<prefix>/internal/` with 404, and a proxy that strips a
 prefix would change the raw path the request hash binds.
 
 The transport allows four concurrent exchanges per client and has no request
 queue. `patient_portal.timeout.request.ms` defaults to 20000 and must be positive
-and below 60000. It bounds the caller's wait through connection establishment and
-body reading, in addition to the connect/read inactivity timeouts. On expiration
-or interruption, CARLOS cancels the underlying HTTP request. A worker that does
+and at most 59000: the 60-second assertion lifetime, less one second because the
+assertion's times are rounded down to whole seconds. It bounds the caller's wait
+through connection establishment and body reading, in addition to the
+connect/read inactivity timeouts. On expiration or interruption, CARLOS cancels
+the underlying HTTP request. A worker that does
 not respond to cancellation retains its slot until it actually exits, preventing
 unbounded replacement threads. A timed-out mutation may already have applied;
 check current state before retrying.
@@ -83,9 +86,9 @@ email privilege the rest of CARLOS requires to create or close an outbox row. Se
 `_edoc` write, because every sent email is archived as a patient document. Both are checked before the
 portal is asked for anything, and the page shows only the controls the user's rights allow.
 
-`V1.0.31` grants `doctor` full `_portal.invite` and read-only `_portal.account`, because `doctor` is the
+`V1.0.43` grants `doctor` full `_portal.invite` and read-only `_portal.account`, because `doctor` is the
 only non-admin role the baseline grants `_email`. Unlocking a portal account stays with `admin`, where
-`V1.0.30` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
+`V1.0.41` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
 in Administration > Security lets them see and revoke invitations, but not send one or resolve an
 unfinished delivery.
 
@@ -93,7 +96,7 @@ Two settings are required, and invitations are refused until both are set:
 
 | Property | Meaning |
 |---|---|
-| `patient_portal.public_base_url` | The address patients open, `https://` only. It is not the pinned internal API origin and usually differs from it. |
+| `patient_portal.public_base_url` | The address patients open, `https://` only. It is not the pinned internal API origin and usually differs from it. Unlike `base_url`, it may carry the path prefix the portal's patient pages are served under. |
 | `patient_portal.invite.sender_email` | The sender address of an active CARLOS email account. |
 
 The portal's two-phase contract decides the order of every invitation. `PortalInviteDeliveryService`
@@ -115,10 +118,14 @@ records each step in `patient_portal_invite_delivery` before the next network ca
 An attempt stopped before the commit is `ABANDONED`, and CARLOS revokes the prepared code on the
 portal: a live preparation otherwise blocks every new invitation for the patient until it expires.
 After the commit, CARLOS never revokes on uncertainty; a refused send is fixed by a resend, which
-issues a new code and keeps the old one valid until the replacement is committed. The one uncertain
-case before the send is a commit whose answer is lost twice: CARLOS withdraws the new code, and since
-the portal may already have retired the old one while activating the new, the page tells staff that a
-replaced invitation may no longer work and a new one should be sent.
+issues a new code and keeps the old one valid until the replacement is committed. The uncertain cases
+before the send are a commit whose answer is lost twice, and a commit the portal made that CARLOS could
+not record (a failed database write, or a crash, after which staff stop the attempt). CARLOS withdraws
+the new code, which never left, and records the commit as unconfirmed, never refused: since the portal
+may already have retired the old code while activating the new, the page tells staff that a replaced
+invitation may no longer work and a new one should be sent. When staff stop a queued resend, CARLOS
+first asks the portal whether the invitation it was to replace is still pending (the portal retires it
+and activates the replacement in one step), and records a plain stop if it is.
 
 Why an attempt stands where it does is stored as an `outcome` code (`PatientPortalInviteDelivery.Outcome`),
 with a separate `revoke_failed` flag when an unused code could not be withdrawn and will expire on its
@@ -140,7 +147,11 @@ permanent patient document, never holds it: the service names the code in
 `API_PAYLOAD_REDACTED`), so the copy is never mistaken for the
 exact bytes sent. If the code cannot be found verbatim in the prepared message, the send is refused
 before the portal activates anything. Reopening a portal invitation in the email compose window is refused outright, so the
-message history cannot hand the credential to a reader who holds email access but no portal rights. A
+message history cannot hand the credential to a reader who holds email access but no portal rights.
+Manage Emails and the chart's email viewer send staff to the patient's portal page instead. While an
+invitation's delivery is open, Manage Emails does not resolve its outbox row by hand: the delivery
+record, not that row, says whether a code is live. Once the delivery has finished, the row resolves like
+any other, which clears one left pending by a status write that failed after the send. A
 patient who never received their email gets a resend, which issues a new code; CARLOS never re-sends the
 stored one. The email passes through the same consent gate as every patient email: `OPT_IN`, or
 `UNKNOWN` with a documented override reason. Text-message invitations are reserved until CARLOS has
@@ -149,7 +160,10 @@ an SMS provider.
 An attempt that did not finish shows as incomplete on the page. After 15 minutes without a change,
 staff can resolve it: **Stop and withdraw the code** before the commit, or **It arrived** / **It did
 not arrive; revoke it** after it. Recovery re-checks that the patient and the portal connection match
-the attempt. Nothing runs in the background.
+the attempt, and the page offers no decision for an attempt made on another portal connection. Each
+decision is written to the CARLOS audit log as `PortalInviteDeliveryService.recover.<decision>`, with the
+delivery id, the patient, and the state and outcome codes it left; never the code. Nothing runs in the
+background.
 
 An attempt stuck before the commit usually leaves a prepared code on the portal, which blocks every new
 invitation for that patient until it expires. So when staff next invite or resend, an attempt stuck that

@@ -22,12 +22,14 @@
 package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -84,6 +86,7 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
     private EmailConfigDaoImpl emailConfigDao;
     private EmailLogDaoImpl emailLogDao;
     private EmailConsentResolver consentResolver;
+    private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
     private final List<String> events = new ArrayList<>();
     private OutboundEmailArchiveService archiveService;
@@ -96,7 +99,7 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
         emailLogDao = mock(EmailLogDaoImpl.class);
         DemographicManager demographicManager = mock(DemographicManager.class);
         ProviderManager2 providerManager = mock(ProviderManager2.class);
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
         Demographic demographic = new Demographic();
         demographic.setDemographicNo(123);
@@ -224,6 +227,18 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
         consentIs(EmailConsentStatus.NOT_CONFIGURED);
         assertThat(emailManager.consentBlockMessage(loggedInInfo, emailData()))
                 .isEqualTo("Email blocked: patient email consent is not configured.");
+    }
+
+    @Test
+    @DisplayName("should refuse to report a patient's consent to a caller without email read rights")
+    void shouldRefuseConsentBlock_withoutEmailReadPrivilege() {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_email"), eq(SecurityInfoManager.READ),
+                nullable(String.class))).thenReturn(false);
+
+        assertThatThrownBy(() -> emailManager.consentBlockMessage(loggedInInfo, emailData()))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_email)");
+        verify(consentResolver, never()).resolve(any(), any());
     }
 
     @Test

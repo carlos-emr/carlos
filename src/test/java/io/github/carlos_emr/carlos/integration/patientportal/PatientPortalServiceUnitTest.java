@@ -24,10 +24,12 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException.Kind;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
@@ -37,6 +39,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * The authenticated envelope every portal call shares.
@@ -54,6 +58,12 @@ class PatientPortalServiceUnitTest {
     private static final String INVITE_PATH = "/internal/carlos/patients/123/invites";
 
     private PatientPortalService service() {
+        // Request-building tests do not need a real pooled client that every test must remember to
+        // close. The exchange is never called here.
+        return service(request -> new PatientPortalHttpResponse(200, "{}"));
+    }
+
+    private PatientPortalService service(PatientPortalHttpExchange exchange) {
         PatientPortalSettings settings =
                 PatientPortalSettings.fromProperties(
                         Map.of(
@@ -67,10 +77,7 @@ class PatientPortalServiceUnitTest {
                                 PortalTestKeys.PRIVATE_KEY,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
                                 PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN));
-        // Request-building tests do not need a real pooled client that every test must remember to
-        // close. The exchange is never called here.
-        return new PatientPortalService(
-                settings, request -> new PatientPortalHttpResponse(200, "{}"));
+        return new PatientPortalService(settings, exchange);
     }
 
     private PatientPortalStaffContext staff() {
@@ -289,6 +296,39 @@ class PatientPortalServiceUnitTest {
             assertThat(PatientPortalException.kindForStatus(404))
                     .isEqualTo(Kind.NOT_FOUND_OR_UNAUTHENTICATED);
         }
+
+        /**
+         * A proxy's error page can be larger than the body cap or not UTF-8. Its status still says
+         * what happened, and "may or may not have been applied" would send staff chasing a contract
+         * change during what is really throttling or an outage.
+         */
+        @ParameterizedTest(name = "{0} body, HTTP {1}")
+        @CsvSource({
+            "too large, 429, THROTTLED",
+            "not UTF-8, 429, THROTTLED",
+            "too large, 404, NOT_FOUND_OR_UNAUTHENTICATED",
+            "not UTF-8, 503, UNEXPECTED_STATUS",
+            "too large, 200, MALFORMED_RESPONSE",
+            "not UTF-8, 201, MALFORMED_RESPONSE"
+        })
+        @DisplayName("should classify an unreadable body by its status unless the status is success")
+        void shouldMapUnreadableBody_byItsStatus(String failure, int statusCode, Kind expected) {
+            PatientPortalException exception = catchThrowableOfType(
+                    PatientPortalException.class,
+                    () -> service(request -> { throw unreadable(failure, statusCode); })
+                            .listInvites(123, staff()));
+
+            assertThat(exception).isNotNull();
+            assertThat(exception.kind()).isEqualTo(expected);
+            assertThat(exception.statusCode()).isEqualTo(statusCode);
+            assertThat(exception.getCause()).isInstanceOf(PortalContractException.class);
+        }
+
+        private IOException unreadable(String failure, int statusCode) {
+            return "too large".equals(failure)
+                    ? new PortalResponseTooLargeException(statusCode)
+                    : new PortalResponseDecodingException(statusCode);
+        }
     }
 
     @Nested
@@ -311,7 +351,7 @@ class PatientPortalServiceUnitTest {
         void shouldReportZeroStatus_whenNoResponseArrived() {
             PatientPortalException exception =
                     PatientPortalException.ofTransportFailure(
-                            INVITE_PATH, new java.io.IOException("refused"));
+                            INVITE_PATH, new IOException("refused"));
 
             assertThat(exception.kind()).isEqualTo(Kind.TRANSPORT_FAILURE);
             assertThat(exception.statusCode()).isZero();

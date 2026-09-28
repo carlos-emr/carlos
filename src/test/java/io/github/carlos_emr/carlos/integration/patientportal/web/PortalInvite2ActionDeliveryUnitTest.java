@@ -329,12 +329,69 @@ class PortalInvite2ActionDeliveryUnitTest {
         PatientPortalInviteDelivery uncertain = delivery(State.SEND_UNCERTAIN);
         when(invites.invite(any(), any(), any(), any())).thenReturn(uncertain);
         when(invites.isRecoverable(uncertain)).thenReturn(true);
+        when(invites.isOnCurrentConnection(uncertain)).thenReturn(true);
 
         execute();
 
         List<String> decisions = new ArrayList<>();
         payload().get("delivery").get("decisions").forEach(node -> decisions.add(node.asText()));
         assertThat(decisions).containsExactly("confirmSent", "confirmNotSent");
+        assertThat(payload().get("delivery").get("onCurrentConnection").booleanValue()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should offer no decisions for a delivery made on another portal connection")
+    void shouldListNoDecisions_whenMadeOnAnotherConnection() throws Exception {
+        // The server refuses them there, so the page must not offer them.
+        request.setParameter("method", "create");
+        PatientPortalInviteDelivery uncertain = delivery(State.SEND_UNCERTAIN);
+        when(invites.invite(any(), any(), any(), any())).thenReturn(uncertain);
+        when(invites.isRecoverable(uncertain)).thenReturn(true);
+        when(invites.isOnCurrentConnection(uncertain)).thenReturn(false);
+
+        execute();
+
+        assertThat(payload().get("delivery").get("decisions").size()).isZero();
+        assertThat(payload().get("delivery").get("onCurrentConnection").booleanValue()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should measure a consent override reason as the email stores it, trimmed")
+    void shouldAcceptOverrideReason_whenItFitsOnceTrimmed() throws Exception {
+        request.setParameter("method", "create");
+        request.setParameter("consentOverride", "true");
+        request.setParameter("consentOverrideReason", "  " + "r".repeat(255) + "  ");
+        when(invites.invite(any(), any(), any(), any())).thenReturn(delivery(State.SENT));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(invites).invite(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should refuse a consent override reason longer than the email can store")
+    void shouldRefuseOverrideReason_whenTooLongOnceTrimmed() throws Exception {
+        request.setParameter("method", "create");
+        request.setParameter("consentOverride", "true");
+        request.setParameter("consentOverrideReason", "r".repeat(256));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(invites);
+    }
+
+    @Test
+    @DisplayName("should answer a sender with no active email account as unavailable, with its own code")
+    void shouldAnswerAnInactiveSender_asUnavailable() throws Exception {
+        request.setParameter("method", "create");
+        when(invites.invite(any(), any(), any(), any())).thenThrow(refusal("SENDER_UNAVAILABLE"));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(payload().get("reason").asText()).isEqualTo("invite_sender_unavailable");
     }
 
     private void execute() throws Exception {

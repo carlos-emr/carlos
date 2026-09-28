@@ -108,4 +108,17 @@ public class PatientPortalInviteDeliveryDaoImpl extends AbstractDaoImpl<PatientP
                 .setParameter("states", State.unfinished())
                 .getResultList();
     }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+    public PatientPortalInviteDelivery findByEmailLogId(int emailLogId) {
+        // Only the gate of the attempt that created an outbox row records its id, so at most one names it.
+        List<PatientPortalInviteDelivery> rows = entityManager
+                .createQuery("SELECT d FROM PatientPortalInviteDelivery d WHERE d.emailLogId = :emailLogId "
+                        + "ORDER BY d.id DESC", PatientPortalInviteDelivery.class)
+                .setParameter("emailLogId", emailLogId)
+                .setMaxResults(1)
+                .getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
 }

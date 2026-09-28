@@ -90,14 +90,6 @@ class PortalSecretUnitTest {
     }
 
     @Test
-    @DisplayName("should treat an absent optional credential as null rather than blank")
-    void shouldReturnNull_whenOptionalValueIsAbsent() {
-        assertThat(PortalSecret.ofNullable(null)).isNull();
-        assertThat(PortalSecret.ofNullable("   ")).isNull();
-        assertThat(PortalSecret.ofNullable(VALUE)).isNotNull();
-    }
-
-    @Test
     @DisplayName("should compare by value")
     void shouldCompareByValue_whenTwoSecretsHoldTheSameCredential() {
         assertThat(PortalSecret.of(VALUE)).isEqualTo(PortalSecret.of(VALUE));

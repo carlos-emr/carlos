@@ -41,7 +41,9 @@ interface PatientPortalHttpExchange {
      *
      * @param request an authenticated request built by {@link PatientPortalService#buildRequest}
      * @return the portal's status code and response body
-     * @throws IOException if the call never produced a response
+     * @throws IOException if the call never produced a response, or, as {@link
+     *     PortalResponseTooLargeException} or {@link PortalResponseDecodingException}, if a response
+     *     arrived but its body could not be read; those two carry the response's status
      */
     PatientPortalHttpResponse send(ClassicHttpRequest request) throws IOException;
 }

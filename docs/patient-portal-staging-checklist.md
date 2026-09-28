@@ -40,7 +40,8 @@ before configuring anything, because the TLS pin and both public URLs depend on 
 - [ ] The clinic ID. It must be identical on both sides: 1 to 20 ASCII letters, digits, dots,
       underscores or hyphens.
 - [ ] Which CARLOS build to deploy. Until #3478 and #3856 merge, that is the head of
-      `feature/3854-portal-invite-workflow`. Record the commit.
+      `feature/3854-portal-invite-workflow`. Record the commit, and whether the build includes the
+      master switch from #3934 (`patient_portal.enabled`); that branch does not.
 
 ## 1. Portal
 
@@ -92,29 +93,41 @@ deployment secret manager, and never reuse staging values in production.
 
 Set these in the deployment's override properties, not in the committed `carlos.properties`:
 
-- [ ] `patient_portal.enabled=true`: the master switch, which is off by default (added in #3934). The
-      portal stays off, whatever else is set, until this is `true` (in any case); any other value
-      except `false` or blank is a configuration error, including a `#` comment on the same line.
-      Setting it back to `false` later switches the portal off without removing the credentials
-      below.
+- [ ] If the build includes #3934: `patient_portal.enabled=true`, the master switch, which is off
+      by default. The portal stays off, whatever else is set, until this is `true` (in any case);
+      any other value except `false` or blank is a configuration error, including a `#` comment on
+      the same line. Setting it back to `false` later switches the portal off without removing the
+      credentials below. Without #3934 there is no switch: the portal is active whenever it is
+      configured.
 - [ ] `patient_portal.base_url`: the internal API origin, `https://`, with no path, credentials,
-      query or fragment. CARLOS refuses a path at startup, because the portal serves
-      `/internal/carlos/` only at the root of its origin, even when patients use a prefix.
+      query or fragment. A path is refused the first time the portal is used after a restart (open
+      the **Patient portal** page to check), because the portal serves `/internal/carlos/` only at
+      the root of its origin, even when patients use a prefix.
 - [ ] `patient_portal.clinic_id`: the same value as the portal's.
 - [ ] `patient_portal.service_token`, `patient_portal.staff_assertion.private_key`,
       `patient_portal.staff_assertion.key_id`, `patient_portal.certificate.pins`: from section 2.
-- [ ] `patient_portal.public_base_url`: the patient-facing `https://` address. Invitation emails link
-      to `<public_base_url>/auth/activate`.
+- [ ] `patient_portal.public_base_url`: the patient-facing `https://` address. Unlike `base_url` it
+      may carry the prefix the portal's patient pages use. Invitation emails link to
+      `<public_base_url>/auth/activate`.
 - [ ] `patient_portal.invite.sender_email`: the sender address of an **active** CARLOS email
       account.
 - [ ] Timeouts left at their defaults unless there is a measured reason
-      (`patient_portal.timeout.*`; `request.ms` must stay below 60000).
-- [ ] CARLOS restarted: settings and the portal client are read once.
+      (`patient_portal.timeout.*`; `request.ms` must be at most 59000).
+- [ ] `patient_portal.email.enabled` left unset. Portal email passwords (#3681) are out of scope for
+      this checklist; see [`patient-portal-email-delivery.md`](patient-portal-email-delivery.md).
+      Unset, encrypted email keeps its staff-entered passwords.
+- [ ] CARLOS restarted: settings and the portal client are read once, the first time the portal is
+      used after a restart. Open the **Patient portal** page to see any configuration error. The
+      page says only that the connection is not configured correctly; the CARLOS log line
+      `patient portal configuration is invalid` names the setting.
 
 ### Database
 
-- [ ] Flyway applied `V1.0.30` (portal security objects) and `V1.0.31` (invitation delivery table
-      and default grants).
+- [ ] Flyway applied `V1.0.41` (portal security objects), `V1.0.42` (portal email delivery
+      columns on `emailLog`) and `V1.0.43` (invitation delivery table and default grants).
+- [ ] The staging database is treated as disposable. It is at `V1.0.43` without `release/2026.08`'s
+      `V1.0.29` to `V1.0.40`, and CARLOS runs Flyway without `outOfOrder`, so it cannot be upgraded
+      once those migrations reach `develop`: rebuild it instead.
 
 ### Email
 
@@ -128,7 +141,7 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Who can do what
 
-`V1.0.31` gives the `doctor` role `_portal.invite` (full) and `_portal.account` (read), and leaves
+`V1.0.43` gives the `doctor` role `_portal.invite` (full) and `_portal.account` (read), and leaves
 `_portal.account.unlock` with `admin`. Sending also needs `_email` write and `_edoc` write.
 
 - [ ] A staging user whose only role is `doctor` exists, to prove the default grants are enough.
@@ -146,14 +159,17 @@ and the result.
 **Connection**
 
 - [ ] Open the test patient's record: **Patient portal** appears in the left column. It is absent
-      for a user without portal rights, and when the integration is not configured.
+      for a user without portal rights, and when the portal is switched off (without #3934: not
+      configured).
 - [ ] Open it: it loads in the same window with the patient header, left navigation and panels, and
       shows no portal error.
 - [ ] Temporarily set a wrong but well-formed pin (the pin of a throwaway key) and restart CARLOS:
       the page reports a portal failure, the CARLOS log shows `portal transport failed: TLS
       handshake`, and the portal receives nothing. Restore the pin.
-- [ ] Set `patient_portal.enabled=false` and restart CARLOS: the **Patient portal** entry disappears
-      from the record, and the rest of CARLOS works as before. Set it back to `true` and restart.
+- [ ] If the build includes #3934, set `patient_portal.enabled=false` and restart CARLOS: the
+      **Patient portal** entry disappears from the record, and the rest of CARLOS works as before
+      (not so if `patient_portal.email.enabled` was set to `true`: encrypted email is then refused).
+      Set it back to `true` and restart.
 
 **Invitation**
 

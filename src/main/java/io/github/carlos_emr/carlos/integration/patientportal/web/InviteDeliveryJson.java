@@ -38,7 +38,8 @@ import java.util.Locale;
  * says an unused code could not be withdrawn and will expire on its own.
  * {@code decisions} lists what staff may do now; it is empty until the attempt has been idle for
  * {@link PortalInviteDeliveryService#RECOVERY_MIN_AGE}, so a UI never offers an action the server
- * would refuse as too early.
+ * would refuse as too early, and always empty when {@code onCurrentConnection} is false: an attempt made
+ * on another portal connection can be resolved only once that connection is restored.
  *
  * @since 2026-09-22
  */
@@ -61,8 +62,10 @@ final class InviteDeliveryJson {
         putDate(node, "createdAt", row.getCreatedAt());
         putDate(node, "updatedAt", row.getUpdatedAt());
         putDate(node, "expiresAt", row.getExpiresAt());
+        boolean onCurrentConnection = service.isOnCurrentConnection(row);
+        node.put("onCurrentConnection", onCurrentConnection);
         ArrayNode decisions = node.putArray("decisions");
-        if (service.isRecoverable(row)) {
+        if (onCurrentConnection && service.isRecoverable(row)) {
             for (Decision decision : PortalInviteDeliveryService.decisionsFor(row.getState())) {
                 decisions.add(decision.requestValue());
             }
@@ -76,7 +79,7 @@ final class InviteDeliveryJson {
             case MISSING_EMAIL, INVALID_EMAIL, INCOMPLETE_DATE_OF_BIRTH, MISSING_HEALTH_CARD ->
                     HttpServletResponse.SC_BAD_REQUEST;
             case DELIVERY_NOT_FOUND -> HttpServletResponse.SC_NOT_FOUND;
-            case NOT_CONFIGURED, CHANNEL_UNAVAILABLE -> HttpServletResponse.SC_SERVICE_UNAVAILABLE;
+            case NOT_CONFIGURED, SENDER_UNAVAILABLE, CHANNEL_UNAVAILABLE -> HttpServletResponse.SC_SERVICE_UNAVAILABLE;
             case CONSENT_BLOCKED, STALE_ATTEMPT_EXISTS, PENDING_INVITE_EXISTS, INVITE_ALREADY_USED,
                     INVITE_NOT_PENDING, RECOVERY_TOO_EARLY, RECOVERY_NOT_ALLOWED, PORTAL_CONNECTION_CHANGED,
                     STATE_CHANGED -> HttpServletResponse.SC_CONFLICT;

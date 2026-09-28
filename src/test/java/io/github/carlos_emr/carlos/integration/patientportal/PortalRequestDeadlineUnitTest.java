@@ -194,6 +194,29 @@ class PortalRequestDeadlineUnitTest {
         }
     }
 
+    /**
+     * A caller has its result a moment before its worker is back waiting for work. A call made in
+     * that window must still be accepted: capacity is the number of requests in flight, not the
+     * number of idle worker threads. Back-to-back full bursts widen the window enough to catch it.
+     */
+    @Test
+    void shouldAcceptEveryCall_whenFullBurstsFollowEachOther() throws Exception {
+        int capacity = PatientPortalHttpClientExchange.MAX_CONCURRENT_REQUESTS;
+        try (var transport = transport(Duration.ofSeconds(15));
+                var callers = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int round = 0; round < 50; round++) {
+                List<Future<PatientPortalHttpResponse>> burst = new ArrayList<>();
+                for (int i = 0; i < capacity; i++) {
+                    burst.add(callers.submit(() -> transport.send(get("/healthy"))));
+                }
+                for (var future : burst) {
+                    assertThat(future.get(3, TimeUnit.SECONDS).statusCode()).isEqualTo(200);
+                }
+                assertThat(transport.send(get("/healthy")).statusCode()).isEqualTo(200);
+            }
+        }
+    }
+
     @Test
     void shouldAbortPendingExchange_whenClosed() throws Exception {
         CountDownLatch entered = new CountDownLatch(1);
