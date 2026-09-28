@@ -100,7 +100,7 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
     }
     @AfterEach void tearDown() { reader.close(); visibility.close(); settings.close(); }
 
-    @Test void reloadsSourceAndLocalComparisonWithoutGrantingWriteAccess() {
+    @Test void shouldLoadSourceAndComparison_withoutGrantingWriteAccess() {
         var snapshot = context.load(user, 42);
         assertThat(snapshot.patientId()).isEqualTo(3001);
         assertThat(snapshot.source()).isEqualTo("Review symptoms.");
@@ -108,14 +108,14 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> context.requireWrite(user, 3001, "tickler")).isInstanceOf(SecurityException.class);
     }
 
-    @Test void requiresAllPatientPermissionsBeforeSourceRead() {
+    @Test void shouldRequirePatientPermissions_beforeReadingSource() {
         when(security.hasPrivilege(user, "_tickler", "r", 3001)).thenReturn(false);
         assertThatThrownBy(() -> context.load(user, 42)).isInstanceOf(SecurityException.class);
         reader.verifyNoInteractions();
         verifyNoInteractions(ticklers);
     }
 
-    @Test void rejectsMislinkedAndUnavailableDocuments() {
+    @Test void shouldRejectDocument_whenMislinkedOrUnavailable() {
         document.setDocumentNo(43);
         assertThatThrownBy(() -> context.load(user, 42)).isInstanceOf(SecurityException.class);
         document.setDocumentNo(42);
@@ -124,7 +124,7 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         reader.verifyNoInteractions();
     }
 
-    @Test void requiresProgramContextAndMembership() {
+    @Test void shouldRequireProgramContext_andMembership() {
         session.removeAttribute("case_program_id");
         assertThatThrownBy(() -> context.load(user, 42)).hasMessageContaining("program context");
         session.setAttribute("case_program_id", "10016");
@@ -133,7 +133,7 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         reader.verifyNoInteractions();
     }
 
-    @Test void refusesIncompleteSourceAndChangesFingerprintWhenSourceChanges() {
+    @Test void shouldCheckSourceCompleteness_andDetectChanges() {
         String original = context.load(user, 42).fingerprint();
         reader.when(() -> ClinicalSummaryTextExtractor.document("synthetic.txt", "text/plain"))
                 .thenReturn(new ClinicalSummaryTextExtractor.Extract("Changed source", true, "Complete"));

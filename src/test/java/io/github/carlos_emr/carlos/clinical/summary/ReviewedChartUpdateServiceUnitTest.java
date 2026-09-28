@@ -86,7 +86,7 @@ class ReviewedChartUpdateServiceUnitTest {
     }
     private ReviewedChartUpdateService.Approval valid() { return approval("Review symptoms", "2026-10-12", "101", ""); }
 
-    @Test void savesClinicianTextWithSourceAndReceipt() {
+    @Test void shouldSaveClinicianText_withSourceAndReceipt() {
         assertThat(apply(valid())).isEqualTo(new ReviewedChartUpdateService.Result("tickler", 123, false));
         verify(ticklers).addTickler(eq(user), argThat(tickler -> tickler.getDemographicNo() == 3001
                 && tickler.getTaskAssignedTo().equals("101") && tickler.getStatus() == Tickler.STATUS.A
@@ -103,13 +103,13 @@ class ReviewedChartUpdateServiceUnitTest {
         verifyNoInteractions(notes);
     }
 
-    @Test void requiresConfirmationBeforeAnyPersistence() {
+    @Test void shouldRequireConfirmation_beforePersistence() {
         assertThatThrownBy(() -> apply(new ReviewedChartUpdateService.Approval("x", "", "", "", false, "fresh")))
                 .hasMessageContaining("Confirm");
         verifyNoInteractions(receipts, ticklers, notes);
     }
 
-    @Test void rejectsWrongActorTokenAndUnknownProposal() {
+    @Test void shouldRejectApproval_withWrongActorTokenOrProposal() {
         assertThatThrownBy(() -> service.apply(user, review, "forged", proposal.key(), valid())).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> service.apply(user, review, review.getToken(), "forged", valid())).isInstanceOf(IllegalArgumentException.class);
         when(user.getLoggedInProviderNo()).thenReturn("102");
@@ -117,7 +117,7 @@ class ReviewedChartUpdateServiceUnitTest {
         verifyNoInteractions(receipts, ticklers, notes);
     }
 
-    @Test void rejectsDisabledFeatureAndRevokedWritePermission() {
+    @Test void shouldRejectApproval_whenDisabledOrWritePermissionRevoked() {
         when(properties.getProperty(ChartUpdateProposals.ENABLED, "false")).thenReturn("false");
         assertThatThrownBy(() -> apply(valid())).hasMessageContaining("disabled");
         verifyNoInteractions(receipts, ticklers, notes);
@@ -127,7 +127,7 @@ class ReviewedChartUpdateServiceUnitTest {
         verifyNoInteractions(receipts, ticklers, notes);
     }
 
-    @Test void rejectsChangedSourceAndChartAndOlderBrowserTab() {
+    @Test void shouldRejectApproval_whenSourceChartOrTabStale() {
         when(context.load(user, 42)).thenReturn(snapshot("fresh", "changed-source", List.of()));
         assertThatThrownBy(() -> apply(valid())).hasMessageContaining("source changed");
         when(context.load(user, 42)).thenReturn(snapshot("changed-chart", "source", List.of()));
@@ -138,7 +138,7 @@ class ReviewedChartUpdateServiceUnitTest {
         verify(receipts, never()).save(any());
     }
 
-    @Test void rejectsMissingAndInvalidClinicianFields() {
+    @Test void shouldRejectApproval_withMissingOrInvalidFields() {
         for (var invalid : List.of(approval("", "2026-10-12", "101", ""), approval("x", "", "101", ""),
                 approval("x", "2026-02-30", "101", ""), approval("x", "2026-10-12", "999", ""))) {
             assertThatThrownBy(() -> apply(invalid)).isInstanceOf(IllegalArgumentException.class);
@@ -147,14 +147,14 @@ class ReviewedChartUpdateServiceUnitTest {
         verify(receipts, never()).save(any());
     }
 
-    @Test void rejectsMatchingExistingText() {
+    @Test void shouldRejectApproval_whenTextAlreadyExists() {
         when(context.load(user, 42)).thenReturn(snapshot("fresh", "source",
                 List.of(new ChartUpdateContext.Entry("tickler-1", "tickler", "REVIEW   SYMPTOMS\nDue: tomorrow"))));
         assertThatThrownBy(() -> apply(valid())).hasMessageContaining("already recorded");
         verifyNoInteractions(ticklers, notes);
     }
 
-    @Test void replaysCommittedReceiptWithoutAnotherWrite() {
+    @Test void shouldReplayReceipt_withoutAnotherWrite() {
         when(receipts.find(review.receiptKey(proposal.key()))).thenReturn(new ChartUpdateReceipt(
                 review.receiptKey(proposal.key()), 3001, 42, "101", "tickler", 123, "source"));
         when(context.load(user, 42)).thenReturn(snapshot("changed-chart", "source", List.of()));
@@ -163,7 +163,7 @@ class ReviewedChartUpdateServiceUnitTest {
         verify(receipts, never()).save(any());
     }
 
-    @Test void doesNotCommitReceiptWhenNativeWriteOrSourceLinkFails() {
+    @Test void shouldAvoidReceipt_whenNativeWriteOrLinkFails() {
         when(ticklers.addTicklerLink(eq(user), any())).thenReturn(false);
         assertThatThrownBy(() -> apply(valid())).hasMessageContaining("Source link");
         verify(receipts, never()).save(any());
@@ -172,7 +172,7 @@ class ReviewedChartUpdateServiceUnitTest {
         verify(receipts, never()).save(any());
     }
 
-    @Test void requiresHistoryLockAndExplicitDestination() {
+    @Test void shouldRequireLockAndDestination_whenSavingHistory() {
         prepare("history");
         assertThatThrownBy(() -> apply(valid())).hasMessageContaining("Choose Medical history");
         verify(receipts).requireNoteLock(user, 3001);
@@ -181,7 +181,7 @@ class ReviewedChartUpdateServiceUnitTest {
         verifyNoInteractions(ticklers, notes);
     }
 
-    @Test void appendsSignedHistoryWithOriginalEvidence() {
+    @Test void shouldAppendSignedHistory_withOriginalEvidence() {
         prepare("history");
         var issue = new Issue();
         issue.setId(7L);

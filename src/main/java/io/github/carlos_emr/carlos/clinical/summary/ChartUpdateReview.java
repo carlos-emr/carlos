@@ -39,7 +39,18 @@ public final class ChartUpdateReview implements Serializable {
     private final long expiresAt = Instant.now().plusSeconds(900).getEpochSecond();
     private final Map<String, ChartUpdateProposals.Proposal> proposals = new LinkedHashMap<>();
     private final Map<String, String> outcomes = new LinkedHashMap<>();
+    private final Map<String, Draft> drafts = new LinkedHashMap<>();
     private String fingerprint;
+
+    /** Clinician edits only; approval is deliberately never carried into a fresh response. */
+    public record Draft(String text, String dueDate, String assignee, String destination) implements Serializable {
+        public Draft {
+            if (text == null || text.length() > 2000 || dueDate == null || dueDate.length() > 10
+                    || assignee == null || assignee.length() > 20 || destination == null || destination.length() > 20) {
+                throw new IllegalArgumentException("Invalid review draft.");
+            }
+        }
+    }
 
     public ChartUpdateReview(String provider, ChartUpdateContext.Snapshot snapshot, List<ChartUpdateProposals.Proposal> candidates) {
         this.provider = provider;
@@ -69,6 +80,11 @@ public final class ChartUpdateReview implements Serializable {
         return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(proposals));
     }
     public Map<String, String> getOutcomes() { return Map.copyOf(outcomes); }
-    public void record(String key, String outcome) { proposal(key); outcomes.put(key, outcome); }
+    public Draft draft(String key) { return drafts.getOrDefault(key, new Draft(proposal(key).evidence(), "", "", "")); }
+    public void remember(String key, Draft draft) {
+        proposal(key);
+        if (!outcomes.containsKey(key)) drafts.put(key, draft);
+    }
+    public void record(String key, String outcome) { proposal(key); outcomes.put(key, outcome); drafts.remove(key); }
     public void refresh(String value) { fingerprint = value; }
 }

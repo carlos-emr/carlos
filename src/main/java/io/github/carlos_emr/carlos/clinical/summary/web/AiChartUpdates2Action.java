@@ -107,6 +107,7 @@ public final class AiChartUpdates2Action extends ActionSupport {
                     review.authorize(user.getLoggedInProviderNo(), single(request, "reviewToken"));
                     String key = single(request, "proposalKey");
                     review.proposal(key);
+                    rememberDrafts(request, review, key);
                     if (!review.getOutcomes().containsKey(key)) {
                         if ("dismiss".equals(operation)) {
                             review.record(key, "Dismissed. Nothing saved.");
@@ -122,7 +123,14 @@ public final class AiChartUpdates2Action extends ActionSupport {
                     }
                 }
                 snapshot = context.load(user, document);
-                render(request, user, snapshot, review);
+                if (view) {
+                    render(request, user, snapshot, review);
+                } else {
+                    // Refreshing the result page must never repeat inference or a chart mutation.
+                    response.setStatus(HttpServletResponse.SC_SEE_OTHER);
+                    response.setHeader("Location", request.getContextPath() + "/documentManager/AiChartUpdates?documentId=" + document);
+                    return NONE;
+                }
             }
         } catch (IllegalArgumentException | IllegalStateException | ClinicalSummaryGenerationException expected) {
             request.setAttribute("chartUpdateError", expected.getMessage());
@@ -162,16 +170,29 @@ public final class AiChartUpdates2Action extends ActionSupport {
             row.put("kind", proposal.kind());
             row.put("evidence", proposal.evidence());
             row.put("outcome", review.getOutcomes().getOrDefault(key, ""));
-            String editedKey = request.getParameter("proposalKey");
-            row.put("text", key.equals(editedKey) && request.getParameter("entryText") != null
-                    ? request.getParameter("entryText") : proposal.evidence());
-            row.put("dueDate", key.equals(editedKey) ? request.getParameter("dueDate") : "");
-            row.put("assignee", key.equals(editedKey) ? request.getParameter("assignee") : "");
-            row.put("destination", key.equals(editedKey) ? request.getParameter("destination") : "");
+            var draft = review.draft(key);
+            row.put("text", draft.text());
+            row.put("dueDate", draft.dueDate());
+            row.put("assignee", draft.assignee());
+            row.put("destination", draft.destination());
             rows.add(row);
         });
         request.setAttribute("chartUpdateReview", review);
         request.setAttribute("chartUpdateRows", rows);
+        request.setAttribute("chartUpdateRemaining", rows.size() - review.getOutcomes().size());
+    }
+
+    private static void rememberDrafts(HttpServletRequest request, ChartUpdateReview review, String submittedKey) {
+        // Read only fields for this authorized review's proposals. No client-supplied identity or approval is retained.
+        Map<String, ChartUpdateReview.Draft> drafts = new LinkedHashMap<>();
+        for (String key : review.getProposals().keySet()) {
+            String prefix = key.equals(submittedKey) ? "" : "draft." + key + ".";
+            if (request.getParameter(prefix + "entryText") == null) continue;
+            drafts.put(key, new ChartUpdateReview.Draft(single(request, prefix + "entryText"),
+                    single(request, prefix + "dueDate"), single(request, prefix + "assignee"),
+                    single(request, prefix + "destination")));
+        }
+        drafts.forEach(review::remember);
     }
 
     private static String single(HttpServletRequest request, String name) {

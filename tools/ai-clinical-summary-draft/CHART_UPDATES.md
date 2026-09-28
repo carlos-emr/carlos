@@ -66,7 +66,12 @@ completely or exceeds the request budget, no partial proposals are generated.
 - The session owns the patient, source, proposal kind and evidence. Forms carry
   an opaque review token and the fingerprint of the displayed comparison, not
   authority to choose arbitrary chart targets. Reviews expire after 15 minutes;
-  generating another review replaces the previous one.
+  generating another review replaces the previous one. Successful submissions
+  redirect to the review page, so refresh does not repeat model calls or saves.
+  With JavaScript enabled, submitting a card retains edits to the other cards in
+  the bounded session review; each remaining item still requires fresh approval.
+  No draft text is placed in browser storage. Without JavaScript, review and save
+  one card at a time.
 - Source and chart are reloaded after inference and before saving, bypassing the
   request's JPA identity cache. A stale form must be reviewed again, including an
   older browser tab after another response refreshed the session review.
@@ -128,9 +133,9 @@ doubles; this does not exercise the full Struts/login/database deployment.
 The native persistence/rollback tests above cover the database boundary separately.
 It does not start, stop, reconfigure or deploy to the installed/shared Tomcat.
 
-Seven browser scenarios cover generation without writes, blank required fields,
+Eight browser scenarios cover generation without writes, blank required fields,
 escaped source/edited text, mobile overflow, dismissal, edited reminders, signed
-history, durable replay, stale-source/chart rejection, expiry, an older tab after
+history, preservation of other cards' edits, refresh-safe redirects, durable replay, stale-source/chart rejection, expiry, an older tab after
 another tab refreshes the review, missing CSRF tokens and GET mutation rejection.
 The runner terminates its own server and leaves logs plus desktop/mobile screenshots
 in its reported artifact directory. Only fixed synthetic text is used.

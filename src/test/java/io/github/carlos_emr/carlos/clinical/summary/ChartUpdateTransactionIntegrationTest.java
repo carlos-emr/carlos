@@ -145,7 +145,7 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         }
     }
 
-    @Test void commitsNativeTicklerSourceLinkAndReceiptAndReplaysWithoutDuplication() {
+    @Test void shouldCommitTicklerLinkAndReceipt_withoutReplayDuplicates() {
         var result = apply();
         assertThat(result.replay()).isFalse();
         assertThat(apply()).isEqualTo(new ReviewedChartUpdateService.Result("tickler", result.target(), true));
@@ -157,7 +157,7 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         });
     }
 
-    @Test void rollsBackNativeRecordAndLinkWhenReceiptFlushFails() {
+    @Test void shouldRollBackRecordAndLink_whenReceiptFlushFails() {
         doAnswer(call -> {
             call.callRealMethod();
             throw new IllegalStateException("Synthetic failure after receipt flush");
@@ -187,7 +187,7 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         });
     }
 
-    @Test void commitsNativeSignedHistoryIssueSourceLinkHashAndReceipt() {
+    @Test void shouldCommitSignedHistory_withIssueLinkHashAndReceipt() {
         prepareHistory();
         var result = apply();
         transactions.executeWithoutResult(status -> {
@@ -203,7 +203,7 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         });
     }
 
-    @Test void rollsBackNativeHistoryIssueSourceLinkHashAndReceiptOnFailure() {
+    @Test void shouldRollBackHistoryIssueLinkHashAndReceipt_onFailure() {
         prepareHistory();
         doAnswer(call -> {
             call.callRealMethod();

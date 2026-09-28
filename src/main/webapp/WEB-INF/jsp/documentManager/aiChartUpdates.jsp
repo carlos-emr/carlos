@@ -27,16 +27,18 @@
     <c:choose>
     <c:when test="${not empty chartUpdateReview}">
         <h2 class="h5"><fmt:message key="chartUpdates.proposals"/> (<carlos:encode value="${chartUpdateRows.size()}"/>)</h2>
+        <p role="status"><fmt:message key="chartUpdates.remaining"><fmt:param value="${chartUpdateRemaining}"/></fmt:message></p>
+        <c:if test="${chartUpdateRemaining == 0 and not empty chartUpdateRows}"><p class="alert alert-success"><fmt:message key="chartUpdates.complete"/></p></c:if>
         <c:if test="${empty chartUpdateRows}"><p><fmt:message key="chartUpdates.none"/></p></c:if>
         <c:forEach items="${chartUpdateRows}" var="proposal">
         <article class="card mb-3 proposal">
             <div class="card-body">
                 <h3 class="h6"><c:choose><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3>
-                <details><summary><fmt:message key="chartUpdates.evidence"/></summary><blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote></details>
+                <details open><summary><fmt:message key="chartUpdates.evidence"/></summary><blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote></details>
                 <c:choose>
                 <c:when test="${not empty proposal.outcome}"><p class="alert alert-success mt-2" role="status"><carlos:encode value="${proposal.outcome}"/></p></c:when>
                 <c:otherwise>
-                <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ApplyAiChartUpdate">
+                <form class="proposal-form" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ApplyAiChartUpdate">
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
                     <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(chartUpdateDocumentId)}">
                     <input type="hidden" name="reviewToken" value="${carlos:forHtmlAttribute(chartUpdateReview.token)}">
@@ -72,11 +74,14 @@
     </c:when>
     <c:otherwise><p><fmt:message key="chartUpdates.intro"/></p></c:otherwise>
     </c:choose>
-    <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/GenerateAiChartUpdates">
+    <c:if test="${not empty chartUpdateReview}"><details class="regenerate mt-4"><summary><fmt:message key="chartUpdates.regenerate"/></summary><p class="mt-2"><fmt:message key="chartUpdates.regenerateHelp"/></p></c:if>
+    <fmt:message key="chartUpdates.generating" var="generatingLabel"/>
+    <form class="generation-form" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/GenerateAiChartUpdates" data-busy-label="${carlos:forHtmlAttribute(generatingLabel)}">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(chartUpdateDocumentId)}">
         <button class="btn btn-outline-primary" type="submit"><fmt:message key="chartUpdates.generate"/></button>
     </form>
+    <c:if test="${not empty chartUpdateReview}"></details></c:if>
 </main>
 <aside>
     <h2 class="h5"><fmt:message key="chartUpdates.current"/></h2>
@@ -89,5 +94,6 @@
 </aside>
 </div>
 </c:if>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates.js"></script>
 </body>
 </html>

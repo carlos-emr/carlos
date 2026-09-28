@@ -78,7 +78,7 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
     }
     @AfterEach void tearDown() { settings.close(); sessions.close(); servlet.close(); }
 
-    @Test void previewNeverGeneratesOrWrites() throws Exception {
+    @Test void shouldAvoidGenerationAndWrites_whenPreviewing() throws Exception {
         request.setMethod("GET");
         assertThat(action.execute()).isEqualTo("success");
         assertThat(request.getAttribute("chartUpdateSource")).isEqualTo(snapshot.source());
@@ -86,21 +86,21 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(generator, writer);
     }
 
-    @Test void rejectsGetMutations() throws Exception {
+    @Test void shouldRejectMutation_whenMethodIsGet() throws Exception {
         request.setMethod("GET");
         assertThat(action.apply()).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(405);
         verifyNoInteractions(context, generator, writer);
     }
 
-    @Test void hidesDisabledFeature() throws Exception {
+    @Test void shouldHideFeature_whenDisabled() throws Exception {
         when(properties.getProperty(ChartUpdateProposals.ENABLED, "false")).thenReturn("false");
         assertThat(action.generate()).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(404);
         verifyNoInteractions(context, generator, writer);
     }
 
-    @Test void rejectsMissingSessionOrDuplicateDocumentParameter() throws Exception {
+    @Test void shouldRejectRequest_whenSessionMissingOrDocumentDuplicated() throws Exception {
         request.setParameter("documentId", "42", "43");
         assertThat(action.generate()).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(400);
@@ -110,14 +110,41 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(context, generator, writer);
     }
 
-    @Test void generationRechecksSnapshotBeforeCreatingReview() throws Exception {
+    @Test void shouldRecheckSnapshot_beforeCreatingReview() throws Exception {
         action.generate();
         assertThat(request.getSession().getAttribute(ChartUpdateReview.SESSION_KEY)).isNotSameAs(review);
+        assertThat(response.getStatus()).isEqualTo(303);
+        assertThat(response.getHeader("Location")).isEqualTo("/documentManager/AiChartUpdates?documentId=42");
         verify(context, times(3)).load(user, 42);
         verifyNoInteractions(writer);
     }
 
-    @Test void discardsGeneratedResultsIfSourceOrChartChanged() throws Exception {
+    @Test void shouldKeepOtherDraftsWithoutApproval_whenSavingOneProposal() throws Exception {
+        var other = new ChartUpdateProposals.Proposal("history", "Suspected asthma.");
+        review = new ChartUpdateReview("101", snapshot, List.of(proposal, other));
+        request.getSession().setAttribute(ChartUpdateReview.SESSION_KEY, review);
+        request.setParameter("reviewToken", review.getToken());
+        request.setParameter("entryText", "Edited reminder");
+        request.setParameter("draft." + other.key() + ".entryText", "Clinician history edit");
+        request.setParameter("draft." + other.key() + ".destination", "Concerns");
+        request.setParameter("draft." + other.key() + ".confirmed", "true");
+        action.dismiss();
+        request.setMethod("GET");
+        action.execute();
+        assertThat(review.draft(other.key()).text()).isEqualTo("Clinician history edit");
+        assertThat(review.draft(other.key()).destination()).isEqualTo("Concerns");
+        assertThat(request.getAttribute("chartUpdateRemaining")).isEqualTo(1);
+        verifyNoInteractions(writer);
+    }
+
+    @Test void shouldRejectOversizedDraftBeforeWriting_whenSubmittedWithApproval() throws Exception {
+        request.setParameter("entryText", "x".repeat(2001));
+        action.apply();
+        assertThat(request.getAttribute("chartUpdateError")).isEqualTo("Invalid review draft.");
+        verifyNoInteractions(writer);
+    }
+
+    @Test void shouldDiscardGeneration_whenSourceOrChartChanged() throws Exception {
         var changed = new ChartUpdateContext.Snapshot(42, 3001, "Synthetic patient", "Synthetic", "", snapshot.source(),
                 "source", "changed", "10016", "1", List.of());
         when(context.load(user, 42)).thenReturn(snapshot, changed);
@@ -127,7 +154,7 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(writer);
     }
 
-    @Test void dismissDoesNotWriteAndUnknownTokenCannotDismiss() throws Exception {
+    @Test void shouldRequireValidToken_whenDismissingWithoutWrites() throws Exception {
         request.setParameter("reviewToken", "forged");
         action.dismiss();
         assertThat(review.getOutcomes()).isEmpty();
@@ -137,7 +164,7 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(writer, generator);
     }
 
-    @Test void approvalUsesSessionProposalAndSubmittedFingerprintAndCannotRepeat() throws Exception {
+    @Test void shouldUseSessionProposalAndFingerprint_whenApprovingOnce() throws Exception {
         request.setParameter("entryText", "Clinician edit");
         request.setParameter("dueDate", "2026-10-12");
         request.setParameter("assignee", "101");
@@ -156,7 +183,7 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         assertThat(review.getOutcomes().get(proposal.key())).contains("Saved: tickler #123");
     }
 
-    @Test void revokedReadAccessNeverCallsWriter() {
+    @Test void shouldAvoidWrites_whenReadAccessRevoked() {
         when(context.load(user, 42)).thenThrow(new SecurityException());
         assertThatThrownBy(action::apply).isInstanceOf(SecurityException.class);
         verifyNoInteractions(writer, generator);

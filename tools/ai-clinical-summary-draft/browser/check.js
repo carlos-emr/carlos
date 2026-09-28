@@ -25,7 +25,7 @@ function copy(relative) {
   fs.copyFileSync(path.join(root, 'src/main/webapp', relative), dest);
 }
 for (const file of ['WEB-INF/jsp/documentManager/aiChartUpdates.jsp', 'WEB-INF/jspf/bootstrap-css.jspf',
-  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
+  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'js/ai-chart-updates.js', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
 fs.mkdirSync(path.join(webroot, 'WEB-INF/lib'), { recursive: true });
 for (const jar of deps.split(path.delimiter).filter(p => /(?:jakarta.servlet.jsp.jstl|csrfguard-jsp-tags).*\.jar$/.test(p))) {
   fs.copyFileSync(jar, path.join(webroot, 'WEB-INF/lib', path.basename(jar)));
@@ -82,7 +82,12 @@ async function run() {
   const click = async (page, locator) => {
     await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), locator.click()]);
   };
-  const generate = page => click(page, page.getByRole('button', { name: 'Generate new proposals', exact: true }));
+  const generate = async page => {
+    const regenerate = page.locator('details.regenerate:not([open]) > summary');
+    if (await regenerate.count()) await regenerate.click();
+    await click(page, page.getByRole('button', { name: 'Generate new proposals', exact: true }));
+    assert.match(page.url(), /\/AiChartUpdates\?documentId=42$/, 'Generation must redirect to a refresh-safe GET');
+  };
   const card = (page, kind) => page.locator('article').filter({ has: page.getByRole('heading', { name: kind, exact: true }) });
   const stats = async page => (await page.request.get(`${base}/fixture/stats`)).json();
   const token = page => page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
@@ -110,7 +115,7 @@ async function run() {
     assert(await card(page, 'Follow-up reminder').locator('[name="dueDate"]').evaluate(input => !input.validity.valid),
       'A missing due date must fail browser validation');
     assert.equal(await page.evaluate(() => window.sourceExecuted), undefined);
-    assert.equal(await page.locator('script').count(), 0, 'Source markup must not become executable HTML');
+    assert.equal(await page.locator('script:not([src])').count(), 0, 'Source markup must not become executable HTML');
     assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
     await page.screenshot({ path: path.join(runDir, 'desktop-review.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
@@ -122,6 +127,24 @@ async function run() {
     await click(page, card(page, 'Follow-up reminder').getByRole('button', { name: 'Dismiss', exact: true }));
     assert.match(await card(page, 'Follow-up reminder').innerText(), /Dismissed. Nothing saved/);
     assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
+  });
+  await scenario('saving one item preserves other edits without carrying approval', async page => {
+    await generate(page);
+    let history = card(page, 'History entry');
+    const edited = '<b>Clinician reviewed history</b>';
+    await history.locator('[name="entryText"]').fill(edited);
+    await history.locator('[name="destination"]').selectOption('Concerns');
+    await history.locator('[name="confirmed"]').check();
+    const reminder = await fillReminder(page);
+    await click(page, reminder.getByRole('button', { name: 'Accept and save', exact: true }));
+    assert.match(page.url(), /\/AiChartUpdates\?documentId=42$/);
+    history = card(page, 'History entry');
+    assert.equal(await history.locator('[name="entryText"]').inputValue(), edited);
+    assert.equal(await history.locator('[name="destination"]').inputValue(), 'Concerns');
+    assert.equal(await history.locator('[name="confirmed"]').isChecked(), false);
+    await page.reload();
+    assert.equal(await history.locator('[name="entryText"]').inputValue(), edited);
+    assert.deepEqual(await stats(page), { reminders: 1, histories: 0, receipts: 1 });
   });
   await scenario('approve edited reminder and signed history once, then safely replay', async page => {
     await generate(page);

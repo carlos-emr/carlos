@@ -33,7 +33,7 @@ class ChartUpdateReviewUnitTest {
                 "source-hash", "fingerprint", "10016", "1", List.of()), List.of(proposal));
     }
 
-    @Test void receiptIsStableAcrossSessionsAndIdenticalImportsButPatientScoped() {
+    @Test void shouldScopeReceiptToPatient_acrossSessionsAndIdenticalImports() {
         var first = review(3001, 42);
         var imported = review(3001, 43);
         assertThat(first.getToken()).isNotEqualTo(imported.getToken());
@@ -41,7 +41,7 @@ class ChartUpdateReviewUnitTest {
         assertThat(first.receiptKey(proposal.key())).isNotEqualTo(review(3002, 42).receiptKey(proposal.key()));
     }
 
-    @Test void expiresAndDoesNotAcceptAnotherProviderOrToken() {
+    @Test void shouldRejectReview_whenExpiredOrActorOrTokenMismatch() {
         var review = review(3001, 42);
         assertThatThrownBy(() -> review.authorize("102", review.getToken())).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> review.authorize("101", "forged")).isInstanceOf(IllegalStateException.class);
@@ -50,7 +50,7 @@ class ChartUpdateReviewUnitTest {
         assertThatThrownBy(() -> review.authorize("101", review.getToken())).hasMessageContaining("expired");
     }
 
-    @Test void rejectsUnknownProposalAndDoesNotExposeMutableMaps() {
+    @Test void shouldRejectUnknownProposals_withoutExposingMutableMaps() {
         var review = review(3001, 42);
         assertThatThrownBy(() -> review.record("forged", "saved")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> review.getProposals().clear()).isInstanceOf(UnsupportedOperationException.class);

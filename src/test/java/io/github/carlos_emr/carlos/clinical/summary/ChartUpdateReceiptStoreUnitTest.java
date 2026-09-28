@@ -38,7 +38,7 @@ class ChartUpdateReceiptStoreUnitTest {
     private final ChartUpdateReceiptStore store = new ChartUpdateReceiptStore();
     ChartUpdateReceiptStoreUnitTest() { ReflectionTestUtils.setField(store, "entityManager", em); }
 
-    @Test void failsClosedForMissingOrNonTransactionalTables() {
+    @Test void shouldFailClosed_forMissingOrNonTransactionalTables() {
         Query query = mock(Query.class);
         when(em.createNativeQuery(anyString(), eq(String.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);
@@ -52,7 +52,7 @@ class ChartUpdateReceiptStoreUnitTest {
         assertThatThrownBy(() -> store.requireTransactionalTables(false, false)).hasMessageContaining("transactional");
     }
 
-    @Test void historyRequiresCurrentPatientAndSessionEditingLock() {
+    @Test void shouldRequireCurrentPatientAndSessionLock_whenSavingHistory() {
         var user = mock(LoggedInInfo.class);
         var session = new MockHttpSession();
         when(user.getSession()).thenReturn(session);

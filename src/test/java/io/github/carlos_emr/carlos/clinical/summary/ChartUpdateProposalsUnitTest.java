@@ -45,7 +45,7 @@ class ChartUpdateProposalsUnitTest {
                 new ChartUpdateProposals.Proposal("history", "Suspected asthma."));
     }
 
-    @Test void shouldRejectInventedEvidenceAndWriteInstructions() throws Exception {
+    @Test void shouldRejectEvidence_whenInventedOrContainingWriteInstructions() throws Exception {
         for (String row : List.of("{\"kind\":\"history\",\"evidence\":\"Confirmed asthma\"}",
                 "{\"kind\":\"prescription\",\"evidence\":\"Suspected asthma.\"}",
                 "{\"kind\":\"history\",\"evidence\":\"Suspected asthma.\",\"patient_id\":42}")) {
@@ -54,7 +54,7 @@ class ChartUpdateProposalsUnitTest {
         }
     }
 
-    @Test void shouldAcceptEmptyAndRejectDuplicateProposals() throws Exception {
+    @Test void shouldValidateProposals_whenEmptyOrDuplicated() throws Exception {
         assertThat(ChartUpdateProposals.validate(JSON.readTree("{\"proposals\":[]}"), SOURCE)).isEmpty();
         String row = "{\"kind\":\"history\",\"evidence\":\"Suspected asthma.\"}";
         var duplicate = JSON.readTree("{\"proposals\":[" + row + "," + row + "]}");
