@@ -33,6 +33,9 @@ run the updated acknowledgement code to participate in this coordination protoco
 metadata when the idempotent V1.0.21 creation finds a pre-existing coordination table.
 `V1.0.24__add_email_consent_audit.sql` records the consent decision enforced for each
 provider-to-patient email attempt.
+`V1.0.25__add_sms_system_of_record.sql` creates the SMS system-of-record tables and seeds the
+`_msgSMS` security object (read a stored message body).
+
 `V1.0.26__widen_email_config_for_encrypted_credentials.sql` expands email configuration storage
 to TEXT so encrypted credentials fit even when the plaintext configuration filled the old column.
 
@@ -50,6 +53,13 @@ must be rebuilt or explicitly reconciled before adopting this migration: Flyway
 `repair` alone does not apply changed table definitions. See the
 [archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
 retirement semantics, and failure investigation.
+
+`V1.0.31__add_sms_security_objects.sql` seeds the `_sms` and `_admin.sms` security objects and
+their default grants (admin and doctor on `_sms`, admin on `_admin.sms`); existing clinic grants
+are preserved. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#security-objects).
+It took `V1.0.31` because `V1.0.29` and `V1.0.30` were held by open PRs (#3763, #3746, #3478,
+#3681) when it was written; whichever of those merges after it must renumber above the
+then-current high-water mark.
 
 `V1.0.41__patient_portal_security_objects.sql` seeds the `_portal.*` and `_admin.portal`
 security objects used by the patient portal client and grants them to `admin` only.
