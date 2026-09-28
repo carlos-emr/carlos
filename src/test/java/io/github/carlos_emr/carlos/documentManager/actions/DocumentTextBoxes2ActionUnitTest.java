@@ -7,7 +7,12 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,7 +39,7 @@ import static org.mockito.Mockito.*;
 /** Exercises the word-box endpoint with real PDF extraction and HTTP method checks.
  * @since 2026-09-20
  */
-class DocumentTextBoxes2ActionUnitTest {
+class DocumentTextBoxes2ActionUnitTest extends CarlosUnitTestBase {
     private final ObjectMapper mapper = new ObjectMapper();
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -53,6 +58,12 @@ class DocumentTextBoxes2ActionUnitTest {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         security = mock(SecurityInfoManager.class);
         links = mock(CtlDocumentDao.class);
+        Document stored = new Document();
+        stored.setDocumentNo(42);
+        stored.setRestrictToProgram(false);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        when(createAndRegisterMock(DocumentDao.class).find(42)).thenReturn(stored);
         when(security.hasPrivilege(eq(info), eq("_edoc"), eq(SecurityInfoManager.READ), isNull()))
                 .thenReturn(true);
     }

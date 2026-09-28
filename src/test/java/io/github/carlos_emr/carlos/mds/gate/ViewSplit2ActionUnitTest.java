@@ -50,6 +50,9 @@ class ViewSplit2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         registerMock(SecurityInfoManager.class, security);
+        var documents = mock(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class, documents);
+        when(documents.find(42)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document());
         registerMock(CtlDocumentDao.class, links);
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));

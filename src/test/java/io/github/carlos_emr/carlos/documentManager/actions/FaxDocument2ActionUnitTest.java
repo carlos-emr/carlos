@@ -3,6 +3,10 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
@@ -54,6 +58,12 @@ class FaxDocument2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, security);
         registerMock(FaxManager.class, faxManager);
         links = createAndRegisterMock(CtlDocumentDao.class);
+        Document stored = new Document();
+        stored.setDocumentNo(42);
+        stored.setRestrictToProgram(false);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        when(createAndRegisterMock(DocumentDao.class).find(42)).thenReturn(stored);
         when(security.hasPrivilege(eq(info), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
         when(security.hasPrivilege(eq(info), eq("_fax"), eq("r"), isNull())).thenReturn(true);
         when(faxManager.getFaxGatewayAccounts(info)).thenReturn(List.of(mock(FaxConfig.class)));

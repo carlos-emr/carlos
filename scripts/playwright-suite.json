@@ -525,7 +525,8 @@
       "timeoutSec": 600,
       "env": [
         "DOCUMENT_DIR",
-        "RX_FAX_DOCUMENT_DIR"
+        "RX_FAX_DOCUMENT_DIR",
+        "STORED_DOCUMENT_EXPECT_CONTENT_UPDATES"
       ]
     },
     {

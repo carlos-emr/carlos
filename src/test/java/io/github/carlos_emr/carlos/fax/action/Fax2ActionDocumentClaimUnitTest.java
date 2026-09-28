@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.fax.action;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
@@ -104,6 +106,8 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
 
         registerMock(FaxManager.class, faxManager);
         createAndRegisterMock(CtlDocumentDao.class);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
         registerMock(DocumentAttachmentManager.class, mock(DocumentAttachmentManager.class));
         registerMock(SecurityInfoManager.class, securityInfoManager);
         // queue() re-derives the document's patient from the row before promoting it, so the
@@ -127,7 +131,9 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         pk.setDocumentNo(documentNo);
         ctl.setId(pk);
 
+        document.setRestrictToProgram(false);
         DocumentDao dao = mock(DocumentDao.class);
+        when(dao.find(documentNo)).thenReturn(document);
         when(dao.findCtlDocsAndDocsByDocNo(documentNo))
                 .thenReturn(List.<Object[]>of(new Object[]{document, ctl}));
 
@@ -139,6 +145,8 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         sibling.setDocfilename("sibling.pdf");
         sibling.setContenttype("application/pdf");
         sibling.setNumberofpages(1);
+        sibling.setRestrictToProgram(false);
+        when(dao.find(documentNo + 1)).thenReturn(sibling);
         CtlDocument siblingCtl = new CtlDocument();
         CtlDocumentPK siblingPk = new CtlDocumentPK();
         siblingPk.setModule("demographic");

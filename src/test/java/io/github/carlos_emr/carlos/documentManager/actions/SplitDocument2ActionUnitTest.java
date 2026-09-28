@@ -4,6 +4,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -11,6 +12,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision;
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -49,6 +51,7 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
     final ProviderLabRoutingDao providers = mock(ProviderLabRoutingDao.class);
     final QueueDocumentLinkDao queues = mock(QueueDocumentLinkDao.class);
     final SecurityInfoManager security = mock(SecurityInfoManager.class);
+    final ProgramManager2 programs = mock(ProgramManager2.class);
     final LoggedInInfo info = mock(LoggedInInfo.class);
     final MockHttpServletRequest request = new MockHttpServletRequest();
     final MockHttpServletResponse response = new MockHttpServletResponse();
@@ -59,10 +62,12 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
     MockedStatic<EDocUtil> edocs;
     TestAction action;
     Document document;
+    CarlosProperties properties;
     AtomicReference<EDoc> created = new AtomicReference<>();
 
     @BeforeEach void setUpAction() throws Exception {
         registerMock(SecurityInfoManager.class, security);
+        registerMock(ProgramManager2.class, programs);
         registerMock(DocumentDao.class, documents);
         registerMock(CtlDocumentDao.class, links);
         registerMock(PatientLabRoutingDao.class, patients);
@@ -79,13 +84,20 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
         when(info.getLoggedInProviderNo()).thenReturn("999001");
         when(security.hasPrivilege(eq(info), anyString(), anyString(), nullable(String.class))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(eq(info), anyInt())).thenReturn(true);
-        CarlosProperties properties = mock(CarlosProperties.class);
+        properties = mock(CarlosProperties.class);
         when(properties.getProperty("DOCUMENT_DIR")).thenReturn(directory.toString());
+        // Exercise the actual positive-value/default-false property semantics
+        // without changing the shared singleton; the static mock closes below.
+        when(properties.getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "")).thenReturn("");
+        when(properties.getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true")).thenCallRealMethod();
+        when(properties.isPropertyActive("ALLOW_UPDATE_DOCUMENT_CONTENT")).thenCallRealMethod();
         configuration = mockStatic(CarlosProperties.class);
         configuration.when(CarlosProperties::getInstance).thenReturn(properties);
         edocs = mockStatic(EDocUtil.class);
         edocs.when(() -> EDocUtil.addDocumentSQL(any())).thenAnswer(call -> { created.set(call.getArgument(0)); return "77"; });
-        document = new Document(); document.setDocfilename("source.pdf"); document.setDoccreator("999001"); document.setStatus('A');
+        document = new Document(42); document.setDocfilename("source.pdf"); document.setDoccreator("999001"); document.setStatus('A');
+        document.setRestrictToProgram(false);
+        when(documents.find(42)).thenReturn(document);
         when(documents.getDocument("42")).thenReturn(document);
         when(documents.findForPageMutation(42)).thenReturn(document);
         try (PDDocument pdf = new PDDocument()) {
@@ -122,6 +134,7 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void patientWriteDenialPreventsPreparingSharedDocument() throws Exception {
+        allowAssignedContentChanges("true");
         CtlDocument link = new CtlDocument(); link.setId(new CtlDocumentPK("demographic", 8, 42));
         when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(link));
         when(security.hasPrivilege(info, "_edoc", "w", "8")).thenReturn(false);
@@ -152,6 +165,7 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void successIsPositiveJsonEvenWhenAllRoutingListsArePresent() throws Exception {
+        allowAssignedContentChanges("true");
         PatientLabRouting patient = new PatientLabRouting(); patient.setDemographicNo(8);
         ProviderLabRoutingModel provider = new ProviderLabRoutingModel(); provider.setProviderNo("999002");
         when(patients.findDocByDemographic(42)).thenReturn(List.of(patient));
@@ -176,6 +190,7 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test void providerPrimaryLinkRemainsProviderScoped() throws Exception {
         document.setProgramId(17); document.setRestrictToProgram(true);
+        allowProgram(17L);
         CtlDocument primary = new CtlDocument(); primary.setId(new CtlDocumentPK("provider", 999001, 42)); primary.setStatus("A");
         when(links.getCtrlDocument(42)).thenReturn(primary);
         action.split();
@@ -188,13 +203,24 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void splitUsesCurrentLockedClassificationRatherThanPreWaitSnapshot() throws Exception {
-        Document refreshed = new Document(); refreshed.setDocfilename("source.pdf"); refreshed.setStatus('A');
+        Document refreshed = new Document(42); refreshed.setDocfilename("source.pdf"); refreshed.setStatus('A');
         refreshed.setDoccreator("999001"); refreshed.setProgramId(29); refreshed.setRestrictToProgram(true);
-        when(documents.findForPageMutation(42)).thenReturn(refreshed);
+        allowProgram(29L);
+        when(documents.findForPageMutation(42)).thenAnswer(call -> {
+            // Match the refreshed managed entity seen by the central access gate.
+            when(documents.find(42)).thenReturn(refreshed);
+            return refreshed;
+        });
         action.split();
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(created.get().getProgramId()).isEqualTo(29);
         assertThat(created.get().isRestrictToProgram()).isTrue();
+    }
+
+    private void allowProgram(long programId) {
+        ProgramProvider membership = new ProgramProvider();
+        membership.setProgramId(programId);
+        when(programs.getProgramDomain(info, "999001")).thenReturn(List.of(membership));
     }
 
     @Test void malformedPdfNeverCreatesADocumentRow() throws Exception {
@@ -332,6 +358,114 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result().path("accepted").asBoolean()).isFalse();
         assertThat(result().path("sourceChanged").asBoolean()).isTrue();
         assertThat(Files.readString(source)).isEqualTo("external completed replacement");
+        verify(documents, never()).updatePageCount(anyInt(), anyInt());
+        verifyNoInteractions(inbox);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"split", "rotate90", "rotate180", "removeFirstPage"})
+    void explicitFalseRejectsAllAssignedMutationsBeforePreparation(String operation) throws Exception {
+        allowAssignedContentChanges("false");
+        when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(8)));
+        byte[] original = Files.readAllBytes(directory.resolve("source.pdf"));
+        invoke(operation);
+        assertPolicyRefusal(original, 0);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"split", "rotate90", "rotate180", "removeFirstPage"})
+    void missingPropertyRejectsRoutingOnlyAssignedMutations(String operation) throws Exception {
+        PatientLabRouting route = new PatientLabRouting();
+        route.setLabNo(42); route.setLabType("DOC"); route.setDemographicNo(8);
+        when(patients.findDocByDemographic(42)).thenReturn(List.of(route));
+        byte[] original = Files.readAllBytes(directory.resolve("source.pdf"));
+        invoke(operation);
+        assertPolicyRefusal(original, 0);
+    }
+
+    @Test void positivePatientAmongMixedLinksCannotHideBehindUnassignedPrimary() throws Exception {
+        when(links.getCtrlDocument(42)).thenReturn(patientLink(-1));
+        when(links.findByDocumentNoAndModule(42, "demographic"))
+                .thenReturn(List.of(patientLink(-1), patientLink(0), patientLink(8), patientLink(9)));
+        byte[] original = Files.readAllBytes(directory.resolve("source.pdf"));
+        action.split();
+        assertPolicyRefusal(original, 0);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"split", "rotate90", "rotate180", "removeFirstPage"})
+    void unassignedDocumentRemainsEditableWithDefaultFalse(String operation) throws Exception {
+        when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(-1), patientLink(0)));
+        invoke(operation);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(result().path("success").asBoolean()).isTrue();
+        assertThat(result().path("accepted").asBoolean()).isTrue();
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"split", "rotate90", "rotate180", "removeFirstPage"})
+    void explicitTrueAllowsAssignedDocumentWithPatientWriteAccess(String operation) throws Exception {
+        allowAssignedContentChanges("true");
+        when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(8)));
+        invoke(operation);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(result().path("accepted").asBoolean()).isTrue();
+        verify(security, atLeastOnce()).hasPrivilege(info, "_edoc", "w", "8");
+    }
+
+    @Test void assignmentObservedAfterLeaseAdmissionRefusesBeforePreparation() throws Exception {
+        java.util.concurrent.atomic.AtomicInteger lookups = new java.util.concurrent.atomic.AtomicInteger();
+        when(documents.getDocument("42")).thenAnswer(call -> {
+            if (lookups.incrementAndGet() == 2) {
+                when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(8)));
+            }
+            return document;
+        });
+        byte[] original = Files.readAllBytes(directory.resolve("source.pdf"));
+        action.rotate90();
+        assertPolicyRefusal(original, 0);
+        assertThat(lookups.get()).isEqualTo(2);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"split", "rotate90", "rotate180", "removeFirstPage"})
+    void assignmentAddedDuringPreparationIsRecheckedInTransactionBeforePublication(String operation) throws Exception {
+        action.afterPreparation = () -> {
+            PatientLabRouting route = new PatientLabRouting();
+            route.setLabNo(42); route.setLabType("DOC"); route.setDemographicNo(8);
+            when(patients.findDocByDemographic(42)).thenReturn(List.of(route));
+        };
+        byte[] original = Files.readAllBytes(directory.resolve("source.pdf"));
+        invoke(operation);
+        assertPolicyRefusal(original, 1);
+        verify(documents).findForPageMutation(42);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test void disablingPolicyDuringPreparationRefusesPreviouslyAllowedAssignedDocument() throws Exception {
+        allowAssignedContentChanges("true");
+        when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(8)));
+        action.afterPreparation = () -> allowAssignedContentChanges("false");
+        byte[] original = Files.readAllBytes(directory.resolve("source.pdf"));
+        action.removeFirstPage();
+        assertPolicyRefusal(original, 1);
+    }
+
+    private void allowAssignedContentChanges(String value) {
+        when(properties.getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "")).thenReturn(value);
+    }
+
+    private CtlDocument patientLink(int patient) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", patient, 42)); link.setStatus("A");
+        return link;
+    }
+
+    private void assertPolicyRefusal(byte[] original, int preparations) throws Exception {
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(result().path("success").asBoolean()).isFalse();
+        assertThat(result().path("accepted").asBoolean()).isFalse();
+        assertThat(result().path("retryable").asBoolean()).isFalse();
+        assertThat(response.getHeader("Retry-After")).isNull();
+        assertThat(action.preparations).isEqualTo(preparations);
+        assertThat(Files.readAllBytes(directory.resolve("source.pdf"))).isEqualTo(original);
+        try (var files = Files.list(directory)) { assertThat(files.toList()).containsExactly(directory.resolve("source.pdf")); }
+        edocs.verify(() -> EDocUtil.addDocumentSQL(any()), never());
         verify(documents, never()).updatePageCount(anyInt(), anyInt());
         verifyNoInteractions(inbox);
     }

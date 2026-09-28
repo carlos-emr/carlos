@@ -9,6 +9,11 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -41,7 +46,7 @@ import static org.mockito.Mockito.when;
 @Tag("integration")
 @Tag("document")
 @Isolated("Saturates the shared process-wide PDF worker capacity")
-class DocumentTextBoxesConcurrencyIntegrationTest {
+class DocumentTextBoxesConcurrencyIntegrationTest extends CarlosUnitTestBase {
     @Test
     void shouldRefuseAcrossSessionsAndRecoverWithoutCachingFailure_whenGlobalCapacityIsFull(@TempDir Path dir)
             throws Exception {
@@ -49,6 +54,12 @@ class DocumentTextBoxesConcurrencyIntegrationTest {
             pdf.addPage(new PDPage());
             pdf.save(dir.resolve("source.pdf").toFile());
         }
+        Document stored = new Document();
+        stored.setDocumentNo(42);
+        stored.setRestrictToProgram(false);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        when(createAndRegisterMock(DocumentDao.class).find(42)).thenReturn(stored);
         EDoc doc = new EDoc();
         doc.setFileName("source.pdf");
         doc.setModule("demographic");

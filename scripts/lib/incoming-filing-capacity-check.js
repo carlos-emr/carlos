@@ -49,35 +49,152 @@ function cleanupFiling(session, description, store) {
   }
 }
 
+/** Capture server acceptance before exposing it to the UI that immediately navigates. */
+function createFilingForwarder(owned, expectedBody, guard, onBusy = () => {}) {
+  h.assert(guard && typeof guard.forward === 'function', 'Filing requires a durable cleanup guard');
+  let sent = false, pending, inFlight = false, terminal = false, busy = 0, failure;
+  let resolveResult, rejectResult;
+  const result = new Promise((resolve, reject) => {resolveResult = resolve; rejectResult = reject;});
+  result.catch(() => {});
+  async function transmit(route) {
+    let response;
+    try {
+      const body = validateFilingRequest(route.request(), owned);
+      h.assert(body === expectedBody(), 'Real filing changed its frozen form input');
+      if (!sent) {guard.forward(route.request()); sent = true;}
+      // Each UI retry sends one actual POST. Never follow redirects or replay
+      // transport failures; only a proven pre-acceptance response permits retry.
+      response = await route.fetch({maxRedirects: 0, maxRetries: 0, timeout: 90000});
+      const bytes = await response.body();
+      const headers = response.headers();
+      h.assert(/^application\/json(?:\s*;|$)/i.test(headers['content-type'] || ''),
+        'Real filing returned an unconfirmed response');
+      const data = JSON.parse(bytes.toString('utf8'));
+      if (response.status() === 503) {
+        const retryAfter = headers['retry-after'];
+        h.assert(data && data.success === false && data.accepted === false && data.retryable === true
+          && /^[1-9]\d*$/.test(retryAfter || '') && Number(retryAfter) <= 60,
+        'Real filing returned an invalid pre-acceptance busy response');
+        onBusy(route.request());
+        await route.fulfill({response, body: bytes});
+        await response.dispose(); response = undefined;
+        busy++;
+        return data;
+      }
+      h.assert(response.status() === 200 && data && data.success === true && data.accepted === true
+        && Number.isSafeInteger(data.documentNo) && data.documentNo > 0,
+      'Installed filing did not confirm acceptance');
+      terminal = true;
+      // Capture first; forwarding this exact response may immediately navigate.
+      await route.fulfill({response, body: bytes});
+      await response.dispose(); response = undefined;
+      guard.completed();
+      resolveResult(data);
+      return data;
+    } catch (error) {
+      terminal = true; failure = error;
+      if (guard.pending()) guard.unknown('Filing transport or acceptance could not be confirmed');
+      rejectResult(error);
+      await route.abort('failed').catch(() => {});
+      throw error;
+    } finally {
+      try {if (response) await response.dispose();}
+      finally {inFlight = false;}
+    }
+  }
+  return {
+    result, busyCount: () => busy,
+    forward(route) {
+      if (inFlight || terminal) return Promise.reject(new Error('Refusing a concurrent or second accepted real filing'));
+      inFlight = true;
+      pending = transmit(route);
+      pending.catch(() => {});
+      return pending;
+    },
+    async drain() {if (pending) await pending; if (failure) throw failure;},
+  };
+}
+
+/** Claim individual recorder entries only for responses to proven busy requests. */
+function createFilingBusyRecorder(recorder, endpoint) {
+  const before = new Set(recorder.badResponses), firstConsole = new Set(recorder.consoleIssues);
+  const requests = new Set(), observed = new Set(), proven = new Set();
+  return {
+    expect(request) {
+      h.assert(!requests.has(request), 'Busy request was counted twice'); requests.add(request);
+    },
+    observe(response) {
+      const request = response.request();
+      if (!requests.has(request)) return;
+      h.assert(!observed.has(request) && response.status() === 503
+        && request.method() === 'POST' && response.url() === endpoint
+        && /^application\/json(?:\s*;|$)/i.test(response.headers()['content-type'] || ''),
+      'Validated busy request has an unexpected browser response');
+      observed.add(request);
+      const entry = [...recorder.badResponses].reverse().find(value => !before.has(value) && !proven.has(value)
+        && value.status === 503 && value.method === 'POST' && value.url === endpoint
+        && /^application\/json(?:\s*;|$)/i.test(value.contentType || ''));
+      h.assert(entry, 'Validated busy response is missing from strict recorder');
+      proven.add(entry);
+    },
+    finish(expected) {
+      h.assert(requests.size === expected && observed.size === expected && proven.size === expected,
+        'Recorded filing busy responses differ from proven responses');
+      const counts = new Map();
+      for (const entry of proven) counts.set(entry.label, (counts.get(entry.label) || 0) + 1);
+      const console = recorder.consoleIssues.filter(entry => !firstConsole.has(entry) && counts.has(entry.label)
+        && entry.type === 'error' && entry.location?.url === endpoint && /^Failed to load resource:.*\b503\b/.test(entry.text || ''));
+      for (const [label, count] of counts) h.assert(console.filter(entry => entry.label === label).length <= count,
+        'Unexpected additional filing capacity console errors');
+      recorder.badResponses = recorder.badResponses.filter(entry => !proven.has(entry));
+      recorder.consoleIssues = recorder.consoleIssues.filter(entry => !console.includes(entry));
+    },
+  };
+}
+
 /** Real installed form, guarded injected refusals, then one actual owned filing. */
-async function checkIncomingFilingCapacity(session, page, name, source, inspect, {staleRevision} = {}) {
+async function checkIncomingFilingCapacity(session, page, name, source, inspect, {staleRevision, guard} = {}) {
   h.assert(session.patient && /^[1-9]\d*$/.test(session.patient), 'Filing requires the workflow-owned patient');
   const directory = process.env.RX_FAX_DOCUMENT_DIR || process.env.DOCUMENT_DIR;
   h.assert(directory, 'Set RX_FAX_DOCUMENT_DIR or DOCUMENT_DIR to the installed document store');
   const store = fs.realpathSync(directory);
   const description = `${session.marker} incoming filing`;
   prepareIncomingFilingProgram(session);
-  session.cleanup(() => cleanupFiling(session, description, store));
+  session.cleanup(() => {guard.assertCleanup(); cleanupFiling(session, description, store);});
   const original = fs.readFileSync(source);
   const owned = {name, patient: session.patient, description, revision: createHash('sha256').update(original).digest('hex')};
   const endpoint = new URL(await page.locator('#forms_').getAttribute('action'), page.url()).href;
   const pattern = url => url.href === endpoint;
-  const targets = new Set();
+  const busyRecorder = createFilingBusyRecorder(session.recorder, endpoint);
   const bodies = [];
   let phase = 'unknown', attempts = 0, unsafe = false;
+  const forwarding = createFilingForwarder(owned, () => bodies[0], guard, request => {
+    h.assert(fs.readFileSync(source).equals(original) && count() === '0', 'A real unaccepted filing changed the source or chart');
+    busyRecorder.expect(request);
+  });
+  const handlers = new Set();
+  const failures = [];
   const count = () => session.sql.value(`SELECT COUNT(*) FROM document WHERE docdesc=${h.sqlString(description)}`);
-  const handler = async route => {
+  const handle = async route => {
     try { bodies.push(validateFilingRequest(route.request(), owned)); }
     catch (error) { unsafe = true; await route.abort('blockedbyclient'); return; }
     attempts++;
     if (phase === 'unknown') return route.fulfill({status: 200, contentType: 'text/html', body: '<html>Unconfirmed response</html>'});
     if (attempts <= 5) {
       h.assert(fs.readFileSync(source).equals(original) && count() === '0', 'An unaccepted filing changed the source or chart');
-      targets.add(route.request().url());
+      busyRecorder.expect(route.request());
       return route.fulfill({status: 503, contentType: 'application/json', headers: {'Retry-After': '1', 'Cache-Control': 'no-store'},
         body: JSON.stringify({success: false, retryable: true, accepted: false, error: 'Waiting for document capacity.'})});
     }
-    return route.continue();
+    return forwarding.forward(route);
+  };
+  const handler = route => {
+    const pending = handle(route).catch(async error => {
+      failures.push(error);
+      await route.abort('failed').catch(() => {});
+    }).finally(() => handlers.delete(pending));
+    handlers.add(pending);
+    return pending;
   };
   async function fill() {
     const type = await page.locator('#docType option').evaluateAll(options => options.find(option => option.value)?.value);
@@ -111,6 +228,10 @@ async function checkIncomingFilingCapacity(session, page, name, source, inspect,
     await candidates.nth(matches[0]).click();
     h.assert(await page.locator('#demofind').inputValue() === session.patient, 'Patient selection left the owned chart');
   }
+  const observeBusy = response => {
+    try {busyRecorder.observe(response);} catch (error) {failures.push(error);}
+  };
+  page.on('response', observeBusy);
   await page.route(pattern, handler);
   try {
     await fill();
@@ -142,24 +263,30 @@ async function checkIncomingFilingCapacity(session, page, name, source, inspect,
     h.assert(attempts === 1, 'Unknown acceptance automatically retried');
     phase = 'busy'; attempts = 0; bodies.length = 0;
     await fill();
-    const done = page.waitForResponse(response => response.url() === endpoint && response.status() === 200, {timeout: 120000});
-    done.catch(() => {});
     await page.locator('#save').click();
     await page.locator('#incoming-filing-status').filter({hasText: 'Waiting for document capacity.'}).waitFor();
     h.assert(await page.locator('#save').isDisabled() && await page.locator('#documentDescription').inputValue() === description,
       'Waiting did not preserve frozen form input');
-    const result = await done;
-    const accepted = await result.json();
-    h.assert(accepted.success === true && accepted.accepted === true && Number.isSafeInteger(accepted.documentNo), 'Installed filing did not confirm acceptance');
+    let completionTimer;
+    const accepted = await Promise.race([forwarding.result, new Promise((resolve, reject) => {
+      completionTimer = setTimeout(() => reject(new Error('Filing did not finish its bounded retry check')), 120000);
+    })]).finally(() => clearTimeout(completionTimer));
     await page.waitForURL(url => url.pathname.endsWith('/documentManager/ViewIncomingDocs') && url.searchParams.get('queueId') === '1');
-    h.assert(!unsafe && attempts === 6 && new Set(bodies).size === 1, 'Filing retries changed inputs or did not recover after five refusals');
+    h.assert(!unsafe && attempts === 6 + forwarding.busyCount() && new Set(bodies).size === 1, 'Filing retries changed inputs or did not recover after five refusals');
     h.assert(count() === '1' && !fs.existsSync(source), 'Recovered filing duplicated the document or left its queue source');
     const rows = session.sql.rows(`SELECT d.docfilename,d.number_of_pages FROM document d JOIN ctl_document c ON c.document_no=d.document_no WHERE d.document_no=${accepted.documentNo} AND d.docdesc=${h.sqlString(description)} AND c.module='demographic' AND c.module_id=${session.patient}`);
     h.assert(rows.length === 1 && rows[0][1] === '1', 'Installed filing has incorrect patient linkage or page count');
     h.assert(path.basename(rows[0][0]) === rows[0][0] && rows[0][0].includes(session.marker), 'Accepted filename is not owned');
     h.assert(inspect(path.join(store, rows[0][0])).text.includes(`${session.marker} page 3`), 'Installed filing lost source page content');
-    session.recorder.badResponses = session.recorder.badResponses.filter(entry => !(entry.status === 503 && targets.has(entry.url)));
-    session.recorder.consoleIssues = session.recorder.consoleIssues.filter(entry => !(targets.has(entry.location?.url) && /Failed to load resource:.*503/.test(entry.text)));
-  } finally { await page.unroute(pattern, handler); }
+    busyRecorder.finish(5 + forwarding.busyCount());
+  } finally {
+    // Cancel automatic retries before waiting for a possibly accepted POST. The
+    // durable guard retains both source and chart fixtures for unknown acceptance.
+    await page.evaluate(() => window.dispatchEvent(new Event('pagehide'))).catch(() => {});
+    while (handlers.size) await Promise.all([...handlers]);
+    try {await forwarding.drain();}
+    finally {await page.unroute(pattern, handler); page.off('response', observeBusy);}
+    if (failures.length) throw failures[0];
+  }
 }
-module.exports = {validateFilingRequest, cleanupFiling, checkIncomingFilingCapacity};
+module.exports = {validateFilingRequest, createFilingForwarder, createFilingBusyRecorder, cleanupFiling, checkIncomingFilingCapacity};

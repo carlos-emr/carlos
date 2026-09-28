@@ -67,16 +67,6 @@ public final class IncomingDocumentCapacityResponse {
                                                  io.github.carlos_emr.carlos.utility.LoggedInInfo info, int documentNo) {
         io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink.requireAccess(info, documentNo, security,
                 io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class));
-        boolean hasActiveQueue = false;
-        for (io.github.carlos_emr.carlos.commn.model.QueueDocumentLink link :
-                io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class)
-                        .getQueueFromDocument(documentNo)) {
-            if (!"A".equals(link.getStatus())) continue;
-            hasActiveQueue = true;
-            if (link.getQueueId() == io.github.carlos_emr.carlos.commn.model.Queue.DEFAULT_QUEUE_ID
-                    || security.hasPrivilege(info, "_queue." + link.getQueueId(), "r", (String) null)) return;
-        }
-        if (hasActiveQueue) throw new SecurityException("You do not have access to the source document queue.");
     }
 
     /** Authorize stored-view metadata and revision bytes without requiring edit permission. */
@@ -114,6 +104,39 @@ public final class IncomingDocumentCapacityResponse {
     private static String positiveOrOne(String value) {
         try { return String.valueOf(Math.max(1, Integer.parseInt(value))); }
         catch (NumberFormatException ignored) { return "1"; }
+    }
+
+    /** Authorize the stored source, never a request's claimed patient or queue. */
+    public static void requireStoredDocumentWriteAccess(io.github.carlos_emr.carlos.managers.SecurityInfoManager security,
+                                                        io.github.carlos_emr.carlos.utility.LoggedInInfo info, String documentNo) {
+        if (info == null || !positiveId(documentNo) || !security.hasPrivilege(info, "_edoc", "w", (String) null)) {
+            throw new SecurityException("Document write access is required");
+        }
+        int number = Integer.parseInt(documentNo);
+        requireRefileSourceAccess(security, info, number);
+        Set<Integer> patients = new java.util.HashSet<>();
+        for (io.github.carlos_emr.carlos.commn.model.CtlDocument link :
+                io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class)
+                        .findByDocumentNoAndModule(number, "demographic")) {
+            patients.add(link.getId().getModuleId());
+        }
+        for (io.github.carlos_emr.carlos.commn.model.PatientLabRouting route :
+                io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class)
+                        .findDocByDemographic(number)) {
+            patients.add(route.getDemographicNo());
+        }
+        for (Integer patient : patients) {
+            if (patient != null && patient > 0) requirePatientDocumentWriteAccess(security, info, patient.toString());
+        }
+    }
+
+    /** For a newly created patient document, authorize before any upload or clinical write. */
+    public static void requirePatientDocumentWriteAccess(io.github.carlos_emr.carlos.managers.SecurityInfoManager security,
+                                                         io.github.carlos_emr.carlos.utility.LoggedInInfo info, String patient) {
+        if (info == null || !positiveId(patient) || !security.isAllowedAccessToPatientRecord(info, Integer.parseInt(patient))
+                || !security.hasPrivilege(info, "_edoc", "w", patient)) {
+            throw new SecurityException("Patient document write access denied");
+        }
     }
 
     private static String waitingMessage(HttpServletRequest request) {

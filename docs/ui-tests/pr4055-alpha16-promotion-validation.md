@@ -6,6 +6,43 @@ promotion branch `claude/promote-2026-08-to-main-0yklth`, initially
 completed validation and explicit remaining release requirements; a passing
 source test is not evidence of a passing installed workflow.
 
+The current installed baseline is iteration 8 (`bc87e43531`): all three Debian
+packages passed 9,896 payload checks, 45 upgrade checks and three installed
+Selenium checks. Installed Playwright checks passed for document pagination,
+the encounter navigation modules and the lab-results table. Follow-up source
+changes below still require a new build and installed validation; this is not
+yet a completed promotion sign-off. The iteration 9 full Node regression run
+passed all 1,854 tests with no failures or skips.
+The corrected installed incoming-document check then passed all 13 workflow
+steps, including real extraction/rotation/deletion, stale-edit refusal and five
+filing capacity refusals followed by exactly one accepted filing.
+
+Installed testing exposed two browser-harness defects: anonymous document
+probes lacked the deployment's TLS configuration, and immediate navigation
+after successful filing invalidated Playwright's response-body handle. The
+filing check now captures the actual server response before forwarding it to
+the browser. Its 35 focused regressions pass, including real pre-acceptance
+capacity refusals, exact frozen retries, duplicate prevention and uncertain
+outcomes that prohibit replay or fixture deletion.
+
+The stored-document test also exposed a server-side policy gap: hidden controls
+did not enforce `ALLOW_UPDATE_DOCUMENT_CONTENT=false` on direct page-operation
+POSTs. The follow-up checks that policy before work, after capacity admission
+and inside the publication transaction. Separate installed phases must prove
+both the default refusal and enabled-policy mutations; the test environment
+flag only declares the expected policy and never changes configuration.
+
+Additional authorization fixes check the persisted document's program, active
+queues and all linked or DOC-routed patients before edit, annotation or fax
+operations. Direct images, cached previews
+and metadata also use the shared patient, program and queue read checks,
+including patients linked only through document routing. Regression cases
+include independent-session denial of cached bytes and authorization of the
+actual edit identifier selected by JSP attribute precedence. All 425 focused
+Java unit/integration cases passed after correcting two existing test fixtures
+to provide the authenticated session and routing DAO required by the real gate.
+Full-suite Java and newly packaged installed verification remain pending.
+
 ## Review scope
 
 Four reviewers divided the promotion and cross-checked fixes:
@@ -122,8 +159,10 @@ iteration 5 changes place their PDF work under bounded admission, stage complete
 cache files before atomic publication, and make capacity-refused iframe GETs
 wait automatically. PDF extraction uses owned temporary files so a late worker
 cannot write a timed-out servlet response. Genuine corrupt/missing-page errors
-remain errors; no mutation POST is retried. Source regressions and the full
-Java/JSP/WAR build passed; installed checks for these changes remain pending.
+remain errors. Later iteration 8 changes add retries only for explicitly
+unaccepted mutation admission refusals, preserving the original revision and
+request; uncertain outcomes never replay. Source regressions and the full
+Java/JSP/WAR build passed; installed coverage is tracked below.
 
 The same all-patient-link check now covers the fax handoff, direct document
 staging, staged preview/page-count reads and final queueing. A restriction added
@@ -254,7 +293,7 @@ rule execution remain in scope.
 - Encoder, security-message, BDD naming, Struts DTD, JSP-taglib and locale
   checks passed before the final installed validation.
 
-The browser inventory contains 181 registered checks, including the manual
+The browser inventory contains 183 registered checks, including the manual
 packaged first-login check and ON/BC checks. The complete browser run remains
 in progress; the focused results below do not replace it.
 
@@ -437,8 +476,15 @@ A final many-session review then found that eForm render admission bounded activ
 browsers but not waiting servlet threads, potentially starving renderer callbacks.
 Admission now permits four waiting callers and returns the existing safe capacity
 response to excess sessions. Five concurrency regressions cover overflow, fairness,
-recovery, interruption and permit cleanup. The final build and installed browser
-checks remain pending this additional correction.
+recovery, interruption and permit cleanup. The final build at `bc87e43531` passed 15,474 reported Java tests with zero
+failures/errors and three host Selenium skips; JSP compilation, Javadoc and WAR
+packaging passed. All three skipped Selenium cases subsequently passed against
+the installed iteration 8 packages. Fresh changed-line coverage was 3,472/3,793
+(91.5%) across the promotion and 1,366/1,515 (90.2%) for review fixes. New
+source-lock and eForm queue admission lines were fully covered. All three
+Debian packages passed 9,896 payload checks, installed CLI/health verification,
+and all 45 upgrade-preservation checks. Focused installed browser checks are
+in progress; these build and smoke results do not replace the full browser run.
 
 
 The incoming workflow subsequently passed native PDF/image recovery after five
@@ -541,3 +587,14 @@ complexity, repeated literals and serialization/style advice.
 exits 1. Manual inspection found the same default page-scoped bundle with no
 intervening locale/bundle change. This remains an explicit diagnostic result,
 not a claimed passing gate or a confirmed runtime defect.
+
+The iteration 8 scan at `bc87e43531` completed with reliability C and security C;
+42 other CI checks succeeded. The follow-up uses literal JPQL entity names in
+the two flagged document queries while keeping every input parameter bound. An
+actual-JPA regression checks that hostile provider text cannot broaden document
+access. The splitter's redundant nullable-result branch is replaced with an
+explicit non-null contract. Its remaining S2583 findings cross Spring transaction
+callbacks and the second source-revision check; a method-local suppression names
+the regressions that exercise these branches. The accepted/uncertain outcome
+guards remain active to prevent duplicate writes. Validation and a fresh quality
+gate are still required for these follow-up changes.

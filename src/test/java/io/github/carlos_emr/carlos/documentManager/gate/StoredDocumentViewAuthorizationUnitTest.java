@@ -48,10 +48,14 @@ class StoredDocumentViewAuthorizationUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, security); registerMock(CtlDocumentDao.class, links);
         registerMock(PatientLabRoutingDao.class, patients); registerMock(QueueDocumentLinkDao.class, queues);
         registerMock(DocumentDao.class, documents);
+        when(documents.find(42)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document());
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        LoggedInInfo info = new LoggedInInfo();
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider(); provider.setProviderNo("999998");
+        info.setLoggedInProvider(provider);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         request.setParameter("segmentID", "42"); request.setParameter("document", "42");
         when(security.hasPrivilege(any(), eq("_lab"), eq("r"), isNull())).thenReturn(true);
         when(security.hasPrivilege(any(), eq("_edoc"), eq("r"), nullable(String.class))).thenReturn(true);
@@ -72,7 +76,7 @@ class StoredDocumentViewAuthorizationUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> open(view)).isInstanceOf(SecurityException.class);
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
-        verifyNoInteractions(documents);
+        verify(documents).find(42); verifyNoMoreInteractions(documents);
     }
 
     @ParameterizedTest @ValueSource(strings = {"show", "split"})
@@ -82,7 +86,7 @@ class StoredDocumentViewAuthorizationUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(any(), eq("_edoc"), eq("r"), eq("7"))).thenReturn(false);
         assertThatThrownBy(() -> open(view)).isInstanceOf(SecurityException.class);
         assertThat(response.getStatus()).isEqualTo(403);
-        verifyNoInteractions(documents);
+        verify(documents).find(42); verifyNoMoreInteractions(documents);
     }
 
     @ParameterizedTest @ValueSource(strings = {"show", "split"})
@@ -92,7 +96,7 @@ class StoredDocumentViewAuthorizationUnitTest extends CarlosUnitTestBase {
         when(security.isAllowedAccessToPatientRecord(any(), eq(9))).thenReturn(false);
         assertThatThrownBy(() -> open(view)).isInstanceOf(SecurityException.class);
         assertThat(response.getStatus()).isEqualTo(403);
-        verifyNoInteractions(documents);
+        verify(documents).find(42); verifyNoMoreInteractions(documents);
     }
 
     @ParameterizedTest @ValueSource(strings = {"show", "split"})
@@ -116,5 +120,20 @@ class StoredDocumentViewAuthorizationUnitTest extends CarlosUnitTestBase {
         String mapping = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-document.xml"));
         assertThat(mapping).contains("<action name=\"documentManager/ViewShowDocument\" class=\""
                 + ViewStoredDocumentRead2Action.class.getName() + "\">");
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"show", "split"})
+    void accessiblePatientCannotExposeDocumentRestrictedToAnotherProgram(String view) {
+        var document = new io.github.carlos_emr.carlos.commn.model.Document();
+        document.setRestrictToProgram(true); document.setProgramId(17);
+        when(documents.find(42)).thenReturn(document);
+        registerMock(io.github.carlos_emr.carlos.managers.ProgramManager2.class,
+                mock(io.github.carlos_emr.carlos.managers.ProgramManager2.class));
+        CtlDocument link = new CtlDocument(); link.setId(new CtlDocumentPK("demographic", 7, 42));
+        when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(link));
+        request.setParameter("programId", "18");
+        assertThatThrownBy(() -> open(view)).isInstanceOf(SecurityException.class).hasMessageContaining("program");
+        assertThat(response.getStatus()).isEqualTo(403);
+        verify(documents).find(42); verifyNoMoreInteractions(documents);
     }
 }

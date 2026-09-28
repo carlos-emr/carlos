@@ -150,8 +150,11 @@ The incoming-document capacity page uses a method-local `XSS_SERVLET`
 suppression because its two dynamic values already use OWASP encoding for
 HTML text and quoted attributes. Its regression parses hostile context-path
 markup and verifies that it remains one inert script URL, without injected
-elements or event handlers. Automatic capacity retries require exact `GET`;
-case-folded or mutating method names receive no reload script.
+elements or event handlers. Preview reloads require exact `GET`; case-folded
+or mutating method names receive no preview reload script. The separate incoming
+page-edit waiting response is emitted only before mutation admission and preserves
+the original POST fields, CSRF token and source revision. An uncertain result or
+a revision conflict never uses that automatic retry path.
 
 **Maven profile**: `spotbugs` (defined in `pom.xml`)
 

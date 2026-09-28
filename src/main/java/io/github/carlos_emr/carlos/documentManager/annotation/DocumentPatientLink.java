@@ -24,10 +24,21 @@ package io.github.carlos_emr.carlos.documentManager.annotation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.QueueDocumentLink;
+import io.github.carlos_emr.carlos.commn.model.Queue;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.commons.lang3.StringUtils;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Resolves the patient a document is filed against, if any.
@@ -53,18 +64,61 @@ public final class DocumentPatientLink {
     }
 
     /**
-     * Requires access to every patient linked to the stored document. A request's patient
+     * Requires access to every patient linked or DOC-routed to the stored document. A request's patient
      * parameter or a flattened first link must never authorize bytes shared by several charts.
      * Provider links and the unfiled inbox sentinel IDs are deliberately not patient records.
+     * Persisted program restrictions and actual active-queue visibility apply to every caller.
      */
     public static void requireAccess(LoggedInInfo info, int documentNo, SecurityInfoManager security,
                                      CtlDocumentDao links) {
+        if (info == null || documentNo <= 0) throw new SecurityException("Document access denied");
+        Set<Integer> checkedPatients = new HashSet<>();
         for (CtlDocument link : links.findByDocumentNoAndModule(documentNo, DEMOGRAPHIC_MODULE)) {
-            Integer patient = link.getId().getModuleId();
-            if (patient != null && patient > 0 && !security.isAllowedAccessToPatientRecord(info, patient)) {
-                throw new SecurityException("Unauthorized access to patient record");
-            }
+            requirePatientAccess(info, link.getId().getModuleId(), security, checkedPatients);
         }
+        // Some stored documents are patient-bound only through DOC routing.
+        // Re-read actual routes for each request; another session's successful
+        // authorization or a flattened first ctl_document link is insufficient.
+        for (PatientLabRouting route : SpringUtils.getBean(PatientLabRoutingDao.class)
+                .findByLabNoAndLabType(documentNo, "DOC")) {
+            requirePatientAccess(info, route.getDemographicNo(), security, checkedPatients);
+        }
+        requireProgramAccess(info, documentNo);
+        requireQueueAccess(info, documentNo, security);
+    }
+
+    private static void requirePatientAccess(LoggedInInfo info, Integer patient, SecurityInfoManager security,
+                                              Set<Integer> checkedPatients) {
+        if (patient != null && patient > 0 && checkedPatients.add(patient)
+                && !security.isAllowedAccessToPatientRecord(info, patient)) {
+            throw new SecurityException("Unauthorized access to patient record");
+        }
+    }
+
+    /** Match inbox visibility: one visible active queue suffices; no active queue is unrestricted. */
+    private static void requireQueueAccess(LoggedInInfo info, int documentNo, SecurityInfoManager security) {
+        boolean hasActiveQueue = false;
+        for (QueueDocumentLink link : SpringUtils.getBean(QueueDocumentLinkDao.class).getQueueFromDocument(documentNo)) {
+            if (!"A".equals(link.getStatus())) continue;
+            hasActiveQueue = true;
+            if (link.getQueueId() == Queue.DEFAULT_QUEUE_ID
+                    || security.hasPrivilege(info, "_queue." + link.getQueueId(), SecurityInfoManager.READ, (String) null)) return;
+        }
+        if (hasActiveQueue) throw new SecurityException("You do not have access to the source document queue.");
+    }
+
+    /** Match the persisted restriction used by EDocUtil's document-list filtering. */
+    private static void requireProgramAccess(LoggedInInfo info, int documentNo) {
+        Document document = SpringUtils.getBean(DocumentDao.class).find(documentNo);
+        if (document == null) {
+            throw new SecurityException("Document is not available");
+        }
+        Integer program = document.getProgramId();
+        if (!Boolean.TRUE.equals(document.isRestrictToProgram()) || program == null || program == -1) return;
+        var domain = SpringUtils.getBean(ProgramManager2.class).getProgramDomain(info, info.getLoggedInProviderNo());
+        if (domain != null && domain.stream().anyMatch(link -> link.getProgramId() != null
+                && program.longValue() == link.getProgramId().longValue())) return;
+        throw new SecurityException("Document program access denied");
     }
 
     /**

@@ -45,6 +45,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /** Stored-document page operations. A capacity refusal always precedes publication/persistence. */
@@ -73,6 +74,12 @@ public class SplitDocument2Action extends ActionSupport {
     public String rotate90() throws IOException { return perform(SplitDocumentPdfWork.Operation.ROTATE_90); }
     public String removeFirstPage() throws IOException { return perform(SplitDocumentPdfWork.Operation.REMOVE_FIRST); }
 
+    // Spring transaction callbacks change Publication.mutationStarted after publish;
+    // failed/unknown commit must retain accepted=true. The second revision check
+    // also throws after Publication is assigned. SplitDocument2ActionUnitTest covers
+    // uncertainCommitKeepsPublishedFileAndForbidsReplay and
+    // replacementOutsideTheLeaseDuringPreparationIsDetectedAgainBeforePublication.
+    @SuppressWarnings("java:S2583") // Symbolic execution misses publication state across transaction callbacks.
     private String perform(SplitDocumentPdfWork.Operation operation) throws IOException {
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
@@ -170,7 +177,16 @@ public class SplitDocument2Action extends ActionSupport {
         for (PatientLabRouting route : SpringUtils.getBean(PatientLabRoutingDao.class).findDocByDemographic(documentNo)) {
             patients.add(route.getDemographicNo());
         }
+        // "true" is the required positive value, not a default: absent/false
+        // properties deny content changes after any positive patient assignment.
+        // authorize runs before work, after lease admission, and again inside
+        // the transaction so an assignment made while waiting cannot be bypassed.
+        boolean allowAssignedContentChanges = CarlosProperties.getInstance()
+                .getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true");
         for (Integer patient : patients) {
+            if (patient != null && patient > 0 && !allowAssignedContentChanges) {
+                throw new SecurityException("Assigned document content changes are disabled");
+            }
             if (patient != null && patient > 0 && (!securityInfoManager.isAllowedAccessToPatientRecord(info, patient)
                     || !securityInfoManager.hasPrivilege(info, "_edoc", "w", patient.toString()))) {
                 throw new SecurityException("Patient document write access denied");
@@ -188,7 +204,7 @@ public class SplitDocument2Action extends ActionSupport {
         TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-        Integer result = transaction.execute(status -> {
+        return Objects.requireNonNull(transaction.execute(status -> {
             TransactionSynchronizationManager.registerSynchronization(publication);
             Document current = documentDao.findForPageMutation(sourceNo);
             if (current == null || current.getStatus() == 'D') throw new IllegalArgumentException("Document no longer available");
@@ -211,9 +227,7 @@ public class SplitDocument2Action extends ActionSupport {
                 return sourceNo;
             }
             return persistSplit(current, sourceNo, queue, info, publication);
-        });
-        if (result == null) throw new IllegalStateException("Document transaction did not return a result");
-        return result;
+        }), "Document transaction did not return a result");
     }
 
     private int persistSplit(Document source, int sourceNo, int queue, LoggedInInfo info,

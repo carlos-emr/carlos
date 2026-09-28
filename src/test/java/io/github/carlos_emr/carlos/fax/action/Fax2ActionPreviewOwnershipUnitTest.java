@@ -3,6 +3,10 @@ package io.github.carlos_emr.carlos.fax.action;
 
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
@@ -70,6 +74,12 @@ class Fax2ActionPreviewOwnershipUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(DocumentAttachmentManager.class);
         eforms = createAndRegisterMock(EFormDataDao.class);
         links = createAndRegisterMock(CtlDocumentDao.class);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        Document stored = new Document();
+        stored.setDocumentNo(77);
+        stored.setRestrictToProgram(false);
+        when(createAndRegisterMock(DocumentDao.class).find(77)).thenReturn(stored);
         eform = new EFormData();
         eform.setDemographicId(10);
         when(eforms.find(77)).thenReturn(eform);

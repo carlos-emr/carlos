@@ -145,6 +145,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         registerMock(DocumentDao.class, documentDao);
+        Mockito.lenient().when(documentDao.find(42)).thenReturn(new Document());
         registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class, incomingDemographicDao);
         registerMock(QueueDao.class, queueDao);
         registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class,
@@ -401,6 +402,107 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = { "showPage", "view", "viewDocPage", "display", "viewDocumentInfo",
+            "viewDocumentDescription", "viewAnnotationAcknowledgementTickler" })
+    void shouldDenyEveryDirectRead_whenOnlyDocRoutingLinksAnInaccessiblePatient(String method) throws Exception {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        var route = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
+        route.setDemographicNo(20); route.setLabType("DOC");
+        when(patientLabRoutingDao.findDocByDemographic(42)).thenReturn(List.of(route));
+        request.setParameter("method", method); request.setParameter("page", "1"); request.setParameter("doc_no", "42");
+        request.setParameter("demoNo", "10"); // A caller's different patient cannot authorize this routing.
+        try (MockedStatic<EDocUtil> metadata = mockStatic(EDocUtil.class);
+             MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            metadata.verifyNoInteractions(); paths.verifyNoInteractions(); logActionMock.verifyNoInteractions();
+            verify(documentDao, Mockito.never()).getDocument(anyString());
+            verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(20));
+        }
+    }
+
+    @Test
+    void allowedCtlPatientCannotOverrideADifferentDeniedDocRoutingPatient() {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(10)));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(10))).thenReturn(true);
+        var route = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
+        route.setDemographicNo(20); route.setLabType("DOC");
+        when(patientLabRoutingDao.findDocByDemographic(42)).thenReturn(List.of(route));
+        request.setParameter("method", "showPage"); request.setParameter("page", "1"); request.setParameter("doc_no", "42");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verify(documentDao, Mockito.never()).getDocument(anyString());
+        verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(20));
+    }
+
+    @Test
+    void routedChartAccessWithoutPatientEdocReadCannotExposeCachedBytes() {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(20))).thenReturn(true);
+        var route = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
+        route.setDemographicNo(20); route.setLabType("DOC");
+        when(patientLabRoutingDao.findDocByDemographic(42)).thenReturn(List.of(route));
+        request.setParameter("method", "showPage"); request.setParameter("page", "1"); request.setParameter("doc_no", "42");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verify(securityInfoManager).hasPrivilege(any(), eq("_edoc"), eq("r"), eq("20"));
+        verify(documentDao, Mockito.never()).getDocument(anyString());
+    }
+
+    @Test
+    void directImageCannotBypassTheViewersPersistedNamedQueueGate() {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        var queues = Mockito.mock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class, queues);
+        var queue = new io.github.carlos_emr.carlos.commn.model.QueueDocumentLink(); queue.setQueueId(17); queue.setStatus("A");
+        when(queues.getQueueFromDocument(42)).thenReturn(List.of(queue));
+        request.setParameter("method", "showPage"); request.setParameter("page", "1"); request.setParameter("doc_no", "42");
+        request.setParameter("queueId", "1");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verify(documentDao, Mockito.never()).getDocument(anyString());
+    }
+
+    @Test
+    void authorizedDocRoutingServesCacheButAnIndependentSessionCannotReuseIt() throws Exception {
+        byte[] cached = new byte[] {3, 7, 11};
+        Files.write(tempDir.resolve("fixture.pdf_1.png"), cached);
+        Document document = new Document(); document.setDocfilename("fixture.pdf");
+        when(documentDao.getDocument("42")).thenReturn(document);
+        var route = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
+        route.setDemographicNo(20); route.setLabType("DOC");
+        when(patientLabRoutingDao.findDocByDemographic(42)).thenReturn(List.of(route));
+        authorizeEdocWrite();
+        LoggedInInfo allowed = LoggedInInfo.getLoggedInInfoFromSession(request);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(allowed, "_edoc", "r", "20")).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(allowed, 20)).thenReturn(true);
+        request.setParameter("method", "showPage"); request.setParameter("page", "1"); request.setParameter("doc_no", "42");
+        try (MockedStatic<PathValidationUtils> paths = cachePaths()) {
+            action.execute();
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsByteArray()).isEqualTo(cached);
+            request = new MockHttpServletRequest(); response = new MockHttpServletResponse();
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+            LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+            request.setParameter("method", "showPage"); request.setParameter("page", "1"); request.setParameter("doc_no", "42");
+            action = new TestManageDocument2Action(); action.execute();
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            verify(documentDao, Mockito.times(1)).getDocument("42");
+        }
+    }
+
     @Test
     void shouldCheckEveryPatientLink_whenOneLinkedPatientIsAllowedAndAnotherIsRestricted() {
         authorizeEdocWrite();
@@ -419,6 +521,28 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(20));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = { "showPage", "view", "viewDocPage", "display", "viewDocumentInfo",
+            "viewDocumentDescription", "viewAnnotationAcknowledgementTickler" })
+    void shouldDenyEveryDocumentReadBeforeCacheOrMetadata_whenPersistedProgramIsRestricted(String method) throws Exception {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(10))).thenReturn(true);
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(10)));
+        Document restricted = new Document(); restricted.setRestrictToProgram(true); restricted.setProgramId(17);
+        when(documentDao.find(42)).thenReturn(restricted);
+        request.setParameter("method", method); request.setParameter("page", "1"); request.setParameter("doc_no", "42");
+        request.setParameter("programId", "18");
+        try (MockedStatic<EDocUtil> metadata = mockStatic(EDocUtil.class);
+             MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            metadata.verifyNoInteractions(); paths.verifyNoInteractions();
+            verify(documentDao, Mockito.never()).getDocument(anyString());
+        }
+    }
+
     @Test
     void shouldRejectSecondSessionBeforeSharedCacheLookup_whenFirstSessionMayReadPatient() throws Exception {
         byte[] cached = new byte[] { 1, 2, 3, 4 };
@@ -431,6 +555,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         authorizeEdocWrite();
         LoggedInInfo first = LoggedInInfo.getLoggedInInfoFromSession(request);
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(first, "_edoc", "r", "10")).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(first, 10)).thenReturn(true);
         request.setParameter("method", "showPage");
         request.setParameter("page", "1");
@@ -507,6 +632,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     void shouldReturnNotFoundWithoutInspectingFiles_whenRequestedDocumentWasDeleted(String method) throws Exception {
         authorizeEdocWrite();
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), eq("10"))).thenReturn(true);
         when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic"))
                 .thenReturn(List.of(patientLink(10)));
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(10))).thenReturn(true);

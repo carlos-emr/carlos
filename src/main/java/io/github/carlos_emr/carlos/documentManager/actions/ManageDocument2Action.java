@@ -50,7 +50,6 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock;
-import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -896,11 +895,11 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
-    /** Checks every patient link before metadata, cached bytes, or source files are inspected. */
+    /** The same stored-source gate protects both the viewer and its direct metadata/image requests. */
     private void requireDocumentPatientAccess(HttpServletRequest currentRequest, String docNo) {
         response.setHeader("Cache-Control", "no-store");
         LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(currentRequest);
-        DocumentPatientLink.requireAccess(info, Integer.parseInt(docNo), securityInfoManager, ctlDocumentDao);
+        IncomingDocumentCapacityResponse.requireStoredDocumentReadAccess(securityInfoManager, info, Integer.parseInt(docNo));
     }
 
     /**

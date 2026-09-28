@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const {createHash} = require('node:crypto');
+const {createHash, randomBytes} = require('node:crypto');
 const h = require('./playwright-harness');
 const {fixturePdf} = require('../incoming-pdf-extraction-playwright-checks');
 const {execFileSync} = require('node:child_process');
@@ -34,8 +34,73 @@ function fileProof(file, store) {
 }
 function equal(actual, expected, message) {h.assert(JSON.stringify(actual) === JSON.stringify(expected), message);}
 
+/** Only proven non-document discriminator values may relax a legacy-name match. */
+function externalDocumentReferences(references, number, fields, known) {
+  const merged = new Map();
+  for (const [table, column, declared] of references) {
+    quote(table); quote(column);
+    h.assert(['0', '1'].includes(String(declared)), 'Reference provenance is unavailable');
+    const key = `${table}\0${column}`, previous = merged.get(key);
+    merged.set(key, {table, column, declared: String(declared) === '1' || Boolean(previous?.declared)});
+  }
+  const result = [];
+  for (const {table, column, declared} of merged.values()) {
+    if (known.has(table)) continue;
+    let condition = `${quote(column)}=${id(number)}`;
+    const types = {eformdocs: ['E', 'L', 'H'], consultdocs: ['E', 'L', 'F', 'H']}[table.toLowerCase()];
+    if (!declared && types && column.toLowerCase() === 'document_no') {
+      const discriminator = fields(table).filter(name => name.toLowerCase() === 'doctype');
+      if (discriminator.length === 1) {
+        const type = quote(discriminator[0]);
+        // NULL, unknown, lowercase, padded, and D values remain blocking references.
+        condition += ` AND (${type} IS NULL OR BINARY ${type} NOT IN (${types.map(h.sqlString).join(',')}))`;
+      }
+    }
+    result.push({table, condition});
+  }
+  return result;
+}
+
+function loadRecovery(options, expected) {
+  h.assert(options.browserDrainConfirmed === true, 'Explicit confirmed browser drain is required for recovery');
+  const journal = options.journal;
+  h.assert(typeof journal === 'string' && path.isAbsolute(journal) && path.basename(journal) === 'journal.json'
+    && /^stored-document-owned-[A-Za-z0-9]+$/.test(path.basename(path.dirname(journal)))
+    && path.dirname(path.dirname(journal)) === fs.realpathSync(os.tmpdir())
+    && fs.realpathSync(journal) === journal, 'Recovery journal must be the original private fixture journal');
+  for (const [file, directory] of [[path.dirname(journal), true], [journal, false]]) {
+    const info = fs.lstatSync(file);
+    h.assert(!info.isSymbolicLink() && (directory ? info.isDirectory() : info.isFile() && info.nlink === 1)
+      && info.uid === process.getuid() && (info.mode & 0o777) === (directory ? 0o700 : 0o600),
+    'Recovery journal ownership or permissions changed');
+  }
+  h.assert(/^[a-f0-9]{64}$/.test(options.expectedJournalSha256 || ''), 'Reviewed recovery journal SHA256 is required');
+  const before = fs.lstatSync(journal), bytes = fs.readFileSync(journal), after = fs.lstatSync(journal);
+  h.assert(before.dev === after.dev && before.ino === after.ino && before.size === after.size && before.mtimeMs === after.mtimeMs,
+    'Recovery journal changed while being read');
+  h.assert(createHash('sha256').update(bytes).digest('hex') === options.expectedJournalSha256,
+    'Recovery journal SHA256 differs from the reviewed journal');
+  const record = JSON.parse(bytes);
+  for (const key of ['marker', 'patient', 'provider', 'program', 'store']) {
+    h.assert(record[key] === expected[key], 'Recovery fixture identity differs from the reviewed identity');
+  }
+  h.assert(/^FAKE-PW[a-f0-9]{16}$/.test(record.marker) && id(record.sourceId) === id(options.expectedSourceId),
+    'Recovery document identity is not the reviewed fixture');
+  h.assert(record.phase === 'browser-drained' && record.initialised === true && record.closed === true
+    && record.uncertain === false && record.transportUncertain === false && record.cleaned === false
+    && record.acceptedSplitId === undefined && Array.isArray(record.removed) && record.removed.length === 0,
+  'Recovery requires an unambiguous drained fixture with no partial cleanup or split');
+  h.assert(Array.isArray(record.documents) && record.documents.length === 1
+    && record.documents[0][0] === record.sourceId && record.documents[0][1].file === expected.sourceFile,
+  'Recovery document/file scope changed');
+  h.assert(Array.isArray(record.baseline) && record.baseline.every(row => Array.isArray(row) && row.length === 2
+    && /^[1-9]\d*$/.test(row[0]) && /^[a-f0-9]{64}$/.test(row[1]) && row[0] !== record.sourceId),
+  'Recovery unrelated-document baseline is incomplete');
+  return record;
+}
+
 /** Exact ownership journal: uncertain operations are deliberately retained for recovery. */
-function createStoredDocumentFixture(session, program) {
+function createStoredDocumentFixture(session, program, recovery) {
   const {sql, marker, patient, provider} = session;
   id(patient); id(program);
   const configured = process.env.RX_FAX_DOCUMENT_DIR || process.env.DOCUMENT_DIR;
@@ -44,14 +109,14 @@ function createStoredDocumentFixture(session, program) {
   const cacheConfigured = process.env.DOCUMENT_CACHE_DIR || path.join(path.dirname(store), path.basename(store) + '_cache');
   const documents = new Map(), columns = new Map();
   const filename = `${marker}-stored.pdf`, sourceFile = path.join(store, filename);
-  let uncertain = false, initialised = false, closed = false, cleaned = false, transportUncertain = false, baseline, sourceId, journal, acceptedSplitId;
+  let uncertain = false, initialised = false, closed = false, cleaned = false, transportUncertain = false, baseline, sourceId, journal, acceptedSplitId, recoveryOf;
   const removed = [];
   function checkpoint(phase) {
     if (!journal) return;
     const content = JSON.stringify({marker, patient, provider, program, store, sourceId, acceptedSplitId, uncertain, initialised, closed, cleaned, transportUncertain, phase,
-      documents: [...documents], baseline, removed}, null, 2);
+      documents: [...documents], baseline, removed, recoveryOf}, null, 2);
     const temporary = journal + '.new';
-    fs.writeFileSync(temporary, content, {mode: 0o600});
+    fs.writeFileSync(temporary, content, {mode: 0o600, flag: 'wx'});
     const descriptor = fs.openSync(temporary, 'r');
     try {fs.fsyncSync(descriptor);} finally {fs.closeSync(descriptor);}
     fs.renameSync(temporary, journal);
@@ -93,17 +158,14 @@ function createStoredDocumentFixture(session, program) {
   }
   function noForeignReferences(number) {
     const known = new Set(Object.keys(tableKeys));
-    const references = sql.rows(`SELECT c.TABLE_NAME,c.COLUMN_NAME FROM information_schema.COLUMNS c
+    const references = sql.rows(`SELECT c.TABLE_NAME,c.COLUMN_NAME,0 AS declared_fk FROM information_schema.COLUMNS c
       JOIN information_schema.TABLES t ON t.TABLE_SCHEMA=c.TABLE_SCHEMA AND t.TABLE_NAME=c.TABLE_NAME
       WHERE c.TABLE_SCHEMA=DATABASE() AND t.TABLE_TYPE='BASE TABLE'
       AND LOWER(REPLACE(c.COLUMN_NAME,'_','')) IN ('documentno','documentid','docno','docid')
-      UNION SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE
+      UNION ALL SELECT TABLE_NAME,COLUMN_NAME,1 AS declared_fk FROM information_schema.KEY_COLUMN_USAGE
       WHERE TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME='document' AND REFERENCED_COLUMN_NAME='document_no'`);
     const guards = [];
-    for (const [table, column] of references) {
-      quote(table); quote(column);
-      if (known.has(table)) continue;
-      const condition = `${quote(column)}=${number}`;
+    for (const {table, condition} of externalDocumentReferences(references, number, fields, known)) {
       h.assert(sql.value(`SELECT COUNT(*) FROM ${quote(table)} WHERE ${condition}`) === '0',
         'Owned stored document acquired external references');
       guards.push(`NOT EXISTS(SELECT 1 FROM ${quote(table)} WHERE ${condition})`);
@@ -194,6 +256,24 @@ function createStoredDocumentFixture(session, program) {
     cleaned = true; checkpoint('cleaned');
     // Retain the private evidence journal, including committed/deleted identities.
   }
+  if (recovery) {
+    const saved = loadRecovery(recovery, {marker, patient, provider, program, store, sourceFile});
+    const tables = Object.keys(tableKeys).sort();
+    const record = saved.documents[0][1];
+    h.assert(record.snapshot && JSON.stringify(Object.keys(record.snapshot).sort()) === JSON.stringify(tables),
+      'Recovery row snapshot is incomplete');
+    for (const table of tables) {
+      h.assert(Array.isArray(record.snapshot[table]) && record.snapshot[table].every(row => Array.isArray(row)
+        && row.length === tableKeys[table].length + 1 && row.every(value => typeof value === 'string')
+        && /^[a-f0-9]{64}$/.test(row.at(-1))), 'Recovery full-row hash snapshot is invalid');
+    }
+    sourceId = saved.sourceId; baseline = saved.baseline;
+    documents.set(sourceId, record); initialised = true; closed = true;
+    recoveryOf = {journal: recovery.journal, sha256: recovery.expectedJournalSha256};
+    journal = path.join(path.dirname(recovery.journal), `recovery-${randomBytes(12).toString('hex')}.json`);
+    checkpoint('recovery-ready');
+    return {sourceId, journal, cleanup, isCleaned: () => cleaned};
+  }
   session.cleanup(async () => {
     try {await cleanup();}
     catch (error) {throw new Error(`Stored fixture recovery journal ${journal}: ${error.message}`, {cause: error});}
@@ -262,4 +342,12 @@ function createStoredDocumentFixture(session, program) {
     isCleaned() {return cleaned;},
   };
 }
-module.exports = {createStoredDocumentFixture, fileProof, inspect};
+
+/** Explicit operator recovery only; no browser or new fixture is started. Original evidence remains immutable. */
+async function recoverStoredDocumentFixture(session, program, options) {
+  h.assert(options && typeof options === 'object', 'Explicit reviewed recovery options are required');
+  const fixture = createStoredDocumentFixture(session, program, options);
+  await fixture.cleanup();
+  return {sourceId: fixture.sourceId, cleaned: fixture.isCleaned(), recoveryJournal: fixture.journal};
+}
+module.exports = {createStoredDocumentFixture, recoverStoredDocumentFixture, externalDocumentReferences, fileProof, inspect};

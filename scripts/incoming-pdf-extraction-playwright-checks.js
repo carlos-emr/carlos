@@ -56,12 +56,14 @@ async function workflow(s) {
   const unrelated = path.join(directory, `T${name}`);
   const owned = [];
   const pageEditGuard = createPageEditCleanupGuard({marker: s.marker, source, owned});
+  const filingGuard = createPageEditCleanupGuard({marker: s.marker, source, owned});
   const provider = h.sqlString(s.provider);
   const keys = ['incoming_document_default_queue', 'incoming_document_entry_mode', 'view_document_as'];
   const where = `provider_no=${provider} AND name IN(${keys.map(h.sqlString).join(',')})`;
   const preferences = s.sql.rows(`SELECT id,name,value,IF(value IS NULL,1,0) FROM property WHERE ${where} ORDER BY id`);
   s.cleanup(() => {
     pageEditGuard.assertCleanup();
+    filingGuard.assertCleanup();
     for (const file of owned) if (fs.existsSync(file)) fs.unlinkSync(file);
     const ids = preferences.map(row => row[0]);
     h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid preference fixture identity');
@@ -275,7 +277,7 @@ async function workflow(s) {
     }
   });
   await s.step('preserve filing inputs on uncertain acceptance and wait through five refusals before one installed filing',
-    () => checkIncomingFilingCapacity(s, page, name, source, inspect, {staleRevision: stalePageForm.fields.sourceRevision}));
+    () => checkIncomingFilingCapacity(s, page, name, source, inspect, {staleRevision: stalePageForm.fields.sourceRevision, guard: filingGuard}));
 }
 if (require.main === module) runWorkflow('incoming-pdf-extraction', workflow, { openPatient: true, openMaster: false });
 module.exports = { assertClassicPdfFinalized, fixturePdf, inspect, workflow };

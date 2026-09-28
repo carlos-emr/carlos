@@ -32,7 +32,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentAnnotationParser;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,8 +77,15 @@ class SaveAnnotatedDocument2ActionUnitTest extends CarlosUnitTestBase {
         securityInfoManager = mock(SecurityInfoManager.class);
         service = mock(AnnotatedDocumentService.class);
         links = mock(CtlDocumentDao.class);
+        Document stored = new Document();
+        stored.setDocumentNo(42);
+        stored.setRestrictToProgram(false);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        org.mockito.Mockito.when(createAndRegisterMock(DocumentDao.class).find(42)).thenReturn(stored);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), mock(LoggedInInfo.class));
     }
 
     private SaveAnnotatedDocument2Action action() {
@@ -115,6 +127,9 @@ class SaveAnnotatedDocument2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(403);
             pdf.verifyNoInteractions();
             verifyNoInteractions(service);
+            org.mockito.Mockito.verify(securityInfoManager).isAllowedAccessToPatientRecord(
+                    org.mockito.ArgumentMatchers.any(LoggedInInfo.class),
+                    org.mockito.ArgumentMatchers.eq(10));
         }
     }
 
@@ -179,6 +194,9 @@ class SaveAnnotatedDocument2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(403);
             documents.verifyNoInteractions();
             verifyNoInteractions(service);
+            org.mockito.Mockito.verify(securityInfoManager).isAllowedAccessToPatientRecord(
+                    org.mockito.ArgumentMatchers.any(LoggedInInfo.class),
+                    org.mockito.ArgumentMatchers.eq(20));
         }
     }
 

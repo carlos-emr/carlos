@@ -357,8 +357,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
      */
     @Override
     public List<Document> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.updatedatetime>?1 order by x.updatedatetime";
+        String sql = "select x from Document x where x.updatedatetime>?1 order by x.updatedatetime";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, updatedAfterThisDateExclusive);
@@ -417,8 +416,10 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     @Override
     public List<Document> findByProgramProviderDemographicUpdateDate(Integer programId, String providerNo,
                                                                      Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sql = "select d from " + modelClass.getSimpleName()
-                + " d, CtlDocument c where c.id.documentNo=d.documentNo and c.id.module='demographic' AND c.id.moduleId = ?1 and (d.programId=?2 or d.programId is null or d.programId=-1) and d.doccreator=?3 and d.updatedatetime>?4 order by d.updatedatetime";
+        String sql = "select d from Document d, CtlDocument c "
+                + "where c.id.documentNo=d.documentNo and c.id.module='demographic' AND c.id.moduleId = ?1 "
+                + "and (d.programId=?2 or d.programId is null or d.programId=-1) "
+                + "and d.doccreator=?3 and d.updatedatetime>?4 order by d.updatedatetime";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicId);

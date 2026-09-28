@@ -6,6 +6,10 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.IOException;
@@ -43,6 +47,12 @@ class AnnotateDocument2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         security = mock(SecurityInfoManager.class);
         links = mock(CtlDocumentDao.class);
+        Document stored = new Document();
+        stored.setDocumentNo(42);
+        stored.setRestrictToProgram(false);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        when(createAndRegisterMock(DocumentDao.class).find(42)).thenReturn(stored);
         when(security.hasPrivilege(eq(info), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull()))
                 .thenReturn(true);
     }

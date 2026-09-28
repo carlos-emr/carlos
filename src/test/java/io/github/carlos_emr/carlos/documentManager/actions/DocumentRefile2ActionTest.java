@@ -68,8 +68,13 @@ class DocumentRefile2ActionTest extends CarlosUnitTestBase {
             .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        var documents = mock(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class, documents);
+        when(documents.find(42)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document());
         registerMock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class,
                 mock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class));
         registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class,
                 mock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class));
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
