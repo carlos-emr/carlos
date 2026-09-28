@@ -77,8 +77,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *   <li><b>View.</b> A GET with {@code composeView} renders the stored state. It changes no session
  *       attribute, generates no file and consumes nothing, so a refresh or a repeated request shows
  *       the same compose screen. Consent, recipients and sender accounts are looked up again. The
- *       preview capabilities issued during preparation are reused, and one is re-issued only when it
- *       is about to expire (they last two minutes). Once a send consumes the submission token the
+ *       preview capabilities issued during preparation are reused, and one is re-issued once less
+ *       than half of its two minutes remains. Once a send consumes the submission token the
  *       view reports the window as expired, so going back cannot resend.</li>
  * </ol>
  *
@@ -127,8 +127,11 @@ public class EmailCompose2Action extends ActionSupport {
      * patient context; the eForm error page throws when it has neither.
      */
     public static final String COMPOSE_EXPIRED_RESULT = "composeExpired";
-    /** Re-issue a stored preview capability once less than this remains, so the page can load it. */
-    private static final Duration PREVIEW_REISSUE_MARGIN = Duration.ofSeconds(30);
+    /**
+     * Re-issue a stored preview capability once less than this remains, so a refreshed page's
+     * preview and its "open in new tab" link keep working for at least this long.
+     */
+    private static final Duration PREVIEW_REISSUE_MARGIN = PdfPreviewCapabilityService.TTL.dividedBy(2);
     private static final String DEMOGRAPHIC_ID_KEY = "demographicId";
 
     private static final String[] EMAIL_SESSION_KEYS = {
@@ -249,6 +252,8 @@ public class EmailCompose2Action extends ActionSupport {
         } catch (NumberFormatException e) {
             return composeExpired();
         }
+        // Before any of the patient's PDFs are generated.
+        requireDemographicRead(loggedInInfo, demographicNo);
 
         EmailComposeWorkingDirectory workingDirectory;
         try {
@@ -341,7 +346,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>transactionType, emailConsentName, emailConsentStatus, emailConsentMessageKey</li>
      *   <li>receiverName, receiverEmailList, invalidReceiverEmailList, senderAccounts</li>
      *   <li>emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken</li>
-     *   <li>emailAttachmentList (display copies with fresh preview tokens)</li>
+     *   <li>emailAttachmentList (display copies carrying each file's current preview token)</li>
      *   <li>senderEmail, subjectEmail, message, emailPatientChartOption, demographicId, fdid, fid</li>
      *   <li>openEFormAfterEmail, deleteEFormAfterEmail, isEmailEncrypted,
      *       isEmailAttachmentEncrypted, isEmailAutoSend</li>
@@ -366,6 +371,8 @@ public class EmailCompose2Action extends ActionSupport {
         EmailComposeView view = state.view();
         EmailComposeSubmissionContext context = state.context();
         int demographicNo = Integer.parseInt(context.demographicId());
+        // Before a preview capability is issued or anything about the patient is rendered.
+        requireDemographicRead(loggedInInfo, demographicNo);
 
         List<EmailAttachment> emailAttachmentList;
         try {
@@ -533,8 +540,8 @@ public class EmailCompose2Action extends ActionSupport {
 
     /**
      * Cleans up email-related session attributes.
-     * The prepare step takes these attributes itself; this remains for the other entry points
-     * that stage and abandon compose state, such as the Manage Emails resend flow.
+     * The prepare step takes these attributes itself. Any other caller removes whatever compose
+     * an eForm save has staged in this session, which may belong to another open window.
      *
      * @param request the HTTP servlet request containing the session to clean up
      * @since 2025-01-18
@@ -577,6 +584,17 @@ public class EmailCompose2Action extends ActionSupport {
         // remove a compose another window staged meanwhile.
         request.setAttribute("errorMessage", errorMessage);
         return "eFormError";
+    }
+
+    /**
+     * Requires read access to this patient's chart, honouring per-patient restrictions
+     * ({@code _demographic$<no>}). The attachment preparers check their own objects without a
+     * patient, and saving an eForm checks only {@code _eform}, so this is the patient-level check.
+     */
+    private void requireDemographicRead(LoggedInInfo loggedInInfo, int demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
     }
 
     /** Shows the expired page. It changes nothing, so it is safe from both prepare and view. */

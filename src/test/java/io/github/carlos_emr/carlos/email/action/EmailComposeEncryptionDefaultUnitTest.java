@@ -77,7 +77,10 @@ class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
         EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
-        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        // Preparation checks read access to the patient before generating anything.
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), anyInt())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");

@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.IssuedPreview;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
@@ -36,6 +37,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,6 +52,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -111,6 +114,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
         when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
                 "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
@@ -120,6 +124,27 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         stubEmptyAttachmentPreparation(emailComposeManager);
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
         return new ComposeMocks(emailComposeManager, emailPdfPasswordService, pdfPreviewCapabilityService);
+    }
+
+    /**
+     * Makes preparation generate one eForm PDF in the working directory, and stages the session
+     * to attach it. Returns the generated file's path once prepared.
+     */
+    private static AtomicReference<Path> stageOneEFormAttachment(ComposeMocks mocks, MockHttpServletRequest request)
+            throws Exception {
+        AtomicReference<Path> ownedPdf = new AtomicReference<>();
+        when(mocks.emailComposeManager().prepareEFormAttachments(any(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    EmailComposeWorkingDirectory workingDirectory = invocation.getArgument(3);
+                    Path owned = workingDirectory.adoptGeneratedPdf(Files.createTempFile("email-view-test-", ".pdf"));
+                    ownedPdf.set(owned);
+                    return new ArrayList<>(List.of(new EmailAttachment(
+                            "letter.pdf", owned.toString(), DocumentType.EFORM, 1)));
+                });
+        request.getSession(true).setAttribute("demographicId", "123");
+        request.getSession(false).setAttribute("attachEFormItSelf", true);
+        request.getSession(false).setAttribute("fdid", "456");
+        return ownedPdf;
     }
 
     private record ComposeMocks(EmailComposeManager emailComposeManager,
@@ -157,6 +182,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -207,7 +233,9 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EmailPdfPasswordService.class, mock(EmailPdfPasswordService.class));
-        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -297,6 +325,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -336,6 +365,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -573,6 +603,114 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                     assertThat(a.getPreviewToken()).isNull();
                 });
             }
+        }
+    }
+
+    @Test
+    @DisplayName("should re-issue a preview that still resolves once less than half its lifetime remains")
+    void shouldReissuePreview_whenLessThanHalfItsLifetimeRemains() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        AtomicReference<Path> ownedPdf = stageOneEFormAttachment(mocks, request);
+        PdfPreviewCapabilityService previews = mocks.pdfPreviewCapabilityService();
+        when(previews.issue(any(), any(), any())).thenReturn("preview-1", "preview-2");
+        // Every token still resolves: only its age decides.
+        when(previews.resolve(any(), any(), anyString())).thenAnswer(invocation -> ownedPdf.get());
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            Map<String, IssuedPreview> stored = composeSubmissionStateService.findView(request, viewId)
+                    .state().view().previews();
+            long halfLife = PdfPreviewCapabilityService.TTL.toMillis() / 2;
+
+            stored.put(ownedPdf.get().toString(), new IssuedPreview("preview-1", System.currentTimeMillis() - halfLife + 5_000));
+            MockHttpServletRequest young = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+            assertThat(attachments(young)).singleElement()
+                    .satisfies(a -> assertThat(a.getPreviewToken()).isEqualTo("preview-1"));
+
+            stored.put(ownedPdf.get().toString(), new IssuedPreview("preview-1", System.currentTimeMillis() - halfLife - 5_000));
+            MockHttpServletRequest old = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+            assertThat(attachments(old)).singleElement()
+                    .satisfies(a -> assertThat(a.getPreviewToken()).isEqualTo("preview-2"));
+            verify(previews, times(2)).issue(any(), any(), any());
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should show the expired page when a prepared file can no longer be previewed")
+    void shouldShowExpired_whenPreparedFileIsGone() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        stageOneEFormAttachment(mocks, request);
+        PdfPreviewCapabilityService previews = mocks.pdfPreviewCapabilityService();
+        // The stored capability no longer resolves, and a new one cannot be issued for a missing file.
+        when(previews.issue(any(), any(), any()))
+                .thenReturn("preview-1")
+                .thenThrow(new PDFGenerationException("PDF preview is unavailable"));
+        when(previews.resolve(any(), any(), anyString())).thenReturn(null);
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+
+            MockHttpServletRequest stale = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
+
+            assertThat(stale.getAttribute("errorMessage")).isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+            assertThat(stale.getAttribute("emailPDFPassword")).isNull();
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse to prepare a compose for a patient the provider cannot read, before generating any PDF")
+    void shouldRejectPrepare_whenPatientReadDenied() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        SecurityInfoManager restricted = mock(SecurityInfoManager.class);
+        when(restricted.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, restricted);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+
+            assertThatThrownBy(new EmailCompose2Action()::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verify(restricted).hasPrivilege(any(), eq("_demographic"), eq("r"), eq(123));
+            verify(mocks.emailComposeManager(), never()).prepareEFormAttachments(any(), any(), any(), any());
+            verify(mocks.pdfPreviewCapabilityService(), never()).issue(any(), any(), any());
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse a prepared view for a patient the provider can no longer read, before issuing a preview")
+    void shouldRejectView_whenPatientReadDenied() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        stageOneEFormAttachment(mocks, request);
+        when(mocks.pdfPreviewCapabilityService().issue(any(), any(), any())).thenReturn("preview-1");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            SecurityInfoManager restricted = mock(SecurityInfoManager.class);
+            when(restricted.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
+            registerMock(SecurityInfoManager.class, restricted);
+
+            assertThatThrownBy(() -> view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose"))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verify(mocks.pdfPreviewCapabilityService(), never()).resolve(any(), any(), any());
+            verify(mocks.pdfPreviewCapabilityService(), times(1)).issue(any(), any(), any());
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
         }
     }
 

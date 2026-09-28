@@ -40,14 +40,23 @@ separate chart composer is implemented, reviewed, and documented.
   saves the eForm and moves email options, attachment selections, and patient
   context into session state for the compose redirect.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailCompose2Action.java`
-  requires `_email` and works in two steps. The first request takes the staged
-  session state once, prepares the attachments and the one-time send token, and
-  redirects to `email/emailComposeAction?composeView=<id>`. That view URL
-  loads consent, recipients and active sender accounts and renders the compose
-  screen. Refreshing it shows the same compose screen, password and attachments
-  without preparing anything again; an attachment preview link is renewed only
-  when the old one is about to expire. Once the message has been sent, the view
-  reports the window as expired.
+  requires `_email` and read access to the patient (`_demographic`, including
+  per-patient restrictions), and works in two steps. The first request takes
+  the staged session state once, prepares the attachments and the one-time send
+  token, and redirects to `email/emailComposeAction?composeView=<id>`. That view
+  URL loads consent, recipients and active sender accounts and renders the
+  compose screen. Refreshing it shows the same compose screen, password and
+  attachments without preparing anything again; an attachment preview link is
+  renewed once less than a minute of its two minutes remains.
+  The window shows "This email compose window has expired" instead when:
+  - the message was sent or the compose was cancelled;
+  - 30 minutes have passed since it was prepared;
+  - eight newer compose windows were opened in the same session;
+  - the URL is opened in another session, including after logging in again;
+  - Tomcat restarted, or the request reached another server, because the
+    prepared state is held in that server's memory.
+  If preparing the attachments or storing the state fails, the provider is
+  returned to the eForm with a generic error instead.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailSend2Action.java`
   requires `_email`, collects compose fields, and calls `EmailManager`.
 - `src/main/java/io/github/carlos_emr/carlos/managers/EmailManager.java`

@@ -338,6 +338,10 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        // Preparation checks read access to the patient before generating anything.
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), anyInt())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
 
         EmailCompose2Action composeAction = new EmailCompose2Action();
 
