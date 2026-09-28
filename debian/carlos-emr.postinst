@@ -821,10 +821,11 @@ except ValueError:
         # them on. Alpha testers coming from OSCAR saw them as regressions (no
         # Rx fax, no eForm signature pad, no schedule notes/alerts, no tickler
         # edit, no document split/rotate, 2007 lab requisition, ...). The stock
-        # defaults now match the OSCAR installer. Same contract as the flips
-        # above: rewrite ONLY the exact old stock line of each key, ONLY on
-        # upgrade, ONLY once; the sentinel is written on fresh installs too so a
-        # value the operator sets later is never flipped back. A key defined
+        # defaults now match the OSCAR installer. Like the flips
+        # above: rewrite ONLY the exact old stock line of each key, ONLY
+        # once (whenever the sentinel is absent, see below); the sentinel is
+        # written on fresh installs too so a value the operator sets later is
+        # never flipped back. A key defined
         # more than once is skipped entirely (the later definition is the
         # operator's override). Keys that were
         # commented out in the old stock file (invoice_due_date,
@@ -838,7 +839,12 @@ except ValueError:
         # is not written, so the next configure retries.
         OSCAR_DEFAULTS_SENTINEL="${STATE}/.oscar-feature-defaults-migrated"
         if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OSCAR_DEFAULTS_SENTINEL}" ]; then
-            if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ]; then
+            # Not gated on an old version ($2): purge KEEPS carlos.properties
+            # (it holds the encryption key) but removes this sentinel, so a
+            # purge-then-reinstall arrives with no $2 and the old stock lines
+            # still in place. A genuinely fresh install has the new skeleton,
+            # which matches none of the old lines, so only the sentinel lands.
+            if [ -f "${PROPERTIES}" ]; then
                 while IFS='|' read -r old_line new_line; do
                     [ -n "${old_line}" ] || continue
                     # Only a key defined exactly once is the untouched stock
