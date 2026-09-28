@@ -32,7 +32,7 @@ import java.util.Locale;
 /**
  * Field readers shared by the portal response types.
  *
- * <p>Two kinds of reader live here, and the distinction is the point:
+ * <p>Three kinds of reader live here, and the distinction is the point:
  *
  * <ul>
  *   <li><b>Optional readers</b> ({@link #text}) return

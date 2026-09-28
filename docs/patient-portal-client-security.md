@@ -63,8 +63,9 @@ The transport allows four concurrent exchanges per client and has no request
 queue. `patient_portal.timeout.request.ms` defaults to 20000 and must be positive
 and at most 59000: the 60-second assertion lifetime, less one second because the
 assertion's times are rounded down to whole seconds. It bounds the caller's wait
-through connection establishment and body reading, in addition to the connect/read inactivity timeouts. On expiration
-or interruption, CARLOS cancels the underlying HTTP request. A worker that does
+through connection establishment and body reading, in addition to the
+connect/read inactivity timeouts. On expiration or interruption, CARLOS cancels
+the underlying HTTP request. A worker that does
 not respond to cancellation retains its slot until it actually exits, preventing
 unbounded replacement threads. A timed-out mutation may already have applied;
 check current state before retrying.

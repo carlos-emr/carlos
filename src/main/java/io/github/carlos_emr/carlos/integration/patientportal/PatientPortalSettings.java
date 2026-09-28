@@ -147,7 +147,7 @@ public record PatientPortalSettings(
      * @throws PatientPortalConfigurationException if the portal is unconfigured or misconfigured
      */
     public static PatientPortalSettings fromCarlosProperties() {
-        return fromProperties(key -> CarlosProperties.getInstance().getProperty(key));
+        return fromProperties(PatientPortalSettings::rawProperty);
     }
 
     /**
@@ -155,7 +155,17 @@ public record PatientPortalSettings(
      * validation so they produce a configuration error instead of looking like an absent portal.
      */
     public static boolean isConfigured() {
-        return isConfigured(key -> (String) CarlosProperties.getInstance().get(key));
+        return isConfigured(PatientPortalSettings::rawProperty);
+    }
+
+    /**
+     * Reads a value as written, bypassing {@code CarlosProperties.getProperty}. That method logs a
+     * WARN for every unset key, and it drops, and logs verbatim, any value beginning with a
+     * deprecated {@code oscar.} namespace: a random service token could begin that way and land in
+     * the log. Every portal key has its own default or is required, so nothing is lost.
+     */
+    private static String rawProperty(String key) {
+        return (String) CarlosProperties.getInstance().get(key);
     }
 
     static boolean isConfigured(Function<String, String> lookup) {

@@ -53,7 +53,8 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
-import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.client5.http.ssl.HostnameVerificationPolicy;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
@@ -143,12 +144,15 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                         .setMaxConnPerRoute(MAX_CONCURRENT_REQUESTS)
                         .setDefaultConnectionConfig(connectionConfig);
         logger.info(PINNING_ON, certificatePins.size());
-        // Keep the default hostname verifier and explicitly require modern TLS.
-        SSLConnectionSocketFactoryBuilder socketFactoryBuilder =
-                SSLConnectionSocketFactoryBuilder.create()
+        // Explicitly require modern TLS, and verify the hostname twice. BOTH sets the "HTTPS"
+        // endpoint-identification algorithm, so the platform trust manager behind the pin checks
+        // the name during the handshake, and HttpClient's default verifier checks it again after.
+        connectionManagerBuilder.setTlsSocketStrategy(
+                ClientTlsStrategyBuilder.create()
                         .setTlsVersions(TLS.V_1_2, TLS.V_1_3)
-                        .setSslContext(sslContext);
-        connectionManagerBuilder.setSSLSocketFactory(socketFactoryBuilder.build());
+                        .setSslContext(sslContext)
+                        .setHostVerificationPolicy(HostnameVerificationPolicy.BOTH)
+                        .buildClassic());
         PoolingHttpClientConnectionManager connectionManager = connectionManagerBuilder.build();
         RequestConfig requestConfig =
                 RequestConfig.custom()
@@ -248,7 +252,7 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     private static SSLContext pinnedContext(Set<String> certificatePins) {
         try {
             // "TLS" means "the provider's best supported version". Naming a fixed version here
-            // would freeze this channel at it; the floor is expressed on the socket factory above
+            // would freeze this channel at it; the floor is expressed on the TLS strategy above
             // via setTlsVersions, which is where it belongs.
             SSLContext context = SSLContext.getInstance("TLS");
             context.init(

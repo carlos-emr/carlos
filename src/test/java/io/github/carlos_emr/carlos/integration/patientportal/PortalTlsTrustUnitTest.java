@@ -247,7 +247,10 @@ class PortalTlsTrustUnitTest {
             String origin = startServer(otherHost);
             try (var transport = new PatientPortalHttpClientExchange(quick(), quick(),
                     Set.of(PortalCertificatePinning.pinFor(otherHost.certificate())))) {
-                assertThatThrownBy(() -> transport.send(request(origin))).isInstanceOf(IOException.class);
+                // Both the handshake's endpoint check and HttpClient's verifier name the SANs.
+                assertThatThrownBy(() -> transport.send(request(origin)))
+                        .isInstanceOf(IOException.class)
+                        .hasStackTraceContaining("subject alternative names");
             }
             assertThat(requestsReceived.get()).isZero();
         }

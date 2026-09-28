@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * The authenticated envelope every portal call shares.
@@ -301,23 +301,25 @@ class PatientPortalServiceUnitTest {
          * what happened, and "may or may not have been applied" would send staff chasing a contract
          * change during what is really throttling or an outage.
          */
-        @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"too large", "not UTF-8"})
-        @DisplayName("should classify an unreadable error body by its status")
-        void shouldMapUnreadableErrorBody_byItsStatus(String failure) {
-            PatientPortalException throttled = catchThrowableOfType(
-                    () -> service(request -> { throw unreadable(failure, 429); })
-                            .listInvites(123, staff()),
-                    PatientPortalException.class);
-            PatientPortalException unknownOutcome = catchThrowableOfType(
-                    () -> service(request -> { throw unreadable(failure, 200); })
-                            .listInvites(123, staff()),
-                    PatientPortalException.class);
+        @ParameterizedTest(name = "{0} body, HTTP {1}")
+        @CsvSource({
+            "too large, 429, THROTTLED",
+            "not UTF-8, 429, THROTTLED",
+            "too large, 404, NOT_FOUND_OR_UNAUTHENTICATED",
+            "not UTF-8, 503, UNEXPECTED_STATUS",
+            "too large, 200, MALFORMED_RESPONSE",
+            "not UTF-8, 201, MALFORMED_RESPONSE"
+        })
+        @DisplayName("should classify an unreadable body by its status unless the status is success")
+        void shouldMapUnreadableBody_byItsStatus(String failure, int statusCode, Kind expected) {
+            PatientPortalException exception = catchThrowableOfType(
+                    PatientPortalException.class,
+                    () -> service(request -> { throw unreadable(failure, statusCode); })
+                            .listInvites(123, staff()));
 
-            assertThat(throttled.kind()).isEqualTo(Kind.THROTTLED);
-            assertThat(throttled.statusCode()).isEqualTo(429);
-            assertThat(unknownOutcome.kind()).isEqualTo(Kind.MALFORMED_RESPONSE);
-            assertThat(unknownOutcome.statusCode()).isEqualTo(200);
+            assertThat(exception).isNotNull();
+            assertThat(exception.kind()).isEqualTo(expected);
+            assertThat(exception.statusCode()).isEqualTo(statusCode);
         }
 
         private java.io.IOException unreadable(String failure, int statusCode) {

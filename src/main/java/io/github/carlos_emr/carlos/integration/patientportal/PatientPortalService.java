@@ -728,7 +728,7 @@ public class PatientPortalService implements Closeable {
      */
     private static PatientPortalException unreadableBody(
             int statusCode, String template, PortalContractException cause) {
-        if (statusCode < 200 || statusCode >= 300) {
+        if (!PatientPortalHttpResponse.isSuccess(statusCode)) {
             return PatientPortalException.ofStatus(statusCode, template, null);
         }
         return PatientPortalException.ofMalformedResponse(statusCode, template, cause);
