@@ -33,6 +33,9 @@ run the updated acknowledgement code to participate in this coordination protoco
 metadata when the idempotent V1.0.21 creation finds a pre-existing coordination table.
 `V1.0.24__add_email_consent_audit.sql` records the consent decision enforced for each
 provider-to-patient email attempt.
+`V1.0.25__add_sms_system_of_record.sql` creates the SMS system-of-record tables and seeds the
+`_msgSMS` security object (read a stored message body).
+
 `V1.0.26__widen_email_config_for_encrypted_credentials.sql` expands email configuration storage
 to TEXT so encrypted credentials fit even when the plaintext configuration filled the old column.
 
@@ -50,6 +53,17 @@ must be rebuilt or explicitly reconciled before adopting this migration: Flyway
 `repair` alone does not apply changed table definitions. See the
 [archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
 retirement semantics, and failure investigation.
+
+`V1.0.31__add_sms_security_objects.sql` seeds the `_sms` and `_admin.sms` security objects and
+their default grants (admin and doctor on `_sms`, admin on `_admin.sms`); existing clinic grants
+are preserved. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#security-objects).
+
+`V1.0.32__add_sms_consent.sql` seeds the dedicated `sms_communication_consent` consent type and the
+`sms_communication` property that points outbound SMS at it, and adds the consent audit snapshot
+columns (`consent_status`, `consent_id`, `consent_last_update_date`) to `sms_transaction`. The consent
+type is seeded inactive until its wording has compliance sign-off, so SMS stays blocked as not
+configured until it is activated, and then for each patient until their consent is recorded.
+See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
 
 `V1.0.33__one_live_consent_per_type.sql` leaves at most one live `Consent` row per patient and
 consent type, then adds a unique key that keeps it that way. It first fills NULL flags, retires

@@ -31,6 +31,8 @@ migration/
            V1.0.26__widen_email_config_for_encrypted_credentials.sql
            V1.0.27__prepare_outbound_email_archive_reference_engines.sql
            V1.0.28__outbound_email_archive.sql
+           V1.0.31__add_sms_security_objects.sql  # 29-30 were held by open PRs; see common/README.md
+           V1.0.32__add_sms_consent.sql
            V1.0.33__one_live_consent_per_type.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
@@ -47,11 +49,8 @@ migration/
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
 `V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.33`
-(`common/V1.0.33`, shared by both provinces). The numbers below it are held by work that must
-merge first: `V1.0.29` by `release/2026.08` (arrives with that line's forward-merge), `V1.0.30` by
-the portal client (#3478), `V1.0.31` by portal invite delivery (#3856) and `V1.0.32` by portal
-email delivery (#3681). The next free number for ANY location — shared or province — is
-`V1.0.34`. The version line is global:
+(`common/V1.0.33`, shared by both provinces), and the next free number for ANY
+location — shared or province — is `V1.0.34`. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
 run — `common/V1.0.33` on both provinces once this line is merged. A hypothetical new `bc/V1.0.11` would
