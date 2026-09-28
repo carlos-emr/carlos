@@ -23,6 +23,9 @@ package io.github.carlos_emr.carlos.documentManager.annotation;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -43,6 +46,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * abandoned parse finished — the timeout was inert for exactly the case it existed to bound.
  * These tests measure behaviour rather than inspect structure for that reason.
  */
+@Isolated("Exercises the process-wide PDF worker semaphore")
+@Execution(ExecutionMode.SAME_THREAD)
 @Tag("unit")
 @Tag("document")
 @DisplayName("BoundedPdfTask")
@@ -50,33 +55,35 @@ class BoundedPdfTaskUnitTest {
 
     @Test
     @DisplayName("should release the caller at the deadline when the task ignores interruption")
-    void shouldReleaseCaller_whenTaskIgnoresInterruption() {
+    void shouldReleaseCaller_whenTaskIgnoresInterruption() throws Exception {
         long startedAt = System.nanoTime();
-        // Latched rather than a fixed 4s spin: the abandoned worker cannot be killed, so a
-        // hard-coded duration left it burning a core and holding one of the global parse permits
-        // for seconds after this test returned, slowing every test that ran next.
         CountDownLatch release = new CountDownLatch(1);
-
-        assertThatThrownBy(() -> BoundedPdfTask.runWithin(1, "test-deadline", () -> {
-            // Ignores interruption on purpose -- that is the condition under test.
-            while (release.getCount() > 0) {
-                Thread.onSpinWait();
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch finished = new CountDownLatch(1);
+        try {
+            assertThatThrownBy(() -> BoundedPdfTask.runWithin(1, "test-deadline", () -> {
+                entered.countDown();
+                try {
+                    // Deliberately ignores interruption, like a CPU-bound PDF parser.
+                    while (release.getCount() > 0) {
+                        Thread.onSpinWait();
+                    }
+                    return 1;
+                } finally {
+                    finished.countDown();
+                }
+            })).isInstanceOf(IOException.class).hasMessageContaining("too long");
+            long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            assertThat(elapsedMs)
+                    .as("the caller returns at its deadline while the worker remains occupied")
+                    .isLessThan(2_500L);
+        } finally {
+            // Even a failed timing assertion must not leave a busy-spin worker behind.
+            release.countDown();
+            if (entered.getCount() == 0) {
+                assertThat(finished.await(5, TimeUnit.SECONDS)).isTrue();
             }
-            return 1;
-        }))
-                .isInstanceOf(IOException.class)
-                .hasMessageContaining("too long");
-
-        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
-        // The worker runs for 4s regardless — it cannot be killed. What must not happen is the
-        // CALLER waiting for it, which is what shutting the executor down with close() did.
-        assertThat(elapsedMs)
-                .as("the request thread must come back at the deadline, not when the parse ends")
-                .isLessThan(2_500L);
-
-        // Let the abandoned worker finish now that the measurement is taken, so it returns its
-        // permit instead of outliving the test.
-        release.countDown();
+        }
     }
 
     @Test
@@ -138,77 +145,90 @@ class BoundedPdfTaskUnitTest {
     }
 
     @Test
-    @DisplayName("should refuse a new parse when every permit is held by one already running")
-    // Sonar S2925: both sleeps are backoff, not synchronisation. What is being waited on is a
-    // permit held by another thread in a global semaphore, which exposes no event to await; the
-    // alternatives are spinning without backoff or adding an Awaitility dependency for one test.
-    @SuppressWarnings("java:S2925") // backoff against a global semaphore; no awaitable event exists
-    void shouldRefuseParse_whenAllPermitsHeld() throws Exception {
-        int permits = BoundedPdfTask.maxConcurrentParses();
-        CountDownLatch hold = new CountDownLatch(1);
-        CountDownLatch holding = new CountDownLatch(permits);
-        ExecutorService callers = Executors.newFixedThreadPool(permits);
-
+    @DisplayName("should wait fairly across callers, bound admission, and recover after timeout and interruption")
+    void shouldWaitFairlyAndBoundAdmission_whenManySessionsShareWorkers() throws Exception {
+        int capacity = BoundedPdfTask.maxConcurrentParses();
+        int waitingCapacity = 2 * capacity;
+        CountDownLatch occupied = new CountDownLatch(capacity);
+        java.util.concurrent.Semaphore releaseWorkers = new java.util.concurrent.Semaphore(0);
+        java.util.concurrent.BlockingQueue<Integer> started = new java.util.concurrent.LinkedBlockingQueue<>();
+        java.util.List<CountDownLatch> releaseWaiters = new java.util.ArrayList<>();
+        java.util.List<java.util.concurrent.Future<Integer>> completed = new java.util.ArrayList<>();
+        ExecutorService callers = Executors.newFixedThreadPool(capacity + waitingCapacity);
+        Thread interrupted = null;
         try {
-            // Fill the permits with tasks that block until released. Deliberately does NOT assert
-            // how many are taken: a permit is held by the WORKER, so a spun-down parse from an
-            // earlier test in this class can still hold one. What matters is only that once they
-            // are exhausted, the next caller is refused rather than queued.
-            for (int i = 0; i < permits; i++) {
-                callers.submit(() -> {
-                    // Retries until it actually holds a permit. The suite runs in parallel and
-                    // the semaphore is global, so a caller refused because another test held a
-                    // permit must come back for it — otherwise the permits drain again and this
-                    // test observes no refusal at all, which is how it first went flaky.
-                    long giveUp = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
-                    while (System.nanoTime() < giveUp) {
-                        try {
-                            BoundedPdfTask.runWithin(60, "test-hold", () -> {
-                                holding.countDown();
-                                hold.await();
-                                return 1;
-                            });
-                            return;
-                        } catch (IOException busy) {
-                            try {
-                                Thread.sleep(20);
-                            } catch (InterruptedException e) {
-                                Thread.currentThread().interrupt();
-                                return;
-                            }
-                        } catch (Exception other) {
-                            return;
-                        }
-                    }
-                });
+            for (int i = 0; i < capacity; i++) {
+                completed.add(callers.submit(() -> BoundedPdfTask.runWithin(60, "occupied-session", () -> {
+                    occupied.countDown();
+                    releaseWorkers.acquire();
+                    return 1;
+                })));
             }
+            assertThat(occupied.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> BoundedPdfTask.runWithin(5, "admission-timeout", () -> 1, 1))
+                    .isInstanceOf(BoundedPdfTask.BusyException.class);
 
-            assertThat(holding.await(30, TimeUnit.SECONDS))
-                    .as("every permit should be held before a refusal can be expected").isTrue();
-
-            // Poll rather than sleep a fixed time: the refusal is the observable we want.
-            IOException refusal = null;
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
-            while (System.nanoTime() < deadline && refusal == null) {
+            CountDownLatch sawInterrupt = new CountDownLatch(1);
+            java.util.concurrent.atomic.AtomicBoolean flagPreserved = new java.util.concurrent.atomic.AtomicBoolean();
+            interrupted = new Thread(() -> {
                 try {
-                    BoundedPdfTask.runWithin(5, "test-overflow", () -> 1);
-                    Thread.sleep(50);
-                } catch (IOException e) {
-                    refusal = e;
+                    BoundedPdfTask.runWithin(5, "interrupted-admission", () -> 1);
+                } catch (IOException expected) {
+                    flagPreserved.set(Thread.currentThread().isInterrupted());
+                    sawInterrupt.countDown();
                 }
+            });
+            interrupted.start();
+            awaitQueued(1);
+            interrupted.interrupt();
+            assertThat(sawInterrupt.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(flagPreserved).isTrue();
+            interrupted.join(5000);
+            awaitQueued(0);
+
+            // Filling every waiting slot after both exits proves neither path leaked one.
+            for (int i = 0; i < waitingCapacity; i++) {
+                int session = i;
+                CountDownLatch finish = new CountDownLatch(1);
+                releaseWaiters.add(finish);
+                completed.add(callers.submit(() -> BoundedPdfTask.runWithin(60, "queued-session-" + session, () -> {
+                    started.add(session);
+                    finish.await();
+                    return 1;
+                })));
+                awaitQueued(i + 1);
             }
+            long before = System.nanoTime();
+            assertThatThrownBy(() -> BoundedPdfTask.runWithin(5, "overflow-session", () -> 1))
+                    .isInstanceOf(BoundedPdfTask.BusyException.class);
+            assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - before)).isLessThan(1000);
 
-            assertThat(refusal)
-                    .as("with every permit held, a further parse must be refused immediately")
-                    .isNotNull();
-            assertThat(refusal).hasMessageContaining("busy");
+            // Release one worker at a time: callers must enter in their queued order.
+            for (int i = 0; i < waitingCapacity; i++) {
+                if (i < capacity) releaseWorkers.release();
+                else releaseWaiters.get(i - capacity).countDown();
+                assertThat(started.poll(5, TimeUnit.SECONDS)).isEqualTo(i);
+            }
         } finally {
-            hold.countDown();
+            if (interrupted != null) interrupted.interrupt();
+            releaseWorkers.release(capacity);
+            releaseWaiters.forEach(CountDownLatch::countDown);
             callers.shutdown();
-            assertThat(callers.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+            assertThat(callers.awaitTermination(35, TimeUnit.SECONDS)).isTrue();
         }
+        for (java.util.concurrent.Future<Integer> future : completed) {
+            assertThat(future.get(1, TimeUnit.SECONDS)).isEqualTo(1);
+        }
+        // The caller beyond workers + waiters completes when it retries, with no capacity loss.
+        assertThat(BoundedPdfTask.runWithin(5, "overflow-session-retry", () -> 42)).isEqualTo(42);
+    }
 
-        // Permits are returned once the workers finish, so the next parse succeeds.
-        assertThat(BoundedPdfTask.runWithin(5, "test-after", () -> 42)).isEqualTo(42);
+    @SuppressWarnings("java:S2925") // bounded polling observes the real semaphore wait queue
+    private static void awaitQueued(int expected) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (BoundedPdfTask.queuedTaskCount() != expected && System.nanoTime() < deadline) {
+            Thread.sleep(5);
+        }
+        assertThat(BoundedPdfTask.queuedTaskCount()).isEqualTo(expected);
     }
 }

@@ -647,6 +647,87 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void capacityResponseIsTypedRetryable503WithoutExposingRendererDetails() throws Exception {
+        prepareCapacityRequest();
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, null))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("private renderer details", true));
+        action.execute();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getHeader("Retry-After")).isEqualTo("2");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(json.path("errorCode").asText()).isEqualTo("eform_render_busy");
+        assertThat(json.path("retryable").asBoolean()).isTrue();
+        assertThat(json.path("retryAfterSeconds").asInt()).isEqualTo(2);
+        assertThat(json.path("renderApproval").isNull()).isTrue();
+        assertThat(response.getContentAsString()).doesNotContain("private renderer details", "base64Data");
+    }
+
+    @Test
+    void capacityResponseRotatesConsumedApprovalForSameScope() throws Exception {
+        prepareCapacityRequest();
+        request.setParameter("renderApproval", "spent");
+        EFormRenderApproval consumed = org.mockito.Mockito.mock(EFormRenderApproval.class);
+        when(mockEFormRenderApprovalService.consume(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, "spent")).thenReturn(consumed);
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, consumed))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("busy", true));
+        when(mockEFormRenderApprovalService.reissueAfterCapacity(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, consumed)).thenReturn("replacement");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).contains("\"renderApproval\":\"replacement\"").doesNotContain("spent");
+        verify(mockEFormRenderApprovalService).reissueAfterCapacity(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, consumed);
+    }
+
+    @Test
+    void capacityResponseDropsConsentThatExpiredWhileAwaitingAdmission() throws Exception {
+        prepareCapacityRequest();
+        request.setParameter("renderApproval", "spent");
+        EFormRenderApproval consumed = org.mockito.Mockito.mock(EFormRenderApproval.class);
+        when(mockEFormRenderApprovalService.consume(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, "spent")).thenReturn(consumed);
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, consumed))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("busy", true));
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).contains("\"renderApproval\":null").doesNotContain("spent");
+    }
+
+    @Test
+    void permanentFailureDoesNotReissueConsumedConsentOrInviteRetry() throws Exception {
+        prepareCapacityRequest();
+        request.setParameter("renderApproval", "spent");
+        EFormRenderApproval consumed = org.mockito.Mockito.mock(EFormRenderApproval.class);
+        when(mockEFormRenderApprovalService.consume(request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, "spent")).thenReturn(consumed);
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, consumed))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("bad PDF"));
+        action.execute();
+        assertThat(response.getContentAsString()).contains("eform_render_failed").doesNotContain("retryable", "renderApproval");
+        verify(mockEFormRenderApprovalService, never()).reissueAfterCapacity(any(), any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any());
+    }
+
+    @Test
+    void invalidConsentRemainsForbiddenWithoutRenderingOrRetry() throws Exception {
+        prepareCapacityRequest();
+        request.setParameter("renderApproval", "invalid");
+        action.execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).contains("eform_approval_invalid").doesNotContain("retryable");
+        verifyNoInteractions(mockDocumentAttachmentManager);
+        verify(mockEFormRenderApprovalService, never()).reissueAfterCapacity(any(), any(), org.mockito.ArgumentMatchers.anyInt(), any(), any(), any());
+    }
+
+    private void prepareCapacityRequest() {
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+        request.setParameter("demographicNo", "123");
+        when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
+    }
+
+    @Test
     @DisplayName("should deliver the eForm PDF and disclose a contained-interaction advisory")
     void shouldDeliverEformPdf_andDiscloseContainedInteractionAdvisory() throws Exception {
         // Suppressed dialogs are advisory because they remove no PDF content, but the client still

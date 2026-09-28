@@ -2006,7 +2006,6 @@ class EFormBrowserPdfServiceUnitTest {
 
         @Test
         @DisplayName("should release a render whose only conditions are advisory")
-        @Disabled("issue #3235: #3193 made severeConsoleErrors withhold; this pins the intended advisory behaviour and goes green again when the in-flight #3235 production fix restores it — re-enable there")
         void shouldRelease_whenOnlyAdvisoryConditionsPresent() {
             // Suppressed dialogs and failed legacy timers are reported but never withhold, so an
             // approval is not required and none is supplied. Severe page-script errors are not part

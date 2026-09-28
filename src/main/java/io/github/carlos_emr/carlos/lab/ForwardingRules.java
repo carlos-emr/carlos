@@ -62,10 +62,16 @@ public class ForwardingRules {
     }
 
     public ArrayList<ArrayList<String>> getProviders(String providerNo) {
+        return getProviders(providerNo, null);
+    }
+
+    /** Returns only recipients whose rule includes this report source; null lists all for the editor. */
+    public ArrayList<ArrayList<String>> getProviders(String providerNo, String labType) {
         ArrayList<ArrayList<String>> ret = new ArrayList<ArrayList<String>>();
         IncomingLabRulesDao dao = SpringUtils.getBean(IncomingLabRulesDao.class);
 
         for (Object[] i : dao.findRules(providerNo)) {
+            if (!appliesTo((IncomingLabRules) i[0], labType)) continue;
             Provider p = (Provider) i[1];
 
             ArrayList<String> info = new ArrayList<String>();
@@ -78,14 +84,29 @@ public class ForwardingRules {
     }
 
     public String getStatus(String providerNo) {
+        return getStatus(providerNo, null);
+    }
+
+    /** A rule for another source must not automatically file this report. */
+    public String getStatus(String providerNo, String labType) {
         String ret = "N";
         IncomingLabRulesDao dao = SpringUtils.getBean(IncomingLabRulesDao.class);
         List<IncomingLabRules> rules = dao.findCurrentByProviderNo(providerNo);
-        if (!rules.isEmpty()) {
-            IncomingLabRules rule = rules.get(0);
-            ret = rule.getStatus();
+        for (IncomingLabRules rule : rules) {
+            if (appliesTo(rule, labType)) {
+                ret = rule.getStatus();
+                break;
+            }
         }
         return ret;
+    }
+
+    private static boolean appliesTo(IncomingLabRules rule, String labType) {
+        if (labType == null) return true;
+        // Forwarding categories are HL7 (including legacy CML/MDS/BCP labs), DOC and HRM.
+        // Rows predating source selection have no type children and retain all three categories.
+        String category = "DOC".equals(labType) || "HRM".equals(labType) ? labType : "HL7";
+        return rule.getForwardTypeStrings().contains(category);
     }
 
     public boolean isSet(String providerNo) {

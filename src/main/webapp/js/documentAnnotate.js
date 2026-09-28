@@ -80,6 +80,14 @@
     var pagesEl = document.getElementById('pages');
     var statusEl = document.getElementById('status');
 
+    // Images and text extraction share the server's bounded PDF workers. A smooth jump
+    // across a long fax must not start work for every intermediate page at once.
+    var MAX_DOCUMENT_REQUESTS = 4;
+    var documentRequestsInFlight = 0;
+    var failedWordBoxes = {};
+    var viewerInactive = false;
+    var capacityWaits = [];
+
     function t(key, fallback) {
         return (cfg.i18n && cfg.i18n[key]) ? cfg.i18n[key] : fallback;
     }
@@ -100,23 +108,12 @@
             var img = document.createElement('img');
             img.className = 'pending';
             img.alt = t('pageLabel', 'Page') + ' ' + page;
-            img.loading = page <= 2 ? 'eager' : 'lazy';
+            // Our viewport scheduler owns demand. Native lazy loading could hold a slot
+            // without starting its request after the provider scrolls away from the page.
+            img.loading = 'eager';
             img.dataset.page = String(page);
-            img.addEventListener('load', function () {
-                this.classList.remove('pending');
-                this.parentNode.classList.remove('load-failed');
-                sizeOverlay(this.parentNode);
-                // A loaded page grows from its placeholder height and pushes the pages after it
-                // down. Pages that were near the viewport a moment ago may be off it now, and
-                // others may have come into it, with no scroll event to notice. Without this a
-                // jump to the end of a long fax left the last pages blank until the next scroll.
-                scheduleVisiblePageLoad();
-            });
-            img.addEventListener('error', function () {
-                this.parentNode.classList.add('load-failed');
-                setStatus(t('pageLoadFailed', 'Page {0} could not be loaded. Reload the viewer before annotating it.')
-                    .replace('{0}', this.dataset.page), 'error');
-            });
+            img.addEventListener('load', pageImageLoaded);
+            img.addEventListener('error', pageImageFailed);
 
             var svg = document.createElementNS(SVG_NS, 'svg');
             svg.setAttribute('class', 'overlay');
@@ -137,6 +134,154 @@
         loadVisiblePages();
     }
 
+    function finishPageImage(img, cancelled) {
+        var requested = img.dataset.loadingUrl;
+        if (!requested) { return false; }
+        delete img.dataset.loadingUrl;
+        if (img.dataset.objectUrl) {
+            URL.revokeObjectURL(img.dataset.objectUrl);
+            delete img.dataset.objectUrl;
+        }
+        documentRequestsInFlight--;
+        scheduleVisiblePageLoad();
+        if (cancelled || requested !== pageImageUrl(img.dataset.page)) {
+            // Zoom changed while rendering. Keep the permit until that request finishes;
+            // aborting the browser image does not stop the server's PDF worker.
+            img.removeAttribute('src');
+            delete img.dataset.imageUrl;
+            return false;
+        }
+        return true;
+    }
+
+    function pageImageLoaded() {
+        if (!finishPageImage(this)) { return; }
+        this.classList.remove('pending');
+        this.parentNode.classList.remove('load-failed');
+        sizeOverlay(this.parentNode);
+    }
+
+    function pageImageFailed(error) {
+        if (!finishPageImage(this, viewerInactive || (error && error.documentRequestCancelled))) { return; }
+        this.parentNode.classList.add('load-failed');
+        setStatus(t('pageLoadFailed', 'Page {0} could not be loaded. Reload the viewer before annotating it.')
+                .replace('{0}', this.dataset.page), 'error');
+    }
+
+    function requestCancelled() {
+        var error = new Error('Document request is no longer needed');
+        error.documentRequestCancelled = true;
+        return error;
+    }
+
+    function waitingMessage() {
+        return t('documentServerBusy', 'Waiting for document capacity. Your work is preserved; this will continue automatically.');
+    }
+
+    function updateCapacityStatus() {
+        if (capacityWaits.length && statusEl.className !== 'status error'
+                && (!state.saving || capacityWaits.some(function (wait) { return wait.saving; }))) {
+            setStatus(waitingMessage(), 'busy');
+        } else if (!capacityWaits.length && statusEl.textContent === waitingMessage()) {
+            setStatus(state.saving ? t('saving', 'Saving…') : '', state.saving ? 'busy' : '');
+        }
+    }
+
+    function waitForCapacity(response, attempt, wanted, saving) {
+        if (viewerInactive || (wanted && !wanted())) { return Promise.reject(requestCancelled()); }
+        var seconds = Number(response.headers.get('Retry-After'));
+        var advertised = Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, 8000) : 0;
+        var backoff = Math.min(8000, 500 * Math.pow(2, Math.min(attempt, 5)));
+        var delay = Math.min(10000, Math.max(advertised, backoff) * (1 + Math.random() * 0.25));
+        return new Promise(function (resolve, reject) {
+            var wait = {wanted: wanted, saving: saving, timer: null};
+            function finish(cancelled) {
+                var index = capacityWaits.indexOf(wait);
+                if (index < 0) { return; }
+                capacityWaits.splice(index, 1);
+                window.clearTimeout(wait.timer);
+                updateCapacityStatus();
+                if (cancelled || viewerInactive || (wanted && !wanted())) { reject(requestCancelled()); }
+                else { resolve(); }
+            }
+            wait.cancel = function () { finish(true); };
+            capacityWaits.push(wait);
+            wait.timer = window.setTimeout(function () { finish(false); }, delay);
+            updateCapacityStatus();
+        });
+    }
+
+    function cancelUnwantedCapacityWaits() {
+        capacityWaits.slice().forEach(function (wait) {
+            if (viewerInactive || (wait.wanted && !wait.wanted())) { wait.cancel(); }
+        });
+    }
+
+    function suspendDocumentRequests() {
+        viewerInactive = true;
+        cancelUnwantedCapacityWaits();
+        pagesEl.querySelectorAll('img[data-page]').forEach(function (img) {
+            if (img.dataset.objectUrl) {
+                // The server has finished; only browser decoding remains. Replace this
+                // image before resuming from history so a delayed error from its revoked
+                // blob cannot release a replacement request's slot or mark it broken.
+                finishPageImage(img, true);
+                var replacement = img.cloneNode(false);
+                replacement.classList.add('pending');
+                replacement.addEventListener('load', pageImageLoaded);
+                replacement.addEventListener('error', pageImageFailed);
+                img.parentNode.replaceChild(replacement, img);
+            }
+        });
+    }
+
+    function resumeDocumentRequests() {
+        viewerInactive = false;
+        scheduleVisiblePageLoad();
+    }
+
+    // Capacity is shared by all providers. Keep our bounded slots while waiting,
+    // back off with jitter, and continue until capacity returns or this view leaves.
+    // Only a 503 is admission failure; genuine read failures remain terminal.
+    async function fetchDocumentResource(url, attempt, wanted) {
+        attempt = attempt || 0;
+        while (true) {
+            if (viewerInactive || (wanted && !wanted())) { throw requestCancelled(); }
+            var response = await fetch(url, { credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (response.status === 503) {
+                await response.text();
+                await waitForCapacity(response, attempt, wanted, false);
+                attempt = Math.min(attempt + 1, 5);
+                continue;
+            }
+            if (!response.ok) {
+                await response.text();
+                throw new Error('Document resource unavailable');
+            }
+            return response;
+        }
+    }
+
+    function requestPageImage(img, wanted) {
+        documentRequestsInFlight++;
+        img.dataset.loadingUrl = wanted;
+        img.dataset.imageUrl = wanted;
+        fetchDocumentResource(wanted, 0, function () {
+            var rect = img.getBoundingClientRect();
+            return wanted === pageImageUrl(img.dataset.page)
+                && rect.top < window.innerHeight * 2 && rect.bottom > -window.innerHeight;
+        }).then(function (response) { return response.blob(); })
+            .then(function (blob) {
+                if (viewerInactive || wanted !== pageImageUrl(img.dataset.page)) {
+                    finishPageImage(img, viewerInactive);
+                    return;
+                }
+                img.dataset.objectUrl = URL.createObjectURL(blob);
+                img.setAttribute('src', img.dataset.objectUrl);
+            }).catch(function (error) { pageImageFailed.call(img, error); });
+    }
+
     // A page that has not loaded yet reserves a letter-shaped box at the width the current
     // zoom renders at (documentAnnotate.css, img.pending), so pages further down sit about
     // where they will end up and the lazy loader's "near the viewport" test stays true.
@@ -155,14 +300,22 @@
     // Only fetch what is on screen (plus one screen of lead-in). A twenty page fax would
     // otherwise trigger twenty server renders the moment the viewer opens.
     function loadVisiblePages() {
-        var images = pagesEl.querySelectorAll('img[data-page]');
+        if (viewerInactive) { return; }
+        var images = Array.prototype.slice.call(pagesEl.querySelectorAll('img[data-page]'));
+        // Visible pages precede lead-in pages, especially after a jump or zoom.
+        function distance(img) {
+            var rect = img.getBoundingClientRect();
+            return Math.max(0, -rect.bottom, rect.top - window.innerHeight);
+        }
+        images.sort(function (left, right) { return distance(left) - distance(right); });
         for (var i = 0; i < images.length; i++) {
             var img = images[i];
             var box = img.getBoundingClientRect();
             var near = box.top < window.innerHeight * 2 && box.bottom > -window.innerHeight;
             var wanted = pageImageUrl(img.dataset.page);
-            if (near && img.getAttribute('src') !== wanted) {
-                img.setAttribute('src', wanted);
+            if (near && !img.dataset.loadingUrl && img.dataset.imageUrl !== wanted
+                    && documentRequestsInFlight < MAX_DOCUMENT_REQUESTS) {
+                requestPageImage(img, wanted);
             }
         }
     }
@@ -171,11 +324,12 @@
 
     /** Runs loadVisiblePages once per frame however many page images finish loading in it. */
     function scheduleVisiblePageLoad() {
-        if (visiblePageLoadPending) { return; }
+        if (visiblePageLoadPending || viewerInactive) { return; }
         visiblePageLoadPending = true;
         window.requestAnimationFrame(function () {
             visiblePageLoadPending = false;
             loadVisiblePages();
+            prefetchVisibleWordBoxes();
         });
     }
 
@@ -672,6 +826,7 @@
             // one gesture, and the press must not end one it does not own. The press is simply
             // not taken.
             if (moving || dragging) { return; }
+            if (wrap.querySelector('img').classList.contains('pending')) { return; }
             if (startMove(event)) { return; }
             if (state.saving || state.tool === 'select' || !wrap.querySelector('img').naturalWidth
                     || wrap.classList.contains('load-failed')) { return; }
@@ -1005,11 +1160,22 @@
      * on a long fax is a burst of work for a feature the provider may not use on every page.
      */
     function fetchWordBoxes(page) {
-        if (state.wordBoxes[page] !== undefined) { return; }
+        if (viewerInactive || state.wordBoxes[page] !== undefined || documentRequestsInFlight >= MAX_DOCUMENT_REQUESTS) { return; }
+        delete failedWordBoxes[page];
+        documentRequestsInFlight++;
         state.wordBoxes[page] = 'pending';
-        fetch(cfg.contextPath + '/documentManager/DocumentTextBoxes?docId='
-            + encodeURIComponent(cfg.docId) + '&page=' + encodeURIComponent(page),
-            { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        fetchDocumentResource(cfg.contextPath + '/documentManager/DocumentTextBoxes?docId='
+            + encodeURIComponent(cfg.docId) + '&page=' + encodeURIComponent(page), 0, function () {
+                if (state.tool !== 'highlight') { return false; }
+                var wraps = pagesEl.querySelectorAll('.page');
+                for (var i = 0; i < wraps.length; i++) {
+                    if (Number(wraps[i].dataset.page) === page) {
+                        var rect = wraps[i].getBoundingClientRect();
+                        return rect.top < window.innerHeight && rect.bottom > 0;
+                    }
+                }
+                return false;
+            })
             .then(function (r) {
                 if (!r.ok) { throw new Error('Text layer unavailable'); }
                 return r.json();
@@ -1017,24 +1183,31 @@
             .then(function (data) {
                 // An empty list is the normal answer for a page with no text layer, and is
                 // cached as such so the page is not asked for again.
-                if (!data || !Array.isArray(data.words)) { throw new Error('Invalid text layer'); }
+                if (!data || data.textLayerRead === false || !Array.isArray(data.words)) { throw new Error('Invalid text layer'); }
                 state.wordBoxes[page] = data.words;
             })
-            .catch(function () {
+            .catch(function (error) {
                 // A transient failure must not disable snapping for the rest of the session:
                 // clearing the entry lets the next drag on this page try again. Until then
                 // snapToWords returns null and the drawn rectangle is used.
                 delete state.wordBoxes[page];
+                if (!error.documentRequestCancelled) { failedWordBoxes[page] = true; }
+            }).finally(function () {
+                documentRequestsInFlight--;
+                scheduleVisiblePageLoad();
             });
     }
 
     /** Fetches word boxes for pages currently on screen, when the highlight tool is active. */
     function prefetchVisibleWordBoxes() {
-        if (state.tool !== 'highlight') { return; }
+        if (viewerInactive || state.tool !== 'highlight') { return; }
         var wraps = pagesEl.querySelectorAll('.page');
         for (var i = 0; i < wraps.length; i++) {
             var rect = wraps[i].getBoundingClientRect();
-            if (rect.top < window.innerHeight && rect.bottom > 0) {
+            // Failed extraction is retried by the next drag, not by the completion
+            // scheduler: otherwise a failed endpoint becomes an endless request loop.
+            if (rect.top < window.innerHeight && rect.bottom > 0
+                    && !failedWordBoxes[Number(wraps[i].dataset.page)]) {
                 fetchWordBoxes(Number(wraps[i].dataset.page));
             }
         }
@@ -1120,22 +1293,29 @@
         }).then(function () {
             // Build the body before marking the save as sent: a failure here has sent nothing.
             var body = JSON.stringify(savePayload());
-            sent = true;
-            return fetch(cfg.contextPath + '/documentManager/SaveAnnotatedDocument?docId='
-                + encodeURIComponent(cfg.docId), {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'CSRF-TOKEN': csrfToken()
-                },
-                body: body
-            });
-        }).then(function (response) {
-            return response.json().then(function (data) {
-                return { ok: response.ok, data: data };
-            });
+            async function submit() {
+                var attempt = 0;
+                while (true) {
+                    if (viewerInactive) { throw requestCancelled(); }
+                    sent = true;
+                    var response = await fetch(cfg.contextPath + '/documentManager/SaveAnnotatedDocument?docId='
+                        + encodeURIComponent(cfg.docId), {
+                        method: 'POST', credentials: 'same-origin',
+                        headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest',
+                            'CSRF-TOKEN': csrfToken()}, body: body
+                    });
+                    var data = await response.json();
+                    if (response.status !== 503 || !data || data.success !== false || data.retryable !== true) {
+                        return {ok: response.ok, data: data};
+                    }
+                    // Explicit pre-acceptance refusal: preserve the snapshot and marks.
+                    // Network/JSON failures never reach this safe retry branch.
+                    sent = false;
+                    await waitForCapacity(response, attempt, null, true);
+                    attempt = Math.min(attempt + 1, 5);
+                }
+            }
+            return submit();
         }).then(function (result) {
             setSaving(false);
             if (!result.ok || !result.data.success) {
@@ -1165,9 +1345,11 @@
                 link.textContent = t('openSaved', 'Open the saved copy');
                 document.getElementById('savedLink').appendChild(link);
             }
-        }).catch(function () {
+        }).catch(function (error) {
             setSaving(false);
-            if (sent) {
+            if (error.documentRequestCancelled && !sent) {
+                setStatus('', '');
+            } else if (sent) {
                 // The request may have reached the server but no readable reply came back
                 // (a dropped connection, an HTML error or login page): the copy may already
                 // be filed, so refuse a second save until the operator has checked.
@@ -1215,6 +1397,7 @@
 
     function selectTool(tool) {
         state.tool = tool;
+        cancelUnwantedCapacityWaits();
         // The hover cursor was computed for the previous tool; the next pointer move recomputes it.
         Array.prototype.forEach.call(pagesEl.querySelectorAll('svg[data-grab]'), function (svg) {
             svg.removeAttribute('data-grab');
@@ -1231,16 +1414,22 @@
         var next = state.dpiIndex + direction;
         if (next < 0 || next >= DPI_STEPS.length) { return; }
         state.dpiIndex = next;
+        cancelUnwantedCapacityWaits();
         setPlaceholderWidth();
         var images = pagesEl.querySelectorAll('img[data-page]');
         for (var i = 0; i < images.length; i++) {
-            images[i].removeAttribute('src');
+            if (!images[i].dataset.loadingUrl) {
+                images[i].removeAttribute('src');
+                delete images[i].dataset.imageUrl;
+            }
             images[i].classList.add('pending');
         }
         loadVisiblePages();
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        try { window.sessionStorage.removeItem('carlos.annotation.capacity.' + window.location.pathname + window.location.search); }
+        catch (ignored) { /* Browser storage may be disabled. */ }
         buildPages();
         updateCounts();
 
@@ -1264,6 +1453,7 @@
         document.getElementById('btnSaveFax').addEventListener('click', function () { save(true); });
 
         window.addEventListener('scroll', function () {
+            cancelUnwantedCapacityWaits();
             loadVisiblePages();
             prefetchVisibleWordBoxes();
         }, { passive: true });
@@ -1294,6 +1484,8 @@
             state.fontReady = document.fonts.load('11px CarlosAnnotation')
                 .then(refitNotes, function () { /* fallback face */ });
         }
+        window.addEventListener('pagehide', suspendDocumentRequests);
+        window.addEventListener('pageshow', resumeDocumentRequests);
         window.addEventListener('beforeunload', function (event) {
             if (state.saving || (state.annotations.length && !state.saved)) {
                 event.preventDefault();

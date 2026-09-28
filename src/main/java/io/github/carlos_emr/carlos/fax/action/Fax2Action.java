@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 
 import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -59,6 +60,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCapacityResponse;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -77,6 +79,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.pdfbox.Loader;
 import org.springframework.http.ContentDisposition;
@@ -567,6 +570,7 @@ public class Fax2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "PT_RELATIVE_PATH_TRAVERSAL"}, justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding. PT_RELATIVE_PATH_TRAVERSAL flags the File passed into the temp-containment guard itself, after the session claim check")
     @SuppressWarnings("unused")
     public void getPreview() {
+        response.setHeader("Cache-Control", "no-store");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
@@ -873,6 +877,18 @@ public class Fax2Action extends ActionSupport {
                                 pdfPath != null && Files.exists(pdfPath));
                     }
                 } catch (PDFGenerationException e) {
+                    if (e.isRetryable()) {
+                        Map<String, String> continuation = new java.util.LinkedHashMap<>();
+                        continuation.put("method", "prepareFax");
+                        continuation.put("transactionType", "EFORM");
+                        continuation.put("transactionId", String.valueOf(transactionId));
+                        continuation.put("demographicNo", storedDemographicNo);
+                        if (recipient != null) continuation.put("recipient", recipient);
+                        if (recipientFaxNumber != null) continuation.put("recipientFaxNumber", recipientFaxNumber);
+                        if (letterheadFax != null) continuation.put("letterheadFax", letterheadFax);
+                        return EFormRenderCapacityResponse.offer(request, response,
+                                EFormRenderApprovalService.Operation.FAX, continuation);
+                    }
                     logger.error("eForm fax PDF preparation failed ({})", e.getClass().getSimpleName());
                     String errorMessage = "This eForm and its attachments could not be prepared for faxing. No fax was queued. Please retry or contact your administrator.";
                     request.setAttribute("errorMessage", errorMessage);
@@ -974,6 +990,7 @@ public class Fax2Action extends ActionSupport {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding")
     @SuppressWarnings("unused")
     public void getPageCount() {
+        response.setHeader("Cache-Control", "no-store");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
@@ -1084,10 +1101,15 @@ public class Fax2Action extends ActionSupport {
         }
         if (claim.eformId() == null || claim.demographicId() == null) return null;
         if (claim.type() == TransactionType.DOCUMENT) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) return null;
+            try {
+                requireDocumentPatientAccess(loggedInInfo, claim.eformId());
+            } catch (SecurityException e) {
+                return null;
+            }
             EDoc document = EDocUtil.getDoc(String.valueOf(claim.eformId()));
             if (document == null || StringUtils.isBlank(document.getFileName())
                     || !claim.demographicId().equals(DocumentPatientLink.demographicNoOf(document))
-                    || !securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)
                     || (claim.demographicId() > 0 && !securityInfoManager.isAllowedAccessToPatientRecord(
                             loggedInInfo, claim.demographicId()))) return null;
             return ownedPath;
@@ -1099,6 +1121,12 @@ public class Fax2Action extends ActionSupport {
                         String.valueOf(claim.demographicId()))
                 || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, claim.demographicId())) return null;
         return ownedPath;
+    }
+
+    /** Re-check all current patient links at staging, preview reads, and final promotion. */
+    private void requireDocumentPatientAccess(LoggedInInfo info, int documentNo) {
+        DocumentPatientLink.requireAccess(info, documentNo, securityInfoManager,
+                SpringUtils.getBean(CtlDocumentDao.class));
     }
 
     private static void deleteUnownedStagedFaxPreview(Path path) {
@@ -1138,6 +1166,7 @@ public class Fax2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        requireDocumentPatientAccess(loggedInInfo, documentNo);
         EDoc doc = EDocUtil.getDoc(String.valueOf(documentNo));
         if (doc == null || StringUtils.isBlank(doc.getFileName())) {
             throw new IllegalArgumentException("Document not found");
@@ -1265,6 +1294,11 @@ public class Fax2Action extends ActionSupport {
         // against whatever demographicNo the form carried.
         if (transactionId == null) {
             return "This fax is no longer available to send. Open the document and try again.";
+        }
+        try {
+            requireDocumentPatientAccess(LoggedInInfo.getLoggedInInfoFromSession(request), transactionId.intValue());
+        } catch (SecurityException e) {
+            return "You are not permitted to send this document.";
         }
         EDoc doc = EDocUtil.getDoc(String.valueOf(transactionId.intValue()));
         // EDocUtil.getDoc never returns null: it allocates an EDoc and returns it whether or not

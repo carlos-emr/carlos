@@ -263,6 +263,54 @@ class BillingDiskCreationServiceUnitTest {
         verify(claimPersister).addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class));
     }
 
+    @Test
+    void shouldPrepareRegenerationWithoutWriting_untilFinalization() {
+        var provider = new BillingProviderDto();
+        provider.setBillingGroupNo("1234");
+        provider.setOhipNo("012345");
+        provider.setSpecialtyCode("00");
+        var original = new BillingBatchHeaderDto();
+        original.setId("42");
+        original.setDiskId("12");
+        original.setMohOffice("1");
+        original.setBatchId("200302030001");
+        original.setComment("prior audit");
+        original.setGroupNum("5678");
+        original.setBatchDate("2003-02-03");
+        when(diskLoader.getBatchHeaderObj(provider, "12")).thenReturn(original);
+        var prepared = service.prepareBatchHeader(provider, "12", "4", "2", "999998");
+        org.mockito.Mockito.verifyNoInteractions(claimPersister);
+        assertThat(original.getMohOffice()).isEqualTo("1");
+        assertThat(original.getBatchId()).isEqualTo("200302030001");
+        assertThat(prepared.replacement().getMohOffice()).isEqualTo("4");
+        assertThat(prepared.replacement().getGroupNum()).isEqualTo("5678");
+        assertThat(prepared.replacement().getBatchDate()).isEqualTo("2003-02-03");
+        assertThat(prepared.replacement().getBatchId()).endsWith("0002");
+        when(claimPersister.updateBatchHeaderRecord(prepared.replacement())).thenReturn(true);
+        service.finalizeBatchHeader(prepared);
+        verify(claimPersister).addRepoBatchHeader(original);
+        verify(claimPersister).updateBatchHeaderRecord(prepared.replacement());
+        assertThat(original.getComment()).isEqualTo("prior audit");
+    }
+
+    @Test
+    void shouldRejectMissingBatch_beforePreparingRegeneration() {
+        var provider = new BillingProviderDto();
+        when(diskLoader.getBatchHeaderObj(provider, "12")).thenReturn(new BillingBatchHeaderDto());
+        assertThatThrownBy(() -> service.prepareBatchHeader(provider, "12", "4", "1", "999998"))
+                .isInstanceOf(BillingValidationException.class);
+        org.mockito.Mockito.verifyNoInteractions(claimPersister);
+    }
+
+    @Test
+    void shouldRejectFailedMetadataWrite_insteadOfReportingSuccess() {
+        var dto = new BillingBatchHeaderDto();
+        var prepared = new BillingDiskCreationService.PreparedBatchHeader(dto, dto);
+        when(claimPersister.updateBatchHeaderRecord(dto)).thenReturn(false);
+        assertThatThrownBy(() -> service.finalizeBatchHeader(prepared))
+                .isInstanceOf(BillingValidationException.class);
+    }
+
     // ---- createBatchHeader: assembles the BillingBatchHeaderDto ---------
 
     @Test

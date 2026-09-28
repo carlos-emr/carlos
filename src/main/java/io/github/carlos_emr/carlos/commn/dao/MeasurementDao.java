@@ -84,6 +84,18 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria;
 public interface MeasurementDao extends AbstractDao<Measurement> {
 
     /**
+     * Corrects only the patient ownership of a managed, source-linked lab measurement.
+     * Clinical values remain immutable. The caller must hold the source lab lock in
+     * the patient-match transaction and audit the committed correction.
+     *
+     * @param measurement managed measurement with its current patient
+     * @param labNo source HL7 report identifier
+     * @param demographicNo validated destination patient identifier
+     * @throws IllegalStateException if the source link or original ownership changed
+     */
+    void reassignLabPatient(Measurement measurement, String labNo, int demographicNo);
+
+    /**
      * Finds measurements for a specific patient that were updated after a given date.
      * Useful for synchronization and incremental data retrieval.
      * 

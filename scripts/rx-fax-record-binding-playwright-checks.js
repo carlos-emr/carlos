@@ -75,6 +75,7 @@
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
+const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -121,7 +122,7 @@ if (!Number.isInteger(notesSaveDelayMs) || notesSaveDelayMs < 0 || notesSaveDela
 // Per-run identifiers, same rationale as rx-fax-signature-stamp-playwright-checks.js: the "from"
 // fax number must be exactly 10 chars (fax_config.faxNumber varchar(10), matched by equality), the
 // destination must be unroutable (NPA 555), and the drug name identifies THIS run's prescription.
-const runSuffix = String(randomInt(1000000, 10000000)); // 7 digits, crypto RNG
+const runSuffix = readFaxSuffix(process.env.PR4055_RX_FAX_SUFFIX, 7, randomInt);
 const pharmacyFaxNumber = `555${runSuffix}`;
 const faxNumber = `416${runSuffix}`;
 const customDrugName = `PW FAX BIND ${Date.now()}${runSuffix}`;
@@ -337,13 +338,37 @@ let faxConfig = null;
 const seededPharmacyFaxes = [];
 
 function stageFaxConfig() {
-  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' AND active=1 AND providerType='SRFAX' LIMIT 1;`).trim();
-  if (/^\d+$/.test(existing)) return { id: existing, created: false };
+  // Refuse any collision, including inactive/other-provider accounts: cleanup must
+  // never assume that pre-existing jobs on a coincidentally chosen line are ours.
+  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' LIMIT 1;`).trim();
+  if (existing) throw new Error('Fixture sender number collided with an existing account; rerun with a new fixture');
+  if (sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}' LIMIT 1;`).trim()) {
+    throw new Error('Fixture sender number collided with an existing fax job; rerun with a new fixture');
+  }
   const id = sql(
     `INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) `
-    + `VALUES ('SRFAX', 1, '${faxNumber}', '${faxNumber}', 'Playwright Fax', 'fax@example.ca', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 1); SELECT LAST_INSERT_ID();`,
+    + `VALUES ('SRFAX', 1, '${faxNumber}', '${faxNumber}', 'Playwright Fax', 'fax@example.invalid', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 0); SELECT LAST_INSERT_ID();`,
   ).trim();
+  if (!/^[1-9][0-9]*$/.test(id)) throw new Error('Owned fax sender was not created');
   return { id, created: true };
+}
+
+async function selectOwnedFaxSender(modalFrame) {
+  const sender = modalFrame.locator('#faxNumber');
+  await sender.selectOption(faxNumber);
+  if (await sender.inputValue() !== faxNumber) throw new Error('Owned fax sender was not selected');
+}
+
+function assertOwnedFaxRequest(request) {
+  assertFaxDestination(request, faxNumber, pharmacyFaxNumber);
+}
+
+function cleanupOwnedFaxSender() {
+  if (!faxConfig || !faxConfig.created) return;
+  sql(`DELETE FROM fax_config WHERE id=${faxConfig.id} AND faxNumber='${faxNumber}' AND accountName='Playwright Fax';`);
+  if (sql(`SELECT COUNT(*) FROM fax_config WHERE id=${faxConfig.id};`).trim() !== '0') {
+    throw new Error('Owned fax sender cleanup failed or ownership changed');
+  }
 }
 
 function seedPharmacyFax() {
@@ -393,6 +418,7 @@ function cleanupFixtures() {
     });
   }
   attempt('faxes', () => {
+    if (!faxConfig || !faxConfig.created) return;
     const faxIds = sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}';`)
       .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r));
     if (faxIds.length) {
@@ -400,9 +426,7 @@ function cleanupFixtures() {
     }
     sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`);
   });
-  attempt('fax_config', () => {
-    if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
-  });
+  attempt('fax_config', cleanupOwnedFaxSender);
   while (seededPharmacyFaxes.length) {
     const { recordId, wasNull, originalFax } = seededPharmacyFaxes.pop();
     const restored = wasNull ? 'NULL' : `'${originalFax}'`; // shape-validated before the rewrite
@@ -491,6 +515,7 @@ async function writeCustomRxThroughUi(page) {
   await page.locator('#saveButton').click();
   const modalFrame = page.frameLocator('#carlosModalBody iframe');
   await modalFrame.locator('#faxButton').waitFor({ state: 'attached', timeout: 30000 });
+  await selectOwnedFaxSender(modalFrame);
   // The outer page can render its Fax button before ViewPreview2 has finished
   // loading in the nested iframe. Both fax attempts below synchronously read
   // #preview2Form, so establish that shared precondition before returning.
@@ -823,6 +848,7 @@ async function faxThroughUi(page, modalFrame, scriptId) {
     if (clickFailure) throw clickFailure;
     status = response.status();
     body = await response.text().catch(() => '');
+    assertOwnedFaxRequest(request);
     const post = new URLSearchParams(request.postData() || '');
     pdfId = post.get('pdfId');
     // What the page put on the wire for the clinic header, and whether the servlet will use it. A
@@ -1053,6 +1079,9 @@ function assertNoteRendered(runs) {
 async function runChecks(context, cancellation) {
   const page = await cancellation.run(() => login(context));
   try {
+    await installFaxRequestGuard(page, baseUrl, faxNumber, pharmacyFaxNumber, () => {
+      findings.push({ label: 'fax-destination', type: 'blocked', text: 'Blocked a fax POST with an unowned sender or destination' });
+    });
     faxConfig = stageFaxConfig();
     seedPharmacyFax();
 

@@ -162,6 +162,18 @@ application defects from test defects and missing fixtures, and records retests.
 | 37 | Crafted contact type changes can reclassify existing relationships | Existing rows now retain persisted types in reciprocal planning and persistence. Five regressions fail before the fix; all 30 contact cases pass afterward. Old installed package fails the owned-request tampering probe; the rebuilt DEB passes normal and twice-tampered saves, with cleanup verified; #3682. | `issue-filed` |
 | 38 | Existing contact category can be changed by submitting the row in the opposite list | `validateContactSaves` validates patient ownership but not the stored personal/professional category; `linkContactToDemographic` assigns the submitted list's category. Source-patient write permission is required; this is a classification-consistency candidate, not a demonstrated authorization bypass. No normal UI path or VM reproduction was established; #3682. | `needs-live-check` |
 
+## Issue 3682 follow-up
+
+The [focused PR and validation ledger](issue-3682-resolution-validation.md) records
+follow-up fixes, live results, negative controls and pending checks for the
+historical observations above. In particular, finding 23 was malformed audit URL
+generation, not an authentication-code defect: 122 correctly generated anonymous
+routes refuse access. The original PDF Envelope 404 did not reproduce; all six
+offered PDFs pass byte validation. The latest administration retest identified an
+OHIP fragment's extra GET handler and repeated AJAX headers as the causes of the
+remaining report failures. Final package validation remains explicitly pending
+in the ledger; source changes alone do not establish a live fix.
+
 ## 5. Found while resolving #3665 (September 2026)
 
 | # | Defect | Evidence | Status |
@@ -181,6 +193,39 @@ page around it looked translated.
 | 41 | The chart header's identity block (Sex, DOB, Age, Next Appt., MRP, and the pronoun/gender/phone/email captions) renders in the SERVER's language whatever the browser asks for, while the `<fmt:message>` labels beside it follow the browser — a half-translated header | `Demographic#getStandardIdentificationHtml` read `LocaleContextHolder.getLocale()`, and CARLOS installs no Spring `LocaleResolver` on the Struts/JSP request path (`grep -rn "LocaleResolver" src/main` returns nothing, and `web.xml` has no `RequestContextFilter`), so that is the JVM default. Reproduced on the packaged install: a `fr-CA` browser and an `en-CA` browser on the same server returned byte-identical identity labels (`Sex`, `DOB`, `Age`, `Next Appt.`, `MRP`) while the same header's calculators link read `calculatrices` in the French one. Fixed: the locale is now an argument, resolved per request by `LocaleUtils.resolveBundleLocale`. After the fix the same two browsers return `Sexe`/`DDN`/`Âge`/`Prochain rendez-vous` and `Sex`/`DOB`/`Age`/`Next Appt.` respectively. Live: `encounter-header-i18n-playwright-checks.js` | `fixed` |
 | 42 | The chart header offered TWO links to the clinical calculators, labelled identically, differing only in passing `sex`/`age` in the query string instead of `demo` | Both anchors were in `newEncounterHeader.jsp`; the packaged install rendered `calcCount: 2` with `calcTexts: ["calculators", "calculators"]`. The `demo=` form survives, because `calculators.jsp` resolves sex and age from the record and `admin-fragment-navigation.test.js` already asserts patient attributes stay out of navigation URLs. Live: `encounter-header-i18n-playwright-checks.js` asserts exactly one, and `clinical-calculators-playwright-checks.js` still reaches the calculators by clicking it | `fixed` |
 | 43 | The note-template search legend, its input placeholder and the template-shortcut overlay placeholder were literal English in the markup and in an inline script, so no translation could reach them | `<legend>Template Search</legend>` and `placeholder="template name"` in `ChartNotes.jsp`; `searchInput.placeholder = 'Search templates\u2026'` in `newEncounterLayout.js.jsp`. Reproduced on the packaged install: a `fr-CA` browser read `Template Search` / `template name`. Fixed with `encounter.templateSearch.*` keys in all five shipped bundles. Following the translation checklist, the new non-English entries are explicitly marked English placeholders pending verified translations. Live: `encounter-header-i18n-playwright-checks.js`; static: `EncounterChartHeaderI18nUnitTest` fails if the literals come back | `fixed` |
+
+## 7. Alpha15 tester report: chart header English on first open, correct after F5 (September 2026)
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 44 | Reported against `2026.08.0-alpha15`: the fixed chart header (findings 41-43) is in the browser's language, except on "the most important initial load", which renders in English; an F5 of the same chart then renders it correctly | **Not reproduced.** An alpha15-equivalent `carlos-emr` package (this tree at the promotion commit, built with `CARLOS_WAR` from a JDK 25 build, `SKIP_DRUGREF=1 SKIP_EFORM_RENDERER=1`) was installed on an Ubuntu 26.04 systemd container and driven through the front door (`https://127.0.0.1/carlos`). The FIRST open of a chart in a fresh session was read and then re-read after `page.reload()`: identity labels, calculators control and template-search text were identical, and French, in every variant: Chromium 141 and Firefox 150; the Master Record E-Chart control and the schedule's `E` link (`encounter/IncomingEncounter` → `casemgmt/ViewForward` → `CaseManagementEntry?method=setUpMainEncounter`, the popup URL an F5 replays); popup and `encounter_open_in_tab=yes`; `Accept-Language` of `fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7`, `fr-CA`, `fr` and `fr-CA,fr;q=0.9`. The shipped `encounter-header-i18n-playwright-checks.js` also passed on that install. Reading the request path found no state that differs between a first open and a reload of the same URL: `LocaleUtils.resolveBundleLocale` and JSTL both read only `Accept-Language` per request (no session, cookie or JVM-default input; the Struts `i18n` interceptor and `Dispatcher` only set the response locale), the packaged Tomcat launcher clears compiled JSPs on every start, and nginx sends `Cache-Control: no-store` on every page. English on a French browser therefore needs a request whose `Accept-Language` reached the server English-first or absent (absent would also render `???key???` for the page's own JSTL text), which no browser here produced. What changed so the next report is diagnosable: the chart page's `<html lang>` and `#header-top-row lang` now state the language the server negotiated for that very render, `LocaleUtils` logs the negotiated locale with the raw `Accept-Language` at DEBUG, and the browser check now asserts first open == reload and reads those attributes. To close this, the reporter's screenshot should be taken with DevTools open on the chart's `Accept-Language` request header, and the `lang` attributes read from the DOM of the English render | `open` |
+
+## 8. Found while porting the eChart soft-wrap fix, #3955 (September 2026)
+
+Initially reproduced on the packaged release while porting #3955. The follow-up in
+#3990 fixes the save lifecycle and classic editor defects and validates the existing
+document-upload repair. See [installed validation](pr3990-validation.md).
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 45 | Leaving a saved note incorrectly reports unsaved changes | #4010: observation input and calendar now use the same padded-hour format without trailing whitespace. The installed browser saves and opens another note with strict dialog recording. | `fixed` |
+| 46 | Fast Save or Sign & Save races the editor's issue refresh | #4010: both issue fragments complete before a queued save; failures prevent incomplete saves. Callback tests cover failures/recovery and editor changes; installed checks hold each request and prove zero early saves and one eventual save. | `fixed` |
+| 47 | Classic entry form opens an existing note with an empty editor | #4010: render the populated patient-scoped form bean and preserve form identity/patient/provider values. The browser compares exact loaded text with the stored synthetic note before modifying the editor. | `fixed` |
+| 48 | A sibling element intercepts document-upload's navbar click | The current release base includes the repair. The existing installed document-upload check passed upload, chart navigation, forwarding and empty-file refusal. | `fixed` |
+| 49 | Schema-valid NULL program/admission flags crash chart hydration | #4011: explicit converters preserve the primitive APIs and existing defaults for seven nullable flags. DAO regressions and the installed browser use nullable program/admission fixtures. | `fixed` |
+| 50 | Caisi scheduler includes fail compilation and pooled view state leaks across providers | #4012: compile both dynamic includes as JSPs, encode values, handle empty program state, render one selector, and keep view state local to each tag use. Discharge jobs use injection and one recurring schedule. Five focused Java tests and strict installed Caisi login/legacy workflow pass. | `fixed` |
+
+## 9. Found while validating Provider Linking Rules (#3971, September 2026)
+
+Both findings come from the packaged Ubuntu 26.04 install described in
+[deb-install-validation.md](deb-install-validation.md#provider-linking-rules-validation-2026-09-26).
+Each was then reproduced against the unmodified `release/2026.08` code, so neither was
+introduced by the #3971 change.
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 51 | Assigning a provider to an unclaimed HRM report, unlinking an HRM report from its patient, and re-linking it all fail with "Error encountered" and roll back | `mutateReport()` locks the report with `HRMDocumentDao.findForUpdate`, which loads the eager, unidirectional `matchedProviders` / `matchedDemographics` collections. The handlers then `EntityManager.remove()` rows from those collections, so the flush throws `TransientPropertyValueException ... HRMDocument.matchedProviders` (or `matchedDemographics`). Reproduced on the package through the new check's HRM step, and on unmodified `release/2026.08` by `HRMModifyTransactionIntegrationTest.shouldClaimUnclaimedReport_whenProviderIsAssigned`. Fixed with bulk deletes (`HRMDocumentToProviderDao.deleteByHrmDocumentIdAndProviderNo`, `HRMDocumentToDemographicDao.deleteByHrmDocumentId`); four integration tests pin claim, MRP routing, unlink and re-link. Live: `provider-linking-rules-playwright-checks.js` unlinks through the viewer's (remove) link and assigns through its autocomplete | `fixed` |
+| 52 | Inbox review-status filter "Filed" returns a lab the unfiltered list does not | Live `inboxhub-filters` on the demo dataset, run after `lab-acknowledge` and `inbox-preview-acknowledge`: `Filed returned row HL7:44, which the unfiltered list does not contain`. Demo lab 44 is routed to provider 999998 with status `F`. The same failure reproduces with the unmodified `release/2026.08` WAR exploded over the same install, so it is not a Provider Linking Rules effect. It is the lab-side counterpart of finding 20 (an HRM row visible under All but under no status). Latest release fix `4d4f29b7d3d` preserves source row identity instead of collapsing accessions. Verified by the installed PR #4000 Ubuntu 26.04 `inboxhub-filters` run on 2026-09-27: type and New/Acknowledged/Filed partitions all pass. | `fixed` |
 
 ## How this list is meant to be used
 

@@ -202,7 +202,7 @@
                 vecAddressPhone = new Vector();
                 vecAddressFax = new Vector();
 
-                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
 
                 SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                 // A cross-provider reprint still shows and faxes the persisted prescriber's clinic
@@ -251,7 +251,7 @@
                 String[] temp4 = props.getProperty("clinicSatellitePostal", "").split("\\|");
                 String[] temp5 = props.getProperty("clinicSatellitePhone", "").split("\\|");
                 String[] temp6 = props.getProperty("clinicSatelliteFax", "").split("\\|");
-                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
 
                 String encodedDoctorName = SafeEncode.forHtml(doctorName);
                 String encodedTelLabel = SafeEncode.forHtml(rb.getString("RxPreview.msgTel"));
@@ -285,6 +285,17 @@
                     prefPharmacyId = prefPharmacyId.trim();
                 }
             }
+            // " Tel: <phone1 phone2>" for the "Rx faxed to" encounter note, or "" when no phone is on
+            // file so that note is unchanged for pharmacies without one (issue #3974).
+            String pharmacyPhone = RxPharmacyData.composePharmacyPhone(pharmacy);
+            String pharmacyPhoneSegment = pharmacyPhone.isEmpty() ? "" : " Tel: " + pharmacyPhone;
+            // The selected pharmacy is already loaded above. Send its snapshot with the page:
+            // a second asynchronous lookup can finish after a fast print/fax submission.
+            String pharmacyPreviewJson = pharmacy == null ? "null" : new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode()
+                    .put("id", prefPharmacyId).put("name", pharmacy.getName()).put("address", pharmacy.getAddress())
+                    .put("city", pharmacy.getCity()).put("province", pharmacy.getProvince()).put("postalCode", pharmacy.getPostalCode())
+                    .put("phone1", pharmacy.getPhone1()).put("phone2", pharmacy.getPhone2()).put("fax", pharmacy.getFax())
+                    .put("email", pharmacy.getEmail()).put("notes", pharmacy.getNotes()).toString();
 
             String userAgent = request.getHeader("User-Agent");
             String browserType = "";
@@ -680,6 +691,9 @@
                             <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                             // %>
                             text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getFax()):""%>';
+                            // Built here, before the fax is sent, so the text captured for a paste retry
+                            // already carries it and useCapturedPasteTextAsIs never appends it twice.
+                            text += '<%= SafeEncode.forJavaScript(pharmacyPhoneSegment) %>';
 
                             <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
                             text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
@@ -1354,7 +1368,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
     </head>
 
 <body topmargin="0" leftmargin="0" vlink="#0000FF"
-	onload="addressSelect();printPharmacy('<%=prefPharmacyId%>');showFaxWarning();">
+	onload="addressSelect();showFaxWarning();">
 
     <!-- HSFO functionality removed -->
     <div id="bodyView">
@@ -1417,31 +1431,30 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         }
 
 
-                                function printPharmacy(id){
-                                    //ajax call to get all info about a pharmacy
-                                    //use json to write to html
-	                                if(! id) {
-										return;
-	                                }
-                                    var url="${carlos:forJavaScript(ctx)}"+"/rx/managePharmacy2?method=getPharmacyInfo&pharmacyId="+id;
-                                    fetch(url, {
-                                        method: 'GET',
-                                        headers: {'X-Requested-With': 'XMLHttpRequest'},
-                                        credentials: 'same-origin'
-                                    }).then(function(resp){ return resp.text(); }).then(function(responseText){
-                                        var json = JSON.parse(responseText);
+                                var initialPharmacy = JSON.parse('<carlos:encode value="<%= pharmacyPreviewJson %>" context="javaScript"/>');
+                                function printPharmacy(id) {
+                                    var json = initialPharmacy;
+                                    if (!json || String(json.id) !== String(id)) return;
+                                    var lines = [];
+                                    function addLine(label, values, separator) {
+                                        var value = values.map(function (item) {
+                                            return item == null ? '' : String(item).trim();
+                                        }).filter(function (item) { return item !== ''; }).join(separator);
+                                        if (value) lines.push(label + pharmacyText(value));
+                                    }
+                                    addLine('', [json.name], '');
+                                    addLine('', [json.address], '');
+                                    addLine('', [json.city, json.province, json.postalCode], ', ');
+                                    addLine('Tel:', [json.phone1, json.phone2], ' ');
+                                    addLine('Fax:', [json.fax], '');
+                                    addLine('Email:', [json.email], '');
+                                    addLine('Note:', [json.notes], '');
+                                    var text = lines.join('<br>');
 
-                                                    if (json != null) {
-                                                        var text = pharmacyText(json.name) + "<br>" + pharmacyText(json.address) + "<br>" + pharmacyText(json.city) + ", " + pharmacyText(json.province) + ", "
-                                                            + pharmacyText(json.postalCode) + "<br>Tel:" + pharmacyText(json.phone1) + " " + pharmacyText(json.phone2) + "<br>Fax:" + pharmacyText(json.fax) + "<br>Email:" + pharmacyText(json.email) + "<br>Note:" + pharmacyText(json.notes);
-
-                                                        text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${carlos:forJavaScript(msg_removePharmacyInfo)}</a>';
-                                                        text += "<input type='hidden' name='pharmacyInfo' value='" + pharmacyText(id) + "' />";
-                                                        expandPreview(text);
-                                                    }
-                                                });
-
-                                        }
+                                    text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${carlos:forJavaScript(msg_removePharmacyInfo)}</a>';
+                                    text += "<input type='hidden' name='pharmacyInfo' value='" + pharmacyText(id) + "' />";
+                                    expandPreview(text);
+                                }
 
                                         function pharmacyText(value) {
                                             return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
@@ -1485,6 +1498,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         var pharmacyPreviewFrame = document.getElementById('preview');
                                         if (pharmacyPreviewFrame) {
                                             pharmacyPreviewFrame.addEventListener('load', applyPharmacyPreview);
+                                            printPharmacy(initialPharmacy ? initialPharmacy.id : '');
                                         }
                                     </script>
 
