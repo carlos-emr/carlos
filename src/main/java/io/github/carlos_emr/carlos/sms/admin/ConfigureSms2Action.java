@@ -122,7 +122,7 @@ public class ConfigureSms2Action extends ActionSupport {
         if (!errors.isEmpty()) {
             // Re-displayed with 200: CARLOS's ResponseSanitizationFilter mishandles a JSP body rendered
             // under a 4xx status ("committed mid-chain"), which left the admin a blank page.
-            request.setAttribute("smsConfig", assembler.assemble(null, errors));
+            request.setAttribute("smsConfig", assembler.assembleRejected(update, errors));
             return SUCCESS;
         }
         configService.save(update, loggedInInfo.getLoggedInProviderNo());
@@ -142,7 +142,8 @@ public class ConfigureSms2Action extends ActionSupport {
                 security == null ? null : security.getSecurityNo()
         );
         if (result.accepted()) {
-            return redirect(request, response, "testSent");
+            // Accepted but QUEUED: the rate limit was reached, so it has not gone out yet.
+            return redirect(request, response, result.status() == SmsStatus.QUEUED ? "testQueued" : "testSent");
         }
         return redirect(request, response, result.status() == SmsStatus.CONSENT_BLOCKED ? "testBlocked" : "testFailed");
     }

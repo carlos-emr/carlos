@@ -63,6 +63,10 @@ public class SmsConfigValidator {
                 && update.webhookSecret().getBytes(StandardCharsets.UTF_8).length > MAX_WEBHOOK_SECRET_LENGTH) {
             errors.add("sms.config.error.webhookSecretTooLong");
         }
+        if (update.clearWebhookSecret() && update.webhookSecret() != null && !update.webhookSecret().isBlank()) {
+            // Saving would drop the secret just typed: clearing wins, which is not what either choice meant.
+            errors.add("sms.config.error.clearAndNewSecret");
+        }
         return errors;
     }
 }

@@ -43,7 +43,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
-<html>
+<html lang="<carlos:encode value='${pageContext.request.locale.language}' context='htmlAttribute'/>">
 <head>
     <link rel="icon" href="${ctx}/images/favicon.ico"/>
     <title><fmt:message key="sms.config.title"/></title>
@@ -133,8 +133,10 @@
                 <c:otherwise>
                     <c:forEach items="${smsConfig.credentialFields}" var="field">
                         <div class="mb-2">
-                            <label class="form-label"><carlos:encode value="${field.name}"/></label>
+                            <label class="form-label"
+                                   for="credential-<carlos:encode value='${field.name}' context='htmlAttribute'/>"><carlos:encode value="${field.name}"/></label>
                             <input class="form-control" type="password" value="" autocomplete="new-password"
+                                   id="credential-<carlos:encode value='${field.name}' context='htmlAttribute'/>"
                                    name="credential.<carlos:encode value='${field.name}' context='htmlAttribute'/>"/>
                             <div class="form-text">
                                 <c:choose>
@@ -161,6 +163,7 @@
     <form method="post" action="${ctx}/admin/ConfigureSms" id="smsSystemTestForm" class="d-flex gap-2" autocomplete="off">
         <input type="hidden" name="method" value="sendSystemTest"/>
         <fmt:message key="sms.config.testNumber" var="testNumberPlaceholder"/>
+        <label class="visually-hidden" for="testNumber"><carlos:encode value="${testNumberPlaceholder}"/></label>
         <input class="form-control" type="text" id="testNumber" name="testNumber" style="max-width: 16rem;"
                placeholder="<carlos:encode value='${testNumberPlaceholder}' context='htmlAttribute'/>"/>
         <button type="submit" class="btn btn-outline-primary" id="smsSystemTestSend"><fmt:message key="sms.config.sendSystemTest"/></button>
