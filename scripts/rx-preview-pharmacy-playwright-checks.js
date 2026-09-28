@@ -32,7 +32,8 @@
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (to stage and restore the pharmacy links)
- * Optional: PRESCRIPTION_SCRIPT_ID (default 45; must have drugs rows),
+ * Optional: PRESCRIPTION_SCRIPT_ID (defaults to the newest owned script with owned drug rows;
+ *   an unusable explicit fixture is rejected before browser launch),
  *   PRESCRIPTION_DEMOGRAPHIC_NO (default 1), CHROME_PATH,
  *   RX_PREVIEW_SCREENSHOT_DIR (default /tmp).
  */
@@ -67,9 +68,14 @@ const config = {
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.RX_PREVIEW_SCREENSHOT_DIR || '/tmp',
 };
-const scriptId = process.env.PRESCRIPTION_SCRIPT_ID || '45';
+let requestedScriptId = String(process.env.PRESCRIPTION_SCRIPT_ID || '').trim();
 const demographicNo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
-assert(/^\d+$/.test(scriptId), `PRESCRIPTION_SCRIPT_ID must be numeric, got ${scriptId}`);
+if (requestedScriptId) {
+  assert(/^[0-9]{1,10}$/.test(requestedScriptId) && Number(requestedScriptId) > 0 && Number(requestedScriptId) <= 2147483647,
+    'PRESCRIPTION_SCRIPT_ID must be a positive integer prescription identifier');
+  requestedScriptId = String(Number(requestedScriptId));
+}
+let scriptId = requestedScriptId || null;
 assert(/^\d+$/.test(demographicNo), `PRESCRIPTION_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
 
 const mysqlHost = h.validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
@@ -90,6 +96,39 @@ function cleanupMysqlDefaults() {
     mysqlDefaults = null;
   }
 }
+/**
+ * Adapted from Michael Yingbull's PR #3753 (7a1f1f3): fail before launching the browser
+ * when the supplied fixture cannot appear in Reprint, or pick a usable fixture automatically.
+ * Both the prescription header and its drug row must belong to the requested patient, matching
+ * the current server's ownership checks. An unrelated patient's drug row is not a usable join.
+ */
+function resolvePrescriptionScriptId() {
+  const latestQuery = `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
+    + `WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo}`;
+  if (requestedScriptId) {
+    const owner = sql(`SELECT demographic_no FROM prescription WHERE script_no=${requestedScriptId}`);
+    let reason;
+    if (!owner || owner === 'NULL') reason = 'does not identify an existing prescription';
+    else if (Number(owner) !== Number(demographicNo)) reason = 'does not belong to the requested demographic';
+    else if (Number(sql(`SELECT COUNT(*) FROM drugs WHERE script_no=${requestedScriptId} AND demographic_no=${demographicNo}`)) === 0) {
+      reason = 'has no drug rows owned by the requested demographic';
+    }
+    if (reason) {
+      const suggestion = sql(latestQuery);
+      throw new Error(`PRESCRIPTION_SCRIPT_ID=${requestedScriptId} ${reason}. `
+        + `The Reprint panel requires a prescription with drug rows for demographic ${demographicNo}. `
+        + (suggestion && suggestion !== 'NULL'
+          ? `Use PRESCRIPTION_SCRIPT_ID=${suggestion}, or leave it unset to select one automatically.`
+          : 'No usable prescription exists for this demographic; create an owned fixture first.'));
+    }
+    return requestedScriptId;
+  }
+  const selected = sql(latestQuery);
+  assert(selected && selected !== 'NULL',
+    `No prescription with owned drug rows exists for demographic ${demographicNo}; create an owned fixture first.`);
+  return selected;
+}
+
 function sql(query) {
   assert(mysqlDefaults, 'MySQL defaults file has not been initialized');
   return execFileSync('mysql', [
@@ -124,20 +163,22 @@ async function assertPreviewRenders(hostFrame, label) {
   try {
     await frame.locator('#signature').waitFor({ state: 'attached', timeout: 30000 });
   } catch (error) {
-    const bodyText = await frame.locator('body').innerText().catch(() => '');
-    throw new Error(`${label}: preview did not render (#signature missing) at ${frame.url()}: ${bodyText.replace(/\s+/g, ' ').slice(0, 400)}`);
+    // Rendered prescription text contains clinical details and must not enter diagnostic logs.
+    throw new Error(`${label}: preview did not render (#signature missing)`);
   }
   return frame.url();
 }
 
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  initMysqlDefaults();
+  let browser = null;
   let stagedLinkIds = null;
   let foreignPatient = null;
   const foreignMarker = `FAKE-PW${randomBytes(8).toString('hex')}`;
   try {
+    initMysqlDefaults();
+    scriptId = resolvePrescriptionScriptId();
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
     stagedLinkIds = stageNoPharmacy();
 
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });

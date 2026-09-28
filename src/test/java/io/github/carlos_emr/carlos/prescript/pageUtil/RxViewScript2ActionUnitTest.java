@@ -641,4 +641,62 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
         liveBean.getStashList().add(blank);
         assertThat(RxViewScript2Action.persistedScriptId(liveBean)).isNull();
     }
+    @Test
+    @DisplayName("should refuse an unsaved preview POST that does not acknowledge the complete draft")
+    void shouldRejectUnsavedPreview_whenAnotherWindowStagedUnknownCards() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        RxPrescriptionData.Prescription first = rePrescribedItem("123");
+        first.setRandomId(1);
+        RxPrescriptionData.Prescription unseen = rePrescribedItem("456");
+        unseen.setRandomId(2);
+        liveBean.getStashList().addAll(java.util.List.of(first, unseen));
+        request.setParameter("draftRevision_1", first.getDraftRevision());
+        // Constructing the writer should not require its unrelated collaborators in this refusal test.
+        registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class));
+        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class,
+                mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+        registerMock(io.github.carlos_emr.carlos.managers.RxManager.class,
+                mock(io.github.carlos_emr.carlos.managers.RxManager.class));
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class)) {
+            assertThat(newAction().execute()).isEqualTo(RxViewScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+            assertThat(data.constructed()).isEmpty();
+            assertThat(liveBean.getStash()).containsExactly(first, unseen);
+            verifyNoInteractions(stampService, prescriptionDao);
+        }
+    }
+
+    @Test
+    @DisplayName("should return an explicit incomplete-save failure from the unsaved preview fallback")
+    void shouldReportIncompleteSave_whenUnsavedPreviewPersistenceFails() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        RxPrescriptionData.Prescription card = org.mockito.Mockito.spy(rePrescribedItem("123"));
+        card.setRandomId(1);
+        liveBean.getStashList().add(card);
+        request.setParameter("draftRevision_1", card.getDraftRevision());
+        registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class));
+        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class,
+                mock(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+        registerMock(io.github.carlos_emr.carlos.managers.RxManager.class,
+                mock(io.github.carlos_emr.carlos.managers.RxManager.class));
+        org.mockito.Mockito.doReturn(false).when(card).Save("9001");
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.saveScript(loggedInInfo, liveBean)).thenReturn("9001"))) {
+            assertThat(newAction().execute()).isEqualTo(RxViewScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_SAVE");
+            assertThat(liveBean.getStash()).containsExactly(card);
+            verifyNoInteractions(stampService, prescriptionDao);
+        }
+    }
+
 }

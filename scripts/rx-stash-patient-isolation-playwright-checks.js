@@ -98,11 +98,12 @@ function drugsFor(sql, demographicNo, marker) {
 
 // Only consume the exact HTTP conflict asserted by a negative workflow step. All other
 // browser errors, responses, failed requests and dialogs remain subject to strict checks.
-function consumeExpectedConflict(recorder, response, since, baseUrl) {
+function consumeExpectedConflict(recorder, response, since, baseUrl, endpoint = '/rx/WriteScript') {
   const appUrl = new URL(baseUrl);
   const contextPath = appUrl.pathname.replace(/\/$/, '');
   const responseUrl = new URL(response.url());
-  h.assert(responseUrl.origin === appUrl.origin && responseUrl.pathname === `${contextPath}/rx/WriteScript`,
+  h.assert(responseUrl.origin === appUrl.origin && ['/rx/WriteScript', '/rx/rePrescribe2'].includes(endpoint)
+    && responseUrl.pathname === `${contextPath}${endpoint}`,
     'the expected conflict must belong to this application prescription endpoint');
   const errors = recorder.badResponses.slice(since.responses);
   h.assert(errors.length === 1 && errors[0].url === response.url() && errors[0].status === 409
@@ -180,6 +181,83 @@ async function workflow(session) {
     await first.close();
   });
 
+  await session.step('Save Only cannot clear a newer draft staged while its response is held', async () => {
+    const first = await openRx(session, patient);
+    await stageCustomDrug(first, `${marker}-atomic-save`);
+    const secondTab = await openRx(session, patient);
+    let release;
+    let received;
+    const held = new Promise(resolve => { release = resolve; });
+    const committed = new Promise(resolve => { received = resolve; });
+    const pattern = /\/rx\/WriteScript(?:\?|$)/;
+    const handler = async route => {
+      const request = route.request();
+      if (!request.url().includes('parameterValue=updateSaveAllDrugs')) return route.continue();
+      h.assert(new URLSearchParams(request.postData()).get('clearSaved') === 'true',
+        'Save Only did not request cleanup as part of the save');
+      const response = await route.fetch();
+      h.assert(response.ok(), 'the held Save Only request failed');
+      received();
+      await held;
+      await route.fulfill({response});
+    };
+    await first.route(pattern, handler);
+    const saved = saveOnly(first);
+    try {
+      await Promise.race([committed, first.waitForTimeout(30000).then(() => { throw new Error('save did not commit'); })]);
+      const newerKey = await stageCustomDrug(secondTab, `${marker}-atomic-newer`);
+      release();
+      await saved;
+      await first.locator('[id^="drugName_"]').waitFor({state: 'detached'});
+      const current = await openRx(session, patient);
+      await current.locator(`#drugName_${newerKey}`).waitFor({state: 'visible'});
+      h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+        AND customName=${h.sqlString(`${marker}-atomic-newer`)}`) === '0',
+        'the later draft was unexpectedly saved with the earlier prescription');
+      await saveOnly(current);
+      await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+        AND customName=${h.sqlString(`${marker}-atomic-newer`)}`, '1', 'the newer draft could not be saved');
+      await current.close();
+    } finally {
+      release();
+      await saved.catch(() => {});
+      await first.unroute(pattern, handler);
+      await first.close();
+      await secondTab.close();
+    }
+  });
+
+  await session.step('duplicate same-card save is refused after Save And Print changes the revisions', async () => {
+    const name = `${marker}-duplicate-save`;
+    const first = await openRx(session, patient);
+    const key = await stageCustomDrug(first, name);
+    const stale = await openRx(session, patient);
+    const revision = await stale.locator(`input[name="draftRevision_${key}"]`).inputValue();
+    const response = first.waitForResponse(response => response.request().method() === 'POST'
+      && response.url().includes('parameterValue=updateSaveAllDrugs'));
+    await first.locator('#saveButton').click();
+    h.assert((await response).ok(), 'Save And Print failed');
+    await first.locator('#carlosModal').waitFor({state: 'visible'});
+    h.assert(await first.locator(`input[name="draftRevision_${key}"]`).inputValue() !== revision,
+      'successful Save And Print did not refresh its own editor revision');
+    const since = {responses: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length};
+    let refusal;
+    const dialogs = await h.withExpectedDialogs(stale, async () => {
+      const pending = stale.waitForResponse(response => response.request().method() === 'POST'
+        && response.url().includes('parameterValue=updateSaveAllDrugs'));
+      await stale.locator('#saveOnlyButton').click();
+      refusal = await pending;
+      h.assert(refusal.status() === 409, 'a duplicate submission of the same card version was accepted');
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].text === await stale.evaluate(() => jsMsg.staleDraft),
+      'duplicate save did not report a stale draft');
+    consumeExpectedConflict(session.recorder, refusal, since, session.config.baseUrl);
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(name)}`) === '1', 'duplicate save created another medication');
+    await stale.close();
+    await first.close();
+  });
+
   await session.step('a stale same-patient save preserves newer cards until the current form is saved', async () => {
     const nameA = `${marker}-stale-A`;
     const nameB = `${marker}-stale-B`;
@@ -238,6 +316,59 @@ async function workflow(session) {
     h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`) === String(Number(beforeScripts) + 1),
       'saving the current form did not create exactly one prescription');
     await current.close();
+  });
+
+  await session.step('refused ReRx staging retains the selected medications for a successful retry', async () => {
+    const rx = await openRx(session, patient);
+    const source = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-B`)} AND archived=0`);
+    const unopened = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth,
+      month_of_birth, date_of_birth, sex, patient_status, provider_no, hc_type, province,
+      roster_status, lastUpdateDate) VALUES (${h.sqlString(marker)}, 'StageRefusal', '1980', '01',
+      '02', 'F', 'AC', ${h.sqlString(provider)}, 'ON', 'ON', 'NR', NOW()); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(unopened), 'the unopened staging patient was not created');
+    session.cleanup(() => sql.execute(`DELETE FROM demographic WHERE demographic_no=${unopened}
+      AND last_name=${h.sqlString(marker)}`));
+    const box = rx.locator(`#reRxCheckBox_${source}`);
+    await box.check();
+    const pattern = /\/rx\/rePrescribe2(?:\?|$)/;
+    const handler = async route => {
+      const request = route.request();
+      const data = new URLSearchParams(request.postData() || '');
+      if (data.get('method') !== 'represcribeMultiple') return route.continue();
+      data.set('demographicNo', unopened);
+      const url = new URL(request.url());
+      url.searchParams.delete('demographicNo');
+      const response = await route.fetch({url: url.toString(), postData: data.toString()});
+      await route.fulfill({response});
+    };
+    await rx.route(pattern, handler);
+    const since = {responses: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length};
+    let refusal;
+    try {
+      const dialogs = await h.withExpectedDialogs(rx, async () => {
+        const pending = rx.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/rePrescribe2')
+          && response.request().method() === 'POST');
+        await rx.locator('#reRxConfirmBox input[name="stage"]').click();
+        refusal = await pending;
+        h.assert(refusal.status() === 409, 'staging without an open workspace was not refused');
+      });
+      h.assert(dialogs.length === 1 && dialogs[0].text === await rx.evaluate(() => jsMsg.requestRefused),
+        'refused staging did not report its failure');
+      consumeExpectedConflict(session.recorder, refusal, since, session.config.baseUrl, '/rx/rePrescribe2');
+      h.assert(await box.isChecked(), 'refused staging unchecked the selected medication');
+      h.assert(await rx.locator('#selectedCount').innerText() === '1', 'refused staging lost the selection');
+      h.assert(await rx.locator('#rxText').innerText() === '', 'the staging pane contains a refused response');
+    } finally {
+      await rx.unroute(pattern, handler);
+    }
+    await rx.locator('#reRxConfirmBox input[name="stage"]').click();
+    const card = rx.locator(`fieldset[data-drug-ref-id="${source}"]`);
+    await card.waitFor({state: 'visible'});
+    h.assert(await rx.locator('#selectedCount').innerText() === '0', 'successful retry left the selection pending');
+    await box.uncheck();
+    await card.waitFor({state: 'detached'});
+    await rx.close();
   });
 
   await session.step('refused ReRx untick retains its card and successful retry removes it', async () => {

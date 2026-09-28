@@ -220,6 +220,7 @@
     </head>
     <body>
     <form action="${pageContext.request.contextPath}/rx/updateFavorite2" method="post">
+        <input type="hidden" name="demographicNo" value="${bean.demographicNo}"/>
         <input type="hidden" name="favoriteId" id="favoriteId"/>
         <input type="hidden" name="favoriteName" id="favoriteName"/>
         <input type="hidden" name="customName" id="customName"/>
@@ -237,6 +238,7 @@
     </form>
 
     <form name="RxDeleteFavoriteForm" action="${pageContext.request.contextPath}/rx/deleteFavorite2" method="post">
+        <input type="hidden" name="demographicNo" value="${bean.demographicNo}"/>
         <input type="hidden" name="favoriteId" id="favoriteId"/>
     </form>
 

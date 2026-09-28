@@ -37,14 +37,16 @@
  *      403, an unknown id 404, a malformed id 400, and the caller's own favourite is staged.
  *
  * The check owns one synthetic patient, the favourites it inserts, and any drug row it stages
- * (nothing is saved to the chart; the stash lives in the session). It needs no DrugRef lookup.
+ * (legacy save coverage persists and cleans up its owned prescription). It needs no DrugRef lookup.
  *
  * Environment (see docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*
  */
 
 const h = require('./lib/playwright-harness');
+const { randomBytes } = require('node:crypto');
 const { runWorkflow } = require('./lib/workflow-session');
+const { stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
 
 /** A provider number no real login owns: the favourites table takes six characters. */
 const FOREIGN_PROVIDER = 'FAKEPW';
@@ -92,6 +94,9 @@ async function workflow(session) {
   session.cleanup(() => sql.execute(`DELETE FROM favorites WHERE favoritename LIKE ${h.sqlString(`${marker}%`)}`));
   session.cleanup(() => sql.execute(`DELETE FROM drugs WHERE demographic_no=${patient}
     AND customName LIKE ${h.sqlString(`${marker}%`)}`));
+  session.cleanup(() => sql.execute(`DELETE FROM prescription WHERE demographic_no=${patient}
+    AND script_no IN (SELECT script_no FROM drugs WHERE demographic_no=${patient}
+      AND customName LIKE ${h.sqlString(`${marker}%`)})`));
 
   await session.step('the Edit favourites side link opens the favourites page', async () => {
     const rx = await openRx(session, patient);
@@ -109,6 +114,163 @@ async function workflow(session) {
     await rx.locator('form[action$="/rx/deleteFavorite2"] input[name="favoriteId"]')
       .waitFor({ state: 'attached', timeout: 20000 });
     await rx.close();
+  });
+
+  await session.step('favorite delete and copy refresh retain their originating patient across tabs', async () => {
+    const otherPatient = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth,
+      month_of_birth, date_of_birth, sex, patient_status, provider_no, hc_type, province,
+      roster_status, lastUpdateDate) VALUES (${h.sqlString(marker)}, 'FavoritesOther', '1980', '01',
+      '02', 'F', 'AC', ${h.sqlString(provider)}, 'ON', 'ON', 'NR', NOW()); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(otherPatient), 'the second patient was not created');
+    session.cleanup(() => sql.execute(`DELETE FROM demographic WHERE demographic_no=${otherPatient}
+      AND last_name=${h.sqlString(marker)}`));
+    const favorite = insertFavorite(sql, provider, `${marker}-delete-context`);
+    const editor = await session.context.newPage();
+    await h.gotoApp(editor, config.baseUrl, `/rx/ViewEditFavorites2?demographicNo=${patient}`);
+    const rowName = await editor.locator(`input[name^="fldFavoriteId"][value="${favorite}"]`).getAttribute('name');
+    const row = rowName.replace('fldFavoriteId', '');
+    const copy = await session.context.newPage();
+    await h.gotoApp(copy, config.baseUrl, `/rx/copyFavorite?demographicNo=${patient}`);
+    const other = await openRx(session, otherPatient);
+    await h.withExpectedDialogs(editor, async () => {
+      await Promise.all([
+        editor.waitForURL(/\/rx\/deleteFavorite2/),
+        editor.locator(`a[href="javascript:deleteRow(${row});"]`).click(),
+      ]);
+    }, {accept: true});
+    h.assert(sql.value(`SELECT COUNT(*) FROM favorites WHERE favoriteid=${favorite}`) === '0',
+      'the owned favorite was not deleted');
+    // Trigger the real provider-selection refresh without copying another provider's data.
+    await Promise.all([
+      copy.waitForURL(/\/rx\/copyFavorite2/),
+      copy.locator('select[name="ddl_provider"]').selectOption(''),
+    ]);
+    for (const page of [editor, copy]) {
+      await h.assertNotErrorPage(page, 'favorite postback');
+      const back = page.locator('input[value="Back to Search For Drug"]').first();
+      await Promise.all([page.waitForURL(/\/rx\/searchDrug\?/), back.click()]);
+      h.assert(new URL(page.url()).searchParams.get('demographicNo') === patient,
+        'favorite postback switched its Back link to the other tab patient');
+      await page.close();
+    }
+    await other.close();
+  });
+
+  await session.step('sharing and copying favorites use the logged-in destination and only public sources', async () => {
+    const fixtures = [];
+    for (const shared of [true, false]) {
+      let id;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const candidate = `F${randomBytes(3).toString('hex').slice(0, 5)}`;
+        if (sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(candidate)}`) === '0') {
+          id = candidate;
+          break;
+        }
+      }
+      h.assert(id, 'could not allocate a synthetic favorite source provider');
+      sql.execute(`INSERT INTO provider (provider_no, last_name, first_name, provider_type, specialty,
+        sex, status, lastUpdateDate) VALUES (${h.sqlString(id)}, ${h.sqlString(marker)},
+        '${shared ? 'Shared' : 'Private'}', 'doctor', '', 'U', '1', NOW())`);
+      session.cleanup(() => sql.execute(`DELETE FROM favorites WHERE provider_no=${h.sqlString(id)}
+        AND favoritename LIKE ${h.sqlString(`${marker}%`)};
+        DELETE FROM favoritesprivilege WHERE provider_no=${h.sqlString(id)};
+        DELETE FROM provider WHERE provider_no=${h.sqlString(id)} AND last_name=${h.sqlString(marker)}`));
+      sql.execute(`INSERT INTO favoritesprivilege (provider_no,opentopublic,writeable)
+        VALUES (${h.sqlString(id)},${shared ? '1' : '0'},0)`);
+      const name = `${marker}-${shared ? 'public' : 'private'} <&>`;
+      const favorite = insertFavorite(sql, id, name);
+      fixtures.push({id, name, favorite});
+    }
+    const [shared, privateSource] = fixtures;
+    const unselectedName = `${marker}-public-not-selected`;
+    insertFavorite(sql, shared.id, unselectedName);
+    const ownSharing = sql.rows(`SELECT id,opentopublic,writeable FROM favoritesprivilege
+      WHERE provider_no=${h.sqlString(provider)}`);
+    h.assert(ownSharing.length <= 1, 'the test provider has ambiguous sharing preferences');
+    session.cleanup(() => {
+      sql.execute(`DELETE FROM favoritesprivilege WHERE provider_no=${h.sqlString(provider)}`);
+      for (const [id, open, writeable] of ownSharing) {
+        h.assert(/^[0-9]+$/.test(id) && /^[01]$/.test(open) && /^[01]$/.test(writeable),
+          'the sharing preference snapshot contains invalid values');
+        sql.execute(`INSERT INTO favoritesprivilege(id,provider_no,opentopublic,writeable)
+          VALUES (${id},${h.sqlString(provider)},${open},${writeable})`);
+      }
+    });
+    const page = await session.context.newPage();
+    await h.gotoApp(page, config.baseUrl, `/rx/copyFavorite?demographicNo=${patient}`);
+    const initialShare = ownSharing.length ? ownSharing[0][1] : '0';
+    h.assert(await page.locator(`input[name="rb_share"][value="${initialShare}"]`).isChecked(),
+      'sharing controls did not display the logged-in provider preference');
+    h.assert(await page.locator(`select[name="ddl_provider"] option[value="${privateSource.id}"]`).count() === 0,
+      'the copy selector disclosed a private provider');
+    const changedShare = initialShare === '0' ? '1' : '0';
+    await page.locator(`input[name="rb_share"][value="${changedShare}"]`).check();
+    const updated = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/copyFavorite2')
+      && response.request().method() === 'POST');
+    await page.locator('input[value="Save sharing preference"]').click();
+    h.assert((await updated).ok(), 'updating the caller sharing preference failed');
+    await page.waitForLoadState('networkidle');
+    h.assert(sql.value(`SELECT opentopublic FROM favoritesprivilege WHERE provider_no=${h.sqlString(provider)}`)
+      === changedShare, 'the caller sharing preference was not saved');
+    const refreshed = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/copyFavorite2')
+      && response.request().method() === 'POST');
+    await page.locator('select[name="ddl_provider"]').selectOption(shared.id);
+    h.assert((await refreshed).ok(), 'shared favorite list refresh failed');
+    await page.waitForLoadState('networkidle');
+    const rowInput = page.locator(`input[name^="fldFavoriteId"][value="${shared.favorite}"]`);
+    const row = (await rowInput.getAttribute('name')).replace('fldFavoriteId', '');
+    h.assert(await page.locator('input[name="countFavorites"]').inputValue() === '2',
+      'the form did not render both shared favorites');
+    h.assert((await page.locator(`label[for="selected${row}"]`).innerText()).includes(shared.name),
+      'stored favorite text was not rendered faithfully');
+    await page.locator(`input[name="selected${row}"]`).check();
+    const copied = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/copyFavorite2')
+      && response.request().method() === 'POST');
+    await page.locator('input[name="b_copy"]').click();
+    h.assert((await copied).ok(), 'copying a shared favorite failed');
+    await page.waitForLoadState('networkidle');
+    h.assert((await page.locator('[role="status"]').innerText()).includes('1'),
+      'copy did not acknowledge the selected favorite count');
+    h.assert(sql.value(`SELECT COUNT(*) FROM favorites WHERE provider_no=${h.sqlString(provider)}
+      AND favoritename=${h.sqlString(shared.name)}`) === '1', 'shared favorite was not copied to the logged-in provider');
+    h.assert(sql.value(`SELECT COUNT(*) FROM favorites WHERE provider_no=${h.sqlString(provider)}
+      AND favoritename=${h.sqlString(unselectedName)}`) === '0', 'copy included an unchecked favorite');
+    const fields = 'customName,GCN_SEQNO,takemin,takemax,freqcode,duration,durunit,quantity,`repeat`,nosubs,prn,special';
+    const original = sql.rows(`SELECT ${fields} FROM favorites WHERE favoriteid=${shared.favorite}`);
+    const copy = sql.rows(`SELECT ${fields} FROM favorites WHERE provider_no=${h.sqlString(provider)}
+      AND favoritename=${h.sqlString(shared.name)}`);
+    h.assert(JSON.stringify(copy) === JSON.stringify(original), 'copy changed the favorite clinical fields');
+    const snapshot = () => JSON.stringify({
+      favorites: sql.rows(`SELECT favoriteid,provider_no,favoritename FROM favorites
+        WHERE favoritename LIKE ${h.sqlString(`${marker}%`)} ORDER BY favoriteid`),
+      sharing: sql.rows(`SELECT id,provider_no,opentopublic,writeable FROM favoritesprivilege
+        WHERE provider_no IN (${[provider, shared.id, privateSource.id].map(h.sqlString).join(',')}) ORDER BY id`),
+    });
+    const before = snapshot();
+    const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    h.assert(token, 'copy form has no CSRF token');
+    const base = String(config.baseUrl).replace(/\/$/, '');
+    const post = form => session.context.request.post(`${base}/rx/copyFavorite2`, {
+      headers: {'CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest'},
+      form: {demographicNo: patient, ...form}, maxRedirects: 0,
+    });
+    const copyForm = {dispatch: 'copy', ddl_provider: shared.id, countFavorites: '1', selected0: '1',
+      fldFavoriteId0: shared.favorite};
+    const probes = [
+      ['GET copy', () => session.context.request.get(`${base}/rx/copyFavorite2?${new URLSearchParams({demographicNo: patient, ...copyForm})}`, {maxRedirects: 0}), 405],
+      ['GET sharing update', () => session.context.request.get(`${base}/rx/copyFavorite2?dispatch=update&rb_share=1&demographicNo=${patient}`, {maxRedirects: 0}), 405],
+      ['private source list', () => session.context.request.get(`${base}/rx/copyFavorite?demographicNo=${patient}&ddl_provider=${privateSource.id}`, {maxRedirects: 0}), 403],
+      ['private source copy', () => post({...copyForm, ddl_provider: privateSource.id, fldFavoriteId0: privateSource.favorite}), 403],
+      ['foreign sharing target', () => post({dispatch: 'update', rb_share: '1', userProviderNo: privateSource.id}), 403],
+      ['foreign copy destination', () => post({...copyForm, providerNo: privateSource.id}), 403],
+      ['mixed source batch', () => post({...copyForm, countFavorites: '2', selected1: '1', fldFavoriteId1: privateSource.favorite}), 403],
+    ];
+    for (const [label, probe, status] of probes) {
+      const response = await probe();
+      h.assert(response.status() === status, `${label} answered HTTP ${response.status()}, expected ${status}`);
+      h.assert(snapshot() === before, `${label} changed favorites or sharing preferences`);
+    }
+    await page.close();
   });
 
   await session.step('choosing a custom drug POSTs to rx/chooseDrug and opens the write-script page', async () => {
@@ -141,13 +303,53 @@ async function workflow(session) {
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await h.assertNotErrorPage(page, 'write-script page');
     await page.locator('form#frm textarea[name="customName"]').waitFor({ state: 'attached', timeout: 20000 });
+    const cardKey = await page.locator('form#frm input[name="randomId"]').inputValue();
+    const revision = await page.locator('form#frm input[name="draftRevision"]').inputValue();
+    h.assert(/^[0-9]+$/.test(cardKey) && revision.length > 0,
+      'legacy editor did not bind a stable card identity and revision');
+    h.assert(await page.locator(`form#frm input[name="draftRevision_${cardKey}"]`).inputValue() === revision,
+      'legacy print did not bind the version of every displayed card');
     h.assert(await page.evaluate(() => frm === document.forms.frm && typeof frm.quantity === 'object'),
       'the write-script page did not bind its form');
+    const legacyName = `${marker}-legacy-save`;
+    await page.locator('form#frm textarea[name="customName"]').fill(legacyName);
+    await page.locator('form#frm input[name="quantity"]').fill('30');
+    await page.locator('form#frm textarea[name="special"]').fill('Take one tablet daily');
+    const payload = await page.locator('form#frm').evaluate(form => Object.fromEntries(new FormData(form)));
+    payload.action = 'updateAndPrint';
+    h.assert(payload['CSRF-TOKEN'], 'the legacy editor has no CSRF token');
+    const postCapturedEditor = () => session.context.request.post(`${String(config.baseUrl).replace(/\/$/, '')}/rx/writeScript`, {
+      headers: {'CSRF-TOKEN': payload['CSRF-TOKEN'], 'X-Requested-With': 'XMLHttpRequest'},
+      form: payload, maxRedirects: 0,
+    });
+    // Another window adding a card must not cause legacy Print to save an unseen medication.
+    const other = await openRx(session, patient);
+    const unseen = await stageCustomDrug(other, `${marker}-legacy-unseen`);
+    const refused = await postCapturedEditor();
+    h.assert(refused.status() === 409 && (await refused.json()).error === 'STALE_RX_STASH',
+      'the legacy editor saved a card added by another window without review');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName IN (${h.sqlString(legacyName)},${h.sqlString(`${marker}-legacy-unseen`)})`) === '0',
+      'refused legacy save persisted a medication');
+    await other.locator(`#set_${unseen} a[onclick^="removePrescribingDrug"]`).click();
+    await other.locator(`#set_${unseen}`).waitFor({state: 'detached'});
+    await other.close();
+    // The unchanged original form is now current again; exercise its actual Submit handler and
+    // Struts binding instead of constructing the successful save through an API call.
+    const saved = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/writeScript')
+      && response.request().method() === 'POST');
+    await page.locator('input[onclick="submitForm(\'updateAndPrint\');"]').click();
+    h.assert((await saved).ok(), 'the current legacy editor was refused');
+    await page.locator('iframe#preview').waitFor({state: 'attached'});
+    await h.assertNotErrorPage(page, 'saved legacy preview');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(legacyName)}`) === '1', 'legacy Print did not save exactly one medication');
+    const duplicate = await postCapturedEditor();
+    h.assert(duplicate.status() === 409 && (await duplicate.json()).error === 'STALE_RX_STASH',
+      'duplicate legacy Print was accepted');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(legacyName)}`) === '1', 'duplicate legacy Print created another medication');
     await page.close();
-    // The stash belongs to the session: the Rx page for the patient shows the staged card.
-    const rx = await openRx(session, patient);
-    await rx.locator("[id^='drugName_']").first().waitFor({ state: 'attached', timeout: 20000 });
-    await rx.close();
   });
 
   // Exercise each distinct sidebar fragment on its actual page. Hold the initial stash read

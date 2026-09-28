@@ -31,6 +31,8 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="RxPharmacy.js.updateIncomplete" var="msg_pharmacyIncomplete"/>
+<fmt:message key="SearchDrug.js.requestRefused" var="msg_pharmacyRefused"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -98,6 +100,20 @@
             %>
         </c:if>
         <script type="text/javascript">
+            function reportPharmacyFailure(event, transport, settings) {
+                if (!settings || !/\/rx\/managePharmacy(?:\?|$)/.test(settings.url)) return;
+                if (typeof HideSpin === 'function') HideSpin(true);
+                if (transport && transport.responseJSON
+                        && transport.responseJSON.error === 'INCOMPLETE_PHARMACY_UPDATE') {
+                    alert('${carlos:forJavaScript(msg_pharmacyIncomplete)}');
+                } else {
+                    alert('${carlos:forJavaScript(msg_pharmacyRefused)}');
+                }
+            }
+            // jQuery rejects HTTP failures and malformed JSON before its success callback.
+            // Keep the current form/list visible and explain the failed request.
+            jQuery(document).ajaxError(reportPharmacyFailure);
+
             ShowSpin(true);
             (function ($) {
                 $(function () {

@@ -379,9 +379,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
-        // Prescription: the reprint methods permit GET; the staging methods (represcribe,
-        // represcribe2, saveReRxDrugIdToStash, repcbAllLongTerm, represcribeMultiple) and
-        // saveDigitalSignature are POST-only (#3908). Covered by
+        // Prescription: reprint, staging (represcribe, represcribe2, saveReRxDrugIdToStash,
+        // repcbAllLongTerm, represcribeMultiple) and saveDigitalSignature are POST-only;
+        // viewPrescribing only renders the workspace and permits GET (#3908). Covered by
         // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
         // Pharmacies: search/getPharmacyInfo/... permit GET; delete, unlink, setPreferred, add,
@@ -408,6 +408,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // archiveReason write the chart and reject GET/HEAD. Covered by
         // RxPatientWriteAuthorizationUnitTest.shouldRejectReasonWrite_whenMethodIsNotPost.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
+        // Favourite sharing/copying writes require POST; the selection page permits GET.
+        // Targeted guard from PR #2478, covered by CopyFavorites2ActionUnitTest.
+        "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
@@ -569,7 +572,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.web.RxReorder2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action",
-        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action"
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action",
+        "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
@@ -616,6 +620,17 @@ class MutatorActionGetRejectionContractUnitTest {
         assertRejectsUnsafeMethod(
                 "io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
                 "_tickler", "u", httpMethod, Map.of("method", "editTickler"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"update", "copy"})
+    @DisplayName("CopyFavorites2Action should reject GET and HEAD for either write dispatch")
+    void shouldRejectUnsafeMethod_forCopyFavoritesMutationDispatch(String dispatch) throws Exception {
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            assertRejectsUnsafeMethod(
+                    "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
+                    "_rx", "w", httpMethod, Map.of("dispatch", dispatch));
+        }
     }
 
     private static void assertRejectsUnsafeMethod(
@@ -667,6 +682,7 @@ class MutatorActionGetRejectionContractUnitTest {
             servletCtx.when(ServletActionContext::getResponse).thenReturn(response);
 
             LoggedInInfo sessionInfo = mock(LoggedInInfo.class);
+            when(sessionInfo.getLoggedInProviderNo()).thenReturn("999998");
             loggedInInfo.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                     .thenReturn(sessionInfo);
 

@@ -217,8 +217,22 @@ async function postReprintSession(page) {
     });
     return {
       status: response.status,
+      redirected: response.redirected,
     };
   }, { scriptId: prescriptionScriptId, demographicNo: prescriptionDemographicNo });
+  if (result.redirected) {
+    throw new Error(`Prescription reprint session setup redirected (HTTP ${result.status}); check the login and permissions.`);
+  }
+  if (result.status === 404) {
+    // Current reprint handlers reject an empty, missing or foreign script before opening the
+    // preview. Unlike hasPreview=false, this response cannot distinguish those fixture causes.
+    throw new Error(`Prescription ${prescriptionScriptId} cannot be reprinted for demographic ${prescriptionDemographicNo} `
+      + '(HTTP 404): the script may be missing, belong to another patient, or have no owned drug rows. '
+      + 'Choose an unsigned disposable fixture with matching prescription and drug ownership: '
+      + `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
+      + `WHERE p.demographic_no=${prescriptionDemographicNo} AND d.demographic_no=${prescriptionDemographicNo} `
+      + 'AND p.digital_signature_id IS NULL.');
+  }
   if (result.status !== 200) {
     throw new Error(`Prescription reprint session setup returned HTTP ${result.status}`);
   }
@@ -254,11 +268,49 @@ async function openPrescriptionView(page, label) {
     viewParams.set('pharmacyId', prescriptionPharmacyId);
   }
   await gotoApp(page, `/rx/viewScript?${viewParams.toString()}`);
-  await page.locator('#preview').waitFor({ state: 'attached', timeout: 30000 });
+  await waitForPreviewOrExplain(page);
   await previewFrame(page);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   visited.push({ label });
   await assertNoErrorPage(page, label);
+}
+
+/**
+ * Adapted from Michael Yingbull's PR #3753 (7a1f1f3): diagnose an empty preview only
+ * when the completed print page says hasPreview=false. Slow renders keep the full 30s budget;
+ * login/error pages retain the original timeout. Never include rendered clinical text.
+ */
+async function waitForPreviewOrExplain(page) {
+  const preview = page.locator('#preview');
+  const inspect = () => page.evaluate(() => ({
+    frameAttached: !!document.querySelector('#preview'),
+    complete: document.readyState === 'complete',
+    serverFoundDrugs: typeof window.hasPreview === 'boolean' ? window.hasPreview : null,
+  }));
+  const emptyPrescriptionError = () => new Error(
+    `Prescription ${prescriptionScriptId} rendered a completed print page with hasPreview=false and no preview frame. `
+    + 'Choose an unsigned disposable prescription with owned drug rows: '
+    + `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
+    + `WHERE p.demographic_no=${prescriptionDemographicNo} AND d.demographic_no=${prescriptionDemographicNo} `
+    + 'AND p.digital_signature_id IS NULL.',
+  );
+  try {
+    await preview.waitFor({state: 'attached', timeout: 5000});
+    return;
+  } catch (error) { /* Inspect the page before diagnosing a missing frame. */ }
+  const settled = await inspect();
+  if (settled.complete && !settled.frameAttached && settled.serverFoundDrugs === false) {
+    throw emptyPrescriptionError();
+  }
+  try {
+    await preview.waitFor({state: 'attached', timeout: 25000});
+  } catch (error) {
+    const final = await inspect();
+    if (final.complete && !final.frameAttached && final.serverFoundDrugs === false) {
+      throw emptyPrescriptionError();
+    }
+    throw error;
+  }
 }
 
 async function previewFrame(page) {

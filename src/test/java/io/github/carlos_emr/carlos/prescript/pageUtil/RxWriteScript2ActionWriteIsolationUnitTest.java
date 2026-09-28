@@ -385,6 +385,11 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             concurrentBean.setStashIndex(1);
             RxSessionBeanResolver.register(request.getSession(), concurrentBean);
             request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+            request.setParameter("randomId", "2");
+            request.setParameter("draftRevision", selected.getDraftRevision());
+            request.setParameter("draftRevision_1", first.getDraftRevision());
+            request.setParameter("draftRevision_2", selected.getDraftRevision());
+            request.setParameter("draftRevision_3", other.getDraftRevision());
             action.setAction("updateAndPrint");
             action.setGCN_SEQNO("0");
             action.setCustomName("Updated medication");
@@ -519,6 +524,10 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should rewrite the named patient's staged item")
     void shouldRewriteStagedItem_whenUpdateNamesPatient() throws Exception {
+        when(stagedCard.getRandomId()).thenReturn(1L);
+        when(stagedCard.getDraftRevision()).thenReturn("current-revision");
+        request.setParameter("randomId", "1");
+        request.setParameter("draftRevision", "current-revision");
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         action.setAction("update");
         action.setGCN_SEQNO("0");
@@ -820,6 +829,237 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(404);
         verify(dao).find(77);
         verifyNoInteractions(mockRxManager);
+    }
+
+    @Test
+    @DisplayName("should reject malformed fields before changing or saving any card")
+    void shouldRejectMalformedFields_whenSaveWouldOtherwisePartiallyUpdateCard() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = draft(1, "original");
+        bean.getStashList().add(card);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "changed");
+        request.setParameter("repeats_1", "invalid-repeat");
+        submitDraftRevision("1");
+        action = spy(action);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("INVALID_RX_DRAFT");
+        assertThat(card.getBrandName()).isEqualTo("original");
+        verify(action, never()).persistStash(any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"drug", "archive", "refused"})
+    @DisplayName("should report an incomplete save and preserve the workspace when persistence fails")
+    void shouldReportIncompleteSave_whenPersistenceFails(String failure) throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = spy(draft(1, "first"));
+        card.setDrugReferenceId(55);
+        bean.getStashList().add(card);
+        bean.addReRxDrugIdList("55");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "first");
+        request.setParameter("clearSaved", "true");
+        submitDraftRevision("1");
+        String revision = card.getDraftRevision();
+        if ("drug".equals(failure)) {
+            org.mockito.Mockito.doThrow(new IllegalStateException("database unavailable"))
+                    .when(card).Save("9001");
+        } else {
+            doReturn(!"refused".equals(failure)).when(card).Save("9001");
+            when(mockRxManager.archiveDrug(any(), eq(55), eq(DEMOGRAPHIC_NO), anyString()))
+                    .thenThrow(new IllegalStateException("archive unavailable"));
+        }
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.saveScript(mockLoggedInInfo, bean)).thenReturn("9001"))) {
+            assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_SAVE");
+            assertThat(bean.getStash()).containsExactly(card);
+            assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+            assertThat(card.getDraftRevision()).isNotEqualTo(revision);
+            verifyNoInteractions(mockSignatureStampService);
+            response.reset();
+            assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            verify(data.constructed().getFirst()).saveScript(mockLoggedInInfo, bean);
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve another window's draft staged immediately after save-only cleanup")
+    void shouldKeepConcurrentDraft_whenSaveOnlyCompletes() throws Exception {
+        bean.clearStash();
+        bean.getStashList().add(draft(1, "saved"));
+        RxPrescriptionData.Prescription newDraft = draft(2, "other window");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "saved");
+        request.setParameter("clearSaved", "true");
+        request.addHeader("Accept", "application/json");
+        submitDraftRevision("1");
+        action = spy(action);
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(1);
+        Thread otherWindow = new Thread(() -> {
+            ready.countDown();
+            synchronized (bean) {
+                bean.getStashList().add(newDraft);
+            }
+        }, "concurrent-stage-after-save");
+        doAnswer(invocation -> {
+            assertThat(Thread.holdsLock(bean)).isTrue();
+            otherWindow.start();
+            assertThat(ready.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            return "9001";
+        }).when(action).persistStash(mockLoggedInInfo, bean);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+        otherWindow.join(5000);
+
+        assertThat(otherWindow.isAlive()).isFalse();
+        assertThat(bean.getStash()).containsExactly(newDraft);
+        assertThat(response.getContentAsString()).contains("9001");
+    }
+
+    @Test
+    @DisplayName("should save the submitted legacy card once despite a cursor move and repeated POST")
+    void shouldRefuseDuplicateLegacySave_whenAnotherWindowMovesCursor() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription first = spy(draft(1, "first"));
+        RxPrescriptionData.Prescription other = spy(draft(2, "other"));
+        bean.getStashList().addAll(java.util.List.of(first, other));
+        bean.setStashIndex(1);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("randomId", "1");
+        request.setParameter("draftRevision", first.getDraftRevision());
+        submitDraftRevision("1");
+        submitDraftRevision("2");
+        action.setAction("updateAndPrint");
+        action.setGCN_SEQNO("0");
+        action.setCustomName("updated first");
+        action.setSpecial("take one tablet daily");
+        action.setUnit("tab");
+        action.setDosage("1");
+        doReturn(true).when(first).Save("9001");
+        doReturn(true).when(other).Save("9001");
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.saveScript(mockLoggedInInfo, bean)).thenReturn("9001"))) {
+            assertThat(action.execute()).isEqualTo("viewScript");
+            assertThat(first.getCustomName()).isEqualTo("updated first");
+            assertThat(other.getBrandName()).isEqualTo("other");
+            response.reset();
+            assertThat(action.execute()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(data.constructed()).hasSize(1);
+            verify(first).Save("9001");
+            verify(other).Save("9001");
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"0", "invalid"})
+    @DisplayName("should reject a missing prescription header ID without writing any drugs")
+    void shouldReportIncompleteSave_whenHeaderReturnsInvalidId(String scriptId) throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = spy(draft(1, "first"));
+        bean.getStashList().add(card);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "first");
+        submitDraftRevision("1");
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.saveScript(mockLoggedInInfo, bean)).thenReturn(scriptId))) {
+            assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_SAVE");
+            verify(card, never()).Save(any());
+            verifyNoInteractions(mockRxManager);
+            assertThat(bean.getStash()).containsExactly(card);
+        }
+    }
+
+    @Test
+    @DisplayName("should stop and retain every draft when a later drug write fails")
+    void shouldRetainDraftsAndSources_whenSecondDrugWriteFails() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription first = spy(draft(1, "first"));
+        RxPrescriptionData.Prescription second = spy(draft(2, "second"));
+        first.setDrugReferenceId(55);
+        second.setDrugReferenceId(66);
+        bean.getStashList().addAll(java.util.List.of(first, second));
+        bean.addReRxDrugIdList("55");
+        bean.addReRxDrugIdList("66");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "first");
+        request.setParameter("drugName_2", "second");
+        request.setParameter("clearSaved", "true");
+        submitDraftRevision("1");
+        submitDraftRevision("2");
+        doReturn(true).when(first).Save("9001");
+        org.mockito.Mockito.doThrow(new IllegalStateException("database unavailable"))
+                .when(second).Save("9001");
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.saveScript(mockLoggedInInfo, bean)).thenReturn("9001"))) {
+            assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_SAVE");
+            assertThat(first.getScript_no()).isEqualTo("9001");
+            assertThat(bean.getStash()).containsExactly(first, second);
+            assertThat(bean.getReRxDrugIdList()).containsExactly("55", "66");
+            verifyNoInteractions(mockRxManager);
+            response.reset();
+            assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            verify(data.constructed().getFirst()).saveScript(mockLoggedInInfo, bean);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject legacy Save and Print before mutation when another window adds a card")
+    void shouldRejectLegacySave_whenFormOmitsAnotherWindowsDraft() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription first = draft(1, "first");
+        RxPrescriptionData.Prescription unseen = draft(2, "other window");
+        bean.getStashList().addAll(java.util.List.of(first, unseen));
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("randomId", "1");
+        request.setParameter("draftRevision", first.getDraftRevision());
+        submitDraftRevision("1");
+        action.setAction("updateAndPrint");
+        action.setCustomName("changed");
+        action = spy(action);
+
+        assertThat(action.execute()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(first.getBrandName()).isEqualTo("first");
+        assertThat(bean.getStash()).containsExactly(first, unseen);
+        verify(action, never()).persistStash(any(), any());
+    }
+
+    @Test
+    @DisplayName("should reject an invalid diagnosis code before changing or saving the prescription")
+    void shouldRejectInvalidReason_whenCodeIsUnavailable() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = draft(1, "original");
+        bean.getStashList().add(card);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "changed");
+        request.setParameter("reasonCode_1", "invalid-code");
+        request.setParameter("codingSystem_1", "icd9");
+        submitDraftRevision("1");
+        action = spy(action);
+        try (var coding = org.mockito.Mockito.mockConstruction(
+                io.github.carlos_emr.carlos.managers.CodingSystemManager.class)) {
+            assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).contains("INVALID_RX_DRAFT");
+            assertThat(card.getBrandName()).isEqualTo("original");
+            assertThat(card.getDrugReasonCode()).isNull();
+            verify(coding.constructed().getFirst()).isCodeAvailable("icd9", "invalid-code");
+            verify(action, never()).persistStash(any(), any());
+        }
     }
 
 }

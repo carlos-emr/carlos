@@ -174,7 +174,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             LogAction.addLog(loggedInfo.getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PHARMACY, pharmacyId);
         } catch (Exception e) {
             MiscUtils.getLogger().error("CANNOT DELETE PHARMACY ", e);
-            retVal = "{\"success\":false}";
+            reportIncompleteUpdate();
+            return NONE;
         }
 
         response.setContentType("application/json");
@@ -214,7 +215,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             jsonObject.put("id", pharmId);
         } catch (Exception e) {
             MiscUtils.getLogger().error("CANNOT UNLINK PHARMACY", e);
-            jsonObject.put("success", false);
+            reportIncompleteUpdate();
+            return;
         }
 
         try {
@@ -285,6 +287,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             objectMapper.writeValue(response.getWriter(), pharmacyInfo);
         } catch (Exception e) {
             MiscUtils.getLogger().error("ERROR SETTING PREFERRED ORDER", e);
+            reportIncompleteUpdate();
         }
     }
 
@@ -300,8 +303,9 @@ public final class RxManagePharmacy2Action extends ActionSupport {
                     request.getParameter("pharmacyProvince"), request.getParameter("pharmacyPostalCode"), request.getParameter("pharmacyPhone1"), request.getParameter("pharmacyPhone2"),
                     request.getParameter("pharmacyFax"), request.getParameter("pharmacyEmail"), request.getParameter("pharmacyServiceLocationId"), request.getParameter("pharmacyNotes"));
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error Updating Pharmacy " + request.getParameter("pharmacyId"), e);
-            status = "{\"success\":false}";
+            MiscUtils.getLogger().error("Error adding pharmacy", e);
+            reportIncompleteUpdate();
+            return NONE;
         }
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
@@ -354,7 +358,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
                     request.getParameter("pharmacyProvince"), request.getParameter("pharmacyPostalCode"), request.getParameter("pharmacyPhone1"), request.getParameter("pharmacyPhone2"),
                     request.getParameter("pharmacyFax"), request.getParameter("pharmacyEmail"), request.getParameter("pharmacyServiceLocationId"), request.getParameter("pharmacyNotes"));
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error Updating Pharmacy " + request.getParameter("pharmacyId"), e);
+            MiscUtils.getLogger().error("Error updating pharmacy", e);
+            reportIncompleteUpdate();
             return NONE;
         }
 
@@ -367,6 +372,17 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         return NONE;
+    }
+
+    /** A multi-step pharmacy change may have committed before its later lookup or audit failed. */
+    private void reportIncompleteUpdate() {
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        response.setContentType("application/json");
+        try {
+            response.getWriter().write("{\"success\":false,\"error\":\"INCOMPLETE_PHARMACY_UPDATE\"}");
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     public String search() {

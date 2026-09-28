@@ -266,6 +266,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
+        <fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
+        <fmt:message key="SearchDrug.js.discontinueIncomplete"     var="msg_discontinueIncomplete"/>
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
         <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
         <fmt:message key="SearchDrug.js.requestRefused"            var="msg_requestRefused"/>
@@ -302,6 +304,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 saveWarning: '${carlos:forJavaScript(msg_saveWarning)}',
                 savePrompt: '${carlos:forJavaScript(msg_savePrompt)}',
                 saveRefused: '${carlos:forJavaScript(msg_saveRefused)}',
+                saveIncomplete: '${carlos:forJavaScript(msg_saveIncomplete)}',
+                discontinueIncomplete: '${carlos:forJavaScript(msg_discontinueIncomplete)}',
                 staleDraft: '${carlos:forJavaScript(msg_staleDraft)}',
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
                 requestRefused: '${carlos:forJavaScript(msg_requestRefused)}',
@@ -671,7 +675,7 @@ function renderRxStage() {
     function represcribeOnLoad(drugId){
         var data="method=saveReRxDrugIdToStash&drugId="+encodeURIComponent(drugId) + "&rand=" + Math.floor(Math.random()*10001);
         var url= ctx + "/rx/rePrescribe2";
-        CarlosAjax.updater('rxText',url, {method:'POST',parameters:data,
+        CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
           evalScripts:true,insertion: 'bottom',
             onSuccess:function(transport){
@@ -1479,7 +1483,7 @@ function renderRxStage() {
             var url=ctx+ "/rx/WriteScript";
             var customDrugName=document.getElementById("drugName_"+randomId).value;
             var data="parameterValue=normalDrugSetCustom&randomId="+randomId+"&customDrugName="+encodeURIComponent(customDrugName);
-            CarlosAjax.updater('rxText',url,{method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
+            CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
                     var setEl=document.getElementById('set_'+randomId);
                     if(setEl) setEl.remove();
 		            renderRxStage();
@@ -1723,15 +1727,22 @@ function renderRxStage() {
         var data="drugId="+encodeURIComponent(id)+"&reason="+encodeURIComponent(reason)+"&comment="+encodeURIComponent(comment)+"&demoNo="+demoNo+"&drugSpecial="+encodeURIComponent(drugSpecial)+"&rand="+ Math.floor(Math.random()*10001);
             CarlosAjax.request(url,{method: 'post',postBody:data,onSuccess:function(transport){
                   var json = null;
-                  try { json = JSON.parse(transport.responseText); } catch(e) { return; }
+                  try { json = JSON.parse(transport.responseText); } catch(e) { reportRefusedRequest(); return; }
+                  if (!json || String(json.id) !== String(id)) { reportRefusedRequest(); return; }
                   document.getElementById('discontinueUI').style.display="none";
                   document.getElementById('rxDate_'+json.id).style.textDecoration='line-through';
                   document.getElementById('reRx_'+json.id).style.textDecoration='line-through';
                   document.getElementById('del_'+json.id).style.textDecoration='line-through';
                   document.getElementById('discont_'+json.id).textContent = json.reason;
                   document.getElementById('prescrip_'+json.id).style.textDecoration='line-through';
-					}
-				});
+                    }, onFailure: function (transport) {
+                        if (transport && transport.responseJSON
+                                && transport.responseJSON.error === 'INCOMPLETE_RX_DISCONTINUE') {
+                            alert(jsMsg.discontinueIncomplete);
+                        } else {
+                            reportRefusedRequest();
+                        }
+                    }});
 
     }
 
@@ -1741,7 +1752,7 @@ function renderRxStage() {
         var data="demoNo="+demoNo+"&showall=<%=showall%>&rand=" +  Math.floor(Math.random()*10001);
         var url= ctx + "/rx/rePrescribe2";
         data += "&method=repcbAllLongTerm";
-        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
+        CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
 		        renderRxStage();
 					}
 				});
@@ -1753,7 +1764,7 @@ function customNoteWarning(){
         var randomId=Math.round(Math.random()*1000000);
         var url=ctx+ "/rx/WriteScript";
         var data="parameterValue=newCustomNote&randomId="+randomId;
-					CarlosAjax.updater('rxText', url, {
+					CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest,
 						method: 'post',
 						parameters: data,
 						evalScripts: true,
@@ -1772,7 +1783,7 @@ function customWarning2(){
 		var searchString = document.getElementById("searchString").value;
         var url=ctx+ "/rx/WriteScript";
         var data="parameterValue=newCustomDrug&name=" + encodeURIComponent(searchString) + "&randomId="+randomId;
-        CarlosAjax.updater('rxText',url,{method:'post',parameters:data,evalScripts:true,
+        CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,evalScripts:true,
             insertion: 'bottom', onComplete:function(transport){
                 updateQty(document.getElementById('quantity_'+randomId));
 		            renderRxStage();
@@ -1922,7 +1933,7 @@ function popForm2(scriptId, saveAndPrint){
 					+ "&randomId="
 					+ ran_number;
 
-				CarlosAjax.updater('rxText', url, {
+				CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest,
 					method: 'POST', parameters: params, evalScripts: true,
           requestHeaders: { 'Accept': 'application/json' },
 					insertion: 'top', onSuccess: function (transport) {
@@ -2214,7 +2225,7 @@ function addFav(randomId,brandName){
           + "&text=" + encodeURIComponent(name)
           + "&randomId="
           + ran_number;
-				CarlosAjax.updater('rxText', url, {
+				CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest,
 					method: 'POST',
 					parameters: params,
 					evalScripts: true,
@@ -2273,7 +2284,7 @@ function represcribe(element, toArchive){
 
         var url= ctx + "/rx/rePrescribe2";
         var data = "method=represcribeMultiple&rand="+Math.floor(Math.random()*10001);
-        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,synchronous:true,evalScripts:true,
+        CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,synchronous:true,evalScripts:true,
             insertion: 'bottom',onSuccess:function(transport){
 		        renderRxStage();
             }
@@ -2286,7 +2297,7 @@ function represcribe(element, toArchive){
         var data="drugId="+encodeURIComponent(drugId);
         var url= ctx + "/rx/rePrescribe2";
         data += "&method=represcribe2&rand="+Math.floor(Math.random()*10001);
-        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,evalScripts:true,
+        CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,evalScripts:true,
             insertion: 'bottom',onSuccess:function(transport){
                 // updateCurrentInteractions();
             }});
@@ -2327,16 +2338,37 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
         }
     }
 
-    function cancelAndClearSelection() {
-        selectedReRxIDs.forEach(drugId => uncheckReRxForExistingPrescribedDrug(drugId));
-        selectedReRxIDs = [];
-        updateReRxStageConfirmBoxVisibility();
+    function cancelAndClearSelection(onCleared) {
+        const selected = selectedReRxIDs.slice();
+        if (selected.length === 0) {
+            if (typeof onCleared === 'function') onCleared();
+            return;
+        }
+        let remaining = selected.length;
+        let failed = false;
+        selected.forEach(function (drugId) {
+            removeReRxDrugId(drugId, function () {
+                const checkbox = getReRxCheckboxByUiRefId(drugId);
+                if (checkbox) checkbox.checked = false;
+                selectedReRxIDs = selectedReRxIDs.filter(id => id !== drugId);
+                updateReRxStageConfirmBoxVisibility();
+                remaining--;
+                if (remaining === 0 && !failed && typeof onCleared === 'function') onCleared();
+            }, function () {
+                failed = true;
+                remaining--;
+                reportRefusedRemoval();
+            });
+        });
     }
 
     function stageSelectedReRxMedications() {
-        rePrescribeMulti(selectedReRxIDs.slice());
-        selectedReRxIDs = [];
-        updateReRxStageConfirmBoxVisibility();
+        const selected = selectedReRxIDs.slice();
+        if (selected.length === 0) return;
+        rePrescribeMulti(selected, function () {
+            selectedReRxIDs = selectedReRxIDs.filter(id => !selected.includes(id));
+            updateReRxStageConfirmBoxVisibility();
+        });
 }
 
 /**
@@ -2360,7 +2392,7 @@ function addDrugToReRxList(uiRefId, drugId) {
 function rePrescribe2(uiRefId, drugId) {
     const data = "drugId=" + encodeURIComponent(drugId) + "&method=represcribe2&rand=" + uiRefId;
     const url = ctx + "/rx/rePrescribe2";
-        CarlosAjax.updater('rxText', url, {
+        CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest,
             method: 'post', parameters: data, evalScripts: true,
             insertion: 'bottom', onSuccess: function (transport) {
 		        renderRxStage();
@@ -2368,17 +2400,37 @@ function rePrescribe2(uiRefId, drugId) {
         });
     }
 
-    function rePrescribeMulti(drugIds) {
+    function rePrescribeMulti(drugIds, onStaged) {
         const url = ctx + "/rx/rePrescribe2";
         let rePrescribeMultiData = "method=represcribeMultiple&rand=" + Math.floor(Math.random() * 10001);
         // Pass drug IDs directly to avoid race condition with async session update
         if (drugIds && drugIds.length > 0) {
             rePrescribeMultiData += "&drugIds=" + encodeURIComponent(drugIds.join(','));
         }
-        CarlosAjax.updater('rxText', url, {
+        CarlosAjax.updater({success: 'rxText'}, url, {
             method: 'post', parameters: rePrescribeMultiData, synchronous: true, evalScripts: true,
-            insertion: 'bottom', onSuccess: function (transport) {
-		        renderRxStage();
+            insertion: 'bottom', onFailure: reportRefusedRequest,
+            onSuccess: function (transport) {
+                // XHR follows an expired-session redirect and reports the login page as 200.
+                // Updater invokes this callback before insertion, so suppress that response.
+                var accepted = false;
+                try {
+                    var expected = new URL(url, window.location.href);
+                    var actual = new URL(transport.responseURL);
+                    accepted = actual.origin === expected.origin && actual.pathname === expected.pathname
+                            && !/<(?:!doctype|html)\b/i.test(transport.responseText || '');
+                } catch (error) { accepted = false; }
+                if (!accepted) {
+                    transport.responseText = null;
+                    transport.status = 403;
+                    reportRefusedRequest();
+                }
+            },
+            onComplete: function (transport) {
+                if (transport.status >= 200 && transport.status < 300) {
+                    renderRxStage();
+                    if (onStaged) onStaged();
+                }
             }
         });
     }
@@ -2392,7 +2444,14 @@ function rePrescribe2(uiRefId, drugId) {
 function addDrugToReRxListInSession(uiRefId, drugId) {
     const dataUpdateId = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + uiRefId;
     const urlUpdateId = ctx + "/rx/WriteScript";
-    CarlosAjax.request(urlUpdateId, {method: 'post', parameters: dataUpdateId});
+    CarlosAjax.request(urlUpdateId, {method: 'post', parameters: dataUpdateId,
+        onFailure: function () {
+            const checkbox = getReRxCheckboxByUiRefId(drugId);
+            if (checkbox) checkbox.checked = false;
+            selectedReRxIDs = selectedReRxIDs.filter(id => id !== drugId);
+            updateReRxStageConfirmBoxVisibility();
+            reportRefusedRequest();
+        }});
 }
 
 /**
@@ -2801,8 +2860,7 @@ function updateQty(element){
 
         const message = buildConfirmationMessage(selectedReRxIDs.length);
         if (confirm(message)) {
-            cancelAndClearSelection();
-            onConfirm();
+            cancelAndClearSelection(onConfirm);
         }
     }
 
@@ -2873,13 +2931,22 @@ function updateQty(element){
 		}
 		<%}%>		
 		setPharmacyId();
-        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
+        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString() + '&clearSaved=true';
         var url= ctx + "/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,synchronous:true,
+            requestHeaders: { 'Accept': 'application/json' },
             onSuccess:function(transport){
+                // The save removes its persisted cards while holding the workspace lock. A
+                // separate clearStash request could delete a draft staged by another window.
+                var saved;
+                try { saved = JSON.parse(transport.responseText); } catch (error) { saved = null; }
+                if (!saved || !/^[1-9]\d*$/.test(String(saved.scriptId))) {
+                    reportRefusedSave(transport);
+                    return;
+                }
                 callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
-                resetStash();
+                clearStashDisplay();
             },
             onFailure: reportRefusedSave});
         return false;
@@ -2892,7 +2959,9 @@ function updateQty(element){
      * @param {Object} transport the CarlosAjax transport of the failed request
      */
     function reportRefusedSave(transport) {
-        if (transport && transport.status === 409 && transport.responseJSON
+        if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
+            alert(jsMsg.saveIncomplete);
+        } else if (transport && transport.status === 409 && transport.responseJSON
                 && transport.responseJSON.error === 'STALE_RX_STASH') {
             alert(jsMsg.staleDraft);
         } else if (transport && transport.status === 409) {

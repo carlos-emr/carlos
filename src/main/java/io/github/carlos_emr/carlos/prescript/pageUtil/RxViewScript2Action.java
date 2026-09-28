@@ -242,7 +242,15 @@ public final class RxViewScript2Action extends ActionSupport {
             }
             // The same persistence as updateSaveAllDrugs / updateAndPrint: it also archives the
             // re-prescribed sources, which this fallback used to leave active (#3908).
-            scriptId = new RxWriteScript2Action().persistStash(loggedInInfo, bean);
+            RxWriteScript2Action writer = new RxWriteScript2Action();
+            if (!writer.validateRenderedStash(bean)) {
+                return NONE;
+            }
+            try {
+                scriptId = writer.persistStash(loggedInInfo, bean);
+            } catch (RxWriteScript2Action.PrescriptionSaveException e) {
+                return writer.reportIncompleteSave();
+            }
         }
 
         // Expose the saved script id so ViewScript2.jsp builds the fax/print request for THIS

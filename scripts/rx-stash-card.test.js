@@ -237,7 +237,7 @@ const printJsp = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/rx
 const resetStart = printJsp.indexOf('function resetStash(');
 const printReset = printJsp.slice(resetStart, printJsp.indexOf('\n\n            /*', resetStart))
     .replace(/<%[\s\S]*?%>/g, '42');
-for (const result of ['success', 'refused', 'network failure']) {
+for (const result of ['success', 'refused', 'redirected', 'network failure']) {
     test(`preview reset preserves cards and modal until acknowledgement: ${result}`, async () => {
         let resolve;
         let reject;
@@ -261,7 +261,7 @@ for (const result of ['success', 'refused', 'network failure']) {
         assert.equal(cleared, 0);
         assert.equal(hidden, 0);
         if (result === 'network failure') reject(new Error('offline'));
-        else resolve({ ok: result === 'success' });
+        else resolve({ ok: result === 'success' || result === 'redirected', redirected: result === 'redirected' });
         assert.equal(await pending, result === 'success');
         assert.equal(cleared, result === 'success' ? 1 : 0);
         assert.equal(hidden, result === 'success' ? 1 : 0);

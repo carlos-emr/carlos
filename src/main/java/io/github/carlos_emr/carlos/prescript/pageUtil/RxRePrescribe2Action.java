@@ -810,24 +810,30 @@ public String saveDigitalSignature() throws IOException {
         } else {
             reRxDrugList = new ArrayList<>(bean.getReRxDrugIdList());
         }
+        // Resolve the complete batch before changing the stash. Missing rows may be skipped,
+        // but a failed lookup must not silently produce a successful, incomplete prescription.
+        RxPrescriptionData rxData = new RxPrescriptionData();
+        List<Prescription> sources = new ArrayList<>();
+        try {
+            for (String drugId : reRxDrugList) {
+                Prescription source = rxData.getPrescriptionIfPresent(Integer.parseInt(drugId));
+                if (isOwnedByBeanPatient(source, bean)) {
+                    sources.add(source);
+                } else {
+                    logger.warn("Skipped re-prescribe of a missing drug or one not owned by the Rx window's patient");
+                }
+            }
+        } catch (RuntimeException e) {
+            logger.error("Unable to load the re-prescribe selection ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
+        }
         CopyOnWriteArrayList<RxPrescriptionData.Prescription> listReRxDrug = new CopyOnWriteArrayList<Prescription>();
         // Source ids staged below. Each must be on the bean's ReRx list until the save: saveDrug()
         // archives a re-prescribed source only when its id is in that list (archiveReRxDrugs).
         int staged = 0;
-        for (String drugId : reRxDrugList) {
+        for (Prescription oldRx : sources) {
             Long rand = RxStashIds.nextUnique(bean, RxStashIds.DEFAULT_BOUND);
-            RxPrescriptionData rxData = new RxPrescriptionData();
-            RxPrescriptionData.Prescription oldRx;
-            try {
-                oldRx = rxData.getPrescription(Integer.parseInt(drugId));
-            } catch (RuntimeException _) {
-                // getPrescription throws for a missing row; one bad id must not drop the rest.
-                oldRx = null;
-            }
-            if (!isOwnedByBeanPatient(oldRx, bean)) {
-                logger.warn("Skipped re-prescribe of a drug that does not belong to the Rx window's patient");
-                continue;
-            }
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx);
             rx.setRandomId(rand);
             String qText = rx.getQuantity();
@@ -837,7 +843,7 @@ public String saveDigitalSignature() throws IOException {
             }
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
-            stageReRxCopy(loggedInInfo, bean, rx, Integer.parseInt(drugId), listReRxDrug);
+            stageReRxCopy(loggedInInfo, bean, rx, oldRx.getDrugId(), listReRxDrug);
             staged++;
         }
         // Counts only: drug ids and prescriptions correlate to the patient's chart.

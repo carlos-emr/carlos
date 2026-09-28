@@ -475,6 +475,61 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         assertThat(bean.getReRxDrugIdList()).containsExactly("5");
     }
 
+    @Test
+    @DisplayName("should safely skip a selected drug whose database row no longer exists")
+    void shouldSkipMissingSource_whenBatchLookupFindsNoDrug() throws Exception {
+        request.setParameter("demographicNo", "1");
+        request.setParameter("drugIds", "5");
+        var drugDao = mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.commn.dao.DrugDao.class, drugDao);
+
+        assertThat(action.represcribeMultiple()).isEqualTo("represcribe");
+
+        verify(drugDao).find(5);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(RxSessionBeanResolver.find(request.getSession(), 1).getStashSize()).isZero();
+    }
+
+    @Test
+    @DisplayName("should report a database failure rather than treating the source drug as missing")
+    void shouldReportFailure_whenBatchDatabaseLookupFails() throws Exception {
+        request.setParameter("demographicNo", "1");
+        request.setParameter("drugIds", "5");
+        var drugDao = mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.commn.dao.DrugDao.class, drugDao);
+        when(drugDao.find(5)).thenThrow(new org.springframework.dao.DataAccessResourceFailureException("Unavailable"));
+
+        assertThat(action.represcribeMultiple()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertThat(request.getAttribute("listRxDrugs")).isNull();
+        assertThat(RxSessionBeanResolver.find(request.getSession(), 1).getStashSize()).isZero();
+    }
+
+    @Test
+    @DisplayName("should preserve the complete draft when a later source lookup fails")
+    void shouldPreserveDraft_whenLaterBatchLookupFails() throws Exception {
+        request.setParameter("demographicNo", "1");
+        request.setParameter("drugIds", "5,6");
+        RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
+        var existingDraft = new RxPrescriptionData.Prescription(0, "999998", 1);
+        bean.getStashList().add(existingDraft);
+        bean.addReRxDrugIdList("99");
+        var firstSource = new RxPrescriptionData.Prescription(5, "999998", 1);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class, (mock, context) -> {
+            when(mock.getPrescriptionIfPresent(5)).thenReturn(firstSource);
+            when(mock.getPrescriptionIfPresent(6)).thenThrow(new IllegalStateException("Unavailable"));
+        })) {
+            assertThat(action.represcribeMultiple()).isEqualTo(ActionSupport.NONE);
+            verify(data.constructed().get(0), never()).newPrescription(anyString(), anyInt(), any(RxPrescriptionData.Prescription.class));
+        }
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertThat(bean.getStashList()).containsExactly(existingDraft);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("99");
+        assertThat(request.getAttribute("listRxDrugs")).isNull();
+    }
+
     private static org.mockito.MockedConstruction<RxPrescriptionData> stagingData(RxPrescriptionData.Prescription source) {
         return org.mockito.Mockito.mockConstruction(RxPrescriptionData.class, (mock, context) -> {
             when(mock.getPrescription(source.getDrugId())).thenReturn(source);

@@ -851,6 +851,11 @@
 
     <input type="hidden" name="action" id="action"/>
 
+    <%-- Printing persists the entire displayed stash; bind every card version, not only the editor. --%>
+    <% for (RxPrescriptionData.Prescription draftCard : bean.getStash()) { %>
+    <input type="hidden" name="draftRevision_<%= draftCard.getRandomId() %>" value="<carlos:encode value='<%= draftCard.getDraftRevision() %>' context="htmlAttribute"/>"/>
+    <% } %>
+
     <%
 
 
@@ -865,6 +870,11 @@
         if (thisForm != null) {
             if (bean.getStashIndex() > -1) { //new way
                 RxPrescriptionData.Prescription rx = bean.getStashItem(bean.getStashIndex());
+    %>
+    <%-- Bind this editor to the displayed card, including when another window moves the cursor. --%>
+    <input type="hidden" name="randomId" value="<%= rx.getRandomId() %>"/>
+    <input type="hidden" name="draftRevision" value="<carlos:encode value='<%= rx.getDraftRevision() %>' context="htmlAttribute"/>"/>
+    <%
                 RxDrugData drugData = new RxDrugData();
                 thisForm.setDemographicNo(bean.getDemographicNo());
                 thisForm.setRxDate(RxUtil.DateToString(rx.getRxDate(), "yyyy-MM-dd"));

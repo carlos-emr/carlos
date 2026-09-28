@@ -100,7 +100,46 @@ any fields. Persistence consumes the revisions before writing, so a second submi
 same form cannot create another prescription. A newly staged card also has a new revision,
 even if it reuses a removed card's numeric key. Stale forms receive HTTP 409 (`STALE_RX_STASH`).
 The successful Save and Print response returns the new revisions to that window, so its Edit Rx
-flow can continue while other windows retain stale revisions. Failed saves require a reload.
+flow can continue while other windows retain stale revisions. The legacy editor submits the
+selected card identity and the complete rendered revision set too. Save Only clears the saved
+stash inside the same lock as persistence; it does not send a later clear request that could
+discard another window's newly staged draft.
+
+Malformed numeric fields and unknown diagnosis codes are refused before persistence. Database
+or ancillary-write failures return an explicit error and do not open a successful preview or
+clear the drafts. The legacy DAO writes do not share one transaction: an incomplete save may
+already have written some rows. Its error tells the clinician to inspect the chart before
+retrying, and the consumed revisions prevent resubmitting the old form. Reloading alone does
+not establish that nothing was saved.
+
+ReRx batch lookups finish before staging starts, so a database failure does not stage a partial
+selection. The browser retains selections on a failed staging request. Pharmacy updates and
+discontinuation note failures likewise report incomplete changes instead of appearing successful.
+
+## Prescription and pharmacy ownership coverage
+
+The ownership cases in [issue #2463](https://github.com/carlos-emr/carlos/issues/2463)
+and Simran Panda's (@simpanda01)
+[PR #3304](https://github.com/carlos-emr/carlos/pull/3304) are incorporated into this work's
+regression coverage. Bulk deletion validates every requested drug before changing any row;
+single deletion and discontinuation reject missing or foreign drugs; discontinuation notes use
+the verified patient. Pharmacy unlink and preference changes authorize the explicitly named
+patient and use that patient's valid workspace.
+
+The original contribution's session-wide patient lookup is superseded by the per-patient
+resolver here, so an action in one chart cannot be retargeted by opening a different chart.
+The checks also cover malformed IDs, null record ownership and rejected mixed batches without
+partial mutation. This preserves the contribution's security intent without restoring the old
+single-active-patient assumption.
+
+Copilot's [PR #2478](https://github.com/carlos-emr/carlos/pull/2478) also identified the
+favorite-copy dispatches as mutations. Copying favorites and changing sharing preferences now
+require POST, while refreshing the provider list remains a read-only GET. The method-rejection
+contract covers these dispatches alongside the other Rx mutations.
+Sharing preferences and copy destinations always belong to the authenticated provider. A source
+must be public or owned by that provider, and every selected favorite must belong to that source
+before any copy is written. If copying succeeds but the page cannot reload, the error explicitly
+states that the favorites were saved so a retry cannot look like the only way to finish.
 
 ## Known limits
 

@@ -429,7 +429,13 @@ public final class RxDeleteRx2Action extends ActionSupport {
         try {
             createDiscontinueNote(request, bean.getDemographicNo());
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            // Archival has already been persisted. Report the incomplete note/link operation,
+            // rather than implying success or inviting an automatic repeat of the archive.
+            MiscUtils.getLogger().error("Prescription discontinuation note did not complete", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"INCOMPLETE_RX_DISCONTINUE\"}");
+            return NONE;
         }
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DISCONTINUE, LogConst.CON_PRESCRIPTION, "" + drug.getId(), ip, "" + drug.getDemographicId(), logStatement);
@@ -506,6 +512,9 @@ public final class RxDeleteRx2Action extends ActionSupport {
         CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);
 
         Long note_id = cmm.saveNoteSimpleReturnID(cmn);
+        if (note_id == null || note_id <= 0) {
+            throw new IllegalStateException("Discontinuation note was not saved");
+        }
 
         //create an entry in casemgmt note link
         CaseManagementNoteLink cmnl = new CaseManagementNoteLink();

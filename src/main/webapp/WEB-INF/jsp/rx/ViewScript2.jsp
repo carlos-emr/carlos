@@ -378,7 +378,7 @@
                     credentials: 'same-origin',
                     body: 'demographicNo=<%= viewScriptDemographicNo %>'
                 }).then(function(response) {
-                    if (!response.ok) throw new Error('Prescription reset was refused');
+                    if (!response.ok || response.redirected) throw new Error('Prescription reset was refused');
                     if (typeof parent.clearStashDisplay === 'function') {
                         parent.clearStashDisplay();
                         var modalElement = parent.document.getElementById('carlosModal');

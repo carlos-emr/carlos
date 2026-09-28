@@ -53,6 +53,7 @@ test('an empty stash is refused before any confirmation or save', () => {
 
 const refusedSave = slice('function reportRefusedSave(', '/**');
 for (const [transport, expected] of [
+    [{ status: 500, responseJSON: { error: 'INCOMPLETE_RX_SAVE' } }, 'review the chart before retrying'],
     [{ status: 409, responseJSON: { error: 'STALE_RX_STASH' } }, 'review the current draft'],
     [{ status: 409, responseJSON: null, responseText: '<html>Conflict</html>' }, 'reopen the session'],
     [{ status: 409, responseJSON: { error: 'OTHER' } }, 'reopen the session'],
@@ -61,7 +62,7 @@ for (const [transport, expected] of [
     test(`refused save explains the fixed stale-draft conflict only: ${JSON.stringify(transport)}`, () => {
         const alerts = [];
         const context = {
-            jsMsg: { staleDraft: 'review the current draft', saveRefused: 'reopen the session' },
+            jsMsg: { staleDraft: 'review the current draft', saveRefused: 'reopen the session', saveIncomplete: 'review the chart before retrying' },
             alert(message) { alerts.push(message); },
         };
         // No reload, retry or DOM mutation is available: refusal must preserve local edits.
@@ -70,3 +71,28 @@ for (const [transport, expected] of [
         assert.deepEqual(alerts, [expected]);
     });
 }
+
+test('Save Only requests atomic cleanup and never clears the shared stash afterwards', () => {
+    const calls = [];
+    let cleared = 0;
+    const context = {
+        validateWrittenDate: () => true, validateRxDate: () => true,
+        setPharmacyId() {}, ctx: '/carlos',
+        document: { getElementById: () => ({}) },
+        FormData: class {}, URLSearchParams: class { toString() { return 'drugName_42=draft'; } },
+        CarlosAjax: { request(url, options) { calls.push({url, options}); } },
+        callReplacementWebService() {}, clearStashDisplay() { cleared++; },
+        reportRefusedSave() {},
+    };
+    const code = slice('function updateSaveAllDrugsContinue(', '/**')
+        .replace(/<%if \(CarlosProperties[\s\S]*?<%}%>/, '');
+    vm.runInNewContext(code, context);
+    context.updateSaveAllDrugsContinue();
+    assert.match(calls[0].options.postBody, /&clearSaved=true$/);
+    assert.equal(cleared, 0);
+    calls[0].options.onSuccess({status: 200, responseText: '<html>login</html>'});
+    assert.equal(cleared, 0, 'a successful error/login page must not hide the draft');
+    calls[0].options.onSuccess({status: 200, responseText: '{"scriptId":123}'});
+    assert.equal(cleared, 1);
+    assert.equal(calls.length, 1, 'a post-save clear can destroy another window\'s newer draft');
+});

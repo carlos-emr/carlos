@@ -70,6 +70,8 @@ import static org.mockito.Mockito.when;
  * {@link RxAddFavorite2Action} (staged-card path) and the legacy {@code action=delete} branch of
  * {@link RxStash2Action}. A request that names no patient must not fall back to the session's
  * last-opened Rx patient; a request that names its patient keeps working.
+ * The deletion ownership and trusted discontinuation-note scenarios also verify the security
+ * findings contributed by Simran Panda in PR #3304 (issue #2463), adapted to per-patient workspaces.
  *
  * @since 2026-09-24
  */
@@ -373,6 +375,47 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource({
+                "bulk,foreign", "bulk,missing", "bulk,null-owner",
+                "single,foreign", "single,missing", "single,null-owner",
+                "discontinue,foreign", "discontinue,missing", "discontinue,null-owner"})
+        @DisplayName("should refuse every unowned target before any prescription mutation or audit")
+        void shouldRefuseUnownedDrug_whenDeleteTargetDoesNotBelongToNamedPatient(String route, String target) throws Exception {
+            // PR #3304: a valid first item must not be archived before a later foreign row is checked.
+            namePatient();
+            RxSessionBean otherPatient = new RxSessionBean();
+            otherPatient.setDemographicNo(2002);
+            otherPatient.setProviderNo(PROVIDER_NO);
+            RxSessionBeanResolver.register(request.getSession(), otherPatient);
+            var owned = new io.github.carlos_emr.carlos.commn.model.Drug();
+            owned.setId(77);
+            owned.setDemographicId(DEMOGRAPHIC_NO);
+            when(mockDrugDao.find(77)).thenReturn(owned);
+            var unowned = new io.github.carlos_emr.carlos.commn.model.Drug();
+            unowned.setId(78);
+            unowned.setDemographicId("foreign".equals(target) ? 2002 : null);
+            when(mockDrugDao.find(78)).thenReturn("missing".equals(target) ? null : unowned);
+            request.setParameter("deleteRxId", "del_78");
+            request.setParameter("drugId", "78");
+            request.setParameter("reason", "adverse reaction");
+            RxDeleteRx2Action action = new RxDeleteRx2Action();
+            action.setDrugList("77,78");
+
+            String result = switch (route) {
+                case "bulk" -> action.execute();
+                case "single" -> action.Delete2();
+                default -> action.Discontinue();
+            };
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(owned.isArchived()).isFalse();
+            assertThat(unowned.isArchived()).isFalse();
+            verify(mockDrugDao, never()).merge(any(io.github.carlos_emr.carlos.commn.model.Drug.class));
+            logActionMock.verifyNoInteractions();
+        }
+
+        @ParameterizedTest
         @NullSource
         @ValueSource(strings = {"", "77", "del_", "del_77_extra", "del_bad", "del_2147483648"})
         @DisplayName("should reject malformed single-delete ids without reporting success")
@@ -443,6 +486,104 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(400);
             verifyNoInteractions(mockDrugDao);
             logActionMock.verifyNoInteractions();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"note", "link", "missing-id"})
+        @DisplayName("should disclose an incomplete discontinuation after the drug was archived")
+        void shouldReportIncompleteDiscontinuation_whenNotePersistenceFails(String failure) throws Exception {
+            namePatient();
+            request.setParameter("drugId", "77");
+            request.setParameter("reason", "adverse reaction");
+            request.getSession().setAttribute("user", PROVIDER_NO);
+            var drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+            drug.setId(77);
+            drug.setDemographicId(DEMOGRAPHIC_NO);
+            when(mockDrugDao.find(77)).thenReturn(drug);
+            var roleDao = mock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class);
+            var role = mock(io.github.carlos_emr.carlos.commn.model.SecRole.class);
+            when(role.getId()).thenReturn(1);
+            when(roleDao.findByName("doctor")).thenReturn(role);
+            registerMock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class, roleDao);
+            var manager = mock(io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager.class);
+            var context = mock(org.springframework.web.context.WebApplicationContext.class);
+            when(context.getBean(io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager.class))
+                    .thenReturn(manager);
+            if ("note".equals(failure)) {
+                when(manager.saveNoteSimpleReturnID(any())).thenThrow(new IllegalStateException("Note unavailable"));
+            } else if ("link".equals(failure)) {
+                when(manager.saveNoteSimpleReturnID(any())).thenReturn(123L);
+            }
+            try (var contexts = mockStatic(org.springframework.web.context.support.WebApplicationContextUtils.class);
+                 var programs = org.mockito.Mockito.mockConstruction(
+                         io.github.carlos_emr.carlos.encounter.data.EctProgram.class,
+                         (mock, construction) -> when(mock.getProgram(PROVIDER_NO)).thenReturn("1"));
+                 var documents = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class)) {
+                contexts.when(() -> org.springframework.web.context.support.WebApplicationContextUtils
+                        .getRequiredWebApplicationContext(any())).thenReturn(context);
+                if ("link".equals(failure)) {
+                    documents.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil
+                            .addCaseMgmtNoteLink(any())).thenThrow(new IllegalStateException("Link unavailable"));
+                }
+
+                assertThat(new RxDeleteRx2Action().Discontinue()).isEqualTo(ActionSupport.NONE);
+
+                verify(manager).saveNoteSimpleReturnID(any());
+            }
+            verify(mockDrugDao).merge(drug);
+            assertThat(drug.isArchived()).isTrue();
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_DISCONTINUE").doesNotContain("\"id\"");
+        }
+
+        @Test
+        @DisplayName("should bind the discontinuation note and link to the verified patient despite a forged demoNo")
+        void shouldUseVerifiedPatient_whenDiscontinueNoteRequestNamesAnotherChart() throws Exception {
+            namePatient();
+            request.setParameter("drugId", "77");
+            request.setParameter("demoNo", "2002");
+            request.setParameter("reason", "adverse reaction");
+            request.getSession().setAttribute("user", PROVIDER_NO);
+            RxSessionBean otherPatient = new RxSessionBean();
+            otherPatient.setDemographicNo(2002);
+            otherPatient.setProviderNo(PROVIDER_NO);
+            RxSessionBeanResolver.register(request.getSession(), otherPatient);
+            var drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+            drug.setId(77);
+            drug.setDemographicId(DEMOGRAPHIC_NO);
+            when(mockDrugDao.find(77)).thenReturn(drug);
+            var roleDao = mock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class);
+            var role = mock(io.github.carlos_emr.carlos.commn.model.SecRole.class);
+            when(role.getId()).thenReturn(1);
+            when(roleDao.findByName("doctor")).thenReturn(role);
+            registerMock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class, roleDao);
+            var manager = mock(io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager.class);
+            when(manager.saveNoteSimpleReturnID(any())).thenReturn(123L);
+            var context = mock(org.springframework.web.context.WebApplicationContext.class);
+            when(context.getBean(io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager.class))
+                    .thenReturn(manager);
+            var note = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote.class);
+            var link = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink.class);
+            try (var contexts = mockStatic(org.springframework.web.context.support.WebApplicationContextUtils.class);
+                 var programs = org.mockito.Mockito.mockConstruction(
+                         io.github.carlos_emr.carlos.encounter.data.EctProgram.class,
+                         (mock, construction) -> when(mock.getProgram(PROVIDER_NO)).thenReturn("1"));
+                 var documents = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class)) {
+                contexts.when(() -> org.springframework.web.context.support.WebApplicationContextUtils
+                        .getRequiredWebApplicationContext(any())).thenReturn(context);
+
+                assertThat(new RxDeleteRx2Action().Discontinue()).isEqualTo(ActionSupport.NONE);
+
+                verify(manager).saveNoteSimpleReturnID(note.capture());
+                documents.verify(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.addCaseMgmtNoteLink(link.capture()));
+            }
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(drug.isArchived()).isTrue();
+            verify(mockDrugDao).merge(drug);
+            assertThat(note.getValue().getDemographic_no()).isEqualTo(String.valueOf(DEMOGRAPHIC_NO));
+            assertThat(link.getValue().getTableId()).isEqualTo(77L);
+            assertThat(link.getValue().getNoteId()).isEqualTo(123L);
+            assertThat(link.getValue().getTableName()).isEqualTo(io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink.DRUGS);
         }
 
         @Test

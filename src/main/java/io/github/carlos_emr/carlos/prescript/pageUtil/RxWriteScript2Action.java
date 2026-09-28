@@ -203,8 +203,12 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         RxReprintWorkspace.Entry previousReprint = RxReprintWorkspace.find(request.getSession(), bean.getDemographicNo());
-        synchronized (bean) {
-            fwd = updateSelectedCardLocked(bean, loggedInInfo);
+        try {
+            synchronized (bean) {
+                fwd = updateSelectedCardLocked(bean, loggedInInfo);
+            }
+        } catch (PrescriptionSaveException e) {
+            return reportIncompleteSave();
         }
         if ("viewScript".equals(fwd)) {
             RxReprintWorkspace.pinForRequest(request, null);
@@ -222,11 +226,18 @@ public final class RxWriteScript2Action extends ActionSupport {
             RxDrugData drugData = new RxDrugData();
             // The cursor selects the item being edited; with nothing (valid) selected there is
             // nothing to update, so refuse rather than fail on an out-of-range index.
-            RxPrescriptionData.Prescription rx = bean.getCurrentStashItem();
-            if (rx == null) {
-                response.sendError(HttpServletResponse.SC_CONFLICT);
+            RxPrescriptionData.Prescription rx = stagedCard(bean, request.getParameter("randomId"));
+            String[] revisions = request.getParameterValues("draftRevision");
+            if (rx == null || revisions == null || revisions.length != 1
+                    || !Objects.equals(rx.getDraftRevision(), revisions[0])) {
+                refuseStaleStash();
                 return NONE;
             }
+            if ("updateAndPrint".equals(this.getAction()) && !validateRenderedStash(bean)) {
+                return NONE;
+            }
+            // Another window may have moved the shared cursor since this form was rendered.
+            bean.setStashIndex(bean.getIndexFromRx((int) rx.getRandomId()));
 
 			if (! this.getGCN_SEQNO().equals("0")) { // not custom
 				if (this.getBrandName().equals(rx.getBrandName()) == false) {
@@ -1341,15 +1352,24 @@ public final class RxWriteScript2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // Keep card-set validation, form updates and persistence together. A close from another
         // window must not shift a cached index onto another drug partway through this save.
-        synchronized (bean) {
-            result = updateSaveAllDrugsLocked(bean, loggedInInfo);
-            if ("refresh".equals(result)) {
-                Map<String, String> revisions = new HashMap<>();
-                for (RxPrescriptionData.Prescription card : bean.getStash()) {
-                    revisions.put(Long.toString(card.getRandomId()), card.getDraftRevision());
+        try {
+            synchronized (bean) {
+                result = updateSaveAllDrugsLocked(bean, loggedInInfo);
+                if ("refresh".equals(result)) {
+                    Map<String, String> revisions = new HashMap<>();
+                    for (RxPrescriptionData.Prescription card : bean.getStash()) {
+                        revisions.put(Long.toString(card.getRandomId()), card.getDraftRevision());
+                    }
+                    request.setAttribute("draftRevisions", revisions);
+                    if ("true".equals(request.getParameter("clearSaved"))) {
+                        // Save-only cleanup is part of the save critical section. A later browser
+                        // clear request could otherwise discard another window's new draft.
+                        bean.clearStash();
+                    }
                 }
-                request.setAttribute("draftRevisions", revisions);
             }
+        } catch (PrescriptionSaveException e) {
+            return reportIncompleteSave();
         }
         if ("refresh".equals(result)) {
             // Acquire the session mutex only after releasing the bean monitor: opening Rx takes
@@ -1383,6 +1403,39 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
 
         if (!validateSubmittedStash(bean, randNum)) {
+            return NONE;
+        }
+        // Reject malformed numeric fields before changing any card. Previously a parse failure
+        // was swallowed and the partially updated prescription was still saved successfully.
+        try {
+            for (String key : randNum) {
+                RxPrescriptionData.Prescription card = stagedCard(bean, key);
+                if (card == null) continue;
+                for (String field : List.of("repeats_", "refillDuration_", "refillQuantity_")) {
+                    String value = request.getParameter(field + key);
+                    if (value != null && !value.isBlank()
+                            && !("refillDuration_".equals(field) && "null".equalsIgnoreCase(value.trim()))) {
+                        Integer.parseInt(value.trim());
+                    }
+                }
+                String reason = request.getParameter("reasonCode_" + key);
+                String codingSystem = request.getParameter("codingSystem_" + key);
+                reason = reason == null ? card.getDrugReasonCode() : reason.trim();
+                codingSystem = codingSystem == null ? card.getDrugReasonCodeSystem() : codingSystem.trim();
+                if (!StringUtils.isNullOrEmpty(reason)
+                        && !new CodingSystemManager().isCodeAvailable(codingSystem, reason)) {
+                    return reportInvalidDraft();
+                }
+            }
+            String pharmacy = request.getParameter("rxPharmacyId");
+            if (pharmacy != null && !pharmacy.isBlank()) Integer.parseInt(pharmacy.trim());
+        } catch (NumberFormatException e) {
+            return reportInvalidDraft();
+        } catch (RuntimeException e) {
+            logger.error("Prescription draft validation unavailable ({})", e.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"RX_DRAFT_VALIDATION_FAILED\"}");
             return NONE;
         }
 
@@ -1483,7 +1536,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                         } else if (elem.equals("refillDuration_" + num)) {
                             if (val != null && !val.isEmpty() && !val.equalsIgnoreCase("null")) rx.setRefillDuration(Integer.parseInt(val));
                         } else if (elem.equals("refillQuantity_" + num)) {
-                            rx.setRefillQuantity(Integer.parseInt(val));
+                            if (!val.isEmpty()) rx.setRefillQuantity(Integer.parseInt(val));
                         } else if (elem.equals("dispenseInterval_" + num)) {
                             rx.setDispenseInterval(val);
                         } else if (elem.equals("protocol_" + num)) {
@@ -1639,14 +1692,28 @@ public final class RxWriteScript2Action extends ActionSupport {
                     bean.setStashItem(stashIndex, rx);
                 }
             } catch (Exception e) {
-                logger.error("Error ({})", e.getClass().getSimpleName());
-                continue;
+                logger.error("Prescription draft validation failed ({})", e.getClass().getSimpleName());
+                return reportInvalidDraft();
             }
         }
         // The patient and permission were checked before taking the bean monitor. Re-resolving
         // through saveDrug here would acquire the session mutex while holding the bean lock.
         request.setAttribute("scriptId", persistStash(loggedInInfo, bean));
         return "refresh";
+    }
+
+    /** Validates the complete workspace rendered by a legacy save or preview form. Call under its lock. */
+    boolean validateRenderedStash(RxSessionBean bean) throws IOException {
+        List<String> keys = new ArrayList<>();
+        Enumeration<String> names = request.getParameterNames();
+        while (names.hasMoreElements()) {
+            String name = names.nextElement();
+            if (name.startsWith("draftRevision_")) {
+                keys.add(name.substring("draftRevision_".length()));
+            }
+        }
+        if (keys.isEmpty()) return refuseStaleStash();
+        return validateSubmittedStash(bean, keys);
     }
 
     /**
@@ -1681,6 +1748,28 @@ public final class RxWriteScript2Action extends ActionSupport {
             return refuseStaleStash();
         }
         return true;
+    }
+
+    private String reportInvalidDraft() throws IOException {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"INVALID_RX_DRAFT\"}");
+        return NONE;
+    }
+
+    String reportIncompleteSave() throws IOException {
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        response.setContentType("application/json");
+        // Some legacy DAO writes may already have committed. The caller must not claim that
+        // nothing was saved or retry automatically; the chart needs checking before another save.
+        response.getWriter().write("{\"error\":\"INCOMPLETE_RX_SAVE\"}");
+        return NONE;
+    }
+
+    static final class PrescriptionSaveException extends RuntimeException {
+        PrescriptionSaveException(Throwable cause) {
+            super("Prescription save did not complete; review the chart before retrying", cause);
+        }
     }
 
     private boolean refuseStaleStash() throws IOException {
@@ -1780,7 +1869,14 @@ public final class RxWriteScript2Action extends ActionSupport {
             return;
         }
 
-        persistStash(loggedInInfo, bean);
+        synchronized (bean) {
+            try {
+                if (!validateRenderedStash(bean)) return;
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            persistStash(loggedInInfo, bean);
+        }
     }
 
     /**
@@ -1805,7 +1901,12 @@ public final class RxWriteScript2Action extends ActionSupport {
             if (bean.getStashSize() == 0) {
                 return null;
             }
-            return persistStashLocked(loggedInInfo, bean);
+            try {
+                return persistStashLocked(loggedInInfo, bean);
+            } catch (RuntimeException e) {
+                logger.error("Prescription save did not complete ({})", e.getClass().getSimpleName());
+                throw new PrescriptionSaveException(e);
+            }
         }
     }
 
@@ -1818,6 +1919,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         RxPrescriptionData.Prescription rx = null;
         RxPrescriptionData prescription = new RxPrescriptionData();
         String scriptId = prescription.saveScript(loggedInInfo, bean);
+        if (scriptId == null || !scriptId.matches("[1-9][0-9]{0,9}")) {
+            throw new IllegalStateException("Prescription header write did not return an identifier");
+        }
         StringBuilder auditStr = new StringBuilder();
         // Source drug ids actually re-prescribed by this save. A staged re-prescription carries
         // its source drug id in drugReferenceId, set by the re-prescribe newPrescription overload,
@@ -1826,7 +1930,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         for (int i = 0; i < bean.getStashSize(); i++) {
             try {
                 rx = bean.getStashItem(i);
-                rx.Save(scriptId); // new drug id available after this line
+                if (!rx.Save(scriptId)) {
+                    throw new IllegalStateException("Prescription drug write was refused");
+                } // new drug id available after this line
                 rx.setScript_no(scriptId);
                 if (rx.getDrugReferenceId() > 0) {
                     represcribedSourceIds.add(rx.getDrugReferenceId());
@@ -1851,7 +1957,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (StringUtils.filled(rx.getRxDateFormat()))
                     partialDateDao.setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_STARTDATE, rx.getRxDateFormat());
             } catch (Exception e) {
-                logger.error("Error ({})", e.getClass().getSimpleName());
+                // There is no transaction spanning the legacy DAO calls. Stop immediately and
+                // report an incomplete save; never print or clear a partly written prescription.
+                throw new PrescriptionSaveException(e);
             }
 
             rx = null;
@@ -1867,7 +1975,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         // which reuses this same script row and renders the page — keeping the pad available
         // to override the stamp. Ordinary GET/HEAD preview navigation never stamps or saves.
 
-        archiveReRxDrugs(loggedInInfo, bean, represcribedSourceIds, ip, auditStr.toString());
+        if (!archiveReRxDrugs(loggedInInfo, bean, represcribedSourceIds, ip, auditStr.toString())) {
+            throw new PrescriptionSaveException(null);
+        }
         // The sources are settled: a later save from this window (Edit Rx after Save & Print)
         // must not archive them again with a second audit trail.
         bean.clearReRxDrugIdList();
@@ -2054,7 +2164,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      * @param auditStr       audit detail string shared with the enclosing save
      * @since 2026-08-16
      */
-    void archiveReRxDrugs(LoggedInInfo loggedInInfo, RxSessionBean bean, Set<Integer> savedSourceIds,
+    boolean archiveReRxDrugs(LoggedInInfo loggedInInfo, RxSessionBean bean, Set<Integer> savedSourceIds,
                           String ip, String auditStr) {
         // Drug ids and demographic numbers correlate to patient records (CLAUDE.md PHI policy), so
         // skipped entries are only counted by reason and summarised once below.
@@ -2078,6 +2188,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (notReprescribed > 0) {
             logger.info("Skipped re-Rx archival: {} staged source(s) not re-prescribed in this save", notReprescribed);
         }
+        return malformed + failed + refused == 0;
     }
 
     /** The staged card carrying the request's key, or {@code null} for a malformed or unknown key. */
@@ -2205,8 +2316,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         CodingSystemManager codingSystemManager = new CodingSystemManager();
 
         if (!codingSystemManager.isCodeAvailable(codingSystem, code)) {
-            request.setAttribute("message", getText("SelectReason.error.codeValid"));
-            return;
+            // Recheck after validation: the code catalogue may have changed during the save.
+            // A request-only message would be invisible to the AJAX client and omit the reason.
+            throw new IllegalArgumentException("Prescription reason code is unavailable");
         }
 
         if (drugReasonDao.hasReason(drugId, codingSystem, code, true)) {
