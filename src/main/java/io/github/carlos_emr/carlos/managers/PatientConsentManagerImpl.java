@@ -365,7 +365,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     }
 
     /**
-     * Returns a list of all the consentTypes/programs this patient has consented.
+     * Returns the deciding record for each consent type the patient has a live record for.
      */
     public List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no) {
 
@@ -373,7 +373,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             throw new RuntimeException("Unauthorised Access. Object[_demographic]");
         }
 
-        List<Consent> consent = consentDao.findByDemographic(demographic_no);
+        // The chart shows these and writes the shown choice back on every save, so it must show the
+        // record that decides. Showing a duplicate opt-in would silently reverse an opt-out (#3845).
+        List<Consent> consent = ConsentRecords.effectivePerType(consentDao.findByDemographic(demographic_no));
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.getAllConsentsByDemographic",
                 " Demographic: " + demographic_no);

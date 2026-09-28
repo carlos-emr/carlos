@@ -427,4 +427,26 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             verifyNoInteractions(mockConsentDao);
         }
     }
+
+    @Nested
+    @DisplayName("getAllConsentsByDemographic")
+    class GetAllConsentsByDemographic {
+
+        @Test
+        @DisplayName("should give the chart the deciding record for each type, not a duplicate opt-in")
+        void shouldReturnTheDecidingRecord_forEachConsentType() {
+            Consent olderOptOut = consent(11, true, new java.util.Date(1_000L));
+            Consent newerOptIn = consent(12, false, new java.util.Date(2_000L));
+            Consent otherType = consent(13, false, new java.util.Date(1_500L));
+            olderOptOut.setConsentTypeId(1);
+            newerOptIn.setConsentTypeId(1);
+            otherType.setConsentTypeId(2);
+            // The chart form shows the last record of each type it is given, here the opt-in.
+            when(mockConsentDao.findByDemographic(100)).thenReturn(List.of(olderOptOut, newerOptIn, otherType));
+
+            List<Consent> result = manager.getAllConsentsByDemographic(loggedInInfo, 100);
+
+            assertThat(result).containsExactly(olderOptOut, otherType);
+        }
+    }
 }

@@ -164,7 +164,8 @@ public interface PatientConsentManager {
     Consent getConsentByDemographicAndConsentType(LoggedInInfo loggedinInfo, int demographic_no, ConsentType consentType);
 
     /**
-     * Returns a list of all the consentTypes/programs this patient has consented.
+     * Returns the patient's consent for each consent type they have a live record for: one
+     * deciding record per type, as chosen by {@link io.github.carlos_emr.carlos.commn.dao.ConsentRecords#effective}.
      */
     List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no);
 

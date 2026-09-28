@@ -88,4 +88,20 @@ class ConsentRecordsUnitTest {
         Consent higherId = consent(5, false, 1_000L);
         assertThat(ConsentRecords.effective(List.of(lowerId, higherId))).isSameAs(higherId);
     }
+
+    @Test
+    @DisplayName("should keep one deciding record per consent type")
+    void shouldKeepTheDecidingRecord_forEachConsentType() {
+        Consent olderOptOut = consent(1, true, 1_000L);
+        Consent newerOptIn = consent(2, false, 2_000L);
+        Consent otherType = consent(3, false, 1_500L);
+        olderOptOut.setConsentTypeId(10);
+        newerOptIn.setConsentTypeId(10);
+        otherType.setConsentTypeId(20);
+
+        assertThat(ConsentRecords.effectivePerType(List.of(olderOptOut, newerOptIn, otherType)))
+                .containsExactly(olderOptOut, otherType);
+        assertThat(ConsentRecords.effectivePerType(List.of())).isEmpty();
+        assertThat(ConsentRecords.effectivePerType(null)).isEmpty();
+    }
 }

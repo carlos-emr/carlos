@@ -22,9 +22,12 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Consent;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Chooses the one consent record that decides a patient's consent when several live records
@@ -60,5 +63,24 @@ public final class ConsentRecords {
                 .filter(Consent::isOptout)
                 .min(MOST_RECENT_FIRST)
                 .orElseGet(() -> live.stream().min(MOST_RECENT_FIRST).orElse(null));
+    }
+
+    /**
+     * @param live the live (not deleted) records for one patient, of any consent types
+     * @return the deciding record for each consent type, in the order the types first appear
+     */
+    public static List<Consent> effectivePerType(List<Consent> live) {
+        if (live == null || live.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Map<Integer, List<Consent>> byType = new LinkedHashMap<>();
+        for (Consent consent : live) {
+            byType.computeIfAbsent(consent.getConsentTypeId(), type -> new ArrayList<>()).add(consent);
+        }
+        List<Consent> deciding = new ArrayList<>(byType.size());
+        for (List<Consent> records : byType.values()) {
+            deciding.add(effective(records));
+        }
+        return deciding;
     }
 }
