@@ -108,3 +108,16 @@ page, including the fixed gateway's explicit no-model label.
 A separate fresh database copy and trial instance are prepared for the
 [morning walkthrough](morning-trial.md), preserving the tested database and its
 evidence. The feature remains disabled by default.
+
+### Full-suite findings
+
+The first complete GitHub test run executed 15,076 tests and found two failures.
+The new chart-update property strings contained raw Unicode; the repository's
+legacy `Properties.load(InputStream)` paths require Unicode escapes. Those values
+now use escapes while retaining the same displayed translations.
+
+The existing long-source pipeline test assumed parallel model requests arrived
+in source order. It now orders the captured portions by their source offsets
+before checking boundary text, while preserving its character-by-character full
+coverage checks. No production summarizer code changed for this correction.
+The affected tests and the complete CI suite are being rerun on the fix.

@@ -184,12 +184,15 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     }
 
     @Test
-    void preservesLongSourceBeginningMiddleAndTailAcrossPortions() throws Exception {
+    void shouldPreserveCompleteLongSource_withParallelPortions() throws Exception {
         ObjectNode input = chart(1);
         String text = "Beginning finding.\n" + java.util.stream.IntStream.range(0, 1800).mapToObj(i -> "Observation " + i + ": clinical context and negation remain recorded.\n").collect(java.util.stream.Collectors.joining()) + "Final finding: no penicillin allergy.";
         ((ObjectNode) input.get("sources").get(0)).put("text", text);
         var result = generate(input);
-        List<String> portions = requests.stream().map(request -> request.get("sources").get(0).get("text").asText()).toList();
+        // Worker scheduling does not promise that the agent sees requests in source order.
+        // Validate coverage and boundaries in source order, while retaining every actual portion.
+        List<String> portions = requests.stream().map(request -> request.get("sources").get(0).get("text").asText())
+                .sorted(java.util.Comparator.comparingInt(text::indexOf)).toList();
         boolean[] covered = new boolean[text.length()];
         for (String portion : portions) {
             int start = text.indexOf(portion);
