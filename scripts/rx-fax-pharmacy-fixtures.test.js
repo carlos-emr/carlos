@@ -14,6 +14,7 @@ function fixture(options = {}) {
       if (query.startsWith('INSERT INTO pharmacyInfo')) return '71';
       if (query.startsWith('INSERT INTO fax_config')) return '81';
       if (query.startsWith('SELECT id FROM fax_config')) return '';
+      if (query.startsWith('SELECT id FROM faxes')) return '';
       if (query.startsWith('SELECT COUNT(*) FROM fax_config')) return '0';
       if (query.includes('FROM demographic WHERE')) return options.ownershipChanged ? '0' : '1';
       if (query.includes('FROM pharmacyInfo WHERE')) return pharmacyRemoved ? '0' : '1';
@@ -97,4 +98,25 @@ test('sender fixture rejects collisions before writing and refuses changed owner
   assert.throws(() => cleanupRxFaxAccount(collision, { id: '9', faxNumber: '4165550100' }), /ownership changed/);
   assert.equal(mutations, 1, 'cleanup attempts only the ownership-constrained delete');
   assert.throws(() => stageRxFaxAccount(collision, "1' OR 1=1"), /ten digits/);
+});
+
+
+test('sender fixture refuses an orphan job without inserting a new account', () => {
+  const queries = [];
+  assert.throws(() => stageRxFaxAccount({ value(query) {
+    queries.push(query);
+    return query.startsWith('SELECT id FROM faxes') ? '42' : '';
+  } }, '4161234560'), /existing fax job/);
+  assert.equal(queries.length, 2);
+  assert(queries.every(query => query.startsWith('SELECT')));
+});
+
+test('sender fixture disables inbox polling and uses only synthetic credentials', () => {
+  const queries = [];
+  const account = stageRxFaxAccount({ value(query) {
+    queries.push(query);
+    return query.startsWith('INSERT') ? '23' : '';
+  } }, '4161234560');
+  assert.deepEqual(account, { id: '23', faxNumber: '4161234560' });
+  assert.match(queries[2], /'Playwright Fax','fax@example.invalid','faxuser','siteuser','x','x','srfax','0','',0\)/);
 });

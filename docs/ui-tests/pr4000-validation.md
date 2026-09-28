@@ -41,7 +41,7 @@ Migration 39 passed against the baseline, Ontario and BC table structures in an 
 
 Original fingerprints for `HRMDocumentToProvider`, `HRMDocumentToDemographic`, `providerLabRouting`, `patientLabRouting`, `measurements`, `measurementsExt`, `demographic` and `property` matched after the final browser suite. No automatic fixture assignments remained. The test-only migration was reversed after stopping the application, and the VM was stopped. Audit entries from the test actions were retained.
 
-Deploy #3986's migration 36 and #3996's migrations 37/38 before this PR's migration 39. Existing rows have unknown provenance and deliberately remain independent.
+Alpha 16 promotion follow-up: PR #3996 remains unmerged, so its reserved migrations 37/38 are absent and are not prerequisites for migration 39. The release includes 36, 39 and 40. Renumber the attachment feature's unpublished migrations above the release high-water mark before its later merge; do not enable out-of-order execution. Existing rows have unknown provenance and deliberately remain independent.
 
 The VM retains its pre-existing external-service configuration; an SRFAX account reports HTTP 403. These runs do not validate external fax credentials or external clinical integrations. No browser errors were waived for the checks above.
 

@@ -38,9 +38,8 @@ jobs:
       # since the split; the checkout is the release debian/carlos-ctl.pin
       # names, so they run against the CLI a release ships. A pin whose tag
       # is not published yet (the CLI release lands before the CARLOS one)
-      # falls back to the pin's fallback commit with a warning, and the
-      # tests skip when there is neither: debian-python-tests.yml enforces
-      # the pin.
+      # falls back to the pin's fallback commit with a warning. If neither
+      # is available, fail rather than silently skipping CLI-dependent tests.
       - name: Check out the pinned carlos-ctl release
         run: |
           set -euo pipefail
@@ -60,11 +59,17 @@ jobs:
               git -C "$CARLOS_CTL_SRC" checkout --quiet "$fallback"
               echo "::warning::carlos-ctl tag $tag is not published yet; testing against the pin's fallback commit $fallback"
             else
-              echo "::warning::carlos-ctl tag $tag is not published yet; the CLI-dependent script tests are skipped"
+              echo "::error::carlos-ctl tag $tag is not published and debian/carlos-ctl.pin names no fallback commit"
+              exit 1
             fi
           fi
       - name: Run all script regressions
         run: npm run test:scripts
+      # Both checks use only the standard-library Python supplied by the runner.
+      - name: Test changed-line coverage reporting
+        run: python3 -m unittest discover -s scripts/coverage -p 'test_*.py'
+      - name: Validate all configured Struts action classes
+        run: bash scripts/validate_struts_actions.sh
       - name: Install Chromium for the isolated RTL fixture
         run: npx --no-install playwright install --with-deps chromium
       - name: Check RTL measurement loading in Chromium

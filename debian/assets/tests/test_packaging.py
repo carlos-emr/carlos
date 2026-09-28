@@ -13,10 +13,14 @@ as a credential store by one script, snapshotted for a year by the
 other.
 
 Run (from the repository root):
-    python3 -m unittest discover -s debian/assets/tests -t .
+    python3 -m unittest discover -s debian/assets/tests
 """
 
+import os
 import re
+import subprocess
+import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -106,10 +110,6 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
         self.assertNotIn("${O19_DIR}", backup_excludes())
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestTheCarlosCtlPin(unittest.TestCase):
 
     """debian/carlos-ctl.pin is read by three hands: the release build
@@ -150,3 +150,62 @@ class TestTheCarlosCtlPin(unittest.TestCase):
         # the release build never falls back: a missing release is a failure
         fetch = (ROOT / "debian" / "fetch-carlos-ctl.sh").read_text(encoding="utf-8")
         self.assertNotIn("fallback", fetch)
+
+
+class TestPinnedCliWorkflowCheckout(unittest.TestCase):
+    """Run both workflow checkout steps without a network or GitHub runner."""
+
+    def run_checkout(self, workflow, published, fallback):
+        text = workflow.read_text(encoding="utf-8")
+        match = re.search(
+            r"      - name: Check out the pinned carlos-ctl release\n"
+            r"        run: \|\n((?:          .*\n|\n)+)", text)
+        self.assertIsNotNone(match, workflow.name)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "debian").mkdir()
+            (root / "debian/carlos-ctl.pin").write_text(
+                "tag=1.1.0\n" + ("fallback=" + fallback + "\n" if fallback else ""))
+            stub = root / "git"
+            stub.write_text("""#!/bin/bash
+printf '%s\\n' "$*" >> "$GIT_CALLS"
+if [[ "$*" == *'--branch'* && "$PUBLISHED" != 1 ]]; then exit 1; fi
+if [[ "$*" == *'rev-parse HEAD'* ]]; then echo fixture-commit; fi
+""")
+            stub.chmod(0o755)
+            calls = root / "calls"
+            result = subprocess.run(
+                ["bash", "-c", textwrap.dedent(match.group(1))], cwd=root,
+                env={**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
+                     "CARLOS_CTL_SRC": str(root / "ctl"), "GIT_CALLS": str(calls),
+                     "PUBLISHED": "1" if published else "0"},
+                capture_output=True, text=True)
+            return result, calls.read_text()
+
+    def test_published_tag_is_preferred_to_fallback(self):
+        for workflow in TestTheCarlosCtlPin.WORKFLOWS:
+            with self.subTest(workflow=workflow.name):
+                result, calls = self.run_checkout(workflow, True, "a" * 40)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("--branch 1.1.0", calls)
+                self.assertNotIn("checkout --quiet", calls)
+
+    def test_missing_tag_uses_exact_fallback_and_warns(self):
+        for workflow in TestTheCarlosCtlPin.WORKFLOWS:
+            with self.subTest(workflow=workflow.name):
+                result, calls = self.run_checkout(workflow, False, "a" * 40)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("checkout --quiet " + "a" * 40, calls)
+                self.assertIn("::warning::", result.stdout)
+
+    def test_missing_tag_and_fallback_fail_instead_of_skipping_tests(self):
+        for workflow in TestTheCarlosCtlPin.WORKFLOWS:
+            with self.subTest(workflow=workflow.name):
+                result, calls = self.run_checkout(workflow, False, None)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("::error::", result.stdout)
+                self.assertNotIn("checkout --quiet", calls)
+
+
+if __name__ == "__main__":
+    unittest.main()

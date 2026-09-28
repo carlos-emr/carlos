@@ -35,7 +35,8 @@ test('every text field the lab views print carries the HL7 line-break escape', (
 
 test('the hostile result is live markup that only encoding can neutralise', () => {
   const hostile = field(find('OBX')[2], 5);
-  assert.ok(hostile.includes('<script>window.__carlos3953=1</script>'));
+  // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- Assertion over a repository-owned HL7 attack fixture, never an HTML rendering sink.
+  assert.equal(hostile.includes('<script>window.__carlos3953=1</script>'), true);
   assert.ok(hostile.includes('<img src=carlos3953 onerror='));
   assert.match(hostile, /\\\.br\\/, 'the hostile value must also be split by a break marker');
 });

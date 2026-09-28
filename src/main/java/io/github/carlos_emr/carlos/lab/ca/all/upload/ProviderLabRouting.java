@@ -133,13 +133,13 @@ public class ProviderLabRouting {
             ProviderLabRoutingModel row = new ProviderLabRoutingModel();
             row.setProviderNo(providerNo);
             row.setLabNo(labId);
-            row.setStatus(rules.getStatus(providerNo));
+            row.setStatus(rules.getStatus(providerNo, labType));
             row.setLabType(labType);
             row.setMrpDemographicNo(demographicNo);
             providerLabRoutingDao.persist(row);
         }
         // Explicit visited state also terminates cycles when promoting automatic assignments.
-        for (ArrayList<String> recipient : rules.getProviders(providerNo)) {
+        for (ArrayList<String> recipient : rules.getProviders(providerNo, labType)) {
             routeInTransaction(labId, recipient.get(0), labType, demographicNo, visited);
         }
         return created;
@@ -157,7 +157,7 @@ public class ProviderLabRouting {
         return Boolean.TRUE.equals(transaction.execute(status -> {
             providerLabRoutingDao.lockRoutingReport(labId);
             Set<String> desired = new LinkedHashSet<>();
-            if (demographicNo != null && providerNo != null) collectRecipients(providerNo, desired);
+            if (demographicNo != null && providerNo != null) collectRecipients(providerNo, labType, desired);
             for (ProviderLabRoutingModel row : providerLabRoutingDao.findAllLabRoutingByIdandType(labId, labType)) {
                 if (row.getMrpDemographicNo() != null
                         && (!Objects.equals(demographicNo, row.getMrpDemographicNo())
@@ -167,7 +167,14 @@ public class ProviderLabRouting {
             }
             boolean created = false;
             if (!desired.isEmpty()) {
-                created = routeInTransaction(labId, providerNo, labType, demographicNo, new LinkedHashSet<>());
+                Set<String> visited = new LinkedHashSet<>();
+                for (String recipient : desired) {
+                    boolean added = routeInTransaction(labId, recipient, labType, demographicNo, visited);
+                    if (recipient.equals(providerNo)) created = added;
+                }
+                // An existing direct MRP assignment must not prevent a newly configured
+                // forwarding recipient from receiving this matched report. Existing rows
+                // retain their acknowledgement and independent-assignment provenance.
                 for (ProviderLabRoutingModel row : providerLabRoutingDao.findRoutingForUpdate(labId, labType, "0")) {
                     providerLabRoutingDao.remove(row.getId());
                 }
@@ -178,10 +185,10 @@ public class ProviderLabRouting {
         }));
     }
 
-    private void collectRecipients(String providerNo, Set<String> recipients) {
+    private void collectRecipients(String providerNo, String labType, Set<String> recipients) {
         if (!recipients.add(providerNo)) return;
-        for (ArrayList<String> recipient : new ForwardingRules().getProviders(providerNo)) {
-            collectRecipients(recipient.get(0), recipients);
+        for (ArrayList<String> recipient : new ForwardingRules().getProviders(providerNo, labType)) {
+            collectRecipients(recipient.get(0), labType, recipients);
         }
     }
 

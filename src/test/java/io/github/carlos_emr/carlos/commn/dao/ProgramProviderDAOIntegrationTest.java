@@ -25,9 +25,8 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -50,9 +49,6 @@ import static org.assertj.core.api.Assertions.*;
  * @since 2026-03-07
  * @see ProgramProviderDAO
  */
-@Disabled("Production code issue: Provider entity has many VARCHAR columns under 21 chars (HBM-defined lengths) " +
-        "that EntityDataGenerator overflows. Needs EntityDataGenerator to respect HBM column lengths, " +
-        "or Provider fields need @Column(length=) annotations matching HBM definitions.")
 @DisplayName("ProgramProviderDAO Integration Tests")
 @Tag("integration")
 @Tag("dao")
@@ -75,44 +71,38 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
     @DisplayName("should update provider role without error")
     void shouldUpdateProviderRole_whenValidProgramProviderProvided() throws Exception {
         // Given
-        String providerId = "111";
-
-        Provider provider = new Provider();
-        EntityDataGenerator.generateTestDataForModelClass(provider);
-        provider.setProviderNo(providerId);
-        provider.setProviderType("doctor"); // fits VARCHAR(15)
-        provider.setSpecialty("GP"); // fits VARCHAR(20)
-        provider.setHsoNo(""); // fits VARCHAR(10)
-        provider.setStatus("1"); // fits VARCHAR(1)
-        provider.setSex("M"); // fits VARCHAR(1)
-        provider.setProviderActivity(""); // fits VARCHAR(3)
-        provider.setTeam(""); // fits VARCHAR(20)
-        provider.setPhone(""); // fits VARCHAR(20)
-        provider.setWorkPhone(""); // fits VARCHAR(50)
-        provider.setOhipNo(""); // fits VARCHAR(20)
-        provider.setRmaNo(""); // fits VARCHAR(20)
-        provider.setBillingNo(""); // fits VARCHAR(20)
-        provider.setTitle("Dr"); // fits VARCHAR(20)
+        String providerId = "983430";
+        Provider provider = new Provider(providerId, "Synthetic", "doctor", "M", "GP", "ProgramRole");
+        provider.setStatus("1");
         providerDao.saveProvider(provider);
 
         // Ensure secrole and program records exist for FK constraints
         entityManager.createNativeQuery(
-                "MERGE INTO secrole (role_no, role_name) KEY(role_no) VALUES (1, 'test_role')")
+                "MERGE INTO secrole (role_no, role_name) KEY(role_no) VALUES (983430, 'old_fixture_role'), (983431, 'new_fixture_role')")
                 .executeUpdate();
-        entityManager.createNativeQuery(
-                "MERGE INTO program (id, name, type) KEY(id) VALUES (10016, 'Test', 'community')")
-                .executeUpdate();
+        // Persist the entity defaults, including primitive flags that a partial native row leaves null.
+        Program program = new Program();
+        program.setName("Role fixture");
+        program.setType(Program.COMMUNITY_TYPE);
+        entityManager.persist(program);
+        entityManager.flush();
+        Long programId = program.getId().longValue();
 
         ProgramProvider pp = new ProgramProvider();
-        EntityDataGenerator.generateTestDataForModelClass(pp);
         pp.setProviderNo(providerId);
-        pp.setRoleId(1L);
-        pp.setProgramId(10016L);
+        pp.setRoleId(983430L);
+        pp.setProgramId(programId);
         pp.setId(null);
         dao.saveProgramProvider(pp);
 
-        // When / Then - should not throw
-        assertThatCode(() -> dao.updateProviderRole(pp, 19999L))
-                .doesNotThrowAnyException();
+        // saveProgramProvider merges a detached value; load its managed copy and generated ID.
+        entityManager.flush();
+        pp = dao.getProgramProvider(providerId, programId, 983430L);
+        assertThat(pp).isNotNull();
+        assertThat(pp.getId()).isNotNull();
+        dao.updateProviderRole(pp, 983431L);
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(dao.getProgramProvider(pp.getId()).getRoleId()).isEqualTo(983431L);
     }
 }
