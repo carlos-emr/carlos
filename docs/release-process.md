@@ -226,11 +226,12 @@ Each GitHub release contains:
 - the Debian packages, each with a `.sha256` and a provenance attestation, added
   by the `Debian Packages` workflow before the release is published:
   `carlos-emr_DEBVERSION_amd64.deb` (carries the eForm renderer's x86-64
-  Chromium), `carlos-emr-drugref_DEBVERSION_all.deb`, and the empty transitional
-  `carlos-emr-eform-renderer_DEBVERSION_all.deb`. DEBVERSION is the tag with
-  every `-` written as `.` (for example `2026.08.0.alpha14`). Through
+  Chromium) and `carlos-emr-drugref_DEBVERSION_all.deb`. DEBVERSION is the tag
+  with every `-` written as `.` (for example `2026.08.0.alpha14`). Through
   2026.08.0-alpha13 the main package was `_all` and the renderer a real `_amd64`
-  package; see `docs/install-deb.md`.
+  package; 2026.08.0-alpha14 through alpha17 also shipped an empty transitional
+  `carlos-emr-eform-renderer_DEBVERSION_all.deb`, which is no longer built; see
+  `docs/install-deb.md`.
 - `carlos-ctl_CTLVERSION_all.deb` and its `.sha256`: the release of
   [carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl) that
   `debian/carlos-ctl.pin` names, downloaded, verified (checksum and

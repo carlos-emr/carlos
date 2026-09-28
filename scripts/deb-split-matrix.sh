@@ -52,7 +52,8 @@
 #                  exercises the upgrade path without a second build
 #   TRANSITIONAL   optional: carlos-emr-eform-renderer_*.deb matching each
 #                  carlos-emr (TRANSITIONAL_PRESPLIT / TRANSITIONAL_SPLIT);
-#                  needed when the pre-split package pulls it in
+#                  only for alpha14..alpha17 builds, which shipped it -- later
+#                  builds no longer produce the transitional package
 #   PROVINCE       on (default) | bc, for the debconf preseed
 #   PAUSE_BEFORE_REMOVE=1
 #                  after case 3, with the upgraded split pair serving, wait
@@ -80,6 +81,10 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 hdr() { echo; echo "===== $1 ====="; }
 ver() { dpkg-query -W -f='${Version}' "$1" 2>/dev/null; }
 status() { dpkg-query -W -f='${db:Status-Status}' "$1" 2>/dev/null; }
+# The transitional carlos-emr-eform-renderer is only present when an
+# alpha14..alpha17 package pulled it in; apt-get errors on a name it cannot
+# locate, so name it only when dpkg still knows it (installed or config-files).
+installed_renderer() { case "$(status carlos-emr-eform-renderer)" in ""|not-installed) ;; *) echo carlos-emr-eform-renderer ;; esac; }
 apt_install() {
     # --no-remove as the documented operator command; the log is kept per case
     local log="$1"; shift
@@ -203,7 +208,7 @@ fi
 
 hdr "6. apt remove carlos-emr: carlos-ctl remains and says so"
 docs_before="$(find /var/lib/carlos-emr/CarlosDocument -type f 2>/dev/null | wc -l)"
-apt-get remove -y carlos-emr carlos-emr-drugref carlos-emr-eform-renderer > "$WORK/6-remove.log" 2>&1 && ok "carlos-emr removed" || { bad "remove failed"; tail -20 "$WORK/6-remove.log"; }
+apt-get remove -y carlos-emr carlos-emr-drugref $(installed_renderer) > "$WORK/6-remove.log" 2>&1 && ok "carlos-emr removed" || { bad "remove failed"; tail -20 "$WORK/6-remove.log"; }
 [ "$(status carlos-ctl)" = installed ] && ok "carlos-ctl remains installed" || bad "carlos-ctl status: $(status carlos-ctl)"
 out="$(carlos-ctl check 2>&1)"; rc=$?
 [ "$rc" -ne 0 ] && echo "$out" | grep -q "carlos-emr is not installed" && ok "carlos-ctl check reports 'carlos-emr is not installed' (rc $rc)" || bad "check without carlos-emr: rc $rc: $(echo "$out" | head -3)"
@@ -214,7 +219,7 @@ carlos-ctl --help >/dev/null 2>&1 && ok "--help still answers" || bad "--help fa
 mariadb -u root carlos -Nse 'SELECT 1' >/dev/null 2>&1 && ok "the database survived remove" || bad "database gone after remove"
 
 hdr "7. purge both"
-apt-get purge -y carlos-emr carlos-emr-drugref carlos-emr-eform-renderer carlos-ctl > "$WORK/7-purge.log" 2>&1 && ok "purged" || { bad "purge failed"; tail -20 "$WORK/7-purge.log"; }
+apt-get purge -y carlos-emr carlos-emr-drugref $(installed_renderer) carlos-ctl > "$WORK/7-purge.log" 2>&1 && ok "purged" || { bad "purge failed"; tail -20 "$WORK/7-purge.log"; }
 [ -z "$(ver carlos-ctl)" ] && [ -z "$(ver carlos-emr)" ] && ok "dpkg knows neither package" || bad "left: carlos-emr=$(ver carlos-emr) carlos-ctl=$(ver carlos-ctl)"
 [ ! -e /usr/lib/carlos-ctl ] && ok "/usr/lib/carlos-ctl is gone" || bad "/usr/lib/carlos-ctl remains: $(ls -R /usr/lib/carlos-ctl | head -5 | tr '\n' ' ')"
 [ ! -e /usr/sbin/carlos-ctl ] && [ ! -e /usr/sbin/carlosctl ] && ok "the command and its alias are gone" || bad "/usr/sbin/carlos-ctl or carlosctl remains"
