@@ -23,7 +23,8 @@ These rules are fixed in code, and no choice below loosens them.
 - **A pin is required.** `patient_portal.certificate.pins` must hold at least one
   `sha256/<base64>` pin of the public key of the certificate CARLOS is served. Several pins are
   separated by commas. There is no fallback to plain certificate-authority trust. A missing or
-  malformed pin stops the portal features; the rest of CARLOS keeps working.
+  malformed pin stops the portal features and, with `patient_portal.email.enabled=true`, all
+  encrypted email; the rest of CARLOS keeps working.
 - **Normal TLS still applies.** The certificate must also be trusted by the CARLOS JVM, be in date
   and match the hostname. Java does not fetch missing intermediate certificates, so the portal must
   serve its full chain. Redirects are refused.
@@ -37,13 +38,18 @@ These rules are fixed in code, and no choice below loosens them.
 - **The pin is not the staff-assertion key.** The TLS pin identifies the portal to CARLOS. The
   Ed25519 staff-assertion key identifies CARLOS to the portal. They are managed separately.
 - **The portal can be switched off.** Switching it off stops every portal call, so it is the safe
-  state while a pin problem is fixed. To switch it off: set `patient_portal.enabled=false` (added in
-  #3934; a build has it if its `carlos.properties` documents `patient_portal.enabled`; on a build
-  without it, remove every `patient_portal.*` setting instead), restart CARLOS,
-  and confirm the **Patient portal** entry is gone from a patient's record. To switch it on again:
-  `patient_portal.enabled=true` (or restore the removed settings, except
-  `patient_portal.certificate.pins`, which keeps the value you set since), restart, and open the
-  page.
+  state while a pin problem is fixed. With `patient_portal.email.enabled=true` it stops encrypted
+  email too: CARLOS refuses every encrypted send until the portal is back. Unencrypted email is
+  unaffected.
+  - To switch it off, set `patient_portal.enabled=false`, restart CARLOS, and confirm the
+    **Patient portal** entry is gone from a patient's record. The switch was added in #3934; a
+    build has it if its `carlos.properties` documents `patient_portal.enabled`.
+  - On a build without the switch, remove every `patient_portal.*` setting instead, except
+    `patient_portal.email.enabled`. Leave that one: at `true` it keeps encrypted email refused,
+    while removing it silently puts encrypted email back on passwords staff enter by hand.
+  - To switch it on again, set `patient_portal.enabled=true`, or put the removed settings back
+    with `patient_portal.certificate.pins` holding the pins now in `approved-pins.txt`, not the
+    value you removed. Restart, and open the page.
 
 ## 1. Choose the addresses
 
@@ -65,6 +71,10 @@ the CARLOS truststore, and a VPN or private link between the hosts.
 
 **Not recommended: a path under the clinic's existing website.** Whoever hosts the website then
 ends the portal's HTTPS, on their renewal schedule, usually with a new key each time.
+
+Only `patient_portal.public_base_url` may carry a path prefix. `patient_portal.base_url` must be a
+bare origin (`https://host` or `https://host:port`), because the portal serves `/internal/carlos/`
+only at the root of its origin.
 
 > Record: patient address, CARLOS address, whether they exist yet, staging addresses.
 
@@ -161,9 +171,11 @@ Then:
 1. A second person computes the pin independently from `live.key` with the last command, and gets
    the same value.
 2. Put the pin in `approved-pins.txt`, and in `patient_portal.certificate.pins` in the deployment's
-   override properties (`over_ride_config.properties`), not in the committed `carlos.properties`.
-   The `sha256/` prefix is part of the value. Add the standby pin (section 5) to both as well; pins
-   in the setting are comma-separated.
+   override properties (the file `-Dcarlos_override_properties` names, conventionally
+   `over_ride_config.properties`), not in the committed `carlos.properties`. The `sha256/` prefix
+   is part of the value. Generate the standby key now, as in
+   [Keep a standby key pinned](#keep-a-standby-key-pinned), and add its pin to both as well; pins in
+   the setting are comma-separated.
 3. Issue the certificate. certbot writes exactly the paths it is given, refuses to overwrite a file,
    and installs nothing:
 
@@ -474,8 +486,9 @@ Search the CARLOS log for `portal transport failed: TLS handshake`. It appears a
 `account`, from the **Patient portal** page) or `patient portal call failed: kind=TRANSPORT_FAILURE`
 (from an invite or account action). The same line covers a pin mismatch, an expired certificate, an
 untrusted issuer, a missing intermediate and a hostname mismatch. (A malformed pin logs
-`patient portal configuration is invalid; check deployment settings` instead.) Portal features stop;
-the rest of CARLOS works.
+`patient portal configuration is invalid; check deployment settings` instead.) Portal features stop,
+and with `patient_portal.email.enabled=true` every encrypted email fails to send (*The patient portal
+password could not be prepared*); the rest of CARLOS works.
 
 **Never** switch pinning off, and never adopt a pin from a live connection or an error. If the
 portal must stay down while you investigate, switch it off.
@@ -493,8 +506,9 @@ To find the cause, compute the pin of the certificate nginx serves, from the fil
   - The certificate is in date (`openssl x509 -in <file> -noout -enddate`), and nginx serves the full
     chain for the hostname and port in `patient_portal.base_url`.
   - The CARLOS host's clock is correct.
-  - The CARLOS JVM trusts the issuer. A private CA, as on an internal hostname, must be in the JVM
-    truststore (`keytool -list -cacerts`).
+  - The CARLOS JVM trusts the issuer. A private CA, as on an internal hostname, must be in the
+    truststore the JVM uses: the file `javax.net.ssl.trustStore` names, if the CARLOS JVM sets it
+    (`keytool -list -keystore <file>`); otherwise the JDK's default (`keytool -list -cacerts`).
   - nginx offers TLS 1.2 or 1.3.
   - What CARLOS is actually served. From the CARLOS host:
 

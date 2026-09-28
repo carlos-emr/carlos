@@ -23,8 +23,8 @@ the team controls. Nothing here authorises real patient data; that is the readin
 
 ## 0. Decide first
 
-Work through [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md) and record the
-answers in the clinic's copy of
+Work through sections 1 to 3 of [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md)
+and record the answers in the clinic's copy of
 [`patient-portal-deployment-record-template.md`](patient-portal-deployment-record-template.md)
 before configuring anything, because the TLS pin and both public URLs depend on them.
 
