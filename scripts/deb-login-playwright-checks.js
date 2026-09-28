@@ -41,6 +41,7 @@
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 function loadPlaywright() {
   try {
@@ -92,7 +93,7 @@ function generatedPassword() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   let out = '';
   for (let i = 0; i < 16; i += 1) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
+    out += alphabet[crypto.randomInt(alphabet.length)];
   }
   // the policy wants an upper, a lower, a digit and a symbol
   return `${out}!Aa1`;
