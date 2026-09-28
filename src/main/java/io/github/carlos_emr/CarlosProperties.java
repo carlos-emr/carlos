@@ -447,9 +447,9 @@ public class CarlosProperties extends Properties {
      *
      * <p>Enabled unless {@code ENABLE_EDIT_APPT_STATUS} is explicitly set to a non-active value
      * (anything other than {@code true}/{@code yes}/{@code on}). An absent or blank key counts as
-     * enabled: the legacy installer always wrote {@code yes}, and the turnkey .deb does not write
-     * the key at all, so defaulting off silently degraded status to a free-text box prefilled
-     * with {@code t} and hid the admin page.
+     * enabled: the OSCAR-era installer wrote {@code yes}, but neither CARLOS installer (legacy
+     * deb or turnkey .deb) sets it, and the shipped default was commented out, so defaulting off
+     * silently degraded status to a free-text box prefilled with {@code t} and hid the admin page.
      *
      * @return {@code true} unless the key is set to a non-active value
      */
