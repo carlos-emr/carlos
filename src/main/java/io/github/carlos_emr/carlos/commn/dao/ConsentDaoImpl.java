@@ -89,8 +89,9 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
     }
 
     private TypedQuery<Consent> liveQuery(int demographic_no, int consentTypeId) {
-        TypedQuery<Consent> query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=false", Consent.class);
+        TypedQuery<Consent> query = entityManager.createQuery(
+                "select x from Consent x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=false",
+                Consent.class);
         query.setParameter(1, demographic_no);
         query.setParameter(2, consentTypeId);
         return query;
@@ -102,9 +103,9 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
      */
     @Override
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType) {
-        TypedQuery<Consent> query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.consentType.type=?2 AND x.consentType.active=true"
-                + " AND x.deleted=false", Consent.class);
+        TypedQuery<Consent> query = entityManager.createQuery(
+                "select x from Consent x where x.demographicNo=?1 and x.consentType.type=?2"
+                        + " AND x.consentType.active=true AND x.deleted=false", Consent.class);
         query.setParameter(1, demographic_no);
         query.setParameter(2, consentType);
         return ConsentRecords.effective(query.getResultList());
@@ -154,13 +155,10 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
      */
     @Override
     public List<Integer> findAllDemoIdsConsentedToType(int consentTypeId) {
-        String sql = "SELECT DISTINCT x.demographicNo FROM "
-                + modelClass.getSimpleName()
-                + " x WHERE x.consentTypeId = ?1"
-                + " AND x.optout = false "
-                + " AND x.deleted = false"
+        String sql = "SELECT DISTINCT x.demographicNo FROM Consent x WHERE x.consentTypeId = ?1"
+                + " AND x.optout = false AND x.deleted = false"
                 // A live opt-out on a duplicate record wins, as in ConsentRecords.effective.
-                + " AND NOT EXISTS (SELECT y FROM " + modelClass.getSimpleName() + " y"
+                + " AND NOT EXISTS (SELECT y FROM Consent y"
                 + " WHERE y.demographicNo = x.demographicNo AND y.consentTypeId = ?1"
                 + " AND y.optout = true AND y.deleted = false)";
 
