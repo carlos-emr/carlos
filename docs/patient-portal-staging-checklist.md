@@ -102,8 +102,9 @@ Set these in the deployment's override properties, not in the committed `carlos.
 - [ ] `patient_portal.clinic_id`: the same value as the portal's.
 - [ ] `patient_portal.service_token`, `patient_portal.staff_assertion.private_key`,
       `patient_portal.staff_assertion.key_id`, `patient_portal.certificate.pins`: from section 2.
-- [ ] `patient_portal.public_base_url`: the patient-facing `https://` address. Invitation emails link
-      to `<public_base_url>/auth/activate`.
+- [ ] `patient_portal.public_base_url`: the patient-facing `https://` address. Unlike `base_url` it
+      may carry the prefix the portal's patient pages use. Invitation emails link to
+      `<public_base_url>/auth/activate`.
 - [ ] `patient_portal.invite.sender_email`: the sender address of an **active** CARLOS email
       account.
 - [ ] Timeouts left at their defaults unless there is a measured reason
@@ -112,7 +113,9 @@ Set these in the deployment's override properties, not in the committed `carlos.
       this checklist; see [`patient-portal-email-delivery.md`](patient-portal-email-delivery.md).
       Unset, encrypted email keeps its staff-entered passwords.
 - [ ] CARLOS restarted: settings and the portal client are read once, the first time the portal is
-      used after a restart. Open the **Patient portal** page to see any configuration error.
+      used after a restart. Open the **Patient portal** page to see any configuration error. The
+      page says only that the connection is not configured correctly; the CARLOS log line
+      `patient portal configuration is invalid` names the setting.
 
 ### Database
 
