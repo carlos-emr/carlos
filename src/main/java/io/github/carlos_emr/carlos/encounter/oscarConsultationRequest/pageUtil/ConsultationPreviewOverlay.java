@@ -94,6 +94,9 @@ final class ConsultationPreviewOverlay {
                     Map.entry("currentMedications", (form, value) -> form.currentMedications = value),
                     Map.entry("allergies", (form, value) -> form.allergies = value),
                     Map.entry("urgency", (form, value) -> form.urgency = value),
+                    // The posted id only. getServiceName() resolves the display name server-side
+                    // from the id, so the name the PDF prints is never taken from the request.
+                    Map.entry("service", (form, value) -> form.service = value),
                     Map.entry("referalDate", (form, value) -> form.referalDate = value),
                     Map.entry("appointmentNotes", (form, value) -> form.appointmentNotes = value),
                     Map.entry("appointmentDate", (form, value) -> form.appointmentDate = value),

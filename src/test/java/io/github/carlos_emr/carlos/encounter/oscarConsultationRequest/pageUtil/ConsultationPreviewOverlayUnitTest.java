@@ -109,6 +109,7 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
         form.providerNo = "999998";
         form.letterheadName = "Stored Clinic";
         form.specialist = "7";
+        form.service = "11";
         return form;
     }
 
@@ -133,6 +134,28 @@ class ConsultationPreviewOverlayUnitTest extends CarlosUnitTestBase {
         assertThat(form.allergies).isEqualTo(TYPED);
         assertThat(form.urgency).isEqualTo("1");
         assertThat(form.appointmentNotes).isEqualTo(TYPED);
+    }
+
+    @Test
+    @DisplayName("should show the newly picked service rather than the stored one")
+    void shouldShowPickedService_whenSelectionPosted() {
+        EctConsultationFormRequestUtil form = storedForm();
+
+        ConsultationPreviewOverlay.apply(form, postOf(Map.of("service", "42")), NO_LOOKUP);
+
+        // The id only. The PDF prints getServiceName(service), which resolves the name from the
+        // database, so a posted id can change which service is printed but never its wording.
+        assertThat(form.service).isEqualTo("42");
+    }
+
+    @Test
+    @DisplayName("should keep the stored service when the form did not post one")
+    void shouldKeepStoredService_whenSelectionAbsentFromPost() {
+        EctConsultationFormRequestUtil form = storedForm();
+
+        ConsultationPreviewOverlay.apply(form, postOf(Map.of("urgency", "1")), NO_LOOKUP);
+
+        assertThat(form.service).isEqualTo("11");
     }
 
     @Test
