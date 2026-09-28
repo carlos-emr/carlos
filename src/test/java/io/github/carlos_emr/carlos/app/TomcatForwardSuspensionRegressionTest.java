@@ -78,22 +78,23 @@ class TomcatForwardSuspensionRegressionTest {
         assertThat(xpath.evaluate("/Context/@suspendWrappedResponseAfterForward", context))
                 .as("suspendWrappedResponseAfterForward in %s", descriptor)
                 .isEqualTo("false");
-        // The postinst check greps for this exact spelling, so keep the double-quoted form too.
-        assertThat(Files.readString(path)).as("double-quoted attribute in %s", descriptor)
-                .contains("suspendWrappedResponseAfterForward=\"false\"");
+        // The package's postinst greps the installed carlos.xml for this exact spelling, so keep
+        // the double-quoted form there; the WAR's descriptor is free to use either quote style.
+        if (descriptor.endsWith("carlos.xml")) {
+            assertThat(Files.readString(path)).as("double-quoted attribute in %s", descriptor)
+                    .contains("suspendWrappedResponseAfterForward=\"false\"");
+        }
     }
 
+    /**
+     * Resolves against the project directory only. Walking up parent directories could find an
+     * enclosing checkout's copy, and pass, after this checkout had moved or deleted the file.
+     */
     private static Path resolveProjectPath(Path relativePath) {
-        Path current = Path.of(System.getProperty(
-                "maven.multiModuleProjectDirectory",
-                System.getProperty("user.dir"))).toAbsolutePath();
-        while (current != null) {
-            Path candidate = current.resolve(relativePath);
-            if (Files.exists(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
+        Path candidate = Path.of(System.getProperty("user.dir")).toAbsolutePath().resolve(relativePath);
+        if (!Files.exists(candidate)) {
+            throw new IllegalStateException("Could not locate " + relativePath + " under the project directory");
         }
-        throw new IllegalStateException("Could not locate " + relativePath);
+        return candidate;
     }
 }
