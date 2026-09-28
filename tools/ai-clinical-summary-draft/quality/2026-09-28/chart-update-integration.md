@@ -94,7 +94,7 @@ reminders, notes or receipts. New checks verified:
 - Successful posts redirect to GET, and refreshing retains drafts without
   another model request or chart write.
 
-All **75 focused Java tests**, **190 Python tests**, and **eight isolated browser
+All **75 focused Java tests**, **190 Python tests**, and **nine isolated browser
 scenarios** passed. The migration-version checks and translation key/encoding
 checks passed. The new controls were translated into Spanish, French, Polish and
 Brazilian Portuguese. The unpublished receipt migration moved to V1.0.33 because
@@ -120,4 +120,6 @@ The existing long-source pipeline test assumed parallel model requests arrived
 in source order. It now orders the captured portions by their source offsets
 before checking boundary text, while preserving its character-by-character full
 coverage checks. No production summarizer code changed for this correction.
-The affected tests and the complete CI suite are being rerun on the fix.
+All 28 affected bundle/pipeline tests now pass. The complete CI suite is being
+rerun on the fix. A ninth browser scenario also verifies that a restored review
+page can submit again without repeating hidden draft fields; all nine pass.

@@ -166,6 +166,22 @@ async function run() {
     assert.match(await card(page, 'Follow-up reminder').innerText(), /Already saved: tickler/);
     assert.deepEqual(await stats(page), { reminders: 1, histories: 1, receipts: 2 });
   });
+  await scenario('restored page can submit without duplicate draft fields', async page => {
+    await generate(page);
+    const reminder = await fillReminder(page);
+    const history = card(page, 'History entry');
+    await history.locator('[name="entryText"]').fill('First history edit');
+    // Keep the submitted DOM alive, then deliver the lifecycle event emitted when
+    // a browser restores that document. This avoids browser-specific cache eligibility.
+    await reminder.locator('form').evaluate(form => form.addEventListener('submit', event => event.preventDefault(), { once: true }));
+    await reminder.getByRole('button', { name: 'Accept and save', exact: true }).click();
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+    await history.locator('[name="entryText"]').fill('Latest history edit');
+    await click(page, reminder.getByRole('button', { name: 'Accept and save', exact: true }));
+    assert.equal(await page.getByRole('alert').count(), 0);
+    assert.equal(await card(page, 'History entry').locator('[name="entryText"]').inputValue(), 'Latest history edit');
+    assert.deepEqual(await stats(page), { reminders: 1, histories: 0, receipts: 1 });
+  });
   await scenario('stale chart blocks approval, preserves edits and permits rereview', async page => {
     await generate(page);
     let reminder = await fillReminder(page);

@@ -133,7 +133,7 @@ doubles; this does not exercise the full Struts/login/database deployment.
 The native persistence/rollback tests above cover the database boundary separately.
 It does not start, stop, reconfigure or deploy to the installed/shared Tomcat.
 
-Eight browser scenarios cover generation without writes, blank required fields,
+Nine browser scenarios cover generation without writes, blank required fields,
 escaped source/edited text, mobile overflow, dismissal, edited reminders, signed
 history, preservation of other cards' edits, refresh-safe redirects, durable replay, stale-source/chart rejection, expiry, an older tab after
 another tab refreshes the review, missing CSRF tokens and GET mutation rejection.
