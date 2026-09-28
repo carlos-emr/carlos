@@ -345,11 +345,18 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic"))
                 .thenReturn(List.of(patientLink(10)));
 
-        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(403);
-        assertThat(response.getContentAsByteArray()).isEmpty();
-        Mockito.verifyNoInteractions(documentDao);
-        verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(10));
+        try (MockedStatic<EDocUtil> metadata = mockStatic(EDocUtil.class);
+             MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            Mockito.verifyNoInteractions(documentDao);
+            metadata.verifyNoInteractions();
+            paths.verifyNoInteractions();
+            verify(ctlDocumentDao, Mockito.never()).getCtrlDocument(anyInt());
+            verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(10));
+        }
     }
 
     @Test
@@ -429,14 +436,16 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    void shouldReturnRetryableBusyStatus_whenUncachedImageCannotAcquireGlobalWorker() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = { "showPage", "viewDocPage" })
+    void shouldReturnRetryableBusyStatus_whenUncachedImageCannotAcquireGlobalWorker(String method) throws Exception {
         Document document = new Document();
         document.setDocfilename("fixture.pdf");
+        document.setContenttype("application/pdf");
         when(documentDao.getDocument("42")).thenReturn(document);
         authorizeEdocWrite();
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
-        request.setParameter("method", "showPage");
+        request.setParameter("method", method);
         request.setParameter("page", "1");
         request.setParameter("doc_no", "42");
         try (MockedStatic<PathValidationUtils> paths = cachePaths();
@@ -446,7 +455,31 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
             action.execute();
             assertThat(response.getStatus()).isEqualTo(503);
             assertThat(response.getHeader("Retry-After")).isEqualTo("1");
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
             assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "showPage", "view", "viewDocPage", "display" })
+    void shouldReturnNotFoundWithoutInspectingFiles_whenRequestedDocumentWasDeleted(String method) throws Exception {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic"))
+                .thenReturn(List.of(patientLink(10)));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(10))).thenReturn(true);
+        request.setParameter("method", method);
+        request.setParameter("page", "1");
+        request.setParameter("doc_no", "42");
+
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            verify(documentDao).getDocument("42");
+            verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(10));
+            paths.verifyNoInteractions();
         }
     }
 
