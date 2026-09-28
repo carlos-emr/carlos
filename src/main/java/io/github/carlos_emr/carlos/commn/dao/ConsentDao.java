@@ -48,16 +48,26 @@ public interface ConsentDao extends AbstractDao<Consent> {
     public List<Consent> findLiveByDemographicAndConsentTypeId(int demographic_no, int consentTypeId);
 
     /**
-     * As {@link #findLiveByDemographicAndConsentTypeId}, write-locking the rows until the
-     * transaction ends, so concurrent saves and clears of one patient's consent run one after
-     * another instead of overwriting each other. Call it within the caller's transaction: the
-     * locks are held until that transaction ends.
+     * Write-locks the patient's {@code demographic} row until the caller's transaction ends.
+     * Every consent save, clear and opt-out takes this lock before it reads the patient's
+     * consent records, so changes to one patient's consent run one after another. That includes
+     * the first save, when there is no consent record to lock yet. It locks one row by primary
+     * key, so it takes no gap lock and does not block other patients. Requires an existing
+     * transaction. Nothing is locked when the patient does not exist.
+     */
+    public void lockPatientForConsentChange(int demographic_no);
+
+    /**
+     * As {@link #findLiveByDemographicAndConsentTypeId}, write-locking the rows until the caller's
+     * transaction ends. Take {@link #lockPatientForConsentChange} first: these row locks alone do
+     * not serialise a first save, which has no row to lock. Requires an existing transaction.
      */
     public List<Consent> findLiveByDemographicAndConsentTypeIdForUpdate(int demographic_no, int consentTypeId);
 
     /**
      * @return the deciding live record, per {@link ConsentRecords#effective}, among the patient's
-     *     records of every active consent type with this name. {@code null} when there is none.
+     *     records of every active consent type with this type key ({@code ConsentType.type}, not
+     *     its display name). {@code null} when there is none.
      */
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType);
 

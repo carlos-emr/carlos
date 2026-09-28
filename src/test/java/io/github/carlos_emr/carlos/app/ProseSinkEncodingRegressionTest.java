@@ -77,6 +77,13 @@ class ProseSinkEncodingRegressionTest {
                         "rows=\"8\"><%=alert%>", "rows=\"8\"><%=SafeEncode.forHtmlContent(alert)%>"),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp",
                         "rows=\"8\"><%=notes%>", "rows=\"8\"><%=SafeEncode.forHtmlContent(notes)%>"),
+                // Not prose, but admin-entered the same way: the consent type key names the chart's
+                // consent inputs and is passed to the Clear button's script.
+                Arguments.of("src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp",
+                        "name=\"${ consentType.type }\"", "name=\"${carlos:forHtmlAttribute(consentType.type)}\""),
+                Arguments.of("src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp",
+                        "consentClearBtn('${consentType.type}')",
+                        "consentClearBtn('${carlos:forJavaScript(consentType.type)}')"),
                 // The provider encounter-note template body (exclusion 1142). These two already
                 // encode; the rows are here so they cannot quietly stop, now that the packaged
                 // rules no longer score six signature families on the argument that fills them.

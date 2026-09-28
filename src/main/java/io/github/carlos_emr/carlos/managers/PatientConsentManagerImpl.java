@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,8 +62,15 @@ import io.github.carlos_emr.carlos.log.LogAction;
 // S2229). Reads are SUPPORTS: as before, they run without a transaction of their own, so a search
 // does not dirty-check every record it has loaded before each query, and a failed audit insert
 // does not fail the read.
+//
+// Writes run at READ COMMITTED and first lock the patient's row (ConsentDao.lockPatientForConsentChange),
+// as lab routing does. Under MariaDB's default REPEATABLE READ a concurrent save failed instead of
+// waiting: two first saves each took only a gap lock and deadlocked on insert (1213), and with
+// innodb_snapshot_isolation=ON (the default from 11.6) a save that waited on another's lock then
+// failed with 1020 on reading the rows that one had changed. Under READ COMMITTED the waiting save
+// reads what the first one committed.
 @Service
-@Transactional
+@Transactional(isolation = Isolation.READ_COMMITTED)
 public class PatientConsentManagerImpl implements PatientConsentManager {
 
     /** Audit-log content name for entries about one consent record. */
@@ -180,7 +188,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         if (consentType != null && consentType.isActive()) {
             // Edit the deciding record, the one staff were shown, and retire any other live
             // duplicates below so the chart ends with exactly one record (#3845).
-            // Locked until commit, so a concurrent save or clear waits and then sees this one's result.
+            // The patient lock is held until commit, so a concurrent save, clear or opt-out of this
+            // patient's consent waits, then reads this one's result.
+            consentDao.lockPatientForConsentChange(demographic_no);
             List<Consent> live = consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographic_no, consentType.getId());
             Consent consent = ConsentRecords.effective(live);
             Date currentDate = null;
@@ -249,8 +259,12 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * duplicates are retired, as a chart save does. Requires write privilege on the patient.
      */
     public void optoutConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        // Lock before the first read, so the records read here are the ones the opt-out then edits.
+        consentDao.lockPatientForConsentChange(demographic_no);
 
-        // use this manager method in order to reduce repetitive use of the sec check.
         Consent consent = getConsentByDemographicAndConsentType(loggedinInfo, demographic_no, consentTypeId);
 
         if (consent != null) {
@@ -278,6 +292,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
     /**
      * Used for removing consent from a patient that previously consented. For a Consent object.
+     * A record that has been deleted or retired is left as it is.
      */
     public void optoutConsent(LoggedInInfo loggedinInfo, int consentId) {
 
@@ -289,7 +304,14 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
         Consent consent = consentDao.find(consentId);
 
-        if (consent != null) {
+        if (consent != null && consent.getDemographicNo() != null) {
+            // Lock, then re-read the row: a concurrent clear or save may have changed or retired it
+            // since find(), and merging the stale copy would write the old values back.
+            consentDao.lockPatientForConsentChange(consent.getDemographicNo());
+            consentDao.refresh(consent);
+        }
+
+        if (consent != null && !consent.isDeleted()) {
             Date date = new Date(System.currentTimeMillis());
             consent.setOptout(Boolean.TRUE);
             consent.setOptoutDate(date);
@@ -474,6 +496,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             return;
         }
         // Delete every live record: with duplicates, deleting only one left the others deciding.
+        consentDao.lockPatientForConsentChange(demographic_no);
         Date now = new Date(System.currentTimeMillis());
         for (Consent consent : consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographic_no, consentTypeId)) {
             consent.setDeleted(Boolean.TRUE);

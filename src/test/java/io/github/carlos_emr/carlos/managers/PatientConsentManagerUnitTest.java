@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.TransactionDefinition;
@@ -137,6 +138,21 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isTrue();
             verify(mockConsentDao).persist(any(Consent.class));
+        }
+
+        @Test
+        @DisplayName("should lock the patient before reading the records it edits")
+        void shouldLockPatientBeforeReading_whenSaving() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of());
+
+            manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+            order.verify(mockConsentDao).persist(any(Consent.class));
         }
 
         @Test
@@ -290,6 +306,67 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(consent.isOptout()).isTrue();
             assertThat(consent.getOptoutDate()).isNotNull();
             verify(mockConsentDao).merge(consent);
+        }
+
+        @Test
+        @DisplayName("should lock the patient and re-read the record before opting it out by ID")
+        void shouldLockAndReread_beforeOptingOutById() {
+            Consent consent = consent(10, false, new Date(1_000L));
+            when(mockConsentDao.find(10)).thenReturn(consent);
+
+            manager.optoutConsent(loggedInInfo, 10);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).find(10);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).refresh(consent);
+            order.verify(mockConsentDao).merge(consent);
+        }
+
+        @Test
+        @DisplayName("should leave a record alone when a concurrent clear retired it before the lock")
+        void shouldNotReviveRecord_whenRetiredBeforeLock() {
+            Consent consent = consent(10, false, new Date(1_000L));
+            when(mockConsentDao.find(10)).thenReturn(consent);
+            // The re-read after the lock sees the clear another request committed meanwhile.
+            doAnswer(invocation -> {
+                consent.setDeleted(true);
+                return null;
+            }).when(mockConsentDao).refresh(consent);
+
+            manager.optoutConsent(loggedInInfo, 10);
+
+            assertThat(consent.isOptout()).isFalse();
+            verify(mockConsentDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should lock the patient before its first read when opting out by patient and type")
+        void shouldLockPatientBeforeFirstRead_whenOptingOutByPatientAndType() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Consent live = consent(11, false, new Date(2_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findByDemographicAndConsentTypeId(100, 1)).thenReturn(live);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(live));
+
+            manager.optoutConsent(loggedInInfo, 100, 1);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findByDemographicAndConsentTypeId(100, 1);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+        }
+
+        @Test
+        @DisplayName("should throw and touch nothing when write privilege is denied, by patient and type")
+        void shouldThrow_whenWriteDeniedByPatientAndType() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), anyInt()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.optoutConsent(loggedInInfo, 100, 1))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verifyNoInteractions(mockConsentDao);
         }
 
         @Test
@@ -491,6 +568,22 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should lock the patient before reading the records it clears")
+        void shouldLockPatientBeforeReading_whenClearing() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Consent live = consent(11, false, new Date(2_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(live));
+
+            manager.deleteConsent(loggedInInfo, 100, 1);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+            order.verify(mockConsentDao).merge(live);
+        }
+
+        @Test
         @DisplayName("should delete and log nothing when the consent type is inactive")
         void shouldChangeNothing_whenConsentTypeInactive() {
             ConsentType ct = createActiveConsentType(1, "email");
@@ -583,6 +676,10 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
                 assertThat(attribute.getPropagationBehavior()).as(name).isEqualTo(read
                         ? TransactionDefinition.PROPAGATION_SUPPORTS
                         : TransactionDefinition.PROPAGATION_REQUIRED);
+                // Writes wait on the patient lock and must then read what the other write committed.
+                assertThat(attribute.getIsolationLevel()).as(name).isEqualTo(read
+                        ? TransactionDefinition.ISOLATION_DEFAULT
+                        : TransactionDefinition.ISOLATION_READ_COMMITTED);
             }
         }
     }

@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
@@ -157,6 +158,13 @@ class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
 
         assertThat(consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(510, emailType.getId()))
                 .extracting(consent -> consent.getEditDate().getTime()).containsExactly(2_000L, 1_000L);
+    }
+
+    @Test
+    @DisplayName("should run the patient-row lock in the caller's transaction, whether or not the patient exists")
+    void shouldRunPatientRowLock_inCallersTransaction() {
+        // The native SQL has to match the real table and column; H2 cannot show the lock itself.
+        assertThatCode(() -> consentDao.lockPatientForConsentChange(511)).doesNotThrowAnyException();
     }
 
     @Test

@@ -43,6 +43,8 @@ import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentDao {
@@ -70,6 +72,16 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void lockPatientForConsentChange(int demographic_no) {
+        // Native and scalar, so no Demographic entity or its eager associations are loaded or locked.
+        entityManager.createNativeQuery("SELECT demographic_no FROM demographic WHERE demographic_no = ?1 FOR UPDATE")
+                .setParameter(1, demographic_no)
+                .getResultList();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public List<Consent> findLiveByDemographicAndConsentTypeIdForUpdate(int demographic_no, int consentTypeId) {
         TypedQuery<Consent> query = liveQuery(demographic_no, consentTypeId);
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);

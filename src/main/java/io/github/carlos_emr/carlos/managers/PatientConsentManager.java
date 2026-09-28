@@ -118,6 +118,9 @@ public interface PatientConsentManager {
      * Used for removing consent from a patient Consent that was previously consented.
      * Ignored if the patient has never consented.
      * The normal state for consent is FALSE
+     * <p>
+     * The deciding record opts out and any other live duplicates are retired, as a chart save
+     * does. Requires write privilege on the patient.
      */
     void optoutConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId);
 
@@ -128,9 +131,17 @@ public interface PatientConsentManager {
 
     /**
      * Used for removing consent from a patient that previously consented. For a Consent object.
+     * A record that has been deleted or retired is left as it is. Requires write privilege on
+     * {@code _demographic}.
      */
     void optoutConsent(LoggedInInfo loggedinInfo, int consentId);
 
+    /**
+     * Creates a consent type. Consent types are clinic configuration, so this requires write
+     * privilege on {@code _admin}.
+     *
+     * @throws SecurityException if the user lacks write privilege on {@code _admin}
+     */
     ConsentType addConsentType(LoggedInInfo loggedinInfo, ConsentType consentType);
 
 
