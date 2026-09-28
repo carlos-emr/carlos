@@ -846,6 +846,9 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
 
             assertThat(implied.isExplicit()).isFalse();
+            // The save edited the implied record itself, rather than adding a new explicit one.
+            verify(mockConsentDao).merge(implied);
+            verify(mockConsentDao, never()).persist(any());
         }
     }
 }
