@@ -85,7 +85,9 @@ public class ChartUpdateContext {
         }
     }
 
-    @Transactional(readOnly = true)
+    // Loading evidence also records a synchronous access audit. MySQL enforces
+    // read-only connections, so the audit insert needs a writable transaction.
+    @Transactional
     public Snapshot load(LoggedInInfo user, int documentId) {
         requireEnabled();
         if (user == null || documentId <= 0 || !security.hasPrivilege(user, "_edoc", "r", null)) deny();

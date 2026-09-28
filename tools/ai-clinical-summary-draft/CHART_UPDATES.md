@@ -141,3 +141,8 @@ validate concurrent/retried saves and injected failures, and conduct clinician
 review of extraction quality. Passing source-excerpt checks does not establish
 clinical accuracy or completeness. No live model or patient-chart validation is
 implied by mocked/unit tests.
+
+For the real CARLOS/MariaDB walkthrough with three existing NHS synthetic charts,
+see [the repeatable integration check](browser/NHS_LIVE_CHECK.md). Its fixed
+proposal gateway tests the application workflow without model credentials;
+those results do not measure AI extraction quality.
