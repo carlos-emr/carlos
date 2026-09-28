@@ -1,0 +1,145 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.clinical.summary;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
+import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.managers.*;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.persistence.EntityManager;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.*;
+import org.mockito.MockedStatic;
+import org.springframework.mock.web.MockHttpSession;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
+    private final SecurityInfoManager security = mock(SecurityInfoManager.class);
+    private final DocumentManager documents = mock(DocumentManager.class);
+    private final CaseManagementManager notes = mock(CaseManagementManager.class);
+    private final TicklerDao ticklers = mock(TicklerDao.class);
+    private final ProgramProviderDAO programs = mock(ProgramProviderDAO.class);
+    private final ProgramManager programManager = mock(ProgramManager.class);
+    private final EntityManager em = mock(EntityManager.class);
+    private final LoggedInInfo user = mock(LoggedInInfo.class);
+    private final MockHttpSession session = new MockHttpSession();
+    private final ChartUpdateContext context = new ChartUpdateContext(security, documents, notes, ticklers, programs, programManager);
+    private MockedStatic<CarlosProperties> settings;
+    private MockedStatic<EDocUtil> visibility;
+    private MockedStatic<ClinicalSummaryTextExtractor> reader;
+    private Document document;
+
+    @BeforeEach void setUp() {
+        injectDependency(context, "entityManager", em);
+        settings = mockStatic(CarlosProperties.class);
+        var properties = mock(CarlosProperties.class);
+        settings.when(CarlosProperties::getInstance).thenReturn(properties);
+        when(properties.getProperty(anyString(), eq("false"))).thenReturn("true");
+        when(user.getLoggedInProviderNo()).thenReturn("101");
+        when(user.getSession()).thenReturn(session);
+        session.setAttribute("case_program_id", "10016");
+        when(security.hasPrivilege(user, "_edoc", "r", null)).thenReturn(true);
+        for (String permission : List.of("_demographic", "_eChart", "_tickler")) {
+            when(security.hasPrivilege(user, permission, "r", 3001)).thenReturn(true);
+        }
+        when(security.isAllowedAccessToPatientRecord(user, 3001)).thenReturn(true);
+        var demographic = new Demographic();
+        demographic.setFirstName("Synthetic");
+        demographic.setLastName("Patient");
+        when(em.find(Demographic.class, 3001)).thenReturn(demographic);
+        var link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 3001, 42));
+        when(documents.getCtlDocumentByDocumentId(user, 42)).thenReturn(link);
+        var membership = new ProgramProvider();
+        membership.setRoleId(1L);
+        when(programs.getProgramProvider("101", 10016L)).thenReturn(membership);
+        when(programManager.hasAccessBasedOnCurrentFacility(user, 10016)).thenReturn(true);
+        visibility = mockStatic(EDocUtil.class);
+        EDoc visible = mock(EDoc.class);
+        when(visible.getDocId()).thenReturn("42");
+        visibility.when(() -> EDocUtil.listDocs(user, "demographic", "3001", "all", EDocUtil.PRIVATE,
+                EDocUtil.EDocSort.OBSERVATIONDATE, "active")).thenReturn(new ArrayList<>(List.of(visible)));
+        document = new Document();
+        document.setDocumentNo(42);
+        document.setDocfilename("synthetic.txt");
+        document.setContenttype("text/plain");
+        document.setStatus('A');
+        when(documents.getDocument(user, 42)).thenReturn(document);
+        reader = mockStatic(ClinicalSummaryTextExtractor.class);
+        reader.when(() -> ClinicalSummaryTextExtractor.document("synthetic.txt", "text/plain"))
+                .thenReturn(new ClinicalSummaryTextExtractor.Extract("Review symptoms.", true, "Complete"));
+    }
+    @AfterEach void tearDown() { reader.close(); visibility.close(); settings.close(); }
+
+    @Test void reloadsSourceAndLocalComparisonWithoutGrantingWriteAccess() {
+        var snapshot = context.load(user, 42);
+        assertThat(snapshot.patientId()).isEqualTo(3001);
+        assertThat(snapshot.source()).isEqualTo("Review symptoms.");
+        verify(em).clear();
+        assertThatThrownBy(() -> context.requireWrite(user, 3001, "tickler")).isInstanceOf(SecurityException.class);
+    }
+
+    @Test void requiresAllPatientPermissionsBeforeSourceRead() {
+        when(security.hasPrivilege(user, "_tickler", "r", 3001)).thenReturn(false);
+        assertThatThrownBy(() -> context.load(user, 42)).isInstanceOf(SecurityException.class);
+        reader.verifyNoInteractions();
+        verifyNoInteractions(ticklers);
+    }
+
+    @Test void rejectsMislinkedAndUnavailableDocuments() {
+        document.setDocumentNo(43);
+        assertThatThrownBy(() -> context.load(user, 42)).isInstanceOf(SecurityException.class);
+        document.setDocumentNo(42);
+        document.setStatus('D');
+        assertThatThrownBy(() -> context.load(user, 42)).isInstanceOf(SecurityException.class);
+        reader.verifyNoInteractions();
+    }
+
+    @Test void requiresProgramContextAndMembership() {
+        session.removeAttribute("case_program_id");
+        assertThatThrownBy(() -> context.load(user, 42)).hasMessageContaining("program context");
+        session.setAttribute("case_program_id", "10016");
+        when(programs.getProgramProvider("101", 10016L)).thenReturn(null);
+        assertThatThrownBy(() -> context.load(user, 42)).isInstanceOf(SecurityException.class);
+        reader.verifyNoInteractions();
+    }
+
+    @Test void refusesIncompleteSourceAndChangesFingerprintWhenSourceChanges() {
+        String original = context.load(user, 42).fingerprint();
+        reader.when(() -> ClinicalSummaryTextExtractor.document("synthetic.txt", "text/plain"))
+                .thenReturn(new ClinicalSummaryTextExtractor.Extract("Changed source", true, "Complete"));
+        assertThat(context.load(user, 42).fingerprint()).isNotEqualTo(original);
+        reader.when(() -> ClinicalSummaryTextExtractor.document("synthetic.txt", "text/plain"))
+                .thenReturn(new ClinicalSummaryTextExtractor.Extract("Truncated source", false, "Too long"));
+        assertThatThrownBy(() -> context.load(user, 42)).hasMessageContaining("Complete readable");
+    }
+}

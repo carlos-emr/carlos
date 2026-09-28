@@ -29,6 +29,7 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 from example_agent import MAX_REQUEST_BYTES, PATH, unique_object, validate_request
 import document_distill
 import document_summary
+import chart_updates
 import host_checks
 import pipeline
 from run import build_artifact
@@ -497,6 +498,14 @@ class Gateway:
                 and isinstance(message.get("content"), str), "Missing assistant JSON")
         return loads(message["content"])
 
+    def run_chart_updates(self, request):
+        """Propose updates from verified synthetic source text; never receive or change a chart."""
+        self.deadline = self.clock() + 540
+        try:
+            return chart_updates.run(self.config, request, self.allowed.notes, self.complete)
+        except pipeline.OutputLimitError:
+            raise UpstreamError("Proposal completion exceeded its output limit; no proposals accepted") from None
+
     def run_document(self, request):
         """Single-document operation; only a complete committed synthetic note may leave the host."""
         self.deadline = self.clock() + 540
@@ -706,7 +715,7 @@ def handler_for(gateway):
 
         def do_POST(self):
             self.connection.settimeout(10)
-            if self.path not in (PATH, PATH + "/repair", document_summary.PATH):
+            if self.path not in (PATH, PATH + "/repair", document_summary.PATH, chart_updates.PATH):
                 self.respond(404, {"error": "Not found"})
                 return
             try:
@@ -717,7 +726,8 @@ def handler_for(gateway):
                 raw = self.rfile.read(length)
                 require(len(raw) == length, "Incomplete request")
                 started, hits = time.monotonic(), gateway.cache_hits
-                operation = (gateway.run_document if self.path == document_summary.PATH else
+                operation = (gateway.run_chart_updates if self.path == chart_updates.PATH else
+                             gateway.run_document if self.path == document_summary.PATH else
                              gateway.run_repair if self.path.endswith("/repair") else gateway.run)
                 output = operation(loads(raw))
                 require(len(json.dumps(output).encode("utf-8")) <= MAX_RESPONSE_BYTES, "Oversized output")

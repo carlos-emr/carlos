@@ -85,6 +85,8 @@ public final class AiDocumentSummary2Action extends ActionSupport {
         var document = authorizedDocument(user, documentId);
         ClinicalSummaryTextExtractor.Extract extract = extract(document.filename(), document.contentType());
         request.setAttribute("documentSummaryId", documentId);
+        request.setAttribute("chartUpdatesEnabled", "true".equals(properties.getProperty(
+                "clinical.ai_chart_updates.enabled", "false")));
         request.setAttribute("documentSummaryTitle", document.title());
         request.setAttribute("documentSummaryExtraction", extract.reason());
         request.setAttribute("documentSummaryAllowed", !extract.text().isBlank());

@@ -53,6 +53,9 @@
         </form>
     </c:otherwise>
 </c:choose>
+<c:if test="${chartUpdatesEnabled}">
+    <p class="mt-3"><a class="btn btn-outline-primary" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/AiChartUpdates?documentId=${carlos:forHtmlAttribute(documentSummaryId)}"><fmt:message key="chartUpdates.title"/></a></p>
+</c:if>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-document-summary.js"></script>
 </body>
 </html>

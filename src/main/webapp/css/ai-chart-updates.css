@@ -1,0 +1,9 @@
+/* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
+body { max-width: 1400px; }
+.chart-update-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 2rem; }
+.chart-update-layout > * { min-width: 0; }
+.source-text { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; margin-top: .75rem; }
+blockquote { border-left: 3px solid #708d99; padding-left: 1rem; }
+aside { padding: 1rem; background: #f3f6f8; border-radius: .4rem; align-self: start; }
+summary { cursor: pointer; }
+@media (max-width: 800px) { .chart-update-layout { grid-template-columns: 1fr; } aside { order: -1; } }
