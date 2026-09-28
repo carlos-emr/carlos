@@ -292,6 +292,19 @@ class PatientPortalSettingsUnitTest {
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
+        /**
+         * Only the internal API origin must be bare. The portal serves its patient pages under the
+         * prefix of its own public base URL, so the address an invitation links to may carry one,
+         * and the activation link has to keep it.
+         */
+        @ParameterizedTest
+        @ValueSource(strings = {"https://clinic.example/patient", "https://clinic.example/patient/"})
+        @DisplayName("should accept a patient address carrying a path prefix")
+        void shouldKeepPrefix_whenPublicBaseUrlCarriesPath(String publicBaseUrl) {
+            assertThat(new PortalInviteSettings(publicBaseUrl, "clinic@example.invalid").activationUrl())
+                    .isEqualTo("https://clinic.example/patient/auth/activate");
+        }
+
 
         /**
          * Validation used to live only in the factory, leaving the record's canonical constructor

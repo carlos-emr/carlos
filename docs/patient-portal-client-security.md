@@ -90,7 +90,7 @@ Two settings are required, and invitations are refused until both are set:
 
 | Property | Meaning |
 |---|---|
-| `patient_portal.public_base_url` | The address patients open, `https://` only. It is not the pinned internal API origin and usually differs from it. |
+| `patient_portal.public_base_url` | The address patients open, `https://` only. It is not the pinned internal API origin and usually differs from it. Unlike `base_url`, it may carry the path prefix the portal's patient pages are served under. |
 | `patient_portal.invite.sender_email` | The sender address of an active CARLOS email account. |
 
 The portal's two-phase contract decides the order of every invitation. `PortalInviteDeliveryService`
