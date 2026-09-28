@@ -50,10 +50,12 @@ public interface ConsentDao extends AbstractDao<Consent> {
     /**
      * Write-locks the patient's {@code demographic} row until the caller's transaction ends.
      * Every consent save, clear and opt-out takes this lock before it reads the patient's
-     * consent records, so changes to one patient's consent run one after another. That includes
-     * the first save, when there is no consent record to lock yet. It locks one row by primary
+     * consent records (an opt-out by record id finds the record first, then locks and re-reads
+     * it), so changes to one patient's consent run one after another. That includes the first
+     * save, when there is no consent record to lock yet. It locks one existing row by primary
      * key, so it takes no gap lock and does not block other patients. Requires an existing
-     * transaction. Nothing is locked when the patient does not exist.
+     * transaction, at READ COMMITTED: there, nothing is locked when the patient does not exist,
+     * while at REPEATABLE READ a missing id takes a gap lock.
      */
     public void lockPatientForConsentChange(int demographic_no);
 

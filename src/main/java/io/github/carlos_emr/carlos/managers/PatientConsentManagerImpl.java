@@ -63,12 +63,14 @@ import io.github.carlos_emr.carlos.log.LogAction;
 // does not dirty-check every record it has loaded before each query, and a failed audit insert
 // does not fail the read.
 //
-// Writes run at READ COMMITTED and first lock the patient's row (ConsentDao.lockPatientForConsentChange),
-// as lab routing does. Under MariaDB's default REPEATABLE READ a concurrent save failed instead of
-// waiting: two first saves each took only a gap lock and deadlocked on insert (1213), and with
-// innodb_snapshot_isolation=ON (the default from 11.6) a save that waited on another's lock then
-// failed with 1020 on reading the rows that one had changed. Under READ COMMITTED the waiting save
-// reads what the first one committed.
+// Writes run at READ COMMITTED, and writes to a patient's consent records first lock the patient's
+// row (ConsentDao.lockPatientForConsentChange), as lab routing does. Under MariaDB's default
+// REPEATABLE READ a concurrent save failed instead of waiting: two first saves each took only a gap
+// lock and deadlocked on insert (1213), and with innodb_snapshot_isolation=ON (the default from
+// 11.6) a save that waited on another's lock then failed with 1020 on reading the rows that one had
+// changed. Under READ COMMITTED the waiting save reads what the first one committed. Call the write
+// methods outside any existing transaction: joined to one, they run at the caller's isolation, and
+// at REPEATABLE READ those failures come back.
 @Service
 @Transactional(isolation = Isolation.READ_COMMITTED)
 public class PatientConsentManagerImpl implements PatientConsentManager {
@@ -300,26 +302,33 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", " ConsentId: " + consentId);
-
         Consent consent = consentDao.find(consentId);
 
         if (consent != null && consent.getDemographicNo() != null) {
+            // The patient is known now, so honour per-patient restrictions as the other writes do.
+            if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE,
+                    consent.getDemographicNo())) {
+                throw new SecurityException("missing required sec object (_demographic)");
+            }
             // Lock, then re-read the row: a concurrent clear or save may have changed or retired it
             // since find(), and merging the stale copy would write the old values back.
             consentDao.lockPatientForConsentChange(consent.getDemographicNo());
             consentDao.refresh(consent);
         }
 
-        if (consent != null && !consent.isDeleted()) {
-            Date date = new Date(System.currentTimeMillis());
-            consent.setOptout(Boolean.TRUE);
-            consent.setOptoutDate(date);
-            consent.setEditDate(date);
-            consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
-            consentDao.merge(consent);
+        if (consent == null || consent.isDeleted()) {
+            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]",
+                    " ConsentId: " + consentId + " skipped: no live record");
+            return;
         }
 
+        Date date = new Date(System.currentTimeMillis());
+        consent.setOptout(Boolean.TRUE);
+        consent.setOptoutDate(date);
+        consent.setEditDate(date);
+        consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
+        consentDao.merge(consent);
+        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", " ConsentId: " + consentId);
     }
 
     /**

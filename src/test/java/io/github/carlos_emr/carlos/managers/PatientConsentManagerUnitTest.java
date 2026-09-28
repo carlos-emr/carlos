@@ -338,6 +338,24 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(consent.isOptout()).isFalse();
             verify(mockConsentDao, never()).merge(any());
+            // The audit says nothing was opted out.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+                    "PatientConsentManager.optoutConsent[consentID]", " ConsentId: 10 skipped: no live record"));
+        }
+
+        @Test
+        @DisplayName("should honour a per-patient write restriction when opting out by ID, before locking")
+        void shouldThrow_whenPatientWriteDeniedForOptoutById() {
+            Consent consent = consent(10, false, new Date(1_000L));
+            when(mockConsentDao.find(10)).thenReturn(consent);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), eq(100)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.optoutConsent(loggedInInfo, 10))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verify(mockConsentDao, never()).lockPatientForConsentChange(anyInt());
+            verify(mockConsentDao, never()).merge(any());
         }
 
         @Test
