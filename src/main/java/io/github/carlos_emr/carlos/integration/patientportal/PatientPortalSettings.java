@@ -223,7 +223,11 @@ public record PatientPortalSettings(
      */
     // FindSecBugs IMPROPER_UNICODE: case folding of an on/off setting compared with the ASCII words
     // true and false; not a security or authorization decision.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folding of an on/off setting compared with the ASCII words true and false; not a security or authorization decision")
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification =
+                    "case folding of an on/off setting compared with the ASCII words true and false;"
+                            + " not a security or authorization decision")
     private static String switchValue(Function<String, String> lookup) {
         String value = lookup.apply(ENABLED_KEY);
         return value == null ? "" : value.strip().toLowerCase(Locale.ROOT);

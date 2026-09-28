@@ -22,11 +22,14 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService.RecoveryRefusedException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
@@ -93,6 +96,8 @@ public class PortalEmailDelivery2Action extends ActionSupport {
         } catch (IllegalArgumentException invalid) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
+        } catch (PatientPortalConfigurationException notConfigured) {
+            portalNotConfigured(request, response, id);
         } catch (RuntimeException unavailable) {
             // Class name only: portal messages may carry credentials or PHI. A reload re-reads the durable state.
             logger.warn("Portal email recovery failed; emailLogId={}; causeType={}", id, unavailable.getClass().getSimpleName());
@@ -109,13 +114,27 @@ public class PortalEmailDelivery2Action extends ActionSupport {
         } catch (IllegalArgumentException notFound) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
+        } catch (PatientPortalConfigurationException notConfigured) {
+            portalNotConfigured(request, response, id);
         } catch (RuntimeException unavailable) {
-            // For example a portal configuration fault while resolving the staff context.
+            // For example a database fault while reading the stored email.
             logger.warn("Portal email recovery page could not be loaded; emailLogId={}; causeType={}",
                     id, unavailable.getClass().getSimpleName());
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             request.setAttribute("portalRecoveryErrorKey", "email.portalDelivery.error.unavailable");
         }
         return SUCCESS;
+    }
+
+    /**
+     * Not "the Portal did not respond": the portal was never called. Switched off is a deployment
+     * choice, so it is not logged; a switched-on portal whose settings do not build is a fault.
+     */
+    private void portalNotConfigured(HttpServletRequest request, HttpServletResponse response, int id) {
+        if (PatientPortalSettings.isConfigured()) {
+            logger.warn("Portal email recovery refused: the Patient Portal settings are not valid; emailLogId={}", id);
+        }
+        response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        request.setAttribute("portalRecoveryErrorKey", "email.portalDelivery.error.notConfigured");
     }
 }
