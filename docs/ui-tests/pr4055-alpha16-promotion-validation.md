@@ -90,6 +90,18 @@ the same 300-file limit. No CodeRabbit approval is claimed.
 - Browser inventory checks recurse through `scripts/`, including the previously
   omitted document annotation check under `scripts/e2e/fax/`. CI also runs the
   coverage-helper regressions and the live Struts inventory.
+- Installed inspection exposed sidebar loading that stopped its indicator on
+  the first response. The loader now tracks each module until completion and
+  rejects obsolete responses. The browser harness waits for that state rather
+  than briefly stable link counts; its regression deliberately delays a module.
+- Favorite saves now return an explicit 204 response after persistence. The
+  editor finishes the response before reporting success, rejects redirected
+  login/error responses and clears stale success on failure. The browser check
+  exercises a failed save followed by a real successful retry.
+- Upgrade snapshots now support the configured database/administrator and fail
+  on SQL errors, missing administrator rows and incomplete snapshots. Verification
+  checks command outcomes, validates document-query results and compares
+  credential digests instead of printing password hashes or PIN prefixes.
 
 ## Test discovery
 
@@ -121,8 +133,8 @@ rule execution remain in scope.
 - Initial configured Java suite: 14,161 reported, zero failures/errors,
   51 existing skips.
 - Final full Java/JSP/WAR run at application revision `6a3d4b5203`: 15,166
-  reported, zero failures/errors; the three Chromium Selenium checks remain
-  pending on the installed VM. The last favorite regressions separately passed
+  reported, zero failures/errors; the three Chromium Selenium checks skipped
+  in that host run subsequently passed on the installed VM. The last favorite regressions separately passed
   54 tests before the complete rerun.
 - JSP compilation: 985 JSPs, zero errors. Javadoc: completed, 34 warnings, no
   errors. WAR commit identity verified against the pushed application revision.
@@ -130,7 +142,10 @@ rule execution remain in scope.
   (92.3%); the only unmapped file is documentation-only `package-info.java`.
   Review fixes: 159/176 (90.3%). Additional vacancy lifecycle/context, inbox
   fallback-date and favorite privilege regressions passed 66 tests with no skips.
-- Final full Node suite: 1,308 passed, zero failures/skips, one test file at a time.
+- Full Node suite after the installed-workflow fixes: 1,349 reported, no failures;
+  four CLI-dependent cases initially skipped because the source override was absent.
+  All four then passed in the 36-case CLI-dependent rerun with the pinned checkout.
+  Tests ran one file at a time; no cases remain unexecuted from that suite.
 - Packaging contracts/subprocesses: 38 passed.
 - Manifest generator and loaders: 249 passed. Full manifest regeneration
   matched the acquired upstream archive at `a7900d569d3faf741993e5e1da8c14021bbefede`.
@@ -138,14 +153,58 @@ rule execution remain in scope.
   a non-Git checkout; generation and comparison execute unchanged.
 - Entity audit: 1,760 field pairs across 255 shared entities, no name mismatches.
   Implicit fields, `@JoinColumn` and Hibernate XML mappings are outside that audit.
-- Pinned CLI source suite: 1,464 reported, with 19 opt-in MariaDB integration
-  skips pending the installed VM run.
+- Pinned CLI source suite: 1,464 reported, including 19 opt-in MariaDB integration
+  skips in the host run. All 19 subsequently passed against the installed VM.
 - Installation recovery: 33 passed. Coverage helper: 14 passed.
 - Encoder, security-message, BDD naming, Struts DTD, JSP-taglib and locale
   checks passed before the final installed validation.
 
-Installed DEB/VM and browser results will be recorded below once completed. The browser inventory contains 181 registered
-checks, including the manual packaged first-login check and ON/BC checks.
+The browser inventory contains 181 registered checks, including the manual
+packaged first-login check and ON/BC checks. The complete browser run remains
+in progress; the focused results below do not replace it.
+
+## Installed validation
+
+The three `2026.08.0~alpha16~pr4055.2` Debian packages were built successfully
+from `b95625c5f6` and installed over the existing alpha16 review packages in
+the Ubuntu 26.04 `carlos-val` VM. A private database/configuration backup was
+verified before the upgrade. Both host and guest storage gates passed; the
+VM was stopped throughout compilation and package construction.
+
+- Verified 9,860 installed WAR/schema/manifest/Chromium/DrugRef payload hashes
+  and 23 separate CLI files, including package ownership. The CLI test package
+  comes from the pinned source revision; it is not a published release asset.
+- HTTPS readiness and `carlos-ctl check` passed. Migration `1.0.40` applied
+  successfully and the live lab-label column is TEXT.
+- All three environment-gated Java Selenium checks passed using installed
+  Chromium and precompiled test classes: no failures, skips or aborts.
+- Direct Playwright inspection captured the encounter and favorite editor.
+  Screenshots were inspected; all 11 inspected favorite inputs/selects had native
+  associated labels. The first inspection navigated away before Rx requests
+  completed and correctly failed on aborted requests; the corrected inspection
+  waited for them and passed.
+- The prevention row-link workflow passed, including actual keyboard Enter
+  on the heading anchor, popup editing, panel refresh, preservation of unsaved
+  notes, invalid-save rejection and merged-history selection. Its first added
+  keyboard assertion inspected the popup's initial blank document; explicitly
+  waiting for the destination corrected that test timing issue.
+- Live fee-migration checks passed for 34 fees, overrides and rerun idempotence.
+  The lab-label migration preserved original, NULL, empty, Unicode and long
+  labels and passed its repeatability check.
+- The historical DDL oracle compared 1,975 statements with MariaDB without a
+  mismatch or an unbuildable probe. The server rejected 1,593 other historical
+  statements; those are explicitly uncomparable, not successful comparisons.
+  Transport-integrity and import SQL-semantics checks also passed, including
+  damaged-transfer rejection and oversized-binary export failures.
+- The live email-configuration schema/rollback check and standalone rich-text
+  measurement browser check passed with the installed Chromium.
+- Legacy renderer refusal/dependency-veto/reconfiguration recovery passed,
+  followed by a successful installed health check.
+
+Full browser, corpus, live MariaDB and isolated ON-import/BC-profile results
+will be recorded after their respective runs. Missing validation fixtures are
+prepared with private baselines and ownership journals, without treating a
+fixture-dependent skip as a pass.
 
 ## Migration and publication requirements
 
@@ -166,8 +225,13 @@ review.
 ## Additional static-analysis triage
 
 Sonar's initial report contained one minor bug classification for an onclick
-heading; its nested focusable link already dispatches the click from keyboard
-Enter. Transactional self-calls in the billing services intentionally share an
+heading. The installed browser regression proves that its nested native link
+dispatches the heading action from keyboard Enter and preserves the encounter.
+The two subsequent missing-label findings were fixed and cleared by the next
+scan. That scan flagged a repeated custom-name ID across mutually exclusive
+JSP branches; the unnecessary ID on the hidden input was removed, preserving
+the visible control's label association. A fresh scan remains required.
+Transactional self-calls in the billing services intentionally share an
 existing transaction with the same REQUIRED propagation; they do not require
 an independent proxy boundary. Other critical classifications were primarily
 complexity, repeated literals and serialization/style advice.

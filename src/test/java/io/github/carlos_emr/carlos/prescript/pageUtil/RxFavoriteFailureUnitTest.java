@@ -280,9 +280,29 @@ class RxFavoriteFailureUnitTest extends CarlosUnitTestBase {
         try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
                 when(mock.getFavorite(42)).thenReturn(favorite))) {
             assertThat(new RxUpdateFavorite2Action().ajaxEditFavorite()).isEqualTo("none");
-            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getStatus()).isEqualTo(204);
+            assertThat(response.getContentAsByteArray()).isEmpty();
             if (flag == null) verify(favorite, org.mockito.Mockito.never()).setDispenseInternal(any());
             else verify(favorite).setDispenseInternal("true".equals(flag));
+            verify(favorite).Save();
+        }
+    }
+
+    @Test
+    void shouldNotPublishNoContent_whenFavoriteSaveFails() {
+        var favorite = mock(RxPrescriptionData.Favorite.class);
+        when(favorite.getProviderNo()).thenReturn("999998");
+        when(bean.getProviderNo()).thenReturn("999998");
+        when(favorite.Save()).thenThrow(new IllegalStateException("fixture persistence failure"));
+        request.setParameter("takeMin", "1");
+        request.setParameter("takeMax", "1");
+        request.setParameter("repeat", "0");
+        for (String field : new String[] {"nosubs", "prn", "customInstr"}) request.setParameter(field, "false");
+        try (var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
+                when(mock.getFavorite(42)).thenReturn(favorite))) {
+            assertThatThrownBy(() -> new RxUpdateFavorite2Action().ajaxEditFavorite())
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(response.getStatus()).isNotEqualTo(204);
             verify(favorite).Save();
         }
     }

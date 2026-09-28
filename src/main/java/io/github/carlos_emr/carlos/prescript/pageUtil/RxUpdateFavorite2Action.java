@@ -156,6 +156,9 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
 
         fav.Save();
 
+        // This AJAX endpoint has no representation. An explicit no-content
+        // response completes the fetch without an unread, empty 200 stream.
+        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
         return NONE;
     }
 

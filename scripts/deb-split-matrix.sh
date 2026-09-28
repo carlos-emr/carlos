@@ -110,7 +110,7 @@ wait_front && ok "front door 200 on the pre-split install" || bad "front door $(
 [ "$(dpkg -S /usr/sbin/carlos-ctl 2>/dev/null | cut -d: -f1)" = carlos-emr ] && ok "/usr/sbin/carlos-ctl belongs to the pre-split carlos-emr" || bad "/usr/sbin/carlos-ctl owner: $(dpkg -S /usr/sbin/carlos-ctl 2>/dev/null)"
 carlos-ctl check > "$WORK/0-check.log" 2>&1 && ok "carlos-ctl check passes on the pre-split install" || { bad "carlos-ctl check failed on the pre-split install"; grep -E "FAIL" "$WORK/0-check.log" | head; }
 presplit_ver="$(ver carlos-emr)"; flyway_before="$(flyway_count)"
-"$HERE/deb-upgrade-baseline.sh" > "$WORK/baseline-presplit.txt"
+"$HERE/deb-upgrade-baseline.sh" > "$WORK/baseline-presplit.txt" || { bad "pre-split baseline failed; refusing further package changes"; exit 1; }
 
 hdr "2. the new carlos-emr WITHOUT the carlos-ctl file is refused up front"
 split_pkgs=("$SPLIT_EMR"); [ -n "${TRANSITIONAL_SPLIT:-}" ] && split_pkgs+=("$TRANSITIONAL_SPLIT")
@@ -131,7 +131,7 @@ PRE="$WORK/baseline-presplit.txt" POST="$WORK/baseline-split.txt" UPGRADE_LOG="$
   EXPECT_FLYWAY="${EXPECT_FLYWAY:-$flyway_before}" EXPECT_NEW="${EXPECT_NEW-}" \
   EXPECT_TAG="${EXPECT_TAG:-build.number=$(dpkg-deb -f "$SPLIT_EMR" Version)}" \
   EXPECT_SPLIT=1 EXPECT_CTL="$(dpkg-deb -f "$CTL_A" Version)" \
-  "$HERE/deb-upgrade-verify.sh" > "$WORK/1-verify.log" 2>&1
+  "$HERE/deb-upgrade-verify.sh" > "$WORK/1-verify.log" 2>&1 || { bad "split upgrade verification failed (see $WORK/1-verify.log)"; exit 1; }
 grep -E "^(PASS|FAIL) " "$WORK/1-verify.log"
 v_pass=$(grep -c "^PASS " "$WORK/1-verify.log"); v_fail=$(grep -c "^FAIL " "$WORK/1-verify.log")
 pass=$((pass+v_pass)); fail=$((fail+v_fail))
@@ -179,14 +179,14 @@ if [ -z "${SPLIT_EMR_2:-}" ]; then
     dpkg-deb -b "$WORK/repack" "$SPLIT_EMR_2" >/dev/null
     rm -rf "$WORK/repack"
 fi
-"$HERE/deb-upgrade-baseline.sh" > "$WORK/baseline-before-emr-only.txt"
+"$HERE/deb-upgrade-baseline.sh" > "$WORK/baseline-before-emr-only.txt" || { bad "EMR-only baseline failed; refusing further package changes"; exit 1; }
 emr2_pkgs=("$SPLIT_EMR_2"); [ -n "${TRANSITIONAL_SPLIT_2:-}" ] && emr2_pkgs+=("$TRANSITIONAL_SPLIT_2")
 if apt_install "$WORK/3-emr-only.log" "${emr2_pkgs[@]}"; then ok "carlos-emr upgraded alone to $(ver carlos-emr)"; else bad "carlos-emr-only upgrade failed"; tail -30 "$WORK/3-emr-only.log"; fi
 wait_front || true
 PRE="$WORK/baseline-before-emr-only.txt" POST="$WORK/baseline-after-emr-only.txt" UPGRADE_LOG="$WORK/3-emr-only.log" \
   EXPECT_FLYWAY="${EXPECT_FLYWAY:-$flyway_before}" EXPECT_NEW="" \
   EXPECT_TAG="build.job=carlos-emr-deb" EXPECT_SPLIT=1 EXPECT_CTL="$(ver carlos-ctl)" \
-  "$HERE/deb-upgrade-verify.sh" > "$WORK/3-verify.log" 2>&1
+  "$HERE/deb-upgrade-verify.sh" > "$WORK/3-verify.log" 2>&1 || { bad "EMR-only upgrade verification failed (see $WORK/3-verify.log)"; exit 1; }
 grep -E "^(PASS|FAIL) " "$WORK/3-verify.log" | grep -E "carlos-ctl|service active|front door|preserved|migration" | head -12
 v_pass=$(grep -c "^PASS " "$WORK/3-verify.log"); v_fail=$(grep -c "^FAIL " "$WORK/3-verify.log")
 pass=$((pass+v_pass)); fail=$((fail+v_fail))

@@ -1222,6 +1222,52 @@ hash, build tag) taken before and after, and `scripts/deb-upgrade-verify.sh`,
 which diffs the two and asserts the contract below. Both are counts, hashes and
 flags only; no PHI leaves the host.
 
+For current installations, select the actual database and administrator with
+`DB_NAME` and `ADMIN_USER` (defaults: `carlos` and `carlosdoc`). `MYSQL_SOCKET`
+optionally selects a nondefault local socket. Queries ignore MariaDB client
+option files and explicitly use the local socket, so an inherited `force`
+option cannot hide SQL errors. Database names must start with an
+ASCII letter or underscore and contain only letters, digits and underscores,
+up to 64 characters. Administrator names are encoded as UTF-8 SQL hex literals;
+quotes and backslashes do not become SQL syntax. SQL failures and absent or
+ambiguous administrator rows abort the snapshot, and the verifier rejects an
+incomplete snapshot, failed health check, or nonzero `UPGRADE_RC` recorded in
+the upgrade log. PRE and POST must be different files. The split matrix stops
+when snapshot capture or verification fails, including errors before any
+assertions can be printed.
+
+```bash
+umask 077
+export DB_NAME=clinic_on ADMIN_USER=operator
+# export MYSQL_SOCKET=/run/mysqld/mysqld.sock
+bash scripts/deb-upgrade-baseline.sh > /root/baseline-before.txt
+# Perform the intended package upgrade, retaining its log.
+PRE=/root/baseline-before.txt POST=/root/baseline-after.txt \
+  EXPECT_FLYWAY=32 EXPECT_NEW='1.0.40' \
+  EXPECT_TAG='build.number=2026.08.0~alpha16' \
+  UPGRADE_LOG=/root/upgrade.log bash scripts/deb-upgrade-verify.sh
+```
+
+Set the expected count, migration delta and build stamp for the actual package
+pair and province. The verifier's historical defaults still describe the
+alpha11-to-alpha12 run below. For a same-package reinstall, capture a fresh
+baseline immediately beforehand, set `EXPECT_NEW=''` and use the existing
+successful Flyway count; this proves reconfiguration preserves state, not a
+new migration. `FRONT_URL` defaults to `https://127.0.0.1/carlos/` and all HTTP
+probes have timeouts. Alternate fixtures may override `CARLOS_ETC_DIR`,
+`CARLOS_STATE_DIR` and `CARLOS_SHARE_DIR` without changing production defaults.
+For an application configured with a custom `DOCUMENT_DIR`, set `DOC_DIR` to
+that existing absolute directory; its default is
+`$CARLOS_STATE_DIR/CarlosDocument/carlos/document`. Snapshot file counts and
+missing-document checks both use this selected directory.
+
+Current snapshots identify themselves as `baseline.format=2`. The existing
+`admin.hash` and `admin.pin` keys now contain SHA-256 digests of their credential
+fields, not the password authentication hash or a PIN prefix, and credential
+fields are excluded from printed diffs. Capture both snapshots with the current
+helper: the verifier rejects legacy snapshots rather than comparing different
+representations or exposing old credential fields. Keep snapshots root-private.
+
 What the review established, from the maintainer scripts and the run:
 
 - **Migrations.** The a11 package ships 23 Flyway migration *files*, a12 ships 27.

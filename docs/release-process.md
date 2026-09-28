@@ -104,6 +104,9 @@ Confirming DCO sign off for all commits at <full-pr-head-sha>
 ```
 
 Any subsequent push changes the PR head SHA and requires a new confirmation.
+If the original PR `DCO Sign-Off` workflow already failed before the comment
+was posted, rerun that failed workflow so its check result also reflects the
+current attestation; the issue-comment run updates the DCO status separately.
 
 ## Supported-release fix cycle
 

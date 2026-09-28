@@ -102,6 +102,8 @@
         <script language=javascript>
             function ajaxUpdateRow(rowId) {
                 var get = document.forms.DispForm;
+                var success = document.getElementById("saveSuccess_" + rowId);
+                success.style.display = "none";
                 var err = false;
                 var favoriteId = eval('get.fldFavoriteId' + rowId).value;
                 var favoriteName = eval('get.fldFavoriteName' + rowId).value;
@@ -164,9 +166,8 @@
                     if (csrfEl) params.append('CSRF-TOKEN', csrfEl.value);
                     var url = "${carlos:forJavaScript(ctx)}" + "/rx/updateFavorite2?method=ajaxEditFavorite";
 
-                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
-                    fetch(url, {
+                    return fetch(url, {
                         method: "post",
                         credentials: 'same-origin',
                         headers: {
@@ -176,17 +177,20 @@
                         },
                         body: params.toString(),
                     })
-                        .then(function (response) {
-                            if (response.status === 200) {
-                                console.log("ok");
-                                document.getElementById("saveSuccess_" + rowId).style.display = "block";
+                        .then(async function (response) {
+                            // Fetch resolves at headers. Finish the response before
+                            // reporting success or allowing a subsequent navigation.
+                            await response.text();
+                            if (response.status === 204 && !response.redirected) {
+                                success.style.display = "block";
                             } else {
                                 alert("Server Error " + response.status);
-                                document.getElementById("saveSuccess_" + rowId).style.display = "none";
+                                success.style.display = "none";
                             }
                         })
-                        .catch(function (error) {
-                            console.error('Failed to save favorite:', error);
+                        .catch(function () {
+                            success.style.display = "none";
+                            console.error('Failed to save favorite.');
                             alert('An error occurred while saving. Please refresh and try again.');
                         });
 
@@ -298,7 +302,7 @@
                                             <td colspan=5><b>Generic Name:</b><%= SafeEncode.forHtmlContent(f.getGN()) %>
                                             </td>
                                             <td colspan=1>&nbsp; <input type="hidden"
-                                                                        id="fldCustomName<%= i%>" name="fldCustomName<%= i%>" value=""/></td>
+                                                                        name="fldCustomName<%= i%>" value=""/></td>
                                         </tr>
                                         <% } else { %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line2">

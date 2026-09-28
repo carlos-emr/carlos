@@ -65,9 +65,6 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 /** The navbar containers newEncounterLayout.jsp renders and navBarLoader() fills. */
 const NAVBAR_SELECTOR = '#leftNavBar a, #rightNavBar a';
 
-/** Consecutive unchanged link-count polls that count as "the modules finished loading". */
-const NAVBAR_SETTLE_POLLS = 3;
-
 const SKIP_ITEMS = [
   {
     // The "+" controls open entry forms that write. Each belongs to the workflow
@@ -104,60 +101,81 @@ async function openChart(context, masterPage, recorder, timeout) {
  * Asserting this separately is the point: an empty navbar is a real, silent
  * failure, and without this a run would simply find nothing to click and pass.
  */
-async function waitForNavbars(chartPage, timeout, { settleIntervalMs = 250 } = {}) {
+async function waitForNavbars(chartPage, timeout) {
   await chartPage.locator('#leftNavBar, #rightNavBar').first()
     .waitFor({ state: 'attached', timeout })
     .catch(() => {});
-  // Best effort only, as everywhere else in the suite: networkidle resolves at
-  // once if the page was ever idle, and never on a page with a request still in
-  // flight, so it can neither prove the modules finished nor be required. The
-  // settle loop below is the real completion signal. Capped so a chart that
-  // never goes idle does not stall every chart workflow for the full timeout.
-  await chartPage.waitForLoadState('networkidle', { timeout: Math.min(timeout, 5000) }).catch(() => {});
-  // EACH CONTAINER ON ITS OWN. The two were summed, so a fully empty
-  // #rightNavBar was masked by a populated #leftNavBar and vice versa -- and
-  // they are filled from separate module groups, so losing one is exactly the
-  // half-broken chart a clinician would report. The sum could only ever catch
-  // both failing at once.
-  const counts = await chartPage.waitForFunction(() => {
+  // Link counts can stay unchanged while a cold module request is still in
+  // flight, or forever after that request failed. Observe the actual loader's
+  // completion instead. Unrelated note polling does not delay this predicate.
+  const settled = await chartPage.waitForFunction(() => {
+    const state = window.carlosNavbarLoadState;
+    if (!state || !state.scheduled || state.pending !== 0 || !Object.keys(state.modules).length) return null;
     const count = (id) => {
       const element = document.getElementById(id);
       return element ? element.querySelectorAll('a').length : 0;
     };
-    const left = count('leftNavBar');
-    const right = count('rightNavBar');
-    return left > 0 && right > 0 ? { left, right } : null;
+    return { left: count('leftNavBar'), right: count('rightNavBar'), failed: state.failed };
   }, undefined, { timeout }).then((handle) => handle.jsonValue()).catch(() => null);
-
-  assert(counts,
+  if (!settled) {
+    const pending = await chartPage.evaluate(() => {
+      const state = window.carlosNavbarLoadState;
+      return state ? Object.keys(state.modules).filter(name => state.modules[name].status === 'loading') : ['loader not started'];
+    });
+    assert(false, `The eChart navigation modules never finished loading: ${pending.join(', ')}`);
+  }
+  assert(settled.failed.length === 0,
+    `The eChart navigation modules failed to load: ${settled.failed.join(', ')}`);
+  assert(settled.left > 0 && settled.right > 0,
     'The eChart navigation modules never loaded: #leftNavBar and #rightNavBar do not BOTH contain links after the '
     + 'AJAX load. They are filled from separate module groups, so one empty container is a chart missing half its '
     + 'sections -- no Allergies, Prescriptions, Labs or Preventions where the clinician expects them.');
 
-  // The first link on each side does not mean every module has been inserted;
-  // cataloguing then races later insertions and link indices shift. Wait until
-  // both counts hold still for NAVBAR_SETTLE_POLLS consecutive polls.
-  let last = JSON.stringify(counts);
-  let stable = 0;
-  const deadline = Date.now() + timeout;
-  while (stable < NAVBAR_SETTLE_POLLS) {
-    await new Promise((resolve) => setTimeout(resolve, settleIntervalMs));
-    const now = JSON.stringify(await chartPage.evaluate(() => {
-      const count = (id) => {
-        const element = document.getElementById(id);
-        return element ? element.querySelectorAll('a').length : 0;
-      };
-      return { left: count('leftNavBar'), right: count('rightNavBar') };
-    }));
-    stable = now === last ? stable + 1 : 0;
-    last = now;
-    assert(stable > 0 || Date.now() < deadline,
-      'The eChart navigation modules were still changing when the wait expired, so the links cannot be catalogued reliably');
+  return { left: settled.left, right: settled.right };
+}
+
+/** Hold one real module request while the others finish, as on a cold server. */
+async function openChartWithDelayedNavbar(context, masterPage, recorder, timeout) {
+  let release;
+  let intercepted = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const pattern = '**/encounter/displayPrevention?*';
+  const handler = async route => {
+    if (!intercepted) {
+      intercepted = true;
+      await gate;
+    }
+    await route.continue();
+  };
+  await context.route(pattern, handler);
+  try {
+    const chart = await openChart(context, masterPage, recorder, timeout);
+    await chart.waitForFunction(() => {
+      const state = window.carlosNavbarLoadState;
+      return state && state.scheduled && state.modules.preventions?.status === 'loading'
+        && Object.entries(state.modules).every(([name, module]) => name === 'preventions' || module.status !== 'loading');
+    }, undefined, { timeout });
+    assert(intercepted, 'The delayed prevention request was not intercepted');
+    assert(await chart.locator('#leftNavBar').getAttribute('aria-busy') === 'true',
+      'The chart reported its left navigation ready while Preventions was still pending');
+    await chart.locator('#leftColLoader').waitFor({ state: 'visible', timeout });
+    let settled = false;
+    const waiting = waitForNavbars(chart, timeout);
+    waiting.then(() => { settled = true; }, () => { settled = true; });
+    // Longer than the former three 250ms stable-count polls. The request is
+    // deliberately held, so finishing during this interval is a false pass.
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    assert(!settled, 'Navbar readiness accepted stable link counts while one module was pending');
+    release();
+    await waiting;
+    assert(await chart.locator('#leftColLoader').count() === 0,
+      'The completed navigation retained its loading indicator');
+    console.log('  PASS delayed prevention module keeps navigation busy until its actual response');
+    return chart;
+  } finally {
+    release();
+    await context.unroute(pattern, handler);
   }
-  const settled = JSON.parse(last);
-  assert(settled.left > 0 && settled.right > 0,
-    'The eChart navigation modules loaded and then emptied: #leftNavBar and #rightNavBar do not BOTH contain links once settled');
-  return settled;
 }
 
 async function main() {
@@ -176,8 +194,7 @@ async function main() {
     const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
       searchTerm, preferredDemographicNo, timeout,
     });
-    const chartPage = await openChart(context, masterPage, recorder, timeout);
-    await waitForNavbars(chartPage, timeout);
+    const chartPage = await openChartWithDelayedNavbar(context, masterPage, recorder, timeout);
 
     // Chart initialisation is the densest JavaScript in the product and it runs
     // before any item is clicked, so auditCatalogue's per-item snapshots never
