@@ -41,7 +41,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
-<html>
+<html lang="<carlos:encode value='${pageContext.request.locale.language}' context='htmlAttribute'/>">
 <head>
     <link rel="icon" href="${ctx}/images/favicon.ico"/>
     <title><fmt:message key="sms.message.title"/></title>

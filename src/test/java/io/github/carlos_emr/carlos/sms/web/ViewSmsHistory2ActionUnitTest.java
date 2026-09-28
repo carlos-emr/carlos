@@ -92,7 +92,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("history lists the patient's messages when the user may read SMS and the chart")
-    void shouldListHistory_whenUserHasSmsAndDemographicRead() throws Exception {
+    void shouldListHistory_whenUserHasSmsAndDemographicRead() {
         request.setMethod("GET");
         request.setParameter("page", "2");
         allowPatientAccess();
@@ -112,7 +112,9 @@ class ViewSmsHistory2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_sms", "r", DEMOGRAPHIC_NO)).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", DEMOGRAPHIC_NO)).thenReturn(true);
 
-        assertThatThrownBy(() -> action().execute())
+        ViewSmsHistory2Action action = action();
+
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_sms)");
         verifyNoInteractions(assembler);
@@ -125,7 +127,9 @@ class ViewSmsHistory2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_sms", "r", DEMOGRAPHIC_NO)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", DEMOGRAPHIC_NO)).thenReturn(false);
 
-        assertThatThrownBy(() -> action().execute())
+        ViewSmsHistory2Action action = action();
+
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_demographic)");
         verifyNoInteractions(assembler);
@@ -133,7 +137,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("history rejects a non-numeric demographic number before any privilege or data lookup")
-    void shouldRejectHistory_whenDemographicNoIsNotNumeric() throws Exception {
+    void shouldRejectHistory_whenDemographicNoIsNotNumeric() {
         request.setMethod("GET");
         request.setParameter("demographic_no", "12 OR 1=1");
 
@@ -150,7 +154,9 @@ class ViewSmsHistory2ActionUnitTest {
         request.setMethod("GET");
         request.getSession().invalidate();
 
-        assertThatThrownBy(() -> action().execute())
+        ViewSmsHistory2Action action = action();
+
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required session");
         verifyNoInteractions(securityInfoManager, assembler);
@@ -158,7 +164,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("showMessage rejects GET with 405 before reading or auditing anything")
-    void shouldRejectShowMessage_whenGet() throws Exception {
+    void shouldRejectShowMessage_whenGet() {
         request.setMethod("GET");
         showMessageRequest("11", "CARE_REVIEW");
 
@@ -172,7 +178,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("showMessage reads the body through the audited service with the chosen reason")
-    void shouldReadBody_throughAuditedService() throws Exception {
+    void shouldReadBody_throughAuditedService() {
         request.setMethod("POST");
         showMessageRequest("11", "DELIVERY_REVIEW");
         allowPatientAccess();
@@ -190,7 +196,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("showMessage refuses a message that belongs to another patient, without reading it")
-    void shouldRefuseBody_whenMessageBelongsToAnotherPatient() throws Exception {
+    void shouldRefuseBody_whenMessageBelongsToAnotherPatient() {
         request.setMethod("POST");
         showMessageRequest("11", "CARE_REVIEW");
         allowPatientAccess();
@@ -205,7 +211,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("showMessage refuses a reason that is not on the allowed list")
-    void shouldRefuseBody_whenReasonIsNotAllowed() throws Exception {
+    void shouldRefuseBody_whenReasonIsNotAllowed() {
         request.setMethod("POST");
         showMessageRequest("11", "CURIOSITY");
         allowPatientAccess();
@@ -219,7 +225,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("showMessage refuses an empty reason, which is what the form's placeholder option submits")
-    void shouldRefuseBody_whenReasonIsEmpty() throws Exception {
+    void shouldRefuseBody_whenReasonIsEmpty() {
         request.setMethod("POST");
         showMessageRequest("11", "");
         allowPatientAccess();
@@ -234,7 +240,7 @@ class ViewSmsHistory2ActionUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"0", "-1", "abc"})
     @DisplayName("showMessage rejects a message id that is not a positive number before loading anything")
-    void shouldRejectShowMessage_whenMessageIdIsNotPositive(String smsTransactionId) throws Exception {
+    void shouldRejectShowMessage_whenMessageIdIsNotPositive(String smsTransactionId) {
         request.setMethod("POST");
         showMessageRequest(smsTransactionId, "CARE_REVIEW");
         allowPatientAccess();
@@ -248,7 +254,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("showMessage answers 404 for an unknown message id, without reading or auditing")
-    void shouldReturnNotFound_whenMessageIdIsUnknown() throws Exception {
+    void shouldReturnNotFound_whenMessageIdIsUnknown() {
         request.setMethod("POST");
         showMessageRequest("11", "CARE_REVIEW");
         allowPatientAccess();
@@ -263,7 +269,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("showMessage does not read or audit when no text is stored for the message")
-    void shouldNotReadBody_whenNoTextIsStored() throws Exception {
+    void shouldNotReadBody_whenNoTextIsStored() {
         request.setMethod("POST");
         showMessageRequest("11", "CARE_REVIEW");
         allowPatientAccess();
@@ -281,7 +287,7 @@ class ViewSmsHistory2ActionUnitTest {
 
     @Test
     @DisplayName("showMessage shows a denial, not the text, when the user lacks _msgSMS")
-    void shouldShowDenial_whenBodyReadIsDenied() throws Exception {
+    void shouldShowDenial_whenBodyReadIsDenied() {
         request.setMethod("POST");
         showMessageRequest("11", "CARE_REVIEW");
         allowPatientAccess();
@@ -307,7 +313,9 @@ class ViewSmsHistory2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_sms", "r", DEMOGRAPHIC_NO)).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", DEMOGRAPHIC_NO)).thenReturn(true);
 
-        assertThatThrownBy(() -> action().execute())
+        ViewSmsHistory2Action action = action();
+
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_sms)");
         verifyNoInteractions(smsTransactionDao, bodyReadService);

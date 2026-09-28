@@ -44,14 +44,15 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
-<html>
+<html lang="<carlos:encode value='${pageContext.request.locale.language}' context='htmlAttribute'/>">
 <head>
     <link rel="icon" href="${ctx}/images/favicon.ico"/>
     <title><fmt:message key="sms.history.title"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 </head>
 <body>
-<nav class="navbar navbar-dark bg-dark">
+<fmt:message key="sms.history.title" var="smsHistoryTitle"/>
+<nav class="navbar navbar-dark bg-dark" aria-label="<carlos:encode value='${smsHistoryTitle}' context='htmlAttribute'/>">
     <div class="container-fluid">
         <span class="navbar-brand"><fmt:message key="sms.history.title"/></span>
         <span class="navbar-text text-white-50">
@@ -111,7 +112,10 @@
                                                value="<carlos:encode value='${smsHistory.demographicNo}' context='htmlAttribute'/>"/>
                                         <input type="hidden" name="smsTransactionId"
                                                value="<carlos:encode value='${row.id}' context='htmlAttribute'/>"/>
-                                        <select name="reason" class="form-select form-select-sm" required>
+                                        <label class="visually-hidden"
+                                               for="smsReason<carlos:encode value='${row.id}' context='htmlAttribute'/>"><fmt:message key="sms.history.reasonLabel"/></label>
+                                        <select name="reason" class="form-select form-select-sm" required
+                                                id="smsReason<carlos:encode value='${row.id}' context='htmlAttribute'/>">
                                             <option value="" selected disabled><fmt:message key="sms.history.reasonPlaceholder"/></option>
                                             <option value="CARE_REVIEW"><fmt:message key="sms.history.reason.CARE_REVIEW"/></option>
                                             <option value="DELIVERY_REVIEW"><fmt:message key="sms.history.reason.DELIVERY_REVIEW"/></option>
@@ -128,7 +132,9 @@
                 </tbody>
             </table>
 
-            <nav class="d-flex align-items-center gap-3" id="smsHistoryPaging">
+            <fmt:message key="sms.history.paging" var="smsHistoryPagingLabel"/>
+            <nav class="d-flex align-items-center gap-3" id="smsHistoryPaging"
+                 aria-label="<carlos:encode value='${smsHistoryPagingLabel}' context='htmlAttribute'/>">
                 <c:if test="${smsHistory.hasPreviousPage}">
                     <a href="${ctx}/sms/ViewSmsHistory?demographic_no=${carlos:forUriComponent(smsHistory.demographicNo)}&amp;page=${smsHistory.page - 1}">
                         <fmt:message key="sms.history.previous"/></a>

@@ -66,6 +66,8 @@ class SmsHistoryLabelKeysUnitTest {
             keys.add("sms.history.reason." + value.name());
         }
         keys.add("sms.history.reasonPlaceholder");
+        keys.add("sms.history.reasonLabel");
+        keys.add("sms.history.paging");
 
         for (String locale : LOCALES) {
             Properties bundle = new Properties();
