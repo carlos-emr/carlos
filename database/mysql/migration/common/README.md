@@ -40,8 +40,8 @@ measurement type from Yes/No/NA to a Provided/Revised/Reviewed validation (Ontar
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.40`.
-The next unallocated version for ANY location is `V1.0.41` (see `../README.md`).
+next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.41`.
+The next unallocated version for ANY location is `V1.0.42` (see `../README.md`).
 PR #3996's proposed `V1.0.37` and `V1.0.38` are absent from alpha16 and must be renumbered
 above the then-current high-water mark before that feature merges after this promotion.
 
@@ -71,3 +71,14 @@ import under strict SQL mode. Existing labels (including empty and NULL values) 
 The widening can be rerun safely. Apply before deploying the application; shared Ontario/BC
 schema paths both require it. Verify in a disposable database with
 `scripts/lab-label-migration-check.sql` from the repository root.
+
+## V1.0.41 — Rich Text Letter signature-stamp inputs on upgraded installs
+
+Adds the hidden `user_id`, `user_ohip_no` and `doctor_provider_no` inputs to the canonical Rich Text
+Letter's `form_html`, which `editControl2.js` reads to stamp a letter with the signer's
+`consult_sig_<provider_no>.png`. The same edit ships as
+`updates/update-2026-09-20-rtl-provider-stamp-fields.sql`, but that script is only replayed by the
+demo-data load and the OSCAR 19 importer; a package upgrade runs Flyway alone, so a letter seeded by
+an earlier package never received the inputs. The `UPDATE` is identical to the script's (pinned by
+`scripts/rtl-signature-stamp.test.js`), matches nothing on a fresh schema, skips customized or
+already-patched rows, and can be rerun safely.

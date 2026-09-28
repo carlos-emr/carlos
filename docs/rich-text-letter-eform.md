@@ -257,6 +257,12 @@ importer applies the same chain from its packaged copies (`o19roles.RTL_FIXUP_SC
 per install which ones are still due by inspecting the live `form_html` — a row that already
 carries the 2026.3.0 marker but is missing `id="user_ohip_no"` gets step 5 alone.
 
+A package **upgrade** replays none of these scripts: it runs Flyway only. Step 5 therefore also
+ships as the Flyway migration `common/V1.0.41__rtl_provider_stamp_fields.sql` (the same guarded
+`UPDATE`), so an install whose letter was seeded by an earlier package — demo data loaded on
+2026.08.0-alpha13 or before, then upgraded — gains the inputs on upgrade. On a fresh schema the
+migration matches nothing and the demo-data load / O19 importer apply step 5 afterwards as before.
+
 ### Migration from v2.1
 
 The 2026.3.0 migration script (`update-2026-03-22-rtl-2026.3.0-modernize.sql`) does a **full replacement**
@@ -319,7 +325,8 @@ Which provider signs is a delegation rule, mirroring `sign()` in `visualEformEdi
 > leaves a wider band of numbers available for non-billing providers who need a schedule.
 
 The three values arrive as hidden inputs the eForm framework populates server-side from their
-`oscarDB=` attributes (added by `update-2026-09-20-rtl-provider-stamp-fields.sql`):
+`oscarDB=` attributes (added by `update-2026-09-20-rtl-provider-stamp-fields.sql`, and on upgraded
+installs by the Flyway migration `common/V1.0.41__rtl_provider_stamp_fields.sql`):
 
 | Input | AP key |
 |---|---|
