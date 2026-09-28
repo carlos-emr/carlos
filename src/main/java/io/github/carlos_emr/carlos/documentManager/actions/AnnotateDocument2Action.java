@@ -39,6 +39,9 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 
 import java.io.IOException;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Read-scope gate for the document annotation viewer.
@@ -63,6 +66,7 @@ public class AnnotateDocument2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
 
     private final transient SecurityInfoManager securityInfoManager;
+    private final transient CtlDocumentDao ctlDocumentDao;
 
     private int docId;
     private int pageCount;
@@ -72,11 +76,12 @@ public class AnnotateDocument2Action extends ActionSupport {
     private String message;
 
     public AnnotateDocument2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(CtlDocumentDao.class));
     }
 
-    AnnotateDocument2Action(SecurityInfoManager securityInfoManager) {
+    AnnotateDocument2Action(SecurityInfoManager securityInfoManager, CtlDocumentDao ctlDocumentDao) {
         this.securityInfoManager = securityInfoManager;
+        this.ctlDocumentDao = ctlDocumentDao;
     }
 
     @Override
@@ -102,6 +107,14 @@ public class AnnotateDocument2Action extends ActionSupport {
             return unavailable("That document could not be opened for annotation.");
         }
 
+        HttpServletResponse response = ServletActionContext.getResponse();
+        response.setHeader("Cache-Control", "no-store");
+        try {
+            DocumentPatientLink.requireAccess(loggedInInfo, docId, securityInfoManager, ctlDocumentDao);
+        } catch (SecurityException denied) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            throw denied;
+        }
         EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
         if (doc == null) {
             return unavailable("The document could not be found.");
@@ -131,6 +144,12 @@ public class AnnotateDocument2Action extends ActionSupport {
         try {
             sourceDigest = AnnotatedDocumentService.sourceDigest(doc);
             pageCount = AnnotatedDocumentService.pageCountOf(doc);
+        } catch (BoundedPdfTask.BusyException e) {
+            request.setAttribute("documentCapacityBusy", true);
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            response.setHeader("Retry-After", String.valueOf(BoundedPdfTask.RETRY_AFTER_SECONDS));
+            response.setHeader("Cache-Control", "no-store");
+            return unavailable(e.getMessage());
         } catch (IOException | RuntimeException e) {
             logger.warn("Could not read the page count for document {}", docId);
             return unavailable("This document could not be opened for annotation. "

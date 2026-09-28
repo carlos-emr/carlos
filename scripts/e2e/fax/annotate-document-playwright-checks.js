@@ -48,6 +48,8 @@
 'use strict';
 
 const { chromium } = require('playwright');
+const {checkAnnotationSessions} = require('../../lib/annotation-multisession-check');
+const {readConfig} = require('../../lib/playwright-harness');
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -153,6 +155,8 @@ async function main() {
   // remote one: this script sends a real password, and skipping verification there would put it
   // on an unauthenticated TLS channel.
   const context = await browser.newContext({ ignoreHTTPSErrors: validatedBaseUrl.loopback });
+  context.setDefaultTimeout(120000);
+  context.setDefaultNavigationTimeout(120000);
 
   const forbiddenRequests = [];
   const imageRequests = [];
@@ -214,6 +218,7 @@ async function main() {
         `${args.base}/documentManager/SaveAnnotatedDocument?docId=${args.docId}`,
         { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } },
       );
+      await response.arrayBuffer();
       return response.status;
     }, { base: baseUrl, docId });
     check('save endpoint refuses GET with 405', getSave === 405, `status ${getSave}`);
@@ -288,6 +293,7 @@ async function main() {
 
     // ---- highlighting works regardless of the text layer ----
     await page.locator('.tool[data-tool="highlight"]').click();
+    let coldDocumentNo;
     const overlay = page.locator('svg.overlay').first();
     const box = await overlay.boundingBox();
     if (box && box.width > 40 && box.height > 40) {
@@ -342,6 +348,7 @@ async function main() {
         Number.isInteger(newDocNo) && String(newDocNo) !== String(docId),
         `documentNo=${newDocNo}, source docId=${docId}`);
       if (Number.isInteger(newDocNo)) {
+        coldDocumentNo = newDocNo;
         notes.push(`INFO  annotated copy filed as document ${newDocNo}`);
         // The copy must be reachable in its own right, which also confirms it was
         // written to the document store and not merely recorded.
@@ -350,10 +357,11 @@ async function main() {
             `${args.base}/documentManager/ManageDocument?method=showPage&doc_no=${args.docNo}&page=1`,
             { credentials: 'same-origin' },
           );
-          return { status: r.status, type: r.headers.get('content-type') || '' };
+          const bytes = await r.arrayBuffer();
+          return { status: r.status, type: r.headers.get('content-type') || '', byteLength: bytes.byteLength };
         }, { base: baseUrl, docNo: newDocNo });
         check('the annotated copy renders as its own document',
-          openable.status === 200 && /image/i.test(openable.type),
+          openable.status === 200 && /image/i.test(openable.type) && openable.byteLength > 0,
           `status ${openable.status}, type ${openable.type}`);
       }
 
@@ -364,7 +372,7 @@ async function main() {
       await page.locator('#btnSave').click();
       await page.waitForFunction(
         () => /(?:ok|error)/.test(document.getElementById('status').className),
-        null, { timeout: 20000 },
+        null, { timeout: 120000 },
       ).catch(() => {});
       const statusAfterSave = await page.locator('#status').evaluate(el => ({
         text: el.textContent.trim(),
@@ -389,10 +397,10 @@ async function main() {
     // Run against the deployed viewer, injecting only the named failure at its network boundary.
     // waitUntil 'domcontentloaded' opens the viewer while a held subresource (the annotation
     // font) is still outstanding; the default waits for the load event.
-    async function openViewer(waitUntil = 'load') {
+    async function openViewer(waitUntil = 'load', viewerDocId = docId) {
       const dismiss = dialog => dialog.accept();
       page.on('dialog', dismiss);
-      await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, { waitUntil }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validated baseUrl; docId is a positive integer
+      await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${viewerDocId}`, { waitUntil }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validated baseUrl; docId is a positive integer
       page.off('dialog', dismiss);
       await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
     }
@@ -428,9 +436,61 @@ async function main() {
       stale.status === 409 && stale.body.error.includes('source document changed'));
 
     if (pageCount > 1) {
+      if (!coldDocumentNo) { throw new Error('The last-page regression requires the newly filed document'); }
+      const activePageRequests = new Set();
+      let peakPageRequests = 0;
+      const pageResponses = [];
+      const ownsPageRequest = request => {
+        const url = new URL(request.url());
+        return (url.searchParams.get('doc_no') === String(coldDocumentNo) && url.searchParams.get('method') === 'showPage')
+          || (url.pathname.endsWith('/DocumentTextBoxes') && url.searchParams.get('docId') === String(coldDocumentNo));
+      };
+      const onPageRequest = request => {
+        if (ownsPageRequest(request)) {
+          activePageRequests.add(request);
+          peakPageRequests = Math.max(peakPageRequests, activePageRequests.size);
+        }
+      };
+      const onPageFinished = request => activePageRequests.delete(request);
+      const onPageResponse = response => {
+        if (ownsPageRequest(response.request())) pageResponses.push({status: response.status(),
+          page: new URL(response.url()).searchParams.get('page')});
+      };
+      page.on('request', onPageRequest);
+      page.on('requestfinished', onPageFinished);
+      page.on('requestfailed', onPageFinished);
+      page.on('response', onPageResponse);
+      // A new copy has no cached later-page PNGs; rerunning against the source would
+      // mask the burst that originally exhausted the server's shared PDF workers.
+      await openViewer('load', coldDocumentNo);
+      await page.locator('.tool[data-tool="highlight"]').click();
       const lastPage = page.locator('.page').last();
       await lastPage.evaluate(element => element.scrollIntoView({ block: 'start' }));
-      await page.waitForFunction(() => [...document.querySelectorAll('.page img')].at(-1).naturalWidth > 0);
+      await page.waitForFunction(() => {
+        const last = [...document.querySelectorAll('.page')].at(-1);
+        return last.querySelector('img').naturalWidth > 0 || last.classList.contains('load-failed');
+      }).catch(async error => {
+        const diagnostics = await page.evaluate(() => {
+          const image = [...document.querySelectorAll('.page img')].at(-1);
+          return {scrollY, top: image.getBoundingClientRect().top, imageUrl: image.dataset.imageUrl,
+            naturalWidth: image.naturalWidth, status: document.getElementById('status').textContent};
+        });
+        throw new Error(`Last-page loading failed: ${JSON.stringify({diagnostics, pageResponses, peakPageRequests})}`, {cause: error});
+      });
+      check('cold multipage highlight scrolling keeps combined image and text demand bounded', peakPageRequests <= 4,
+        JSON.stringify({peakPageRequests, pageResponses}));
+      check('the cold last page renders after any capacity waiting without a genuine image or text failure',
+        await lastPage.locator('img').evaluate(image => image.naturalWidth > 0)
+          && await page.locator('.page.load-failed').count() === 0
+          && pageResponses.every(response => response.status === 200 || response.status === 503),
+        JSON.stringify(pageResponses));
+      if (await lastPage.locator('img').evaluate(image => image.naturalWidth === 0)) {
+        throw new Error(`Cold last page did not render: ${JSON.stringify(pageResponses)}`);
+      }
+      page.off('request', onPageRequest);
+      page.off('requestfinished', onPageFinished);
+      page.off('requestfailed', onPageFinished);
+      page.off('response', onPageResponse);
       await lastPage.evaluate(element => element.scrollIntoView({ block: 'start' }));
       await page.locator('.tool[data-tool="date"]').click();
       await lastPage.locator('svg.overlay').click({ position: { x: 80, y: 220 } });
@@ -1309,6 +1369,51 @@ async function main() {
     await page.unroute('**/SaveAnnotatedDocument?*');
 
     // A failed page image is visible and cannot be annotated as an empty sheet.
+    let busyImageAttempts = 0;
+    const busyImagePattern = '**/documentManager/ManageDocument?**';
+    const busyImage = route => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('method') !== 'showPage' || url.searchParams.get('page') !== '1') return route.continue();
+      busyImageAttempts++;
+      return busyImageAttempts <= 5
+        ? route.fulfill({status: 503, headers: {'Retry-After': '1'}, body: 'Synthetic document capacity limit'})
+        : route.continue();
+    };
+    await page.route(busyImagePattern, busyImage);
+    const acceptBusyNavigation = dialog => dialog.accept();
+    page.on('dialog', acceptBusyNavigation);
+    await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`, {waitUntil: 'domcontentloaded'});
+    page.off('dialog', acceptBusyNavigation);
+    await page.waitForFunction(() => /Waiting for document capacity/.test(document.getElementById('status').textContent));
+    check('document capacity waiting is visible and does not mark the page as broken',
+      await page.locator('#status').getAttribute('class') === 'status busy'
+        && await page.locator('.page.load-failed').count() === 0);
+    await page.waitForFunction(() => document.querySelector('.page img').naturalWidth > 0);
+    check('document image continues automatically after more than three capacity refusals', busyImageAttempts === 6);
+    await page.unroute(busyImagePattern, busyImage);
+    await openViewer();
+    check('document capacity recovery leaves the viewer usable',
+      await page.locator('.page img').first().evaluate(image => image.naturalWidth > 0));
+
+    await mark();
+    const marksBeforeCapacityWait = await page.locator('#markCount').textContent();
+    let capacitySaveAttempts = 0;
+    const saveCapacity = route => {
+      capacitySaveAttempts++;
+      return capacitySaveAttempts <= 5 ? route.fulfill({status: 503, contentType: 'application/json',
+        headers: {'Retry-After': '1'}, body: JSON.stringify({success: false, retryable: true, error: 'Waiting for capacity'})})
+        : route.continue();
+    };
+    await page.route('**/SaveAnnotatedDocument?*', saveCapacity);
+    await page.locator('#btnSave').click();
+    await page.waitForFunction(() => /Waiting for document capacity/.test(document.getElementById('status').textContent));
+    check('an unaccepted save preserves marks and stays locked while waiting for capacity',
+      await page.locator('#markCount').textContent() === marksBeforeCapacityWait
+        && await page.locator('#btnSave').isDisabled());
+    await page.waitForFunction(() => document.getElementById('status').className === 'status ok');
+    check('an explicitly unaccepted save continues automatically until it is filed once', capacitySaveAttempts === 6);
+    await page.unroute('**/SaveAnnotatedDocument?*', saveCapacity);
+
     await page.route('**/ManageDocument?method=showPage&**', route => route.fulfill({ status: 500, body: '' }));
     page.once('dialog', dialog => dialog.accept());
     await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`);
@@ -1323,7 +1428,7 @@ async function main() {
     await openViewer();
     await mark();
     await page.locator('#btnSaveFax').click();
-    await page.waitForURL('**/fax/faxAction*', { timeout: 30000 });
+    await page.waitForURL('**/fax/faxAction*', { timeout: 120000 });
     check('Save and fax reaches the protected POST cover page', await page.locator('#btnSend').count() === 1);
     const preview = await page.locator('input[name="faxFilePath"]').inputValue();
     check('document fax uses a staged copy', preview.includes('carlos-temp'));
@@ -1352,6 +1457,13 @@ async function main() {
       return !window.__annotationUnexpectedInline;
     });
     check('the front door enforces the application CSP against an unnonced inline script', blockedInline);
+
+    if (process.env.ANNOTATION_SECOND_USER_FIXTURE) {
+      const sessions = await checkAnnotationSessions(browser, readConfig(), process.env.ANNOTATION_SECOND_USER_FIXTURE);
+      check('independent providers share bounded rendering capacity without crossing patient permissions or annotations', true);
+      notes.push(`INFO  annotation concurrency ${JSON.stringify(sessions)}`);
+    }
+
 
 
   } finally {

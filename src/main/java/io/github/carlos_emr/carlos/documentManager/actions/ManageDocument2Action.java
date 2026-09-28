@@ -47,6 +47,8 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -865,6 +867,23 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    private void sendRenderBusy(BoundedPdfTask.BusyException busy) {
+        response.setHeader("Retry-After", String.valueOf(BoundedPdfTask.RETRY_AFTER_SECONDS));
+        response.setHeader("Cache-Control", "no-store");
+        try {
+            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, busy.getMessage());
+        } catch (IOException e) {
+            log.error("Could not send the page-render busy status", e);
+        }
+    }
+
+    /** Checks every patient link before metadata, cached bytes, or source files are inspected. */
+    private void requireDocumentPatientAccess(HttpServletRequest currentRequest, String docNo) {
+        response.setHeader("Cache-Control", "no-store");
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(currentRequest);
+        DocumentPatientLink.requireAccess(info, Integer.parseInt(docNo), securityInfoManager, ctlDocumentDao);
+    }
+
     /**
      * Renders a page at the default resolution. Delegates; holds no path sinks of its own.
      *
@@ -872,7 +891,7 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum Integer the 1-based page number to render
      * @return byte[] the PNG bytes, or an empty array on failure — see the 3-arg overload
      */
-    public byte[] createCacheVersion2(Document d, Integer pageNum) {
+    public byte[] createCacheVersion2(Document d, Integer pageNum) throws BoundedPdfTask.BusyException {
         return createCacheVersion2(d, pageNum, DEFAULT_RENDER_DPI);
     }
 
@@ -895,11 +914,13 @@ public class ManageDocument2Action extends ActionSupport {
     // guard. Gating it behind isErrorEnabled() adds a branch that is never false and makes a
     // security control conditional.
     @SuppressWarnings("java:S2629") // error level is always enabled; LogSafe.sanitize is required, not optional
-    public byte[] createCacheVersion2(Document d, Integer pageNum, int dpi) {
+    public byte[] createCacheVersion2(Document d, Integer pageNum, int dpi) throws BoundedPdfTask.BusyException {
         if (!ALLOWED_RENDER_DPI.contains(dpi)) return EMPTY_IMAGE;
         try {
-            return io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.runWithin(
+            return BoundedPdfTask.runWithin(
                     30, "document-page-render", () -> renderPageToCache(d, pageNum, dpi));
+        } catch (BoundedPdfTask.BusyException busy) {
+            throw busy;
         } catch (IOException failure) {
             log.warn("Document page rendering failed ({})", failure.getClass().getSimpleName());
             return EMPTY_IMAGE;
@@ -994,10 +1015,15 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
+        requireDocumentPatientAccess(request, doc_no);
         log.debug("Document No :{}", LogSafe.sanitize(doc_no));
         LoggedInInfo liPage = LoggedInInfo.getLoggedInInfoFromSession(request);
         LogAction.addLog(liPage != null ? liPage.getLoggedInProviderNo() : null, LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         Document d = documentDao.getDocument(doc_no);
+        if (d == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
 
         log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
@@ -1006,7 +1032,12 @@ public class ManageDocument2Action extends ActionSupport {
 
         byte[] pdfBytes = null;
         if (outfile == null) {
-            pdfBytes = createCacheVersion2(d, pageNum, dpi);
+            try {
+                pdfBytes = createCacheVersion2(d, pageNum, dpi);
+            } catch (BoundedPdfTask.BusyException busy) {
+                sendRenderBusy(busy);
+                return;
+            }
             if (pdfBytes.length == 0) {
                 // Rendering failed or the page is out of range. Writing the empty array would
                 // serve a zero-byte PNG under a 200, which reaches an <img> tag as a broken
@@ -1048,6 +1079,7 @@ public class ManageDocument2Action extends ActionSupport {
         log.debug("in viewDocPage");
 
         String doc_no = request.getParameter("doc_no");
+        requireDocumentPatientAccess(request, doc_no);
         String pageNum = request.getParameter("curPage");
         if (pageNum == null) {
             pageNum = "1";
@@ -1088,7 +1120,13 @@ public class ManageDocument2Action extends ActionSupport {
         if (outfile != null) {
             setResponse(response, outfile);
         } else {
-            byte[] pdfBytes = createCacheVersion2(d, pn);
+            byte[] pdfBytes;
+            try {
+                pdfBytes = createCacheVersion2(d, pn);
+            } catch (BoundedPdfTask.BusyException busy) {
+                sendRenderBusy(busy);
+                return;
+            }
             if (pdfBytes.length == 0) {
                 sendRenderFailure();
                 return;
@@ -1111,6 +1149,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
+        requireDocumentPatientAccess(request, doc_no);
         String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         // File documentDir = new File(docdownload);
         Document d = documentDao.getDocument(doc_no);
@@ -1151,6 +1190,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
+        requireDocumentPatientAccess(request, doc_no);
         log.debug("Document No :{}", LogSafe.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         String demoNo = request.getParameter("demoNo");
 
@@ -1160,13 +1200,17 @@ public class ManageDocument2Action extends ActionSupport {
         String filename = null;
 
         CtlDocument ctld = ctlDocumentDao.getCtrlDocument(Integer.parseInt(doc_no));
-        if (ctld.isDemographicDocument()) {
+        if (ctld != null && ctld.isDemographicDocument()) {
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), "" + ctld.getId().getModuleId());
         } else {
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         }
 
         Document d = documentDao.getDocument(doc_no);
+        if (d == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
 
         log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
@@ -1284,6 +1328,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
+        requireDocumentPatientAccess(request, doc_no);
         Locale locale = request.getLocale();
 
         String annotation = "", acknowledgement = "", tickler = "";

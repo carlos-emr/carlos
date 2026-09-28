@@ -1793,3 +1793,30 @@ literal containing SQL syntax still matches only its own patient.
 Original properties were restored byte-for-byte, owned fixtures removed, final
 package health passed, and the VM stopped. Compilation ran with the VM stopped;
 all local build and installed-test tasks ran serially.
+
+
+Annotation validation exercises a newly filed multipage document so cached page images cannot
+hide excessive rendering demand. Each viewer limits combined image/text work to four requests
+and keeps its budget through response decoding and zoom changes. The server keeps its global
+PDF-worker limit and admits queued work fairly, with at most twice as many waiting requests as
+workers and a 30-second admission wait. Parsing/rendering retains its separate execution deadline.
+
+When admission remains full, an explicit 503 makes the viewer wait with capped exponential
+backoff and jitter until capacity returns. The waiting status preserves marks and is announced
+accessibly. Scrolling, changing tools or zooming drops obsolete queued demand; leaving the viewer
+cancels retry timers. Ordinary image/authentication/corruption failures remain terminal. Annotation
+opening retries only its safe GET. Saving retries only a parsed 503 response explicitly declaring
+`success=false` and `retryable=true` (nothing accepted); unknown network/JSON outcomes and uncertain
+filing never trigger automatic POST retries. Browser regressions hold capacity unavailable for
+more than three attempts and verify automatic recovery and preserved marks.
+
+For installed multi-provider coverage, set `ANNOTATION_SECOND_USER_FIXTURE` to a private JSON
+fixture containing `user`, `password`, `pin`, `providerNo`, `allowedDocumentId`,
+`deniedDocumentId`, and `deniedDemographicNo`. Use two owned multipage document copies and a
+provider-specific deny on the denied patient's chart. `ANNOTATION_SESSION_COUNT` selects two
+through eight separately authenticated contexts in one browser (default two), alternating the two
+providers. The check scrolls viewers concurrently, verifies four requests per viewer and distinct
+session cookies, and verifies that the restricted provider cannot read the other patient's warmed
+image cache, text boxes or viewer. Unsaved marks stay isolated. This subcheck never saves or sends
+documents. Its navigation/render waits are bounded at 120 seconds for queued work. Keep credentials
+out of logs and remove owned fixture rows/files through their recorded cleanup journal.

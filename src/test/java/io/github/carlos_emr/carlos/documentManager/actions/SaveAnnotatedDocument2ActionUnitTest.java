@@ -22,8 +22,16 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentAnnotationParser;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
@@ -55,6 +63,7 @@ class SaveAnnotatedDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     private SecurityInfoManager securityInfoManager;
     private AnnotatedDocumentService service;
+    private CtlDocumentDao links;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
@@ -62,13 +71,14 @@ class SaveAnnotatedDocument2ActionUnitTest extends CarlosUnitTestBase {
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
         service = mock(AnnotatedDocumentService.class);
+        links = mock(CtlDocumentDao.class);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
     }
 
     private SaveAnnotatedDocument2Action action() {
         return new SaveAnnotatedDocument2Action(
-                securityInfoManager, new DocumentAnnotationParser(), service);
+                securityInfoManager, new DocumentAnnotationParser(), service, links);
     }
 
     @Test
@@ -104,6 +114,70 @@ class SaveAnnotatedDocument2ActionUnitTest extends CarlosUnitTestBase {
             action().execute();
             assertThat(response.getStatus()).isEqualTo(403);
             pdf.verifyNoInteractions();
+            verifyNoInteractions(service);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "pageCount", "composition", "filing" })
+    void shouldDistinguishSafeCapacityRetryFromUncertainFiling_whenSaveCannotComplete(String phase)
+            throws Exception {
+        request.setMethod("POST");
+        request.setParameter("docId", "42");
+        request.setContentType("application/json");
+        request.setContent(("{\"sourceDigest\":\"" + "a".repeat(64)
+                + "\",\"annotations\":[{\"page\":1,\"type\":\"highlight\",\"x\":0.1,\"y\":0.1,\"w\":0.2,\"h\":0.1,\"color\":\"yellow\"}]}")
+                .getBytes(StandardCharsets.UTF_8));
+        org.mockito.Mockito.when(securityInfoManager.hasPrivilege(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("_edoc"),
+                org.mockito.ArgumentMatchers.eq("w"), org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        EDoc doc = new EDoc();
+        doc.setFileName("source.pdf");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var documents = mockStatic(EDocUtil.class);
+             var pdf = mockStatic(AnnotatedDocumentService.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            documents.when(() -> EDocUtil.getDoc("42")).thenReturn(doc);
+            if (!"pageCount".equals(phase)) {
+                pdf.when(() -> AnnotatedDocumentService.pageCountOf(doc)).thenReturn(1);
+                org.mockito.Mockito.when(service.save(org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.eq(42), org.mockito.ArgumentMatchers.anyList(),
+                        org.mockito.ArgumentMatchers.anyString())).thenThrow("filing".equals(phase)
+                                ? new AnnotatedDocumentService.FilingException() : new BoundedPdfTask.BusyException());
+            } else {
+                pdf.when(() -> AnnotatedDocumentService.pageCountOf(doc)).thenThrow(new BoundedPdfTask.BusyException());
+            }
+            action().execute();
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(response.getHeader("Retry-After")).isEqualTo("filing".equals(phase) ? null : "1");
+            var payload = new ObjectMapper().readTree(response.getContentAsString());
+            assertThat(payload.path("retryable").asBoolean()).isEqualTo(!"filing".equals(phase));
+            assertThat(payload.path("success").asBoolean()).isFalse();
+            assertThat(payload.path("error").asText()).contains("filing".equals(phase) ? "could not be confirmed" : "busy");
+            if ("pageCount".equals(phase)) {
+                verifyNoInteractions(service);
+            }
+        }
+    }
+
+    @Test
+    void shouldDenyBeforeReadingSource_whenAnyAuthoritativePatientLinkIsRestricted() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("docId", "42");
+        org.mockito.Mockito.when(securityInfoManager.hasPrivilege(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("_edoc"),
+                org.mockito.ArgumentMatchers.eq("w"), org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        var link = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+        link.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 20, 42));
+        org.mockito.Mockito.when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(java.util.List.of(link));
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var documents = mockStatic(EDocUtil.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            action().execute();
+            assertThat(response.getStatus()).isEqualTo(403);
+            documents.verifyNoInteractions();
             verifyNoInteractions(service);
         }
     }

@@ -5,9 +5,12 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,16 +29,20 @@ import static org.mockito.Mockito.*;
  */
 class AnnotateDocument2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
     private LoggedInInfo info;
     private SecurityInfoManager security;
+    private CtlDocumentDao links;
 
     @BeforeEach
     void setUpGate() {
         request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
         request.setParameter("docId", "42");
         info = mock(LoggedInInfo.class);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         security = mock(SecurityInfoManager.class);
+        links = mock(CtlDocumentDao.class);
         when(security.hasPrivilege(eq(info), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull()))
                 .thenReturn(true);
     }
@@ -196,10 +203,44 @@ class AnnotateDocument2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldExplainRetryableCapacity_whenOtherSessionsHoldPdfWorkers() {
+        EDoc document = document("application/pdf");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
+             MockedStatic<AnnotatedDocumentService> annotations = mockStatic(AnnotatedDocumentService.class)) {
+            documents.when(() -> EDocUtil.getDoc("42")).thenReturn(document);
+            annotations.when(() -> AnnotatedDocumentService.sourceDigest(document)).thenReturn("digest");
+            annotations.when(() -> AnnotatedDocumentService.pageCountOf(document))
+                    .thenThrow(new BoundedPdfTask.BusyException());
+            assertThat(execute().getMessage()).contains("busy");
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(response.getHeader("Retry-After")).isEqualTo("1");
+        }
+    }
+
+    @Test
+    void shouldReturnForbiddenBeforeMetadata_whenASecondAuthoritativePatientLinkIsRestricted() {
+        var allowed = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+        allowed.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 10, 42));
+        var denied = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+        denied.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 20, 42));
+        when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(java.util.List.of(allowed, denied));
+        when(security.isAllowedAccessToPatientRecord(info, 10)).thenReturn(true);
+        request.setParameter("demoNo", "10");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            documents.verifyNoInteractions();
+        }
+    }
+
     private AnnotateDocument2Action execute() {
         try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class)) {
             context.when(ServletActionContext::getRequest).thenReturn(request);
-            AnnotateDocument2Action action = new AnnotateDocument2Action(security);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            AnnotateDocument2Action action = new AnnotateDocument2Action(security, links);
             // The result is represented by the message (for noAnnotate) or populated viewer fields.
             String result = action.execute();
             assertThat(result).isEqualTo(action.getMessage() == null ? ActionSupport.SUCCESS : "noAnnotate");

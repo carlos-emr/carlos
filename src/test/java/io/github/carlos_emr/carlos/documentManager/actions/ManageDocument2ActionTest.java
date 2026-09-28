@@ -18,6 +18,9 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -65,6 +68,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
@@ -327,6 +331,147 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(action.getActionErrors()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "showPage", "view", "viewDocPage", "display", "viewDocumentInfo",
+            "viewDocumentDescription", "viewAnnotationAcknowledgementTickler" })
+    void shouldDenyEveryDocumentReadBeforeMetadata_whenLinkedPatientIsRestricted(String method) throws Exception {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        request.setParameter("method", method);
+        request.setParameter("page", "1");
+        request.setParameter("doc_no", "42");
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic"))
+                .thenReturn(List.of(patientLink(10)));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        Mockito.verifyNoInteractions(documentDao);
+        verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(10));
+    }
+
+    @Test
+    void shouldCheckEveryPatientLink_whenOneLinkedPatientIsAllowedAndAnotherIsRestricted() {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(10))).thenReturn(true);
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic"))
+                .thenReturn(List.of(patientLink(10), patientLink(20)));
+        request.setParameter("method", "showPage");
+        request.setParameter("page", "1");
+        request.setParameter("doc_no", "42");
+        request.setParameter("demoNo", "10");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(403);
+        Mockito.verifyNoInteractions(documentDao);
+        verify(securityInfoManager).isAllowedAccessToPatientRecord(any(), eq(20));
+    }
+
+    @Test
+    void shouldRejectSecondSessionBeforeSharedCacheLookup_whenFirstSessionMayReadPatient() throws Exception {
+        byte[] cached = new byte[] { 1, 2, 3, 4 };
+        Files.write(tempDir.resolve("fixture.pdf_1.png"), cached);
+        Document document = new Document();
+        document.setDocfilename("fixture.pdf");
+        when(documentDao.getDocument("42")).thenReturn(document);
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic"))
+                .thenReturn(List.of(patientLink(10)));
+        authorizeEdocWrite();
+        LoggedInInfo first = LoggedInInfo.getLoggedInInfoFromSession(request);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(first, 10)).thenReturn(true);
+        request.setParameter("method", "showPage");
+        request.setParameter("page", "1");
+        request.setParameter("doc_no", "42");
+        try (MockedStatic<PathValidationUtils> paths = cachePaths()) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsByteArray()).isEqualTo(cached);
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+
+            request = new MockHttpServletRequest();
+            response = new MockHttpServletResponse();
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+            LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+            request.setParameter("method", "showPage");
+            request.setParameter("page", "1");
+            request.setParameter("doc_no", "42");
+            action = new TestManageDocument2Action();
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            verify(documentDao, Mockito.times(1)).getDocument("42");
+        }
+    }
+
+    @Test
+    void shouldKeepProviderAndUnfiledDocumentsReadable_whenNoPositivePatientLinksExist() throws Exception {
+        Files.write(tempDir.resolve("fixture.pdf_1.png"), new byte[] { 9 });
+        Document document = new Document();
+        document.setDocfilename("fixture.pdf");
+        when(documentDao.getDocument("42")).thenReturn(document);
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic"))
+                .thenReturn(List.of(patientLink(0), patientLink(-1)));
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        request.setParameter("method", "showPage");
+        request.setParameter("page", "1");
+        request.setParameter("doc_no", "42");
+        try (MockedStatic<PathValidationUtils> paths = cachePaths()) {
+            action.execute();
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsByteArray()).containsExactly((byte) 9);
+            verify(securityInfoManager, Mockito.never()).isAllowedAccessToPatientRecord(any(), anyInt());
+        }
+    }
+
+    @Test
+    void shouldReturnRetryableBusyStatus_whenUncachedImageCannotAcquireGlobalWorker() throws Exception {
+        Document document = new Document();
+        document.setDocfilename("fixture.pdf");
+        when(documentDao.getDocument("42")).thenReturn(document);
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        request.setParameter("method", "showPage");
+        request.setParameter("page", "1");
+        request.setParameter("doc_no", "42");
+        try (MockedStatic<PathValidationUtils> paths = cachePaths();
+             MockedStatic<BoundedPdfTask> workers = mockStatic(BoundedPdfTask.class)) {
+            workers.when(() -> BoundedPdfTask.runWithin(anyInt(), anyString(), any()))
+                    .thenThrow(new BoundedPdfTask.BusyException());
+            action.execute();
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(response.getHeader("Retry-After")).isEqualTo("1");
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    private CtlDocument patientLink(int patient) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", patient, 42));
+        return link;
+    }
+
+    private MockedStatic<PathValidationUtils> cachePaths() {
+        MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class);
+        // This unit fixture has no startup properties; the action may already have
+        // captured a null static DOCUMENT_DIR. Resolve that test-only configuration
+        // to the isolated directory without weakening the production validator.
+        paths.when(() -> PathValidationUtils.resolveConfiguredDirectory(nullable(String.class), eq("DOCUMENT_DIR")))
+                .thenReturn(tempDir.toFile());
+        paths.when(() -> PathValidationUtils.resolveConfiguredDirectory(anyString(), eq("DOCUMENT_CACHE_DIR")))
+                .thenReturn(tempDir.toFile());
+        paths.when(() -> PathValidationUtils.validateUserFilePath(anyString(), any(File.class)))
+                .thenReturn(tempDir.toFile());
+        paths.when(() -> PathValidationUtils.validateGeneratedFileName(anyString()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        paths.when(() -> PathValidationUtils.validateGeneratedChildPath(anyString(), any(File.class)))
+                .thenAnswer(invocation -> tempDir.resolve((String) invocation.getArgument(0)).toFile());
+        return paths;
     }
 
     @Test

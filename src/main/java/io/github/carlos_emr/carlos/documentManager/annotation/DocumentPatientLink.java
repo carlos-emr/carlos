@@ -23,6 +23,10 @@ package io.github.carlos_emr.carlos.documentManager.annotation;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -46,6 +50,21 @@ public final class DocumentPatientLink {
     private static final String DEMOGRAPHIC_MODULE = "demographic";
 
     private DocumentPatientLink() {
+    }
+
+    /**
+     * Requires access to every patient linked to the stored document. A request's patient
+     * parameter or a flattened first link must never authorize bytes shared by several charts.
+     * Provider links and the unfiled inbox sentinel IDs are deliberately not patient records.
+     */
+    public static void requireAccess(LoggedInInfo info, int documentNo, SecurityInfoManager security,
+                                     CtlDocumentDao links) {
+        for (CtlDocument link : links.findByDocumentNoAndModule(documentNo, DEMOGRAPHIC_MODULE)) {
+            Integer patient = link.getId().getModuleId();
+            if (patient != null && patient > 0 && !security.isAllowedAccessToPatientRecord(info, patient)) {
+                throw new SecurityException("Unauthorized access to patient record");
+            }
+        }
     }
 
     /**

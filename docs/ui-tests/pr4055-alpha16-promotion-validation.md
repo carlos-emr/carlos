@@ -102,6 +102,19 @@ the same 300-file limit. No CodeRabbit approval is claimed.
   on SQL errors, missing administrator rows and incomplete snapshots. Verification
   checks command outcomes, validates document-query results and compares
   credential digests instead of printing password hashes or PIN prefixes.
+- Cold multipage annotation testing exposed image/OCR bursts that exhausted the
+  shared PDF workers. Viewers now share four image/text request slots and prioritize
+  current pages. The server admits work in FIFO order with a bounded waiting queue;
+  excess demand receives an explicit capacity response. Viewers wait with staggered,
+  capped delays until capacity returns, and cancel obsolete work or closed-viewer
+  retries. A busy viewer opening retries its safe GET automatically. Save retries
+  require an explicit pre-filing refusal; uncertain outcomes remain locked against
+  duplicate submission. Genuine document errors still remain visible.
+- The multi-user audit found document-image routes missing patient restrictions.
+  All protected document reads and annotation operations now check every stored
+  patient link before metadata, cached images or source bytes are read. Responses
+  prevent browser caching across sessions. Tests cover allowed and denied users
+  sharing a warm image cache, multiple patient links, worker saturation and recovery.
 
 ## Test discovery
 
@@ -142,10 +155,11 @@ rule execution remain in scope.
   (92.3%); the only unmapped file is documentation-only `package-info.java`.
   Review fixes: 159/176 (90.3%). Additional vacancy lifecycle/context, inbox
   fallback-date and favorite privilege regressions passed 66 tests with no skips.
-- Latest full Node suite: 1,363 passed, zero failures/skips, one test file at a time,
-  with the pinned CLI checkout configured. This includes browser cleanup failures
-  and physical/inline document verification. The prior 1,349-case run and its
-  CLI-dependent rerun also passed.
+- Latest full Node suite: 1,386 passed, zero failures/skips, one test file at a time,
+  with the pinned CLI checkout configured. This includes sustained annotation
+  waiting, cancellation, safe-save retries, history navigation, browser cleanup
+  failures and physical/inline document verification. The 23 focused annotation
+  regressions also passed. Prior complete 1,363- and 1,372-case runs passed.
 - Packaging contracts/subprocesses: 38 passed.
 - Manifest generator and loaders: 249 passed. Full manifest regeneration
   matched the acquired upstream archive at `a7900d569d3faf741993e5e1da8c14021bbefede`.
@@ -226,6 +240,17 @@ Full browser, corpus and isolated ON-import/BC-profile results
 will be recorded after their respective runs. Missing validation fixtures are
 prepared with private baselines and ownership journals, without treating a
 fixture-dependent skip as a pass.
+
+The iteration 3 full browser run stopped on its first check after reproducing a
+cold annotation page-load failure. A subsequent two-session prototype with browser
+source overrides passed, but is not installed-package proof. The waiting and
+authorization corrections above still require rebuilt iteration 4 packages and
+the complete installed rerun, including independently authenticated sessions.
+
+At pushed revision `f8d7aea6cd`, CI completed with 43 successful checks, six skips
+and one neutral result. Sonar's quality gate passed with new reliability rated B;
+the duplicate favorite-control ID finding was cleared. These results precede
+the new annotation changes and do not establish their final CI status.
 
 ## Migration and publication requirements
 

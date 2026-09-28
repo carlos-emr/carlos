@@ -44,6 +44,8 @@ import org.apache.struts2.ServletActionContext;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -77,12 +79,14 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
     private static final int MAX_BODY_BYTES = 256 * 1024;
 
     private final transient SecurityInfoManager securityInfoManager;
+    private final transient CtlDocumentDao ctlDocumentDao;
     private final transient DocumentAnnotationParser parser;
     private final transient AnnotatedDocumentService injectedService;
     private final transient ObjectMapper objectMapper = new ObjectMapper();
 
     public SaveAnnotatedDocument2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), new DocumentAnnotationParser(), null);
+        this(SpringUtils.getBean(SecurityInfoManager.class), new DocumentAnnotationParser(), null,
+                SpringUtils.getBean(CtlDocumentDao.class));
     }
 
     /**
@@ -92,8 +96,9 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
      */
     SaveAnnotatedDocument2Action(SecurityInfoManager securityInfoManager,
                                  DocumentAnnotationParser parser,
-                                 AnnotatedDocumentService injectedService) {
+                                 AnnotatedDocumentService injectedService, CtlDocumentDao ctlDocumentDao) {
         this.securityInfoManager = securityInfoManager;
+        this.ctlDocumentDao = ctlDocumentDao;
         this.parser = parser;
         this.injectedService = injectedService;
     }
@@ -135,6 +140,13 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
                     error("A document must be selected."));
         }
 
+        response.setHeader("Cache-Control", "no-store");
+        try {
+            DocumentPatientLink.requireAccess(loggedInInfo, docId, securityInfoManager, ctlDocumentDao);
+        } catch (SecurityException denied) {
+            return json(response, HttpServletResponse.SC_FORBIDDEN,
+                    error("You do not have access to this patient's records."));
+        }
         EDoc source = EDocUtil.getDoc(String.valueOf(docId));
         if (source == null || StringUtils.isBlank(source.getFileName())) {
             return json(response, HttpServletResponse.SC_NOT_FOUND,
@@ -153,6 +165,8 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         int pageCount;
         try {
             pageCount = AnnotatedDocumentService.pageCountOf(source);
+        } catch (BoundedPdfTask.BusyException e) {
+            return busy(response, e);
         } catch (IOException | RuntimeException e) {
             logger.warn("Could not read the page count for document {} while saving annotations", docId);
             return json(response, HttpServletResponse.SC_BAD_REQUEST,
@@ -199,6 +213,8 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             ok.put("documentNo", newDocNo);
             ok.put("demographicNo", String.valueOf(patientNo));
             return json(response, HttpServletResponse.SC_OK, ok);
+        } catch (BoundedPdfTask.BusyException e) {
+            return busy(response, e);
         } catch (AnnotatedDocumentService.FilingException e) {
             ObjectNode uncertain = error(e.getMessage());
             uncertain.put("retryable", false);
@@ -214,6 +230,14 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return json(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     error("The annotated document could not be saved."));
         }
+    }
+
+    private String busy(HttpServletResponse response, BoundedPdfTask.BusyException busy) throws IOException {
+        ObjectNode payload = error(busy.getMessage());
+        payload.put("retryable", true);
+        response.setHeader("Retry-After", String.valueOf(BoundedPdfTask.RETRY_AFTER_SECONDS));
+        response.setHeader("Cache-Control", "no-store");
+        return json(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, payload);
     }
 
     /**

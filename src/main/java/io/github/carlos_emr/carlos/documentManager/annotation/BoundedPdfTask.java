@@ -33,7 +33,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Runs one piece of PDF work on a daemon thread with a hard deadline.
+ * Runs one piece of PDF work with bounded fair admission and a separate execution deadline.
  *
  * <p>Every PDF this package touches is untrusted: an inbound fax is whatever the sender chose
  * to transmit. PDFBox has no internal time budget, so a document crafted to drive the parser
@@ -70,23 +70,62 @@ public final class BoundedPdfTask {
      * <p>Sized at twice the CPU count with a floor of 8. Deliberately loose: the viewer fires one
      * word-box read per visible page as a clinician scrolls, and refusing those would break a
      * working feature to defend against a rare one. The cap only has to be low enough that runaway
-     * parses cannot saturate the box, not low enough to schedule fairly. Callers beyond it are
-     * refused immediately rather than queued — waiting for a permit would re-park the very request
-     * thread the deadline exists to free.
+     * parses cannot saturate the box. Admission is fair across sessions: at most twice the
+     * worker count can wait, for at most 30 seconds. Additional callers receive a distinct
+     * retryable refusal before work starts. This bounds both workers and waiting servlet
+     * threads while letting ordinary concurrent use wait instead of failing a valid document.
      */
     private static final Semaphore PARSE_PERMITS =
-            new Semaphore(maxConcurrentParses());
+            new Semaphore(maxConcurrentParses(), true);
+
+    private static final Semaphore WAITING_PERMITS = new Semaphore(2 * maxConcurrentParses());
+    private static final int ADMISSION_TIMEOUT_SECONDS = 30;
 
     /** Visible for tests: the number of parses that may be in flight at once. */
     static int maxConcurrentParses() {
         return Math.max(8, 2 * Runtime.getRuntime().availableProcessors());
     }
 
+    /** Retry delay for shared-capacity refusal; it does not imply that any work was accepted. */
+    public static final int RETRY_AFTER_SECONDS = 1;
+
+    /** A new task was refused before it started because all shared workers are occupied. */
+    public static final class BusyException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        public BusyException() {
+            super("The server is busy reading documents. Try again in a moment.");
+        }
+    }
+
+    /** Visible for concurrency tests: requests actually waiting for a shared worker. */
+    static int queuedTaskCount() {
+        return PARSE_PERMITS.getQueueLength();
+    }
+
+    private static void acquireWorkerPermit(long admissionTimeoutMillis) throws IOException {
+        if (!WAITING_PERMITS.tryAcquire()) {
+            throw new BusyException();
+        }
+        try {
+            // Timed acquire honours the semaphore's FIFO policy; untimed tryAcquire
+            // would allow a newer session to jump ahead of waiting clinicians.
+            if (!PARSE_PERMITS.tryAcquire(admissionTimeoutMillis, TimeUnit.MILLISECONDS)) {
+                throw new BusyException();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Waiting to read the document was interrupted.", e);
+        } finally {
+            WAITING_PERMITS.release();
+        }
+    }
+
     private BoundedPdfTask() {
     }
 
     /**
-     * @param seconds    hard deadline; the caller's thread is released when it expires
+     * @param seconds    execution deadline after admission; waiting for a worker is separately bounded to 30 seconds
      * @param threadName names the worker so a wedged parse is identifiable in a thread dump
      * @param task       the parse to run
      * @return the task's result
@@ -97,14 +136,19 @@ public final class BoundedPdfTask {
     // Sonar sees no close() or try-with-resources and reports a leaked executor. The executor is
     // shut down in the finally block below with shutdownNow(); close() is deliberately not used
     // because it awaits termination of the abandoned worker, which makes the deadline inert.
-    @SuppressWarnings("java:S2095") // shutdownNow() in finally; close() would park the caller (see class Javadoc)
     public static <T> T runWithin(int seconds, String threadName, Callable<T> task) throws IOException {
+        return runWithin(seconds, threadName, task, TimeUnit.SECONDS.toMillis(ADMISSION_TIMEOUT_SECONDS));
+    }
+
+    /** Allows concurrency tests to exercise admission deadlines without a 30-second sleep. */
+    @SuppressWarnings("java:S2095") // shutdownNow() in finally; close() would wait for abandoned work
+    static <T> T runWithin(int seconds, String threadName, Callable<T> task, long admissionTimeoutMillis)
+            throws IOException {
         // Acquired here, released by the WORKER when it finishes — not by this method when it
         // times out. That is the point: an abandoned parse keeps its permit until it actually
         // stops, so the cap bounds work in flight rather than callers waiting.
-        if (!PARSE_PERMITS.tryAcquire()) {
-            throw new IOException("The server is busy reading documents. Try again in a moment.");
-        }
+        AtomicInteger permitState = new AtomicInteger(0);
+        acquireWorkerPermit(admissionTimeoutMillis);
         // The permit is handed to the worker, but exactly one party must give it back. A deadline
         // that expires before the worker enters the task body cancels the FutureTask while it is
         // still NEW, and FutureTask.run() then skips the callable entirely -- so the callable's
@@ -114,15 +158,15 @@ public final class BoundedPdfTask {
         // exists to prevent. The CAS makes the release idempotent, so the narrow window where the
         // worker starts just as the caller gives up cannot return the permit twice.
         // 0 = waiting, 1 = executing, 2 = released. Cancellation and entry are one atomic handoff.
-        AtomicInteger permitState = new AtomicInteger(0);
         boolean submitted = false;
         Future<T> future = null;
-        ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
-            Thread worker = new Thread(runnable, threadName);
-            worker.setDaemon(true);
-            return worker;
-        });
+        ExecutorService executor = null;
         try {
+            executor = Executors.newSingleThreadExecutor(runnable -> {
+                Thread worker = new Thread(runnable, threadName);
+                worker.setDaemon(true);
+                return worker;
+            });
             future = executor.submit(() -> {
                 try {
                     if (!permitState.compareAndSet(0, 1)) {
@@ -170,7 +214,9 @@ public final class BoundedPdfTask {
                 PARSE_PERMITS.release();
             }
             // Returns immediately; close() would wait for the abandoned worker instead.
-            executor.shutdownNow();
+            if (executor != null) {
+                executor.shutdownNow();
+            }
         }
     }
 
