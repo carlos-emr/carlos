@@ -51,10 +51,12 @@
  *   GRAPH_MEASUREMENT_TYPE=ALT to override the default seeded measurement graph
  *   GRAPH_PATH=/encounter/GraphMeasurements?method=ChartMeds&demographic_no=1&drug=...
  *   CARLOS_LOG_FILE=/path/to/catalina.out
+ *   CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service instead of CARLOS_LOG_FILE on Debian installs
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
 const fs = require('fs');
+const { createJournalLogSource } = require('./logout-journal-log');
 const { chromium } = require('playwright');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -67,6 +69,11 @@ const graphMeasurementType = process.env.GRAPH_MEASUREMENT_TYPE || 'ALT';
 const graphPath = process.env.GRAPH_PATH
   || `/encounter/GraphMeasurements?demographic_no=${encodeURIComponent(graphDemographicNo)}&type=${encodeURIComponent(graphMeasurementType)}`;
 const carlosLogFile = process.env.CARLOS_LOG_FILE || '';
+const journalUnit = process.env.CARLOS_LOG_JOURNAL_UNIT;
+if (carlosLogFile && journalUnit !== undefined) {
+  throw new Error('Choose either CARLOS_LOG_FILE or CARLOS_LOG_JOURNAL_UNIT');
+}
+const journalLog = journalUnit === undefined ? null : createJournalLogSource(journalUnit);
 const timeout = parseTimeout(process.env.PLAYWRIGHT_TIMEOUT, 30000);
 
 const findings = [];
@@ -323,7 +330,9 @@ async function checkUnauthenticatedRoute(browser, route) {
 }
 
 function captureLogSnapshot() {
+  if (journalLog) return { journal: journalLog.capture() };
   if (!carlosLogFile) {
+    visited.push({ label: 'log-scan', source: 'none', checked: false });
     return null;
   }
   try {
@@ -336,6 +345,11 @@ function captureLogSnapshot() {
 }
 
 function readLogDelta(snapshot) {
+  if (snapshot && snapshot.journal) {
+    const delta = journalLog.readDelta(snapshot.journal);
+    visited.push({ label: 'log-scan', source: 'journal', checked: true, entries: delta.entries, bytes: Buffer.byteLength(delta.text, 'utf8') });
+    return delta.text;
+  }
   if (!snapshot) {
     return '';
   }
@@ -380,7 +394,7 @@ function checkLogDelta(snapshot) {
     findings.push({
       label: 'log-scan',
       type: 'affected-route-log-failure',
-      file: snapshot.file,
+      ...(snapshot.journal ? { source: 'journal' } : { file: snapshot.file }),
       signals,
       ...summarizeText(delta),
     });

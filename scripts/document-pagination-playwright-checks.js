@@ -39,6 +39,24 @@ async function main() {
     });
     const chart = await openChart(context, masterPage, recorder, 45000);
     await waitForNavbars(chart, 45000);
+    // The chart initially renders only six documents. Expand through its real
+    // control before deciding an older single-page fixture is unavailable.
+    const expand = chart.locator('#docs img[src$="/encounter/graphics/expand.gif"]');
+    if (await expand.count()) {
+      assert(await expand.count() === 1, 'Documents has ambiguous expansion controls');
+      const [response] = await Promise.all([
+        chart.waitForResponse(response => {
+          const url = new URL(response.url());
+          return url.pathname.endsWith('/encounter/displayDocuments')
+            && url.searchParams.get('cmd') === 'docs' && !url.searchParams.has('numToDisplay');
+        }, { timeout: 45000 }),
+        expand.click(),
+      ]);
+      assert(response.ok(), 'Documents expansion failed');
+      await chart.locator('#docs img[src$="/messenger/img/collapse.gif"]').first()
+        .waitFor({ state: 'visible', timeout: 45000 });
+      assert(await expand.count() === 0, 'Documents remained truncated after expansion');
+    }
     // The chart applies privacy, program/facility and ECONSULT visibility rules.
     // Choose fixtures from its rendered links, not merely the database rows.
     const visibleIds = new Set(await chart.locator('#docs a[onclick]').evaluateAll((links) =>

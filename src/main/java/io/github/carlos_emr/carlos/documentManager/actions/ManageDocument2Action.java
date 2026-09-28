@@ -48,6 +48,8 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
@@ -494,6 +496,11 @@ public class ManageDocument2Action extends ActionSupport {
             }
             return NONE;
         }
+
+        IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), queueId);
+        IncomingDocumentCapacityResponse.requireRefileSourceAccess(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), parsedDocumentId);
 
         Document targetDocument = documentDao.find(parsedDocumentId);
         if (targetDocument == null
@@ -1407,6 +1414,15 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
         
+        // Patient-specific denial wins before inspecting any queued document.
+        if (!IncomingDocumentCapacityResponse.positiveId(demographic_no)) {
+            throw new IllegalArgumentException("A valid patient is required to file the document.");
+        }
+        int incomingPatientNo = Integer.parseInt(demographic_no);
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        requireIncomingPatientAccess(loggedInInfo, incomingPatientNo);
+        IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager, loggedInInfo, queueId1);
+
         // Validate input parameters to prevent path traversal
         if (queueId1 == null || pdfDir == null || pdfName == null) {
             throw new IllegalArgumentException("Invalid parameters");
@@ -1438,112 +1454,143 @@ public class ManageDocument2Action extends ActionSupport {
                 .resolve(pdfDir)
                 .resolve(sourcePdfName)
                 .toFile();
-        File sourceFile = PathValidationUtils.validateExistingPath(requestedSourceFile, incomingDir);
-        if (!sourceFile.isFile()) {
-            log.warn("Incoming document source is not a regular file");
-            throw new SecurityException("Incoming document source must be a regular file");
-        }
+        try (IncomingDocumentMutationLock.Lease mutation = IncomingDocumentMutationLock.acquire(requestedSourceFile, incomingDir)) {
+            File sourceFile = mutation.source();
+            if (!sourceFile.isFile()) {
+                log.warn("Incoming document source is not a regular file");
+                throw new SecurityException("Incoming document source must be a regular file");
+            }
 
-        String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File saveDir = validateConfiguredDocumentDirectory(savePath, "DOCUMENT_DIR");
-
-        Date obDate = UtilDateUtilities.StringToDate(observationDate);
-        String formattedDate = UtilDateUtilities.DateToString(obDate, EDocUtil.DMS_DATE_FORMAT);
-        String source = "";
+            String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+            File saveDir = validateConfiguredDocumentDirectory(savePath, "DOCUMENT_DIR");
 
 
-        int numberOfPages = 0;
-        String fileName = sourcePdfName;
-        String user = (String) request.getSession().getAttribute("user");
-        EDoc newDoc = new EDoc(documentDescription, docType, fileName, "", user, user, source, 'A', formattedDate, "", "", "demographic", demographic_no, 0);
+            Date obDate = UtilDateUtilities.StringToDate(observationDate);
+            String formattedDate = UtilDateUtilities.DateToString(obDate, EDocUtil.DMS_DATE_FORMAT);
+            String source = "";
 
-        // if the document was added in the context of a program
-        ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        ProgramProvider pp = programManager.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
-        if (pp != null && pp.getProgramId() != null) {
-            newDoc.setProgramId(pp.getProgramId().intValue());
-        }
 
-        newDoc.setDocClass(docClass);
-        newDoc.setDocSubClass(docSubClass);
-        newDoc.setDocPublic("0");
-        fileName = newDoc.getFileName();
-        String originalSanitized = sanitizeIncomingDocumentDestinationFileName(fileName);
-
-        String doc_no = "";
-        String storedFileName = null;
-        File destFile = null;
-        boolean success = false;
-
-        for (int counter = 0; counter < MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS; counter++) {
-            String candidateFileName = incomingDestinationCandidate(originalSanitized, counter);
-            destFile = PathValidationUtils.validatePath(candidateFileName, saveDir);
+            if (IncomingDocumentCapacityResponse.usesContract(request)) {
+                // Validate the eventual navigation contract before any file or database mutation.
+                IncomingDocumentCapacityResponse.readOnlyUrl(request, queueId1, pdfDir, request.getParameter("pdfNo"), "1");
+            }
+            int numberOfPages;
             try {
-                success = moveIncomingDocument(sourceFile, destFile);
-            } catch (FileAlreadyExistsException e) {
-                continue;
+                // Admission and parsing finish before moving the queued file or filing anything.
+                // An explicit capacity refusal therefore guarantees this POST accepted no work.
+                numberOfPages = countIncomingDocumentPages(sourceFile);
+            } catch (BoundedPdfTask.BusyException busy) {
+                IncomingDocumentCapacityResponse.filingBusy(request, response);
+                return NONE;
+            } catch (IOException failure) {
+                log.warn("Incoming document filing refused before mutation ({})", failure.getClass().getSimpleName());
+                IncomingDocumentCapacityResponse.filingRejected(request, response);
+                return NONE;
             }
-            if (success) {
-                storedFileName = destFile.getName();
-                newDoc.setFileName(storedFileName);
-            }
-            break;
-        }
+            String fileName = sourcePdfName;
+            String user = (String) request.getSession().getAttribute("user");
+            EDoc newDoc = new EDoc(documentDescription, docType, fileName, "", user, user, source, 'A', formattedDate, "", "", "demographic", demographic_no, 0);
 
-        if (!success) {
-            log.error("Not able to move incoming document into document store");
-            // File was not successfully moved - attempt to delete temp file to prevent orphaned files
+            // if the document was added in the context of a program
+            ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
+            ProgramProvider pp = programManager.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
+            if (pp != null && pp.getProgramId() != null) {
+                newDoc.setProgramId(pp.getProgramId().intValue());
+            }
+
+            newDoc.setDocClass(docClass);
+            newDoc.setDocSubClass(docSubClass);
+            newDoc.setDocPublic("0");
+            fileName = newDoc.getFileName();
+            String originalSanitized = sanitizeIncomingDocumentDestinationFileName(fileName);
+
+            String doc_no = "";
+            String storedFileName = null;
+            File destFile = null;
+            boolean success = false;
+
+            // Admission may have waited behind another session; authorization can change meanwhile.
+            requireIncomingPatientAccess(loggedInInfo, incomingPatientNo);
+            IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager, loggedInInfo, queueId1);
+
+            for (int counter = 0; counter < MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS; counter++) {
+                String candidateFileName = incomingDestinationCandidate(originalSanitized, counter);
+                destFile = PathValidationUtils.validatePath(candidateFileName, saveDir);
+                try {
+                    success = moveIncomingDocument(sourceFile, destFile);
+                } catch (FileAlreadyExistsException e) {
+                    continue;
+                }
+                if (success) {
+                    mutation.sourceRemoved();
+                    storedFileName = destFile.getName();
+                    newDoc.setFileName(storedFileName);
+                }
+                break;
+            }
+
+            if (!success) {
+                log.error("Not able to move incoming document into document store");
+                // A failed move has not filed anything. Preserve the only queued source so the
+                // operator can recover from permissions/storage errors without losing a document.
+                log.error("Failed to save incoming document");
+                addActionError("Failed to save document file. Please try again or contact your system administrator.");
+                return "error";
+            }
+
+            // The source has moved. Every subsequent failure has an accepted/uncertain
+            // outcome, including a partial addDocumentSQL persistence failure.
             try {
-                Files.delete(sourceFile.toPath());
-            } catch (IOException e) {
-                log.warn("Failed to delete incoming document source after move failure", e);
-            }
-            log.error("Failed to save incoming document");
-            addActionError("Failed to save document file. Please try again or contact your system administrator.");
-            return "error";
-        } else {
-
-            newDoc.setContentType("application/pdf");
-            if (storedFileName.endsWith(".PDF") || storedFileName.endsWith(".pdf")) {
                 newDoc.setContentType("application/pdf");
-                numberOfPages = countNumOfPages(storedFileName);
-            }
-            newDoc.setNumberOfPages(numberOfPages);
-            doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+                newDoc.setNumberOfPages(numberOfPages);
+                doc_no = EDocUtil.addDocumentSQL(newDoc);
+                LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+                routeDocumentToProviders(flagproviders, doc_no);
 
-
-            routeDocumentToProviders(flagproviders, doc_no, demographic_no);
-
-            //Check to see if we have to route document to patient
-            PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-            List<PatientLabRouting> patientLabRoutingList = patientLabRoutingDao.findByLabNoAndLabType(Integer.parseInt(doc_no), docType);
-            if (patientLabRoutingList == null || patientLabRoutingList.isEmpty()) {
-                PatientLabRouting patientLabRouting = new PatientLabRouting();
-                patientLabRouting.setDemographicNo(Integer.parseInt(demographic_no));
-                patientLabRouting.setLabNo(Integer.parseInt(doc_no));
-                patientLabRouting.setLabType("DOC");
-                patientLabRoutingDao.persist(patientLabRouting);
-            }
-
-            try {
-
+                PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
+                List<PatientLabRouting> patientLabRoutingList = patientLabRoutingDao.findByLabNoAndLabType(Integer.parseInt(doc_no), docType);
+                if (patientLabRoutingList == null || patientLabRoutingList.isEmpty()) {
+                    PatientLabRouting patientLabRouting = new PatientLabRouting();
+                    patientLabRouting.setDemographicNo(incomingPatientNo);
+                    patientLabRouting.setLabNo(Integer.parseInt(doc_no));
+                    patientLabRouting.setLabType("DOC");
+                    patientLabRoutingDao.persist(patientLabRouting);
+                }
                 CtlDocument ctlDocument = ctlDocumentDao.getCtrlDocument(Integer.parseInt(doc_no));
-
-                ctlDocument.getId().setModuleId(Integer.parseInt(demographic_no));
+                ctlDocument.getId().setModuleId(incomingPatientNo);
                 ctlDocumentDao.merge(ctlDocument);
-                //save a document created note
                 if (ctlDocument.isDemographicDocument()) {
-                    //save note
                     saveDocNote(request, documentDescription, demographic_no, doc_no);
                 }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                if (IncomingDocumentCapacityResponse.usesContract(request)) {
+                    IncomingDocumentCapacityResponse.filed(request, response, Integer.parseInt(doc_no));
+                    return NONE;
+                }
+                return "nextIncomingDoc";
+            } catch (Exception failure) {
+                log.error("Incoming document filing could not be confirmed ({})", failure.getClass().getSimpleName());
+                IncomingDocumentCapacityResponse.filingUnconfirmed(request, response);
+                return NONE;
             }
+        } catch (java.nio.file.NoSuchFileException removed) {
+            IncomingDocumentCapacityResponse.filingSourceUnavailable(request, response);
+            return NONE;
+        } catch (BoundedPdfTask.BusyException busy) {
+            // Per-source admission timed out before this caller could read or mutate the file.
+            IncomingDocumentCapacityResponse.filingBusy(request, response);
+            return NONE;
         }
+    }
 
-        return "nextIncomingDoc";
+    private void requireIncomingPatientAccess(LoggedInInfo info, int patientNo) {
+        if (!securityInfoManager.hasPrivilege(info, "_edoc", "w", String.valueOf(patientNo))
+                || !securityInfoManager.isAllowedAccessToPatientRecord(info, patientNo)) {
+            throw new SecurityException("You do not have access to this patient's records.");
+        }
+        if (SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class)
+                .getDemographic(String.valueOf(patientNo)) == null) {
+            throw new IllegalArgumentException("The patient could not be found.");
+        }
     }
 
     /**
@@ -1621,15 +1668,7 @@ public class ManageDocument2Action extends ActionSupport {
         return directory;
     }
 
-    /**
-     * Moves a validated incoming source file into the document store. Uses
-     * {@link Files#move} rather than {@link File#renameTo} so the move succeeds across
-     * filesystem/volume boundaries (incoming-fax storage and the document store are
-     * commonly separate mounts in production). {@code renameTo} silently returns
-     * {@code false} across volumes, and the caller deletes the source on failure — that
-     * combination would permanently lose the incoming document. Protected for tests so
-     * move failure can be exercised without filesystem-specific setup.
-     */
+    /** Produces a deterministic unused-name candidate; publication itself refuses clobbering. */
     private String incomingDestinationCandidate(String originalFileName, int counter) {
         if (counter == 0) {
             return originalFileName;
@@ -1645,9 +1684,14 @@ public class ManageDocument2Action extends ActionSupport {
         return nameWithoutExt + "_" + counter + extension;
     }
 
+    /**
+     * Publishes a complete copy without replacing an existing destination, then removes
+     * the queued source. Failures preserve the original; separate volumes are supported.
+     * Protected so tests can simulate a failed move without filesystem-specific setup.
+     */
     protected boolean moveIncomingDocument(File sourceFile, File destFile) throws FileAlreadyExistsException {
         try {
-            Files.move(sourceFile.toPath(), destFile.toPath());
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentPublication.move(sourceFile, destFile);
             return true;
         } catch (FileAlreadyExistsException e) {
             throw e;
@@ -1657,26 +1701,20 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
-    private void routeDocumentToProviders(String[] flagproviders, String docNo, String demographicNo) {
+    private void routeDocumentToProviders(String[] flagproviders, String docNo) {
         if (flagproviders == null || flagproviders.length == 0) {
             return;
         }
 
-        try {
-            for (String proNo : flagproviders) {
-                // Sanitize provider number to prevent any potential header injection.
-                if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
-                    providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(docNo), LabResultData.DOCUMENT);
-                } else {
-                    log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                }
+        // Validate every selected recipient before beginning routing. A rejected or
+        // failed delivery must reach the accepted-outcome handler, never look successful.
+        for (String proNo : flagproviders) {
+            if (proNo == null || !proNo.matches("^[a-zA-Z0-9_-]+$")) {
+                throw new IllegalArgumentException("Invalid selected provider");
             }
-        } catch (SecurityException e) {
-            log.warn("Provider routing denied for document {} and demographic {}: {}",
-                    LogSafe.sanitize(docNo), LogSafe.sanitize(demographicNo), LogSafe.sanitize(e.getMessage())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-        } catch (Exception e) {
-            log.error("Provider routing failed for document {} and demographic {}",
-                    LogSafe.sanitize(docNo), LogSafe.sanitize(demographicNo), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        }
+        for (String proNo : flagproviders) {
+            providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(docNo), LabResultData.DOCUMENT);
         }
     }
 
@@ -1707,6 +1745,9 @@ public class ManageDocument2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid parameters");
         }
         
+        IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), queueId);
+
         // Sanitize filename to prevent path traversal
         String sanitizedPdfName = FilenameUtils.getName(pdfName);
         if (!sanitizedPdfName.equals(pdfName)) {
@@ -1848,23 +1889,26 @@ public class ManageDocument2Action extends ActionSupport {
      * @param fileName String the PDF filename (relative to DOCUMENT_DIR)
      * @return int the number of pages, or 0 if the file cannot be read
      */
-    public int countNumOfPages(String fileName) {
-        int numOfPage = 0;
-        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-
-        if (!docdownload.endsWith(File.separator)) {
-            docdownload += File.separator;
+    public int countNumOfPages(String fileName) throws BoundedPdfTask.BusyException {
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        try {
+            return countIncomingDocumentPages(PathValidationUtils.validatePath(fileName, documentDir));
+        } catch (BoundedPdfTask.BusyException busy) {
+            throw busy;
+        } catch (IOException failure) {
+            log.warn("Document page count unavailable ({})", failure.getClass().getSimpleName());
+            return 0;
         }
+    }
 
-        File documentDir = PathValidationUtils.resolveConfiguredDirectory(docdownload, "DOCUMENT_DIR");
-        File filePath = PathValidationUtils.validatePath(fileName, documentDir);
-
-        try (PDDocument reader = Loader.loadPDF(filePath)) {
-            numOfPage = reader.getNumberOfPages();
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to count pages for document: {}", fileName, e);
-        }
-        return numOfPage;
+    /** Counts the validated source before mutation, sharing admission with previews and annotations. */
+    protected int countIncomingDocumentPages(File source) throws IOException {
+        return BoundedPdfTask.runWithin(30, "incoming-document-filing-pagecount", () -> {
+            try (PDDocument reader = Loader.loadPDF(source, IOUtils.createTempFileOnlyStreamCache())) {
+                return reader.getNumberOfPages();
+            }
+        });
     }
 
     /**
@@ -1891,6 +1935,9 @@ public class ManageDocument2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid parameters");
         }
         
+        IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), queueId);
+
         // Sanitize filename to prevent path traversal
         String sanitizedPdfName = FilenameUtils.getName(pdfName);
         if (!sanitizedPdfName.equals(pdfName)) {
@@ -1968,6 +2015,9 @@ public class ManageDocument2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid parameters");
         }
         
+        IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), queueId);
+
         // Sanitize filename to prevent path traversal
         String sanitizedPdfName = FilenameUtils.getName(pdfName);
         if (!sanitizedPdfName.equals(pdfName)) {

@@ -79,6 +79,7 @@ public class DocumentPreview2Action extends ActionSupport {
         INVALID_REQUEST("invalid_request", "Invalid preview request."),
         EDOC_RENDER_FAILED("edoc_render_failed", "Failed to render document PDF."),
         EFORM_RENDER_FAILED("eform_render_failed", "Failed to render eForm PDF."),
+        EFORM_RENDER_BUSY("eform_render_busy", "The eForm renderer is busy. Waiting for a preview slot."),
         EFORM_APPROVAL_INVALID("eform_approval_invalid",
                 "The incomplete-render approval is invalid or expired. Render the preview again."),
         EFORM_MISSING_CONTENT("eform_missing_content",
@@ -264,8 +265,36 @@ public class DocumentPreview2Action extends ActionSupport {
                     response, PreviewError.EFORM_MISSING_CONTENT, token, e.getReport(),
                     e.getSevereConsoleDetails());
         } catch (PDFGenerationException e) {
+            if (e.isRetryable()) {
+                String retryApproval = renderApprovalService.reissueAfterCapacity(
+                        request, loggedInInfo, eFormId, demographicNo,
+                        EFormRenderApprovalService.Operation.PREVIEW, approval);
+                generateRenderBusyResponse(retryApproval);
+                return;
+            }
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
             generateResponse(response, PreviewError.EFORM_RENDER_FAILED);
+        }
+    }
+
+    /** Only emitted when the renderer reports that admission failed before any render started. */
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "JSON encodes fixed text and a server-issued opaque token")
+    private void generateRenderBusyResponse(String retryApproval) {
+        ObjectNode json = objectMapper.createObjectNode();
+        json.put("errorCode", PreviewError.EFORM_RENDER_BUSY.code);
+        json.put("errorMessage", PreviewError.EFORM_RENDER_BUSY.message);
+        json.put("retryable", true);
+        json.put("retryAfterSeconds", 2);
+        json.put("renderApproval", retryApproval);
+        response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        response.setHeader("Retry-After", "2");
+        response.setHeader("Cache-Control", "no-store");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        try {
+            response.getWriter().write(json.toString());
+        } catch (IOException e) {
+            logger.warn("Could not write eForm render capacity response", e);
         }
     }
 

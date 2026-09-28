@@ -4,7 +4,7 @@
 /** Allow a controller to reserve a synthetic line before any fixture mutation. */
 function readFaxSuffix(value, digits, randomInt) {
   if (value === undefined) return String(randomInt(10 ** (digits - 1), 10 ** digits));
-  if (typeof value !== 'string' || value.length !== digits || !new RegExp(`^[1-9][0-9]{${digits - 1}}$`).test(value)) {
+  if (typeof value !== 'string' || value.length !== digits || !/^[1-9]/.test(value) || /[^0-9]/.test(value)) {
     throw new Error(`PR4055_RX_FAX_SUFFIX must contain exactly ${digits} digits and start with 1-9`);
   }
   return value;

@@ -206,9 +206,19 @@ rule execution remain in scope.
 - Iteration 5 full Node suite: 1,466 passed, zero failures/skips, one test file at a
   time. This includes the incoming-preview correction for an explicitly empty
   `pdfDir` at the valid queue root, and filtering only suppressed SARIF findings.
-- Latest full Node suite: 1,495 passed, zero failures/skips, one test file at a
+- Iteration 6 full Node suite: 1,495 passed, zero failures/skips, one test file at a
   time. The expanded Rx fixture ownership, pre-transmission request guard and
   pending-operation cleanup regressions are included.
+- Working iteration 7 combined Java regressions: 536 passed, zero failures, errors
+  or skips, covering incoming-document concurrency/authorization/publication,
+  eForm import and capacity continuations, approval scope and fax preparation.
+  The final capacity-receipt expiry correction subsequently passed 88 affected
+  Java cases. The complete rebuilt application and installed runs remain pending.
+- Iteration 7 full Node suite: 1,605 passed, zero failures/skips, with the
+  pinned CLI checkout configured and one file at a time. The final preview
+  clearing and constant-regex fax-guard changes then passed 45 focused cases.
+  The earlier import-scope false positive and omitted CLI source-path setting
+  were corrected before the complete passing run.
 - Packaging contracts/subprocesses: 45 passed, including strict DrugRef XML
   transformation, upstream drift/duplicate/decoy refusal and unchanged existing bytes.
 - Manifest generator and loaders: 249 passed. Full manifest regeneration
@@ -334,6 +344,30 @@ During construction the VM remained stopped, available memory stayed above
 were losslessly recompressed with verified tar bytes; temporarily archived compiled
 classes were restored and verified before installed testing.
 
+Iteration 6 then passed all 9,866 installed payload hashes, public CLI ownership
+verification, application health, all 45 upgrade assertions and all three installed
+Java Selenium checks. The fresh service invocation contained no keyword-metadata
+fallback or unknown `RESERVED` column errors. A subsequent annotation attempt
+stopped in its test guard before account activation or browser execution because
+the existing database contains 23 `SENT` fax rows; it is not a browser pass.
+Those existing rows remain unchanged while their scheduler eligibility is reviewed.
+The corrected preservation guard permits only historical `SENT` rows with a
+null provider job ID, which neither sender nor status poller selects. It still
+refuses every `WAITING` or poll-eligible row and now verifies full row digests.
+All 44 guard regressions passed. The subsequent complete installed annotation
+check passed in 106.2 seconds, including eight independent sessions across two
+providers, five denied cross-user reads, unsaved annotation isolation, repeated
+capacity-refusal recovery, and fax preview/cancellation. Each session stayed at
+four active image requests (32 combined); this run observed no real capacity
+refusals in its concurrent-session phase. The separate injected-refusal cases
+proved automatic image and unaccepted-save recovery. The guard confirmed exact
+restoration of historical fax rows and account state afterward.
+The installed logout/session-expiry check passed with zero findings, including a
+bounded service-journal interval whose starting and ending cursors were verified.
+All 31 new journal-source regression cases passed. The pagination check reached
+the chart but skipped for missing chart-visible single/multipage fixtures; this
+is recorded as incomplete coverage, not a pass.
+
 The Rx browser fixtures now select their owned synthetic sender, reject account
 and queued-job collisions, and validate the actual sender/destination before a
 fax POST reaches the application. All three checks accept a strictly validated
@@ -345,6 +379,25 @@ Full browser, corpus and isolated ON-import/BC-profile results
 will be recorded after their respective runs. Missing validation fixtures are
 prepared with private baselines and ownership journals, without treating a
 fixture-dependent skip as a pass.
+
+The continued multi-user review added corrections awaiting the next complete
+application build and installed validation. Simultaneous eForm imports now use
+separate staging directories and atomically publish complete images without
+replacing another import's image. Incoming-document page counting shares bounded
+PDF admission. Filing and page edits serialize per source; terminal removal
+invalidates queued requests even when another upload reuses the filename. Failed
+publication retains the original PDF, and same-name recycled documents receive
+unused suffixes. Filing, preview, upload and refile routes enforce patient and
+named-queue access at their applicable boundaries.
+
+Incoming filing explicitly distinguishes unaccepted capacity refusal from an
+uncertain or partial filing; only the former retries automatically. Recovery
+retains the originating tab's queue and entry mode across other sessions'
+preference changes. eForm preview, requested download/archive and fax preparation
+have cancellable capacity recovery. Saved-form continuations preserve patient,
+operation and one-use authorization and never resubmit the original clinical
+save. Fax preparation recovery never queues or sends a fax. These paths still
+require the fresh installed-package/browser run.
 
 The iteration 3 full browser run stopped on its first check after reproducing a
 cold annotation page-load failure. A subsequent two-session prototype with browser
@@ -361,7 +414,10 @@ rated A and zero open bug findings. Two subsequently posted SpotBugs annotations
 on the incoming-preview capacity response were addressed in `539e46847e` and
 resolved with regression evidence: exact case-sensitive `GET` controls retries,
 and a hostile-context-path test verifies the existing context-specific HTML
-encoding. That revision's final CI and installed checks remain pending.
+encoding. At `c1ae576263`, all checks completed: 41 succeeded, six skipped and one was
+neutral; DCO and combined statuses also succeeded. CodeRabbit explicitly skipped
+review because the 624-file promotion exceeds its 300-file limit. The new
+iteration 7 changes require their own CI and installed validation.
 
 ## Migration and publication requirements
 

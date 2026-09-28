@@ -73,6 +73,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -81,6 +82,9 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     @Mock
     private DocumentDao documentDao;
+
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.DemographicDao incomingDemographicDao;
 
     @Mock
     private QueueDao queueDao;
@@ -141,7 +145,10 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         registerMock(DocumentDao.class, documentDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class, incomingDemographicDao);
         registerMock(QueueDao.class, queueDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class,
+                Mockito.mock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class));
         registerMock(CtlDocumentDao.class, ctlDocumentDao);
         registerMock(ProviderInboxRoutingDao.class, providerInboxRoutingDao);
         registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
@@ -229,6 +236,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "7");
+        when(securityInfoManager.hasPrivilege(any(), eq("_queue.7"), eq("r"), isNull())).thenReturn(true);
         Document document = new Document();
         document.setDocfilename("stored.pdf");
         when(documentDao.find(42)).thenReturn(document);
@@ -244,6 +252,37 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             edocUtil.verify(() -> EDocUtil.refileDocument("42", "7"));
         }
+    }
+
+    @Test
+    void shouldDenyRefileDestinationBeforeReadingDocument() {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "2");
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            edocUtil.verifyNoInteractions();
+        }
+        verifyNoInteractions(documentDao, ctlDocumentDao, queueDao);
+    }
+
+    @Test
+    void shouldDenyRefileSourcePatientBeforeReadingDocumentBytes() {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "1");
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(100)));
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            edocUtil.verifyNoInteractions();
+        }
+        verifyNoInteractions(documentDao, queueDao);
     }
 
     @Test
@@ -271,6 +310,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "7");
+        when(securityInfoManager.hasPrivilege(any(), eq("_queue.7"), eq("r"), isNull())).thenReturn(true);
 
         try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
             String result = action.execute();
@@ -289,6 +329,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "7");
+        when(securityInfoManager.hasPrivilege(any(), eq("_queue.7"), eq("r"), isNull())).thenReturn(true);
         Document document = new Document();
         document.setDocfilename("stored.pdf");
         when(documentDao.find(42)).thenReturn(document);
@@ -310,6 +351,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "7");
+        when(securityInfoManager.hasPrivilege(any(), eq("_queue.7"), eq("r"), isNull())).thenReturn(true);
         when(documentDao.find(42)).thenReturn(new Document());
 
         try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
@@ -755,6 +797,22 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         return file;
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"viewIncomingDocPageAsPdf", "viewIncomingDocPageAsImage", "displayIncomingDocs"})
+    void shouldDenyNamedIncomingQueueBeforeAnyFileOrCacheAccess(String method) throws Exception {
+        authorizeIncomingPreview("private.pdf");
+        request.setParameter("method", method);
+        request.setParameter("queueId", "2");
+        try (MockedStatic<io.github.carlos_emr.carlos.documentManager.IncomingDocUtil> incoming = Mockito.mockStatic(io.github.carlos_emr.carlos.documentManager.IncomingDocUtil.class)) {
+            assertThat(action.execute()).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            incoming.verifyNoInteractions();
+        }
+        verify(securityInfoManager).hasPrivilege(any(), eq("_queue.2"), eq("r"), isNull());
+        verifyNoInteractions(documentDao);
+    }
+
     private void authorizeIncomingPreview(String filename) {
         authorizeEdocWrite();
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
@@ -800,14 +858,16 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldLogWarning_whenProviderRoutingDenied() throws Exception {
+    void shouldPropagateFailure_whenProviderRoutingDenied() throws Exception {
         doThrow(new SecurityException("missing _edoc")).when(providerInboxRoutingDao)
                 .addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
         Method route = ManageDocument2Action.class.getDeclaredMethod(
-                "routeDocumentToProviders", String[].class, String.class, String.class);
+                "routeDocumentToProviders", String[].class, String.class);
         route.setAccessible(true);
 
-        route.invoke(action, new String[] { "999998" }, "42", "100");
+        assertThatThrownBy(() -> route.invoke(action, new String[] { "999998" }, "42"))
+                .isInstanceOf(java.lang.reflect.InvocationTargetException.class)
+                .hasCauseInstanceOf(SecurityException.class);
 
         verify(providerInboxRoutingDao).addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
     }
@@ -898,9 +958,9 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({
             "queue1/evil,Fax",
-            "queue1,Fax/evil",
+            "1,Fax/evil",
             "../queue1,Fax",
-            "queue1,..\\Fax"
+            "1,..\\Fax"
     })
     @DisplayName("Rejects incoming document directory parameters with path components")
     void shouldRejectIncomingDocumentDirectoryParameters_whenPathComponentsProvided(String queueId, String pdfDir) throws Exception {
@@ -927,13 +987,14 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("Rejects missing incoming source files")
-    void shouldThrowSecurityException_whenIncomingDocumentSourceFileIsMissing() throws Exception {
+    void shouldReturnKnownUnaccepted_whenIncomingDocumentSourceFileIsMissing() throws Exception {
         configureIncomingDocumentDirectories();
         setupSuccessfulAddIncomingRequest("missing.pdf");
-
-        assertThatThrownBy(() -> action.addIncomingDocument())
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("regular file");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        assertThat(action.addIncomingDocument()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(422);
+        assertThat(response.getContentAsString()).contains("\"accepted\":false", "\"retryable\":false");
+        assertThat(action.pageCountRequests).isZero();
     }
 
     @Test
@@ -991,8 +1052,8 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("Returns an action error and deletes the source when the incoming move fails")
-    void shouldReturnErrorAndDeleteSource_whenIncomingDocumentMoveFails() throws Exception {
+    @DisplayName("Returns an action error and preserves the exact source when the incoming move fails")
+    void shouldReturnErrorAndPreserveSource_whenIncomingDocumentMoveFails() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         Path sourceFile = createIncomingSource(incomingDir, "move-fails.pdf", "source-content");
         setupSuccessfulAddIncomingRequest("move-fails.pdf");
@@ -1002,7 +1063,8 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("error");
         assertThat(action.getActionErrors()).contains("Failed to save document file. Please try again or contact your system administrator.");
-        assertThat(sourceFile).doesNotExist();
+        assertThat(sourceFile).exists();
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
         assertThat(listStoredDocuments()).isEmpty();
     }
 
@@ -1047,6 +1109,162 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
                 .hasMessageContaining("DOCUMENT_DIR is not a directory");
     }
 
+    @Test
+    @DisplayName("Capacity refusal occurs before moving source or filing any document")
+    void shouldPreserveSourceAndRefuseBeforeAcceptance_whenCapacityBusy() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "busy.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("busy.pdf");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        action.capacityBusy = true;
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            assertThat(action.addIncomingDocument()).isEqualTo("none");
+            edocUtil.verify(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class)), Mockito.never());
+        }
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getHeader("Retry-After")).isEqualTo("1");
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(payload.path("accepted").asBoolean(true)).isFalse();
+        assertThat(payload.path("retryable").asBoolean()).isTrue();
+        assertThat(payload.path("success").asBoolean(true)).isFalse();
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+        assertThat(action.pageCountRequests).isEqualTo(1);
+        Mockito.verifyNoInteractions(providerInboxRoutingDao);
+    }
+
+    @Test
+    @DisplayName("Contract callers receive a confirmed document ID and read-only next URL after filing")
+    void shouldConfirmContractSuccessAfterFiling() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "accepted.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("accepted.pdf");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        assertThat(runAddIncomingDocumentWithEdocMock()).isEqualTo("none");
+        assertThat(sourceFile).doesNotExist();
+        assertThat(listStoredDocuments()).hasSize(1);
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(payload.path("success").asBoolean()).isTrue();
+        assertThat(payload.path("accepted").asBoolean()).isTrue();
+        assertThat(payload.path("documentNo").asInt()).isEqualTo(42);
+        assertThat(payload.path("nextUrl").asText()).contains("/documentManager/ViewIncomingDocs?")
+                .doesNotContain("addIncomingDocument", "pdfAction", "accepted.pdf");
+    }
+
+    @Test
+    @DisplayName("Page-count execution failure refuses filing before moving source and is not auto-retryable")
+    void shouldPreserveSourceOnPageCountExecutionFailure() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "timeout.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("timeout.pdf");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        action.pageCountFailure = true;
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            assertThat(action.addIncomingDocument()).isEqualTo("none");
+            edocUtil.verify(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class)), Mockito.never());
+        }
+        assertThat(response.getStatus()).isEqualTo(422);
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(payload.path("accepted").asBoolean(true)).isFalse();
+        assertThat(payload.path("retryable").asBoolean(true)).isFalse();
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Post-filing routing/link failure is visible and never invites automatic resubmission")
+    void shouldReportUnconfirmedFollowupAfterFiling() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "followup.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("followup.pdf");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        when(ctlDocumentDao.getCtrlDocument(42)).thenThrow(new IllegalStateException("private failure"));
+        assertThat(runAddIncomingDocumentWithEdocMock()).isEqualTo("none");
+        assertThat(sourceFile).doesNotExist();
+        assertThat(listStoredDocuments()).hasSize(1);
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(payload.path("accepted").asBoolean()).isTrue();
+        assertThat(payload.path("success").asBoolean(true)).isFalse();
+        assertThat(payload.path("retryable").asBoolean(true)).isFalse();
+        assertThat(response.getContentAsString()).doesNotContain("private failure");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldReportUnconfirmedWhenPersistenceThrowsAfterMove(boolean contract) throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "persistence.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("persistence.pdf");
+        if (contract) request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            edocUtil.when(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class)))
+                    .thenThrow(new IllegalStateException("private persistence failure"));
+            assertThat(action.addIncomingDocument()).isEqualTo("none");
+        }
+        assertThat(sourceFile).doesNotExist();
+        assertThat(listStoredDocuments()).hasSize(1);
+        assertThat(Files.readString(listStoredDocuments().get(0))).isEqualTo("source-content");
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentAsString()).doesNotContain("private persistence failure", "<form", "Retry saving");
+        if (contract) assertThat(response.getContentAsString()).contains("\"accepted\":true", "\"success\":false", "\"retryable\":false");
+        else assertThat(response.getContentAsString()).contains("could not be confirmed");
+        verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
+    }
+
+    @Test
+    void shouldReportUnconfirmedWhenSelectedProviderRoutingFails() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "routing.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("routing.pdf");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        request.setParameter("flagproviders", "999998");
+        doThrow(new SecurityException("private denial")).when(providerInboxRoutingDao)
+                .addToProviderInbox("999998", 42, LabResultData.DOCUMENT);
+        assertThat(runAddIncomingDocumentWithEdocMock()).isEqualTo("none");
+        assertThat(sourceFile).doesNotExist();
+        assertThat(listStoredDocuments()).hasSize(1);
+        assertThat(response.getContentAsString()).contains("\"accepted\":true", "\"success\":false", "\"retryable\":false")
+                .doesNotContain("private denial");
+        verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
+    }
+
+    @Test
+    @DisplayName("Invalid, missing or denied patient stops before page parsing or a source move")
+    void shouldRefuseInvalidOrInaccessibleIncomingPatients() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "patient-gate.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("patient-gate.pdf");
+        for (String invalid : new String[] {"0", "-1", "2147483648", "100 OR 1=1"}) {
+            request.setParameter("demog", invalid);
+            assertThatThrownBy(() -> action.addIncomingDocument()).isInstanceOf(IllegalArgumentException.class);
+        }
+        request.setParameter("demog", "100");
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(100))).thenReturn(false);
+        assertThatThrownBy(() -> action.addIncomingDocument()).isInstanceOf(SecurityException.class);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), eq("100"))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(100))).thenReturn(true);
+        when(incomingDemographicDao.getDemographic("100")).thenReturn(null);
+        assertThatThrownBy(() -> action.addIncomingDocument()).isInstanceOf(IllegalArgumentException.class);
+        assertThat(action.pageCountRequests).isZero();
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+        Mockito.verifyNoInteractions(providerInboxRoutingDao);
+    }
+
+    @Test
+    @DisplayName("Patient access revoked during admission refuses the later move")
+    void shouldRevalidatePatientAccessAfterCounting() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "revoked.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("revoked.pdf");
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(100))).thenReturn(true, false);
+        assertThatThrownBy(() -> action.addIncomingDocument()).isInstanceOf(SecurityException.class);
+        assertThat(action.pageCountRequests).isEqualTo(1);
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+    }
+
     private Path configureIncomingDocumentDirectories() throws IOException {
         Path incomingRoot = tempDir.resolve("incoming");
         Path documentRoot = tempDir.resolve("documents");
@@ -1054,7 +1272,28 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         Files.createDirectories(documentRoot);
         CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingRoot.toString());
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentRoot.toString());
-        return Files.createDirectories(incomingRoot.resolve("queue1").resolve("Fax"));
+        return Files.createDirectories(incomingRoot.resolve("1").resolve("Fax"));
+    }
+
+    @Test
+    void shouldDenyPatientSpecificWriteBeforeInspectingQueueOrSource() throws Exception {
+        setupSuccessfulAddIncomingRequest("missing.pdf");
+        request.setParameter("queueId", "../../invalid");
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), eq("100"))).thenReturn(false);
+        assertThatThrownBy(() -> action.addIncomingDocument()).isInstanceOf(SecurityException.class)
+                .hasMessageContaining("patient's records");
+        assertThat(action.pageCountRequests).isZero();
+        verifyNoInteractions(incomingDemographicDao, patientLabRoutingDao, ctlDocumentDao);
+    }
+
+    @Test
+    void shouldDenyRestrictedQueueBeforeParsingOrMovingSource() throws Exception {
+        setupSuccessfulAddIncomingRequest("missing.pdf");
+        request.setParameter("queueId", "2");
+        assertThatThrownBy(() -> action.addIncomingDocument()).isInstanceOf(SecurityException.class)
+                .hasMessageContaining("document queue");
+        assertThat(action.pageCountRequests).isZero();
+        verifyNoInteractions(patientLabRoutingDao, ctlDocumentDao);
     }
 
     private Path createIncomingSource(Path incomingDir, String fileName, String content) throws IOException {
@@ -1069,7 +1308,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         loggedInInfo.setLoggedInProvider(provider);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
-        request.setParameter("queueId", "queue1");
+        request.setParameter("queueId", "1");
         request.setParameter("pdfDir", "Fax");
         request.setParameter("pdfName", pdfName);
         request.setParameter("demog", "100");
@@ -1079,6 +1318,9 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("docClass", "class");
         request.setParameter("docSubClass", "subclass");
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), eq("100"))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(100))).thenReturn(true);
+        when(incomingDemographicDao.getDemographic("100")).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
         when(programManager.getCurrentProgramInDomain(any(), anyString())).thenReturn(null);
         when(patientLabRoutingDao.findByLabNoAndLabType(anyInt(), anyString())).thenReturn(Collections.emptyList());
         when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(nonDemographicCtlDocument());
@@ -1136,11 +1378,16 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
     private static final class TestManageDocument2Action extends ManageDocument2Action {
         private boolean failMove;
+        private boolean capacityBusy;
+        private boolean pageCountFailure;
         private int pageCountRequests;
 
         @Override
-        public int countNumOfPages(String fileName) {
+        protected int countIncomingDocumentPages(File source) throws IOException {
             pageCountRequests++;
+            assertThat(source).exists();
+            if (capacityBusy) throw new io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException();
+            if (pageCountFailure) throw new IOException("synthetic execution deadline");
             return 1;
         }
 

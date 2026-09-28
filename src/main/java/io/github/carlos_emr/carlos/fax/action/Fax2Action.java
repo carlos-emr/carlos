@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCapacityResponse;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -78,6 +79,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.pdfbox.Loader;
 import org.springframework.http.ContentDisposition;
@@ -875,6 +877,18 @@ public class Fax2Action extends ActionSupport {
                                 pdfPath != null && Files.exists(pdfPath));
                     }
                 } catch (PDFGenerationException e) {
+                    if (e.isRetryable()) {
+                        Map<String, String> continuation = new java.util.LinkedHashMap<>();
+                        continuation.put("method", "prepareFax");
+                        continuation.put("transactionType", "EFORM");
+                        continuation.put("transactionId", String.valueOf(transactionId));
+                        continuation.put("demographicNo", storedDemographicNo);
+                        if (recipient != null) continuation.put("recipient", recipient);
+                        if (recipientFaxNumber != null) continuation.put("recipientFaxNumber", recipientFaxNumber);
+                        if (letterheadFax != null) continuation.put("letterheadFax", letterheadFax);
+                        return EFormRenderCapacityResponse.offer(request, response,
+                                EFormRenderApprovalService.Operation.FAX, continuation);
+                    }
                     logger.error("eForm fax PDF preparation failed ({})", e.getClass().getSimpleName());
                     String errorMessage = "This eForm and its attachments could not be prepared for faxing. No fax was queued. Please retry or contact your administrator.";
                     request.setAttribute("errorMessage", errorMessage);

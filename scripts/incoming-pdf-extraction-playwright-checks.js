@@ -7,6 +7,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const {checkIncomingPreviewCapacity} = require('./lib/incoming-preview-capacity-check');
+const {checkIncomingFilingCapacity} = require('./lib/incoming-filing-capacity-check');
 
 function fixturePdf(marker) {
   const objects = ['<< /Type /Catalog /Pages 2 0 R >>',
@@ -248,6 +249,8 @@ async function workflow(s) {
     await reloadAfter(() => page.locator('#SelectPdfList').selectOption(name));
     h.assert(await page.locator('#SelectPageList option').count() === 2, 'Single remaining page did not reopen');
   });
+  await s.step('preserve filing inputs on uncertain acceptance and wait through five refusals before one installed filing',
+    () => checkIncomingFilingCapacity(s, page, name, source, inspect));
 }
-if (require.main === module) runWorkflow('incoming-pdf-extraction', workflow, { openPatient: false });
+if (require.main === module) runWorkflow('incoming-pdf-extraction', workflow, { openPatient: true, openMaster: false });
 module.exports = { assertClassicPdfFinalized, fixturePdf, inspect, workflow };

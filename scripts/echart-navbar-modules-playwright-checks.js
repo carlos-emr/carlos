@@ -202,7 +202,10 @@ async function main() {
     // discarded.
     assertStrictPage(recorder, ['login', 'patient-search', 'master-record', 'echart']);
 
-    const items = dedupe(await catalogueLinks(chartPage, { selector: NAVBAR_SELECTOR }));
+    // Closing a destination can legitimately refresh one module and insert
+    // links ahead of later items. Preserve each original destination/handler
+    // and module ancestry, rather than treating its first DOM index as stable.
+    const items = dedupe(await catalogueLinks(chartPage, { selector: NAVBAR_SELECTOR, identity: true }));
     assert(items.length > 0,
       'The eChart navigation loaded but offered no navigable links');
 
@@ -216,6 +219,7 @@ async function main() {
       limit,
       timeout,
       screenshotDir,
+      beforeItem: () => waitForNavbars(chartPage, timeout),
       beforePopupClose: page => releaseChartLocks(context, config.baseUrl, [page]),
     });
 

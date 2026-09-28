@@ -354,6 +354,44 @@ tool shares its name, language, and overlapping verb set (`check`, `db`,
 `rotate`) with the carlos-podman deployment's `carlos-ctl`, so operators can
 move between the two without relearning.
 
+### Incoming document storage
+
+The filesystems containing `DOCUMENT_DIR`, the incoming queues under
+`INCOMINGDOCUMENT_DIR`, and their `*_deleted` recycle directories must support
+hard links. The CARLOS service account needs permission to create private staging
+directories, publish files and remove the source. Incoming files and the document
+store can be on different filesystems: filing prepares a complete copy on the
+destination filesystem before publishing it. Reserve space for one full copy per
+concurrent filing or recycle operation, in addition to PDF-edit scratch space.
+
+Publication never replaces an existing destination. Filing and recycling choose
+an unused filename; extraction reports an existing output name for the operator
+to resolve. Copy, storage-capacity or unsupported-hard-link failures preserve the
+queued source. If source removal fails after publication, CARLOS attempts to remove
+only its own published copy. Cleanup failures are logged and require inspection;
+they do not justify deleting another document or resubmitting an uncertain filing.
+
+Sessions in one CARLOS JVM wait fairly when editing or filing the same incoming
+file. Other files remain independent. This source coordination does not span
+multiple application JVMs sharing one incoming queue. Capacity refusals explicitly
+confirmed as unaccepted can retry automatically; an uncertain or partial filing
+requires checking the patient's documents before another submission.
+
+Normal completion removes private `.carlos-publication-*` staging directories.
+An abrupt shutdown can leave staging or a published copy requiring reconciliation.
+Stop incoming work and compare the source, destination and document record before
+removing an artifact or retrying; these directories are not automatically reaped.
+
+### eForm rendering waits
+
+Download and archive continuations retry the already-saved eForm; they do not
+repeat its clinical save. An omission approval keeps its original two-minute
+lifetime while capacity is unavailable. A one-use capacity receipt remains valid
+for two minutes from its own issuance, bound to the same session, provider,
+patient, form and operation. If omission consent expires during the waiting
+page's delay, the continuation renders without that consent and prompts again for
+any missing content. Expired, missing or spent receipts do not restart an archive.
+
 ### Upgrades
 
 An upgrade is `apt install` of the newer packages — same command as the

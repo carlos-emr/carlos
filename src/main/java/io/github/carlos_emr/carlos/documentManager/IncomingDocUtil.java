@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import org.openpdf.text.Document;
 import org.openpdf.text.pdf.PdfCopy;
@@ -41,14 +42,10 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -295,20 +292,16 @@ public final class IncomingDocUtil {
      * @param queueId String the incoming document queue identifier
      * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile)
      * @param pdfName String the PDF filename
-     * @return int the number of pages, or 0 if the file cannot be read
+     * @return int the number of pages
+     * @throws IOException when capacity is unavailable or the PDF cannot be read
      */
-    public static int getNumOfPages(String queueId, String pdfDir, String pdfName) {
+    public static int getNumOfPages(String queueId, String pdfDir, String pdfName) throws IOException {
         String filePath = getIncomingDocumentFilePathName(queueId, pdfDir, pdfName);
-        int numOfPages = 0;
-        try (PdfReader reader = new PdfReader(filePath)) {
-            numOfPages = reader.getNumberOfPages();
-        } catch (org.openpdf.text.exceptions.BadPasswordException e) {
-            MiscUtils.getLogger().error("Cannot read page count - PDF is password-protected: {}",
-                    LogSafe.sanitize(filePath), e);
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Cannot read page count for PDF file: {}", LogSafe.sanitize(filePath), e);
-        }
-        return numOfPages;
+        return BoundedPdfTask.runWithin(30, "incoming-document-pagecount", () -> {
+            try (PdfReader reader = new PdfReader(filePath)) {
+                return reader.getNumberOfPages();
+            }
+        });
     }
 
     /**
@@ -537,6 +530,26 @@ public final class IncomingDocUtil {
         }
     }
 
+    @FunctionalInterface
+    private interface IncomingMutation { void run() throws Exception; }
+
+    private static void mutateIncomingDocument(String queueId, String directory, String filename,
+                                               IncomingMutation mutation) throws Exception {
+        mutateIncomingDocument(queueId, directory, filename, false, mutation);
+    }
+
+    private static void mutateIncomingDocument(String queueId, String directory, String filename,
+                                               boolean removesSource, IncomingMutation mutation) throws Exception {
+        File base = new File(getIncomingDocumentFilePath(queueId, directory));
+        File source = new File(getIncomingDocumentFilePathName(queueId, directory, filename));
+        try (IncomingDocumentMutationLock.Lease lease = IncomingDocumentMutationLock.acquire(source, base)) {
+            // All five page-edit/delete entry points use the same lock as filing.
+            // Their work stays synchronous: a lease cannot outlive a mutation worker.
+            mutation.run();
+            if (removesSource) lease.sourceRemoved();
+        }
+    }
+
     /**
      * Rotates a single page of a PDF document by the specified number of degrees.
      * Uses OpenPDF PdfStamper to modify the page rotation in-place. The original
@@ -552,6 +565,11 @@ public final class IncomingDocUtil {
     // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotatePage(String queueId, String myPdfDir, String myPdfName, String MyPdfPageNumber, int degrees) throws Exception {
+        mutateIncomingDocument(queueId, myPdfDir, myPdfName, () -> rotatePageLocked(queueId, myPdfDir, myPdfName, MyPdfPageNumber, degrees));
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "source and scratch paths are validated for configured queue containment before use")
+    private static void rotatePageLocked(String queueId, String myPdfDir, String myPdfName, String MyPdfPageNumber, int degrees) throws Exception {
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
 
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
@@ -607,6 +625,11 @@ public final class IncomingDocUtil {
     // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotateAlPages(String queueId, String myPdfDir, String myPdfName, int degrees) throws Exception {
+        mutateIncomingDocument(queueId, myPdfDir, myPdfName, () -> rotateAlPagesLocked(queueId, myPdfDir, myPdfName, degrees));
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "source and scratch paths are validated for configured queue containment before use")
+    private static void rotateAlPagesLocked(String queueId, String myPdfDir, String myPdfName, int degrees) throws Exception {
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
 
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
@@ -664,6 +687,11 @@ public final class IncomingDocUtil {
     // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void deletePage(String queueId, String myPdfDir, String myPdfName, String PageNumberToDelete) throws Exception {
+        mutateIncomingDocument(queueId, myPdfDir, myPdfName, () -> deletePageLocked(queueId, myPdfDir, myPdfName, PageNumberToDelete));
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "source and scratch paths are validated for configured queue containment before use")
+    private static void deletePageLocked(String queueId, String myPdfDir, String myPdfName, String PageNumberToDelete) throws Exception {
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
 
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
@@ -758,7 +786,7 @@ public final class IncomingDocUtil {
             File candidate = attempt == 1 ? target
                     : PathValidationUtils.validatePath(addPdfNameSuffix(name, "-" + attempt), dir);
             try {
-                Files.move(source.toPath(), candidate.toPath());
+                IncomingDocumentPublication.move(source, candidate);
                 return candidate;
             } catch (FileAlreadyExistsException e) {
                 // taken: try the next suffix
@@ -840,6 +868,11 @@ public final class IncomingDocUtil {
     // case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public static void extractPage(String queueId, String myPdfDir, String myPdfName, String pageNumbersToExtract) throws Exception {
+        mutateIncomingDocument(queueId, myPdfDir, myPdfName, () -> extractPageLocked(queueId, myPdfDir, myPdfName, pageNumbersToExtract));
+    }
+
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "validated queue-contained source and generated extraction paths; internal page selection values")
+    private static void extractPageLocked(String queueId, String myPdfDir, String myPdfName, String pageNumbersToExtract) throws Exception {
         myPdfName = validatePathComponent(myPdfName, "myPdfName");
 
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
@@ -863,8 +896,10 @@ public final class IncomingDocUtil {
         File scratch = null;
         boolean extractCreated = false;
         boolean replaced = false;
+        IncomingDocumentMutationLock.Lease destinationLease = null;
 
-        try (IncomingDocumentScratch work = IncomingDocumentScratch.create(new File(basePath))) {
+        try (IncomingDocumentScratch work = IncomingDocumentScratch.create(new File(basePath));
+             IncomingDocumentScratch extractedWork = IncomingDocumentScratch.create(extractBaseDir)) {
             scratch = work.file();
             // Work on private output; never change the source permissions during preparation.
             Throwable extractionFailure = null;
@@ -877,23 +912,16 @@ public final class IncomingDocUtil {
                 extractList = buildExtractList(pageNumbersToExtract, reader.getNumberOfPages());
 
                 copyFos = work.output();
-                // CREATE_NEW: an earlier extraction (or any queued document) under this name is
-                // someone's unfiled clinical document; overwriting it lost it without a trace.
                 try {
-                    // Keep incomplete clinical content private regardless of the process umask.
-                    // CREATE_NEW still refuses an existing queued document, including symlinks.
-                    extractFos = permissions == null
-                            ? Files.newOutputStream(validatedExtractFile.toPath(),
-                                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
-                            : Channels.newOutputStream(FileChannel.open(validatedExtractFile.toPath(),
-                                    Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE),
-                                    PosixFilePermissions.asFileAttribute(Set.of(
-                                            PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE))));
+                    destinationLease = IncomingDocumentMutationLock.reserveNewFile(validatedExtractFile, extractBaseDir);
                 } catch (FileAlreadyExistsException e) {
                     throw new Exception("A document named " + extractFileName
                             + " is already in this queue. File or delete it, then extract again.", e);
                 }
-                extractCreated = true;
+                // The extract stays private until both PDF writers have closed successfully.
+                // Hold its queue-name lease through publication/rollback so another filer
+                // cannot consume it before the source replacement has completed.
+                extractFos = extractedWork.output();
 
                 document = new Document(reader.getPageSizeWithRotation(1));
                 copy = new PdfCopy(document, copyFos);
@@ -912,27 +940,35 @@ public final class IncomingDocUtil {
             // Apply the original access mode before publishing; a failure must leave the source intact.
             if (permissions != null) {
                 Files.setPosixFilePermissions(scratch.toPath(), permissions);
-                Files.setPosixFilePermissions(validatedExtractFile.toPath(), permissions);
+                Files.setPosixFilePermissions(extractedWork.file().toPath(), permissions);
             }
+            // Hard-link publication is atomic and never replaces an existing queue file.
+            // Both files are in this directory; unsupported filesystems fail before the
+            // original is replaced. The scratch owner removes its private link on close.
+            Files.createLink(validatedExtractFile.toPath(), extractedWork.file().toPath());
+            extractCreated = true;
             Files.move(scratch.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING);
             replaced = true;
-        } finally {
-            if (!replaced) {
-                // Leave the queue exactly as it was: the source and its permissions untouched, no
-                // scratch file, and no half-written extract (but never one this call did not create).
-                deleteQuietly(scratch);
-                if (extractCreated) {
-                    deleteQuietly(validatedExtractFile);
-                }
+            // Both mtime carry-overs are cosmetic and deliberately not fatal.
+            if (!f.setLastModified(lastModified)) {
+                MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after extracting pages");
             }
-        }
-
-        // Both mtime carry-overs are cosmetic and deliberately not fatal.
-        if (!f.setLastModified(lastModified)) {
-            MiscUtils.getLogger().warn("Could not restore the last modified time of a queued document after extracting pages");
-        }
-        if (!validatedExtractFile.setLastModified(lastModified)) {
-            MiscUtils.getLogger().warn("Could not restore the last modified time of an extracted document");
+            if (!validatedExtractFile.setLastModified(lastModified)) {
+                MiscUtils.getLogger().warn("Could not restore the last modified time of an extracted document");
+            }
+        } finally {
+            try {
+                if (!replaced) {
+                    // Leave the queue exactly as it was: the source and its permissions untouched, no
+                    // scratch file, and no half-written extract (but never one this call did not create).
+                    deleteQuietly(scratch);
+                    if (extractCreated) {
+                        deleteQuietly(validatedExtractFile);
+                    }
+                }
+            } finally {
+                if (destinationLease != null) destinationLease.close();
+            }
         }
     }
 
@@ -1087,6 +1123,11 @@ public final class IncomingDocUtil {
     // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void DeletePDF(String queueId, String myPdfDir, String myPdfName) throws Exception {
+        mutateIncomingDocument(queueId, myPdfDir, myPdfName, true, () -> DeletePDFLocked(queueId, myPdfDir, myPdfName));
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "source and scratch paths are validated for configured queue containment before use")
+    private static void DeletePDFLocked(String queueId, String myPdfDir, String myPdfName) throws Exception {
         String filePathName;
         boolean success;
 
@@ -1103,11 +1144,9 @@ public final class IncomingDocUtil {
             String deletedPath = getIncomingDocumentDeletedFilePath(queueId, myPdfDir);
             File deleteDir = PathValidationUtils.validateConfiguredDirectory(deletedPath, "incoming deleted directory");
             File deletef = PathValidationUtils.validateGeneratedChildPath(myPdfName, deleteDir);
-            String deletePathName = deletef.getPath();
-            success = f.renameTo(deletef);
-            if (!success) {
-                throw new Exception("Error in renaming file from:" + filePathName + " to " + deletePathName);
-            }
+            // Repeated fax names must not overwrite an older recycled document.
+            // Publication also works when the recycle directory is another filesystem.
+            moveToUnusedName(f, deletef, deleteDir);
         } else {
             success = f.delete();
             if (!success) {
@@ -1269,6 +1308,8 @@ public final class IncomingDocUtil {
             }
             try {
                 rotatePage(queueIdStr, pdfDir, pdfName, pdfPageNumber, degree);
+            } catch (BoundedPdfTask.BusyException busy) {
+                throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
                 throw new Exception(filePathName + " : " + props.getString("dms.incomingDocs.cannotRotatePage") + pdfPageNumber);
@@ -1288,6 +1329,8 @@ public final class IncomingDocUtil {
             }
             try {
                 rotateAlPages(queueIdStr, pdfDir, pdfName, degree);
+            } catch (BoundedPdfTask.BusyException busy) {
+                throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
                 throw new Exception(filePathName + " : " + props.getString("dms.incomingDocs.cannotRotateAllPages"));
@@ -1298,6 +1341,8 @@ public final class IncomingDocUtil {
         if (pdfAction.equals("DeletePage")) {
             try {
                 deletePage(queueIdStr, pdfDir, pdfName, pdfPageNumber);
+            } catch (BoundedPdfTask.BusyException busy) {
+                throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
                 throw new Exception(filePathName + " : " + props.getString("dms.incomingDocs.cannotDeletePage") + pdfPageNumber);
@@ -1307,6 +1352,8 @@ public final class IncomingDocUtil {
         if (pdfAction.equals("DeletePDF")) {
             try {
                 DeletePDF(queueIdStr, pdfDir, pdfName);
+            } catch (BoundedPdfTask.BusyException busy) {
+                throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
                 throw new Exception(props.getString("dms.incomingDocs.cannotDelete") + filePathName);
@@ -1316,6 +1363,8 @@ public final class IncomingDocUtil {
         if (pdfAction.equals("ExtractPagePDF")) {
             try {
                 extractPage(queueIdStr, pdfDir, pdfName, pdfExtractPageNumber);
+            } catch (BoundedPdfTask.BusyException busy) {
+                throw busy;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
                 throw e;

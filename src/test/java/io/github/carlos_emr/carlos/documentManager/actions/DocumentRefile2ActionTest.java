@@ -68,6 +68,10 @@ class DocumentRefile2ActionTest extends CarlosUnitTestBase {
             .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class));
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
             .thenReturn(true);
 
@@ -160,4 +164,68 @@ class DocumentRefile2ActionTest extends CarlosUnitTestBase {
             .contains("/documentManager/ViewDocumentBrowser")
             .contains("categorykey=Inbox");
     }
+    @Test
+    void shouldRejectDeniedDestinationBeforeRefiling() {
+        action.setRefileDocumentNo("42");
+        action.setQueueId("2");
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        assertThat(action.refileCalls).isEmpty();
+        assertThat(mockResponse.getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    void shouldAllowAuthorizedNamedDestination() throws Exception {
+        action.setRefileDocumentNo("42");
+        action.setQueueId("2");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_queue.2", "r", (String) null)).thenReturn(true);
+        action.execute();
+        assertThat(action.refileCalls).singleElement().satisfies(call -> assertThat(call).containsExactly("42", "2"));
+    }
+
+    @Test
+    void shouldRejectDeniedSourceQueueBeforeRefilingIntoSharedQueue() {
+        var links = mock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class, links);
+        var source = new io.github.carlos_emr.carlos.commn.model.QueueDocumentLink();
+        source.setQueueId(2);
+        source.setStatus("A");
+        when(links.getQueueFromDocument(42)).thenReturn(List.of(source));
+        action.setRefileDocumentNo("42");
+        action.setQueueId("1");
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        assertThat(action.refileCalls).isEmpty();
+    }
+
+    @Test
+    void shouldAllowAccessibleActiveSourceWithoutRequiringHistoricalQueues() throws Exception {
+        var links = mock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class, links);
+        var historic = new io.github.carlos_emr.carlos.commn.model.QueueDocumentLink();
+        historic.setQueueId(2);
+        historic.setStatus("I");
+        var active = new io.github.carlos_emr.carlos.commn.model.QueueDocumentLink();
+        active.setQueueId(3);
+        active.setStatus("A");
+        when(links.getQueueFromDocument(42)).thenReturn(List.of(historic, active));
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_queue.3", "r", (String) null)).thenReturn(true);
+        action.setRefileDocumentNo("42");
+        action.setQueueId("1");
+        action.execute();
+        assertThat(action.refileCalls).hasSize(1);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_queue.2", "r", (String) null);
+    }
+
+    @Test
+    void shouldDenySourcePatientEvenWhenDestinationIsShared() {
+        var links = mock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class, links);
+        var source = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+        source.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 100, 42));
+        when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(source));
+        action.setRefileDocumentNo("42");
+        action.setQueueId("1");
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        assertThat(action.refileCalls).isEmpty();
+    }
+
 }

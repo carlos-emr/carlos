@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormSavedRenderResponse;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -167,15 +168,15 @@ public class SaveEFormAsEDoc2Action extends ActionSupport {
             request.setAttribute("isSuccess_Autoclose", "true");
             return "close";
         } catch (EformContentUnavailableException e) {
-            // Still incomplete: either no approval was supplied, or this render reported a different
-            // issue set than the approved one — the digest binds to the exact set.
-            logger.warn("Approved eForm eDoc archive still incomplete: fdid={} issues={}",
-                    fdidValue, e.getIssueCount());
-            request.setAttribute("error", "true");
-            request.setAttribute("errorMessage", message(
-                    request, EDOC_FAILURE_MESSAGE_KEY, EDOC_FAILURE_MESSAGE_FALLBACK));
-            return "error";
+            return EFormSavedRenderResponse.missing(request, renderApprovalService, loggedInInfo,
+                    e, fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.EDOC,
+                    approval, true);
         } catch (PDFGenerationException e) {
+            if (e.isRetryable()) {
+                return EFormSavedRenderResponse.busy(request, response, renderApprovalService, loggedInInfo,
+                        fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.EDOC,
+                        approval, true);
+            }
             logger.error("eForm eDoc archive failed: fdid={} type={}", fdidValue, e.getClass().getName());
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", message(

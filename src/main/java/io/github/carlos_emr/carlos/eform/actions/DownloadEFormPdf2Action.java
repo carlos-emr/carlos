@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormSavedRenderResponse;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -182,16 +183,15 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             request.setAttribute("fdid", fdid);
             return "download";
         } catch (EformContentUnavailableException e) {
-            // Still incomplete, either because no approval was supplied or because this render
-            // reported a different issue set than the one approved — the digest binds to the exact
-            // set, so a changed document cannot ride an older ticket.
-            logger.warn("Approved eForm download still incomplete: fdid={} issues={}",
-                    fdidValue, e.getIssueCount());
-            request.setAttribute("error", "true");
-            request.setAttribute("errorMessage", message(
-                    request, PDF_DOWNLOAD_FAILURE_MESSAGE_KEY, PDF_DOWNLOAD_FAILURE_MESSAGE_FALLBACK));
-            return "error";
+            return EFormSavedRenderResponse.missing(request, renderApprovalService, loggedInInfo,
+                    e, fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.DOWNLOAD,
+                    approval, "true".equals(request.getParameter("autoClose")));
         } catch (PDFGenerationException e) {
+            if (e.isRetryable()) {
+                return EFormSavedRenderResponse.busy(request, response, renderApprovalService, loggedInInfo,
+                        fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.DOWNLOAD,
+                        approval, "true".equals(request.getParameter("autoClose")));
+            }
             logger.error("eForm download render failed: fdid={} type={}", fdidValue, e.getClass().getName());
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", message(

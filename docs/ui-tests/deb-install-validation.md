@@ -866,7 +866,17 @@ Notes on the contract:
   are skipped before mutation because acknowledgement archives/deletes them.
 - `eform-consultation-acceptance` skips its stored image-layer template probe
   (with a `[skip]` note) unless `LIBRARY_EFORM_NAME` names a form that exists
-  in the library; the main acceptance workflow runs regardless.
+  in the library; the main acceptance workflow runs regardless. The default is
+  `Signature trick`. For a different genuine imported form, such as
+  `Regional Community Pain - Self Referral` from the original corpus ZIP,
+  set its exact stored name. The check uses Chromium's DOMParser to read the
+  manager editor's decoded template and derive the literal `${oscar_image_path}`
+  filenames of its unique `BGImage1` and `BGImage2` elements. Both runtime images
+  must match those exact filenames on the local `displayImage` endpoint, decode
+  at more than 100 pixels in each dimension, and have successful image responses.
+  Missing, duplicate, substituted or broken backgrounds fail; renaming assets
+  to match a different library's filenames is unnecessary. Import original ZIPs
+  through the production eForm import UI, preserving their HTML and images.
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
@@ -1837,3 +1847,73 @@ owner disappears. Mutation POSTs are never retried. The `document-pagination` ch
 five consecutive capacity responses followed by recovery, Split rotation/zoom, and an intercepted
 Split POST while waiting; no document is filed by that subcheck. These additions require the
 next installed validation run before their behavior is reported as verified.
+
+### Logout redirect checks with the installed service journal
+
+The Debian service writes application logs to journald. Run the browser check inside the
+installed validation guest with `CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service` and the usual
+private browser environment:
+
+```bash
+CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service npm run test:logout-redirect-playwright
+```
+
+Use an account that can read that service's system journal. Set exactly one of
+`CARLOS_LOG_JOURNAL_UNIT` and the existing `CARLOS_LOG_FILE` option; the latter retains its
+file-based behavior. The journal option requires an explicit `.service` unit and observes
+that unit in the current boot. It captures journal cursors before and after the browser
+journey, verifies both boundaries still exist, and scans only messages between them with
+the same response-commit and affected-action exception checks. An unchanged valid cursor
+means there were no new records and is a successful empty scan.
+
+Each journal command has a ten-second timeout and a 2 MiB output limit; the interval allows
+at most 10,000 new records. Access warnings, failed commands, malformed data, missing or
+vacuumed boundaries, and exceeded limits fail the check. Findings contain signal names and
+counts, without journal messages or command stderr. The result records `source: "journal"`
+and `checked: true` after a successful scan. If neither log option is configured, it records
+`source: "none"` and `checked: false`; that run supplies browser assertions only.
+
+Incoming queue concurrency checks now include page-count admission and filing admission.
+Run `incoming-pdf-extraction-playwright-checks.js` against the installed package with
+`INCOMINGDOCUMENT_DIR` and `RX_FAX_DOCUMENT_DIR` (or `DOCUMENT_DIR`) pointing to its
+actual incoming queue and document store. The workflow owns its synthetic patient
+and PDFs. It verifies that an ambiguous filing response preserves the entered
+patient and description without retrying, then injects five explicit pre-acceptance
+capacity refusals before allowing one real installed filing. Frozen form values,
+patient linkage, page count, stored PDF content and fixture cleanup are checked.
+
+The browser retries a filing POST only when the response explicitly says
+`accepted:false`, `retryable:true` and `success:false` with HTTP 503. Other failures
+stay visible; uncertain saves require checking the patient's documents. Page-count
+waiting uses a validated GET back to the same queue, never a replay of a previous
+page-edit POST. Incoming edits and filing share a fair per-source admission lease,
+so another session cannot recreate an already-filed source. Failed moves preserve
+the queued original. Patient-specific document write permission and queue access
+are rechecked before filing.
+
+### eForm attachment preview capacity recovery
+
+Attachment previews retain the renderer's fair two-slot, 30-second admission limit. An explicit
+pre-render capacity refusal returns HTTP 503 with `errorCode=eform_render_busy`, `retryable=true`
+and a bounded retry delay. The attachment dialog shows a cancellable waiting notice and sends
+one request at a time, adding jitter between attempts. Changing attachments, closing the dialog,
+or leaving the page cancels client retries. Other HTTP failures and uncertain network outcomes
+do not trigger automatic POST retries.
+
+When a clinician already approved exact omissions, a capacity response rotates that consumed
+ticket once. The replacement retains the original session, provider, requested form, patient,
+operation, issue digests and expiry. Waiting never extends consent. If consent expired while
+waiting, the next attempt runs without it and must obtain fresh approval for current omissions.
+Repeated omission prompts replace the approval parameter rather than appending stale tokens.
+
+Run `node --test scripts/document-preview-retry.test.js` for controller behavior and include
+`EFormRenderApprovalCapacityUnitTest`, `EFormRenderApprovalServiceUnitTest` and
+`DocumentPreview2ActionUnitTest` in the Java unit checks. The installed
+`scripts/eform-saved-render-playwright-checks.js` workflow now opens the actual attachment dialog,
+injects two explicit busy responses, then requires a genuine renderer PDF for its owned saved
+form. It also checks cancellation and refusal to retry an untyped 503. Those injected responses
+validate browser recovery; they are separate from a real concurrent-render capacity test.
+
+This recovery path applies to attachment previews. Saved-form download, eDoc archive and fax
+preparation are separate workflows and require their own continuation checks; the original
+`AddEForm` clinical save must never be replayed to retry a render.
