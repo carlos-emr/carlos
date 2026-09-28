@@ -105,9 +105,7 @@ public record PatientPortalSettings(
     private static final String BAD_PIN_MESSAGE =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
     private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
-    private static final String PLAINTEXT_MESSAGE =
-            "%s must begin with a lowercase https:// ; refusing to send the portal token over"
-                    + " plaintext";
+    private static final String PLAINTEXT_MESSAGE = "%s must begin with a lowercase https://";
     private static final String MALFORMED_MESSAGE = "%s is not a valid URL";
     private static final String NO_HOST_MESSAGE = "%s must name a host";
     private static final String PORT_MESSAGE = "%s must use a port between 1 and 65535";
