@@ -191,7 +191,7 @@ public interface PatientConsentManager {
      *
      * @return true if the record is now explicit (including when it already was); false when there
      *         is no live opt-in record to confirm or the consent type is inactive
-     * @throws RuntimeException when the caller lacks {@code _demographic} write privilege
+     * @throws SecurityException when the caller lacks {@code _demographic} write privilege on the patient
      */
     boolean recordExplicitConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId);
 

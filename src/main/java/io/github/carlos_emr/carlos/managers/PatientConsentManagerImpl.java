@@ -443,15 +443,18 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
     public boolean recordExplicitConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         ConsentType consentType = getConsentTypeByConsentTypeId(consentTypeId);
         if (consentType == null || !consentType.isActive()) {
             return false;
         }
+        // As every consent write: lock the patient first, so a concurrent save, clear or opt-out
+        // cannot change the record between this read and the merge below.
+        consentDao.lockPatientForConsentChange(demographic_no);
         Consent consent = ConsentRecords.effective(
-                consentDao.findLiveByDemographicAndConsentTypeId(demographic_no, consentTypeId));
+                consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographic_no, consentTypeId));
         if (consent == null || consent.isOptout()) {
             // Confirming consent the patient has refused, or never gave, is not an upgrade.
             return false;

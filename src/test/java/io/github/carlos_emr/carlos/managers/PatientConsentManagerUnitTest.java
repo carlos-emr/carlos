@@ -749,7 +749,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldUpgradeImpliedOptIn_toExplicit() {
             Consent implied = impliedOptIn();
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of(implied));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(implied));
             when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
             boolean result = manager.recordExplicitConsent(loggedInInfo, 100, 1);
@@ -763,12 +763,27 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should lock the patient before reading the record it confirms")
+        void shouldLockPatientBeforeReading_whenRecordingExplicitConsent() {
+            Consent implied = impliedOptIn();
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(implied));
+
+            manager.recordExplicitConsent(loggedInInfo, 100, 1);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+            order.verify(mockConsentDao).merge(implied);
+        }
+
+        @Test
         @DisplayName("should change nothing when the record is already explicit")
         void shouldLeaveRecordUntouched_whenAlreadyExplicit() {
             Consent explicit = consent(22, false, new Date(1_000L));
             explicit.setExplicit(true);
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of(explicit));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(explicit));
 
             assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isTrue();
             assertThat(explicit.getEditDate()).isEqualTo(new Date(1_000L));
@@ -780,7 +795,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldNotUpgrade_whenPatientOptedOut() {
             Consent optedOut = consent(23, true, new Date(1_000L));
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of(optedOut));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(optedOut));
 
             assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
             assertThat(optedOut.isExplicit()).isFalse();
@@ -791,7 +806,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse when there is no live record to confirm")
         void shouldNotUpgrade_whenNoLiveRecordExists() {
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of());
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of());
 
             assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
             verify(mockConsentDao, never()).merge(any());
@@ -816,8 +831,8 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
                     .thenReturn(false);
 
             assertThatThrownBy(() -> manager.recordExplicitConsent(loggedInInfo, 100, 1))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("Unauthorised Access");
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
             verifyNoInteractions(mockConsentDao);
         }
 
