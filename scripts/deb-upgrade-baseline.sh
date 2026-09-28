@@ -41,7 +41,10 @@ emit baseline.format 2
 for entry in 'carlos-emr:carlos-emr' 'drugref:carlos-emr-drugref' 'renderer:carlos-emr-eform-renderer' 'carlos-ctl:carlos-ctl'; do
     package=${entry#*:}
     if ! value=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null); then
-        [[ $package == carlos-ctl ]] || exit 1
+        # carlos-ctl predates its own package on old installs; the renderer
+        # (or its empty transitional successor) is absent on any install that
+        # never had a 2026.08.0-alpha17-or-earlier release.
+        [[ $package == carlos-ctl || $package == carlos-emr-eform-renderer ]] || exit 1
         value=''
     fi
     emit "pkg.${entry%%:*}" "$value"
