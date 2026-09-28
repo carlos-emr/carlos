@@ -159,7 +159,7 @@ public record PatientPortalSettings(
      *     neither {@code true} nor {@code false}, or the connection settings are absent or invalid
      */
     public static PatientPortalSettings fromCarlosProperties() {
-        return fromDeploymentProperties(key -> CarlosProperties.getInstance().getProperty(key));
+        return fromDeploymentProperties(PatientPortalSettings::rawProperty);
     }
 
     /**
@@ -194,9 +194,17 @@ public record PatientPortalSettings(
      *     connection settings are complete, which only {@link #fromCarlosProperties()} checks
      */
     public static boolean isConfigured() {
-        // get(), not getProperty(): this runs for every clinic, most of which have no portal, and
-        // getProperty() logs a missing-key warning that such a clinic should never see.
-        return isConfigured(key -> (String) CarlosProperties.getInstance().get(key));
+        return isConfigured(PatientPortalSettings::rawProperty);
+    }
+
+    /**
+     * Reads a value as written, bypassing {@code CarlosProperties.getProperty}. That method logs a
+     * WARN for every unset key, and it drops, and logs verbatim, any value beginning with a
+     * deprecated {@code oscar.} namespace: a random service token could begin that way and land in
+     * the log. Every portal key has its own default or is required, so nothing is lost.
+     */
+    private static String rawProperty(String key) {
+        return (String) CarlosProperties.getInstance().get(key);
     }
 
     static boolean isConfigured(Function<String, String> lookup) {

@@ -264,9 +264,10 @@ public abstract class PortalJsonAction extends ActionSupport {
     String write(HttpServletResponse response, int status, ObjectNode payload) throws IOException {
         response.setStatus(status);
         response.setContentType(JSON);
-        // These actions use Struts's .do suffix, which is not among the global no-cache filter's
-        // configured .jsp/.jsf/.json endings. Set this explicitly so patient-linked portal state and
-        // mutation outcomes do not remain in a browser or intermediary cache.
+        // These routes are extensionless, so the global no-cache filter, which applies no-cache
+        // only to the .jsp/.jsf/.json endings, never applies it to them. Set it explicitly so
+        // patient-linked portal state and mutation outcomes do not remain in a browser or
+        // intermediary cache.
         response.setHeader("Cache-Control", NO_CACHE);
         PrintWriter writer = response.getWriter();
         writer.write(OBJECT_MAPPER.writeValueAsString(payload));
@@ -327,11 +328,6 @@ public abstract class PortalJsonAction extends ActionSupport {
 
     String badRequest(HttpServletResponse response, String message) throws IOException {
         return failure(response, HttpServletResponse.SC_BAD_REQUEST, "bad_request", message);
-    }
-
-    String conflict(HttpServletResponse response, String reason, String message)
-            throws IOException {
-        return failure(response, HttpServletResponse.SC_CONFLICT, reason, message);
     }
 
     private String failure(

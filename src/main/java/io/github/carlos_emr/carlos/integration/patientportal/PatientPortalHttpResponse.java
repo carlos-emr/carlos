@@ -39,6 +39,11 @@ record PatientPortalHttpResponse(int statusCode, String body) {
     }
 
     boolean isSuccess() {
+        return isSuccess(statusCode);
+    }
+
+    /** Whether a status is 2xx; shared with the path that could not read the body. */
+    static boolean isSuccess(int statusCode) {
         return statusCode >= 200 && statusCode < 300;
     }
 
