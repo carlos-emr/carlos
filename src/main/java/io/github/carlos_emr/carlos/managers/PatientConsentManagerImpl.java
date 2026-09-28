@@ -33,10 +33,8 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsentDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsentRecords;
@@ -47,6 +45,8 @@ import io.github.carlos_emr.carlos.commn.model.DemographicData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -55,12 +55,28 @@ import io.github.carlos_emr.carlos.log.LogAction;
  * Manages the various consents required from patients for participation in specific programs
  * or to share health information with other providers.
  */
-// Class-level so that every public entry point, including the overloads that call each other,
-// runs the consent edit and the retirement of duplicate records in one transaction. A method-level
-// annotation is bypassed when another method of this class calls in (SonarCloud S2229).
+// Class-level so that every write entry point, including the overloads that call each other,
+// runs the consent edit, the retirement of duplicate records and their audit rows in one
+// transaction: a change to a patient's consent does not commit without its audit row. A
+// method-level annotation is bypassed when another method of this class calls in (SonarCloud
+// S2229). Reads are SUPPORTS: as before, they run without a transaction of their own, so a search
+// does not dirty-check every record it has loaded before each query, and a failed audit insert
+// does not fail the read.
+//
+// Writes run at READ COMMITTED, and writes to a patient's consent records first lock the patient's
+// row (ConsentDao.lockPatientForConsentChange), as lab routing does. Under MariaDB's default
+// REPEATABLE READ a concurrent save failed instead of waiting: two first saves each took only a gap
+// lock and deadlocked on insert (1213), and with innodb_snapshot_isolation=ON (the default from
+// 11.6) a save that waited on another's lock then failed with 1020 on reading the rows that one had
+// changed. Under READ COMMITTED the waiting save reads what the first one committed. Call the write
+// methods outside any existing transaction: joined to one, they run at the caller's isolation, and
+// at REPEATABLE READ those failures come back.
 @Service
-@Transactional
+@Transactional(isolation = Isolation.READ_COMMITTED)
 public class PatientConsentManagerImpl implements PatientConsentManager {
+
+    /** Audit-log content name for entries about one consent record. */
+    private static final String CONSENT_LOG_CONTENT = "consent";
 
     @Autowired
     private ConsentDao consentDao;
@@ -137,7 +153,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     public boolean addConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit, boolean optOut) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         return addEditConsentRecord(loggedinInfo, demographic_no, consentTypeId, explicit, optOut);
@@ -147,7 +163,11 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * Creates a new demographic consent record for the consent policy
      * identified by consentTypeId if one doesn't already exist, or updates
-     * the existing demographic consent record if a record already does exist
+     * the existing demographic consent record if a record already does exist.
+     * <p>
+     * When the patient has several live records of this type, the deciding one
+     * ({@link ConsentRecords#effective}) is updated and the others are soft-deleted, each
+     * audit-logged, so one live record remains.
      *
      * @param loggedinInfo   the user information for the current OSCAR user
      * @param demographic_no the demographic number of the patient
@@ -158,7 +178,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      */
     public boolean addEditConsentRecord(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit, boolean optOut) {
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.createConsent", " Demographic: " + demographic_no);
@@ -170,7 +190,10 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         if (consentType != null && consentType.isActive()) {
             // Edit the deciding record, the one staff were shown, and retire any other live
             // duplicates below so the chart ends with exactly one record (#3845).
-            List<Consent> live = consentDao.findLiveByDemographicAndConsentTypeId(demographic_no, consentType.getId());
+            // The patient lock is held until commit, so a concurrent save, clear or opt-out of this
+            // patient's consent waits, then reads this one's result.
+            consentDao.lockPatientForConsentChange(demographic_no);
+            List<Consent> live = consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographic_no, consentType.getId());
             Consent consent = ConsentRecords.effective(live);
             Date currentDate = null;
 
@@ -205,31 +228,27 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
                 consentDao.merge(consent);
                 addOrUpdateDbComplete = true;
             }
-            retireDuplicates(loggedinInfo, demographic_no, live, consent);
+            retireDuplicates(loggedinInfo, demographic_no, consentType.getId(), live, consent);
         }
 
         return addOrUpdateDbComplete;
     }
 
     /**
-     * Soft-deletes every live record other than {@code kept}. Nothing is destroyed: the rows stay
-     * for audit with {@code deleted} set, and each one retired is logged.
+     * Soft-deletes every live record other than {@code kept}. Only {@code deleted} is set: each
+     * row keeps its own author and edit date, since no one chose to change it, and the audit log
+     * records who retired it and when.
      */
-    private void retireDuplicates(LoggedInInfo loggedinInfo, int demographic_no, List<Consent> live, Consent kept) {
-        Date now = null;
+    private void retireDuplicates(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, List<Consent> live, Consent kept) {
         for (Consent duplicate : live) {
             if (duplicate == kept || duplicate.getId() == null || duplicate.getId().equals(kept.getId())) {
                 continue;
             }
-            if (now == null) {
-                now = new Date(System.currentTimeMillis());
-            }
             duplicate.setDeleted(Boolean.TRUE);
-            duplicate.setEditDate(now);
-            duplicate.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
             consentDao.merge(duplicate);
-            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.retireDuplicateConsent",
-                    " Demographic: " + demographic_no + " ConsentId: " + duplicate.getId() + " KeptConsentId: " + kept.getId());
+            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.retireDuplicateConsent", CONSENT_LOG_CONTENT,
+                    String.valueOf(duplicate.getId()), demographic_no, " Demographic: " + demographic_no
+                            + " ConsentTypeId: " + consentTypeId + " ConsentId: " + duplicate.getId() + " KeptConsentId: " + kept.getId());
         }
     }
 
@@ -237,15 +256,22 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * Used for removing consent from a patient Consent that was previously consented.
      * Ignored if the patient has never consented.
      * The normal state for consent is FALSE
+     * <p>
+     * Goes through {@link #addEditConsentRecord}, so the deciding record opts out and any other live
+     * duplicates are retired, as a chart save does. Requires write privilege on the patient.
      */
     public void optoutConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        // Lock before the first read, so the records read here are the ones the opt-out then edits.
+        consentDao.lockPatientForConsentChange(demographic_no);
 
-        // use this manager method in order to reduce repetitive use of the sec check.
         Consent consent = getConsentByDemographicAndConsentType(loggedinInfo, demographic_no, consentTypeId);
 
         if (consent != null) {
 
-            optoutConsent(loggedinInfo, consent);
+            addEditConsentRecord(loggedinInfo, demographic_no, consentTypeId, consent.isExplicit(), true);
 
             LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[demographic_no, consentID]", " Changing to Opt Out for Consent ConsentTypeId: "
                     + consentTypeId + " Demographic: " + demographic_no);
@@ -268,29 +294,51 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
     /**
      * Used for removing consent from a patient that previously consented. For a Consent object.
+     * A record that has been deleted or retired is left as it is.
      */
     public void optoutConsent(LoggedInInfo loggedinInfo, int consentId) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
-
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", " ConsentId: " + consentId);
 
         Consent consent = consentDao.find(consentId);
 
-        if (consent != null) {
-            Date date = new Date(System.currentTimeMillis());
-            consent.setOptout(Boolean.TRUE);
-            consent.setOptoutDate(date);
-            consent.setEditDate(date);
-            consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
-            consentDao.merge(consent);
+        if (consent != null && consent.getDemographicNo() != null) {
+            // The patient is known now, so honour per-patient restrictions as the other writes do.
+            if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE,
+                    consent.getDemographicNo())) {
+                throw new SecurityException("missing required sec object (_demographic)");
+            }
+            // Lock, then re-read the row: a concurrent clear or save may have changed or retired it
+            // since find(), and merging the stale copy would write the old values back.
+            consentDao.lockPatientForConsentChange(consent.getDemographicNo());
+            consentDao.refresh(consent);
         }
 
+        if (consent == null || consent.isDeleted()) {
+            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]",
+                    " ConsentId: " + consentId + " skipped: no live record");
+            return;
+        }
+
+        Date date = new Date(System.currentTimeMillis());
+        consent.setOptout(Boolean.TRUE);
+        consent.setOptoutDate(date);
+        consent.setEditDate(date);
+        consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
+        consentDao.merge(consent);
+        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", " ConsentId: " + consentId);
     }
 
+    /**
+     * Creates a consent type. Consent types are clinic configuration, so this requires write
+     * privilege on {@code _admin}.
+     */
     public ConsentType addConsentType(LoggedInInfo loggedinInfo, ConsentType consentType) {
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_admin", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
 
         LogAction.addLog(loggedinInfo.getLoggedInProviderNo(), "PatientConsentManager.addConsentType", consentType.getType(), consentType.toString());
 
@@ -302,6 +350,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * Returns a list of all the patient consent types currently active.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<ConsentType> getConsentTypes() {
 
         List<ConsentType> consentTypeList = null;
@@ -316,6 +365,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * @return the list of consent types that are currently marked as active
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<ConsentType> getActiveConsentTypes() {
         return consentTypeDao.findAllActive();
     }
@@ -324,6 +374,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * Returns a consent type by the consent type id.
      * This can be used to determine the consent program for a consent type id.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public ConsentType getConsentTypeByConsentTypeId(int consentTypeId) {
         return consentTypeDao.find(consentTypeId);
     }
@@ -332,6 +383,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * Returns a ConsentType by the consent program type. Used to get the id of a ConsentType
      * by its program name.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public ConsentType getConsentType(String type) {
         return consentTypeDao.findConsentType(type);
     }
@@ -339,6 +391,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     /**
      * Returns a list of patient consents given by a specified patient for a specific ConsentType ID.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public Consent getConsentByDemographicAndConsentType(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
         Consent consent = null;
         ConsentType consentType = getConsentTypeByConsentTypeId(consentTypeId);
@@ -352,9 +405,10 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * Returns a list of patient consents given by a specified patient for a specific ConsentType program.
      * Find the ConsentType object first with getConsentType( String type )
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public Consent getConsentByDemographicAndConsentType(LoggedInInfo loggedinInfo, int demographic_no, ConsentType consentType) {
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         if (consentType == null) {
@@ -367,28 +421,24 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         return consentDao.findByDemographicAndConsentTypeId(demographic_no, consentType.getId());
     }
 
+    /**
+     * Returns the deciding record for each consent type the patient has a live record for.
+     */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        // One record per type, chosen like every single lookup. The chart used to receive every
-        // live row and show whichever came last, which with duplicates need not be the one that
-        // decides (#3845).
-        Map<Integer, List<Consent>> liveByType = new LinkedHashMap<>();
-        for (Consent consent : consentDao.findByDemographic(demographic_no)) {
-            liveByType.computeIfAbsent(consent.getConsentTypeId(), typeId -> new ArrayList<>()).add(consent);
-        }
-        List<Consent> effective = new ArrayList<>(liveByType.size());
-        for (List<Consent> live : liveByType.values()) {
-            effective.add(ConsentRecords.effective(live));
-        }
+        // The chart shows these and writes the shown choice back on every save, so it must show the
+        // record that decides. Showing a duplicate opt-in would silently reverse an opt-out (#3845).
+        List<Consent> consent = ConsentRecords.effectivePerType(consentDao.findByDemographic(demographic_no));
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.getAllConsentsByDemographic",
                 " Demographic: " + demographic_no);
 
-        return effective;
+        return consent;
     }
 
     public boolean recordExplicitConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
@@ -430,6 +480,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * A boolean determination for if the patient has consented to the given ConsentType/program.
      * A consent is when the consent object exists AND if the patient has not Opted out.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public boolean hasPatientConsented(int demographic_no, ConsentType consentType) {
 
         Consent consent = null;
@@ -448,13 +499,23 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
     /**
      * Get all consents by the type indicated that were edited after the date given.
+     * <p>
+     * Returns every live record edited since then, duplicates included; its caller,
+     * {@code DemographicWs}, uses only the patient ids. Empty when there is no consent type.
      */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<Consent> getConsentsByTypeAndEditDate(LoggedInInfo loggedinInfo, ConsentType consentType, Date editedAfter) {
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (consentType == null) {
+            return new ArrayList<>();
+        }
 
         List<Consent> consentList = consentDao.findLastEditedByConsentTypeId(consentType.getId(), editedAfter);
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.getConsentsByTypeAndEditDate",
-                " Demographic: " + consentType);
+                " ConsentTypeId: " + consentType.getId());
 
         return consentList;
     }
@@ -463,31 +524,36 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      * Update Consent status to "deleted".
      * Just in case someone clicks the "Clear" button in the demographic interface because they changed their mind or
      * entered the Opt-in or Opt-out consent by mistake.
-     * It is assumed that a record of this should be kept. So this method will delete the consent and update the edit date.
+     * It is assumed that a record of this should be kept. So this method soft-deletes every live record of the
+     * type, duplicates included, setting its edit date and author, and audit-logs each one.
      * A new entry will be inserted into the table should the user change their mind again.
+     * Requires write privilege on the patient. An unknown or inactive consent type changes nothing.
      */
     public void deleteConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
-        // Deleting a consent changes the chart, so it needs write, like every other consent mutation here.
+        // Clearing a consent changes the chart, so it needs write privilege on the patient, as saving one does.
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.deleteConsent()", " Demographic: " + demographic_no);
-
-        // Delete every live record: with duplicates, deleting only one left the others deciding.
         ConsentType consentType = getConsentTypeByConsentTypeId(consentTypeId);
         if (consentType == null || !consentType.isActive()) {
             return;
         }
+        // Delete every live record: with duplicates, deleting only one left the others deciding.
+        consentDao.lockPatientForConsentChange(demographic_no);
         Date now = new Date(System.currentTimeMillis());
-        for (Consent consent : consentDao.findLiveByDemographicAndConsentTypeId(demographic_no, consentTypeId)) {
+        for (Consent consent : consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographic_no, consentTypeId)) {
             consent.setDeleted(Boolean.TRUE);
             consent.setEditDate(now);
             consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
             consentDao.merge(consent);
+            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.deleteConsent()", CONSENT_LOG_CONTENT,
+                    String.valueOf(consent.getId()), demographic_no,
+                    " Demographic: " + demographic_no + " ConsentTypeId: " + consentTypeId + " ConsentId: " + consent.getId());
         }
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
     public boolean hasProviderSpecificConsent(LoggedInInfo loggedInInfo) {
         ConsentType conType = consentTypeDao.findConsentTypeForProvider(ConsentType.PROVIDER_CONSENT_FILTER, loggedInInfo.getLoggedInProviderNo());
         if (conType == null) {
@@ -496,11 +562,13 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         return true;
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
     public ConsentType getProviderSpecificConsent(LoggedInInfo loggedInInfo) {
         ConsentType conType = consentTypeDao.findConsentTypeForProvider(ConsentType.PROVIDER_CONSENT_FILTER, loggedInInfo.getLoggedInProviderNo());
         return conType;
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<? extends DemographicData> filterProviderSpecificConsent(LoggedInInfo loggedInInfo, List<? extends DemographicData> demographicResults) {
         ConsentType consentType = getProviderSpecificConsent(loggedInInfo);
         if (consentType != null) {
@@ -516,6 +584,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         return demographicResults;
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<Integer> getAllDemographicsWithOptinConsentByType(LoggedInInfo loggedinInfo, ConsentType consentTypeId) {
         return consentDao.findAllDemoIdsConsentedToType(consentTypeId.getId());
     }

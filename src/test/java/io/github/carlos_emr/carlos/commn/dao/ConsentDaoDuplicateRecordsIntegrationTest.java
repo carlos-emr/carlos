@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
@@ -34,14 +35,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.annotation.Transactional;
 
 /** Duplicate live consent records must resolve deterministically and fail safe (#3845). */
 @DisplayName("ConsentDao duplicate records")
 @Tag("integration")
 @Tag("dao")
 @Tag("read")
-@Transactional
 class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
 
     @Autowired
@@ -63,10 +62,13 @@ class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
     }
 
     private Consent record(int demographicNo, boolean optout, boolean deleted, long editedAt) {
+        return record(emailType, demographicNo, optout, deleted, editedAt);
+    }
+
+    private Consent record(ConsentType type, int demographicNo, boolean optout, boolean deleted, long editedAt) {
         Consent consent = new Consent();
         consent.setDemographicNo(demographicNo);
-        consent.setConsentType(emailType);
-        consent.setConsentTypeId(emailType.getId());
+        consent.setConsentType(type);
         consent.setExplicit(true);
         consent.setOptout(optout);
         consent.setDeleted(deleted);
@@ -75,12 +77,18 @@ class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
         return consent;
     }
 
+    /** Detaches the fixtures, so the DAO reads its records back from the database. */
+    private void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
+    }
+
     @Test
     @DisplayName("should let a live opt-out decide over a newer live opt-in")
     void shouldReturnTheOptOut_whenLiveDuplicatesDisagree() {
         Consent optOut = record(501, true, false, 1_000L);
         record(501, false, false, 2_000L);
-        entityManager.flush();
+        flushAndClear();
 
         Consent deciding = consentDao.findByDemographicAndConsentTypeId(501, emailType.getId());
 
@@ -94,20 +102,69 @@ class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
         record(502, true, true, 3_000L);
         record(502, false, false, 1_000L);
         Consent newest = record(502, false, false, 2_000L);
-        entityManager.flush();
+        flushAndClear();
 
         assertThat(consentDao.findByDemographicAndConsentTypeId(502, emailType.getId()).getId()).isEqualTo(newest.getId());
         assertThat(consentDao.findLiveByDemographicAndConsentTypeId(502, emailType.getId()))
-                .extracting(Consent::getEditDate).containsExactly(new Date(2_000L), new Date(1_000L));
+                .extracting(consent -> consent.getEditDate().getTime()).containsExactly(2_000L, 1_000L);
     }
 
     @Test
     @DisplayName("should not return a deleted record from the lookup by type name")
     void shouldExcludeDeletedRecords_whenLookingUpByTypeName() {
         record(503, false, true, 1_000L);
-        entityManager.flush();
+        flushAndClear();
 
         assertThat(consentDao.findByDemographicAndConsentType(503, "dup_test_email_consent")).isNull();
+    }
+
+    @Test
+    @DisplayName("should let a live opt-out decide in the lookup by type name, as DHIR submissions use it")
+    void shouldReturnTheOptOut_whenLookingUpDuplicatesByTypeName() {
+        // Opposite insert orders, so neither the lowest nor the highest id can pass for the rule.
+        record(507, false, false, 2_000L);
+        Consent optOutInsertedLast = record(507, true, false, 1_000L);
+        Consent optOutInsertedFirst = record(508, true, false, 1_000L);
+        record(508, false, false, 2_000L);
+        flushAndClear();
+
+        assertThat(consentDao.findByDemographicAndConsentType(507, "dup_test_email_consent").getId())
+                .isEqualTo(optOutInsertedLast.getId());
+        assertThat(consentDao.findByDemographicAndConsentType(508, "dup_test_email_consent").getId())
+                .isEqualTo(optOutInsertedFirst.getId());
+    }
+
+    @Test
+    @DisplayName("should ignore records of an inactive type in the lookup by type name")
+    void shouldExcludeInactiveTypes_whenLookingUpByTypeName() {
+        ConsentType inactive = new ConsentType();
+        inactive.setName("Retired DHIR consent");
+        inactive.setType("dup_test_inactive_consent");
+        inactive.setActive(false);
+        entityManager.persist(inactive);
+        record(inactive, 509, false, false, 1_000L);
+        flushAndClear();
+
+        assertThat(consentDao.findByDemographicAndConsentType(509, "dup_test_inactive_consent")).isNull();
+    }
+
+    @Test
+    @DisplayName("should return the live records newest first when reading them for update")
+    void shouldReturnLiveRecordsNewestFirst_whenReadingForUpdate() {
+        record(510, false, false, 1_000L);
+        record(510, true, true, 3_000L);
+        record(510, true, false, 2_000L);
+        flushAndClear();
+
+        assertThat(consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(510, emailType.getId()))
+                .extracting(consent -> consent.getEditDate().getTime()).containsExactly(2_000L, 1_000L);
+    }
+
+    @Test
+    @DisplayName("should run the patient-row lock's SQL in the caller's transaction")
+    void shouldRunPatientRowLock_inCallersTransaction() {
+        // The native SQL has to match the real table and column; H2 cannot show the lock itself.
+        assertThatCode(() -> consentDao.lockPatientForConsentChange(511)).doesNotThrowAnyException();
     }
 
     @Test
@@ -119,7 +176,7 @@ class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
         record(505, true, false, 1_000L);
         record(506, false, false, 1_000L);
         record(506, true, true, 2_000L);
-        entityManager.flush();
+        flushAndClear();
 
         assertThat(consentDao.findAllDemoIdsConsentedToType(emailType.getId())).containsExactlyInAnyOrder(504, 506);
     }

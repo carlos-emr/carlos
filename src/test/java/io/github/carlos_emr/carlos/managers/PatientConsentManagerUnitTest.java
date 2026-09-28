@@ -24,14 +24,21 @@ import io.github.carlos_emr.carlos.commn.dao.ConsentDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsentTypeDao;
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionAttribute;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.*;
@@ -93,7 +100,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         return ct;
     }
 
-    private Consent consent(int id, boolean optout, java.util.Date editDate) {
+    private Consent consent(int id, boolean optout, Date editDate) {
         Consent consent = new Consent();
         setConsentId(consent, id);
         consent.setDemographicNo(100);
@@ -125,12 +132,27 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldCreateNewConsent_whenNoneExists() {
             ConsentType ct = createActiveConsentType(1, "PROVIDER_CONSENT_FILTER");
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(java.util.List.of());
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, ct.getId())).thenReturn(List.of());
 
             boolean result = manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
 
             assertThat(result).isTrue();
             verify(mockConsentDao).persist(any(Consent.class));
+        }
+
+        @Test
+        @DisplayName("should lock the patient before reading the records it edits")
+        void shouldLockPatientBeforeReading_whenSaving() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of());
+
+            manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+            order.verify(mockConsentDao).persist(any(Consent.class));
         }
 
         @Test
@@ -143,7 +165,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             existing.setDemographicNo(100);
             existing.setOptout(false);
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(java.util.List.of(existing));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, ct.getId())).thenReturn(List.of(existing));
 
             boolean result = manager.addEditConsentRecord(loggedInInfo, 100, 1, true, true);
 
@@ -155,11 +177,11 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should edit the deciding record and retire the other live duplicates")
         void shouldRetireOtherLiveDuplicates_whenSavingConsent() {
             ConsentType ct = createActiveConsentType(1, "email");
-            Consent newerOptIn = consent(11, false, new java.util.Date(2_000L));
-            Consent olderOptOut = consent(12, true, new java.util.Date(1_000L));
+            Consent newerOptIn = consent(11, false, new Date(2_000L));
+            Consent olderOptOut = consent(12, true, new Date(1_000L));
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1))
-                    .thenReturn(new java.util.ArrayList<>(java.util.List.of(newerOptIn, olderOptOut)));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1))
+                    .thenReturn(List.of(newerOptIn, olderOptOut));
 
             // Staff opt the patient in. The opt-out decided (and was shown), so it is the one edited.
             boolean result = manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
@@ -173,17 +195,39 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should retire a duplicate without rewriting its author or dates, and audit-log it")
+        void shouldKeepAuthorAndDates_whenRetiringDuplicate() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Date enteredAt = new Date(2_000L);
+            Consent newerOptIn = consent(11, false, enteredAt);
+            newerOptIn.setLastEnteredBy("clerk2");
+            Consent olderOptOut = consent(12, true, new Date(1_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(newerOptIn, olderOptOut));
+
+            // An unrelated chart save re-submits the shown opt-out; no one chose to change the opt-in.
+            manager.addEditConsentRecord(loggedInInfo, 100, 1, true, true);
+
+            assertThat(newerOptIn.isDeleted()).isTrue();
+            assertThat(newerOptIn.getLastEnteredBy()).isEqualTo("clerk2");
+            assertThat(newerOptIn.getEditDate()).isSameAs(enteredAt);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.retireDuplicateConsent"), eq("consent"), eq("11"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 11 KeptConsentId: 12")));
+        }
+
+        @Test
         @DisplayName("should retire nothing when the patient has a single live record")
         void shouldNotRetireAnything_whenOnlyOneLiveRecordExists() {
             ConsentType ct = createActiveConsentType(1, "email");
-            Consent only = consent(11, false, new java.util.Date(2_000L));
+            Consent only = consent(11, false, new Date(2_000L));
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(only));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(only));
 
             manager.addEditConsentRecord(loggedInInfo, 100, 1, true, true);
 
             assertThat(only.isDeleted()).isFalse();
-            verify(mockConsentDao, org.mockito.Mockito.times(1)).merge(any(Consent.class));
+            verify(mockConsentDao, times(1)).merge(any(Consent.class));
         }
 
         @Test
@@ -215,8 +259,8 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
                     .thenReturn(false);
 
             assertThatThrownBy(() -> manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("Unauthorised Access");
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
         }
     }
 
@@ -233,7 +277,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldCallAddConsent_whenConsenting() {
             ConsentType ct = createActiveConsentType(1, "TEST");
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, ct.getId())).thenReturn(java.util.List.of());
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, ct.getId())).thenReturn(List.of());
 
             manager.setConsent(loggedInInfo, 100, 1, true);
 
@@ -265,6 +309,105 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should lock the patient and re-read the record before opting it out by ID")
+        void shouldLockAndReread_beforeOptingOutById() {
+            Consent consent = consent(10, false, new Date(1_000L));
+            when(mockConsentDao.find(10)).thenReturn(consent);
+
+            manager.optoutConsent(loggedInInfo, 10);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).find(10);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).refresh(consent);
+            order.verify(mockConsentDao).merge(consent);
+        }
+
+        @Test
+        @DisplayName("should leave a record alone when a concurrent clear retired it before the lock")
+        void shouldNotReviveRecord_whenRetiredBeforeLock() {
+            Consent consent = consent(10, false, new Date(1_000L));
+            when(mockConsentDao.find(10)).thenReturn(consent);
+            // The re-read after the lock sees the clear another request committed meanwhile.
+            doAnswer(invocation -> {
+                consent.setDeleted(true);
+                return null;
+            }).when(mockConsentDao).refresh(consent);
+
+            manager.optoutConsent(loggedInInfo, 10);
+
+            assertThat(consent.isOptout()).isFalse();
+            verify(mockConsentDao, never()).merge(any());
+            // The audit says nothing was opted out.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+                    "PatientConsentManager.optoutConsent[consentID]", " ConsentId: 10 skipped: no live record"));
+        }
+
+        @Test
+        @DisplayName("should honour a per-patient write restriction when opting out by ID, before locking")
+        void shouldThrow_whenPatientWriteDeniedForOptoutById() {
+            Consent consent = consent(10, false, new Date(1_000L));
+            when(mockConsentDao.find(10)).thenReturn(consent);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), eq(100)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.optoutConsent(loggedInInfo, 10))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verify(mockConsentDao, never()).lockPatientForConsentChange(anyInt());
+            verify(mockConsentDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should lock the patient before its first read when opting out by patient and type")
+        void shouldLockPatientBeforeFirstRead_whenOptingOutByPatientAndType() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Consent live = consent(11, false, new Date(2_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findByDemographicAndConsentTypeId(100, 1)).thenReturn(live);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(live));
+
+            manager.optoutConsent(loggedInInfo, 100, 1);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findByDemographicAndConsentTypeId(100, 1);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+        }
+
+        @Test
+        @DisplayName("should throw and touch nothing when write privilege is denied, by patient and type")
+        void shouldThrow_whenWriteDeniedByPatientAndType() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), anyInt()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.optoutConsent(loggedInInfo, 100, 1))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verifyNoInteractions(mockConsentDao);
+        }
+
+        @Test
+        @DisplayName("should opt out the deciding record and retire live duplicates, by patient and type")
+        void shouldOptOutAndRetireDuplicates_whenOptingOutByPatientAndType() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Consent newer = consent(11, false, new Date(2_000L));
+            Consent older = consent(12, false, new Date(1_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findByDemographicAndConsentTypeId(100, 1)).thenReturn(newer);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(newer, older));
+
+            manager.optoutConsent(loggedInInfo, 100, 1);
+
+            assertThat(newer.isOptout()).isTrue();
+            assertThat(newer.getOptoutDate()).isNotNull();
+            assertThat(newer.isDeleted()).isFalse();
+            assertThat(older.isDeleted()).isTrue();
+            verify(mockConsentDao).merge(newer);
+            verify(mockConsentDao).merge(older);
+        }
+
+        @Test
         @DisplayName("should do nothing when consent not found by ID")
         void shouldDoNothing_whenConsentNotFound() {
             when(mockConsentDao.find(999)).thenReturn(null);
@@ -289,7 +432,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
                     .thenReturn(false);
 
             assertThatThrownBy(() -> manager.optoutConsent(loggedInInfo, 10))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(SecurityException.class);
         }
     }
 
@@ -386,11 +529,26 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should persist consent type and return it")
         void shouldPersistAndReturn_theSavedEntity() {
             ConsentType ct = createActiveConsentType(0, "NEW_TYPE");
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq(SecurityInfoManager.WRITE), nullable(String.class)))
+                    .thenReturn(true);
 
             ConsentType result = manager.addConsentType(loggedInInfo, ct);
 
             assertThat(result).isSameAs(ct);
             verify(mockConsentTypeDao).persist(ct);
+        }
+
+        @Test
+        @DisplayName("should throw and persist nothing without admin write privilege")
+        void shouldThrow_whenAdminWriteDenied() {
+            ConsentType ct = createActiveConsentType(0, "NEW_TYPE");
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq(SecurityInfoManager.WRITE), nullable(String.class)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.addConsentType(loggedInInfo, ct))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_admin)");
+            verifyNoInteractions(mockConsentTypeDao);
         }
     }
 
@@ -402,17 +560,69 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should delete every live record, not just one, so no duplicate keeps deciding")
         void shouldDeleteEveryLiveRecord_whenDuplicatesExist() {
             ConsentType ct = createActiveConsentType(1, "email");
-            Consent first = consent(11, false, new java.util.Date(2_000L));
-            Consent second = consent(12, true, new java.util.Date(1_000L));
+            Consent first = consent(11, false, new Date(2_000L));
+            Consent second = consent(12, true, new Date(1_000L));
+            first.setLastEnteredBy("clerk2");
+            second.setLastEnteredBy("clerk2");
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(java.util.List.of(first, second));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(first, second));
 
             manager.deleteConsent(loggedInInfo, 100, 1);
 
-            assertThat(first.isDeleted()).isTrue();
-            assertThat(second.isDeleted()).isTrue();
+            // A Clear is a staff action, so each deleted row records who cleared it and when.
+            for (Consent cleared : List.of(first, second)) {
+                assertThat(cleared.isDeleted()).isTrue();
+                assertThat(cleared.getLastEnteredBy()).isEqualTo("999998");
+                assertThat(cleared.getEditDate().getTime()).isGreaterThan(2_000L);
+            }
             verify(mockConsentDao).merge(first);
             verify(mockConsentDao).merge(second);
+            for (int id : new int[] {11, 12}) {
+                logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                        eq("PatientConsentManager.deleteConsent()"), eq("consent"), eq(String.valueOf(id)), eq(100),
+                        eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: " + id)));
+            }
+        }
+
+        @Test
+        @DisplayName("should lock the patient before reading the records it clears")
+        void shouldLockPatientBeforeReading_whenClearing() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Consent live = consent(11, false, new Date(2_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(live));
+
+            manager.deleteConsent(loggedInInfo, 100, 1);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+            order.verify(mockConsentDao).merge(live);
+        }
+
+        @Test
+        @DisplayName("should delete and log nothing when the consent type is inactive")
+        void shouldChangeNothing_whenConsentTypeInactive() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            ct.setActive(false);
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+
+            manager.deleteConsent(loggedInInfo, 100, 1);
+
+            verifyNoInteractions(mockConsentDao);
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should delete and log nothing when the consent type does not exist")
+        void shouldChangeNothing_whenConsentTypeUnknown() {
+            when(mockConsentTypeDao.find(1)).thenReturn(null);
+
+            manager.deleteConsent(loggedInInfo, 100, 1);
+
+            verifyNoInteractions(mockConsentDao);
+            logActionMock.verifyNoInteractions();
         }
 
         @Test
@@ -422,8 +632,104 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
                     .thenReturn(false);
 
             assertThatThrownBy(() -> manager.deleteConsent(loggedInInfo, 100, 1))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("Unauthorised Access");
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verifyNoInteractions(mockConsentDao);
+        }
+    }
+
+    @Nested
+    @DisplayName("getAllConsentsByDemographic")
+    class GetAllConsentsByDemographic {
+
+        @Test
+        @DisplayName("should give the chart the deciding record for each type, not a duplicate opt-in")
+        void shouldReturnTheDecidingRecord_forEachConsentType() {
+            Consent olderOptOut = consent(11, true, new Date(1_000L));
+            Consent newerOptIn = consent(12, false, new Date(2_000L));
+            Consent otherType = consent(13, false, new Date(1_500L));
+            olderOptOut.setConsentTypeId(1);
+            newerOptIn.setConsentTypeId(1);
+            otherType.setConsentTypeId(2);
+            // The chart form shows the last record of each type it is given, here the opt-in.
+            when(mockConsentDao.findByDemographic(100)).thenReturn(List.of(olderOptOut, newerOptIn, otherType));
+
+            List<Consent> result = manager.getAllConsentsByDemographic(loggedInInfo, 100);
+
+            assertThat(result).containsExactly(olderOptOut, otherType);
+        }
+
+        @Test
+        @DisplayName("should return an empty list when the patient has no consent records")
+        void shouldReturnEmptyList_whenNoRecords() {
+            when(mockConsentDao.findByDemographic(100)).thenReturn(List.of());
+
+            assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 100)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should throw and read nothing when read privilege denied")
+        void shouldThrow_whenReadPrivilegeDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), anyInt()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.getAllConsentsByDemographic(loggedInInfo, 100))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verifyNoInteractions(mockConsentDao);
+        }
+    }
+
+    @Nested
+    @DisplayName("transaction attributes")
+    class TransactionAttributes {
+
+        @Test
+        @DisplayName("should run reads without a transaction of their own, and each write in one")
+        void shouldUseSupportsForReadsAndRequiredForWrites_forEveryPublicMethod() {
+            AnnotationTransactionAttributeSource source = new AnnotationTransactionAttributeSource();
+            for (Method method : PatientConsentManagerImpl.class.getDeclaredMethods()) {
+                if (!Modifier.isPublic(method.getModifiers()) || method.isSynthetic()) {
+                    continue;
+                }
+                String name = method.getName();
+                // Relies on the naming rule here: reads are get*, has* or filter*; anything else writes.
+                // Name a new read that way, or it is held to REQUIRED.
+                boolean read = name.startsWith("get") || name.startsWith("has") || name.startsWith("filter");
+                TransactionAttribute attribute = source.getTransactionAttribute(method, PatientConsentManagerImpl.class);
+
+                assertThat(attribute).as(name).isNotNull();
+                assertThat(attribute.getPropagationBehavior()).as(name).isEqualTo(read
+                        ? TransactionDefinition.PROPAGATION_SUPPORTS
+                        : TransactionDefinition.PROPAGATION_REQUIRED);
+                // Writes wait on the patient lock and must then read what the other write committed.
+                assertThat(attribute.getIsolationLevel()).as(name).isEqualTo(read
+                        ? TransactionDefinition.ISOLATION_DEFAULT
+                        : TransactionDefinition.ISOLATION_READ_COMMITTED);
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("getConsentsByTypeAndEditDate")
+    class GetConsentsByTypeAndEditDate {
+
+        @Test
+        @DisplayName("should return nothing, not throw, when there is no consent type")
+        void shouldReturnEmpty_whenConsentTypeIsNull() {
+            assertThat(manager.getConsentsByTypeAndEditDate(loggedInInfo, null, new Date(0L))).isEmpty();
+            verifyNoInteractions(mockConsentDao);
+        }
+
+        @Test
+        @DisplayName("should throw and read nothing when read privilege denied")
+        void shouldThrow_whenReadPrivilegeDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), nullable(String.class)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.getConsentsByTypeAndEditDate(loggedInInfo, createActiveConsentType(1, "email"), new Date(0L)))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
             verifyNoInteractions(mockConsentDao);
         }
     }
@@ -520,52 +826,11 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldKeepImplied_whenChartIsResavedWithOptIn() {
             Consent implied = impliedOptIn();
             when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
-            when(mockConsentDao.findLiveByDemographicAndConsentTypeId(100, 1)).thenReturn(List.of(implied));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(implied));
 
             manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
 
             assertThat(implied.isExplicit()).isFalse();
-        }
-    }
-
-    @Nested
-    @DisplayName("getAllConsentsByDemographic")
-    class GetAllConsentsByDemographic {
-
-        @Test
-        @DisplayName("should return one deciding record per consent type")
-        void shouldReturnEffectiveRecord_perConsentType() {
-            Consent emailOptIn = consent(31, false, new Date(3_000L));
-            emailOptIn.setConsentTypeId(1);
-            Consent emailOptOut = consent(32, true, new Date(1_000L));
-            emailOptOut.setConsentTypeId(1);
-            Consent smsOptIn = consent(33, false, new Date(2_000L));
-            smsOptIn.setConsentTypeId(2);
-            when(mockConsentDao.findByDemographic(100)).thenReturn(List.of(emailOptIn, smsOptIn, emailOptOut));
-
-            List<Consent> result = manager.getAllConsentsByDemographic(loggedInInfo, 100);
-
-            assertThat(result).containsExactly(emailOptOut, smsOptIn);
-        }
-
-        @Test
-        @DisplayName("should return an empty list when the patient has no consent records")
-        void shouldReturnEmptyList_whenNoRecords() {
-            when(mockConsentDao.findByDemographic(100)).thenReturn(List.of());
-
-            assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 100)).isEmpty();
-        }
-
-        @Test
-        @DisplayName("should throw when read privilege denied")
-        void shouldThrow_whenReadPrivilegeDenied() {
-            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), anyInt()))
-                    .thenReturn(false);
-
-            assertThatThrownBy(() -> manager.getAllConsentsByDemographic(loggedInInfo, 100))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("Unauthorised Access");
-            verifyNoInteractions(mockConsentDao);
         }
     }
 }

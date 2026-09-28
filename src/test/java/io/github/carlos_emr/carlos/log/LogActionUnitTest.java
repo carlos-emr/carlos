@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -24,6 +25,23 @@ class LogActionUnitTest {
         LogAction.setOscarLogDaoForTesting(null);
         LogAction.resetExecutorServiceForTesting();
         Thread.interrupted();
+    }
+
+    @Test
+    @Tag("create")
+    void shouldRecordContentIdAndPatient_whenLoggingSynchronously() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+
+        LogAction.addLogSynchronous(loggedInInfo, "retire", "consent", "11", 100, "data");
+
+        verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                "retire".equals(log.getAction())
+                        && "consent".equals(log.getContent())
+                        && "11".equals(log.getContentId())
+                        && Integer.valueOf(100).equals(log.getDemographicId())
+                        && "data".equals(log.getData())));
     }
 
     @Test

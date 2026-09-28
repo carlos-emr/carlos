@@ -152,6 +152,26 @@ public class LogAction {
     }
 
     /**
+     * As {@link #addLogSynchronous(LoggedInInfo, String, String)}, in the caller's thread and
+     * transaction, also recording the content, its id and the patient, so the entry can be found
+     * by those columns rather than by searching the data text.
+     */
+    public static void addLogSynchronous(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            Integer demographicNo, String data) {
+        OscarLog logEntry = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null)
+            logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        if (loggedInInfo.getLoggedInProvider() != null) logEntry.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        logEntry.setAction(action);
+        logEntry.setContent(content);
+        logEntry.setContentId(contentId);
+        logEntry.setIp(loggedInInfo.getIp());
+        logEntry.setDemographicId(demographicNo);
+        logEntry.setData(data);
+        LogAction.addLogSynchronous(logEntry);
+    }
+
+    /**
      * This method will add a log entry asynchronously in a separate thread.
      */
     public static void addLog(String provider_no, String action, String content, String data) {

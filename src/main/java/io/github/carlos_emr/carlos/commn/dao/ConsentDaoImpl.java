@@ -31,15 +31,20 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import jakarta.persistence.TemporalType;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentDao {
@@ -50,7 +55,7 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
 
     /**
      * Returns the deciding live record. The table has no unique key on patient and type, so
-     * several live records can exist; this used to return an arbitrary one (#3845).
+     * several live records can exist (#3845).
      *
      * @param demographic_no the demographic ID
      * @param consentTypeId the consent type ID
@@ -63,32 +68,51 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
 
     @Override
     public List<Consent> findLiveByDemographicAndConsentTypeId(int demographic_no, int consentTypeId) {
-        String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=false";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, demographic_no);
-        query.setParameter(2, consentTypeId);
+        return mostRecentFirst(liveQuery(demographic_no, consentTypeId));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void lockPatientForConsentChange(int demographic_no) {
+        // Native and scalar, so no Demographic entity or its eager associations are loaded or locked.
+        entityManager.createNativeQuery("SELECT demographic_no FROM demographic WHERE demographic_no = ?1 FOR UPDATE")
+                .setParameter(1, demographic_no)
+                .getResultList();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<Consent> findLiveByDemographicAndConsentTypeIdForUpdate(int demographic_no, int consentTypeId) {
+        TypedQuery<Consent> query = liveQuery(demographic_no, consentTypeId);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         return mostRecentFirst(query);
     }
 
+    private TypedQuery<Consent> liveQuery(int demographic_no, int consentTypeId) {
+        TypedQuery<Consent> query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
+                + " x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=false", Consent.class);
+        query.setParameter(1, demographic_no);
+        query.setParameter(2, consentTypeId);
+        return query;
+    }
+
     /**
-     * Deleted records are excluded here too: this lookup previously returned them, so a deleted
-     * DHIR consent could still authorize an immunization submission.
+     * Deleted records and inactive types are excluded, as in the manager's lookups by id: DHIR
+     * immunization submissions use this lookup, and neither may authorize one.
      */
     @Override
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType) {
-        String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.consentType.type=?2 AND x.deleted=false";
-        Query query = entityManager.createQuery(sql);
+        TypedQuery<Consent> query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
+                + " x where x.demographicNo=?1 and x.consentType.type=?2 AND x.consentType.active=true"
+                + " AND x.deleted=false", Consent.class);
         query.setParameter(1, demographic_no);
         query.setParameter(2, consentType);
-        return ConsentRecords.effective(mostRecentFirst(query));
+        return ConsentRecords.effective(query.getResultList());
     }
 
-    private static List<Consent> mostRecentFirst(Query query) {
-        @SuppressWarnings("unchecked")
-        List<Consent> consents = new java.util.ArrayList<>(query.getResultList());
-        // Sorted in Java so undated records rank the same on MariaDB and H2.
+    private static List<Consent> mostRecentFirst(TypedQuery<Consent> query) {
+        List<Consent> consents = new ArrayList<>(query.getResultList());
+        // The comparator ConsentRecords.effective uses, so this order and its choice cannot drift apart.
         consents.sort(ConsentRecords.MOST_RECENT_FIRST);
         return consents;
     }
@@ -122,10 +146,11 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
 
     /**
      * Returns all demographic ids that have consented (opt-in) to the given consent
-     * type id.
+     * type id. Each patient appears once, and a patient with a live opt-out on any record of the
+     * type is left out, as in {@link ConsentRecords#effective}.
      *
-     * @param consentTypeId
-     * @return
+     * @param consentTypeId the consent type id
+     * @return the ids of the consented patients; empty when there are none
      */
     @Override
     public List<Integer> findAllDemoIdsConsentedToType(int consentTypeId) {

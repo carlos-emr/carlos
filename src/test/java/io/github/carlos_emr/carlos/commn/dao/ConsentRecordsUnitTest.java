@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.commn.dao;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.carlos_emr.carlos.commn.model.Consent;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -43,6 +45,18 @@ class ConsentRecordsUnitTest {
         return consent;
     }
 
+    /**
+     * Asserts the choice in both input orders, so a rule that just takes the first or the last
+     * record (what the chart used to do) fails one of them.
+     */
+    private static void assertDeciding(Consent expected, Consent... records) {
+        List<Consent> forward = List.of(records);
+        List<Consent> backward = new ArrayList<>(forward);
+        Collections.reverse(backward);
+        assertThat(ConsentRecords.effective(forward)).isSameAs(expected);
+        assertThat(ConsentRecords.effective(backward)).isSameAs(expected);
+    }
+
     @Test
     @DisplayName("should find nothing when there are no live records")
     void shouldReturnNull_whenThereAreNoRecords() {
@@ -56,7 +70,7 @@ class ConsentRecordsUnitTest {
         Consent olderOptOut = consent(1, true, 1_000L);
         Consent newerOptIn = consent(2, false, 2_000L);
 
-        assertThat(ConsentRecords.effective(List.of(newerOptIn, olderOptOut))).isSameAs(olderOptOut);
+        assertDeciding(olderOptOut, newerOptIn, olderOptOut);
     }
 
     @Test
@@ -65,7 +79,7 @@ class ConsentRecordsUnitTest {
         Consent older = consent(1, true, 1_000L);
         Consent newer = consent(2, true, 3_000L);
 
-        assertThat(ConsentRecords.effective(List.of(older, consent(3, false, 5_000L), newer))).isSameAs(newer);
+        assertDeciding(newer, older, consent(3, false, 5_000L), newer);
     }
 
     @Test
@@ -74,7 +88,7 @@ class ConsentRecordsUnitTest {
         Consent older = consent(1, false, 1_000L);
         Consent newer = consent(2, false, 2_000L);
 
-        assertThat(ConsentRecords.effective(List.of(older, newer))).isSameAs(newer);
+        assertDeciding(newer, older, newer);
     }
 
     @Test
@@ -82,10 +96,28 @@ class ConsentRecordsUnitTest {
     void shouldRankUndatedOldest_andBreakTiesById() {
         Consent undated = consent(9, false, null);
         Consent dated = consent(1, false, 1_000L);
-        assertThat(ConsentRecords.effective(List.of(undated, dated))).isSameAs(dated);
+        assertDeciding(dated, undated, dated);
 
         Consent lowerId = consent(4, false, 1_000L);
         Consent higherId = consent(5, false, 1_000L);
-        assertThat(ConsentRecords.effective(List.of(lowerId, higherId))).isSameAs(higherId);
+        assertDeciding(higherId, lowerId, higherId);
+    }
+
+    @Test
+    @DisplayName("should keep one deciding record per consent type")
+    void shouldKeepTheDecidingRecord_forEachConsentType() {
+        Consent olderOptOut = consent(1, true, 1_000L);
+        Consent newerOptIn = consent(2, false, 2_000L);
+        Consent otherType = consent(3, false, 1_500L);
+        olderOptOut.setConsentTypeId(10);
+        newerOptIn.setConsentTypeId(10);
+        otherType.setConsentTypeId(20);
+
+        assertThat(ConsentRecords.effectivePerType(List.of(olderOptOut, newerOptIn, otherType)))
+                .containsExactly(olderOptOut, otherType);
+        assertThat(ConsentRecords.effectivePerType(List.of(otherType, newerOptIn, olderOptOut)))
+                .containsExactly(otherType, olderOptOut);
+        assertThat(ConsentRecords.effectivePerType(List.of())).isEmpty();
+        assertThat(ConsentRecords.effectivePerType(null)).isEmpty();
     }
 }
