@@ -36,14 +36,18 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
@@ -95,6 +99,7 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     static final int MAX_CONCURRENT_REQUESTS = 4;
     /** Distinguishes the whole-call deadline from a read-inactivity timeout in the logs. */
     static final String DEADLINE_EXCEEDED = "portal request deadline exceeded";
+    static final String BUSY = "portal transport is busy or closed";
     /**
      * A pooled connection idle longer than this is checked before reuse. The portal (uvicorn, or
      * a proxy in front of it) closes idle keep-alive connections, and automatic retries are off,
@@ -107,6 +112,12 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     private final CloseableHttpClient client;
     private final Duration requestTimeout;
     private final ThreadPoolExecutor workers;
+    /**
+     * One permit per request in flight. The pool alone cannot count them: a worker whose caller
+     * already has its result may not yet be back waiting for work, and the SynchronousQueue would
+     * then refuse the next call as busy although capacity had freed.
+     */
+    private final Semaphore slots = new Semaphore(MAX_CONCURRENT_REQUESTS);
     private final Set<HttpUriRequestBase> activeRequests = ConcurrentHashMap.newKeySet();
 
     PatientPortalHttpClientExchange(PatientPortalSettings settings) {
@@ -184,11 +195,22 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                         .build();
         // A stalled DNS lookup or TLS exchange need not respond to interruption. Keep it in
         // this bounded pool, retaining its slot until it actually exits, rather than retaining
-        // a servlet thread or creating an unbounded queue of replacements after timeouts.
-        this.workers = new ThreadPoolExecutor(0, MAX_CONCURRENT_REQUESTS, 30, TimeUnit.SECONDS,
+        // a servlet thread or creating an unbounded queue of replacements after timeouts. A task
+        // returns its slot as its work ends, before its caller sees the result, or here after a
+        // cancellation that stopped it from starting. Twice as many threads as slots: a worker
+        // that has returned its slot may still be on its way back to the pool.
+        this.workers = new ThreadPoolExecutor(0, 2 * MAX_CONCURRENT_REQUESTS, 30, TimeUnit.SECONDS,
                 new SynchronousQueue<>(),
                 Thread.ofPlatform().daemon().name("patient-portal-", 0).factory(),
-                new ThreadPoolExecutor.AbortPolicy());
+                new ThreadPoolExecutor.AbortPolicy()) {
+            @Override
+            protected void afterExecute(Runnable task, Throwable failure) {
+                super.afterExecute(task, failure);
+                if (task instanceof SlotTask slotTask) {
+                    slotTask.releaseSlot();
+                }
+            }
+        };
     }
 
     @Override
@@ -203,18 +225,32 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
         cancellable.setEntity(request.getEntity());
         Future<PatientPortalHttpResponse> pending;
         long started = System.nanoTime();
-        try {
-            pending = workers.submit(() -> {
-                activeRequests.add(cancellable);
-                try {
-                    return client.execute(cancellable, PatientPortalHttpClientExchange::toResponse);
-                } finally {
-                    activeRequests.remove(cancellable);
-                }
-            });
-        } catch (RejectedExecutionException exception) {
+        if (!slots.tryAcquire()) {
             // Nothing reached the wire, so the caller can say so rather than "may have been applied".
-            throw new PortalRequestNotSentException("portal transport is busy or closed");
+            throw new PortalRequestNotSentException(BUSY);
+        }
+        AtomicBoolean slotHeld = new AtomicBoolean(true);
+        Runnable releaseSlot = () -> {
+            if (slotHeld.compareAndSet(true, false)) {
+                slots.release();
+            }
+        };
+        SlotTask task = new SlotTask(() -> {
+            activeRequests.add(cancellable);
+            try {
+                return client.execute(cancellable, PatientPortalHttpClientExchange::toResponse);
+            } finally {
+                activeRequests.remove(cancellable);
+                releaseSlot.run();
+            }
+        }, releaseSlot);
+        try {
+            workers.execute(task);
+            pending = task;
+        } catch (RejectedExecutionException exception) {
+            // Closed, or no thread could be started: the task never ran, so return its slot here.
+            releaseSlot.run();
+            throw new PortalRequestNotSentException(BUSY);
         }
         try {
             long remaining = TimeUnit.MILLISECONDS.toNanos(requestTimeout.toMillis())
@@ -304,5 +340,19 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
             }
         }
         return collected.toString();
+    }
+
+    /** A request's work, which returns its transport slot exactly once. */
+    private static final class SlotTask extends FutureTask<PatientPortalHttpResponse> {
+        private final Runnable releaseSlot;
+
+        SlotTask(Callable<PatientPortalHttpResponse> work, Runnable releaseSlot) {
+            super(work);
+            this.releaseSlot = releaseSlot;
+        }
+
+        void releaseSlot() {
+            releaseSlot.run();
+        }
     }
 }
