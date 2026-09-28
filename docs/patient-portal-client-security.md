@@ -118,7 +118,8 @@ not record (a failed database write, or a crash, after which staff stop the atte
 the new code, which never left, and records the commit as unconfirmed, never refused: since the portal
 may already have retired the old code while activating the new, the page tells staff that a replaced
 invitation may no longer work and a new one should be sent. When staff stop a queued resend, CARLOS
-first asks the portal whether the new code is still only prepared, and records a plain stop if it is.
+first asks the portal whether the invitation it was to replace is still pending (the portal retires it
+and activates the replacement in one step), and records a plain stop if it is.
 
 Why an attempt stands where it does is stored as an `outcome` code (`PatientPortalInviteDelivery.Outcome`),
 with a separate `revoke_failed` flag when an unused code could not be withdrawn and will expire on its

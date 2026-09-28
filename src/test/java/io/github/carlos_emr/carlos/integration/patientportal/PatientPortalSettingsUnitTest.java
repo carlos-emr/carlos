@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.carlos_emr.CarlosProperties;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -303,6 +304,26 @@ class PatientPortalSettingsUnitTest {
         void shouldKeepPrefix_whenPublicBaseUrlCarriesPath(String publicBaseUrl) {
             assertThat(new PortalInviteSettings(publicBaseUrl, "clinic@example.invalid").activationUrl())
                     .isEqualTo("https://clinic.example/patient/auth/activate");
+        }
+
+        @Test
+        @DisplayName("should keep an invitation sender address that begins with the deprecated oscar. namespace")
+        void shouldKeepSender_whenItBeginsWithTheDeprecatedNamespace() {
+            // CarlosProperties.getProperty discards such a value, which would refuse every invitation.
+            CarlosProperties properties = CarlosProperties.getInstance();
+            Object previous = properties.get(PortalInviteSettings.SENDER_EMAIL_KEY);
+            try {
+                properties.setProperty(PortalInviteSettings.SENDER_EMAIL_KEY, "oscar.clinic@example.invalid");
+
+                assertThat(PortalInviteSettings.fromCarlosProperties().senderEmail())
+                        .isEqualTo("oscar.clinic@example.invalid");
+            } finally {
+                if (previous == null) {
+                    properties.remove(PortalInviteSettings.SENDER_EMAIL_KEY);
+                } else {
+                    properties.put(PortalInviteSettings.SENDER_EMAIL_KEY, previous);
+                }
+            }
         }
 
 

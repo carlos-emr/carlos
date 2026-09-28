@@ -56,7 +56,17 @@ public record PortalInviteSettings(String publicBaseUrl, String senderEmail) {
 
     /** Reads the settings from {@code carlos.properties}. */
     public static PortalInviteSettings fromCarlosProperties() {
-        return fromProperties(key -> CarlosProperties.getInstance().getProperty(key));
+        return fromProperties(PortalInviteSettings::rawProperty);
+    }
+
+    /**
+     * Reads a value as written, as {@code PatientPortalSettings.rawProperty} does. {@code getProperty}
+     * discards a value beginning with the deprecated {@code oscar.} namespace, as a sender address such as
+     * {@code oscar.clinic@example.org} does, so invitations would be refused as unconfigured; it also warns
+     * for every unset key, and both settings are optional here.
+     */
+    private static String rawProperty(String key) {
+        return (String) CarlosProperties.getInstance().get(key);
     }
 
     static PortalInviteSettings fromProperties(Function<String, String> lookup) {
