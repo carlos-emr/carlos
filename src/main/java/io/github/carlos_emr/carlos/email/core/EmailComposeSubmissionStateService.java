@@ -768,8 +768,13 @@ public class EmailComposeSubmissionStateService {
      * Compose values staged by the eForm save that are rendered, not recomputed, on every view
      * request. Everything read-only (consent, recipients, sender accounts) is looked up again.
      *
+     * <p>{@code previews} is the one mutable part: the preview capability issued for each prepared
+     * file, keyed by file path, so a view reuses it until it nears expiry instead of issuing a new
+     * one on every request. Callers supply a concurrent map.</p>
+     *
      * @param fid validated eForm template id, or null
      * @param message unified message field seed, already merged for the encryption state
+     * @param previews preview capability per prepared attachment file path
      */
     public record EmailComposeView(
             String fid,
@@ -779,8 +784,13 @@ public class EmailComposeSubmissionStateService {
             boolean emailEncrypted,
             boolean emailAttachmentEncrypted,
             boolean emailAutoSend,
-            String emailPatientChartOption
+            String emailPatientChartOption,
+            Map<String, IssuedPreview> previews
     ) {
+    }
+
+    /** A preview capability token and when it was issued, for deciding whether it can be reused. */
+    public record IssuedPreview(String token, long issuedAtMillis) {
     }
 
     /** Result of {@link #prepareComposeView}: the id for the compose URL and the token values. */

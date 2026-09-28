@@ -42,11 +42,12 @@ separate chart composer is implemented, reviewed, and documented.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailCompose2Action.java`
   requires `_email` and works in two steps. The first request takes the staged
   session state once, prepares the attachments and the one-time send token, and
-  redirects to `email/emailComposeAction?composeView=<id>`. That view URL only
-  reads: it loads consent, recipients and active sender accounts, and renders
-  the compose screen. Refreshing it shows the same compose screen without
-  preparing anything again, and once the message has been sent it reports the
-  window as expired.
+  redirects to `email/emailComposeAction?composeView=<id>`. That view URL
+  loads consent, recipients and active sender accounts and renders the compose
+  screen. Refreshing it shows the same compose screen, password and attachments
+  without preparing anything again; an attachment preview link is renewed only
+  when the old one is about to expire. Once the message has been sent, the view
+  reports the window as expired.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailSend2Action.java`
   requires `_email`, collects compose fields, and calls `EmailManager`.
 - `src/main/java/io/github/carlos_emr/carlos/managers/EmailManager.java`

@@ -256,7 +256,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
             EmailCompose2Action action = new EmailCompose2Action();
 
-            assertThat(action.prepareComposeEFormMailer()).isEqualTo("eFormError");
+            assertThat(action.prepareComposeEFormMailer()).isEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
             assertThat(request.getAttribute("errorMessage"))
                     .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
@@ -279,7 +279,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
             EmailCompose2Action action = new EmailCompose2Action();
 
-            assertThat(action.prepareComposeEFormMailer()).isEqualTo("eFormError");
+            assertThat(action.prepareComposeEFormMailer()).isEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
             assertThat(request.getAttribute("errorMessage"))
                     .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
@@ -437,7 +437,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             request.getSession().setAttribute("subjectEmail", "Second compose");
 
             view(servletActionContext, request.getSession(), viewId, new MockHttpServletResponse(), "compose");
-            view(servletActionContext, request.getSession(), "unknown-view", new MockHttpServletResponse(), "eFormError");
+            view(servletActionContext, request.getSession(), "unknown-view", new MockHttpServletResponse(), EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
 
             assertThat(request.getSession().getAttribute("demographicId")).isEqualTo("789");
             assertThat(request.getSession().getAttribute("subjectEmail")).isEqualTo("Second compose");
@@ -461,7 +461,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             composeSubmissionStateService.consume(request).close();
 
             MockHttpServletRequest afterSend = view(servletActionContext, request.getSession(), viewId,
-                    new MockHttpServletResponse(), "eFormError");
+                    new MockHttpServletResponse(), EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
 
             assertThat(afterSend.getAttribute("errorMessage"))
                     .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
@@ -480,7 +480,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
 
             MockHttpServletRequest otherSession = view(servletActionContext,
-                    new MockHttpServletRequest().getSession(true), viewId, new MockHttpServletResponse(), "eFormError");
+                    new MockHttpServletRequest().getSession(true), viewId, new MockHttpServletResponse(), EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
 
             assertThat(otherSession.getAttribute("emailPDFPassword")).isNull();
             assertThat(otherSession.getAttribute("errorMessage"))
@@ -504,7 +504,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(repeat);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
 
-            assertThat(new EmailCompose2Action().prepareComposeEFormMailer()).isEqualTo("eFormError");
+            assertThat(new EmailCompose2Action().prepareComposeEFormMailer()).isEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
             assertThat(repeat.getAttribute("errorMessage"))
                     .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
             verify(mocks.emailComposeManager(), times(1)).prepareEFormAttachments(any(), any(), any(), any());
@@ -515,8 +515,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should issue fresh preview capabilities on each view without changing the stored attachments")
-    void shouldIssueFreshPreviewTokens_whenViewRendered() throws Exception {
+    @DisplayName("should reuse the preview capability issued at preparation and re-issue it only once it stops resolving")
+    void shouldReusePreviewCapability_untilItStopsResolving() throws Exception {
         ComposeMocks mocks = registerComposeMocks();
         AtomicReference<Path> ownedPdf = new AtomicReference<>();
         when(mocks.emailComposeManager().prepareEFormAttachments(any(), any(), any(), any()))
@@ -527,7 +527,14 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                     return new ArrayList<>(List.of(new EmailAttachment(
                             "letter.pdf", owned.toString(), DocumentType.EFORM, 1)));
                 });
-        when(mocks.pdfPreviewCapabilityService().issue(any(), any(), any())).thenReturn("preview-1", "preview-2");
+        PdfPreviewCapabilityService previews = mocks.pdfPreviewCapabilityService();
+        when(previews.issue(any(), any(), any())).thenReturn("preview-1", "preview-2");
+        AtomicReference<Boolean> firstStillResolves = new AtomicReference<>(true);
+        when(previews.resolve(any(), any(), anyString())).thenAnswer(invocation -> {
+            String token = invocation.getArgument(2);
+            boolean live = "preview-2".equals(token) || ("preview-1".equals(token) && firstStillResolves.get());
+            return live ? ownedPdf.get() : null;
+        });
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         request.getSession(true).setAttribute("demographicId", "123");
         request.getSession(false).setAttribute("attachEFormItSelf", true);
@@ -535,18 +542,28 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
-            verify(mocks.pdfPreviewCapabilityService(), never()).issue(any(), any(), any());
+            verify(previews, times(1)).issue(any(), any(), any());
 
             MockHttpServletRequest first = view(servletActionContext, request.getSession(), viewId,
                     new MockHttpServletResponse(), "compose");
             MockHttpServletRequest refresh = view(servletActionContext, request.getSession(), viewId,
                     new MockHttpServletResponse(), "compose");
-
             assertThat(attachments(first)).singleElement()
                     .satisfies(a -> assertThat(a.getPreviewToken()).isEqualTo("preview-1"));
             assertThat(attachments(refresh)).singleElement()
+                    .satisfies(a -> assertThat(a.getPreviewToken()).isEqualTo("preview-1"));
+            verify(previews, times(1)).issue(any(), any(), any());
+
+            firstStillResolves.set(false);
+            MockHttpServletRequest afterExpiry = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+            MockHttpServletRequest again = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+            assertThat(attachments(afterExpiry)).singleElement()
                     .satisfies(a -> assertThat(a.getPreviewToken()).isEqualTo("preview-2"));
-            verify(mocks.pdfPreviewCapabilityService(), times(2)).issue(any(), any(), any());
+            assertThat(attachments(again)).singleElement()
+                    .satisfies(a -> assertThat(a.getPreviewToken()).isEqualTo("preview-2"));
+            verify(previews, times(2)).issue(any(), any(), any());
 
             request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, (String) first.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM));
             try (EmailComposeSubmissionStateService.EmailComposeSubmissionState consumed =
@@ -556,6 +573,76 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                     assertThat(a.getPreviewToken()).isNull();
                 });
             }
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse a prepared view without email write privilege before reading it")
+    void shouldRejectView_whenEmailWritePrivilegeMissing() throws Exception {
+        registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+            MockHttpServletRequest viewRequest = new MockHttpServletRequest("GET", "/email/emailComposeAction");
+            viewRequest.setSession(request.getSession());
+            viewRequest.setParameter(EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM, viewId);
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(viewRequest);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            EmailCompose2Action action = new EmailCompose2Action();
+
+            assertThatThrownBy(action::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_email)");
+            assertThat(viewRequest.getAttribute("emailPDFPassword")).isNull();
+            assertThat(composeSubmissionStateService.findView(viewRequest, viewId)).isNotNull();
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should route a request without a view id to preparation and redirect to the new view")
+    void shouldRedirectToView_whenExecutedWithoutViewId() throws Exception {
+        registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            assertThat(new EmailCompose2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl())
+                    .startsWith("/email/emailComposeAction?" + EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM + "=");
+            assertThat(request.getSession().getAttribute("demographicId")).isNull();
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should keep a compose another window staged when this preparation fails")
+    void shouldKeepNewlyStagedCompose_whenPreparationFails() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.getSession(true).setAttribute("demographicId", "123");
+        when(mocks.emailComposeManager().prepareEDocAttachments(any(), any(), any())).thenAnswer(invocation -> {
+            // Another eForm save stages its compose while this one is still generating PDFs.
+            request.getSession().setAttribute("demographicId", "789");
+            throw new PDFGenerationException("renderer failed");
+        });
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            assertThat(new EmailCompose2Action().prepareComposeEFormMailer()).isEqualTo("eFormError");
+            assertThat(request.getSession().getAttribute("demographicId")).isEqualTo("789");
         }
     }
 

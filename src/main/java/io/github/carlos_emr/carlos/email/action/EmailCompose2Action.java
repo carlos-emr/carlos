@@ -3,8 +3,11 @@ package io.github.carlos_emr.carlos.email.action;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,6 +24,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionState;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeView;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeViewState;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.IssuedPreview;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.PreparedEmailComposeView;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
@@ -72,9 +76,10 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *       view id, and redirects to {@code ?composeView=<id>}. It runs once per staged compose.</li>
  *   <li><b>View.</b> A GET with {@code composeView} renders the stored state. It changes no session
  *       attribute, generates no file and consumes nothing, so a refresh or a repeated request shows
- *       the same compose screen. Consent, recipients and sender accounts are looked up again, and
- *       preview capabilities are re-issued because they last two minutes. Once a send consumes the
- *       submission token the view reports the window as expired, so going back cannot resend.</li>
+ *       the same compose screen. Consent, recipients and sender accounts are looked up again. The
+ *       preview capabilities issued during preparation are reused, and one is re-issued only when it
+ *       is about to expire (they last two minutes). Once a send consumes the submission token the
+ *       view reports the window as expired, so going back cannot resend.</li>
  * </ol>
  *
  * Security Considerations:
@@ -117,6 +122,13 @@ public class EmailCompose2Action extends ActionSupport {
                     + "Please close other open email compose windows and try again.";
     /** Query parameter carrying the opaque id of a prepared compose view. */
     public static final String EMAIL_COMPOSE_VIEW_PARAM = "composeView";
+    /**
+     * Result for a compose window that can no longer be used. It renders without any eForm or
+     * patient context; the eForm error page throws when it has neither.
+     */
+    public static final String COMPOSE_EXPIRED_RESULT = "composeExpired";
+    /** Re-issue a stored preview capability once less than this remains, so the page can load it. */
+    private static final Duration PREVIEW_REISSUE_MARGIN = Duration.ofSeconds(30);
     private static final String DEMOGRAPHIC_ID_KEY = "demographicId";
 
     private static final String[] EMAIL_SESSION_KEYS = {
@@ -136,8 +148,9 @@ public class EmailCompose2Action extends ActionSupport {
      * Routes a compose GET: renders a prepared view when {@code composeView} is present, otherwise
      * prepares the compose staged in the session and redirects to its view.
      *
-     * @return String "compose" for a rendered view, {@code NONE} after the prepare redirect, or
-     *         "eFormError" when the compose state is missing, expired or cannot be prepared
+     * @return String "compose" for a rendered view, {@code NONE} after the prepare redirect,
+     *         "composeExpired" when there is no usable compose state, or "eFormError" when the
+     *         attachments or the compose state cannot be prepared
      * @see #prepareComposeEFormMailer()
      */
     public String execute() {
@@ -193,15 +206,17 @@ public class EmailCompose2Action extends ActionSupport {
      * </ul>
      *
      * Error Handling:
-     * If compose session state is missing or invalid, the method returns the "eFormError" result
-     * with a generic expired-state message. If PDF generation fails for any attachment (eForm,
-     * document, lab, form, HRM), it closes the working directory and returns a generic, PHI-safe
-     * attachment message. If the one-time compose state cannot be stored because the cache is
-     * unavailable, it returns a generic unavailable-state message. The staged session values are
-     * gone in every case, as they were before this change.
+     * If compose session state is missing or invalid, the method returns "composeExpired" with a
+     * generic expired-state message. If PDF generation fails for any attachment (eForm, document,
+     * lab, form, HRM), it closes the working directory and returns "eFormError" with a generic,
+     * PHI-safe attachment message. If the one-time compose state cannot be stored because the cache
+     * is unavailable, it returns "eFormError" with a generic unavailable-state message. No error
+     * path clears the session again: the staged values were already taken, and anything there now
+     * belongs to another compose.
      *
-     * @return String {@code NONE} after redirecting to the prepared view, or "eFormError" if compose
-     *         state is missing, attachment generation fails, or the compose state cannot be stored
+     * @return String {@code NONE} after redirecting to the prepared view, "composeExpired" if no
+     *         compose is staged, or "eFormError" if attachment generation fails or the compose
+     *         state cannot be stored
      * @see io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService#generatePassphrase()
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#prepareEFormAttachments(LoggedInInfo, String, String[])
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#sanitizeAttachments(List)
@@ -216,7 +231,7 @@ public class EmailCompose2Action extends ActionSupport {
         String fid = request.getParameter("fid");
 
         if (demographicId == null || demographicId.isBlank()) {
-            return emailComposeError(request, EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+            return composeExpired();
         }
 
         // Validate fid is numeric if provided
@@ -232,7 +247,7 @@ public class EmailCompose2Action extends ActionSupport {
         try {
             demographicNo = Integer.parseInt(demographicId);
         } catch (NumberFormatException e) {
-            return emailComposeError(request, EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+            return composeExpired();
         }
 
         EmailComposeWorkingDirectory workingDirectory;
@@ -244,6 +259,7 @@ public class EmailCompose2Action extends ActionSupport {
         }
 
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
+        Map<String, IssuedPreview> previews = new ConcurrentHashMap<>();
         try {
             emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(
                     loggedInInfo, staged.attachEFormItSelf() ? staged.fdid() : "",
@@ -257,6 +273,9 @@ public class EmailCompose2Action extends ActionSupport {
             emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(
                     request, response, staged.attachedForms(), demographicNo, workingDirectory));
             emailComposeManager.sanitizeAttachments(emailAttachmentList);
+            for (EmailAttachment attachment : emailAttachmentList) {
+                previews.put(attachment.getFilePath(), issuePreview(loggedInInfo, attachment.getFilePath()));
+            }
         } catch (PDFGenerationException | RuntimeException e) {
             workingDirectory.close();
             logger.error("Unable to prepare email attachments; causeType={}", e.getClass().getName());
@@ -282,7 +301,8 @@ public class EmailCompose2Action extends ActionSupport {
                 isEmailEncrypted,
                 isEmailAttachmentEncrypted,
                 shouldAutoSendEmail(staged.isEmailAutoSend(), isEmailEncrypted),
-                staged.emailPatientChartOption());
+                staged.emailPatientChartOption(),
+                previews);
 
         PreparedEmailComposeView prepared;
         try {
@@ -312,9 +332,9 @@ public class EmailCompose2Action extends ActionSupport {
      *
      * <p>Nothing here touches the session: a missing view must not clear a compose that another
      * window has just staged. Consent, recipients and sender accounts are read again so the page
-     * reflects the chart as it is now. Preview capabilities are re-issued for the files already
-     * generated, because a capability lasts two minutes and a refreshed page would otherwise show
-     * dead previews; that adds a short-lived cache entry and generates nothing.</p>
+     * reflects the chart as it is now. The preview capabilities issued during preparation are
+     * reused while they still resolve with time to spare; a capability lasts two minutes, so a page
+     * refreshed after that gets one new capability per file, never one per request.</p>
      *
      * Request Attributes Set:
      * <ul>
@@ -328,8 +348,8 @@ public class EmailCompose2Action extends ActionSupport {
      * </ul>
      *
      * @param viewId opaque id from the compose URL
-     * @return "compose", or "eFormError" with the expired message when the view is unknown,
-     *         belongs to another session, was already sent, or its files are gone
+     * @return "compose", or "composeExpired" when the view is unknown, belongs to another session,
+     *         was already sent, or its files are gone
      */
     // Package-private so tests can drive prepare then view directly, as they do prepareComposeEFormMailer().
     String renderPreparedCompose(String viewId) {
@@ -340,8 +360,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         EmailComposeViewState prepared = emailComposeSubmissionStateService.findView(request, viewId);
         if (prepared == null) {
-            request.setAttribute("errorMessage", EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
-            return "eFormError";
+            return composeExpired();
         }
         EmailComposeSubmissionState state = prepared.state();
         EmailComposeView view = state.view();
@@ -350,14 +369,13 @@ public class EmailCompose2Action extends ActionSupport {
 
         List<EmailAttachment> emailAttachmentList;
         try {
-            emailAttachmentList = previewCopies(loggedInInfo, state.emailAttachmentList());
+            emailAttachmentList = previewCopies(loggedInInfo, state.emailAttachmentList(), view.previews());
         } catch (PDFGenerationException | RuntimeException e) {
             // A prepared file can only disappear with its state (expiry, trim, or a send), so the
             // window is as stale as an unknown view.
             logger.warn("Prepared email compose attachments are no longer available; causeType={}",
                     e.getClass().getName());
-            request.setAttribute("errorMessage", EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
-            return "eFormError";
+            return composeExpired();
         }
 
         String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
@@ -395,22 +413,39 @@ public class EmailCompose2Action extends ActionSupport {
         return "compose";
     }
 
-    /** Copies the stored attachments for display, each with a fresh preview capability. */
-    private List<EmailAttachment> previewCopies(LoggedInInfo loggedInInfo, List<EmailAttachment> stored)
-            throws PDFGenerationException {
+    /**
+     * Copies the stored attachments for display with a preview capability each: the stored one
+     * while it still resolves with at least {@link #PREVIEW_REISSUE_MARGIN} left, otherwise a new
+     * one, which replaces it in the view.
+     */
+    private List<EmailAttachment> previewCopies(LoggedInInfo loggedInInfo, List<EmailAttachment> stored,
+            Map<String, IssuedPreview> previews) throws PDFGenerationException {
+        long reuseUntilAge = PdfPreviewCapabilityService.TTL.minus(PREVIEW_REISSUE_MARGIN).toMillis();
         List<EmailAttachment> copies = new ArrayList<>(stored.size());
         for (EmailAttachment attachment : stored) {
+            IssuedPreview preview = previews.get(attachment.getFilePath());
+            if (preview == null
+                    || System.currentTimeMillis() - preview.issuedAtMillis() >= reuseUntilAge
+                    || pdfPreviewCapabilityService.resolve(request, loggedInInfo, preview.token()) == null) {
+                preview = issuePreview(loggedInInfo, attachment.getFilePath());
+                previews.put(attachment.getFilePath(), preview);
+            }
             EmailAttachment copy = new EmailAttachment(
                     attachment.getFileName(),
                     attachment.getFilePath(),
                     attachment.getDocumentType(),
                     attachment.getDocumentId(),
                     attachment.getFileSize());
-            copy.setPreviewToken(pdfPreviewCapabilityService.issue(
-                    request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
+            copy.setPreviewToken(preview.token());
             copies.add(copy);
         }
         return copies;
+    }
+
+    private IssuedPreview issuePreview(LoggedInInfo loggedInInfo, String filePath) throws PDFGenerationException {
+        return new IssuedPreview(
+                pdfPreviewCapabilityService.issue(request, loggedInInfo, java.nio.file.Path.of(filePath)),
+                System.currentTimeMillis());
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is this action's own same-origin route with a server-generated view id.
@@ -432,6 +467,10 @@ public class EmailCompose2Action extends ActionSupport {
      * the container hands every request the same session object, as Tomcat does; the second then
      * finds nothing to prepare. Without that guarantee the worst case is two preparations of the
      * same compose, which is what every request did before.</p>
+     *
+     * <p>It is atomic only against other prepare requests. AddEForm2Action writes the staged values
+     * one attribute at a time without this lock, so two eForm saves in one session at the same
+     * instant can still interleave, as they always could.</p>
      */
     private static StagedCompose takeStagedCompose(HttpSession session) {
         synchronized (session) {
@@ -514,7 +553,8 @@ public class EmailCompose2Action extends ActionSupport {
     /**
      * Handles email composition errors by setting error message and returning error result.
      *
-     * This method is called when email composition preparation fails. It sets a caller-provided,
+     * This method is called when attachment or compose-state preparation fails after an eForm save,
+     * which returns the provider to that eForm. It sets a caller-provided,
      * user-safe error message as a request attribute for display on the error page. Attachment
      * preparation failures must pass generic messages here and keep any server diagnostics free of
      * PHI.
@@ -533,8 +573,15 @@ public class EmailCompose2Action extends ActionSupport {
      * @see io.github.carlos_emr.carlos.utility.PDFGenerationException
      */
     private String emailComposeError(HttpServletRequest request, String errorMessage) {
-        cleanupEmailSessionAttributes(request);
+        // The staged values were taken before any error could occur. Clearing again here would
+        // remove a compose another window staged meanwhile.
         request.setAttribute("errorMessage", errorMessage);
         return "eFormError";
+    }
+
+    /** Shows the expired page. It changes nothing, so it is safe from both prepare and view. */
+    private String composeExpired() {
+        request.setAttribute("errorMessage", EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+        return COMPOSE_EXPIRED_RESULT;
     }
 }
