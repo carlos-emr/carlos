@@ -7,6 +7,8 @@ import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
+import org.hibernate.Timeouts;
+import org.hibernate.jpa.SpecHints;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -154,7 +156,7 @@ class SmsTransactionDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("claimDueOutboundQueue locks due rows and marks them sending with a claim token")
+    @DisplayName("claimDueOutboundQueue locks due rows, skipping rows held elsewhere, and marks them sending with a claim token")
     void shouldLockAndMarkSending_whenClaimingDueQueue() {
         SmsTransactionDaoImpl dao = newDao();
         Date now = copyOfFixedNow();
@@ -173,13 +175,14 @@ class SmsTransactionDaoImplUnitTest {
         assertThat(due.getClaimToken()).isNotBlank();
         assertThat(due.getClientReferenceId()).isEqualTo("sms-transaction-42");
         verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        verify(query).setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
         verify(query).setMaxResults(500); // limit capped at MAX_LIMIT
         verify(query).setParameter("status", SmsStatus.QUEUED);
         verify(entityManager, never()).createNativeQuery(anyString());
     }
 
     @Test
-    @DisplayName("claimStaleOutboundSendingForRecovery locks stale sending rows and tags them with a claim token")
+    @DisplayName("claimStaleOutboundSendingForRecovery locks stale sending rows, skipping rows held elsewhere, and tags them with a claim token")
     void shouldLockAndTagStaleSending_whenRecovering() {
         SmsTransactionDaoImpl dao = newDao();
         Date staleBefore = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
@@ -205,6 +208,7 @@ class SmsTransactionDaoImplUnitTest {
         assertThat(stale.getClaimToken()).isNotBlank();
         assertThat(stale.getClientReferenceId()).isEqualTo("sms-transaction-42");
         verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        verify(query).setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
         verify(query).setMaxResults(10);
         verify(query).setParameter("status", SmsStatus.SENDING);
         verify(entityManager, never()).createNativeQuery(anyString());

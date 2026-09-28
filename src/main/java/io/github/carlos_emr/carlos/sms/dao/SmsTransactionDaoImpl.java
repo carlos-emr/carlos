@@ -7,6 +7,8 @@ import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
+import org.hibernate.Timeouts;
+import org.hibernate.jpa.SpecHints;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,10 +84,10 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         if (providerType == null || claimAt == null) {
             return List.of();
         }
-        // Portable claim: lock the due rows with a pessimistic write (SELECT ... FOR UPDATE) ordered and
-        // capped, then mutate the managed entities. This works on both MariaDB/MySQL and the H2 test
-        // database, unlike a single "UPDATE ... ORDER BY ... LIMIT" which H2 does not support. The row
-        // locks serialize concurrent workers so a row is claimed by exactly one.
+        // Portable claim: lock the due rows with a pessimistic write (SELECT ... FOR UPDATE SKIP LOCKED)
+        // ordered and capped, then mutate the managed entities. This works on both MariaDB/MySQL and the
+        // H2 test database, unlike a single "UPDATE ... ORDER BY ... LIMIT" which H2 does not support. A
+        // row is claimed by exactly one worker; see lockSkippingRowsHeldElsewhere for why others skip it.
         TypedQuery<SmsTransaction> query = entityManager.createQuery(
                 "SELECT t FROM SmsTransaction t "
                         + "WHERE t.direction = :direction "
@@ -100,7 +102,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         query.setParameter(PARAM_STATUS, SmsStatus.QUEUED);
         query.setParameter("claimAt", claimAt);
         query.setMaxResults(safeLimit(limit));
-        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        lockSkippingRowsHeldElsewhere(query);
 
         List<SmsTransaction> due = query.getResultList();
         String claimToken = newClaimToken();
@@ -138,7 +140,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         query.setParameter(PARAM_STATUS, SmsStatus.SENDING);
         query.setParameter("staleBefore", staleBefore);
         query.setMaxResults(safeLimit(limit));
-        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        lockSkippingRowsHeldElsewhere(query);
 
         List<SmsTransaction> stale = query.getResultList();
         String claimToken = newClaimToken();
@@ -155,6 +157,21 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
             return;
         }
         transaction.assignClientReferenceId(SmsTransaction.clientReferenceIdFor(transaction.getId()));
+    }
+
+    /**
+     * Locks the claim query's rows for update, skipping any row another transaction already holds.
+     *
+     * <p>{@code provider_type} leads both unique indexes, so MariaDB can reach the same row through a
+     * different index in each of two concurrent claims. Those claims deadlocked InnoDB (#3913): one
+     * waited for the row while holding the index record that the other's UPDATE needed. With SKIP
+     * LOCKED a claimer never waits on a row lock, so it cannot join a lock cycle. A row another worker
+     * holds is left to that worker, and one still due is picked up by the next run. Requires MariaDB
+     * 10.6 or later; CARLOS requires 11.4.
+     */
+    private void lockSkippingRowsHeldElsewhere(TypedQuery<SmsTransaction> query) {
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        query.setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
     }
 
     private String newClaimToken() {
