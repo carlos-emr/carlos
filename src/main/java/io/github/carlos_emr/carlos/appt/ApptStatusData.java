@@ -274,13 +274,17 @@ public final class ApptStatusData {
                 }
 
                 if (strStatus.equals(s.getStatus())) {
-                    i++;
-                    s = apptStatuses.get(i);
-
-                    while (s.getActive() == 0 && i < apptStatuses.size()) {
-                        i++;
-                        s = apptStatuses.get(i);
+                    // Next active row; past the last one the cycle wraps to the first, as the
+                    // Cancelled branch above does. Bounds-checked: with status editing on by
+                    // default, a custom terminal status (anything but B) is the last row.
+                    AppointmentStatus next = null;
+                    for (int j = i + 1; j < apptStatuses.size(); j++) {
+                        if (apptStatuses.get(j).getActive() != 0) {
+                            next = apptStatuses.get(j);
+                            break;
+                        }
                     }
+                    s = next != null ? next : apptStatuses.get(0);
 
                     rstr = s.getStatus();
 

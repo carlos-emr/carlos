@@ -1229,7 +1229,13 @@
 
                             if (statusEditable) { %>
 
-                <select name="status" class="form-select" style="background-color:<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(curSelect)).getColor() %>' context="cssString"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                <%-- curSelect stays -1 when the appointment's status was deactivated in the status
+                     editor (allStatus holds active rows only). Keep that status as the selected
+                     first option so saving the form does not silently change it. --%>
+                <select name="status" class="form-select" style="background-color:<carlos:encode value='<%= curSelect >= 0 ? ((AppointmentStatus)allStatus.get(curSelect)).getColor() : "" %>' context="cssString"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                            <% if (curSelect < 0 && statusCode != null && !statusCode.isEmpty()) { %>
+                            <option value="<carlos:encode value='<%= statusCode + signOrVerify %>' context="htmlAttribute"/>" SELECTED><carlos:encode value='<%= statusCode + signOrVerify %>' context="html"/></option>
+                            <% } %>
                             <% for (int i = 0; i < allStatus.size(); i++) { %>
                             <option class="<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"
                                     style="background-color:<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(i)).getColor() %>' context="cssString"/>"
