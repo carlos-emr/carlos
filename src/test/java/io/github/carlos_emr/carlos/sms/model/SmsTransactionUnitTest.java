@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.model;
 
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
@@ -99,8 +100,8 @@ class SmsTransactionUnitTest {
 
         transaction.markConsentBlocked(SmsConsentDecisionDto.blocked(
                 SmsStatus.CONSENT_BLOCKED,
-                "CONSENT_MODEL_PENDING",
-                "SMS consent integration is pending"
+                "SMS_CONSENT_UNKNOWN",
+                "No SMS consent is recorded for this patient."
         ));
 
         assertThat(transaction)
@@ -111,9 +112,100 @@ class SmsTransactionUnitTest {
                 )
                 .containsExactly(
                         SmsStatus.CONSENT_BLOCKED,
-                        "CONSENT_MODEL_PENDING",
-                        "SMS consent integration is pending"
+                        "SMS_CONSENT_UNKNOWN",
+                        "No SMS consent is recorded for this patient."
                 );
+    }
+
+    @Test
+    @DisplayName("consent-blocked transaction stores the consent record the block relied on")
+    void shouldStoreConsentSnapshot_whenDecisionDeniesSend() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        Instant editedAt = Instant.parse("2026-09-01T14:30:00Z");
+
+        transaction.markConsentBlocked(SmsConsentDecisionDto.blocked(
+                SmsStatus.OPTOUT_BLOCKED,
+                "SMS_CONSENT_OPTED_OUT",
+                "Patient opted out",
+                SmsConsentStatus.OPT_OUT,
+                4321,
+                editedAt
+        ));
+
+        assertThat(transaction)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getConsentStatus,
+                        SmsTransaction::getConsentId,
+                        SmsTransaction::getConsentLastUpdateDate
+                )
+                .containsExactly(SmsStatus.OPTOUT_BLOCKED, SmsConsentStatus.OPT_OUT, 4321, Date.from(editedAt));
+    }
+
+    @Test
+    @DisplayName("permitted consent decision is stored without changing the queued status")
+    void shouldStoreConsentSnapshot_whenDecisionPermitsSend() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        Instant editedAt = Instant.parse("2026-09-01T14:30:00Z");
+
+        transaction.recordConsentDecision(SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt));
+
+        assertThat(transaction)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getConsentStatus,
+                        SmsTransaction::getConsentId,
+                        SmsTransaction::getConsentLastUpdateDate,
+                        SmsTransaction::getConsentReasonCode
+                )
+                .containsExactly(SmsStatus.QUEUED, SmsConsentStatus.OPT_IN, 4321, Date.from(editedAt), null);
+    }
+
+    @Test
+    @DisplayName("a permitting decision that names no consent state cannot be recorded as the audit snapshot")
+    void shouldRejectPermittedDecision_whenConsentStatusIsMissing() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+
+        SmsConsentDecisionDto permitWithoutConsentState = SmsConsentDecisionDto.permitted(null, null, null);
+
+        assertThatThrownBy(() -> transaction.recordConsentDecision(permitWithoutConsentState))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("every consent status name fits the consent_status VARCHAR(32) column")
+    void shouldFitConsentStatusColumn_forEveryEnumName() {
+        assertThat(SmsConsentStatus.values())
+                .allSatisfy(status -> assertThat(status.name().length()).isLessThanOrEqualTo(32));
+    }
+
+    @Test
+    @DisplayName("a decision matches the snapshot only when it relies on the same consent record and edit date")
+    void shouldMatchConsentSnapshot_whenDecisionReliesOnSameRecord() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        Instant editedAt = Instant.parse("2026-09-01T14:30:00Z");
+        transaction.recordConsentDecision(SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt));
+
+        assertThat(transaction.hasConsentSnapshot(
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt))).isTrue();
+        assertThat(transaction.hasConsentSnapshot(
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 9, editedAt))).isFalse();
+        assertThat(transaction.hasConsentSnapshot(
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, editedAt.plusSeconds(60)))).isFalse();
+        assertThat(transaction.hasConsentSnapshot(
+                SmsConsentDecisionDto.permitted(SmsConsentStatus.SYSTEM_TEST, null, null))).isFalse();
     }
 
     @Test
