@@ -362,7 +362,8 @@ public class DmsInboxManage2Action extends ActionSupport {
             endDate = null;
         }
 
-        logger.debug("Got dates: " + startDate + "-" + endDate + " out of " + startDateStr + "-" + endDateStr);
+        logger.debug("Got dates: {}-{} out of {}-{}", LogSafe.sanitizeObject(startDate), LogSafe.sanitizeObject(endDate),
+                LogSafe.sanitize(startDateStr), LogSafe.sanitize(endDateStr));
 
         Boolean isAbnormal = null;
         if ("abnormal".equals(view)) {
@@ -685,7 +686,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         String demoId = null;
         try {
             String docId = request.getParameter("docId");
-            logger.debug("DocId:" + docId);
+            logger.debug("DocId:{}", LogSafe.sanitize(docId));
             if (docId != null) {
                 docId = docId.trim();
                 if (docId.length() > 0) {
@@ -693,7 +694,7 @@ public class DmsInboxManage2Action extends ActionSupport {
                     demoId = doc.getModuleId();
 
                     if (demoId != null) {
-                        logger.debug("DemoId:" + demoId);
+                        logger.debug("DemoId:{}", LogSafe.sanitize(demoId));
                         Integer demographicId = Integer.parseInt(demoId);
                         if (demographicId > 0) {
                             logger.debug("Success true");
