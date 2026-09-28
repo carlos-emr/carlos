@@ -1222,7 +1222,7 @@
     <table class="table table-sm">
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formStatus"/>:</label>
+                        <label for="apptStatusSelect"><fmt:message key="Appointment.formStatus"/>:</label>
                     </td>
                     <td>
                         <%
@@ -1232,7 +1232,7 @@
                 <%-- curSelect stays -1 when the appointment's status was deactivated in the status
                      editor (allStatus holds active rows only). Keep that status as the selected
                      first option so saving the form does not silently change it. --%>
-                <select name="status" class="form-select" style="background-color:<carlos:encode value='<%= curSelect >= 0 ? ((AppointmentStatus)allStatus.get(curSelect)).getColor() : "" %>' context="cssString"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                <select name="status" id="apptStatusSelect" class="form-select" style="background-color:<carlos:encode value='<%= curSelect >= 0 ? ((AppointmentStatus)allStatus.get(curSelect)).getColor() : "" %>' context="cssString"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
                             <% if (curSelect < 0 && statusCode != null && !statusCode.isEmpty()) { %>
                             <option value="<carlos:encode value='<%= statusCode + signOrVerify %>' context="htmlAttribute"/>" SELECTED><carlos:encode value='<%= statusCode + signOrVerify %>' context="html"/></option>
                             <% } %>
@@ -1246,9 +1246,9 @@
                         </select> <%
                     } else {
                         if (importedStatus == null || importedStatus.trim().equals("")) { %>
-              	<input type="text" class="form-control" name="status" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" > <%
+              	<input type="text" class="form-control" name="status" id="apptStatusSelect" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" > <%
                     } else { %>
-                <input type="text" class="form-control" name="status" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" >
+                <input type="text" class="form-control" name="status" id="apptStatusSelect" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" >
                 <input type="text"  class="form-control" TITLE="Imported Status" value="<carlos:encode value='<%= importedStatus %>' context="htmlAttribute"/>" readonly> <%
                             }
                         }
