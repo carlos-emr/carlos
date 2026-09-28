@@ -607,6 +607,9 @@ public class SMTPEmailSender implements OutboundEmailTransport {
      * the message, which is the behaviour {@link #isRefusedAtRecipients} reports as FAILED. With
      * partial sends on, the other recipients would receive it. The exact-class check there does
      * not depend on this pin; the pin keeps the delivery behaviour from changing silently.
+     * {@code reportsuccess} is pinned off too: with it on, Angus throws a
+     * {@code SendFailedException} even after a successful send, so every delivered email would be
+     * recorded as unconfirmed.
      */
     static void applyAllOrNothingRecipients(Properties properties) {
         properties.put("mail.smtp.sendpartial", "false");

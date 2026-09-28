@@ -87,7 +87,8 @@ class SMTPEmailSenderTransportIntegrationTest {
         try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
             receiver.setSoTimeout(10_000);
             CompletableFuture<byte[]> received = new CompletableFuture<>();
-            Thread.ofPlatform().daemon(true).start(() -> receive(receiver, received, dropAcknowledgement));
+            Thread.ofPlatform().daemon(true).start(
+                    () -> receive(receiver, received, dropAcknowledgement ? null : "250 accepted"));
             SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
                     new String[]{"recipient@example.test"}, "Synthetic archive transport test",
                     "First line\r\n.dot-stuffed line\r\nFinal line", List.of());
@@ -105,6 +106,28 @@ class SMTPEmailSenderTransportIntegrationTest {
             assertThat(sender.getPreparedAttachments()).isEmpty();
             assertThatThrownBy(sender::sendPrepared).isInstanceOf(EmailSendingException.class)
                     .hasMessageContaining("must be prepared");
+        }
+    }
+
+    /**
+     * Drives the real transport into a rejection at the end of the content: the server answers
+     * 354 to DATA, reads the whole message, then refuses it. The message reached the server, so
+     * the outcome must stay uncertain (PENDING), not FAILED: a resend could duplicate it.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"554 5.7.1 Message rejected by policy", "451 4.3.0 Temporary queue failure"})
+    void shouldKeepOutcomeUncertain_whenServerRejectsAfterContent(String rejection) throws Exception {
+        try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            receiver.setSoTimeout(10_000);
+            CompletableFuture<byte[]> received = new CompletableFuture<>();
+            Thread.ofPlatform().daemon(true).start(() -> receive(receiver, received, rejection));
+            SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
+                    new String[]{"recipient@example.test"}, "Synthetic rejected content", "Body", List.of());
+            byte[] archived = sender.prepareArtifactBytes();
+
+            assertThatThrownBy(sender::sendPrepared).isInstanceOfSatisfying(
+                    EmailSendingException.class, failure -> assertThat(failure.isDeliveryOutcomeUncertain()).isTrue());
+            assertThat(received.get(10, TimeUnit.SECONDS)).isEqualTo(archived);
         }
     }
 
@@ -256,7 +279,11 @@ class SMTPEmailSenderTransportIntegrationTest {
         }
     }
 
-    private static void receive(ServerSocket receiver, CompletableFuture<byte[]> received, boolean dropAcknowledgement) {
+    /**
+     * Accepts every command and the message content, then answers the end of the content with
+     * {@code acknowledgement}, or closes the connection without replying when it is null.
+     */
+    private static void receive(ServerSocket receiver, CompletableFuture<byte[]> received, String acknowledgement) {
         try (Socket connection = receiver.accept()) {
             connection.setSoTimeout(10_000);
             var output = connection.getOutputStream();
@@ -275,8 +302,8 @@ class SMTPEmailSenderTransportIntegrationTest {
                     }
                     if (line == null) throw new java.io.EOFException("Incomplete SMTP DATA");
                     received.complete(bytes.toByteArray());
-                    if (dropAcknowledgement) return;
-                    output.write("250 accepted\r\n".getBytes(StandardCharsets.US_ASCII));
+                    if (acknowledgement == null) return;
+                    output.write((acknowledgement + "\r\n").getBytes(StandardCharsets.US_ASCII));
                 } else if (line.equals("QUIT")) {
                     output.write("221 bye\r\n".getBytes(StandardCharsets.US_ASCII));
                     output.flush();
