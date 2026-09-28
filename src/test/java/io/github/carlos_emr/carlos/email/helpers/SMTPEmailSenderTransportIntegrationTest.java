@@ -163,6 +163,31 @@ class SMTPEmailSenderTransportIntegrationTest {
         }
     }
 
+    /**
+     * Drives the real transport into a refused DATA command after the sender and recipient were
+     * accepted: temporary (451) or policy (554). The content is sent only after a 354, so the
+     * failure must be definite, with no address refused.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"451 4.3.0 Temporary queue failure", "554 5.7.1 Message refused by policy"})
+    void shouldReportDefiniteFailure_whenServerRefusesData(String refusal) throws Exception {
+        try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            receiver.setSoTimeout(10_000);
+            CompletableFuture<Boolean> dataReceived = new CompletableFuture<>();
+            Thread.ofPlatform().daemon(true).start(() -> refuseCommand(receiver, dataReceived, "DATA", refusal));
+            SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
+                    new String[]{"recipient@example.test"}, "Synthetic refused data", "Body", List.of());
+            sender.prepareArtifactBytes();
+
+            assertThatThrownBy(sender::sendPrepared).isInstanceOfSatisfying(
+                    EmailSendingException.class, failure -> {
+                        assertThat(failure.isDeliveryOutcomeUncertain()).isFalse();
+                        assertThat(failure.getRefusal()).isEqualTo(Refusal.NONE);
+                    });
+            assertThat(dataReceived.get(10, TimeUnit.SECONDS)).isFalse();
+        }
+    }
+
     private static EmailConfig localConfig(int port) {
         EmailConfig config = new EmailConfig();
         config.setEmailType(EmailConfig.EmailType.SMTP);
@@ -174,7 +199,11 @@ class SMTPEmailSenderTransportIntegrationTest {
         return config;
     }
 
-    /** Answers {@code refusal} to any command starting {@code refusedCommand}, accepts the rest, and records whether DATA arrived. */
+    /**
+     * Answers {@code refusal} to any command starting {@code refusedCommand} and accepts the rest.
+     * Records whether a DATA it was not told to refuse arrived; it answers that one with 554 at
+     * once and never sends 354, so no message content can follow.
+     */
     private static void refuseCommand(ServerSocket receiver, CompletableFuture<Boolean> dataReceived,
             String refusedCommand, String refusal) {
         try (Socket connection = receiver.accept()) {

@@ -410,8 +410,8 @@ public class EmailManager {
             return "SMTP sender refused";
         }
         // Thrown for a failed MAIL FROM, DATA or end of message, never for RCPT TO, including a
-        // connection lost after the message was sent. Neutral on purpose: these rows are often
-        // PENDING, and "refused" would claim the message did not go out.
+        // connection lost after the message was sent. Neutral on purpose: after the content these
+        // rows are PENDING, and "refused" would claim the message did not go out.
         if (failure instanceof org.eclipse.angus.mail.smtp.SMTPSendFailedException) {
             return "SMTP message transfer failure";
         }

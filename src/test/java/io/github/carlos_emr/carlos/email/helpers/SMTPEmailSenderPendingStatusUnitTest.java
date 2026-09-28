@@ -268,6 +268,56 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = {554, 451, 421, -1})
+    @DisplayName("should classify a refused DATA command as definitely unsent, with no address refused")
+    void shouldClassifyDataCommandRefusal_asDefinitelyUnsent(int replyCode) throws Exception {
+        // The content follows only a 354, so any other reply to DATA, even a dropped connection
+        // (-1), means none of the message was sent.
+        assertThatThrownBy(senderFailingWith(dataRefusal(replyCode))::send)
+                .isInstanceOfSatisfying(EmailSendingException.class, exception -> {
+                    assertThat(exception.isDeliveryOutcomeUncertain()).isFalse();
+                    assertThat(exception.getRefusal()).isEqualTo(Refusal.NONE);
+                })
+                .hasMessage("SMTP failed before accepting the message.");
+    }
+
+    @Test
+    @DisplayName("should keep a DATA refusal uncertain if it lists an address as sent to")
+    void shouldClassifyDataRefusalWithSentAddress_asUncertainOutcome() throws Exception {
+        // Angus never lists a sent address here today. Pinned so the guard is not removed as dead code.
+        SMTPSendFailedException claimsSent = new SMTPSendFailedException("DATA", 451, "451 try later", null,
+                new Address[] {new InternetAddress("patient@example.invalid")}, null, null);
+
+        assertThatThrownBy(senderFailingWith(claimsSent)::send)
+                .isInstanceOfSatisfying(EmailSendingException.class,
+                        exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isTrue());
+    }
+
+    @Test
+    @DisplayName("should keep a BDAT failure uncertain, because BDAT carries content with the command")
+    void shouldClassifyBdatFailure_asUncertainOutcome() throws Exception {
+        SMTPSendFailedException chunk = new SMTPSendFailedException("BDAT 1024 LAST", 451, "451 try later", null,
+                null, new Address[] {new InternetAddress("patient@example.invalid")}, null);
+
+        assertThatThrownBy(senderFailingWith(chunk)::send)
+                .isInstanceOfSatisfying(EmailSendingException.class,
+                        exception -> assertThat(exception.isDeliveryOutcomeUncertain()).isTrue());
+    }
+
+    @Test
+    @DisplayName("should log the DATA reply code without the server text")
+    void shouldLogDataReplyCode_withoutServerText() throws Exception {
+        try (LogCapture capture = LogCapture.forLogger(SMTPEmailSender.class)) {
+            assertThatThrownBy(senderFailingWith(dataRefusal(451))::send).isInstanceOf(EmailSendingException.class);
+
+            assertThat(capture.messages())
+                    .anySatisfy(message -> assertThat(message).contains("DATA").contains("replyCode=451"))
+                    .noneSatisfy(message -> assertThat(message)
+                            .containsAnyOf("patient@example.invalid", "Mailbox"));
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {550, 450})
     @DisplayName("should log the refusal count and reply code without the address or the server text")
     void shouldLogReplyCodes_withoutAddressOrServerText(int replyCode) throws Exception {
@@ -326,6 +376,16 @@ class SMTPEmailSenderPendingStatusUnitTest extends CarlosUnitTestBase {
     private static SMTPSendFailedException senderRefusal(int replyCode) throws Exception {
         return new SMTPSendFailedException("MAIL FROM:<clinic@example.invalid>", replyCode,
                 replyCode + " 5.7.1 Sender address not permitted", null, null,
+                new Address[] {new InternetAddress("patient@example.invalid")}, null);
+    }
+
+    /**
+     * The exception Angus's issueSendCommand throws for a reply other than 354 to DATA: that
+     * command, nothing sent, and the accepted recipients listed as valid but unsent.
+     */
+    private static SMTPSendFailedException dataRefusal(int replyCode) throws Exception {
+        return new SMTPSendFailedException("DATA", replyCode,
+                replyCode + " 4.3.0 Mailbox for patient@example.invalid unavailable", null, null,
                 new Address[] {new InternetAddress("patient@example.invalid")}, null);
     }
 

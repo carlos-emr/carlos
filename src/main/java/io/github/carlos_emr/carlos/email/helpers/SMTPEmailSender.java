@@ -89,6 +89,8 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     private static final int MAX_LOGGED_REFUSALS = 64;
     /** The command prefix Angus sends for the envelope sender ({@code SMTPTransport.mailFrom}). */
     private static final String MAIL_FROM_COMMAND = "MAIL FROM:";
+    /** The command Angus sends to start the message content; the content follows only a 354 reply. */
+    private static final String DATA_COMMAND = "DATA";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
@@ -276,14 +278,16 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         if (!(failure instanceof org.springframework.mail.MailSendException sendFailure)) {
             return Optional.empty();
         }
-        // This sender dispatches exactly one message, and only three shapes prove it never left:
+        // This sender dispatches exactly one message, and only four shapes prove it never left:
         // - connect time: Spring reports the same exception as both the top-level cause and that
         //   message's failure;
         // - refused at MAIL FROM: see isRefusedAtSender;
-        // - refused at RCPT TO: see isRefusedAtRecipients.
-        // Failures during DATA have no top-level cause and are neither of the refusal shapes, and
-        // closing an accepted connection has no failed message; both stay uncertain. Do not infer
-        // the stage from a TLS/timeout exception type or from remote diagnostic text.
+        // - refused at RCPT TO: see isRefusedAtRecipients;
+        // - the DATA command itself refused, before any content: see isRefusedAtData.
+        // Failures once the content has been sent have no top-level cause and are none of the
+        // refusal shapes, and closing an accepted connection has no failed message; both stay
+        // uncertain. Do not infer the stage from a TLS/timeout exception type or from remote
+        // diagnostic text.
         Exception[] messageFailures = sendFailure.getMessageExceptions();
         if (messageFailures.length != 1) {
             return Optional.empty();
@@ -299,6 +303,11 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         if (isRefusedAtRecipients(messageFailures[0])) {
             logRecipientRefusal((SendFailedException) messageFailures[0]);
             return Optional.of(Refusal.RECIPIENT);
+        }
+        if (isRefusedAtData(messageFailures[0])) {
+            logDataRefusal((SMTPSendFailedException) messageFailures[0]);
+            // Neither address was refused, so staff get no address-specific hint.
+            return Optional.of(Refusal.NONE);
         }
         return Optional.empty();
     }
@@ -320,6 +329,22 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         }
         String command = refused.getCommand();
         return command != null && command.startsWith(MAIL_FROM_COMMAND)
+                && isEmpty(refused.getValidSentAddresses());
+    }
+
+    /**
+     * Recognises the server refusing the DATA command itself, for example a temporary 451 or a
+     * policy 554 after the recipients were accepted. Angus sends DATA, and on any reply other than
+     * 354 ("start mail input"), including a dropped connection it reads as code -1, throws
+     * {@code SMTPSendFailedException} carrying that command. The content is sent only after a 354.
+     *
+     * <p>The command is matched exactly. A failure after the content carries {@code "."} as its
+     * command and may follow acceptance, so it must never match, and BDAT (chunking) sends content
+     * with the command. As at MAIL FROM, a listed sent address keeps the outcome uncertain.</p>
+     */
+    private static boolean isRefusedAtData(Exception messageFailure) {
+        return messageFailure instanceof SMTPSendFailedException refused
+                && DATA_COMMAND.equals(refused.getCommand())
                 && isEmpty(refused.getValidSentAddresses());
     }
 
@@ -386,6 +411,11 @@ public class SMTPEmailSender implements OutboundEmailTransport {
      */
     private void logSenderRefusal(SMTPSendFailedException refused) {
         logger.warn("SMTP server did not accept MAIL FROM; replyCode={}", refused.getReturnCode());
+    }
+
+    /** Logs only the reply code for a refused DATA command; the server's text can carry an address. */
+    private void logDataRefusal(SMTPSendFailedException refused) {
+        logger.warn("SMTP server did not accept DATA; replyCode={}", refused.getReturnCode());
     }
 
     /**
