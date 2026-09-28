@@ -53,3 +53,13 @@ test('one expected failed POST permits at most one native warning', () => {
   consumeExpectedConflict(log, response, { responses: 0, console: 0 }, baseUrl);
   assert.equal(log.consoleIssues.length, 1);
 });
+
+test('consumes only the exact deliberate staged-card deletion conflict', () => {
+  const url = `${baseUrl}/rx/rxStashDelete?demographicNo=1`;
+  const log = {
+    badResponses: [{label: 'owned-workflow', method: 'POST', status: 409, url}],
+    consoleIssues: [warning(url)],
+  };
+  consumeExpectedConflict(log, {url() { return url; }}, {responses: 0, console: 0}, baseUrl, '/rx/rxStashDelete');
+  assert.deepEqual(log, {badResponses: [], consoleIssues: []});
+});

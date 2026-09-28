@@ -592,6 +592,7 @@ class RxPatientWriteAuthorizationUnitTest {
                 return () -> new RxDeleteRx2Action().Discontinue();
             case "stash.deletePrescribe":
                 request.setParameter("randomId", String.valueOf(cardKey));
+                request.setParameter("draftRevision", bean.getStashItem(0).getDraftRevision());
                 return () -> new RxStash2Action().deletePrescribe();
             case "addFavorite.execute":
                 return () -> {

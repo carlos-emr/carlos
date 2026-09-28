@@ -136,10 +136,7 @@ public final class RxStash2Action extends ActionSupport {
         }
         if (card == null || revisions == null || revisions.length != 1
                 || card.getDraftRevision() == null || !card.getDraftRevision().equals(revisions[0])) {
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"STALE_RX_STASH\"}");
-            return NONE;
+            return staleStash();
         }
         int index = bean.getIndexFromRx((int) card.getRandomId());
         if ("edit".equals(this.getAction())) {
@@ -208,9 +205,10 @@ public final class RxStash2Action extends ActionSupport {
      * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
      * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
      *
-     * POST-only: removes exactly one staged card by its stash key ({@code randomId}) and, for a
+     * POST-only: removes exactly one staged card by its stash key ({@code randomId}) and rendered
+     * {@code draftRevision} and, for a
      * re-prescribed card, drops its source from the ReRx list unless another staged card still uses it.
-     * A malformed key is a 400.
+     * A malformed key is a 400; a missing, ambiguous or stale card identity is a 409.
      *
      * @return {@code NONE}; a missing patient workspace receives HTTP 409
      * @throws SecurityException when the caller may not write Rx for the patient
@@ -236,31 +234,42 @@ public final class RxStash2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        // Looking up the key and removing its positional entry must be one operation. Another
+        String[] keys = request.getParameterValues("randomId");
+        String[] revisions = request.getParameterValues("draftRevision");
+        // Looking up the key, validating its revision and removing its positional entry must be atomic. Another
         // window can close a preceding card between accessor calls and otherwise shift this
         // index onto a different medication. Keep ReRx cleanup in the same critical section.
         synchronized (bean) {
             int stashId = bean.getIndexFromRx(randomId);
-            if (stashId != -1) {
-                int sourceDrugId = bean.getStashItem(stashId).getDrugReferenceId();
-                bean.removeStashItem(stashId);
-                // Closing a re-prescribed card also un-ticks its source for ReRx. This request is the
-                // card X button's only server call: it used to send removeFromReRxDrugIdList as well,
-                // which removes the first stash entry for that source in a second, unordered request
-                // and could drop a different draft (#3908). The source stays listed while another
-                // staged card still re-prescribes it.
-                if (sourceDrugId > 0 && !stagesSource(bean, sourceDrugId)) {
-                    bean.getReRxDrugIdList().remove(String.valueOf(sourceDrugId));
-                }
-                if (bean.getStashIndex() >= bean.getStashSize()) {
-                    bean.setStashIndex(bean.getStashSize() - 1);
-                }
-            } else {
-                MiscUtils.getLogger().debug("deletePrescribe: no staged card for the requested random id");
+            RxPrescriptionData.Prescription card = stashId < 0 ? null : bean.getStashItem(stashId);
+            // A delayed duplicate close must never remove a newer draft that reused the numeric key.
+            if (keys == null || keys.length != 1 || card == null || revisions == null || revisions.length != 1
+                    || card.getDraftRevision() == null || !card.getDraftRevision().equals(revisions[0])) {
+                return staleStash();
+            }
+            int sourceDrugId = card.getDrugReferenceId();
+            bean.removeStashItem(stashId);
+            // Closing a re-prescribed card also un-ticks its source for ReRx. This request is the
+            // card X button's only server call: it used to send removeFromReRxDrugIdList as well,
+            // which removes the first stash entry for that source in a second, unordered request
+            // and could drop a different draft (#3908). The source stays listed while another
+            // staged card still re-prescribes it.
+            if (sourceDrugId > 0 && !stagesSource(bean, sourceDrugId)) {
+                bean.getReRxDrugIdList().remove(String.valueOf(sourceDrugId));
+            }
+            if (bean.getStashIndex() >= bean.getStashSize()) {
+                bean.setStashIndex(bean.getStashSize() - 1);
             }
         }
 
         return SUCCESS;
+    }
+
+    private String staleStash() throws IOException {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"STALE_RX_STASH\"}");
+        return NONE;
     }
 
 

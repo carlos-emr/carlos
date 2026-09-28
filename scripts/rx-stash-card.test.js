@@ -24,11 +24,16 @@ function slice(startMarker, endMarker) {
 
 const helpers = slice('function removeDrugFromReRxList(', 'function updateQty(');
 
-function card(id, drugRefId) {
+function card(id, drugRefId, revision = 'draft-' + id) {
     return {
         id,
+        revision,
         removed: false,
         getAttribute(name) { return name === 'data-drug-ref-id' ? drugRefId : null; },
+        querySelector(selector) {
+            assert.equal(selector, `input[name="draftRevision_${id.split('_')[1]}"]`);
+            return this.revision === null ? null : { value: this.revision };
+        },
         remove() { this.removed = true; },
     };
 }
@@ -61,6 +66,7 @@ test('card X waits for deletion success before hiding the card and unchecking Re
     const { requests } = run('removePrescribingDrug(document.getElementById("set_734512"), 4242);', [staged, checkbox]);
     assert.equal(requests.length, 1);
     assert.match(requests[0].options.parameters, /^randomId=734512&/);
+    assert.equal(new URLSearchParams(requests[0].options.parameters).get('draftRevision'), 'draft-set_734512');
     assert.equal(staged.removed, false);
     assert.equal(checkbox.checked, true);
     requests[0].options.onSuccess();
@@ -78,6 +84,53 @@ test('a refused card deletion stays visible and can be retried', () => {
     requests[1].options.onSuccess();
     assert.equal(staged.removed, true);
 });
+
+for (const revision of [null, '']) {
+    test(`card X visibly refuses a missing revision (${revision}) without changing its ReRx selection`, () => {
+        const staged = card('set_900001', '4242', revision);
+        const checkbox = { id: 'reRxCheckBox_4242', checked: true };
+        const { requests, alerts } = run('removePrescribingDrug(document.getElementById("set_900001"), 4242);',
+            [staged, checkbox]);
+        assert.equal(requests.length, 0);
+        assert.equal(staged.removed, false);
+        assert.equal(checkbox.checked, true);
+        assert.deepEqual(alerts, ['Removal failed']);
+    });
+}
+
+test('card X sends the rendered revision unchanged and preserves card and ReRx on a stale conflict', () => {
+    const staged = card('set_42', '4242', 'old draft+&=revision');
+    const checkbox = { id: 'reRxCheckBox_4242', checked: true };
+    const { requests, alerts } = run('removePrescribingDrug(document.getElementById("set_42"), 4242);',
+        [staged, checkbox]);
+    const body = new URLSearchParams(requests[0].options.parameters);
+    assert.equal(body.get('randomId'), '42');
+    assert.equal(body.get('draftRevision'), 'old draft+&=revision');
+    requests[0].options.onFailure({status: 409});
+    assert.equal(staged.removed, false);
+    assert.equal(checkbox.checked, true);
+    assert.deepEqual(alerts, ['Removal failed']);
+});
+
+for (const change of ['replacement element', 'refreshed revision', 'missing element']) {
+    test(`a delayed deletion success preserves newer display and ReRx after ${change}`, () => {
+        const staged = card('set_42', '4242', 'original-revision');
+        const replacement = card('set_42', '4242', 'replacement-revision');
+        const checkbox = {id: 'reRxCheckBox_4242', checked: true};
+        const {requests, context} = run('removePrescribingDrug(document.getElementById("set_42"), 4242);',
+            [staged, checkbox]);
+        if (change === 'refreshed revision') staged.revision = 'replacement-revision';
+        else {
+            const lookup = context.document.getElementById;
+            context.document.getElementById = id => id === 'set_42'
+                ? (change === 'replacement element' ? replacement : null) : lookup(id);
+        }
+        requests[0].options.onSuccess();
+        assert.equal(staged.removed, false);
+        assert.equal(replacement.removed, false);
+        assert.equal(checkbox.checked, true);
+    });
+}
 
 test('unticking ReRx waits for success before removing every card for the source', () => {
     const other = card('set_111', '77');

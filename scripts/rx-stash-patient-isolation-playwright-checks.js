@@ -102,7 +102,7 @@ function consumeExpectedConflict(recorder, response, since, baseUrl, endpoint = 
   const appUrl = new URL(baseUrl);
   const contextPath = appUrl.pathname.replace(/\/$/, '');
   const responseUrl = new URL(response.url());
-  h.assert(responseUrl.origin === appUrl.origin && ['/rx/WriteScript', '/rx/rePrescribe2'].includes(endpoint)
+  h.assert(responseUrl.origin === appUrl.origin && ['/rx/WriteScript', '/rx/rePrescribe2', '/rx/rxStashDelete'].includes(endpoint)
     && responseUrl.pathname === `${contextPath}${endpoint}`,
     'the expected conflict must belong to this application prescription endpoint');
   const errors = recorder.badResponses.slice(since.responses);

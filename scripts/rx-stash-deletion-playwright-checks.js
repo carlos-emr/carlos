@@ -7,7 +7,7 @@
 // Uses an owned patient and session-only custom medication; no DrugRef fixture is required.
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openRx, stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
+const { openRx, stageCustomDrug, consumeExpectedConflict } = require('./rx-stash-patient-isolation-playwright-checks');
 
 /** Hold a real CSS opening transition until reset is acknowledged, independent of VM speed. */
 async function holdPreviewOpeningTransition(page) {
@@ -120,6 +120,9 @@ async function workflow(session) {
       h.assert(request.method() === 'POST', 'card deletion must use POST');
       h.assert(new URLSearchParams(request.postData()).get('randomId') === key,
         'card deletion did not send the stash key');
+      h.assert(new URLSearchParams(request.postData()).get('draftRevision')
+        === await card.locator(`input[name="draftRevision_${key}"]`).inputValue(),
+        'card deletion did not send the rendered draft revision');
       h.assert(await card.isVisible(), 'card disappeared before the server accepted deletion');
       const responsePromise = rx.waitForResponse(response => routePattern.test(response.url()));
       release();
@@ -135,6 +138,150 @@ async function workflow(session) {
     h.assert(await reopened.locator(`#set_${key}`).count() === 0,
       'deleted card returned after reopening the patient Rx');
     await reopened.close();
+  });
+
+  await session.step('a delayed card X cannot delete a replacement with the same numeric key', async () => {
+    const original = await openRx(session, session.patient);
+    const key = await stageCustomDrug(original, `${session.marker}-old-key`);
+    const oldCard = original.locator(`#set_${key}`);
+    const oldRevision = await oldCard.locator(`input[name="draftRevision_${key}"]`).inputValue();
+    const current = await openRx(session, session.patient);
+    let release;
+    let intercepted;
+    const hold = new Promise(resolve => { release = resolve; });
+    const received = new Promise(resolve => { intercepted = resolve; });
+    const routePattern = /\/rx\/rxStashDelete(?:\?|$)/;
+    const handler = async route => {
+      intercepted(route.request());
+      await hold;
+      await route.continue();
+    };
+    await original.route(routePattern, handler);
+    try {
+      await oldCard.locator("a[onclick^='removePrescribingDrug']").first().click();
+      const request = await Promise.race([
+        received,
+        original.waitForTimeout(10000).then(() => { throw new Error('old card X did not request deletion'); }),
+      ]);
+      const body = new URLSearchParams(request.postData());
+      h.assert(body.get('randomId') === key && body.get('draftRevision') === oldRevision,
+        'the held deletion did not identify the original rendered draft');
+      const currentCard = current.locator(`#set_${key}`);
+      const removed = current.waitForResponse(response => routePattern.test(response.url()));
+      await currentCard.locator("a[onclick^='removePrescribingDrug']").first().click();
+      h.assert((await removed).ok(), 'the other window could not remove the original draft');
+      await currentCard.waitFor({state: 'detached'});
+
+      // Exercise a real collision in the existing numeric key generator, without changing
+      // production code or substituting the backend response.
+      await current.evaluate(value => {
+        window.__rxOriginalRandom = Math.random;
+        Math.random = () => Number(value) / 1000000;
+      }, key);
+      const replacementName = `${session.marker}-replacement-key`;
+      try {
+        h.assert(await stageCustomDrug(current, replacementName) === key, 'replacement did not reuse the numeric key');
+      } finally {
+        await current.evaluate(() => { Math.random = window.__rxOriginalRandom; delete window.__rxOriginalRandom; });
+      }
+      const replacementRevision = await current.locator(`input[name="draftRevision_${key}"]`).inputValue();
+      h.assert(replacementRevision !== oldRevision, 'the replacement retained the old draft revision');
+      const since = {responses: session.recorder.badResponses.length, console: session.recorder.consoleIssues.length};
+      let refusal;
+      const dialogs = await h.withExpectedDialogs(original, async () => {
+        const pending = original.waitForResponse(response => routePattern.test(response.url()));
+        const alert = original.waitForEvent('dialog');
+        release();
+        refusal = await pending;
+        h.assert(refusal.status() === 409, 'the delayed old deletion was accepted for the replacement draft');
+        await alert;
+      });
+      h.assert(dialogs.length === 1 && dialogs[0].text === await original.evaluate(() => jsMsg.removeRefused),
+        'the stale deletion did not visibly report its refusal');
+      consumeExpectedConflict(session.recorder, refusal, since, session.config.baseUrl, '/rx/rxStashDelete');
+      h.assert(await oldCard.isVisible(), 'the refused old deletion hid its card');
+      h.assert(await current.locator(`#drugName_${key}`).inputValue() === replacementName,
+        'the refused old deletion changed the replacement display');
+      const reopened = await openRx(session, session.patient);
+      try {
+        h.assert(await reopened.locator(`#drugName_${key}`).inputValue() === replacementName
+          && await reopened.locator(`input[name="draftRevision_${key}"]`).inputValue() === replacementRevision,
+          'the refused old deletion removed or replaced the current server draft');
+        const accepted = reopened.waitForResponse(response => routePattern.test(response.url()));
+        await reopened.locator(`#set_${key} a[onclick^='removePrescribingDrug']`).first().click();
+        h.assert((await accepted).ok(), 'the replacement could not be deleted using its current revision');
+        await reopened.locator(`#set_${key}`).waitFor({state: 'detached'});
+      } finally {
+        await reopened.close();
+      }
+    } finally {
+      release();
+      await original.unroute(routePattern, handler);
+      await original.close();
+      await current.close();
+    }
+  });
+
+  await session.step('a delayed successful deletion response cannot hide a newer card with the same key', async () => {
+    const page = await openRx(session, session.patient);
+    const key = await stageCustomDrug(page, `${session.marker}-old-response`);
+    let release;
+    let committed;
+    const hold = new Promise(resolve => { release = resolve; });
+    const received = new Promise(resolve => { committed = resolve; });
+    const routePattern = /\/rx\/rxStashDelete(?:\?|$)/;
+    const handler = async route => {
+      const response = await route.fetch();
+      committed(response.status());
+      await hold;
+      await route.fulfill({response});
+    };
+    await page.route(routePattern, handler);
+    try {
+      await page.locator(`#set_${key} a[onclick^='removePrescribingDrug']`).first().click();
+      const status = await Promise.race([
+        received,
+        page.waitForTimeout(10000).then(() => { throw new Error('card deletion did not reach the server'); }),
+      ]);
+      h.assert(status === 200, 'the held response was not a successful deletion');
+      h.assert(await page.locator(`#set_${key}`).isVisible(), 'the card vanished before its held response arrived');
+      // Reset genuinely clears the local display while the already-committed X response is
+      // still in transit; a new draft can now reuse that key in the same document.
+      const reset = page.waitForResponse(response => /\/rx\/deleteRx\?parameterValue=clearStash(?:&|$)/.test(response.url()));
+      await page.locator('#reset').click();
+      h.assert((await reset).ok(), 'the display could not be reset during the delayed response');
+      await page.locator(`#set_${key}`).waitFor({state: 'detached'});
+      await page.evaluate(value => {
+        window.__rxOriginalRandom = Math.random;
+        Math.random = () => Number(value) / 1000000;
+      }, key);
+      const replacementName = `${session.marker}-new-response`;
+      try {
+        h.assert(await stageCustomDrug(page, replacementName) === key, 'the new card did not reuse the numeric key');
+      } finally {
+        await page.evaluate(() => { Math.random = window.__rxOriginalRandom; delete window.__rxOriginalRandom; });
+      }
+      const response = page.waitForResponse(response => routePattern.test(response.url()));
+      release();
+      await response;
+      // Wait for the production XHR success callback, not just the response headers.
+      await page.waitForLoadState('networkidle', {timeout: 30000});
+      h.assert(await page.locator(`#drugName_${key}`).inputValue() === replacementName,
+        'the delayed success hid the newer card');
+      const reopened = await openRx(session, session.patient);
+      try {
+        h.assert(await reopened.locator(`#drugName_${key}`).inputValue() === replacementName,
+          'the newer displayed card was absent from the server stash');
+        await resetAndWaitForAcknowledgement(reopened, reopened.locator(`#set_${key}`),
+          () => reopened.locator('#reset').click());
+      } finally {
+        await reopened.close();
+      }
+    } finally {
+      release();
+      await page.unroute(routePattern, handler);
+      await page.close();
+    }
   });
 
   await session.step('declining a discontinued drug waits for removal and preserves quoted warning text', async () => {

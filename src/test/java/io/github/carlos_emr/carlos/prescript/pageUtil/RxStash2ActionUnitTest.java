@@ -35,6 +35,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -206,8 +207,10 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRemoveCard_byStashRandomId() throws Exception {
         request.setParameter("parameterValue", "deletePrescribe");
         request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", bean.getStashItem(0).getDraftRevision());
 
-        new RxStash2Action().execute();
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(200);
 
         assertThat(bean.getStashSize()).isEqualTo(1);
         assertThat(bean.getStashItem(0).getRandomId()).isEqualTo(222222L);
@@ -226,6 +229,7 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
             putBeanInSession(concurrentBean);
             request.setParameter("parameterValue", "deletePrescribe");
             request.setParameter("randomId", "222222");
+            request.setParameter("draftRevision", concurrentBean.getStashItem(1).getDraftRevision());
 
             new RxStash2Action().execute();
             concurrentBean.awaitCompletion();
@@ -244,6 +248,7 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
         bean.addReRxDrugIdList("55");
         request.setParameter("parameterValue", "deletePrescribe");
         request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", bean.getStashItem(0).getDraftRevision());
 
         new RxStash2Action().execute();
 
@@ -259,6 +264,7 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
         bean.addReRxDrugIdList("55");
         request.setParameter("parameterValue", "deletePrescribe");
         request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", bean.getStashItem(0).getDraftRevision());
 
         new RxStash2Action().execute();
 
@@ -273,10 +279,110 @@ class RxStash2ActionUnitTest extends CarlosUnitTestBase {
         // key, which is why the "closed" card was still saved; the fix sends the random id.
         request.setParameter("parameterValue", "deletePrescribe");
         request.setParameter("randomId", "55");
+        request.setParameter("draftRevision", bean.getStashItem(0).getDraftRevision());
 
-        new RxStash2Action().execute();
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
 
+        assertThat(response.getStatus()).isEqualTo(409);
         assertThat(bean.getStashSize()).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"unknown-revision"})
+    @DisplayName("should preserve every draft and ReRx selection when a modern close has no valid revision")
+    void shouldRejectModernClose_whenRevisionIsMissingOrStale(String revision) throws Exception {
+        bean.addReRxDrugIdList("55");
+        RxPrescriptionData.Prescription[] cards = bean.getStash();
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+        if (revision != null) request.setParameter("draftRevision", revision);
+
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+        assertThat(bean.getStash()).containsExactly(cards);
+        assertThat(bean.getStashIndex()).isEqualTo(1);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"randomId", "draftRevision"})
+    @DisplayName("should reject repeated card identity values without removing a draft")
+    void shouldRejectModernClose_whenIdentityParameterIsRepeated(String repeatedParameter) throws Exception {
+        bean.addReRxDrugIdList("55");
+        RxPrescriptionData.Prescription[] cards = bean.getStash();
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", cards[0].getDraftRevision());
+        String value = request.getParameter(repeatedParameter);
+        request.setParameter(repeatedParameter, new String[]{value, value});
+
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(bean.getStash()).containsExactly(cards);
+        assertThat(bean.getStashIndex()).isEqualTo(1);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+    }
+
+    @Test
+    @DisplayName("should refuse a modern close that combines one card's key with another card's revision")
+    void shouldRejectModernClose_whenRevisionBelongsToAnotherCard() throws Exception {
+        bean.addReRxDrugIdList("55");
+        RxPrescriptionData.Prescription[] cards = bean.getStash();
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", cards[1].getDraftRevision());
+
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(bean.getStash()).containsExactly(cards);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("55");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should refuse a delayed duplicate modern close even after its numeric key is reused")
+    void shouldPreserveNewDrafts_whenModernCloseIsReplayed(boolean reuseKey) throws Exception {
+        bean.addReRxDrugIdList("55");
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", bean.getStashItem(0).getDraftRevision());
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(bean.getReRxDrugIdList()).isEmpty();
+        RxPrescriptionData.Prescription remaining = bean.getStashItem(0);
+        RxPrescriptionData.Prescription replacement = staged(reuseKey ? 111111L : 333333L, 77);
+        bean.getStashList().add(replacement);
+        bean.addReRxDrugIdList("77");
+        int cursor = bean.getStashIndex();
+
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("STALE_RX_STASH");
+        assertThat(bean.getStash()).containsExactly(remaining, replacement);
+        assertThat(bean.getStashIndex()).isEqualTo(cursor);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("77");
+    }
+
+    @Test
+    @DisplayName("should reject an old close after the same draft revision was consumed for persistence")
+    void shouldPreserveConsumedDraft_whenModernCloseUsesRenderedOldRevision() throws Exception {
+        bean.addReRxDrugIdList("55");
+        RxPrescriptionData.Prescription[] cards = bean.getStash();
+        request.setParameter("parameterValue", "deletePrescribe");
+        request.setParameter("randomId", "111111");
+        request.setParameter("draftRevision", cards[0].getDraftRevision());
+        cards[0].advanceDraftRevision();
+
+        assertThat(new RxStash2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(bean.getStash()).containsExactly(cards);
+        assertThat(bean.getReRxDrugIdList()).containsExactly("55");
     }
 
     @Test

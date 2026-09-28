@@ -1567,15 +1567,21 @@ function renderRxStage() {
      *
      * @param randomId the card's stash random id (the <rand> in set_<rand>), NOT a drug id.
      *                 rx/rxStashDelete is POST-only; CarlosAjax adds the CSRF token.
+     * @param draftRevision the rendered version that must still own this numeric stash key.
      */
-    function deletePrescribe(randomId, onRemoved){
-        var data="randomId="+encodeURIComponent(randomId);
+    function deletePrescribe(randomId, draftRevision, onRemoved){
+        var card = document.getElementById('set_' + randomId);
+        var data="randomId="+encodeURIComponent(randomId)
+            + "&draftRevision=" + encodeURIComponent(draftRevision);
         var url=ctx + "/rx/rxStashDelete";
         data += "&parameterValue=deletePrescribe";
         CarlosAjax.request(url, {method: 'post', parameters: data, onSuccess: function () {
-            jQuery("#set_" + randomId).remove();
-            jQuery("#prescriptionMoreLessLink_" + randomId).remove();
-            jQuery("#deleteMedicationFromPrescription_" + randomId).remove();
+            // The response can arrive after this page has rendered a newer draft with the same
+            // key. Only remove the original element and run its ReRx callback for that version.
+            if (!card || document.getElementById('set_' + randomId) !== card) return;
+            var revision = card.querySelector('input[name="draftRevision_' + randomId + '"]');
+            if (!revision || revision.value !== draftRevision) return;
+            card.remove();
             if (onRemoved) onRemoved();
         }, onFailure: reportRefusedRemoval});
     }
@@ -2491,11 +2497,17 @@ function removeDrugFromReRxList(drugId) {
  */
 function removePrescribingDrug(cardId, drugId) {
     const uiRefId = cardId.id.split('_')[1];
+    const revision = cardId.querySelector('input[name="draftRevision_' + uiRefId + '"]');
+    if (!revision || !revision.value) {
+        reportRefusedRemoval();
+        return;
+    }
     // One server call only: deletePrescribe removes exactly this card by its stash key and, for a
     // re-prescribed card, also drops the source from the ReRx list. Sending
     // removeFromReRxDrugIdList as well (as this used to) made a second, unordered request that
     // removes the first stash entry for the source and could drop a different draft (#3908).
-    deletePrescribe(uiRefId, function () {
+    // Bind removal to the rendered draft, since a later card can reuse this numeric key.
+    deletePrescribe(uiRefId, revision.value, function () {
         if (drugId) {
             const checkbox = getReRxCheckboxByUiRefId(drugId);
             if (checkbox) checkbox.checked = false;
