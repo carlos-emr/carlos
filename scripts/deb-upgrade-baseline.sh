@@ -71,6 +71,12 @@ for mapping in 'province:CARLOS_PROVINCE' 'tz:CARLOS_TZ' 'dbname:CARLOS_DB_NAME'
 done
 value=$(grep -E '^consultation_signature_enabled=' "$CARLOS_ETC_DIR/carlos.properties" || true); emit cfg.consultSig "$value"
 value=$(grep -E '^rx_fax_enabled=' "$CARLOS_ETC_DIR/carlos.properties" || true); emit cfg.rxFax "$value"
+# The carlos-emr postinst rewrites health_tracker=false -> true once on upgrade,
+# so deb-upgrade-verify.sh needs the value and a hash of everything else in the
+# file to tell that sanctioned rewrite apart from any other change.
+value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true); emit cfg.healthTracker "$value"
+value=$(grep -vE '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
+emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
 for s in .consult-signature-default-migrated .health-tracker-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"

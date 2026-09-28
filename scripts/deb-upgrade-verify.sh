@@ -108,7 +108,26 @@ lost=$(comm -23 <(g "$PRE" flyway.versions | tr , '\n' | sort) <(g "$POST" flywa
 [ "$(g "$PRE" admin.hash)" = "$(g "$POST" admin.hash)" ] && ok "operator password digest unchanged (bootstrap-admin is idempotent)" || bad "selected administrator password CHANGED across upgrade"
 [ "$(g "$PRE" admin.pin)" = "$(g "$POST" admin.pin)" ] && ok "operator PIN digest unchanged" || bad "selected administrator PIN CHANGED across upgrade"
 [ "$(g "$POST" admin.forceReset)" = "$(g "$PRE" admin.forceReset)" ] && ok "forcePasswordReset unchanged" || bad "forcePasswordReset $(g "$PRE" admin.forceReset) -> $(g "$POST" admin.forceReset)"
-for k in cfg.carlos-emr.env.sha cfg.carlos.properties.sha cfg.backup.env.sha cfg.tls.cert.sha cfg.province cfg.tz cfg.dbname cfg.tls.mode; do [ "$(g "$PRE" $k)" = "$(g "$POST" $k)" ] && ok "$k preserved" || bad "$k changed: $(g "$PRE" $k) -> $(g "$POST" $k)"; done
+for k in cfg.carlos-emr.env.sha cfg.backup.env.sha cfg.tls.cert.sha cfg.province cfg.tz cfg.dbname cfg.tls.mode; do [ "$(g "$PRE" $k)" = "$(g "$POST" $k)" ] && ok "$k preserved" || bad "$k changed: $(g "$PRE" $k) -> $(g "$POST" $k)"; done
+# carlos.properties must be byte-identical EXCEPT for the one rewrite the
+# postinst is allowed to make: the old stock health_tracker=false becomes true
+# once, on the upgrade that first writes the .health-tracker-default-migrated
+# sentinel. Anything else touching the file is still a failure.
+ht_pre=$(g "$PRE" cfg.healthTracker 2>/dev/null || true); ht_post=$(g "$POST" cfg.healthTracker 2>/dev/null || true)
+ht_sentinel_pre=$(g "$PRE" sentinel..health-tracker-default-migrated 2>/dev/null || true)
+if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
+  ok "cfg.carlos.properties.sha preserved"
+elif [ "$ht_pre" = health_tracker=false ] && [ "$ht_post" = health_tracker=true ] && [ "$ht_sentinel_pre" != yes ] \
+    && [ -n "$(g "$PRE" cfg.carlos.properties.otherKeys.sha 2>/dev/null || true)" ] \
+    && [ "$(g "$PRE" cfg.carlos.properties.otherKeys.sha)" = "$(g "$POST" cfg.carlos.properties.otherKeys.sha)" ]; then
+  ok "cfg.carlos.properties.sha changed only by the one-time health_tracker=false -> true migration"
+else
+  bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post')"
+fi
+if [ "$ht_pre" = health_tracker=false ] && [ "$ht_sentinel_pre" != yes ]; then
+  [ "$ht_post" = health_tracker=true ] && ok "the old stock health_tracker=false was migrated to true" || bad "health_tracker was not migrated: '$ht_post'"
+  [ "$(g "$POST" sentinel..health-tracker-default-migrated)" = yes ] && ok "health-tracker migration sentinel written" || bad "health-tracker migration sentinel missing after upgrade"
+fi
 for k in rows.demographic rows.appointment rows.prescription rows.drugs rows.allergies rows.consultationRequests rows.casemgmt_note rows.preventions rows.hl7TextMessage rows.document rows.tickler; do [ "$(g "$PRE" $k)" = "$(g "$POST" $k)" ] && ok "$k preserved ($(g "$POST" $k))" || bad "$k changed: $(g "$PRE" $k) -> $(g "$POST" $k)"; done
 # The document store may legitimately GROW on upgrade (a12 ships synthetic HRM
 # fixture files); what must not happen is a stored document losing its file.
