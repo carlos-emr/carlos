@@ -49,6 +49,15 @@ public interface DocumentAttachmentManager {
     String ATTACHMENT_WARNINGS_ATTRIBUTE = "attachmentWarnings";
 
     /**
+     * Request attribute that lets {@link #renderConsultationFormWithAttachments} leave out an
+     * attachment that fails to render, recording a warning instead. Only a caller that shows
+     * those warnings to the user may set it (the on-screen print preview). Without it, a failed
+     * attachment fails the whole render, so a printed or faxed consult is never silently missing
+     * content.
+     */
+    String ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE = "allowSkippedConsultAttachments";
+
+    /**
      * Retrieves all attachments associated with a specific consultation request.
      *
      * <p>This method returns a list of document identifiers that are currently attached to

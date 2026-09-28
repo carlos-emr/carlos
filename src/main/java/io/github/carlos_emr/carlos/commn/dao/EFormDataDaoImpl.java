@@ -133,7 +133,9 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
                 + "JOIN consultdocs cd ON e.fdid = cd.document_no "
                 + "JOIN consultationRequests cr ON cr.requestId = cd.requestId "
                 + "WHERE cd.requestId = ?1 AND cd.docType = 'E' AND cd.deleted IS NULL "
-                + "AND (e.patient_independent = true OR e.demographic_no = cr.demographicNo) " +
+                // Patient-independent eForms stay out of consult packets, as before; the others
+                // must belong to the consult's own patient.
+                + "AND e.patient_independent = false AND e.demographic_no = cr.demographicNo " +
                 "ORDER BY e.form_date DESC, e.form_time DESC";
         Query query = entityManager.createNativeQuery(sql, modelClass);
         query.setParameter(1, consultationId);

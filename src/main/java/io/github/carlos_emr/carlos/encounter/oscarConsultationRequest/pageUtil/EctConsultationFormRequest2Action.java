@@ -790,6 +790,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         }
                         HttpServletResponse renderResponse = createRenderOnlyResponse(response);
                         HttpServletResponse previousResponse = ServletActionContext.getResponse();
+                        // This preview shows the attachment warnings to the user, so an attachment
+                        // that fails to render may be left out; print and fax paths fail instead.
+                        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
                         ServletActionContext.setResponse(renderResponse);
                         try {
                             renderConsultationFormWithAttachments(

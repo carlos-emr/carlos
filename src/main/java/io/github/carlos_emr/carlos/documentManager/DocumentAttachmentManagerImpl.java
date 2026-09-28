@@ -588,15 +588,29 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         pdfDocumentList.add(consultationFormPDFPath.toString());
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
-        attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList, attachmentWarnings);
-        attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList, attachmentWarnings);
-        attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList, attachmentWarnings);
-        attachFormPDFs(request, response, attachedForms, pdfDocumentList, attachmentWarnings);
+        // Warnings so far are for attachments whose target no longer exists, which the lists
+        // above already leave out. Any warning added below is an attachment that failed to render.
+        int unavailableWarnings = attachmentWarnings.size();
+        boolean allowSkipped = Boolean.TRUE.equals(request.getAttribute(ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE));
+        try {
+            attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
+            attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList, attachmentWarnings);
+            attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList, attachmentWarnings);
+            attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList, attachmentWarnings);
+            attachFormPDFs(request, response, attachedForms, pdfDocumentList, attachmentWarnings);
+            if (!allowSkipped && attachmentWarnings.size() > unavailableWarnings) {
+                // Do not print or fax a consult that silently lacks an attachment it lists.
+                throw new PDFGenerationException("One or more consultation attachments could not be rendered");
+            }
 
-        Path result = concatPDF(pdfDocumentList, demographicId);
-        cleanupRenderedTempInputs(pdfDocumentList, result);
-        return result;
+            Path result = concatPDF(pdfDocumentList, demographicId);
+            cleanupRenderedTempInputs(pdfDocumentList, result);
+            return result;
+        } catch (PDFGenerationException | RuntimeException e) {
+            // The rendered consult and attachment PDFs hold PHI; do not leave them for the purge job.
+            cleanupRenderedTempInputs(pdfDocumentList, null);
+            throw e;
+        }
     }
 
     /**
@@ -1129,11 +1143,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         } catch (SecurityException e) {
             throw e;
         } catch (PDFGenerationException | RuntimeException e) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("Attachment rendering failed for type={} id={}", documentType,
-                        LogSafe.sanitize(String.valueOf(documentId)), e);
-            }
-            recordSkippedAttachment(attachmentWarnings, documentType, documentId, e.getClass().getName());
+            // The exception class only: renderer messages and causes can carry clinical text and paths.
+            recordSkippedAttachment(attachmentWarnings, documentType, documentId, e.getClass().getSimpleName());
         }
     }
 

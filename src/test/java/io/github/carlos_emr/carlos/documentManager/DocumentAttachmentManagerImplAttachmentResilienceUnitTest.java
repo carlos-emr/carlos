@@ -208,6 +208,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         malformedLab.setSegmentID("BAD");
         request.setAttribute("reqId", "9");
         request.setAttribute("demographicId", "1");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
                 MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
@@ -303,6 +304,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     void shouldWarnAndSkipForm_whenFormRenderingFails() throws Exception {
         request.setAttribute("reqId", "9");
         request.setAttribute("demographicId", "1");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
         EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
         when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
         when(formsManager.renderForm(request, response, form))
@@ -323,6 +325,30 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
                     .asList()
                     .containsExactly("Form attachment 3 is unavailable and was not included.");
             verify(formsManager).renderForm(request, response, form);
+        }
+    }
+
+    @Test
+    @DisplayName("fails the whole render, for print and fax, when an attachment cannot be rendered")
+    void shouldFailRender_whenAttachmentFailsAndSkippingIsNotAllowed() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
+        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
+        when(formsManager.renderForm(request, response, form))
+                .thenThrow(new PDFGenerationException("form route unavailable"));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            // A faxed or printed consult must never go out silently missing an attachment it lists.
+            assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
+                    .isInstanceOf(PDFGenerationException.class);
         }
     }
 

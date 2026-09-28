@@ -25,8 +25,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -106,15 +104,11 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final String ATTACHMENT_TYPE_EFORM = "EFORM";
     private static final String ATTACHMENT_TYPE_DOC = "DOC";
     private static final String ATTACHMENT_TYPE_LAB = "LAB";
     private static final String ATTACHMENT_TYPE_HRM = "HRM";
-    private static final String ATTACHMENT_TYPE_FORM = "FORM";
     private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
-    private static final String MISSING_RENDERED_PDF = "missing rendered PDF";
     private static final String UNREADABLE_ATTACHMENT_FILE = "unreadable attachment file";
-    private static final String UNREADABLE_TEMPORARY_PDF = "unreadable temporary PDF";
     private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private transient ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
@@ -283,21 +277,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
     }
 
-    private void addRenderedFaxAttachment(ArrayList<Object> alist, ArrayList<InputStream> streams, Path attachmentPath, String attachmentType, Object attachmentId) throws IOException {
-        if (attachmentPath == null) {
-            logSkippedAttachment(attachmentType, attachmentId, MISSING_RENDERED_PDF);
-            return;
-        }
-        if (!Files.isReadable(attachmentPath)) {
-            logSkippedAttachment(attachmentType, attachmentId, UNREADABLE_TEMPORARY_PDF);
-            return;
-        }
-
-        InputStream inputStream = Files.newInputStream(attachmentPath);
-        streams.add(inputStream);
-        alist.add(inputStream);
-    }
-
     private void appendDocumentAttachments(ArrayList<Object> alist, ArrayList<InputStream> streams, List<EDoc> docs, String documentDirectory) {
         for (EDoc doc : emptyIfNull(docs)) {
             if (doc == null) {
@@ -410,7 +389,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             }
         } catch (IOException e) {
             if (logger.isWarnEnabled()) {
-                logger.warn("Could not remove temporary lab PDF", e);
+                logger.warn("Could not remove temporary lab PDF ({})", e.getClass().getSimpleName());
             }
         }
     }
@@ -440,96 +419,31 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         alist.add(inputStream);
     }
 
-    private void appendEFormAttachments(LoggedInInfo loggedInInfo, ArrayList<Object> alist, ArrayList<InputStream> streams, List<EFormData> eForms, String demoNo) {
-        int renderDemographicNo;
-        try {
-            renderDemographicNo = Integer.parseInt(demoNo);
-        } catch (NumberFormatException e) {
-            logSkippedAttachment(ATTACHMENT_TYPE_EFORM, demoNo, "invalid consultation demographic number", e);
-            return;
-        }
-        for (EFormData eFormItem : emptyIfNull(eForms)) {
-            if (eFormItem == null) {
-                logSkippedAttachment(ATTACHMENT_TYPE_EFORM, null, MISSING_ATTACHMENT_METADATA);
-                continue;
-            }
-            try {
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), renderDemographicNo);
-                addRenderedFaxAttachment(alist, streams, attachedForm, ATTACHMENT_TYPE_EFORM, eFormItem.getId());
-            } catch (SecurityException e) {
-                throw e;
-            } catch (IOException | PDFGenerationException | RuntimeException e) {
-                logSkippedAttachment(ATTACHMENT_TYPE_EFORM, eFormItem.getId(), e);
-            }
-        }
-    }
-
-    private void appendFormAttachments(LoggedInInfo loggedInInfo, ArrayList<Object> alist, ArrayList<InputStream> streams, List<EctFormData.PatientForm> forms, String demoNo) throws ServletException {
-        for (EctFormData.PatientForm formItem : emptyIfNull(forms)) {
-            if (formItem == null) {
-                logSkippedAttachment(ATTACHMENT_TYPE_FORM, null, MISSING_ATTACHMENT_METADATA);
-                continue;
-            }
-            try {
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, createFormTransportContainer(loggedInInfo, formItem, demoNo));
-                addRenderedFaxAttachment(alist, streams, attachedForm, ATTACHMENT_TYPE_FORM, formItem.getFormId());
-            } catch (SecurityException e) {
-                throw e;
-            } catch (IOException | PDFGenerationException | ServletException | RuntimeException e) {
-                logSkippedAttachment(ATTACHMENT_TYPE_FORM, formItem.getFormId(), e);
-            }
-        }
-    }
-
-    private FormTransportContainer createFormTransportContainer(LoggedInInfo loggedInInfo, EctFormData.PatientForm formItem, String demoNo) throws IOException, ServletException {
-        FormTransportContainer formTransportContainer = new FormTransportContainer(
-                response, request, "/form/forwardshortcutname"
-                + "?method=fetch&formname="
-                + encodeQueryValue(formItem.getFormName())
-                + "&demographic_no="
-                + encodeQueryValue(formItem.getDemoNo())
-                + "&formId="
-                + encodeQueryValue(formItem.getFormId()));
-        formTransportContainer.setDemographicNo(demoNo);
-        formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-        formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
-        formTransportContainer.setFormName(formItem.getFormName());
-        formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
-        return formTransportContainer;
-    }
-
-    private String encodeQueryValue(String value) {
-        return URLEncoder.encode(String.valueOf(value), StandardCharsets.UTF_8);
-    }
-
     private String resolveConsultationDemographicNo(String requestId, String submittedDemographicNo) {
         Resolution resolution = ConsultationDemographicResolver.resolve(consultationRequestDao, requestId,
                 submittedDemographicNo, "print", logger);
         return resolution.isResolved() ? resolution.demographicId() : null;
     }
 
+    /** The document id only: the file name can contain the patient's name. */
     private String documentId(EDoc doc) {
-        return doc.getDocId() != null ? doc.getDocId() : doc.getFileName();
-    }
-
-    private void logSkippedAttachment(String attachmentType, Object attachmentId, String reason) {
-        logSkippedAttachment(attachmentType, attachmentId, reason, null);
+        return String.valueOf(doc.getDocId());
     }
 
     private void logSkippedAttachment(String attachmentType, Object attachmentId, Throwable cause) {
-        String reason = cause == null ? "unknown error" : cause.getClass().getName();
-        logSkippedAttachment(attachmentType, attachmentId, reason, cause);
+        // The exception class only: renderer messages and causes can carry clinical text and paths.
+        logSkippedAttachment(attachmentType, attachmentId, cause == null ? "unknown error" : cause.getClass().getSimpleName());
     }
 
     private void logSkippedAttachment(String attachmentType, Object attachmentId, String reason, Throwable cause) {
+        logSkippedAttachment(attachmentType, attachmentId,
+                cause == null ? reason : reason + " (" + cause.getClass().getSimpleName() + ")");
+    }
+
+    private void logSkippedAttachment(String attachmentType, Object attachmentId, String reason) {
         if (logger.isWarnEnabled()) {
-            if (cause == null) {
-                logger.warn("Skipped consultation print attachment type={} id={} while rendering PDF package: {}",
-                        LogSafe.sanitize(attachmentType), LogSafe.sanitize(String.valueOf(attachmentId)), LogSafe.sanitize(reason));
-            } else {
-                logger.warn("Skipped consultation print attachment type={} id={} while rendering PDF package: {}",
-                        LogSafe.sanitize(attachmentType), LogSafe.sanitize(String.valueOf(attachmentId)), LogSafe.sanitize(reason), cause);
-            }
+            logger.warn("Skipped consultation print attachment type={} id={} while rendering PDF package: {}",
+                    LogSafe.sanitize(attachmentType), LogSafe.sanitize(String.valueOf(attachmentId)), LogSafe.sanitize(reason));
         }
     }
 

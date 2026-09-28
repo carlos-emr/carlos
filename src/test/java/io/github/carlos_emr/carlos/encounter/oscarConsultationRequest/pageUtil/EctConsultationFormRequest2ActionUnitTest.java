@@ -424,7 +424,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should bound consultation JSON and fallback response diagnostics")
     void shouldKeepResponseDiagnosticsPrivate_whenWritingFails(boolean fallbackFails) throws Exception {
         var failedResponse = mock(HttpServletResponse.class);
-        when(failedResponse.getWriter()).thenThrow(new java.io.IOException("PRIVATE_RESPONSE_MESSAGE",
+        // The preview JSON is written as bytes through the output stream, with its exact length.
+        when(failedResponse.getOutputStream()).thenThrow(new java.io.IOException("PRIVATE_RESPONSE_MESSAGE",
                 new IllegalStateException("PRIVATE_RESPONSE_CAUSE")));
         if (fallbackFails) org.mockito.Mockito.doThrow(new java.io.IOException("PRIVATE_FALLBACK_MESSAGE",
                 new IllegalStateException("PRIVATE_FALLBACK_CAUSE"))).when(failedResponse).sendError(500);
