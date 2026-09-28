@@ -49,6 +49,9 @@ public class RemEForm2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /** Sort-order parameter every eForm list page reads; carried through the redirect. */
+    private static final String PARAM_ORDER_BY = "orderby";
+
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
@@ -76,14 +79,14 @@ public class RemEForm2Action extends ActionSupport {
     public String getRedirectTarget() {
         String callpage = request.getParameter("callpage");
         if ("independent".equals(callpage)) {
-            return EFormListRedirect.to("/eform/efmmanageindependent", request, "orderby");
+            return EFormListRedirect.to("/eform/efmmanageindependent", request, PARAM_ORDER_BY);
         }
         if ("single".equals(callpage)) {
             return EFormListRedirect.to("/eform/efmpatientformlistsingle", request,
-                    "demographic_no", "fdid", "parentAjaxId", "appointment", "orderby");
+                    "demographic_no", "fdid", "parentAjaxId", "appointment", PARAM_ORDER_BY);
         }
         return EFormListRedirect.to("/eform/efmpatientformlist", request,
-                "demographic_no", "group_view", "parentAjaxId", "appointment", "orderby");
+                "demographic_no", "group_view", "parentAjaxId", "appointment", PARAM_ORDER_BY);
     }
 
 }
