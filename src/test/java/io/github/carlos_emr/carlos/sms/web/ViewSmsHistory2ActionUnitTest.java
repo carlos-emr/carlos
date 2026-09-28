@@ -40,6 +40,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -51,8 +53,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -218,6 +218,50 @@ class ViewSmsHistory2ActionUnitTest {
     }
 
     @Test
+    @DisplayName("showMessage refuses an empty reason, which is what the form's placeholder option submits")
+    void shouldRefuseBody_whenReasonIsEmpty() throws Exception {
+        request.setMethod("POST");
+        showMessageRequest("11", "");
+        allowPatientAccess();
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(smsTransactionDao, bodyReadService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "abc"})
+    @DisplayName("showMessage rejects a message id that is not a positive number before loading anything")
+    void shouldRejectShowMessage_whenMessageIdIsNotPositive(String smsTransactionId) throws Exception {
+        request.setMethod("POST");
+        showMessageRequest(smsTransactionId, "CARE_REVIEW");
+        allowPatientAccess();
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(smsTransactionDao, bodyReadService);
+    }
+
+    @Test
+    @DisplayName("showMessage answers 404 for an unknown message id, without reading or auditing")
+    void shouldReturnNotFound_whenMessageIdIsUnknown() throws Exception {
+        request.setMethod("POST");
+        showMessageRequest("11", "CARE_REVIEW");
+        allowPatientAccess();
+        when(smsTransactionDao.find(11L)).thenReturn(null);
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+        verifyNoInteractions(bodyReadService);
+    }
+
+    @Test
     @DisplayName("showMessage does not read or audit when no text is stored for the message")
     void shouldNotReadBody_whenNoTextIsStored() throws Exception {
         request.setMethod("POST");
@@ -260,10 +304,12 @@ class ViewSmsHistory2ActionUnitTest {
     void shouldDenyShowMessage_withoutSmsRead() {
         request.setMethod("POST");
         showMessageRequest("11", "CARE_REVIEW");
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), anyInt()))
-                .thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_sms", "r", DEMOGRAPHIC_NO)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", DEMOGRAPHIC_NO)).thenReturn(true);
 
-        assertThatThrownBy(() -> action().execute()).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_sms)");
         verifyNoInteractions(smsTransactionDao, bodyReadService);
         verify(bodyReadService, never()).readFullMessageBody(any(), any(), any());
     }

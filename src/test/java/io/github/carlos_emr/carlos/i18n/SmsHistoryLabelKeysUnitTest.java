@@ -61,6 +61,7 @@ class SmsHistoryLabelKeysUnitTest {
         for (SmsMessageBodyReadReason value : SmsMessageBodyReadReason.values()) {
             keys.add("sms.history.reason." + value.name());
         }
+        keys.add("sms.history.reasonPlaceholder");
 
         for (String locale : LOCALES) {
             Properties bundle = new Properties();

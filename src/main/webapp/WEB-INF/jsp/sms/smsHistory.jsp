@@ -104,6 +104,7 @@
                                         <input type="hidden" name="smsTransactionId"
                                                value="<carlos:encode value='${row.id}' context='htmlAttribute'/>"/>
                                         <select name="reason" class="form-select form-select-sm" required>
+                                            <option value="" selected disabled><fmt:message key="sms.history.reasonPlaceholder"/></option>
                                             <option value="CARE_REVIEW"><fmt:message key="sms.history.reason.CARE_REVIEW"/></option>
                                             <option value="DELIVERY_REVIEW"><fmt:message key="sms.history.reason.DELIVERY_REVIEW"/></option>
                                             <option value="PATIENT_REQUEST"><fmt:message key="sms.history.reason.PATIENT_REQUEST"/></option>

@@ -223,7 +223,7 @@ class SmsTransactionDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("findByDemographicNo pages newest first with a tie-breaker so pages never overlap")
+    @DisplayName("findByDemographicNo pages newest first, with the id breaking ties between rows created in the same instant")
     void shouldPageNewestFirst_withIdTieBreaker() {
         SmsTransactionDaoImpl dao = newDao();
         when(entityManager.createQuery(anyString(), eq(SmsTransaction.class))).thenReturn(query);
