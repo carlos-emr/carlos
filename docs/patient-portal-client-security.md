@@ -16,14 +16,16 @@ except that every encrypted email is refused while
 `patient_portal.email.enabled=true`; setting that to `false` puts encrypted
 email back on staff-entered passwords. Case does not matter for the switch and a
 blank value counts as off; any value other than `true` or `false`, including one
-followed by a `#` comment on the same line, is a configuration error, and only
-the portal's JSON actions log it, naming `patient_portal.enabled`. A change takes
+followed by a `#` comment on the same line, is a configuration error; only the
+portal's JSON actions name `patient_portal.enabled` in the log. A change takes
 effect when CARLOS restarts.
 
 Upgrading: an install that set up the portal before this switch existed, such as
 a staging server, has no `patient_portal.enabled` line. After the upgrade its
 portal is off, and portal actions say only that it is not switched on, until
-`patient_portal.enabled=true` is added and CARLOS restarts.
+`patient_portal.enabled=true` is added and CARLOS restarts. Meanwhile the Patient
+portal entry disappears from patient records, and while
+`patient_portal.email.enabled=true` every encrypted email is refused.
 
 `patient_portal.certificate.pins` is required whenever the integration is
 enabled. Missing, empty, or malformed pins prevent client initialization;
