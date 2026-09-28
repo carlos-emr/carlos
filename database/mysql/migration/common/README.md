@@ -63,6 +63,8 @@ are preserved. See the [SMS backend guide](../../../../docs/architecture/sms-bac
 columns (`consent_status`, `consent_id`, `consent_last_update_date`) to `sms_transaction`. The consent
 type is seeded inactive until its wording has compliance sign-off, so SMS stays blocked as not
 configured until it is activated, and then for each patient until their consent is recorded.
+Staff can record it only where `privateConsentEnabled=true`, which the shipped `carlos.properties`
+leaves off.
 See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely

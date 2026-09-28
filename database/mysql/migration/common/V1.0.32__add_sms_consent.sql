@@ -31,6 +31,8 @@ WHERE NOT EXISTS (SELECT 1 FROM consentType WHERE type = 'sms_communication_cons
 
 -- Mirrors the email_communication property: names the consent type SMS sends are checked
 -- against. Clearing or repointing this row is how a clinic disables or changes SMS consent.
+-- Clearing it also cancels messages already queued: each fails its dispatch-time consent
+-- recheck and is recorded as blocked, with its text discarded.
 INSERT INTO property (name, value, provider_no)
 SELECT 'sms_communication', 'sms_communication_consent', NULL
 FROM DUAL
