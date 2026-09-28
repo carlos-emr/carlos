@@ -441,6 +441,26 @@ public class CarlosProperties extends Properties {
         return isPropertyActive("consultation_signature_enabled");
     }
 
+    /**
+     * Whether appointment statuses are editable: the add/edit appointment status pull-down,
+     * the Administration "Appointment Status Setting" page link, and custom-status handling.
+     *
+     * <p>Enabled unless {@code ENABLE_EDIT_APPT_STATUS} is explicitly set to a non-active value
+     * (anything other than {@code true}/{@code yes}/{@code on}). An absent or blank key counts as
+     * enabled: the legacy installer always wrote {@code yes}, and the turnkey .deb does not write
+     * the key at all, so defaulting off silently degraded status to a free-text box prefilled
+     * with {@code t} and hid the admin page.
+     *
+     * @return {@code true} unless the key is set to a non-active value
+     */
+    public boolean isAppointmentStatusEditingEnabled() {
+        String value = getProperty("ENABLE_EDIT_APPT_STATUS");
+        if (value == null || value.trim().isEmpty()) {
+            return true;
+        }
+        return isPropertyActive("ENABLE_EDIT_APPT_STATUS");
+    }
+
 
     public String getHL7A04BuildDirectory() {
         return getProperty("hl7_a04_build_dir");

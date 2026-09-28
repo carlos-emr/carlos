@@ -51,7 +51,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class ApptStatusData {
 
     CarlosProperties pros = CarlosProperties.getInstance();
-    String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
+    boolean statusEditable = pros.isAppointmentStatusEditingEnabled();
     String apptStatus = null;
     String[] aStatus = {"t", "T", "H", "P", "E", "N", "C", "B", "tS", "TS", "HS", "PS", "ES", "NS", "CS", "BS", "tV", "TV", "HV", "PV", "EV", "NV", "CV", "BV"};
     String[] aNextStatus = {"T", "H", "P", "E", "N", "C", "t", "", "TS", "HS", "PS", "ES", "NS", "CS", "tS", "", "TV", "HV", "PV", "EV", "NV", "CV", "tV", ""};
@@ -94,7 +94,7 @@ public final class ApptStatusData {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getImageName() {
-        if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
+        if (statusEditable)
             return getStr("icon");
         else
             return getStr(aStatus, aImageName);
@@ -105,7 +105,7 @@ public final class ApptStatusData {
     public String getNextStatus() {
         if ("h".equals(apptStatus)) {
             return "H";
-        } else if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
+        } else if (statusEditable)
             return getStr("nextstatus");
         else
             return getStr(aStatus, aNextStatus);
@@ -114,7 +114,7 @@ public final class ApptStatusData {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getTitle() {
-        if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
+        if (statusEditable)
             return getStr("desc");
         else
             return getStr(aStatus, aTitle);
@@ -130,7 +130,7 @@ public final class ApptStatusData {
     public String getTitleString(Locale locale) {
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale);
 
-        if (strEditable != null && strEditable.equalsIgnoreCase("yes")) {
+        if (statusEditable) {
             return getStr("desc");
         }
         String value = "";
@@ -147,7 +147,7 @@ public final class ApptStatusData {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getBgColor() {
-        if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
+        if (statusEditable)
             return getStr("color");
         else
             return getStr(aStatus, aBgColor);
