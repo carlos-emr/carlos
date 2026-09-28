@@ -158,6 +158,8 @@
                     <form method="post" action="<%= request.getContextPath() %>/eform/removeEForm" style="display:inline;">
                         <input type="hidden" name="callpage" value="independent"/>
                         <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
+                        <%-- Sort order the post-delete redirect restores (RemEForm2Action#getRedirectTarget). --%>
+                        <input type="hidden" name="orderby" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(orderByRequest) %>"/>
                         <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"
                            class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
                     </form>
