@@ -49,12 +49,14 @@ separate chart composer is implemented, reviewed, and documented.
   attachments without preparing anything again; an attachment preview link is
   renewed once less than a minute of its two minutes remains.
   The window shows "This email compose window has expired" instead when:
-  - the message was sent or the compose was cancelled;
+  - a send was submitted from it, even one that failed, or it was cancelled;
   - 30 minutes have passed since it was prepared;
-  - eight newer compose windows were opened in the same session;
+  - it was the oldest of more than eight unsent compose states in the
+    session, which also counts Manage Emails resends and send retries;
   - the URL is opened in another session, including after logging in again;
   - Tomcat restarted, or the request reached another server, because the
     prepared state is held in that server's memory.
+
   If preparing the attachments or storing the state fails, the provider is
   returned to the eForm with a generic error instead.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailSend2Action.java`

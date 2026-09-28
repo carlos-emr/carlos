@@ -56,6 +56,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -670,6 +671,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should refuse to prepare a compose for a patient the provider cannot read, before generating any PDF")
     void shouldRejectPrepare_whenPatientReadDenied() throws Exception {
         ComposeMocks mocks = registerComposeMocks();
+        EmailComposeSubmissionStateService stateService = spy(composeSubmissionStateService);
+        registerMock(EmailComposeSubmissionStateService.class, stateService);
         SecurityInfoManager restricted = mock(SecurityInfoManager.class);
         when(restricted.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         registerMock(SecurityInfoManager.class, restricted);
@@ -684,6 +687,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_demographic)");
             verify(restricted).hasPrivilege(any(), eq("_demographic"), eq("r"), eq(123));
+            verify(stateService, never()).createWorkingDirectory();
             verify(mocks.emailComposeManager(), never()).prepareEFormAttachments(any(), any(), any(), any());
             verify(mocks.pdfPreviewCapabilityService(), never()).issue(any(), any(), any());
         }
@@ -707,6 +711,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                     new MockHttpServletResponse(), "compose"))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_demographic)");
+            verify(restricted).hasPrivilege(any(), eq("_demographic"), eq("r"), eq(123));
             verify(mocks.pdfPreviewCapabilityService(), never()).resolve(any(), any(), any());
             verify(mocks.pdfPreviewCapabilityService(), times(1)).issue(any(), any(), any());
         } finally {

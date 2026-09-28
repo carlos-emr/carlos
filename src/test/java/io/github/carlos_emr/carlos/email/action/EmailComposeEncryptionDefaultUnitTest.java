@@ -24,6 +24,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -79,7 +80,7 @@ class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
         registerMock(EmailComposeManager.class, emailComposeManager);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         // Preparation checks read access to the patient before generating anything.
-        when(securityInfoManager.hasPrivilege(any(), any(), any(), anyInt())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
 

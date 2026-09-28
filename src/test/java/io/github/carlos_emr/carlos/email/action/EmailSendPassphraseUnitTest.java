@@ -54,6 +54,7 @@ import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionState
 import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -340,7 +341,7 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         // Preparation checks read access to the patient before generating anything.
-        when(securityInfoManager.hasPrivilege(any(), any(), any(), anyInt())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
 
         EmailCompose2Action composeAction = new EmailCompose2Action();

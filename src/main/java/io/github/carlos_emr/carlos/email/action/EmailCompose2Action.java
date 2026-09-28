@@ -213,9 +213,10 @@ public class EmailCompose2Action extends ActionSupport {
      * generic expired-state message. If PDF generation fails for any attachment (eForm, document,
      * lab, form, HRM), it closes the working directory and returns "eFormError" with a generic,
      * PHI-safe attachment message. If the one-time compose state cannot be stored because the cache
-     * is unavailable, it returns "eFormError" with a generic unavailable-state message. No error
-     * path clears the session again: the staged values were already taken, and anything there now
-     * belongs to another compose.
+     * is unavailable, it returns "eFormError" with a generic unavailable-state message. Without read
+     * access to the patient it throws {@code SecurityException} before generating anything. No
+     * error path clears the session again: the staged values were already taken, and anything
+     * there now belongs to another compose.
      *
      * @return String {@code NONE} after redirecting to the prepared view, "composeExpired" if no
      *         compose is staged, or "eFormError" if attachment generation fails or the compose
@@ -338,8 +339,8 @@ public class EmailCompose2Action extends ActionSupport {
      * <p>Nothing here touches the session: a missing view must not clear a compose that another
      * window has just staged. Consent, recipients and sender accounts are read again so the page
      * reflects the chart as it is now. The preview capabilities issued during preparation are
-     * reused while they still resolve with time to spare; a capability lasts two minutes, so a page
-     * refreshed after that gets one new capability per file, never one per request.</p>
+     * reused while at least half of their two minutes remains; a page refreshed later gets one new
+     * capability per file, never one per request.</p>
      *
      * Request Attributes Set:
      * <ul>
