@@ -35,11 +35,14 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
 import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PharmacyInfoConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PharmacyInfoTo1;
@@ -54,10 +57,23 @@ import org.springframework.stereotype.Component;
 @Path("/pharmacies/")
 @Component("pharmacyService")
 @Consumes(MediaType.APPLICATION_JSON)
+// XML stays first so a request without an explicit Accept keeps the representation the
+// XML-only AbstractServiceImpl contract gave legacy callers; JSON is negotiated, not default.
+@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 public class PharmacyService extends AbstractServiceImpl {
 
+    /** Security object guarding pharmacy management, matching the Rx pharmacy actions. */
+    private static final String SECURITY_OBJECT = "_rx";
+
+    private final PharmacyInfoDao pharmacyInfoDao;
+
+    private final SecurityInfoManager securityInfoManager;
+
     @Autowired
-    private PharmacyInfoDao pharmacyInfoDao;
+    public PharmacyService(PharmacyInfoDao pharmacyInfoDao, SecurityInfoManager securityInfoManager) {
+        this.pharmacyInfoDao = pharmacyInfoDao;
+        this.securityInfoManager = securityInfoManager;
+    }
 
     private PharmacyInfoConverter converter = new PharmacyInfoConverter();
 
@@ -73,6 +89,9 @@ public class PharmacyService extends AbstractServiceImpl {
     @GET
     @Path("/")
     public OscarSearchResponse<PharmacyInfoTo1> getPharmacies(@QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "r", null)) {
+            throw new AccessDeniedException(SECURITY_OBJECT, "r");
+        }
         OscarSearchResponse<PharmacyInfoTo1> result = new OscarSearchResponse<PharmacyInfoTo1>();
         result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), pharmacyInfoDao.findAll(offset, limit)));
         return result;
@@ -87,6 +106,9 @@ public class PharmacyService extends AbstractServiceImpl {
     @GET
     @Path("/{pharmacyId}")
     public PharmacyInfoTo1 getPharmacy(@PathParam("pharmacyId") Integer id) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "r", null)) {
+            throw new AccessDeniedException(SECURITY_OBJECT, "r");
+        }
         return converter.getAsTransferObject(getLoggedInInfo(), pharmacyInfoDao.find(id));
     }
 
@@ -99,7 +121,7 @@ public class PharmacyService extends AbstractServiceImpl {
     @POST
     @Path("/")
     public PharmacyInfoTo1 addPharmacy(PharmacyInfoTo1 pharmacyInfo) {
-        return converter.getAsTransferObject(getLoggedInInfo(), pharmacyInfoDao.saveEntity(converter.getAsDomainObject(getLoggedInInfo(), pharmacyInfo)));
+        return savePharmacy(pharmacyInfo);
     }
 
     /**
@@ -111,6 +133,13 @@ public class PharmacyService extends AbstractServiceImpl {
     @PUT
     @Path("/")
     public PharmacyInfoTo1 updatePharmacy(PharmacyInfoTo1 pharmacyInfo) {
+        return savePharmacy(pharmacyInfo);
+    }
+
+    private PharmacyInfoTo1 savePharmacy(PharmacyInfoTo1 pharmacyInfo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "w", null)) {
+            throw new AccessDeniedException(SECURITY_OBJECT, "w");
+        }
         return converter.getAsTransferObject(getLoggedInInfo(), pharmacyInfoDao.saveEntity(converter.getAsDomainObject(getLoggedInInfo(), pharmacyInfo)));
     }
 
@@ -123,6 +152,9 @@ public class PharmacyService extends AbstractServiceImpl {
     @DELETE
     @Path("/{pharmacyId}")
     public PharmacyInfoTo1 removePharmacy(@PathParam("pharmacyId") Integer id) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "w", null)) {
+            throw new AccessDeniedException(SECURITY_OBJECT, "w");
+        }
         PharmacyInfo pharmacyInfo = pharmacyInfoDao.find(id);
         pharmacyInfo.setStatus(PharmacyInfo.DELETED);
         return converter.getAsTransferObject(getLoggedInInfo(), pharmacyInfoDao.saveEntity(pharmacyInfo));

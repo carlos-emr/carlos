@@ -1816,16 +1816,21 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     @Override
     public boolean isClientReferredInProgramDomain(String providerNo, String demographicNo) {
-        boolean referred = false;
-        List providerPrograms = programProviderDao.getProgramProviderByProviderNo(providerNo);
+        List<ProgramProvider> providerPrograms = programProviderDao.getProgramProviderByProviderNo(providerNo);
+        return isClientReferredInProgramDomain(providerPrograms, demographicNo);
+    }
+
+    @Override
+    public boolean isClientReferredInProgramDomain(List<ProgramProvider> providerPrograms, String demographicNo) {
         for (int x = 0; x < providerPrograms.size(); x++) {
-            ProgramProvider pp = (ProgramProvider) providerPrograms.get(x);
+            ProgramProvider pp = providerPrograms.get(x);
             long programId = pp.getProgramId().longValue();
             ProgramQueue queue = programQueueDao.getActiveProgramQueue(programId, Long.valueOf(demographicNo));
-            if (queue != null)
-                referred = true;
+            if (queue != null) {
+                return true;
+            }
         }
-        return referred;
+        return false;
     }
 
     @Override

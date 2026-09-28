@@ -74,8 +74,9 @@ public class AppointmentManagerImpl implements AppointmentManager {
 
 
     public List<Appointment> getAppointmentHistoryWithoutDeleted(LoggedInInfo loggedInInfo, Integer demographicNo, Integer offset, Integer limit) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
-            throw new RuntimeException("Access Denied");
+        if (demographicNo == null
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", demographicNo)) {
+            throw new SecurityException("missing required sec object (_appointment)");
         }
 
         List<Appointment> result = new ArrayList<Appointment>();

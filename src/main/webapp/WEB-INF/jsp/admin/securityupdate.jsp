@@ -59,8 +59,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     if (!"POST".equalsIgnoreCase(request.getMethod())) {
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
@@ -86,14 +84,29 @@
         <%
 	SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
 
-            String sPin = request.getParameter("pin");
-            if (CarlosProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(request.getParameter("pin"));
+            // "****" is the unchanged-PIN sentinel rendered by securityupdatesecurity.jsp. Anything
+            // else is a real new PIN and is stored as a salted hash; a blank submission clears the
+            // PIN. Legacy Misc.encryptPIN storage is read-only now - existing values are still
+            // accepted at login and migrated there, but nothing writes that format any more.
+            String submittedPin = request.getParameter("pin");
+            boolean isPinSubmitted = submittedPin != null && !"****".equals(submittedPin);
+            String sPin = null;
+            if (isPinSubmitted && !submittedPin.isEmpty()) {
+                sPin = securityManager.encodePin(submittedPin);
+            }
 
             int rowsAffected = 0;
 
+            // Must stay aligned with the Login2Action username pattern and security.user_name
+            // varchar(30): the form maxlength is browser-side only, so a direct POST outside
+            // this charset or length must be rejected before the save (an over-length value
+            // fails as a DB truncation error page; other charsets are rejected at login).
+            String newUserName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
+            boolean isUserNameValid = newUserName.matches("[a-zA-Z0-9]{1,30}");
+
             Security s = securityDao.find(Integer.parseInt(request.getParameter("security_no")));
-            if (s != null) {
-                s.setUserName(request.getParameter("user_name"));
+            if (s != null && isUserNameValid) {
+                s.setUserName(newUserName);
                 s.setProviderNo(request.getParameter("provider_no"));
                 s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
                 s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
@@ -105,9 +118,9 @@
                     s.setPasswordUpdateDate(new java.util.Date());
                 }
 
-                if (request.getParameter("pin") == null || !"****".equals(request.getParameter("pin"))) {
+                if (isPinSubmitted) {
                     s.setPin(sPin);
-                    s.setPinUpdateDate(new java.util.Date());
+                    s.setPinUpdateDate(sPin == null ? null : new java.util.Date());
                 }
 
                 if (request.getParameter("forcePasswordReset") != null && request.getParameter("forcePasswordReset").equals("1")) {
@@ -136,6 +149,10 @@
         <p>
         <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </h2>
+        <%
+        } else if (!isUserNameValid) {
+        %>
+        <h1><fmt:message key="admin.securityupdate.msgUserNameInvalid"/></h1>
         <%
         } else {
         %>

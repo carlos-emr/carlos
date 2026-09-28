@@ -17,9 +17,57 @@ non-general_ci session collation caused V1.0.7 to abort and an operator bypassed
 normal fail-fast CLI loop cannot reach V1.0.13 after that failure; use the
 [same-session V1.0.7 recovery procedure](../README.md#mariadb-cli-recovery-for-v107), then continue
 in version order.
+`V1.0.14__widen_faxes_jobid_to_bigint.sql`, `V1.0.15__add_faxes_direction.sql` and
+`V1.0.16__add_faxes_jobid_index.sql` evolve the `faxes` table for the SRFax importer.
+`V1.0.17__enable_digital_signatures_by_default.sql` turns digital signatures on for the seeded
+Default Facility (a deliberate one-time default change; see the file header).
+`V1.0.18__performance_indexes_2.sql` is the second DAO-justified index pass (a delta on V1.0.3;
+rationale in `docs/database-index-review-2026-09-04.md`).
+`V1.0.20__widen_fax_destination_for_international_numbers.sql` preserves international fax
+destinations by widening the queue column to 32 characters without changing existing values.
+`V1.0.21__serialize_missing_lab_routing_creation.sql` adds transaction-scoped coordination
+keys for acknowledgement/status writes, including missing routing rows and unassigned-row
+cleanup. It preserves all existing routing records and comments. All application nodes must
+run the updated acknowledgement code to participate in this coordination protocol.
+`V1.0.22__add_lab_routing_lock_audit_columns.sql` also supplies the standard audit
+metadata when the idempotent V1.0.21 creation finds a pre-existing coordination table.
+`V1.0.24__add_email_consent_audit.sql` records the consent decision enforced for each
+provider-to-patient email attempt.
+`V1.0.25__add_sms_system_of_record.sql` creates the SMS system-of-record tables and seeds the
+`_msgSMS` security object (read a stored message body).
+
+`V1.0.26__widen_email_config_for_encrypted_credentials.sql` expands email configuration storage
+to TEXT so encrypted credentials fit even when the plaintext configuration filled the old column.
+
+`V1.0.27__prepare_outbound_email_archive_reference_engines.sql` preflights `document`,
+`emailConfig`, and `emailLog` and converts legacy storage engines to InnoDB before archive
+foreign keys are introduced. It is a no-op for existing InnoDB tables; see the migration header
+for backup, maintenance-window, and partial-DDL recovery guidance. The dependent archive
+migration is `V1.0.28__outbound_email_archive.sql`.
+
+`V1.0.28__outbound_email_archive.sql` adds the archive, attachment, deletion tombstone,
+and legal-hold event tables, plus the admin eDoc deletion grant. Existing customized
+grants are preserved. Retirement retains the eDoc and its bytes; SMTP/SendGrid wiring
+and archive UI are separate follow-up work. Earlier development copies of this schema
+must be rebuilt or explicitly reconciled before adopting this migration: Flyway
+`repair` alone does not apply changed table definitions. See the
+[archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
+retirement semantics, and failure investigation.
+
+`V1.0.31__add_sms_security_objects.sql` seeds the `_sms` and `_admin.sms` security objects and
+their default grants (admin and doctor on `_sms`, admin on `_admin.sms`); existing clinic grants
+are preserved. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#security-objects).
+
+`V1.0.32__add_sms_consent.sql` seeds the dedicated `sms_communication_consent` consent type and the
+`sms_communication` property that points outbound SMS at it, and adds the consent audit snapshot
+columns (`consent_status`, `consent_id`, `consent_last_update_date`) to `sms_transaction`. The consent
+type is seeded inactive until its wording has compliance sign-off, so SMS stays blocked as not
+configured until it is activated, and then for each patient until their consent is recorded.
+See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is the shared
-`V1.0.13`, so the next shared (or Ontario) version is `V1.0.14` (see `../README.md`).
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.32`
+(also the highest shared one), so the next free version for ANY location is `V1.0.33`
+(see `../README.md`).

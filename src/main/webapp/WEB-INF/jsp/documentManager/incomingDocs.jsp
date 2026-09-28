@@ -220,10 +220,13 @@
     String errorMessage = "";
     String pdfNo = "";
     String pdfDirParam = request.getParameter("pdfDir");
-    // Validate pdfDir against whitelist to prevent path traversal (CWE-22)
-    String pdfDir = ("Fax".equals(pdfDirParam) || "Mail".equals(pdfDirParam)
-            || "File".equals(pdfDirParam) || "Refile".equals(pdfDirParam))
-            ? pdfDirParam : "Fax";
+    // Validate pdfDir against the incoming document folder allowlist to prevent path traversal
+    // (CWE-22). The allowlist is configurable, so the fallback has to come from it too --
+    // hardcoding "Fax" here made the first page load throw on any install whose configured
+    // folders do not include it.
+    List<String> allowedPdfDirs = IncomingDocUtil.getAllowedIncomingDocFolders();
+    String pdfDir = IncomingDocUtil.isAllowedIncomingDocFolder(pdfDirParam)
+            ? pdfDirParam : IncomingDocUtil.getDefaultIncomingDocFolder();
     String pdfDirectory = IncomingDocUtil.getIncomingDocumentFilePath(queueIdStr, pdfDir);
     String pdfAction = request.getParameter("pdfAction") == null ? "" : request.getParameter("pdfAction");
     String pdfPageNumber = request.getParameter("pdfPageNumber") == null ? "1" : request.getParameter("pdfPageNumber");
@@ -601,8 +604,11 @@
             }
             console.log("pdfName " + pdfName);
             if (pdfName.length === 0) {
+                // No viewable document is selected (or its name failed path validation).
+                // Show a clear message rather than an empty <iframe src=""> that just
+                // renders as a blank right-hand pane with no explanation.
                 document.getElementById('pgnum') ? document.getElementById('pgnum').innerHTML = '' : '';
-                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<iframe	src=""  width="800" height="900" ></iframe>' : '';
+                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<div style="padding:16px;color:#555;">No document is available to preview.</div>' : '';
             } else {
                 document.getElementById('pgnum').innerHTML = pn + ' of <span class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">' + totalPage + '</span>';
 
@@ -697,6 +703,9 @@
                 return false;
             }
 
+            // "File" is the shipped folder for documents filed straight to the chart, so the
+            // missing-recipient prompt is skipped there. A folder added through
+            // ALLOWED_INCOMING_DOC_FOLDERS is treated like the other queues and still prompts.
             if (document.PdfInfoForm.pdfDir.value != "File") {
                 var flagproviderObj = document.getElementsByName('flagproviders');
                 if (flagproviderObj.length == 0) {
@@ -924,10 +933,20 @@
                         <tr>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Fax');"><fmt:message key="dms.incomingDocs.fax"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Mail');"><fmt:message key="dms.incomingDocs.mail"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','File');"><fmt:message key="dms.incomingDocs.file"/></button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Refile');"><fmt:message key="dms.incomingDocs.refile"/></button>
+                                    <%
+                                        for (String allowedPdfDir : allowedPdfDirs) {
+                                            String pdfDirLabelKey = IncomingDocUtil.getIncomingDocFolderLabelKey(allowedPdfDir);
+                                    %>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','<carlos:encode value='<%= allowedPdfDir %>' context="javaScriptAttribute"/>');"><%
+                                        if (pdfDirLabelKey != null) {
+                                    %><fmt:message key="<%= pdfDirLabelKey %>"/><%
+                                        } else {
+                                    %><carlos:encode value='<%= allowedPdfDir %>' context="html"/><%
+                                        }
+                                    %></button>
+                                    <%
+                                        }
+                                    %>
                                 </div>
                             </td>
                         </tr>

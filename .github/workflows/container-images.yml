@@ -93,6 +93,37 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify carlos Compose environment
+        run: |
+          echo "Verifying Compose does not replace the image JVM options..."
+          compose_config="$(docker compose -f .devcontainer/docker-compose.yml config --format json)"
+          compose_has_catalina_opts="$(jq -r '
+            (.services.carlos.environment // {}) | has("CATALINA_OPTS")
+          ' <<< "$compose_config")"
+          if [ "$compose_has_catalina_opts" != "false" ]; then
+            echo "ERROR: carlos Compose configuration must inherit CATALINA_OPTS from the development image"
+            exit 1
+          fi
+
+          echo "Verifying sensitive development ports bind to host loopback..."
+          while read -r target published; do
+            if ! jq -e \
+                --argjson target "$target" \
+                --arg published "$published" \
+                '[.services.carlos.ports[] | select(
+                    .target == $target
+                    and (.published | tostring) == $published
+                    and .host_ip == "127.0.0.1"
+                )] | length == 1' <<< "$compose_config" > /dev/null; then
+              echo "ERROR: carlos port $published:$target must bind exactly once to 127.0.0.1"
+              exit 1
+            fi
+          done <<'EOF'
+          8080 8080
+          8443 8443
+          8000 18000
+          EOF
+
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
@@ -216,8 +247,21 @@ jobs:
       - name: Test tomcat-dev container
         run: |
           echo "Testing container starts correctly..."
-          docker run -d --name test-tomcat carlos-tomcat-dev:test tail -f /dev/null
-          sleep 5
+          docker run -d --name test-tomcat carlos-tomcat-dev:test catalina.sh run
+          trap 'docker rm -f test-tomcat > /dev/null 2>&1 || true' EXIT
+
+          echo "Waiting for development HTTPS..."
+          for attempt in $(seq 1 30); do
+            if docker exec test-tomcat curl -kfsS -o /dev/null https://localhost:8443/; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo "ERROR: development HTTPS did not become ready"
+              docker logs test-tomcat
+              exit 1
+            fi
+            sleep 2
+          done
 
           # Verify key components are present
           echo "Verifying Maven..."
@@ -229,11 +273,26 @@ jobs:
           echo "Verifying Tomcat..."
           docker exec test-tomcat ls -la /usr/local/tomcat/
 
+          echo "Verifying JavaMelody development override..."
+          docker exec test-tomcat sh -eu -c '
+            matches=0
+            for option in $CATALINA_OPTS; do
+              case "$option" in
+                -Djavamelody.system-actions-enabled=*)
+                  [ "$option" = "-Djavamelody.system-actions-enabled=true" ]
+                  matches=$((matches + 1))
+                  ;;
+              esac
+            done
+            [ "$matches" -eq 1 ]
+          '
+
           echo "Verifying Node.js..."
           docker exec test-tomcat node --version
 
           echo "All tests passed!"
           docker stop test-tomcat && docker rm test-tomcat
+          trap - EXIT
 
       - name: Save tested tomcat-dev image
         run: |
@@ -371,7 +430,7 @@ jobs:
             # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
             if docker logs test-mariadb 2>&1 | grep -q "Database initialization complete!"; then
               # Verify database state to avoid false positives from reused logs
-              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM carlos.provider;" 2>/dev/null || echo 0)
               if [ "$provider_count" -gt 0 ]; then
                 echo "Database initialization complete and provider table populated (count=$provider_count)."
                 initialized=true
@@ -392,8 +451,8 @@ jobs:
 
           # Verify all databases exist
           echo "Verifying databases..."
-          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "carlos" > /dev/null || { echo "ERROR: carlos database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "carlos_test" > /dev/null || { echo "ERROR: carlos_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           echo "All databases verified!"
 

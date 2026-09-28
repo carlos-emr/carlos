@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.commn.hl7.v2;
 
 import java.io.UnsupportedEncodingException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
@@ -253,7 +254,9 @@ public final class OmpO09Builder {
         cx.getIdentifierCheckDigit().setValue(demographic.getVer());
         cx.getAssigningJurisdiction().getIdentifier().setValue(demographic.getHcType());
 
-        GregorianCalendar tempCalendar = new GregorianCalendar();
+        // Calendar, not GregorianCalendar: this local also receives
+        // demographic.getBirthDay(), which is declared Calendar.
+        Calendar tempCalendar = new GregorianCalendar();
         if (demographic.getEffDate() != null) {
             tempCalendar.setTime(demographic.getEffDate());
             cx.getEffectiveDate().setYearMonthDayPrecision(tempCalendar.get(GregorianCalendar.YEAR), tempCalendar.get(GregorianCalendar.MONTH) + 1, tempCalendar.get(GregorianCalendar.DAY_OF_MONTH));

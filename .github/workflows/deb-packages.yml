@@ -94,7 +94,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             build-essential debhelper devscripts lintian fakeroot \
             maven openjdk-21-jdk-headless tomcat11 \
-            git ca-certificates curl xz-utils
+            git ca-certificates curl xz-utils unzip
           # gh comes from GitHub's own apt repository, NOT the Ubuntu
           # archive: resolute ships gh 2.46.0, and `gh attestation` (which
           # the WAR verification below depends on) only exists from 2.49.0 —
@@ -215,11 +215,23 @@ jobs:
           # staging checks.
           dpkg-buildpackage -us -uc -b
           mkdir -p release-assets
-          for deb in ../carlos-emr_"${DEB_VERSION}"_all.deb ../carlos-emr-drugref_"${DEB_VERSION}"_all.deb; do
+          for deb in ../carlos-emr_"${DEB_VERSION}"_all.deb ../carlos-emr-drugref_"${DEB_VERSION}"_all.deb \
+                     ../carlos-emr-eform-renderer_"${DEB_VERSION}"_amd64.deb; do
             cp "$deb" release-assets/
           done
           cd release-assets
-          for f in *.deb; do sha256sum "$f" > "$f.sha256"; done
+          # The name recorded INSIDE the .sha256 must be the name the operator
+          # actually has on disk. GitHub rewrites the '~' of a Debian
+          # pre-release version to '.' when it stores a release asset — the same
+          # normalisation the digest check below already works around — so
+          # recording the build-time name made the documented
+          # `sha256sum -c <asset>.sha256` fail on every alpha/rc download with
+          # "No such file or directory", before the operator ever reached apt.
+          for f in *.deb; do
+            # Keep hashing separate: printf would mask a failed substitution.
+            digest="$(sha256sum -- "$f")"
+            printf '%s  %s\n' "${digest%% *}" "${f//\~/.}" > "$f.sha256"
+          done
           ls -la
 
       - name: Lintian gate

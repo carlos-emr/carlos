@@ -145,7 +145,7 @@ public class FrmLabReq07Record extends FrmRecord {
                     String num = Misc.getString(rs, "ohip_no");
                     props.setProperty("reqProvName", Misc.getString(rs, "provName"));
                     props.setProperty("provName", Misc.getString(rs, "provName"));
-                    props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
+                    props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(num, strSpecialtyCode));
                 }
             }
         } else {
@@ -158,7 +158,7 @@ public class FrmLabReq07Record extends FrmRecord {
                     String strSpecialtyCode = extractSpecialtyCode(comments, xmlSpecialtyCode, xmlSpecialtyCode2);
                     num = Misc.getString(rs, "ohip_no");
                     props.setProperty("reqProvName", Misc.getString(rs, "provName"));
-                    props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
+                    props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(num, strSpecialtyCode));
                 }
             }
 
@@ -169,7 +169,7 @@ public class FrmLabReq07Record extends FrmRecord {
                     if (rs.next()) {
                         if (num.isEmpty()) {
                             num = Misc.getString(rs, "ohip_no");
-                            props.setProperty("practitionerNo", "0000-" + num + "-00");
+                            props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(num, "00"));
                         }
                         props.setProperty("provName", Misc.getString(rs, "provName"));
 

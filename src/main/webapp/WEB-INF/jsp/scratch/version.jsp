@@ -237,7 +237,10 @@
 		}
 
 		function updateScratch() {
-			window.opener.location.reload();
+			if (window.opener && !window.opener.closed
+                    && typeof window.opener.scratchpadVersionChanged === 'function') {
+                window.opener.scratchpadVersionChanged();
+            }
 		}
     </script>
 </div>

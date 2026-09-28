@@ -63,8 +63,23 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     }
 
     public List<ConsultationRequest> getConsults(Integer demoNo) {
-        StringBuilder sql = new StringBuilder("select cr from ConsultationRequest cr, Demographic d, Provider p where d.demographicNo = cr.demographicId and p.providerNo = cr.providerNo and cr.demographicId = ?1");
-        Query query = entityManager.createQuery(sql.toString());
+        // A consultation request belongs to the PATIENT and must appear in the
+        // patient's chart regardless of the state of the ordering provider's record.
+        // The previous query cross-joined Demographic AND Provider purely as existence
+        // filters (neither table is projected), so a consult whose providerNo was null
+        // or referenced a provider row that no longer exists was silently dropped from
+        // the Consultations tab. The demographic constraint (cr.demographicId = ?1)
+        // already scopes the result to this patient, and the caller
+        // (EctViewConsultationRequestsUtil) null-tolerantly re-resolves the provider
+        // and demographic per row, so select on the demographic alone.
+        //
+        // That null-tolerance is a CONTRACT this query depends on, not an incidental
+        // detail: dropping the joins is what lets rows with a dangling demographic or
+        // provider reach the caller, and the caller shares one try/catch across its
+        // whole loop, so a single unguarded dereference there blanks the entire
+        // Consultations tab rather than degrading one row.
+        Query query = entityManager.createQuery(
+                "select cr from ConsultationRequest cr left join fetch cr.professionalSpecialist where cr.demographicId = ?1");
         query.setParameter(1, demoNo);
 
         List<ConsultationRequest> results = query.getResultList();
@@ -76,7 +91,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
         	StringBuilder sql = new StringBuilder("SELECT cr " +
 					"FROM ConsultationRequest cr " +
-                    "LEFT JOIN cr.professionalSpecialist specialist " +
+                    "LEFT JOIN FETCH cr.professionalSpecialist specialist " +
                     "LEFT JOIN ConsultationServices service ON cr.serviceId = service.serviceId " +
                     "LEFT JOIN ConsultationRequestExt ext ON cr.id = ext.requestId AND ext.key = 'ereferral_service' " +
 					"LEFT JOIN Demographic d on cr.demographicId = d.demographicNo " +

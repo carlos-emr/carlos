@@ -30,7 +30,7 @@ NoNewPrivileges=yes
 # CAP_DAC_READ_SEARCH, and nothing else.
 #
 # The backup has to read every patient document, and the application creates
-# some of its document directories mode 0700 — /OscarDocument/carlos/eform/images
+# some of its document directories mode 0700 — /CarlosDocument/carlos/eform/images
 # is one, verified on a live install. Group membership alone therefore does NOT
 # guarantee the backup can read the tree, and a backup that silently skips part
 # of the document store is worse than no backup at all: it looks like it worked.

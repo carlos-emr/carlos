@@ -22,6 +22,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Referral directory: search and edit specialists, select a session checklist,
+    and print complete label batches (up to the action's configured batch limit).
+    Parameters: nameQuery and referral search filters are handled by the backing action.
+    Session: billingReferralAdminCheckList stores the selected specialists.
+    @since 2026-09-19
+--%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@ include file="/taglibs.jsp" %>
@@ -40,6 +47,7 @@
 </security:oscarSec>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+<%@page import="io.github.carlos_emr.carlos.commn.web.PrintReferralLabel2Action" %>
 <%@page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
@@ -132,7 +140,7 @@
                 document.getElementById('addressQuery').value = '';
             }
         </script>
-        <link href="${request.contextPath}/css/displaytag.css" rel="stylesheet"></link>
+        <link href="${pageContext.request.contextPath}/css/displaytag.css" rel="stylesheet"></link>
     </head>
 
     <body vlink="#0000FF" class="BodyStyle">
@@ -240,6 +248,7 @@
                     </table>
                 </div>
                 <br/>
+                <p><fmt:message key="admin.billingreferralAdmin.batchLimit"><fmt:param value="<%= PrintReferralLabel2Action.MAX_LABELS_PER_BATCH %>"/></fmt:message></p>
                 <input type="button" value="<fmt:message key='admin.billingreferralAdmin.btnGenerateLabels'/>" onClick="printAllCheckedLabels()"/>
                 <input type="button" value="<fmt:message key='admin.billingreferralAdmin.btnClearList'/>" onClick="clearCheckedLabels()"/>
 

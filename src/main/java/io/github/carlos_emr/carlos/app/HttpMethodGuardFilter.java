@@ -131,6 +131,8 @@ public class HttpMethodGuardFilter implements Filter {
             "submit", "merge", "archive", "assign", "transfer",
             "approve", "reject", "toggle", "complete", "process",
             "cancel", "close",
+            // ManageEmails2Action mutates status or creates token/PDF state for a copied email.
+            "setresolved", "resendemail",
             // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;
             // classify it as a mutation so GET/HEAD are rejected before the action runs.
             "resetmfa"

@@ -77,6 +77,10 @@ class RxFaxPipelineRegressionUnitTest {
             "<servlet-mapping>\\s*<servlet-name>pdfCustomedCreator</servlet-name>\\s*"
                     + "<url-pattern>/form/createcustomedpdf</url-pattern>\\s*</servlet-mapping>",
             Pattern.DOTALL);
+    private static final Pattern FAX_DISABLED_PREDICATE = Pattern.compile(
+            "function\\s+shouldDisableFaxControls\\(\\)\\s*\\{(.*?)\\}", Pattern.DOTALL);
+    private static final Pattern FAILED_FAX_RESET = Pattern.compile(
+            "function\\s+resetFailedFaxSubmission\\([^)]*\\)\\s*\\{(.*?)\\}", Pattern.DOTALL);
 
     @Test
     @DisplayName("should exclude the prescription PDF servlet URL from Struts action mapping")
@@ -117,6 +121,96 @@ class RxFaxPipelineRegressionUnitTest {
         // A parse-time capture ("var csrfToken = ...") runs before CSRFGuard populates the
         // hidden input on DOMContentLoaded, so every fetch() would send an empty token.
         assertThat(viewScript2).doesNotContain("'CSRF-TOKEN': csrfToken");
+    }
+
+    @Test
+    @DisplayName("should HTML-attribute encode stored pharmacy fields in the fax form")
+    void shouldEncodePharmacyFields_inFaxFormAttributes() throws IOException {
+        String preview2 = Files.readString(PREVIEW2_JSP);
+        assertThat(preview2)
+                .contains("value='<%= pharmaFax %>' context=\"htmlAttribute\"")
+                .contains("value='<%= pharmaName %>' context=\"htmlAttribute\"")
+                .doesNotContain("name=\"pharmaFax\" value=\"<%=pharmaFax%>\"")
+                .doesNotContain("name=\"pharmaName\" value=\"<%=pharmaName%>\"");
+    }
+
+    @Test
+    @DisplayName("should gate stored pharmacy fax numbers using the selected providers' dialing rules")
+    void shouldGatePharmacyFax_toProviderRules() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        assertThat(viewScript2)
+                .contains("FaxDestination.forQueue(")
+                .contains("pharmacy == null ? null : pharmacy.getFax(), account.getProviderType()")
+                .contains("boolean hasPharmacyFax = !usableFaxSenderNumbers.isEmpty()")
+                .contains("usableFaxSenderNumbers.contains(faxConfig.getFaxNumber()) ? \"\" : \"disabled\"")
+                .doesNotContain("selected=\"<%=providerFax.equals");
+    }
+
+    @Test
+    @DisplayName("should bind notes preview signature and fax to the server-resolved displayed prescription")
+    void shouldBindAllPrescriptionOperations_toServerResolvedScript() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        int selectionStart = viewScript2.indexOf("String scriptIdForFax = firstValidScriptId(");
+        int selectionEnd = viewScript2.indexOf(';', selectionStart);
+        assertThat(selectionStart).isGreaterThan(viewScript2.indexOf("bean = (RxSessionBean) session.getAttribute(\"tmpBeanRX\")"));
+        assertThat(selectionEnd).isLessThan(viewScript2.indexOf("function addNotes()"));
+        // The attribute is set on fresh writes and /rx/viewScript; direct reprints
+        // have the displayed saved stash instead. Neither may be overridden by a URL.
+        assertThat(viewScript2.substring(selectionStart, selectionEnd))
+                .contains("request.getAttribute(\"scriptId\")")
+                .contains("bean.getStashItem(0).getScript_no()")
+                .doesNotContain("getParameter");
+        assertThat(viewScript2)
+                .doesNotContain("request.getParameter(\"scriptId\")")
+                .contains("\"scriptNo=\" + encodeURIComponent(faxScriptNo)")
+                .contains("var faxScriptNo = \"<carlos:encode value='<%= scriptIdForFax %>'")
+                .contains("/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>")
+                .contains("associateSavedSignature(e, '<%= scriptIdForFax %>')")
+                .contains("onPrint2('oscarRxFax', faxScriptNo,");
+    }
+
+    @Test
+    @DisplayName("should require patient demographic read permission before enabling fax buttons")
+    void shouldRequireDemographicRead_whenEnablingFaxButtons() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        int gateStart = viewScript2.indexOf("canFaxScript = faxSecurityManager.hasPrivilege");
+        int gateEnd = viewScript2.indexOf(';', gateStart);
+        assertThat(viewScript2.substring(gateStart, gateEnd))
+                .contains("\"_rx\", \"w\", String.valueOf(faxTarget.getDemographicId())")
+                .contains("\"_demographic\", \"r\", String.valueOf(faxTarget.getDemographicId())")
+                .contains("\"_fax\", \"w\", null");
+    }
+
+    @Test
+    @DisplayName("should reapply every current fax prerequisite after a failed submission")
+    void shouldReapplyFaxPrerequisites_afterFailedSubmission() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+
+        Matcher predicateMatcher = FAX_DISABLED_PREDICATE.matcher(viewScript2);
+        assertThat(predicateMatcher.find()).isTrue();
+        assertThat(predicateMatcher.group(1))
+                .contains("faxSubmissionPending")
+                .contains("faxSubmissionUncertain")
+                .contains("typeof hasPreview === 'undefined'")
+                .contains("!hasPreview")
+                .contains("!hasFaxNumber")
+                .contains("!hasFaxSenderAccount")
+                .contains("!canFaxScript")
+                .contains("!(isSignatureSaved || hasStoredSignature)");
+
+        Matcher resetMatcher = FAILED_FAX_RESET.matcher(viewScript2);
+        assertThat(resetMatcher.find()).isTrue();
+        assertThat(resetMatcher.group(1))
+                .contains("faxSubmissionPending = false")
+                .contains("setFaxControlsDisabled(shouldDisableFaxControls())")
+                .doesNotContain("setFaxControlsDisabled(false)");
+
+        int signatureHandlerStart = viewScript2.indexOf("function signatureHandler(e)");
+        int signatureSaveBranch = viewScript2.indexOf("if (e.isSave)", signatureHandlerStart);
+        assertThat(signatureHandlerStart).isGreaterThanOrEqualTo(0);
+        assertThat(signatureSaveBranch).isGreaterThan(signatureHandlerStart);
+        assertThat(viewScript2.substring(signatureHandlerStart, signatureSaveBranch))
+                .contains("setFaxControlsDisabled(shouldDisableFaxControls());");
     }
 
     private static Path resolveProjectPath(Path relativePath) {

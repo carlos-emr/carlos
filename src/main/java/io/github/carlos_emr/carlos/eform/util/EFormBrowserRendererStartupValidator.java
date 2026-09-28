@@ -78,6 +78,9 @@ public class EFormBrowserRendererStartupValidator {
             // probed here because Tomcat is not serving yet, so this validates format and the launch
             // probe validates the browser.
             eFormBrowserPdfService.verifyConfiguredBaseUrl();
+            // Kept separate from the base-URL check on purpose: the two properties have different
+            // operator remediations, and one message covering both is one nobody can act on.
+            eFormBrowserPdfService.verifyConfiguredServiceUrl();
             eFormBrowserPdfService.verifyRendererReady();
             logger.info("eForm browser renderer startup check passed.");
         } catch (PDFGenerationException | RuntimeException e) {
