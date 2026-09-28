@@ -44,12 +44,13 @@ and separately tested. All keys default to empty.
 
 The placeholder-to-contract mapping is inlined in the table above, so this
 document is self-contained. For the full Cortico/Juno label-to-contract
-compatibility matrix, see `docs/api/cortico-carlos-compatibility.md`.
+compatibility matrix, see
+[Cortico CARLOS API Compatibility](cortico-carlos-compatibility.md). Where the
+matrix refers to clinic-specific status codes, reminder note markers, default
+provider/location/appointment type, demographic search field, or default
+document type, the configurable values are the `integration.cortico.*` keys
+documented above.
 
-> **Note:** `docs/api/cortico-carlos-compatibility.md` is added by PR #2916 and
-> is **not yet present on `develop`**. The path is intentionally not a link
-> until that PR merges, to avoid a broken (404) cross-reference. When the matrix
-> references clinic-specific status codes, reminder note markers, default
-> provider/location/appointment type, demographic search field, or default
-> document type, the configurable values are the `integration.cortico.*` keys
-> documented above.
+Every key is declared with an empty value, so a future consumer must treat a
+blank value as unset (for example `StringUtils.isBlank`) rather than rely on a
+`getProperty(key, fallback)` default, which an empty declaration never reaches.

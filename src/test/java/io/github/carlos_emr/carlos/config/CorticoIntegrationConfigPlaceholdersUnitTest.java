@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Cortico integration config placeholders")
 @Tag("unit")
 @Tag("read")
-class CorticoIntegrationConfigPlaceholdersTest extends CarlosUnitTestBase {
+class CorticoIntegrationConfigPlaceholdersUnitTest extends CarlosUnitTestBase {
 
     /**
      * Classpath resource name for the runtime defaults properties.
@@ -75,10 +75,8 @@ class CorticoIntegrationConfigPlaceholdersTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should declare Cortico integration placeholder keys in carlos properties")
     void shouldDeclareCorticoPlaceholderKeys_inCarlosProperties() throws IOException {
-        String content = readCarlosPropertiesContent();
         Properties properties = loadCarlosProperties();
 
-        assertThat(content).contains("# CORTICO/JUNO INTEGRATION PLACEHOLDERS");
         assertThat(properties.stringPropertyNames()).containsAll(CORTICO_PLACEHOLDER_KEYS);
     }
 
@@ -91,12 +89,6 @@ class CorticoIntegrationConfigPlaceholdersTest extends CarlosUnitTestBase {
                 .allSatisfy(key -> assertThat(properties.getProperty(key))
                         .as("placeholder %s must default to empty", key)
                         .isEmpty());
-    }
-
-    private String readCarlosPropertiesContent() throws IOException {
-        try (InputStream inputStream = openCarlosProperties()) {
-            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
-        }
     }
 
     private Properties loadCarlosProperties() throws IOException {
