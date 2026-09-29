@@ -128,6 +128,46 @@ class PortalWebBoundaryRegressionUnitTest {
         verifyNoInteractions(resolver);
     }
 
+    /**
+     * Privileges are checked before the switch, so a user without them gets the same refusal
+     * whether the portal is on or off and cannot learn which.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"portalInvite", "portalAccount", "portalPanel"})
+    void shouldRefuseBeforeConsultingTheSwitch_whenPrivilegeIsDenied(String route) throws Exception {
+        var security = mock(SecurityInfoManager.class);
+        var resolver = mock(PortalStaffContextResolver.class);
+        var session = mock(LoggedInInfo.class);
+        var request = new MockHttpServletRequest();
+        var response = new MockHttpServletResponse();
+        request.setMethod("portalPanel".equals(route) ? "GET" : "POST");
+        request.setParameter("demographicNo", "123");
+        if ("portalInvite".equals(route)) {
+            request.setParameter("method", PortalInvite2Action.METHOD_REVOKE);
+            request.setParameter("inviteId", "7");
+        } else if ("portalAccount".equals(route)) {
+            request.setParameter("method", PortalAccount2Action.METHOD_UNLOCK);
+        }
+        when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(false);
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var login = mockStatic(LoggedInInfo.class);
+             var settings = mockStatic(PatientPortalSettings.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(session);
+            settings.when(PatientPortalSettings::isConfigured).thenReturn(false);
+            PortalJsonAction action = switch (route) {
+                case "portalInvite" -> new PortalInvite2Action(security, null, resolver);
+                case "portalAccount" -> new PortalAccount2Action(security, null, resolver);
+                default -> new PortalPanel2Action(security, null, resolver);
+            };
+            action.execute();
+            settings.verify(PatientPortalSettings::isConfigured, never());
+        }
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).doesNotContain("portal_not_configured");
+    }
+
     @Test
     void shouldNotUnlockPatient_whenScopedPermissionIsDenied() throws Exception {
         var security = mock(SecurityInfoManager.class);

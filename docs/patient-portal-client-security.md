@@ -10,22 +10,26 @@ run in CARLOS before signing.
 The portal is optional and off by default. It is used only when
 `patient_portal.enabled=true`; a clinic that does not use it sets nothing, and
 setting it back to `false` switches the portal off without removing its
-credentials. With the portal off, no portal call is made and portal actions
-report that the portal is not switched on. The rest of CARLOS is unaffected,
-except that every encrypted email is refused while
-`patient_portal.email.enabled=true`; setting that to `false` puts encrypted
-email back on staff-entered passwords. Case does not matter for the switch and a
-blank value counts as off; any value other than `true` or `false`, including one
+credentials. With the portal off, no portal call is made. The portal's JSON
+actions answer 503 `portal_not_configured`, saying the portal is not switched on,
+and the email recovery page reports the portal as switched off or not set up
+correctly. The rest of CARLOS is unaffected, with two exceptions while
+`patient_portal.email.enabled=true`: every encrypted email is refused, and an
+email whose portal password still needs recovery cannot be recovered until the
+portal is switched on again. Setting `patient_portal.email.enabled=false` puts
+encrypted email back on staff-entered passwords. Case does not matter for
+`patient_portal.enabled` and a blank value counts as off, whereas
+`patient_portal.email.enabled` must be exactly `true` or `false` in lower case;
+for the switch, any value other than `true` or `false`, including one
 followed by a `#` comment on the same line, is a configuration error; only the
 portal's JSON actions name `patient_portal.enabled` in the log. A change takes
 effect when CARLOS restarts.
 
 Upgrading: an install that set up the portal before this switch existed, such as
 a staging server, has no `patient_portal.enabled` line. After the upgrade its
-portal is off, and portal actions say only that it is not switched on, until
-`patient_portal.enabled=true` is added and CARLOS restarts. Meanwhile the Patient
-portal entry disappears from patient records, and while
-`patient_portal.email.enabled=true` every encrypted email is refused.
+portal is off, as described above, until `patient_portal.enabled=true` is added
+and CARLOS restarts. If any email is still waiting for its portal password to be
+recovered, add the line before upgrading.
 
 `patient_portal.certificate.pins` is required whenever the integration is
 enabled. Missing, empty, or malformed pins prevent client initialization;

@@ -34,6 +34,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.beans.factory.BeanCreationException;
 
 /**
  * Shows and recovers the portal password of one encrypted email, never resending it.
@@ -98,6 +99,12 @@ public class PortalEmailDelivery2Action extends ActionSupport {
             return NONE;
         } catch (PatientPortalConfigurationException notConfigured) {
             portalNotConfigured(request, response, id);
+        } catch (BeanCreationException notBuilt) {
+            // Spring wraps a configuration failure raised while the portal client is built.
+            if (!notBuilt.contains(PatientPortalConfigurationException.class)) {
+                throw notBuilt;
+            }
+            portalNotConfigured(request, response, id);
         } catch (RuntimeException unavailable) {
             // Class name only: portal messages may carry credentials or PHI. A reload re-reads the durable state.
             logger.warn("Portal email recovery failed; emailLogId={}; causeType={}", id, unavailable.getClass().getSimpleName());
@@ -127,8 +134,9 @@ public class PortalEmailDelivery2Action extends ActionSupport {
     }
 
     /**
-     * Not "the Portal did not respond": the portal was never called. Switched off is a deployment
-     * choice, so it is not logged; a switched-on portal whose settings do not build is a fault.
+     * Not "the Portal did not respond": the fault is in CARLOS's own portal settings, and recovery
+     * sends no email. Switched off is a deployment choice, so it is not logged; a switched-on
+     * portal whose settings do not build is a fault.
      */
     private void portalNotConfigured(HttpServletRequest request, HttpServletResponse response, int id) {
         if (PatientPortalSettings.isConfigured()) {
