@@ -292,6 +292,10 @@ public class EmailCompose2Action extends ActionSupport {
             for (EmailAttachment attachment : emailAttachmentList) {
                 previews.put(attachment.getFilePath(), issuePreview(loggedInInfo, attachment.getFilePath()));
             }
+        } catch (SecurityException e) {
+            // A denial for one of the attachments is not a preparation failure to retry.
+            workingDirectory.close();
+            throw e;
         } catch (PDFGenerationException | RuntimeException e) {
             workingDirectory.close();
             logger.error("Unable to prepare email attachments; causeType={}", e.getClass().getName());

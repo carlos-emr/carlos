@@ -50,6 +50,7 @@ import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionState
 import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -804,6 +805,56 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(response.getHeader("Allow")).isEqualTo("GET, POST");
             assertThat(request.getSession().getAttribute("demographicId")).isNotNull();
             verify(mocks.emailComposeManager(), never()).prepareEFormAttachments(any(), any(), any(), any());
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse a HEAD without email write privilege, not answer 405, and leave the staged compose")
+    void shouldRefuseHead_whenEmailWritePrivilegeMissing() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("HEAD", "/email/compose");
+        stageOneEFormAttachment(mocks, request);
+        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            assertThatThrownBy(new EmailCompose2Action()::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_email)");
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(request.getSession().getAttribute("demographicId")).isNotNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should surface a denial for an attachment and close the working directory, not ask staff to retry")
+    void shouldSurfaceDenial_whenAttachmentPreparationIsRefused() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        EmailComposeSubmissionStateService stateService = spy(composeSubmissionStateService);
+        registerMock(EmailComposeSubmissionStateService.class, stateService);
+        AtomicReference<EmailComposeWorkingDirectory> created = new AtomicReference<>();
+        doAnswer(invocation -> {
+            EmailComposeWorkingDirectory directory = spy((EmailComposeWorkingDirectory) invocation.callRealMethod());
+            created.set(directory);
+            return directory;
+        }).when(stateService).createWorkingDirectory();
+        when(mocks.emailComposeManager().prepareEFormAttachments(any(), any(), any(), any()))
+                .thenThrow(new SecurityException("missing required sec object (_eform)"));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+
+            assertThatThrownBy(new EmailCompose2Action()::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_eform)");
+            assertThat(request.getAttribute("errorMessage")).isNull();
+            verify(created.get()).close();
         }
     }
 
