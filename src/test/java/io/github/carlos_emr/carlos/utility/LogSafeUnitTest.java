@@ -473,6 +473,23 @@ class LogSafeUnitTest {
         }
 
         @Test
+        @DisplayName("should strip U+0085 NEXT LINE from input")
+        void shouldStripNextLine_fromInput() {
+            // U+0085 is a C1 control, outside Java's ASCII-only \p{Cntrl}, but
+            // java.util.regex and Unicode-aware log viewers treat it as a line
+            // terminator — so leaving it in place would permit forged log lines.
+            assertThat(LogSafe.sanitizeForDisplay("before\u0085after"))
+                    .isEqualTo("beforeafter");
+        }
+
+        @Test
+        @DisplayName("should strip every line boundary a Unicode log reader honours")
+        void shouldStripAllUnicodeLineBoundaries_fromInput() {
+            String input = "a\nb\rc\u000Bd\u000Ce\u0085f\u2028g\u2029h";
+            assertThat(LogSafe.sanitizeForDisplay(input)).isEqualTo("abcdefgh");
+        }
+
+        @Test
         @DisplayName("should truncate with ellipsis when input exceeds default length")
         void shouldTruncate_whenInputExceedsLimit() {
             // Build a 300-char ASCII payload; default truncation is

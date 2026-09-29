@@ -84,6 +84,18 @@ $SQL drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
 # the baseline reference rows with the demo dataset (patients, appointments, notes, etc.).
 echo 'Loading demo data for development...'
 $SQL carlos < /scripts/development.sql
+# development.sql also truncate-reloads measurement and billing reference tables
+# (measurementType, validations, billingservice, ctl_billingservice) from the old
+# snapshot, undoing the reference-data migrations applied above. Re-apply those
+# migrations here; each one is idempotent. (The deb demo load needs no equivalent:
+# demo-additive-exclude.txt drops these tables, so the Flyway rows stand there.)
+echo 'Re-applying reference-data migrations undone by the demo snapshot...'
+for REF_MIGRATION in \
+    "${MIG}/common/V1.0.32__add_nrtf_tuning_fork_measurement_type.sql" \
+    "${MIG}/common/V1.0.33__aacp_provided_revised_reviewed_validation.sql" \
+    "${MIG}/on/V1.0.34__add_oma_uninsured_service_fees.sql"; do
+  $SQL carlos < "${REF_MIGRATION}"
+done
 echo 'Restoring current Administration privileges...'
 $SQL carlos < /scripts/development_privileges.sql
 echo 'Seeding fake referral specialists and provider links...'
@@ -115,6 +127,12 @@ $SQL carlos < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
 # the eform-rtl-attachment-* Playwright checks pin this.
 echo 'Rewiring Rich Text Letter attachment routes...'
 $SQL carlos < /database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+# Also after the modernize update, and for the same reason: it adds the hidden
+# user_id / user_ohip_no / doctor_provider_no inputs that editControl2.js reads to
+# pick consult_sig_<provider_no>.png for the Stamp and Closing Salutation buttons.
+# Without it the RTL falls back to the single shared stamp.png for every provider.
+echo 'Adding Rich Text Letter provider stamp fields...'
+$SQL carlos < /database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql
 # The snapshot's HRM rows name report files that never shipped, so every HRM
 # list is empty. Point one demographic-1 report at the fixture that
 # seed_data.sh copies into the document store (deb parity: carlos-ctl demo-data
@@ -128,6 +146,14 @@ $SQL carlos < /scripts/demo-hrm-report.sql
 # install does.
 echo 'Enabling digital signatures on the demo facility...'
 $SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
+# Same shape of problem: development.sql truncate-reloads `clinic` with the snapshot's
+# placeholder ('MHI Org '), undoing V1.0.24 applied above. clinic_name is what the eForm AP of
+# that name returns, so it is the letterhead the Rich Text Letter's ##letterhead## button prints
+# on every demo letter. Re-assert the migration's value, matching either placeholder so a
+# refreshed snapshot cannot quietly reintroduce the other one. (The deb demo load needs no
+# equivalent: demo-additive-exclude.txt drops `clinic`, so the Flyway value stands there.)
+echo 'Renaming the demo clinic away from the upstream placeholder...'
+$SQL carlos -e "UPDATE clinic SET clinic_name = 'CARLOS Demo Clinic' WHERE TRIM(clinic_name) IN ('MHI Org', 'McMaster Hospital');"
 # Administration fixtures for the data-backed Administration screens the demo
 # snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
 # (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only

@@ -695,6 +695,8 @@ public class ProviderManager2 {
 
     }
 
+    /** @deprecated Legacy property API; the clinic-wide switch is managed by ProviderLinkingRulesService. */
+    @Deprecated
     public boolean updateAutoLinkToMrpProperty(LoggedInInfo loggedInInfo, String value) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.WRITE, null) &&
             !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.WRITE, null)) {
@@ -712,6 +714,8 @@ public class ProviderManager2 {
 		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
 	}
 
+    /** @deprecated Legacy property API, retained for callers of the previous release. */
+    @Deprecated
 	public boolean viewAutoLinkToMrpPropertyStatus(LoggedInInfo loggedInInfo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.READ, null) &&
             !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.READ, null)) {

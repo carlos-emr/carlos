@@ -129,6 +129,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             } else {
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(
+                        securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request), queueId);
 
                 File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
                 File destinationFile = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);

@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
@@ -445,4 +448,147 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
         verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
     }
+    @Test
+    @DisplayName("should reject a missing prescription session instead of returning success")
+    void shouldRejectMissingSession_whenStagingHistoryPrescription() throws Exception {
+        request.getSession().removeAttribute("RxSessionBean");
+        action.saveReRxDrugIdToStash();
+        assertThat(response.getStatus()).isEqualTo(409);
+    }
+
+    @Test
+    @DisplayName("should enforce write permission before staging a history prescription")
+    void shouldRejectReadOnlyUser_whenStagingHistoryPrescription() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull())).thenReturn(false);
+        assertThatThrownBy(() -> action.saveReRxDrugIdToStash()).isInstanceOf(RuntimeException.class).hasMessageContaining("_rx");
+    }
+
+    @Test
+    @DisplayName("should return a client error for a malformed history drug identifier")
+    void shouldRejectInvalidDrugId_whenStagingHistoryPrescription() throws Exception {
+        request.setParameter("drugId", "invalid");
+        action.saveReRxDrugIdToStash();
+        assertThat(response.getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("should return failure when the history prescription cannot be loaded")
+    void shouldReportFailure_whenLoadingHistoryPrescriptionFails() throws Exception {
+        request.setParameter("drugId", "27");
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.getPrescriptionIfPresent(27)).thenThrow(new IllegalStateException("Synthetic database failure")))) {
+            action.saveReRxDrugIdToStash();
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).doesNotContain("Synthetic database failure");
+        }
+    }
+
+    @Test
+    @DisplayName("should return not found for a deleted history drug without changing staged prescriptions")
+    void shouldKeepStash_whenHistoryDrugNoLongerExists() throws Exception {
+        request.setParameter("drugId", "27");
+        var dao = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DrugDao.class);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.commn.dao.DrugDao.class, dao);
+        var bean = org.mockito.Mockito.mock(RxSessionBean.class);
+        request.getSession().setAttribute("RxSessionBean", bean);
+
+        action.saveReRxDrugIdToStash();
+
+        assertThat(response.getStatus()).isEqualTo(404);
+        verify(dao).find(27);
+        org.mockito.Mockito.verifyNoMoreInteractions(dao);
+        org.mockito.Mockito.verifyNoInteractions(bean);
+        assertThat(request.getAttribute("BoxNoFillFirstLoad")).isNull();
+    }
+
+    @Test
+    @DisplayName("should reject a history prescription belonging to another patient")
+    void shouldRejectOtherPatient_whenStagingHistoryPrescription() throws Exception {
+        request.setParameter("drugId", "27");
+        var old = org.mockito.Mockito.mock(Prescription.class);
+        when(old.getDemographicNo()).thenReturn(2);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.getPrescriptionIfPresent(27)).thenReturn(old))) {
+            action.saveReRxDrugIdToStash();
+            assertThat(response.getStatus()).isEqualTo(404);
+            verify(data.constructed().getFirst(), never()).newPrescription(anyString(), any(Integer.class), any(Prescription.class));
+        }
+    }
+
+    @Test
+    @DisplayName("should enforce patient-scoped permission before copying a history prescription")
+    void shouldRejectPatientWithoutWriteAccess_whenStagingHistoryPrescription() throws Exception {
+        request.setParameter("drugId", "27");
+        var old = org.mockito.Mockito.mock(Prescription.class);
+        when(old.getDemographicNo()).thenReturn(1);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.getPrescriptionIfPresent(27)).thenReturn(old))) {
+            action.saveReRxDrugIdToStash();
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(data.constructed().getFirst(), never()).newPrescription(anyString(), any(Integer.class), any(Prescription.class));
+        }
+    }
+
+    @Test
+    @DisplayName("should stage an authorized history prescription and return success")
+    void shouldStagePrescription_whenHistoryPatientAndWriteAccessMatch() throws Exception {
+        request.setParameter("drugId", "27");
+        var bean = org.mockito.Mockito.mock(RxSessionBean.class);
+        when(bean.getDemographicNo()).thenReturn(1);
+        when(bean.getProviderNo()).thenReturn("999998");
+        request.getSession().setAttribute("RxSessionBean", bean);
+        var old = org.mockito.Mockito.mock(Prescription.class);
+        var staged = org.mockito.Mockito.mock(Prescription.class);
+        when(old.getDemographicNo()).thenReturn(1);
+        when(staged.getQuantity()).thenReturn("30");
+        when(bean.addStashItem(mockLoggedInInfo, staged)).thenReturn(7);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", "1")).thenReturn(true);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> {
+                    when(mock.getPrescriptionIfPresent(27)).thenReturn(old);
+                    when(mock.newPrescription("999998", 1, old)).thenReturn(staged);
+                });
+             var util = mockStatic(RxUtil.class)) {
+            util.when(() -> RxUtil.isStringToNumber("30")).thenReturn(true);
+            action.saveReRxDrugIdToStash();
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(bean).addStashItem(mockLoggedInInfo, staged);
+            verify(staged).setRandomId(org.mockito.ArgumentMatchers.longThat(value -> value >= 0 && value <= 1_000_000));
+            verify(bean).setStashIndex(7);
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve the staged session when returning to the prescribing workspace")
+    void shouldPreserveSession_whenRenderingPrescribingWorkspace() throws Exception {
+        var bean = request.getSession().getAttribute("RxSessionBean");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", null)).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", "1")).thenReturn(true);
+        assertThat(action.viewPrescribing()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getSession().getAttribute("RxSessionBean")).isSameAs(bean);
+    }
+
+    @Test
+    @DisplayName("should reject a missing session when returning to the prescribing workspace")
+    void shouldRejectMissingSession_whenRenderingPrescribingWorkspace() throws Exception {
+        request.getSession().removeAttribute("RxSessionBean");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", null)).thenReturn(true);
+        assertThat(action.viewPrescribing()).isNull();
+        assertThat(response.getStatus()).isEqualTo(409);
+    }
+
+    @Test
+    @DisplayName("should require global read access for the prescribing workspace")
+    void shouldRequireReadAccess_whenRenderingPrescribingWorkspace() {
+        assertThatThrownBy(() -> action.viewPrescribing()).isInstanceOf(RuntimeException.class).hasMessageContaining("_rx");
+    }
+
+    @Test
+    @DisplayName("should require patient-scoped read access for the prescribing workspace")
+    void shouldRequirePatientAccess_whenRenderingPrescribingWorkspace() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", null)).thenReturn(true);
+        assertThat(action.viewPrescribing()).isNull();
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
 }

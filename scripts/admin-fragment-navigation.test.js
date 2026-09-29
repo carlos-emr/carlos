@@ -28,10 +28,22 @@ test('loading OHIP simulation initializes its own form without hijacking shell n
 });
 
 
+test('the encounter header offers exactly one link to the clinical calculators', () => {
+  // phc007 reported two calculator links in the chart header: this page carried a second
+  // anchor to the same route, labelled identically, differing only in passing sex/age in the
+  // query string. One entry point, and it is the demo= form (see the URL assertions below).
+  const source = fs.readFileSync(path.join(__dirname,
+    '../src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'), 'utf8');
+  const withoutComments = source.replace(/<%--[\s\S]*?--%>/g, '');
+  const calculatorAnchors = withoutComments.match(/<a\b[^>]*\/encounter\/ViewCalculators/g) || [];
+  assert.equal(calculatorAnchors.length, 1,
+    `Expected one calculators anchor in the encounter header, found ${calculatorAnchors.length}`);
+});
+
 test('calculator header navigation keeps patient attributes out of both popup and fallback URLs', () => {
   const source = fs.readFileSync(path.join(__dirname,
     '../src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'), 'utf8');
-  const anchor = source.match(/<a href="([^"]*\/encounter\/ViewCalculators[^"]*)"\s+onclick="([^"]*)"/);
+  const anchor = source.match(/<a href="([^"]*\/encounter\/ViewCalculators[^"]*)"[\s\S]*?onclick="([^"]*)"/);
   assert.ok(anchor, 'The calculator header link was not found');
   const fixture = {ctx: '/carlos', popupDemographicNo: '12345', popupPatientSex: 'F', popupPatientAge: '55'};
   const render = value => value.replace(/\$\{carlos:for\w+\((\w+)\)\}/g, (_, name) => {

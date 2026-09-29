@@ -86,13 +86,27 @@ public class RxPrescriptionData {
         return ret;
     }
 
+    public Prescription getPrescription(int drugId) {
+        DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
+        return prescriptionFromDrug(drugDao.find(drugId));
+    }
+
+    /**
+     * Loads a history item once, allowing a stale selection to be reported as unavailable.
+     *
+     * @param drugId the selected drug row identifier
+     * @return the persisted prescription, or null if its row no longer exists
+     */
+    public Prescription getPrescriptionIfPresent(int drugId) {
+        DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
+        Drug drug = drugDao.find(drugId);
+        return drug == null ? null : prescriptionFromDrug(drug);
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public Prescription getPrescription(int drugId) {
-
-        DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
-        Drug drug = drugDao.find(drugId);
-
+    private Prescription prescriptionFromDrug(Drug drug) {
+        int drugId = drug.getId();
         Prescription prescription = new Prescription(drugId, drug.getProviderNo(), drug.getDemographicId());
         prescription.setRxCreatedDate(drug.getCreateDate());
         prescription.setRxDate(drug.getRxDate());
@@ -109,7 +123,7 @@ public class RxPrescriptionData {
         prescription.setDuration(dur);
         prescription.setDurationUnit(drug.getDurUnit());
         prescription.setQuantity(drug.getQuantity());
-        prescription.setRepeat(drug.getRepeat());
+        prescription.setRepeat(drug.getRepeat() == null ? 0 : drug.getRepeat());
         prescription.setLastRefillDate(drug.getLastRefillDate());
         prescription.setNosubs(drug.isNoSubs());
         prescription.setPrn(drug.isPrn());
@@ -129,7 +143,7 @@ public class RxPrescriptionData {
         prescription.setShortTerm(drug.getShortTerm());
         prescription.setCustomNote(drug.isCustomNote());
         prescription.setPastMed(drug.getPastMed());
-        prescription.setDispenseInternal(drug.getDispenseInternal());
+        prescription.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         prescription.setStartDateUnknown(drug.getStartDateUnknown());
         prescription.setComment(drug.getComment());
         prescription.setPatientCompliance(drug.getPatientCompliance());
@@ -147,12 +161,10 @@ public class RxPrescriptionData {
         if (drug.getRefillQuantity() != null) prescription.setRefillQuantity(drug.getRefillQuantity());
 
         String prescriptionSpecial = prescription.getSpecial();
-        String drugSpecial = drug.getSpecial();
         if (prescriptionSpecial == null || prescriptionSpecial.length() <= 6) {
-            logger.warn("I strongly suspect something is wrong, either special is null or it appears to not contain anything useful. drugId={}, prescriptionSpecialLength={}, drugSpecialLength={}",
-                    drugId, safeLength(prescriptionSpecial), safeLength(drugSpecial));
+            logger.warn("Prescription instructions are absent or unusually short");
         }
-        prescription.setDispenseInternal(drug.getDispenseInternal());
+        prescription.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         prescription.setPharmacyId(drug.getPharmacyId());
         return prescription;
     }
@@ -162,7 +174,17 @@ public class RxPrescriptionData {
         return new Prescription(0, providerNo, demographicNo);
     }
 
+    /**
+     * Creates an in-memory prescription from an available favorite.
+     *
+     * @param providerNo the prescribing provider
+     * @param demographicNo the current patient
+     * @param favorite the non-null favorite to copy
+     * @return an unsaved prescription containing the favorite's instructions
+     * @throws IllegalArgumentException if the favorite is unavailable
+     */
     public Prescription newPrescription(String providerNo, int demographicNo, Favorite favorite) {
+        if (favorite == null) throw new IllegalArgumentException("Prescription favorite is unavailable");
         // Create new prescription from favorite (only in memory)
         Prescription prescription = new Prescription(0, providerNo, demographicNo);
 
@@ -192,6 +214,7 @@ public class RxPrescriptionData {
         prescription.setDrugForm(favorite.getDrugForm());
         prescription.setCustomInstr(favorite.getCustomInstr());
         prescription.setDosage(favorite.getDosage());
+        prescription.setDispenseInternal(Boolean.TRUE.equals(favorite.getDispenseInternal()));
 
         return prescription;
     }
@@ -291,7 +314,7 @@ public class RxPrescriptionData {
         p.setDuration(drug.getDuration());
         p.setDurationUnit(drug.getDurUnit());
         p.setQuantity(drug.getQuantity());
-        p.setRepeat(drug.getRepeat());
+        p.setRepeat(drug.getRepeat() == null ? 0 : drug.getRepeat());
         p.setLastRefillDate(drug.getLastRefillDate());
         p.setNosubs(drug.isNoSubs());
         p.setPrn(drug.isPrn());
@@ -313,6 +336,7 @@ public class RxPrescriptionData {
         p.setShortTerm(drug.getShortTerm());
         p.setCustomNote(drug.isCustomNote());
         p.setPastMed(drug.getPastMed());
+        p.setDispenseInternal(Boolean.TRUE.equals(drug.getDispenseInternal()));
         p.setStartDateUnknown(drug.getStartDateUnknown());
         p.setComment(drug.getComment());
         p.setPatientCompliance(drug.getPatientCompliance());
@@ -484,7 +508,6 @@ public class RxPrescriptionData {
             }
 
             if (isCustomName) {
-                logger.debug("ADDING PRESCRIPTION " + drug.getId());
                 Prescription p = toPrescription(drug, demographicNo);
 
 
@@ -507,7 +530,9 @@ public class RxPrescriptionData {
     }
 
     private Favorite toFavorite(io.github.carlos_emr.carlos.commn.model.Favorite f) {
-        return new Favorite(f.getId(), f.getProviderNo(), f.getName(), f.getBn(), f.getGcnSeqno(), f.getCustomName(), f.getTakeMin(), f.getTakeMax(), f.getFrequencyCode(), f.getDuration(), f.getDurationUnit(), f.getQuantity(), f.getRepeat(), f.isNosubs(), f.isPrn(), f.getSpecial(), f.getGn(), f.getAtc(), f.getRegionalIdentifier(), f.getUnit(), f.getUnitName(), f.getMethod(), f.getRoute(), f.getDrugForm(), f.isCustomInstructions(), f.getDosage());
+        Favorite favorite = new Favorite(f.getId(), f.getProviderNo(), f.getName(), f.getBn(), f.getGcnSeqno(), f.getCustomName(), f.getTakeMin(), f.getTakeMax(), f.getFrequencyCode(), f.getDuration(), f.getDurationUnit(), f.getQuantity(), f.getRepeat(), f.isNosubs(), f.isPrn(), f.getSpecial(), f.getGn(), f.getAtc(), f.getRegionalIdentifier(), f.getUnit(), f.getUnitName(), f.getMethod(), f.getRoute(), f.getDrugForm(), f.isCustomInstructions(), f.getDosage());
+        favorite.setDispenseInternal(f.isDispenseInternal());
+        return favorite;
     }
 
     public Favorite getFavorite(int favoriteId) {
@@ -546,7 +571,7 @@ public class RxPrescriptionData {
             patient = RxPatientData.getPatient(loggedInInfo, demographic_no);
             provider = new RxProviderData().getProvider(provider_no);
         } catch (Exception e) {
-            logger.error("unexpected error", e);
+            logger.error("Prescription operation failed ({})", e.getClass().getSimpleName());
         }
         ProSignatureData sig = new ProSignatureData();
         boolean hasSig = sig.hasSignature(bean.getProviderNo());
@@ -1557,7 +1582,7 @@ public class RxPrescriptionData {
                         ret += "s";
                     }
                 } catch (Exception durationCalcException) {
-                    logger.error("Error with duration:", durationCalcException);
+                    logger.error("Prescription duration could not be parsed ({})", durationCalcException.getClass().getSimpleName());
                 }
                 ret += "  ";
                 ret += this.getQuantity();
@@ -1570,7 +1595,7 @@ public class RxPrescriptionData {
 
                 return ret;
             } catch (Exception e) {
-                logger.error("unexpected error", e);
+                logger.error("Prescription operation failed ({})", e.getClass().getSimpleName());
                 return null;
             }
         }
@@ -1628,7 +1653,7 @@ public class RxPrescriptionData {
                     drugDao.merge(drug);
                 }
             } catch (Exception e) {
-                logger.error("unexpected error", e);
+                logger.error("Prescription operation failed ({})", e.getClass().getSimpleName());
             }
         }
 
@@ -2225,14 +2250,18 @@ public class RxPrescriptionData {
                 //if (getSpecial() == null || getSpecial().length() < 6) {
                 logger.warn("drug special appears to be null or empty (length={})", safeLength(special));
             }
-            String parsedSpecial = RxUtil.replace(special, "'", "");
-            //if (parsedSpecial == null || parsedSpecial.length() < 6) {
-            if (parsedSpecial == null || parsedSpecial.length() < 4) {
-                logger.warn("drug special after parsing appears to be null or empty (length={})", safeLength(parsedSpecial));
-            }
-
             FavoriteDao dao = SpringUtils.getBean(FavoriteDao.class);
-            io.github.carlos_emr.carlos.commn.model.Favorite favorite = dao.findByEverything(this.getProviderNo(), this.getFavoriteName(), this.getBN(), this.getGCN_SEQNO(), this.getCustomName(), this.getTakeMin(), this.getTakeMax(), this.getFrequencyCode(), this.getDuration(), this.getDurationUnit(), this.getQuantity(), this.getRepeat(), this.getNosubs(), this.getPrn(), parsedSpecial, this.getGN(), this.getUnitName(), this.getCustomInstr());
+            io.github.carlos_emr.carlos.commn.model.Favorite favorite;
+            // Deduplication is only for creation. An edit must retain its selected identity,
+            // even when its new fields happen to match another provider favorite.
+            if (this.getFavoriteId() == 0) {
+                favorite = dao.findDuplicate(syncFavorite(new io.github.carlos_emr.carlos.commn.model.Favorite()));
+            } else {
+                favorite = dao.find(this.getFavoriteId());
+                if (favorite == null) {
+                    throw new IllegalStateException("Prescription favorite is unavailable");
+                }
+            }
 
             if (this.getFavoriteId() == 0) {
 
@@ -2251,10 +2280,6 @@ public class RxPrescriptionData {
                 }
 
             } else {
-                if (favorite == null) {
-                    //we never found it..try by id
-                    favorite = dao.find(this.getFavoriteId());
-                }
                 favorite = syncFavorite(favorite);
                 dao.merge(favorite);
 
@@ -2290,6 +2315,7 @@ public class RxPrescriptionData {
             f.setDrugForm(this.getDrugForm());
             f.setCustomInstructions(this.getCustomInstr());
             f.setDosage(this.getDosage());
+            f.setDispenseInternal(Boolean.TRUE.equals(this.getDispenseInternal()));
             return f;
         }
 
@@ -2430,7 +2456,7 @@ public class RxPrescriptionData {
     }
 
     public static boolean addToFavorites(String providerNo, String favoriteName, Drug drug) {
-        Favorite fav = new Favorite(0, providerNo, favoriteName, drug.getBrandName(), drug.getGcnSeqNo(), drug.getCustomName(), drug.getTakeMin(), drug.getTakeMax(), drug.getFreqCode(), drug.getDuration(), drug.getDurUnit(), drug.getQuantity(), drug.getRepeat(), drug.isNoSubs(), drug.isPrn(), drug.getSpecial(), drug.getGenericName(), drug.getAtc(), drug.getRegionalIdentifier(), drug.getUnit(), drug.getUnitName(), drug.getMethod(), drug.getRoute(), drug.getDrugForm(), drug.isCustomInstructions(),
+        Favorite fav = new Favorite(0, providerNo, favoriteName, drug.getBrandName(), drug.getGcnSeqNo(), drug.getCustomName(), drug.getTakeMin(), drug.getTakeMax(), drug.getFreqCode(), drug.getDuration(), drug.getDurUnit(), drug.getQuantity(), drug.getRepeat() == null ? 0 : drug.getRepeat(), drug.isNoSubs(), drug.isPrn(), drug.getSpecial(), drug.getGenericName(), drug.getAtc(), drug.getRegionalIdentifier(), drug.getUnit(), drug.getUnitName(), drug.getMethod(), drug.getRoute(), drug.getDrugForm(), drug.isCustomInstructions(),
                 drug.getDosage());
         fav.setDispenseInternal(drug.getDispenseInternal());
         return fav.Save();

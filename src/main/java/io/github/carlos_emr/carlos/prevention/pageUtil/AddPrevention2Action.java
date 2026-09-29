@@ -47,10 +47,8 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.LookupListDao;
 import io.github.carlos_emr.carlos.commn.dao.LookupListItemDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
-import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
 import io.github.carlos_emr.carlos.commn.model.Consent;
-import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.integration.fhir.api.DHIR;
 import io.github.carlos_emr.carlos.integration.fhir.builder.FhirBundleBuilder;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -115,6 +113,7 @@ public class AddPrevention2Action extends ActionSupport {
         String preventionType = request.getParameter("prevention");
         String demographic_no = request.getParameter("demographic_no");
         String id = request.getParameter("id");
+        if ("null".equals(id) || "".equals(id)) id = null;
         String delete = request.getParameter("delete");
 
         String action = request.getParameter("action");
@@ -123,10 +122,6 @@ public class AddPrevention2Action extends ActionSupport {
         if (action != null && "Save & Submit".equals(action)) {
             submitToDhir = true;
         }
-        MiscUtils.getLogger().debug("id " + id + "  delete " + delete);
-
-        MiscUtils.getLogger().debug("prevention Type " + preventionType);
-
         String given = request.getParameter("given");
         String prevDate = request.getParameter("prevDate");
         String providerName = request.getParameter("providerName");
@@ -138,22 +133,10 @@ public class AddPrevention2Action extends ActionSupport {
         //generic
         String snomedId = request.getParameter("snomedId");
 
-        String partialDateFormat = partialDateDao.getFormat(prevDate);
-
-        if (PartialDate.YEARONLY.equals(partialDateFormat)) {
-            prevDate += "-01-01 00:00";
-
+        if (prevDate == null || prevDate.isBlank()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
-        if (PartialDate.YEARMONTH.equals(partialDateFormat)) {
-            prevDate += "-01 00:00";
-        }
-
-        if (prevDate.length() == 10) {
-            prevDate += " 00:00";
-        }
-
-
-        MiscUtils.getLogger().debug("nextDate " + nextDate + " neverWarn " + neverWarn);
 
         String refused = "0";
         if (given != null && given.equals("refused")) {
@@ -228,36 +211,41 @@ public class AddPrevention2Action extends ActionSupport {
 
 
         //let's do some validation
-        List<String> valid = validate(preventionType, demographic_no, id, delete, action, submitToDhir, given, prevDate, providerNo, nextDate, neverWarn,
-                snomedId, refused, extraData, lotItem, dose, doseUnit);
+        List<String> valid = validate(preventionType, demographic_no, id);
         if (valid != null && valid.size() > 0) {
-            request.setAttribute("errors", valid);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
+        Integer preventionId;
+        try {
+            if (id == null) {
+                preventionId = PreventionData.insertPreventionData(sessionUser, demographic_no, prevDate,
+                        providerNo, providerName, preventionType, refused, nextDate, neverWarn, extraData, snomedId, null);
+            } else if (delete != null) {
+                PreventionData.deletePreventionData(id, demographic_no);
+                preventionId = Integer.valueOf(id);
+            } else {
+                addHashtoArray(extraData, id, "previousId");
+                preventionId = PreventionData.updatetPreventionData(id, sessionUser, demographic_no, prevDate,
+                        providerNo, providerName, preventionType, refused, nextDate, neverWarn, extraData, snomedId);
+            }
+            if (preventionId == null || preventionId <= 0) {
+                throw new IllegalStateException("Prevention was not persisted");
+            }
+        } catch (IllegalArgumentException invalidInput) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.setAttribute("errors", List.of("Check the prevention date, next date, and patient record before saving."));
+            return "form";
+        } catch (RuntimeException saveFailure) {
+            MiscUtils.getLogger().error("Unable to save prevention", saveFailure);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            request.setAttribute("errors", List.of("Unable to save the prevention. No changes were saved. Please try again."));
             return "form";
         }
 
-        Integer preventionId = id != null ? Integer.parseInt(id) : null;
-        String operation = null;
-
-        if (id == null || id.equals("null")) { //New
-            preventionId = PreventionData.insertPreventionData(sessionUser, demographic_no, prevDate, providerNo, providerName, preventionType, refused, nextDate, neverWarn, extraData, snomedId, null);
-            operation = "new_prevention";
-        } else if (id != null && delete != null) {  // Delete
-            PreventionData.deletePreventionData(id);
-            operation = "delete_prevention";
-        } else if (id != null && delete == null) { //Update
-            addHashtoArray(extraData, id, "previousId");
-            preventionId = PreventionData.updatetPreventionData(id, sessionUser, demographic_no, prevDate, providerNo, providerName, preventionType, refused, nextDate, neverWarn, extraData, snomedId);
-            operation = "update_prevention";
-        }
-
-        if (PartialDate.YEARONLY == partialDateFormat || PartialDate.YEARMONTH == partialDateFormat) {
-            partialDateDao.setPartialDate(PartialDate.PREVENTION, preventionId, PartialDate.PREVENTION_PREVENTIONDATE, partialDateFormat);
-        }
-
-        PreventionManager prvMgr = (PreventionManager) SpringUtils.getBean(PreventionManager.class);
+        PreventionManager prvMgr = SpringUtils.getBean(PreventionManager.class);
         prvMgr.removePrevention(demographic_no);
-        MiscUtils.getLogger().debug("Given " + given + " prevDate " + prevDate + " providerName " + providerName + " provider " + providerNo);
-
 
         if (submitToDhir) {
             CVCImmunization imm = cvcImmunizationDao.findBySnomedConceptId(snomedId);
@@ -285,8 +273,6 @@ public class AddPrevention2Action extends ActionSupport {
                     // nosemgrep: tainted-session-from-http-request -- bundles map contains DAO-sourced FHIR Bundle objects, not raw user input
                     request.getSession().setAttribute("bundles", bundles);
 
-                    MiscUtils.getLogger().info(fbb.getMessageJson());
-
                     request.setAttribute("preventionId", preventionId);
                     request.setAttribute("demographicNo", demographic_no);
                     return "review";
@@ -299,9 +285,7 @@ public class AddPrevention2Action extends ActionSupport {
     }
 
 
-    private List<String> validate(String preventionType, String demographic_no, String id, String delete, String action,
-                                  boolean submitToDhir, String given, String prevDate, String providerNo, String nextDate,
-                                  String neverWarn, String snomedId, String refused, ArrayList<Map<String, String>> extraData, String lotItem, String dose, String doseUnit) {
+    private List<String> validate(String preventionType, String demographic_no, String id) {
         List<String> result = new ArrayList<String>();
 
         PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
@@ -310,16 +294,15 @@ public class AddPrevention2Action extends ActionSupport {
             result.add("Invalid Prevention Type");
         }
 
-        DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-        if (!demographicDao.clientExists(Integer.parseInt(demographic_no))) {
-            result.add("Patient not found");
-        }
-
-        if (id != null) {
-            PreventionDao preventionDao = SpringUtils.getBean(PreventionDao.class);
-            if (preventionDao.find(Integer.parseInt(id)) == null) {
-                result.add("Prevention record not found");
+        try {
+            int demographicId = Integer.parseInt(demographic_no);
+            if (demographicId <= 0 || !demographicDao.clientExists(demographicId)) {
+                result.add("Patient not found");
+            } else if (id != null) {
+                PreventionData.requirePreventionInChart(Integer.parseInt(id), demographicId);
             }
+        } catch (IllegalArgumentException invalidRecord) {
+            result.add("Invalid patient or prevention record");
         }
 
         return result;

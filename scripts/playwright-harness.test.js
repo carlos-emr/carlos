@@ -83,6 +83,15 @@ test('readConfig supplies the devcontainer defaults and the documented aliases',
   assert.equal(aliased.chromePath, '/x/chrome');
 });
 
+test('context locale options cannot override the configured TLS verification policy', async () => {
+  let actual;
+  const browser = { newContext: async (options) => { actual = options; return options; } };
+  const config = readConfig({ env: { BASE_URL: 'https://carlos.example.org/carlos', ALLOW_NON_LOCAL_BASE_URL: 'true' } });
+  await harness.newContext(browser, config, { locale: 'fr-CA', ignoreHTTPSErrors: true });
+  assert.equal(actual.locale, 'fr-CA');
+  assert.equal(actual.ignoreHTTPSErrors, false);
+});
+
 test('a missing required variable is a SkipCheck, not a failure (issue #3313)', () => {
   assert.throws(
     () => readConfig({ env: {}, require: ['EFORM_CORPUS_DIR'] }),
@@ -364,6 +373,73 @@ test('a timed-out query is reported as a timeout, not as a generic failure', () 
   } finally {
     runner.dispose();
   }
+});
+
+test('SQL output above Node default stays bounded and preserves the full result', () => {
+  const {execFileSync} = require('node:child_process');
+  let calls = 0;
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'private-password'}, {
+    exec: (_file, _args, options) => {
+      calls++;
+      assert.equal(options.maxBuffer, 8 * 1024 * 1024);
+      assert.equal(options.timeout, 30000);
+      assert.deepEqual(options.stdio, ['ignore', 'pipe', 'pipe']);
+      return execFileSync(process.execPath, ['-e', 'process.stdout.write("x".repeat(2 * 1024 * 1024))'], options);
+    },
+  });
+  try {
+    const result = runner.value('SELECT owned_synthetic_catalog');
+    assert.equal(result.length, 2 * 1024 * 1024);
+    assert.equal(result, 'x'.repeat(2 * 1024 * 1024));
+    assert.equal(calls, 1);
+  } finally { runner.dispose(); }
+});
+
+for (const stream of ['stdout', 'stderr']) test('actual SQL child ' + stream + ' overflow fails once without exposing captured bytes', () => {
+  const {execFileSync} = require('node:child_process');
+  let calls = 0;
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'private-password'}, {
+    exec: (_file, _args, options) => {
+      calls++;
+      const code = 'process.' + stream + '.write("PRIVATE_ROW".repeat(1024 * 1024))';
+      return execFileSync(process.execPath, ['-e', code], options);
+    },
+  });
+  try {
+    assert.throws(() => runner.execute('SELECT PRIVATE_QUERY'), error => {
+      assert.match(error.message, /exceeded its 8MiB output limit/);
+      assert.doesNotMatch(error.message, /timed out|PRIVATE_ROW|PRIVATE_QUERY|private-password/);
+      assert.equal(error.cause, undefined);
+      assert.equal(error.stdout, undefined); assert.equal(error.stderr, undefined);
+      return true;
+    });
+    assert.equal(calls, 1, 'unknown child outcome must never be automatically replayed');
+  } finally { runner.dispose(); }
+});
+
+for (const code of ['ENOBUFS', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER']) test(code + ' takes precedence over SIGTERM and redacts exception details', () => {
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'secret'}, {
+    exec: () => {throw Object.assign(new Error('PRIVATE query and row'), {code, signal: 'SIGTERM',
+      stdout: 'PRIVATE row', stderr: 'PRIVATE diagnostic'});},
+  });
+  try {
+    assert.throws(() => runner.rows('PRIVATE QUERY'), error => {
+      assert.match(error.message, /8MiB output limit/); assert.doesNotMatch(error.message, /PRIVATE|timed out/);
+      assert.equal(error.cause, undefined); return true;
+    });
+  } finally { runner.dispose(); }
+});
+
+test('SIGTERM without a timeout code does not invent a 30s timeout', () => {
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'secret'}, {
+    exec: () => {throw Object.assign(new Error('PRIVATE interrupted query'), {signal: 'SIGTERM'});},
+  });
+  try {
+    assert.throws(() => runner.value('PRIVATE QUERY'), error => {
+      assert.match(error.message, /database query failed/); assert.doesNotMatch(error.message, /PRIVATE|timed out/);
+      return true;
+    });
+  } finally { runner.dispose(); }
 });
 
 /*

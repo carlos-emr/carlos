@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -226,6 +227,13 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     /*
      * Decrypt the encrypted message and return the original version of the message as an InputStream
      */
+    // ECB_MODE / CIPHER_INTEGRITY: the payload cipher below is the one the external lab
+    // senders encrypt with, and this receiver only decrypts. Substituting an authenticated
+    // mode here unilaterally would reject every message those senders produce, so the
+    // migration to a versioned AES-GCM format is coordinated in issue #3413 (which names a
+    // local replacement as an explicit non-goal). The finding is accepted and tracked there,
+    // not dismissed: remove this suppression together with the legacy format.
+    @SuppressFBWarnings(value = {"ECB_MODE", "CIPHER_INTEGRITY"}, justification = "legacy lab upload transport format dictated by external senders; decrypt-only receiver, authenticated-encryption migration tracked in issue #3413")
     public static InputStream decryptMessage(InputStream is, String skey, PublicKey pkey) {
 
         // Decrypt the secret key and the message

@@ -482,7 +482,12 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&template=<carlos:encode value='<%= temp %>' context="uriComponent"/>"
+                <%-- The Health Tracker opens this page with &htracker so "back" returns to the
+                     tracker rather than dropping the clinician on the plain flowsheet view. --%>
+                <%String backRoute = request.getParameter("htracker") != null
+                        ? "/encounter/oscarMeasurements/ViewHealthTracker"
+                        : "/encounter/oscarMeasurements/ViewTemplateFlowSheet";%>
+                <a href="<%= request.getContextPath() %><%= backRoute %>?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&template=<carlos:encode value='<%= temp %>' context="uriComponent"/>"
                    title="go back to <carlos:encode value='<%= temp %>' context="htmlAttribute"/>">&lt;&lt; <carlos:encode value='<%= flowSheet %>' context="html"/>
                 </a> <br/>
                 <a href="JavaScript:void(0);" class="back" title="go back to <carlos:encode value='<%= flowSheet %>' context="htmlAttribute"/>"></a>

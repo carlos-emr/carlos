@@ -56,11 +56,9 @@
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
 <%-- AJAX fragments reuse the administration shell's jQuery and its registered plugins. --%>
 <%
-    // jQuery and CSRFGuard can each append the AJAX marker to this header.
-    String eformRequestedWith = request.getHeader("X-Requested-With");
-    boolean eformAjaxFragment = eformRequestedWith != null
-            && java.util.Arrays.stream(eformRequestedWith.split(","))
-                    .anyMatch(value -> "XMLHttpRequest".equalsIgnoreCase(value.trim()));
+    // jQuery and CSRFGuard can each append the AJAX marker to this header, so it is a list.
+    // Shared with every other server-side reader rather than hand-rolled here.
+    boolean eformAjaxFragment = io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request);
     if (!eformAjaxFragment) {
 %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
