@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.log.LogAction;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
@@ -228,7 +227,7 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
         when(documentDao.getDocument("42")).thenReturn(document);
         Path file = tempDir.resolve("original.txt");
         if (source.equals("file")) Files.writeString(file, "Readable original");
-        try (var paths = mockStatic(PathValidationUtils.class); var logs = mockStatic(LogAction.class)) {
+        try (var paths = mockStatic(PathValidationUtils.class)) {
             paths.when(() -> PathValidationUtils.resolveConfiguredDirectory(any(), eq("DOCUMENT_DIR")))
                     .thenReturn(tempDir.toFile());
             paths.when(() -> PathValidationUtils.validateExistingPath(any(File.class), eq(tempDir.toFile())))
