@@ -84,8 +84,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * <p>Why an attempt stopped is recorded as an {@link Outcome} code. The chart checks live in
  * {@link PortalInviteContact} and the email itself in {@link PortalInviteEmailComposer}.
  *
- * <p>The invite code is never stored by CARLOS outside the email itself. A lost prepare response is
- * recovered by retrying with the same operation id, which the portal answers with the same token.
+ * <p>The invite code is stored by CARLOS only in the body of the email's outbox row, and only until the
+ * send settles or staff resolve the delivery, when it is replaced there; a crash in the middle of a send
+ * leaves it in that row until then. It is never stored on the attempt, in the archive, or on the chart. A
+ * lost prepare response is recovered by retrying with the same operation id, which the portal answers
+ * with the same token.
  *
  * <p>Recovery is by staff, as for every other CARLOS email: a stuck attempt is shown as incomplete and
  * can be resolved after {@link #RECOVERY_MIN_AGE}. Nothing here runs in the background.
