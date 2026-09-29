@@ -1,4 +1,7 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. --%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <fmt:message key="chartUpdates.openFailed" var="chartUpdateOpenFailed"/>
 <fmt:message key="chartUpdates.checking" var="chartUpdateChecking"/>
 <dialog id="chart-update-error-dialog" class="chart-update-error-dialog" aria-labelledby="chart-update-error-title"
