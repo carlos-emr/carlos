@@ -169,7 +169,8 @@ public class EmailCompose2Action extends ActionSupport {
         if (viewId != null) {
             return renderPreparedCompose(viewId);
         }
-        if ("HEAD".equalsIgnoreCase(request.getMethod())) {
+        // Method names are case-sensitive tokens, so this is an exact match.
+        if ("HEAD".equals(request.getMethod())) {
             // Preparing takes the staged compose. A HEAD must not take it from the window that
             // is about to ask for it.
             response.setHeader("Allow", "GET, POST");
