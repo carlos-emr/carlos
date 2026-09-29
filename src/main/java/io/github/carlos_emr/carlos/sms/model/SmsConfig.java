@@ -46,8 +46,9 @@ import java.util.TreeMap;
  * The clinic's SMS settings, saved from Administration &gt; SMS ({@code sms_config}, V1.0.34).
  * <p>
  * There is at most one row, {@link #SINGLETON_ID}; when there is none, the {@code sms.*} properties still
- * apply. A save that races another fails instead of adding a second row or overwriting the other: a
- * second first save hits the fixed id, and a second update fails the {@link Version} check. The
+ * apply. A save that races another fails instead of adding a second row or overwriting the other: the
+ * database refuses it (on MariaDB, "Record has changed since last read"), or a second first save hits
+ * the fixed id, or a second update fails the {@link Version} check. The
  * webhook secret and every provider credential value are encrypted at rest with {@link EncryptionUtils}
  * (key {@code encryption.util.secret.key}, kept outside the database), the same way {@code FaxConfig}
  * stores its passwords. Getters decrypt; nothing here is ever logged or rendered, and the admin page
