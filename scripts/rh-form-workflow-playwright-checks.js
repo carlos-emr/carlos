@@ -24,6 +24,8 @@ async function workflow(s) {
   h.assert(definition.length === 1, 'RH form registration is ambiguous');
   if (Number(definition[0][1]) <= 0) throw new h.SkipCheck('Enable the RH Form in Administration > Select Forms');
   const formName = definition[0][0];
+  const rollbackTriggers = [];
+  s.cleanup(() => rollbackTriggers.forEach(name => s.sql.execute(`DROP TRIGGER IF EXISTS ${name}`)));
   const formCount = `SELECT COUNT(*) FROM formRhImmuneGlobulin WHERE demographic_no=${s.patient}`;
   s.cleanup(() => {
     s.sql.execute(`DELETE FROM formRhImmuneGlobulin WHERE demographic_no=${s.patient} AND provider_no=${h.sqlString(s.provider)};
@@ -90,26 +92,35 @@ async function workflow(s) {
     h.assert(s.sql.value(formCount) === count, 'Rejected request added an RH form');
     h.assert(s.sql.value(`SELECT current_state FROM workflow WHERE ID=${workflowId}`) === '2', 'Rejected request changed the workflow');
   });
-  // The probe needs MariaDB to REJECT an overlong value. The packaged install deliberately
-  // runs sql_mode='' (the carlos-emr drop-in clears the distribution's STRICT_TRANS_TABLES,
-  // which the legacy schema cannot run under), where the value is silently truncated and
-  // nothing rolls back, so the probe cannot measure anything there. Report it as skipped, not
-  // as a pass, and keep the three steps above as the check's verdict.
-  if (!/STRICT_(?:TRANS|ALL)_TABLES/.test(s.sql.value('SELECT @@GLOBAL.sql_mode'))) {
-    console.log('  SKIP rh-form-workflow: roll back workflow and form together (needs a STRICT sql_mode; this deployment runs without one)');
-    return;
-  }
   await s.step('roll back workflow and form together when the database rejects a form value', async () => {
+    const suffix = s.marker.replace(/[^A-Za-z0-9_]/g, '_');
+    for (const operation of ['INSERT', 'UPDATE']) {
+      const name = `rh_rollback_${operation.toLowerCase()}_${suffix}`;
+      rollbackTriggers.push(name);
+      // Scoped to the owned patient so a concurrent save, or a trigger stranded by an
+      // interrupted run, never blocks RH writes for anyone else.
+      s.sql.execute(`DELIMITER //
+        CREATE TRIGGER ${name} BEFORE ${operation} ON formRhImmuneGlobulin
+        FOR EACH ROW BEGIN
+          IF NEW.demographic_no=${s.patient} THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='RH rollback probe';
+          END IF;
+        END//`);
+    }
     const count = s.sql.value(formCount);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-    const response = await s.context.request.post(new URL('form/RHPrevention', s.config.baseUrl.href + '/').href, {
-      form: { 'CSRF-TOKEN': token, demographic_no: s.patient, workflowId, state: '3', edd: '2027-02-01',
-        form_class: 'RhImmuneGlobulin', motherSurname: 'Synthetic'.repeat(20), comments: s.marker },
-    });
-    h.assert(response.status() === 500, 'Rejected form data did not report a visible server failure');
-    h.assert(s.sql.value(formCount) === count, 'Failed save inserted an RH form');
-    h.assert(s.sql.value(`SELECT CONCAT(current_state,':',DATE(completion_date)) FROM workflow WHERE ID=${workflowId}`) === '2:2027-01-01',
-      'Workflow mutation was committed despite the failed form save');
+    try {
+      const response = await s.context.request.post(new URL('form/RHPrevention', s.config.baseUrl.href + '/').href, {
+        form: { 'CSRF-TOKEN': token, demographic_no: s.patient, workflowId, state: '3', edd: '2027-02-01',
+          form_class: 'RhImmuneGlobulin', motherSurname: 'Synthetic', comments: s.marker },
+      });
+      h.assert(response.status() === 500, 'Rejected form data did not report a visible server failure');
+      h.assert(s.sql.value(formCount) === count, 'Failed save inserted an RH form');
+      h.assert(s.sql.value(`SELECT CONCAT(current_state,':',DATE(completion_date)) FROM workflow WHERE ID=${workflowId}`) === '2:2027-01-01',
+        'Workflow mutation was committed despite the failed form save');
+    } finally {
+      for (const name of rollbackTriggers) s.sql.execute(`DROP TRIGGER IF EXISTS ${name}`);
+    }
   });
 }
 if (require.main === module) runWorkflow('rh-form-workflow', workflow);

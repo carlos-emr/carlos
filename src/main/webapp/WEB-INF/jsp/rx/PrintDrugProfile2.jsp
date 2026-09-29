@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -47,13 +48,18 @@
 <%
     RxSessionBean bean = null;
 %>
-<c:if test="${empty sessionScope.RxSessionBean}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
+<c:if test="${empty pageScope.RxSessionBean}">
     <c:redirect url="error.html"/>
 </c:if>
-<c:if test="${not empty sessionScope.RxSessionBean}">
+<c:if test="${not empty pageScope.RxSessionBean}">
     <%
         // Directly access the RxSessionBean from the session
-        bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        bean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
         if (bean != null && !bean.isValid()) {
             response.sendRedirect("error.html");
             return; // Ensure no further JSP processing
@@ -108,7 +114,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
         <title>Print Drug Profile</title>
-        <link rel="stylesheet" type="text/css" href="styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -124,7 +130,10 @@
                 showall = true;
             }
         }
-        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+        RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
+        // The Show All / Show Current toggles reload this page; they must name this page's patient
+        // or the reload falls back to whichever patient's Rx was opened last (#3875).
+        String profileDemographicNo = patient != null ? String.valueOf(patient.getDemographicNo()) : "";
         if (patient != null) {
             surname = patient.getSurname();
             firstName = patient.getFirstName();
@@ -178,9 +187,9 @@
                                     <td align="right" class="noPrint">
                                         <div class="DivContentSectionHead">
                                             <% if (showall) { %>
-                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2">Show Current</a>
+                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?demographicNo=<carlos:encode value='<%= profileDemographicNo %>' context="uriComponent"/>">Show Current</a>
                                             <% } else { %>
-                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all">Show All</a>
+                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all&demographicNo=<carlos:encode value='<%= profileDemographicNo %>' context="uriComponent"/>">Show All</a>
                                             <% } %>
                                             | <a href="javascript:void(0);window.print();">Print</a>
                                         </div>
@@ -216,12 +225,12 @@
                                             <tr>
                                                 <td width=20% valign="top">
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><%=drug.getRxDate()%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(drug.getDemographicId()) %>' context="uriComponent"/>&regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><%=drug.getRxDate()%>
                                                     </a>
                                                 </td>
                                                 <td width=100%>
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><carlos:encode value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' context="html"/>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(drug.getDemographicId()) %>' context="uriComponent"/>&regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><carlos:encode value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' context="html"/>
                                                     </a>
                                                 </td>
                                             </tr>
@@ -243,9 +252,9 @@
                             <div class="DivContentSectionHead">
 
                                 <% if (showall) { %>
-                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2">Show Current</a>
+                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?demographicNo=<carlos:encode value='<%= profileDemographicNo %>' context="uriComponent"/>">Show Current</a>
                                 <% } else { %>
-                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all">Show All</a>
+                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all&demographicNo=<carlos:encode value='<%= profileDemographicNo %>' context="uriComponent"/>">Show All</a>
                                 <% } %>
                                 | <a href="javascript:void(0);window.print();">Print</a>
                             </div>

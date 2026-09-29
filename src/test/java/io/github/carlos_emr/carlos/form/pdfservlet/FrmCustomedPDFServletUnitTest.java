@@ -58,6 +58,7 @@ import org.openpdf.text.DocumentException;
 import org.openpdf.text.pdf.PdfWriter;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletConfig;
@@ -210,7 +211,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         for (Drug drug : drugs) {
             pairs.add(new Object[] {drug, prescription});
         }
-        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID)).thenReturn(pairs);
+        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID, DEMOGRAPHIC_NO)).thenReturn(pairs);
     }
 
     /**
@@ -1464,7 +1465,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = createFaxRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         stubStoredSignature();
-        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID)).thenReturn(Collections.emptyList());
+        when(drugDao.findDrugsAndPrescriptionsByScriptNumber(SCRIPT_ID, DEMOGRAPHIC_NO)).thenReturn(Collections.emptyList());
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
@@ -2379,7 +2380,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         request.setParameter("rxReprint", "true");
         request.setParameter("origPrintDate", "FORGED DATE");
         request.setParameter("numPrints", "77");
-        request.getSession().setAttribute("rePrint", "true");
+        startReprint(request, DEMOGRAPHIC_NO);
         stubStoredSignature();
         Prescription prescription = prescriptionDao.find(SCRIPT_ID);
         Date firstPrinted = new GregorianCalendar(2026, 0, 2).getTime();
@@ -2392,6 +2393,35 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(bound.getParameter("rxReprint")).isEqualTo("true");
         assertThat(bound.getParameter("origPrintDate")).isEqualTo(String.valueOf(firstPrinted));
         assertThat(bound.getParameter("numPrints")).isEqualTo("2");
+    }
+
+    @Test
+    @DisplayName("should blank the reprint annotation when only another patient is being reprinted")
+    void shouldBlankReprintAnnotation_whenAnotherPatientIsReprinting() throws Exception {
+        // Reprint state is per patient (#3908): a reprint open in another patient's window must
+        // not annotate this prescription's fax.
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("rxReprint", "true");
+        startReprint(request, DEMOGRAPHIC_NO + 1);
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        prescription.setDatePrinted(new GregorianCalendar(2026, 0, 2).getTime());
+        stubRecordDrugs(prescription, drugRow(5, RECORD_DRUG_LINE));
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound.getParameter("rxReprint")).isEqualTo("false");
+        assertThat(bound.getParameter("origPrintDate")).isEmpty();
+    }
+
+    private static void startReprint(MockHttpServletRequest request, int demographicNo) {
+        io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean reprinted =
+                new io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean();
+        reprinted.setDemographicNo(demographicNo);
+        RxPrescriptionData.Prescription row = new RxPrescriptionData.Prescription(5, "999998", demographicNo);
+        row.setScript_no(String.valueOf(SCRIPT_ID));
+        reprinted.getStashList().add(row);
+        io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace.store(request.getSession(), reprinted, "");
     }
 
     @Test
@@ -2482,4 +2512,21 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty(key, previousValue);
         }
     }
+
+    @Test
+    @DisplayName("should omit the reprint annotation for a different script of the same patient")
+    void shouldBlankReprintAnnotation_whenAnotherScriptIsReprinting() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        startReprint(request, DEMOGRAPHIC_NO);
+        io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace.find(request.getSession(), DEMOGRAPHIC_NO)
+                .bean().getStashItem(0).setScript_no(String.valueOf(SCRIPT_ID + 1));
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        prescription.setDatePrinted(new GregorianCalendar(2026, 0, 2).getTime());
+        stubRecordDrugs(prescription, drugRow(5, RECORD_DRUG_LINE));
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+        assertThat(bound.getParameter("rxReprint")).isEqualTo("false");
+        assertThat(bound.getParameter("origPrintDate")).isEmpty();
+    }
+
 }

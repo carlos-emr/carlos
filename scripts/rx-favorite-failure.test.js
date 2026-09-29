@@ -11,10 +11,10 @@ assert.ok(start > 0 && end > start);
 
 function harness() {
   let request; const alerts = []; let renders = 0;
-  const context = { ctx: '/carlos', skipParseInstr: false, jsMsg: { favoriteLoadFailed: 'Favorite unavailable' },
+  const context = { ctx: '/carlos', skipParseInstr: false, jsMsg: { requestRefused: 'Favorite unavailable' },
     alert: message => alerts.push(message), renderRxStage: () => renders++,
     CarlosAjax: { updater: (target, url, options) => { request = { target, url, options }; } } };
-  vm.runInNewContext(source.slice(start, end), context);
+  vm.runInNewContext(source.slice(start, end) + source.slice(source.indexOf('function reportRefusedRequest('), source.indexOf('//represcribe a drug')), context);
   context.useFav2(42);
   return { context, alerts, get request() { return request; }, get renders() { return renders; } };
 }
