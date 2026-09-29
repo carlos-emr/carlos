@@ -31,8 +31,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -55,12 +57,14 @@ public class SmsConfigService {
     private final SmsConfigDao smsConfigDao;
     private final SmsProviderClientResolver providerClients;
     private final ApplicationEventPublisher eventPublisher;
+    private final SmsConfigAuditRecorder auditRecorder;
 
     public SmsConfigService(SmsConfigDao smsConfigDao, SmsProviderClientResolver providerClients,
-                            ApplicationEventPublisher eventPublisher) {
+                            ApplicationEventPublisher eventPublisher, SmsConfigAuditRecorder auditRecorder) {
         this.smsConfigDao = smsConfigDao;
         this.providerClients = providerClients;
         this.eventPublisher = eventPublisher;
+        this.auditRecorder = auditRecorder;
     }
 
     /** @return the saved settings, or empty while nothing has been saved */
@@ -109,6 +113,7 @@ public class SmsConfigService {
     public SmsConfig save(SmsConfigUpdateDto update, String updatedByProviderNo) {
         Optional<SmsConfig> existing = smsConfigDao.findCurrent();
         SmsConfig config = existing.orElseGet(SmsConfig::new);
+        Snapshot before = Snapshot.of(config, existing.isPresent());
         config.setProviderType(update.providerType());
         config.setEnabled(update.enabled());
         config.setSchedulerEnabled(update.schedulerEnabled());
@@ -126,6 +131,7 @@ public class SmsConfigService {
         } else {
             smsConfigDao.persist(config);
         }
+        auditRecorder.recordSaved(config, updatedByProviderNo, before.changedFields(Snapshot.of(config, true)));
         eventPublisher.publishEvent(new SmsConfigChangedEvent(config.isSchedulerEnabled()));
         return config;
     }
@@ -147,5 +153,43 @@ public class SmsConfigService {
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    /**
+     * What the audit record compares: values for the plain settings, and only fingerprints of the stored
+     * (encrypted) secret and credentials, so a change can be named without reading any secret.
+     */
+    private record Snapshot(boolean stored, SmsProviderType providerType, boolean enabled, boolean schedulerEnabled,
+                            String senderNumber, String webhookSecretStored, String credentialsStored) {
+        static Snapshot of(SmsConfig config, boolean stored) {
+            return new Snapshot(stored, config.getProviderType(), config.isEnabled(), config.isSchedulerEnabled(),
+                    config.getSenderNumber(), config.storedWebhookSecret(), config.storedCredentials());
+        }
+
+        List<String> changedFields(Snapshot after) {
+            List<String> changed = new ArrayList<>();
+            if (!stored) {
+                changed.add("firstSave");
+            }
+            if (providerType != after.providerType) {
+                changed.add("providerType");
+            }
+            if (enabled != after.enabled) {
+                changed.add("enabled");
+            }
+            if (schedulerEnabled != after.schedulerEnabled) {
+                changed.add("schedulerEnabled");
+            }
+            if (!Objects.equals(senderNumber, after.senderNumber)) {
+                changed.add("senderNumber");
+            }
+            if (!Objects.equals(webhookSecretStored, after.webhookSecretStored)) {
+                changed.add("webhookSecret");
+            }
+            if (!Objects.equals(credentialsStored, after.credentialsStored)) {
+                changed.add("credentials");
+            }
+            return changed;
+        }
     }
 }

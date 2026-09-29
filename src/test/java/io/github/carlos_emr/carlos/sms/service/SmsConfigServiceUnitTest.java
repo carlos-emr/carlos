@@ -51,6 +51,7 @@ import static org.mockito.Mockito.when;
 class SmsConfigServiceUnitTest {
     private final SmsConfigDao smsConfigDao = mock(SmsConfigDao.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+    private final SmsConfigAuditRecorder auditRecorder = mock(SmsConfigAuditRecorder.class);
     private String originalKey;
 
     @BeforeEach
@@ -138,6 +139,38 @@ class SmsConfigServiceUnitTest {
     }
 
     @Test
+    @DisplayName("save audits which settings changed, by name only")
+    void shouldAuditChangedSettings_byNameOnly() {
+        SmsConfig stored = new SmsConfig();
+        stored.setEnabled(true);
+        stored.setWebhookSecret("old-webhook-value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        service().save(update(SmsProviderType.STUB, false, "", "new-webhook-value", false, Map.of()), "999998");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> changed = ArgumentCaptor.forClass(List.class);
+        verify(auditRecorder).recordSaved(org.mockito.ArgumentMatchers.same(stored),
+                org.mockito.ArgumentMatchers.eq("999998"), changed.capture());
+        assertThat(changed.getValue()).containsExactly("enabled", "webhookSecret");
+        assertThat(changed.getValue().toString()).doesNotContain("webhook-value");
+    }
+
+    @Test
+    @DisplayName("save replaces stored credentials that cannot be read, instead of failing")
+    void shouldReplaceUnreadableCredentials_whenSaving() {
+        SmsConfig stored = new SmsConfig();
+        org.springframework.test.util.ReflectionTestUtils.setField(stored, "credentialsJson", "{not json");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        SmsConfig saved = service().save(update(SmsProviderType.VOIPMS, true, "", "", false,
+                Map.of("field_one", "value one")), "999998");
+
+        assertThat(saved.credentialsReadable()).isTrue();
+        assertThat(saved.credentialNames()).containsExactly("field_one");
+    }
+
+    @Test
     @DisplayName("sending stays on while nothing is stored, and follows the stored switch once saved")
     void shouldReportSendingEnabled_fromStoredSwitch() {
         SmsConfig disabled = new SmsConfig();
@@ -166,7 +199,7 @@ class SmsConfigServiceUnitTest {
     }
 
     private SmsConfigService service() {
-        return new SmsConfigService(smsConfigDao, providerClients(), eventPublisher);
+        return new SmsConfigService(smsConfigDao, providerClients(), eventPublisher, auditRecorder);
     }
 
     static SmsProviderClientResolver providerClients() {

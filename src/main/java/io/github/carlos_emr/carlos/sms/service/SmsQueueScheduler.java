@@ -57,7 +57,19 @@ public class SmsQueueScheduler {
         if (event.schedulerEnabled()) {
             startExecutor();
         } else {
-            stop();
+            stopAfterCurrentRun();
+        }
+    }
+
+    /**
+     * Stops scheduling further runs but lets a run that is in progress finish. Interrupting it could cut
+     * in between the SMS provider accepting a message and CARLOS recording that, leaving the message
+     * marked as sending with its outcome unknown.
+     */
+    private synchronized void stopAfterCurrentRun() {
+        if (executorService != null) {
+            executorService.shutdown();
+            executorService = null;
         }
     }
 

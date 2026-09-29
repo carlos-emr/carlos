@@ -109,6 +109,45 @@ class SmsQueueSchedulerUnitTest {
     }
 
     @Test
+    @DisplayName("start follows the property, and does not throw, when the saved settings cannot be read")
+    void shouldFallBackToProperty_whenStoredSettingsCannotBeRead() {
+        when(smsConfigService.storedSchedulerEnabled()).thenThrow(new IllegalStateException("sms_config missing"));
+        when(carlosProperties.isPropertyActive("sms.queue.scheduler.enabled")).thenReturn(true, false);
+        SmsQueueScheduler on = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
+        SmsQueueScheduler off = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            on.start();
+            off.start();
+
+            assertThat(on.isRunning()).isTrue();
+            assertThat(off.isRunning()).isFalse();
+        } finally {
+            on.stop();
+            off.stop();
+        }
+    }
+
+    @Test
+    @DisplayName("the scheduler starts again after a settings change stopped it, and a repeated start changes nothing")
+    void shouldRestart_afterSettingsChangeStoppedIt() {
+        SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(true));
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(false));
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(true));
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(true));
+
+            assertThat(scheduler.isRunning()).isTrue();
+        } finally {
+            scheduler.stop();
+        }
+    }
+
+    @Test
     @DisplayName("a saved settings change starts or stops the scheduler without a restart")
     void shouldStartAndStop_whenSettingsChange() {
         SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService);

@@ -152,7 +152,8 @@ public class SmsConfig extends AbstractModel<Integer> {
 
     /** Stores the value encrypted under {@code name}; a blank value removes the credential. */
     public void setCredential(String name, String value) {
-        Map<String, String> credentials = credentials();
+        // Unreadable stored credentials are replaced rather than blocking the save that repairs them.
+        Map<String, String> credentials = readableCredentials();
         if (isBlank(value)) {
             credentials.remove(name);
         } else {
@@ -161,13 +162,37 @@ public class SmsConfig extends AbstractModel<Integer> {
         writeCredentials(credentials);
     }
 
+    /** @return whether {@code name} is stored; {@code false} when the stored credentials cannot be read */
     public boolean hasCredential(String name) {
-        return credentials().containsKey(name);
+        return readableCredentials().containsKey(name);
     }
 
-    /** @return the names of the stored credentials (not their values) */
+    /**
+     * @return the names of the stored credentials (not their values); empty when the stored credentials
+     *         cannot be read, so the settings page can still be opened and saved to replace them
+     */
     public Set<String> credentialNames() {
-        return Set.copyOf(credentials().keySet());
+        return Set.copyOf(readableCredentials().keySet());
+    }
+
+    /** @return {@code false} when credentials are stored but cannot be read and must be entered again */
+    public boolean credentialsReadable() {
+        try {
+            credentials();
+            return true;
+        } catch (IllegalStateException e) {
+            return false;
+        }
+    }
+
+    /** @return the encrypted webhook secret as stored, for comparing two saves; never the secret itself */
+    public String storedWebhookSecret() {
+        return webhookSecret;
+    }
+
+    /** @return the encrypted credentials as stored, for comparing two saves; never a credential itself */
+    public String storedCredentials() {
+        return credentialsJson;
     }
 
     public Date getUpdatedAt() {
@@ -188,6 +213,14 @@ public class SmsConfig extends AbstractModel<Integer> {
     @Override
     public String toString() {
         return "SmsConfig[redacted]";
+    }
+
+    private TreeMap<String, String> readableCredentials() {
+        try {
+            return credentials();
+        } catch (IllegalStateException e) {
+            return new TreeMap<>();
+        }
     }
 
     private TreeMap<String, String> credentials() {
