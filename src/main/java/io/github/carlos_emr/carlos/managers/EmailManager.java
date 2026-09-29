@@ -1168,13 +1168,12 @@ public class EmailManager {
      * @param loggedInInfo the logged-in user, who signs the note
      * @param emailLog the sent email the note documents
      * @param emailNote the note text; it must not contain anything the chart may not hold
-     * @throws RuntimeException if user lacks _email READ privilege
-     * @throws SecurityException if the user may not open the patient's record
+     * @throws SecurityException if the user lacks _email READ privilege or may not open the patient's record
      * @since 2026-09-22
      */
     public void addEmailNote(LoggedInInfo loggedInInfo, EmailLog emailLog, String emailNote) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
         // Called by workflows outside the send (a portal invitation, possibly confirmed by staff later), so the
         // chart this writes to is checked here rather than trusted from the caller.

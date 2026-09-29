@@ -706,6 +706,18 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should keep a sent invitation sent when the chart note is refused for want of a privilege")
+        void shouldRecordChartNoteFailure_whenTheNoteIsRefused() {
+            doThrow(new SecurityException("missing required sec object (_email)"))
+                    .when(emailManager).addEmailNote(any(), any(EmailLog.class), anyString());
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.SENT);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.CHART_NOTE_FAILED);
+        }
+
+        @Test
         @DisplayName("should write no chart note for an invitation that was not sent")
         void shouldWriteNoNote_whenTheSendIsRefused() {
             transport = EmailSendResult.TransportOutcome.FAILED;
