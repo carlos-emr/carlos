@@ -95,6 +95,8 @@ public class SmsQueueViewModelAssembler {
     public static final int LIST_LIMIT = 50;
     private static final int MIN_DIGITS_TO_MASK = 7;
     private static final java.util.regex.Pattern CODE = java.util.regex.Pattern.compile("[A-Za-z0-9_.:-]{1,64}");
+    /** The status line that stands for both {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED}. */
+    static final String BLOCKED_BY_CONSENT = "BLOCKED_BY_CONSENT";
     /** Shown in place of a stored error or reason code that is not a plain code. */
     static final String NOT_A_CODE = "NOT_A_CODE";
     /** How long past due a queued message must be before it counts as overdue. */
@@ -202,6 +204,12 @@ public class SmsQueueViewModelAssembler {
                     .mapToLong(status -> byStatus.getOrDefault(status.name(), 0L))
                     .sum();
             // Lists are only queried when their count says there is something to show.
+            SmsQueueViewModel.RowList recentFailed = failedCount == 0 ? SmsQueueViewModel.RowList.EMPTY
+                    : filter.rows(smsTransactionDao.findRecentOutboundByStatuses(
+                            providerType, List.of(SmsStatus.FAILED), since, LIST_LIMIT));
+            SmsQueueViewModel.RowList recentBlocked = blockedCount == 0 ? SmsQueueViewModel.RowList.EMPTY
+                    : filter.rows(smsTransactionDao.findRecentOutboundByStatuses(
+                            providerType, CONSENT_BLOCKED_STATUSES, since, LIST_LIMIT));
             providers.add(new SmsQueueViewModel.ProviderQueue(
                     providerType.name(),
                     sum(byStatus),
@@ -214,16 +222,12 @@ public class SmsQueueViewModelAssembler {
                             smsTransactionDao.findStaleSendingOutbound(providerType, staleBefore, LIST_LIMIT)),
                     failedCount,
                     failedTotal,
-                    codeCounts(failedCodes),
-                    failedCount == 0 ? SmsQueueViewModel.RowList.EMPTY : filter.rows(
-                            smsTransactionDao.findRecentOutboundByStatuses(
-                                    providerType, List.of(SmsStatus.FAILED), since, LIST_LIMIT)),
+                    codeCountsUnlessHidden(failedCodes, recentFailed),
+                    recentFailed,
                     blockedCount,
                     blockedTotal,
-                    codeCounts(blockedCodes),
-                    blockedCount == 0 ? SmsQueueViewModel.RowList.EMPTY : filter.rows(
-                            smsTransactionDao.findRecentOutboundByStatuses(
-                                    providerType, CONSENT_BLOCKED_STATUSES, since, LIST_LIMIT))
+                    codeCountsUnlessHidden(blockedCodes, recentBlocked),
+                    recentBlocked
             ));
         }
         SmsQueueViewModel model = new SmsQueueViewModel(
@@ -326,13 +330,28 @@ public class SmsQueueViewModelAssembler {
      */
     private static List<SmsQueueViewModel.StatusCount> statusCounts(Map<String, Long> byStatus) {
         List<SmsQueueViewModel.StatusCount> counts = new ArrayList<>();
+        long blocked = 0;
         for (SmsStatus status : SmsStatus.values()) {
             long count = byStatus.getOrDefault(status.name(), 0L);
-            if (status != SmsStatus.RECEIVED || count > 0) {
+            if (CONSENT_BLOCKED_STATUSES.contains(status)) {
+                blocked += count;
+            } else if (status != SmsStatus.RECEIVED || count > 0) {
                 counts.add(new SmsQueueViewModel.StatusCount(status.name(), count));
             }
         }
+        // One line for both kinds of consent block. Shown apart, the two counts would tell a viewer who sees
+        // every other row which kind a hidden patient's message is.
+        counts.add(new SmsQueueViewModel.StatusCount(BLOCKED_BY_CONSENT, blocked));
         return counts;
+    }
+
+    /**
+     * The counts by code, or none when the section's list has hidden rows: the counts include the hidden
+     * messages, so beside the rows that are shown they would give away a hidden patient's code.
+     */
+    private static List<SmsQueueViewModel.CodeCount> codeCountsUnlessHidden(
+            Map<String, Long> byCode, SmsQueueViewModel.RowList list) {
+        return list.hiddenCount() > 0 ? List.of() : codeCounts(byCode);
     }
 
     private static List<SmsQueueViewModel.CodeCount> codeCounts(Map<String, Long> byCode) {

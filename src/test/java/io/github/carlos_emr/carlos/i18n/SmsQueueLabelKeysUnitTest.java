@@ -64,6 +64,7 @@ class SmsQueueLabelKeysUnitTest {
     @DisplayName("should define a label for every SMS status, scheduler outcome and time period in every locale")
     void shouldDefineLabel_forEveryEnumValueInEveryLocale() throws IOException {
         List<String> keys = new ArrayList<>();
+        keys.add("sms.queue.status.BLOCKED_BY_CONSENT");
         for (SmsStatus status : SmsStatus.values()) {
             keys.add("sms.queue.status." + status.name());
         }

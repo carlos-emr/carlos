@@ -104,8 +104,8 @@ class SmsQueueViewModelAssemblerUnitTest {
                 new SmsQueueViewModel.StatusCount("SENT", 0),
                 new SmsQueueViewModel.StatusCount("DELIVERED", 0),
                 new SmsQueueViewModel.StatusCount("FAILED", 1),
-                new SmsQueueViewModel.StatusCount("CONSENT_BLOCKED", 3),
-                new SmsQueueViewModel.StatusCount("OPTOUT_BLOCKED", 4));
+                // Both kinds of consent block share one line.
+                new SmsQueueViewModel.StatusCount("BLOCKED_BY_CONSENT", 7));
         assertThat(provider(model, "VOIPMS").outboundTotal()).isEqualTo(5);
         assertThat(provider(model, "CLOUDLI").outboundTotal()).isZero();
         assertThat(provider(model, "CLOUDLI").statusCounts()).allSatisfy(count -> assertThat(count.count()).isZero());
@@ -298,8 +298,8 @@ class SmsQueueViewModelAssemblerUnitTest {
     }
 
     @Test
-    @DisplayName("should keep hidden rows in the counts by status, by code and per section")
-    void shouldKeepCounts_whenRowsAreHidden() {
+    @DisplayName("should keep hidden rows in the totals but show no counts by code for that section")
+    void shouldKeepTotalsAndDropCodeCounts_whenRowsAreHidden() {
         stubAllFourLists(queued(7L, 99), sending(8L, 99), failed(9L, 99), blocked(10L, 99));
 
         SmsQueueViewModel.ProviderQueue stub = provider(assembler(() -> false)
@@ -312,9 +312,24 @@ class SmsQueueViewModelAssemblerUnitTest {
         assertThat(stub.staleCount()).isEqualTo(1);
         assertThat(stub.failedCount()).isEqualTo(1);
         assertThat(stub.failedTotal()).isEqualTo(1);
-        assertThat(stub.failedByErrorCode()).containsExactly(new SmsQueueViewModel.CodeCount("ERR_A", 1));
+        // The counts by code would give away the hidden message's code, so they are not in the model.
+        assertThat(stub.failedByErrorCode()).isEmpty();
         assertThat(stub.blockedCount()).isEqualTo(1);
         assertThat(stub.blockedTotal()).isEqualTo(1);
+        assertThat(stub.blockedByReason()).isEmpty();
+        assertThat(stub.statusCounts()).extracting(SmsQueueViewModel.StatusCount::status)
+                .doesNotContain("CONSENT_BLOCKED", "OPTOUT_BLOCKED");
+    }
+
+    @Test
+    @DisplayName("should keep the counts by code of a section whose list hides nothing")
+    void shouldKeepCodeCounts_whenOnlyAnotherSectionHidesRows() {
+        stubAllFourLists(queued(7L, 100), sending(8L, 100), failed(9L, 99), blocked(10L, 100));
+
+        SmsQueueViewModel.ProviderQueue stub = provider(assembler(() -> false)
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> patient != 99).model(), "STUB");
+
+        assertThat(stub.failedByErrorCode()).isEmpty();
         assertThat(stub.blockedByReason())
                 .containsExactly(new SmsQueueViewModel.CodeCount("SMS_CONSENT_OPT_OUT", 1));
     }

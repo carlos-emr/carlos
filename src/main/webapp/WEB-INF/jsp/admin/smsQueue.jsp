@@ -232,6 +232,11 @@
                             <p class="text-muted"><fmt:message key="sms.queue.failed.none"/></p>
                         </c:when>
                         <c:otherwise>
+                            <c:choose>
+                                <c:when test="${provider.recentFailed.hiddenCount > 0}">
+                                    <p class="small text-muted"><fmt:message key="sms.queue.codesHidden"/></p>
+                                </c:when>
+                                <c:otherwise>
                             <table class="table table-sm w-auto">
                                 <thead>
                                 <tr>
@@ -253,6 +258,8 @@
                                 </c:forEach>
                                 </tbody>
                             </table>
+                                </c:otherwise>
+                            </c:choose>
                             <c:set var="queueRows" value="${provider.recentFailed.rows}"/>
                             <c:set var="queueRowsHidden" value="${provider.recentFailed.hiddenCount}"/>
                             <c:set var="queueRowsTotal" value="${provider.failedCount}"/>
@@ -275,6 +282,11 @@
                             <p class="text-muted"><fmt:message key="sms.queue.blocked.none"/></p>
                         </c:when>
                         <c:otherwise>
+                            <c:choose>
+                                <c:when test="${provider.recentBlocked.hiddenCount > 0}">
+                                    <p class="small text-muted"><fmt:message key="sms.queue.codesHidden"/></p>
+                                </c:when>
+                                <c:otherwise>
                             <table class="table table-sm w-auto">
                                 <thead>
                                 <tr>
@@ -296,6 +308,8 @@
                                 </c:forEach>
                                 </tbody>
                             </table>
+                                </c:otherwise>
+                            </c:choose>
                             <c:set var="queueRows" value="${provider.recentBlocked.rows}"/>
                             <c:set var="queueRowsHidden" value="${provider.recentBlocked.hiddenCount}"/>
                             <c:set var="queueRowsTotal" value="${provider.blockedCount}"/>
