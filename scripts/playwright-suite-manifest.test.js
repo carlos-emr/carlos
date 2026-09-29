@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 
 const { loadManifest, parseArguments, selectChecks, toJUnit } = require('./run-playwright-suite');
 const { NAVIGATION, REQUIRED_SECTIONS } = require('./lib/playwright-ui');
@@ -10,11 +11,34 @@ const { NAVIGATION, REQUIRED_SECTIONS } = require('./lib/playwright-ui');
 const VALID_TIERS = new Set(['smoke', 'core', 'extended', 'front-door', 'standalone', 'live-external']);
 const checks = loadManifest();
 
-function suiteScripts() {
-  return fs.readdirSync(path.join(__dirname))
-    .filter((name) => name.endsWith('-playwright-checks.js') || name === 'demographic-master-crud-smoke.js')
-    .sort();
+function suiteScripts(directory = __dirname, prefix = 'scripts') {
+  const found = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const relative = `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) {
+      found.push(...suiteScripts(path.join(directory, entry.name), relative));
+    } else if (entry.isFile() && (entry.name.endsWith('-playwright-checks.js')
+      || entry.name === 'demographic-master-crud-smoke.js')) {
+      found.push(relative);
+    }
+  }
+  return found.sort();
 }
+
+test('browser inventory finds nested checks and preserves distinct relative paths', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-browser-inventory-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, 'e2e', 'fax'), { recursive: true });
+  for (const file of ['document-playwright-checks.js', 'e2e/fax/document-playwright-checks.js',
+    'e2e/fax/demographic-master-crud-smoke.js', 'e2e/fax/helper.js', 'manifest.test.js']) {
+    fs.writeFileSync(path.join(root, file), '');
+  }
+  assert.deepEqual(suiteScripts(root), [
+    'scripts/document-playwright-checks.js',
+    'scripts/e2e/fax/demographic-master-crud-smoke.js',
+    'scripts/e2e/fax/document-playwright-checks.js',
+  ]);
+});
 
 /*
  * The point of the manifest is that it cannot fall behind the suite. Before it
@@ -24,7 +48,7 @@ function suiteScripts() {
  * never got an npm alias. Both directions are asserted here.
  */
 test('every browser check in scripts/ has a manifest entry', () => {
-  const named = new Set(checks.map((check) => path.basename(check.script)));
+  const named = new Set(checks.map((check) => check.script));
   const missing = suiteScripts().filter((script) => !named.has(script));
   assert.deepEqual(missing, [], `these checks have no scripts/playwright-suite.json entry: ${missing.join(', ')}`);
 });
@@ -50,6 +74,25 @@ test('manifest entries are well formed and uniquely named', () => {
     assert.equal(typeof check.assertsDatabase, 'boolean', `${check.name} must declare assertsDatabase`);
     assert.ok(Array.isArray(check.provinces) && check.provinces.length, `${check.name} needs provinces`);
     assert.ok(Number.isInteger(check.timeoutSec) && check.timeoutSec > 0, `${check.name} needs a positive timeoutSec`);
+  }
+});
+
+test('a manual check runs only when named, never by tier or by default', () => {
+  const manual = checks.filter((check) => check.manual);
+  assert.ok(manual.length > 0, 'the packaged-install login check is manual');
+  for (const check of manual) {
+    assert.equal(check.manual, true, `${check.name}: manual must be the literal true`);
+    assert.ok(!check.runLast, `${check.name}: a manual check is not scheduled, so runLast means nothing`);
+    const everything = selectChecks(checks, parseArguments([]));
+    assert.ok(!everything.some((c) => c.name === check.name), `${check.name} leaked into the default run`);
+    for (const tier of check.tiers) {
+      const tiered = selectChecks(checks, parseArguments(['--tier', tier]));
+      assert.ok(!tiered.some((c) => c.name === check.name), `${check.name} leaked into --tier ${tier}`);
+    }
+    const named = selectChecks(checks, parseArguments(['--only', check.name]));
+    assert.deepEqual(named.map((c) => c.name), [check.name]);
+    const listed = selectChecks(checks, parseArguments(['--list']));
+    assert.ok(listed.some((c) => c.name === check.name), `${check.name} must stay discoverable in --list`);
   }
 });
 

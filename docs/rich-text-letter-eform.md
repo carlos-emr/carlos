@@ -113,11 +113,11 @@ The RTL page exposes three print/PDF entry points. The server-rendered Download 
 flows work from the **saved** record: every server render
 (`DocumentAttachmentManager.renderEFormPacketWithCompleteness`) needs an `fdid`, so there is no
 "PDF without saving" path. Toolbar Print is the exception: it prints the editor iframe as it
-stands and only then saves, when the letter is dirty.
+stands and only then saves (see the Print row below for when it asks first).
 
 | Control | Path |
 |---------|------|
-| Toolbar **Print** (`remotePrint()` in `eform_floating_toolbar.js`) | Clicks the form's hidden `PrintButton`, which calls `print()` on the **editor iframe** (so only the letter prints, not the sidebar), then saves through `remoteSave()` when the letter is dirty (`needToConfirm`). |
+| Toolbar **Print** (`remotePrint()` in `eform_floating_toolbar.js`) | Clicks the form's hidden `PrintButton`, which calls `print()` on the **editor iframe** (so only the letter prints, not the sidebar), then decides the chart save (`printSaveDecision()`, issue #3901): a dirty letter (`needToConfirm` true), or any eForm that declares no `needToConfirm` at all, is saved through `remoteSave()` without asking; a letter the dirty flag reports as unedited asks once, after printing, whether to save a copy anyway (text: `eform.floatingToolbar.printSaveUneditedConfirm`, published as `data-print-save-unedited-confirm` on the toolbar fragment). OK saves; Cancel keeps the printout and skips the save. Before #3901 that case skipped the save silently. The eForm manager preview (demographic `-1`) has no chart, so Print there prints only and never offers or attempts a save. |
 | Toolbar **Download** (`remoteDownload()`) | Posts `saveAndDownloadEForm=true`; `AddEForm2Action` saves, renders the PDF, and hands it back base64-encoded on `efmshowform_data.jsp`, which triggers the browser download. |
 | Form **PDF** / **Submit & PDF** buttons (injected by `library/eforms/printControl.js`) | Post `print=true`. `AddEForm2Action` treats that flag as the legacy alias of `saveAndDownloadEForm=true`. Before 2026.09 these buttons were a plain Save with no PDF: `printControl.js` guarded its hidden inputs on a jQuery object's truthiness (never false), so the flag was never posted — and had it been, the action returned a `print` result that `struts-eform.xml` never mapped. `skipSave` is advisory only, but it still tells the two buttons apart: **Submit & PDF** is a submission, so the result page starts the download, shows the saved alert and then closes the window (the action sets `isSuccess_Autoclose`, exactly as a plain Submit does; if the completeness gate refuses the render first, the approval page carries the intent as a hidden `autoClose` input so the approved download still closes), while **PDF** leaves the window open. The eForm Generator and Visual Editor emit `printControl.js` into generated clinic eForms too, so the alias covers them as well. |
 
@@ -149,7 +149,8 @@ Two invariants keep these working:
 - `editControl2.js` re-registers its dirty-flag listener (`attachDirtyFlagListener()`) after every
   template load. Loading `blank.rtl` navigates the editor iframe, which replaces its `Window` and
   drops listeners registered on the old one; before this, typing into a new letter never set
-  `needToConfirm`, so toolbar Print printed without saving and closing never warned.
+  `needToConfirm`, so toolbar Print printed without saving and closing never warned. (Since #3901
+  an unedited letter asks before skipping the save instead of skipping it silently.)
 
 Three related invariants were fixed at the same time:
 
@@ -256,6 +257,12 @@ importer applies the same chain from its packaged copies (`o19roles.RTL_FIXUP_SC
 per install which ones are still due by inspecting the live `form_html` — a row that already
 carries the 2026.3.0 marker but is missing `id="user_ohip_no"` gets step 5 alone.
 
+A package **upgrade** replays none of these scripts: it runs Flyway only. Step 5 therefore also
+ships as the Flyway migration `common/V1.0.41__rtl_provider_stamp_fields.sql` (the same guarded
+`UPDATE`), so an install whose letter was seeded by an earlier package — demo data loaded on
+2026.08.0-alpha13 or before, then upgraded — gains the inputs on upgrade. On a fresh schema the
+migration matches nothing and the demo-data load / O19 importer apply step 5 afterwards as before.
+
 ### Migration from v2.1
 
 The 2026.3.0 migration script (`update-2026-03-22-rtl-2026.3.0-modernize.sql`) does a **full replacement**
@@ -318,7 +325,8 @@ Which provider signs is a delegation rule, mirroring `sign()` in `visualEformEdi
 > leaves a wider band of numbers available for non-billing providers who need a schedule.
 
 The three values arrive as hidden inputs the eForm framework populates server-side from their
-`oscarDB=` attributes (added by `update-2026-09-20-rtl-provider-stamp-fields.sql`):
+`oscarDB=` attributes (added by `update-2026-09-20-rtl-provider-stamp-fields.sql`, and on upgraded
+installs by the Flyway migration `common/V1.0.41__rtl_provider_stamp_fields.sql`):
 
 | Input | AP key |
 |---|---|
@@ -335,6 +343,14 @@ falls back to `stamps.js` (a clinic-authored `ImgArray` of `"doctor|SignatureFil
 the eForm images directory, matched against `current_user` first and then the MRP) and finally to a
 single shared `stamp.png`. Those two were the *only* sources before 2026.09, which is why a
 multi-provider clinic without a `stamps.js` signed every letter with the same image.
+
+**Checks.** `scripts/rtl-signature-stamp.test.js` executes the stamp functions out of the real asset,
+pins the Flyway V1.0.41 `UPDATE` to the `updates/` script, and pins that the `stamp` and
+`_ClosingSalutation` mappings request only AP keys `apconfig.xml` defines (an undefined key raises
+the "could not be filled in" banner; the legacy `stamp_name` key did, on every Stamp click).
+`scripts/eform-rtl-signature-stamp-playwright-checks.js` drives Stamp and Closing Salutation in a
+browser against a running install and needs a `consult_sig_<provider_no>.png` for the signer in
+the eForm images directory.
 
 ---
 

@@ -143,4 +143,25 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
             assertThat(all).hasSizeGreaterThanOrEqualTo(3);
         }
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"N", "A", "F"})
+    void shouldApplyPatientAndStatusFilters_whenLabsAndDocumentsAreMixed(String status) {
+        var info = createHl7TextInfo("PLR-FILTER-" + status, "QueryFixture", "Filter", "9090909090");
+        info.setLabNumber(9834001);
+        info.setObrDate("2026-09-27 10:00:00");
+        hibernateTemplate.flush();
+        var routing = new io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel();
+        routing.setLabNo(9834001);
+        routing.setLabType("HL7");
+        routing.setProviderNo("999998");
+        routing.setStatus(status);
+        entityManager.persist(routing);
+        entityManager.flush();
+        var results = hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "QueryFixture", "Filter", "",
+                status, false, 0, 100, true, null, true, true, null, null);
+        assertThat(results).hasSize(1);
+        assertThat(((Number) results.get(0)[1]).intValue()).isEqualTo(9834001);
+        assertThat(results.get(0)[14]).isEqualTo(status);
+    }
+
 }

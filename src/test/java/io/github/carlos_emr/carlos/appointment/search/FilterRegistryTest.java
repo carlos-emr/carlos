@@ -50,7 +50,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("fast")
 @Tag("appointment")
 @DisplayName("FilterRegistry known-key + legacy FQCN resolution")
-class FilterRegistryTest {
+class FilterRegistryTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
+
+    @org.junit.jupiter.api.BeforeEach
+    void registerScheduleManager() {
+        registerMock(io.github.carlos_emr.carlos.managers.ScheduleManager.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.ScheduleManager.class));
+    }
 
     @Test
     @DisplayName("should create SufficientContiguousTimeFilter for short key")

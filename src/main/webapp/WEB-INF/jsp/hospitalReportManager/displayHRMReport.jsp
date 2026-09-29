@@ -667,6 +667,7 @@
                     <th>Assigned Providers:</th>
                     <td>
                         <div id="provstatus<%=hrmReportId %>"></div>
+                        <div id="assignedProviders<%=hrmReportId %>">
                         <% if (providerLinkList != null && providerLinkList.size() > 0) {
                             for (HRMDocumentToProvider p : providerLinkList) {
                                 if (!p.getProviderNo().equalsIgnoreCase("-1")) {
@@ -684,6 +685,7 @@
                         } else { %>
                         <i>No providers currently assigned</i><br/>
                         <% } %>
+                        </div>
                         <% if (document.getUnmatchedProviders() != null && document.getUnmatchedProviders().trim().length() >= 1) {
                             String[] unmatchedProviders = document.getUnmatchedProviders().substring(1).split("\\|");
                             for (String unmatchedProvider : unmatchedProviders) { %>

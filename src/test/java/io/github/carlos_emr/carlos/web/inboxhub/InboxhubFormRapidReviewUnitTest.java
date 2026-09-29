@@ -43,52 +43,133 @@ class InboxhubFormRapidReviewUnitTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "web", "inboxhub", "InboxhubForm.jsp");
 
     @Test
-    @DisplayName("should use DataTable draw event when opening next Rapid Review item")
-    void shouldUseDataTableDrawEvent_whenOpeningNextRapidReviewItem() throws Exception {
-        // Rapid Review has TWO advance routes now, and the difference matters. The re-fetch
-        // route still has to wait for the redraw, because the row it wants does not exist yet
-        // and may not land in the order it was appended. The in-place route must NOT wait: no
-        // fetch is running, the next item is already rendered, and hanging on a draw event
-        // that will never fire would silently stop advancing.
+    @DisplayName("should open the row that followed the acknowledged one, not the first row of the table")
+    void shouldOpenFollowingRow_whenAdvancingRapidReviewInPlace() throws Exception {
+        // An alpha15 tester started Rapid Review part-way down the list and was handed the lab
+        // at the TOP of the table after each acknowledgement. The in-place route must resolve
+        // the remembered successor first and fall back to the first row only when there was
+        // none; and it must NOT wait on a draw event, because nothing is being re-fetched and a
+        // listener for a redraw that never comes would silently stop advancing.
         String jsp = Files.readString(INBOXHUB_FORM);
 
-        assertThat(extractFunction(jsp, "openNextInboxItemAfterDraw"))
-                .as("the re-fetch route waits for the redraw before clicking")
-                .contains("jQuery('#inbox_table').one('draw.dt', function()")
-                .contains("document.querySelector('#inbox_table tbody tr a')")
-                .contains("nextLink.click();")
-                .doesNotContain("setTimeout");
-
         assertThat(extractFunction(jsp, "openNextInboxItem"))
-                .as("the in-place route acts at once: the next item is already on screen")
-                .contains("document.querySelector('#inbox_table tbody tr a')")
+                .as("the in-place route opens the remembered successor before it considers the first row")
+                .contains("const nextLink = nextInboxhubListRowLink() || document.querySelector('#inbox_table tbody tr a');")
                 .contains("nextLink.click();")
                 .as("and it advances preview mode to the card that took the acknowledged "
                         + "one's place rather than to the top of the list")
                 .contains("nextCard[0].scrollIntoView({ block: 'start' });")
                 .doesNotContain("draw.dt")
                 .doesNotContain("setTimeout");
+
+        assertThat(extractFunction(jsp, "removeInboxhubRow"))
+                .as("the successor is remembered BEFORE the row goes, in both modes")
+                .containsSubsequence(
+                        "rememberNextInboxhubItem(row.next('tr'), row.prev('tr'));",
+                        "jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);",
+                        "rememberNextInboxhubItem(card.next('.document-card'), card.prev('.document-card'));",
+                        "card.remove();");
     }
 
     @Test
-    @DisplayName("should register Rapid Review draw listener before redrawing table")
-    void shouldRegisterDrawListener_beforeRedrawingTable() throws Exception {
+    @DisplayName("should advance Rapid Review after each drawn page on the re-fetch route")
+    void shouldAdvanceAfterEachDrawnPage_whenRapidReviewFollowsRefetch() throws Exception {
+        // The re-fetch route still has to wait for the redraw, because the row it wants does
+        // not exist yet and may not land in the order it was appended; and the list arrives a
+        // page at a time, so the row may not be on page one. The advance therefore runs from
+        // addDataInInboxhubListTable AFTER the DataTable draw on EVERY page, opens the
+        // remembered row as soon as a page holds it, and falls back to the first row only
+        // once nothing remains to load.
         String jsp = Files.readString(INBOXHUB_FORM);
+
+        assertThat(extractFunction(jsp, "advancePendingRapidReview"))
+                .contains("if (!pendingRapidReviewOpen) { return; }")
+                .contains("const nextLink = nextInboxhubListRowLink();")
+                .as("while pages remain the remembered row may still arrive, so nothing is opened yet")
+                .contains("if (hasRememberedNextInboxhubItem() && hasMoreData) { return; }")
+                .contains("document.querySelector('#inbox_table tbody tr a')")
+                .doesNotContain("setTimeout");
+
         int addDataFunctionStart = jsp.indexOf("function addDataInInboxhubListTable(data)");
         int pageOneStart = jsp.indexOf("if (page == 1) {", addDataFunctionStart);
-        int pendingRapidReviewBlock = jsp.indexOf("if (pendingRapidReviewOpen)", pageOneStart);
-        // The re-fetch route's call, which is the one that must be registered before the
-        // redraw. The in-place route (openNextInboxItem) is reached from the acknowledge
-        // listener instead and never runs here.
-        int openNextCall = jsp.indexOf("openNextInboxItemAfterDraw();", pendingRapidReviewBlock);
         int redrawCall = jsp.indexOf("jQuery('#inbox_table').DataTable().draw(false);", pageOneStart);
+        int pageOneAdvance = jsp.indexOf("advancePendingRapidReview();", pageOneStart);
+        int pageOneReturn = jsp.indexOf("return;", pageOneStart);
+        int laterPageAdvance = jsp.indexOf("advancePendingRapidReview();", pageOneReturn);
 
         assertThat(addDataFunctionStart).isNotNegative();
         assertThat(pageOneStart).isNotNegative();
-        assertThat(pendingRapidReviewBlock).isNotNegative();
-        assertThat(openNextCall).isNotNegative();
         assertThat(redrawCall).isNotNegative();
-        assertThat(openNextCall).isLessThan(redrawCall);
+        assertThat(pageOneAdvance).as("page one advances").isGreaterThan(redrawCall);
+        assertThat(pageOneAdvance).as("before the early return").isLessThan(pageOneReturn);
+        assertThat(laterPageAdvance).as("and every later page advances too").isNotNegative();
+        assertThat(jsp).doesNotContain("openNextInboxItemAfterDraw");
+    }
+
+    @Test
+    @DisplayName("should re-sync only the boundary page in preview mode while pages remain")
+    void shouldResyncBoundaryPageOnly_whenPreviewPagesRemain() throws Exception {
+        // "Preview is still slow on reloads": preview pages only as the clinician scrolls, so
+        // the whole-search re-fetch that guarded the offset-paging boundary re-rendered every
+        // card's iframe on almost every acknowledgement. Only the last loaded page can have
+        // changed, so that page alone is re-fetched and merged without moving any card. The
+        // behaviour is exercised in scripts/inbox-acknowledge-in-place.test.js; pinned here is
+        // the contract wiring that test stubs around.
+        String jsp = Files.readString(INBOXHUB_FORM);
+
+        assertThat(extractFunction(jsp, "dropAcknowledgedInboxhubItem"))
+                .as("the helper answers 'no full re-sync needed' once everything is loaded OR "
+                        + "once preview has taken the boundary page on itself")
+                .contains("const settled = !hasMoreData || resyncInboxhubPreviewBoundary();")
+                .as("and it owns the Rapid Review decision for every route that reaches it: "
+                        + "advance at once when settled, else after the redraw the re-fetch brings")
+                .containsSubsequence(
+                        "if (rapidReviewState) {",
+                        "advanceRapidReviewOnce(segmentId, resolvedType);",
+                        "armPendingRapidReview(inboxhubResultSetGeneration + 1);",
+                        "return settled;");
+        assertThat(extractFunction(jsp, "resyncInboxhubPreviewBoundary"))
+                .as("a next-page fetch in flight may carry the pre-shift window; it is withdrawn, the "
+                        + "hold passes to the re-sync, and the page is asked for again after the merge")
+                .containsSubsequence(
+                        "if (isFetchingData && currentFetchRequest) {",
+                        "currentFetchRequest.abort();",
+                        "resumePaging = true;",
+                        "isFetchingData = true;",
+                        "mergeInboxhubPreviewCards(data);",
+                        "if (resumePaging || isInboxhubPreviewScrolledToEnd()) { fetchInboxhubViewData(); }");
+        assertThat(extractFunction(jsp, "resetDataPageCount"))
+                .as("a new result set withdraws a boundary re-sync of the old one")
+                .contains("superseded.request.abort();");
+        assertThat(extractFunction(jsp, "resetDataPageCount"))
+                .as("a search the clinician makes drops a pending advance armed for another result set")
+                .contains("if (!pendingRapidReviewOpen || pendingRapidReviewGeneration !== inboxhubResultSetGeneration) {");
+        assertThat(extractFunction(jsp, "advanceRapidReviewOnce"))
+                .as("the opener call and its broadcast both reach the helper; the second must not open a second result")
+                .contains("if (advancedInboxhubItems[key]) { return; }")
+                .contains("openNextInboxItem();");
+        assertThat(extractFunction(jsp, "resyncInboxhubPreviewBoundary"))
+                .as("list mode still needs the full re-fetch")
+                .contains("if (jQuery('#inboxViewItems').length === 0) { return false; }")
+                .as("preview increments page after each append, so the last loaded page is page - 1")
+                .contains("const boundaryPage = page - 1;")
+                .contains("\"&page=\" + boundaryPage + \"&pageSize=\" + pageSize")
+                .as("a stale answer after the clinician changed the search must be dropped")
+                .contains("if (generation !== inboxhubResultSetGeneration) { return; }");
+        assertThat(extractFunction(jsp, "mergeInboxhubPreviewCards"))
+                .as("rendered cards are never moved: moving an iframe reloads it")
+                .contains("if (entry.rendered !== null || isInboxhubItemHandled(entry.segmentId, entry.labType)) { return; }")
+                .contains("anchor.after(entry.card);")
+                .contains("following.before(entry.card);")
+                .contains("container.append(entry.card);")
+                .as("the page's scripts are not executed; the end-of-results flag is read off the parsed "
+                        + "script elements only, never off rendered content")
+                .contains("Array.prototype.some.call(parsed.querySelectorAll('script'),")
+                .contains("return /hasMoreData\\s*=\\s*false/.test(script.textContent || '');")
+                .doesNotContain(".test(data)");
+        assertThat(extractFunction(jsp, "resetDataPageCount"))
+                .as("a new result set invalidates any boundary answer still in flight")
+                .containsSubsequence("forgetHandledInboxhubItems();", "inboxhubResultSetGeneration++;");
     }
 
     @Test
@@ -124,7 +205,9 @@ class InboxhubFormRapidReviewUnitTest {
      * both and the assertion found its listener in the wrong one.
      */
     private String extractFunction(String jsp, String name) {
-        int start = jsp.indexOf("function " + name + "()");
+        // Matched on the opening parenthesis, not on "()": the functions pinned here take
+        // parameters, and an empty-parenthesis match silently returns -1 for every one of them.
+        int start = jsp.indexOf("function " + name + "(");
         assertThat(start).as("function %s must exist", name).isNotNegative();
         int open = jsp.indexOf('{', start);
         assertThat(open).isNotNegative();

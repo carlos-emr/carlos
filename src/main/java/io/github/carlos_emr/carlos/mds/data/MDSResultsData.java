@@ -591,6 +591,16 @@ public class MDSResultsData {
     }
 
     public String getMatchingCMLLabs(String labId) {
+        return getMatchingCMLLabs(labId, false);
+    }
+
+    /**
+     * Resolves a source version chain, optionally propagating lookup failures for atomic mutations.
+     * @param labId selected report identifier
+     * @param failOnLookupError true when fallback to only the selected version would hide a partial operation
+     * @return versions in clinical order
+     */
+    public String getMatchingCMLLabs(String labId, boolean failOnLookupError) {
         String ret = "";
         int monthsBetween = 0;
         try {
@@ -617,6 +627,7 @@ public class MDSResultsData {
             }
 
         } catch (Exception e) {
+            if (failOnLookupError) throw new IllegalStateException("Lab version lookup failed", e);
             logger.error("exception in getMatchingCMLLabs ({})", e.getClass().getSimpleName());
             return labId;
         }
@@ -630,6 +641,16 @@ public class MDSResultsData {
      *         version lookup fails, never an unbounded query for a missing accession
      */
     public String getMatchingLabs(String labId) {
+        return getMatchingLabs(labId, false);
+    }
+
+    /**
+     * Resolves a source version chain, optionally propagating lookup failures for atomic mutations.
+     * @param labId selected report identifier
+     * @param failOnLookupError true when fallback to only the selected version would hide a partial operation
+     * @return versions in clinical order
+     */
+    public String getMatchingLabs(String labId, boolean failOnLookupError) {
         String ret = "";
         int monthsBetween = 0;
         try {
@@ -662,6 +683,7 @@ public class MDSResultsData {
                 }
             }
         } catch (Exception e) {
+            if (failOnLookupError) throw new IllegalStateException("Lab version lookup failed", e);
             logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }

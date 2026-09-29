@@ -699,6 +699,7 @@ public class CaseManagementNote extends BaseObject {
     }
 
     @jakarta.persistence.Column(name = "appointmentNo")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyAppointmentNumberConverter.class)
 
 
     public int getAppointmentNo() {

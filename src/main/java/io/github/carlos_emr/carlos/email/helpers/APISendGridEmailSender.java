@@ -287,27 +287,12 @@ public class APISendGridEmailSender {
     }
 
     private String getAPIKey() throws EmailSendingException {
-        String apiKey;
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            apiKey = jsonNode.get("api_key").asText();
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
-        }
-        return apiKey;
+        return EmailTransportConfiguration.requiredText(EmailTransportConfiguration.parse(emailConfig), "api_key");
     }
 
-
     private String getEndPoint() throws EmailSendingException {
-        StringBuilder endPointBuilder = new StringBuilder();
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            endPointBuilder.append(jsonNode.get("end_point") != null ? jsonNode.get("end_point").asText() : DEFAULT_END_POINT);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
-        }
-        return endPointBuilder.toString();
+        JsonNode settings = EmailTransportConfiguration.parse(emailConfig);
+        return settings.has("end_point")
+                ? EmailTransportConfiguration.requiredText(settings, "end_point") : DEFAULT_END_POINT;
     }
 }

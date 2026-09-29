@@ -207,15 +207,15 @@ public final class LegacyJdbcQuery {
 
     public static void procExecute(String procName, String[] params) throws SQLException {
         validateProcName(procName);
-        StringBuilder sql = new StringBuilder("{call ").append(procName);
+        StringBuilder sql = new StringBuilder("{call ").append(procName).append('(');
         if (params != null && params.length > 0) {
             StringBuilder prms = new StringBuilder();
             for (int i = 0; i < params.length; i++) {
                 prms.append("?,");
             }
-            sql.append("(").append(prms.substring(0, prms.length() - 1)).append(")");
+            sql.append(prms.substring(0, prms.length() - 1));
         }
-        sql.append("}");
+        sql.append(")}");
 
         DataSource dataSource = dataSource();
         Connection connection = getRequiredConnection(dataSource);
