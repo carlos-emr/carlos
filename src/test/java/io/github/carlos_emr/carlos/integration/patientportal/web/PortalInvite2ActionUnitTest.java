@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -118,7 +119,9 @@ class PortalInvite2ActionUnitTest {
     @ValueSource(strings = {"create", "resend"})
     void shouldRequireEmailWrite_beforeSending(String method) throws Exception {
         // The email layer enforces _email write for every patient email; refusing here keeps a send the
-        // email layer would reject from preparing a token on the portal first.
+        // email layer would reject from preparing a token on the portal first. Document write is
+        // granted, so only the missing email right can be what refuses.
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
         request.setParameter("method", method);
         request.setParameter("confirmReplace", "true");
         execute();

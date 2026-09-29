@@ -236,7 +236,7 @@ class PortalInvite2ActionDeliveryUnitTest {
     void shouldRefuseSending_withoutDocumentWrite() throws Exception {
         // Every sent email is archived as a patient document; the archive would refuse the send only
         // after a code had been prepared for it.
-        when(security.hasPrivilege(any(), eq("_edoc"), anyString(), isNull())).thenReturn(false);
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(false);
         request.setParameter("method", "create");
 
         execute();
@@ -248,7 +248,7 @@ class PortalInvite2ActionDeliveryUnitTest {
     @Test
     @DisplayName("should let a delivery be resolved without document write, which only sending needs")
     void shouldAllowRecovery_withoutDocumentWrite() throws Exception {
-        when(security.hasPrivilege(any(), eq("_edoc"), anyString(), isNull())).thenReturn(false);
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(false);
         request.setParameter("method", "recover");
         request.setParameter("deliveryId", "9");
         request.setParameter("decision", "abandon");
@@ -262,7 +262,7 @@ class PortalInvite2ActionDeliveryUnitTest {
     @Test
     @DisplayName("should require email write to resolve a delivery, which closes an outbox row")
     void shouldRefuseRecovery_withoutEmailWrite() throws Exception {
-        when(security.hasPrivilege(any(), eq("_email"), anyString(), isNull())).thenReturn(false);
+        when(security.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(false);
         request.setParameter("method", "recover");
         request.setParameter("deliveryId", "9");
         request.setParameter("decision", "abandon");
@@ -284,6 +284,9 @@ class PortalInvite2ActionDeliveryUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(payload().get("reason").asText()).isEqualTo("channel_unavailable");
+        ArgumentCaptor<InviteRequest> invite = ArgumentCaptor.forClass(InviteRequest.class);
+        verify(invites).invite(any(), any(), any(), invite.capture());
+        assertThat(invite.getValue().channel()).isEqualTo(Channel.SMS);
     }
 
     @Test
@@ -338,6 +341,22 @@ class PortalInvite2ActionDeliveryUnitTest {
         List<String> decisions = new ArrayList<>();
         payload().get("delivery").get("decisions").forEach(node -> decisions.add(node.asText()));
         assertThat(decisions).containsExactly("confirmSent", "confirmNotSent");
+        assertThat(payload().get("delivery").get("onCurrentConnection").booleanValue()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should offer no decisions yet for a delivery on this connection that changed too recently")
+    void shouldListNoDecisions_whenTooEarly() throws Exception {
+        request.setParameter("method", "create");
+        PatientPortalInviteDelivery uncertain = delivery(State.SEND_UNCERTAIN);
+        when(invites.invite(any(), any(), any(), any())).thenReturn(uncertain);
+        when(invites.isRecoverable(uncertain)).thenReturn(false);
+        when(invites.isOnCurrentConnection(uncertain)).thenReturn(true);
+
+        execute();
+
+        assertThat(payload().get("delivery").get("finished").booleanValue()).isFalse();
+        assertThat(payload().get("delivery").get("decisions").size()).isZero();
         assertThat(payload().get("delivery").get("onCurrentConnection").booleanValue()).isTrue();
     }
 
