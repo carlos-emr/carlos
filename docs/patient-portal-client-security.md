@@ -147,7 +147,11 @@ invitation's delivery is open, Manage Emails does not resolve its outbox row by 
 record, not that row, says whether a code is live. Once the delivery has finished, the row resolves like
 any other, which clears one left pending by a status write that failed after the send. A
 patient who never received their email gets a resend, which issues a new code; CARLOS never re-sends the
-stored one. The email passes through the same consent gate as every patient email: `OPT_IN`, or
+stored one. A replacement, whether from **Resend** or from inviting again over a pending
+invitation, keeps the identity details the original invitation was issued with: CARLOS sends none with
+it, and the portal copies the original's. So after correcting the patient's email address, date of birth
+or health card number on the chart, staff must revoke the invitation and invite again; a replacement
+would carry a code the patient can never activate. The page says so before it replaces an invitation. The email passes through the same consent gate as every patient email: `OPT_IN`, or
 `UNKNOWN` with a documented override reason. Text-message invitations are reserved until CARLOS has
 an SMS provider.
 
