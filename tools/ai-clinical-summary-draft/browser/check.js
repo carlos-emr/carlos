@@ -214,6 +214,7 @@ async function run() {
     assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
   });
   await scenario('eChart modal keeps drafts, reviews one item at a time and closes safely', async page => {
+    await change(page, 'unavailable');
     await page.goto(`${base}/fixture/echart`);
     await page.getByRole('textbox', { name: 'Encounter draft' }).fill('Unsaved encounter text');
     const parentUrl = page.url();
@@ -221,6 +222,16 @@ async function run() {
     await launch.click();
     const modal = page.getByRole('dialog', { name: 'Review chart updates', exact: true });
     const frame = page.frameLocator('#chart-update-workflow-frame');
+    await frame.getByRole('link', { name: 'Review chart updates', exact: true }).click();
+    const error = frame.getByRole('dialog', { name: 'Document review unavailable' });
+    await error.waitFor();
+    await page.keyboard.press('Escape');
+    await error.waitFor({ state: 'hidden' });
+    assert.equal(await modal.isVisible(), true);
+    const available = await page.request.post(`${base}/fixture/available`, {
+      form: { 'CSRF-TOKEN': await frame.locator('input[name="CSRF-TOKEN"]').first().inputValue() },
+    });
+    assert.equal(available.status(), 204);
     await frame.getByRole('link', { name: 'Review chart updates', exact: true }).click();
     await frame.getByRole('button', { name: 'Generate new proposals', exact: true }).click();
     await frame.locator('.review-steps:not([hidden])').waitFor();
@@ -257,6 +268,15 @@ async function run() {
     await frame.getByRole('link', { name: 'Review chart updates', exact: true }).waitFor();
     await page.keyboard.press('Escape');
     await modal.waitFor({ state: 'hidden' });
+    await launch.click();
+    await frame.getByRole('link', { name: 'Review chart updates', exact: true }).click();
+    await frame.locator('.review-steps:not([hidden])').waitFor();
+    await frame.locator('article.proposal:visible [name="entryText"]').fill('Unsaved modal edit to discard');
+    page.once('dialog', dialog => { assert.equal(dialog.type(), 'confirm'); return dialog.accept(); });
+    await modal.getByRole('button', { name: 'Close', exact: true }).click();
+    await modal.waitFor({ state: 'hidden' });
+    assert.equal(await page.getByRole('textbox', { name: 'Encounter draft' }).inputValue(), 'Unsaved encounter text');
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
   });
   await scenario('modal stays open while saving and retains edited drafts after approval', async page => {
     await page.goto(`${base}/fixture/echart`);
