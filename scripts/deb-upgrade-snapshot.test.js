@@ -163,6 +163,25 @@ test('upgrade verifier rejects a lost stored document', t => {
   assert.match(result.stdout, /1 document file\(s\) missing/);
 });
 
+test('upgrade verifier accepts a properties key commented out and re-appended with the same value', t => {
+  // What an alpha13 renderer's postrm plus the new init-config do to the renderer keys.
+  const fixture = setup(t); fixture.baseline();
+  fs.writeFileSync(path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties'),
+    '#consultation_signature_enabled=true\nrx_fax_enabled=true\nconsultation_signature_enabled = true\n');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /layout changed but every active setting is preserved/);
+});
+
+test('upgrade verifier rejects a changed properties value even when the key moved', t => {
+  const fixture = setup(t); fixture.baseline();
+  fs.writeFileSync(path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties'),
+    '#consultation_signature_enabled=true\nrx_fax_enabled=true\nconsultation_signature_enabled = false\n');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
+
 test('upgrade verifier refuses a POST hard link to PRE without overwriting the baseline', t => {
   const fixture = setup(t); const original = fixture.baseline();
   fs.linkSync(fixture.env.PRE, fixture.env.POST);

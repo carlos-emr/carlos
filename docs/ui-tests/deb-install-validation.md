@@ -1975,9 +1975,19 @@ tests OK. `debian/assets/tests` and `scripts/migration/o19/tests` also passed.
 - **From 2026.08.0-alpha13 (real `_amd64` renderer, no `TRANSITIONAL_SPLIT`):**
   the matrix detects the old renderer and runs cases 2 and 1 without
   `--no-remove`. Case 2 is still refused for the missing `carlos-ctl`, and in
-  case 1 apt removes only the renderer. The verify step then passes 44 checks
-  and fails one: `cfg.carlos.properties.sha` changed beyond the one-time
-  `health_tracker` rewrite that `deb-upgrade-verify.sh` allows. The alpha13 base
-  predates keys that later releases add on upgrade. The same check fails on this
-  line without this change, and it stops the matrix before cases 3-7, which
-  the alpha15 run covers.
+  case 1 apt removes only the renderer. With the verifier fix below, all 101
+  assertions pass across cases 0-7 (`EXPECT_FLYWAY=32`, nine new migrations).
+
+  The first alpha13 run exposed a false failure in `deb-upgrade-verify.sh`
+  that predates this change. It rejected the upgrade because `carlos.properties`
+  was no longer byte-identical, yet every active setting was unchanged. The old
+  renderer's `postrm` runs `carlos-ctl init-config` while no browser is present,
+  which comments out `eform_pdf_browser_service_url` and
+  `eform_pdf_browser_chromium_path`. The new `carlos-emr` postinst's
+  `init-config` then re-appends both with the same values. The baseline now also
+  records `cfg.carlos.properties.active.sha`, a digest of the active settings
+  that ignores layout. The verifier accepts a byte change only when that digest
+  is unchanged, so any changed, added or removed setting still fails. The two
+  leftover commented lines in the operator's file are cosmetic. Removing them
+  means `carlos-ctl`'s `prop_set` reactivating a commented key in place, which
+  belongs to the carlos-ctl repository.

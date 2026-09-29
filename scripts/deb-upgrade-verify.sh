@@ -112,7 +112,10 @@ for k in cfg.carlos-emr.env.sha cfg.backup.env.sha cfg.tls.cert.sha cfg.province
 # carlos.properties must be byte-identical EXCEPT for the one rewrite the
 # postinst is allowed to make: the old stock health_tracker=false becomes true
 # once, on the upgrade that first writes the .health-tracker-default-migrated
-# sentinel. Anything else touching the file is still a failure.
+# sentinel. The one other tolerated difference is layout alone -- the same
+# active settings, with keys commented out and re-appended unchanged -- which
+# the cfg.carlos.properties.active.sha digest isolates. Any changed, added or
+# removed active setting is still a failure.
 ht_pre=$(g "$PRE" cfg.healthTracker 2>/dev/null || true); ht_post=$(g "$POST" cfg.healthTracker 2>/dev/null || true)
 ht_sentinel_pre=$(g "$PRE" sentinel..health-tracker-default-migrated 2>/dev/null || true)
 if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
@@ -121,6 +124,13 @@ elif [ "$ht_pre" = health_tracker=false ] && [ "$ht_post" = health_tracker=true 
     && [ -n "$(g "$PRE" cfg.carlos.properties.otherKeys.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.otherKeys.sha)" = "$(g "$POST" cfg.carlos.properties.otherKeys.sha)" ]; then
   ok "cfg.carlos.properties.sha changed only by the one-time health_tracker=false -> true migration"
+elif [ -n "$(g "$PRE" cfg.carlos.properties.active.sha 2>/dev/null || true)" ] \
+    && [ "$(g "$PRE" cfg.carlos.properties.active.sha)" = "$(g "$POST" cfg.carlos.properties.active.sha)" ] \
+    && { [ "$ht_pre" = "$ht_post" ] \
+         || { [ "$ht_pre" = health_tracker=false ] && [ "$ht_post" = health_tracker=true ] && [ "$ht_sentinel_pre" != yes ]; }; }; then
+  # Same active settings, different bytes: a key was commented out and
+  # re-appended with its old value (see deb-upgrade-baseline.sh).
+  ok "cfg.carlos.properties layout changed but every active setting is preserved"
 else
   bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post')"
 fi

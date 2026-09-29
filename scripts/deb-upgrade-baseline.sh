@@ -80,6 +80,16 @@ value=$(grep -E '^rx_fax_enabled=' "$CARLOS_ETC_DIR/carlos.properties" || true);
 value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true); emit cfg.healthTracker "$value"
 value=$(grep -vE '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
+# The ACTIVE settings, independent of layout: comments and blank lines dropped,
+# whitespace around '=' normalised, sorted. carlos-ctl's prop_comment/prop_set
+# can move a key without changing it -- e.g. an alpha13 renderer's postrm runs
+# init-config with no browser present (commenting the renderer keys out) and
+# the new carlos-emr's init-config then re-appends them with the same values --
+# and deb-upgrade-verify.sh must not mistake that for a changed setting.
+value=$(sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' "$CARLOS_ETC_DIR/carlos.properties" \
+    | grep -vE '^([#!]|$)' | sed -E 's/^([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/' \
+    | grep -vE '^health_tracker=' | LC_ALL=C sort | sha256sum) || exit 1
+emit cfg.carlos.properties.active.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
 for s in .consult-signature-default-migrated .health-tracker-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"
