@@ -37,7 +37,10 @@ async function workflow(s) {
     await page.waitForLoadState('networkidle');
   });
   await s.step('save the legacy prescription as a favorite through its history control', async () => {
-    await page.goto(`${s.config.baseUrl}/rx/ViewStaticScript2?cn=${encodeURIComponent(s.marker)}`);
+    // History deliberately refuses the active-session fallback: name this fixture's patient.
+    await h.gotoApp(page, s.config.baseUrl,
+      `/rx/ViewStaticScript2?demographicNo=${s.patient}&cn=${encodeURIComponent(s.marker)}`);
+    await h.assertNotErrorPage(page, 'owned nullable prescription history');
     const button = page.locator(`[onclick*="addFavorite2(${drug},"]`);
     await button.waitFor({ state: 'visible' });
     const dialogs = await h.withExpectedDialogs(page, async () => {
@@ -68,7 +71,7 @@ async function workflow(s) {
       SELECT LAST_INSERT_ID()`));
     h.assert(ids.every(id => /^[1-9][0-9]*$/.test(id)), 'Editing favorite fixtures were not created');
     const editor = await s.context.newPage();
-    await h.gotoApp(editor, s.config.baseUrl, '/rx/updateFavorite');
+    await h.gotoApp(editor, s.config.baseUrl, `/rx/ViewEditFavorites2?demographicNo=${s.patient}`);
     const identity = editor.locator(`input[name^="fldFavoriteId"][value="${ids[0]}"]`);
     await identity.waitFor({ state: 'attached' });
     const index = (await identity.getAttribute('name')).replace('fldFavoriteId', '');
@@ -160,10 +163,11 @@ async function workflow(s) {
       'Opening the editor silently reset months to days');
     await editor.close();
   });
-  await s.step('stage re-prescribing only after both protected history requests succeed', async () => {
+  await s.step('stage re-prescribing only after its protected history request succeeds', async () => {
     await page.waitForLoadState('networkidle');
     await page.locator('input[value="Represcribe"]').click();
-    await page.waitForURL('**/rx/prescribing');
+    await page.waitForURL(url => url.pathname.endsWith('/rx/choosePatient')
+      && url.searchParams.get('demographicNo') === s.patient);
     await page.waitForLoadState('networkidle');
     await page.locator('[id^="quantity_"]').first().waitFor({ state: 'attached' });
     h.assert(s.sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${s.patient}`) === '1',
@@ -192,12 +196,15 @@ async function workflow(s) {
     h.assert(s.sql.value(`SELECT COUNT(*) FROM favorites WHERE favoriteid=${favorite}`) === '0', 'Owned favorite deletion failed');
     const responseStart = s.recorder.badResponses.length;
     const consoleStart = s.recorder.consoleIssues.length;
+    const refusedMessage = await page.evaluate(() => jsMsg.requestRefused);
+    h.assert(typeof refusedMessage === 'string' && refusedMessage.length > 0,
+      'The favorite refusal message is not localized');
     let failedResponse;
     const dialogs = await h.withExpectedDialogs(page, async () => {
       const [response] = await Promise.all([
         page.waitForResponse(isFavoritePost),
-        page.waitForEvent('dialog'),
-        page.waitForEvent('console', { predicate: message => message.type() === 'error'
+        page.waitForEvent('dialog', {timeout: 20000}),
+        page.waitForEvent('console', { timeout: 20000, predicate: message => message.type() === 'error'
           && /Failed to load resource.*404/.test(message.text()) }),
         link.click(),
       ]);
@@ -206,7 +213,7 @@ async function workflow(s) {
       await response.finished();
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'alert'
-      && dialogs[0].text.includes('Favorite could not be loaded'), 'Missing favorite did not show the localized error');
+      && dialogs[0].text === refusedMessage, 'Missing favorite did not show the localized error');
     h.assert(JSON.stringify(await stagedState()) === JSON.stringify(before), 'Missing favorite changed staged prescription controls');
     consumeExpectedFavoriteFailure(s.recorder, failedResponse.url(), responseStart, consoleStart);
 
@@ -214,9 +221,12 @@ async function workflow(s) {
     const csrf = await page.evaluate(() => CarlosAjax.getCsrfToken());
     for (const path of ['/rx/useFavorite', '/rx/updateFavorite', '/rx/updateFavorite2?method=ajaxEditFavorite']) {
       const response = await s.context.request.post(h.appUrl(s.config.baseUrl, path), {
-        headers: { 'CSRF-TOKEN': csrf }, form: { favoriteId: favorite, 'CSRF-TOKEN': csrf },
+        headers: { 'CSRF-TOKEN': csrf }, maxRedirects: 0,
+        // Valid repeat input reaches ownership lookup; missing repeat is a distinct 400 error.
+        form: { demographicNo: s.patient, favoriteId: favorite, repeat: '0', 'CSRF-TOKEN': csrf },
       });
-      h.assert(response.status() === 404, 'A deleted favorite was not rejected by a legacy selection/editing route');
+      h.assert(response.status() === 404,
+        `Deleted favorite route ${path} returned HTTP ${response.status()}, expected 404`);
     }
     h.assert(s.sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${s.patient}`) === '1',
       'Favorite staging/failure unexpectedly persisted another prescription');
@@ -226,7 +236,9 @@ async function workflow(s) {
       controls => controls.map(control => ({ id: control.id, value: control.value })));
     const before = await stagedValues();
     h.assert(before.length > 0, 'Expected staged prescriptions before the stale history check');
-    await h.gotoApp(page, s.config.baseUrl, `/rx/ViewStaticScript2?cn=${encodeURIComponent(s.marker)}`);
+    await h.gotoApp(page, s.config.baseUrl,
+      `/rx/ViewStaticScript2?demographicNo=${s.patient}&cn=${encodeURIComponent(s.marker)}`);
+    await h.assertNotErrorPage(page, 'owned stale prescription history');
     const button = page.locator('input[value="Represcribe"]');
     await button.waitFor({ state: 'visible' });
     s.sql.execute(`DELETE FROM drugs WHERE drugid=${drug} AND demographic_no=${s.patient}`);
@@ -237,20 +249,21 @@ async function workflow(s) {
       const [response] = await Promise.all([
         page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/rx/rePrescribe2')
           && r.request().method() === 'POST'),
-        page.waitForEvent('dialog'),
-        page.waitForEvent('console', { predicate: message => message.type() === 'error'
+        page.waitForEvent('dialog', {timeout: 20000}),
+        page.waitForEvent('console', { timeout: 20000, predicate: message => message.type() === 'error'
           && /Failed to load resource.*404/.test(message.text()) }),
         button.click(),
       ]);
       failedResponse = response;
       h.assert(response.status() === 404, 'Deleted history item was not reported as unavailable');
-      await response.finished();
+      // The refusal alert follows body consumption; assert the visible result instead of
+      // leaving an unbounded protocol-level response.finished() wait in this workflow.
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'Stale history failure was not visible');
     h.assert(new URL(page.url()).pathname.endsWith('/rx/ViewStaticScript2'),
       'Failed history staging navigated away from the history page');
     consumeExpectedFavoriteFailure(s.recorder, failedResponse.url(), responseStart, consoleStart);
-    await h.gotoApp(page, s.config.baseUrl, '/rx/prescribing');
+    await h.gotoApp(page, s.config.baseUrl, `/rx/prescribing?demographicNo=${s.patient}`);
     await page.locator('[id^="quantity_"]').first().waitFor({ state: 'attached' });
     h.assert(JSON.stringify(await stagedValues()) === JSON.stringify(before),
       'Deleted history item changed the staged prescriptions');

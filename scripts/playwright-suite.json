@@ -1370,8 +1370,8 @@
       ]
     },
     {
-      "name": "omd-flowsheet-conformance",
-      "script": "scripts/omd-flowsheet-conformance-playwright-checks.js",
+      "name": "rx-stash-patient-isolation",
+      "script": "scripts/rx-stash-patient-isolation-playwright-checks.js",
       "tiers": [
         "core"
       ],
@@ -1379,12 +1379,24 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 360,
       "env": []
     },
     {
-      "name": "cdm-measurement-report",
-      "script": "scripts/cdm-measurement-report-playwright-checks.js",
+      "name": "rx-stash-deletion",
+      "script": "scripts/rx-stash-deletion-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180
+    },
+    {
+      "name": "rx-favorites-choose-drug",
+      "script": "scripts/rx-favorites-choose-drug-playwright-checks.js",
       "tiers": [
         "core"
       ],
@@ -2998,6 +3010,32 @@
         "NEW_PASSWORD",
         "STRICT_TLS"
       ]
+    },
+    {
+      "name": "omd-flowsheet-conformance",
+      "script": "scripts/omd-flowsheet-conformance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "cdm-measurement-report",
+      "script": "scripts/cdm-measurement-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
     },
     {
       "name": "cpp-note-extension-archive",

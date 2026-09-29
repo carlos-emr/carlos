@@ -417,11 +417,16 @@ public class RxPrescriptionData {
     public List<Prescription> getPrescriptionsByScriptNo(int script_no, int demographicNo) {
         List<Prescription> lst = new ArrayList<Prescription>();
         DrugDao dao = SpringUtils.getBean(DrugDao.class);
-        for (Object[] pair : dao.findDrugsAndPrescriptionsByScriptNumber(script_no)) {
+        for (Object[] pair : dao.findDrugsAndPrescriptionsByScriptNumber(script_no, demographicNo)) {
             Drug drug = (Drug) pair[0];
             io.github.carlos_emr.carlos.commn.model.Prescription rx = (io.github.carlos_emr.carlos.commn.model.Prescription) pair[1];
 
-            lst.add(toPrescription(demographicNo, drug, rx));
+            // Conversion assigns the requested demographic to the DTO. Validate both persisted
+            // owners first so a foreign or inconsistent script can never be relabelled as ours.
+            if (Integer.valueOf(demographicNo).equals(drug.getDemographicId())
+                    && Integer.valueOf(demographicNo).equals(rx.getDemographicId())) {
+                lst.add(toPrescription(demographicNo, drug, rx));
+            }
         }
         return lst;
     }
@@ -641,6 +646,18 @@ public class RxPrescriptionData {
         String providerNo;
         int demographicNo;
         long randomId = 0;
+        private String draftRevision = java.util.UUID.randomUUID().toString();
+
+        /** The identity of this draft version, independent of its reusable numeric card key. */
+        public String getDraftRevision() {
+            return draftRevision;
+        }
+
+        /** Consumes the rendered draft version before persistence while holding the workspace lock. */
+        public void advanceDraftRevision() {
+            draftRevision = java.util.UUID.randomUUID().toString();
+        }
+
         java.util.Date rxCreatedDate = null;
         java.util.Date rxDate = null;
         java.util.Date endDate = null;

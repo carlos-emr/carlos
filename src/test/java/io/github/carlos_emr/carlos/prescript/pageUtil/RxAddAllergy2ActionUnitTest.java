@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -29,12 +30,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -58,7 +63,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("RxAddAllergy2Action Unit Tests")
 @Tag("unit")
 @Tag("rx")
-class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
+class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -93,6 +98,9 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("w"), isNull()))
                 .thenReturn(true);
+        // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -106,8 +114,9 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
         mockRequest.setParameter("type", "1");
         mockRequest.setParameter("startDate", "");
         mockRequest.setParameter("formDemographicNo", "123");
-        mockRequest.getSession().setAttribute("Patient", mockRxPatient);
-        when(mockRxPatient.getDemographicNo()).thenReturn(123);
+        // The request names its patient; the write resolver refuses one that does not (#3875).
+        mockRequest.setParameter("demographicNo", "123");
+        openRxForPatient();
 
         action = new RxAddAllergy2Action();
     }
@@ -184,7 +193,23 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject a missing session patient before adding an allergy")
     void shouldRejectAdd_whenSessionPatientIsMissing() throws Exception {
-        mockRequest.getSession().removeAttribute("Patient");
+        // Rx/allergies was never opened for the form's patient in this session.
+        mockRequest.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest(name = "{0}={1}")
+    @CsvSource({"formDemographicNo,456", "formDemographicNo,not-a-number", "allergyToArchive,42"})
+    @DisplayName("should reject mismatched patient context or a foreign allergy before adding a replacement")
+    void shouldRejectAdd_whenPatientOrOriginalAllergyDoesNotMatch(String parameter, String value) throws Exception {
+        mockRequest.setParameter(parameter, value);
 
         String result = action.execute();
 
@@ -196,23 +221,30 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject a stale rendered patient context before adding an allergy")
-    void shouldRejectAdd_whenFormDemographicNoDiffersFromSessionPatient() throws Exception {
+    @DisplayName("should refuse when the request names one open patient and the form carries another")
+    void shouldRejectAdd_whenRequestPatientDiffersFromFormPatient() throws Exception {
+        // Both patients have Rx open: the old code wrote to whichever formDemographicNo named.
+        RxSessionBean otherBean = new RxSessionBean();
+        otherBean.setDemographicNo(456);
+        RxSessionBeanResolver.register(mockRequest.getSession(), otherBean);
+        mockRequest.setParameter("demographicNo", "123");
         mockRequest.setParameter("formDemographicNo", "456");
+        mockRequest.setParameter("allergyToArchive", "42");
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(403);
+        assertThat(action.getDemographicNo()).isZero();
         verify(mockRxPatient, never()).addAllergy(any(), any());
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
         logActionMock.verifyNoInteractions();
     }
 
     @Test
-    @DisplayName("should reject a malformed rendered patient context before adding an allergy")
-    void shouldRejectAdd_whenFormDemographicNoIsMalformed() throws Exception {
-        mockRequest.setParameter("formDemographicNo", "not-a-number");
+    @DisplayName("should refuse when the form names an open patient but the request names none")
+    void shouldRejectAdd_whenRequestNamesNoPatient() throws Exception {
+        mockRequest.removeParameter("demographicNo");
 
         String result = action.execute();
 
@@ -229,6 +261,8 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        // The success redirect returns to this patient's allergy page.
+        assertThat(action.getDemographicNo()).isEqualTo(123);
         verify(mockRxPatient).addAllergy(any(), any());
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
@@ -237,24 +271,10 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not log archive when archived allergy belongs to a different patient")
-    void shouldNotLogArchive_whenAllergyBelongsToDifferentPatient() throws Exception {
-        mockRequest.setParameter("allergyToArchive", "42");
-        when(mockRxPatient.deleteAllergy(42)).thenReturn(false);
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockRxPatient).deleteAllergy(42);
-        logActionMock.verify(() -> LogAction.addLog(
-                any(String.class), eq(LogConst.ARCHIVE), any(String.class),
-                any(String.class), any(String.class), any(String.class), any()), never());
-    }
-
-    @Test
     @DisplayName("should log archive when archived allergy belongs to the session patient")
     void shouldLogArchive_whenAllergyBelongsToSessionPatient() throws Exception {
         mockRequest.setParameter("allergyToArchive", "42");
+        when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
         when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
 
         String result = action.execute();
@@ -267,16 +287,44 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should ignore a non-numeric allergyToArchive instead of throwing")
-    void shouldIgnoreArchiveAttempt_whenAllergyToArchiveIsNotNumeric() throws Exception {
-        mockRequest.setParameter("allergyToArchive", "abc");
+    @DisplayName("should only audit archival when the previously validated allergy was archived")
+    void shouldNotAuditArchive_whenArchiveFailsAfterValidation() throws Exception {
+        mockRequest.setParameter("allergyToArchive", "42");
+        when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
+        when(mockRxPatient.deleteAllergy(42)).thenReturn(false);
 
-        String result = action.execute();
+        action.execute();
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockRxPatient, never()).deleteAllergy(anyInt());
         logActionMock.verify(() -> LogAction.addLog(
                 any(String.class), eq(LogConst.ARCHIVE), any(String.class),
                 any(String.class), any(String.class), any(String.class), any()), never());
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc", "0", "-1", "2147483648"})
+    @DisplayName("should reject a malformed allergy edit before adding its replacement")
+    void shouldRejectEdit_whenAllergyToArchiveIsMalformed(String archiveId) throws Exception {
+        mockRequest.setParameter("allergyToArchive", archiveId);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    /**
+     * Opens Rx for patient 123 in this session (per-patient Rx state, #3875) and seeds the
+     * resolver's per-request patient cache with the mock, so no demographic lookup runs.
+     */
+    private void openRxForPatient() {
+        RxSessionBean rxBean = new RxSessionBean();
+        rxBean.setDemographicNo(123);
+        RxSessionBeanResolver.register(mockRequest.getSession(), rxBean);
+        when(mockRxPatient.getDemographicNo()).thenReturn(123);
+        mockRequest.setAttribute(RxSessionBeanResolver.PATIENT_REQUEST_ATTRIBUTE, mockRxPatient);
+    }
+
 }

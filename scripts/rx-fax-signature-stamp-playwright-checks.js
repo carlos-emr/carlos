@@ -127,6 +127,8 @@ if (!/^\d+$/.test(providerNo)) throw new Error(`RX_FAX_PROVIDER_NO must be numer
 
 const findings = [];
 const visited = [];
+// Fixed workflow labels only: browser exceptions can contain clinical data.
+let checkPhase = 'initialization';
 // True only while clicking the custom-drug button, the one moment a confirm() is expected. The
 // page dialog handler auto-accepts a confirm only in this window and records any other dialog.
 let expectingCustomDrugConfirm = false;
@@ -280,6 +282,7 @@ const seededPharmacyFaxes = [];
  *     concurrent run or an operator edit made during the check is never overwritten.
  */
 function seedPharmacyFax() {
+  checkPhase = 'pharmacy-fixture';
   const rows = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(p.fax, '') FROM pharmacyInfo p
     JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
     WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
@@ -394,6 +397,7 @@ function wirePage(page, label) {
 // --- login + build-stamp defence-in-depth guard -----------------------------
 
 async function login(context) {
+  checkPhase = 'login';
   const page = await context.newPage();
   wirePage(page, 'login');
   await gotoApp(page, '/');
@@ -421,6 +425,7 @@ async function login(context) {
 }
 
 async function checkBuildStampOnAboutPage(context) {
+  checkPhase = 'about-build-stamp';
   const page = await context.newPage();
   wirePage(page, 'about');
   await gotoApp(page, '/encounter/ViewAbout');
@@ -439,6 +444,7 @@ async function checkBuildStampOnAboutPage(context) {
 // --- DB fixtures -------------------------------------------------------------
 
 function stageFaxConfig() {
+  checkPhase = 'fax-account-fixture';
   // Refuse any collision, including inactive/other-provider accounts: cleanup must
   // never assume that pre-existing jobs on a coincidentally chosen line are ours.
   const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' LIMIT 1;`).trim();
@@ -475,6 +481,7 @@ function cleanupOwnedFaxSender() {
 // --- the real UI journey -----------------------------------------------------
 
 async function writeCustomRxThroughUi(page) {
+  checkPhase = 'open-prescription-page';
   await gotoApp(page, `/rx/choosePatient?demographicNo=${demographicNo}`);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   visited.push({ label: 'rx-search', url: safeUrl(page.url()) });
@@ -483,6 +490,7 @@ async function writeCustomRxThroughUi(page) {
 
   // Real control: name the custom medication, then click the "Custom Drug" button.
   await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
+  checkPhase = 'stage-custom-drug';
   await page.locator('#searchString').fill(customDrugName);
   // Open the confirm-acceptance window only for this click; the handler records any other dialog.
   expectingCustomDrugConfirm = true;
@@ -499,9 +507,12 @@ async function writeCustomRxThroughUi(page) {
   const previewStateQuery = `SELECT script_no,COALESCE(digital_signature_id,0) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} ORDER BY script_no;`;
   const beforePreview = sql(previewStateQuery);
   for (const method of ['GET', 'HEAD']) {
+    checkPhase = method === 'GET' ? 'unsaved-preview-get' : 'unsaved-preview-head';
     const response = await page.request.fetch(appUrl('/rx/viewScript'), { method });
     try {
-      if (response.status() !== 409 || sql(previewStateQuery) !== beforePreview) {
+      const databaseUnchanged = sql(previewStateQuery) === beforePreview;
+      if (response.status() !== 409 || !databaseUnchanged) {
+        console.error(JSON.stringify({ phase: checkPhase, status: response.status(), databaseUnchanged }));
         throw new Error('Unsaved prescription preview navigation must reject without saving or stamping');
       }
     } finally {
@@ -511,6 +522,7 @@ async function writeCustomRxThroughUi(page) {
   visited.push({ label: 'unsaved-preview-get-head-read-only', databaseUnchanged: true });
 
   // Real control: "Save And Print" — writes the script and opens ViewScript2 in the modal.
+  checkPhase = 'save-and-print';
   const [previewRequest] = await Promise.all([
     page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/rx/viewScript'), { timeout: 30000 }),
     page.locator('#saveButton').click(),
@@ -520,6 +532,7 @@ async function writeCustomRxThroughUi(page) {
   }
 
   // The Bootstrap preview modal loads ViewScript2 in an iframe.
+  checkPhase = 'render-prescription-preview';
   const modalFrame = page.frameLocator('#carlosModalBody iframe');
   await modalFrame.locator('#faxButton').waitFor({ state: 'attached', timeout: 30000 });
   await selectOwnedFaxSender(modalFrame);
@@ -529,6 +542,7 @@ async function writeCustomRxThroughUi(page) {
   // "Save And Print" now writes exactly ONE prescription (updateSaveAllDrugs persists it and
   // RxViewScript2Action reuses that row instead of re-saving), so this list should have one entry;
   // a stray duplicate from re-saving would show as a second entry and is caught by runChecks.
+  checkPhase = 'verify-created-prescription';
   const createdScriptNos = sql(`SELECT DISTINCT script_no FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo} AND script_no>${rangeStart};`)
     .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r));
   if (createdScriptNos.length === 0) {
@@ -564,6 +578,7 @@ async function runChecks(context, cancellation) {
     }
 
     // Real DOM: the Fax button must be enabled with no drawn signature.
+    checkPhase = 'verify-stored-stamp';
     const faxDisabled = await modalFrame.locator('#faxButton').isDisabled();
     if (faxDisabled) {
       findings.push({ label: 'fax-button', type: 'greyed', text: 'Fax button is disabled on a stamp-signed new script — the reported defect' });
@@ -597,6 +612,7 @@ async function runChecks(context, cancellation) {
     // Real control: click Fax. Capture the createcustomedpdf request (the JSP puts scriptId on it)
     // and its response. The fax row it inserts lands on this run's unique faxline and is cleaned up
     // by cleanupFixtures.
+    checkPhase = 'fax-signed-prescription';
     const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 30000 });
     const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: 30000 });
 
@@ -650,6 +666,7 @@ async function runChecks(context, cancellation) {
     // Server-side confirmation that an UNSIGNED script is still refused. The demo
     // signs every prescription, so stage a throwaway unsigned row (the refusal
     // fires before PDF rendering, so it needs no drugs).
+    checkPhase = 'unsigned-prescription-fixture';
     cancellation.throwIfCancelled();
     throwawayUnsignedScriptId = sql(
       // lastUpdateDate is NOT NULL with no default, so a strict-mode database rejects an insert that
@@ -660,6 +677,7 @@ async function runChecks(context, cancellation) {
     // it carries the session cookie and, via a real CSRFGuard master token, passes CSRF the way the
     // browser does. GET is CSRF-unprotected here (ProtectedMethods=POST,PUT,DELETE,PATCH), so only a
     // POST proves the signature gate refuses an unsigned script on the actual, CSRF-validated route.
+    checkPhase = 'refuse-unsigned-fax';
     cancellation.throwIfCancelled();
     const unsigned = await page.evaluate(async ({ tokenUrl, postUrl, params }) => {
       const tokenResp = await fetch(tokenUrl, { credentials: 'same-origin' });
@@ -745,7 +763,7 @@ async function runChecks(context, cancellation) {
     }
   }
 })().catch((error) => {
-  console.error(`FAIL rx-fax-signature-stamp: ${browserErrorClass(error)}`);
+  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}`);
   removeSecretsDir();
   process.exit(1);
 });
