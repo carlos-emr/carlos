@@ -93,8 +93,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
     protected static Logger logger = MiscUtils.getLogger();
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -150,7 +148,18 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             } else {
                 filePath = Utilities.saveFile(is, fileName);
             }
-            File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+            if (filePath == null) {
+                // saveFile/savePdfFile return null when the write failed, and neither closes the
+                // decrypted stream when it fails before opening its output.
+                is.close();
+                // Thrown rather than returned: the shared epilogue below is what honours
+                // use_http_response_code, so returning here would have sent a client that asked for
+                // HTTP status codes a success response despite httpCode being set to 500.
+                throw new IOException("Lab file save returned no path");
+            }
+
+            File file = PathValidationUtils.validateExistingDocumentPath(filePath);
+            filePath = file.getPath();
 
             if (validateSignature(clientKey, signature, file)) {
                 logger.debug("Validated Successfully");
@@ -218,6 +227,13 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     /*
      * Decrypt the encrypted message and return the original version of the message as an InputStream
      */
+    // ECB_MODE / CIPHER_INTEGRITY: the payload cipher below is the one the external lab
+    // senders encrypt with, and this receiver only decrypts. Substituting an authenticated
+    // mode here unilaterally would reject every message those senders produce, so the
+    // migration to a versioned AES-GCM format is coordinated in issue #3413 (which names a
+    // local replacement as an explicit non-goal). The finding is accepted and tracked there,
+    // not dismissed: remove this suppression together with the legacy format.
+    @SuppressFBWarnings(value = {"ECB_MODE", "CIPHER_INTEGRITY"}, justification = "legacy lab upload transport format dictated by external senders; decrypt-only receiver, authenticated-encryption migration tracked in issue #3413")
     public static InputStream decryptMessage(InputStream is, String skey, PublicKey pkey) {
 
         // Decrypt the secret key and the message

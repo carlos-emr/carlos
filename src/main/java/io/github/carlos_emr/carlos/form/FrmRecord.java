@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
@@ -109,7 +109,7 @@ public abstract class FrmRecord {
         demoProps.setProperty("c_phone", StringUtils.trimToEmpty(demographic.getPhone()));
         demoProps.setProperty("c_phoneAlt1", StringUtils.trimToEmpty(demographic.getPhone2()));
 
-        String rd = SxmlMisc.getXmlContent(demographic.getFamilyDoctor(), "rd");
+        String rd = DemographicXml.referralDoctor(demographic.getFamilyDoctor());
         rd = rd != null ? rd : "";
         demoProps.setProperty("pg1_famPhy", rd);
 

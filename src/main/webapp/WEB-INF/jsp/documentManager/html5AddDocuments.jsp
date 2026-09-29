@@ -168,8 +168,13 @@
             // remove the form
             form.parentNode.removeChild(form);
 
-            // create the noswfupload.wrap Object with 1Mb of limit
-            wrap = noswfupload.wrap(input, 10024 * 10024);
+            // Client-side ceiling, kept equal to the server's. 50 MB is the single
+            // number shared by nginx client_max_body_size, ModSecurity
+            // SecRequestBodyLimit, Tomcat maxPostSize and struts.multipart.maxSize.
+            // This used to read 10024 * 10024 (~100 MB, and the comment claimed
+            // 1 MB), so a 60 MB scan was accepted here and only rejected after the
+            // whole upload had been sent.
+            wrap = noswfupload.wrap(input, 50 * 1024 * 1024);
 
             // form and input are useless now (remove references)
             form = input = null;

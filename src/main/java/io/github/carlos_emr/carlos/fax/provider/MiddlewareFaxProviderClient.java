@@ -45,6 +45,7 @@ import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.classic.methods.HttpDelete;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.classic.methods.HttpPut;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
@@ -52,8 +53,6 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuil
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
-import org.apache.hc.core5.http.ParseException;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
@@ -81,7 +80,24 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
     private static final String PATH = "/fax";
     private static final Logger logger = MiscUtils.getLogger();
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = buildMapper();
+
+    /**
+     * The middleware download response carries the inbound document as base64
+     * inside JSON; Jackson's default 20,000,000-char string cap (~14 MiB PDF)
+     * would reject a large fax before the BoundedResponseReader transport cap
+     * and with an opaque error. Lift it so the documented cap governs — the
+     * reader cap and JVM heap remain the real bounds. (Matches
+     * SRFaxProviderClient.)
+     */
+    private static ObjectMapper buildMapper() {
+        ObjectMapper m = new ObjectMapper();
+        m.getFactory().setStreamReadConstraints(
+                com.fasterxml.jackson.core.StreamReadConstraints.builder()
+                        .maxStringLength(Integer.MAX_VALUE)
+                        .build());
+        return m;
+    }
 
     /**
      * {@inheritDoc}
@@ -133,9 +149,21 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 if (entity == null) {
                     throw new FaxProviderException("Middleware returned an empty fax response");
                 }
+                // Bounded read BEFORE unmarshalling: unmarshalling straight
+                // from entity.getContent() let a malfunctioning or hostile
+                // middleware stream an endless <document> element into the
+                // heap (a mapped String property, no JAXP limit on PCDATA)
+                // and, under -XX:+ExitOnOutOfMemoryError, crash-loop the EMR
+                // — the fifth provider-read path the other four's cap missed.
+                // Bounded as BYTES, not a String: JAXB then still honours the
+                // response's <?xml encoding=...?> prolog (a String decoded
+                // against an absent Content-Type charset would be mojibake
+                // for a non-UTF-8 XML reply).
+                byte[] responseXml = BoundedResponseReader.readBytes(entity);
                 Object result = JAXBContext.newInstance(FaxJob.class)
                         .createUnmarshaller()
-                        .unmarshal(entity.getContent());
+                        .unmarshal(new javax.xml.transform.stream.StreamSource(
+                                new java.io.ByteArrayInputStream(responseXml)));
                 if (!(result instanceof FaxJob returnedJob)) {
                     throw new FaxProviderException("Middleware returned an invalid fax response");
                 }
@@ -184,7 +212,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                             "This may indicate a middleware server error.");
                 }
 
-                String content = EntityUtils.toString(httpEntity);
+                String content = BoundedResponseReader.read(httpEntity);
                 if (content == null || content.trim().isEmpty()) {
                     logger.warn("Middleware returned empty content for fax list - treating as no faxes available");
                     return new java.util.ArrayList<>();
@@ -192,7 +220,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
                 return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
             }
-        } catch (IOException | ParseException e) {
+        } catch (IOException e) {
             throw new FaxProviderException("Middleware fax list communication failure: " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
@@ -228,14 +256,14 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                             "Middleware returned HTTP 200 but response body is empty for fax " + fax.getFile_name());
                 }
 
-                String content = EntityUtils.toString(httpEntity);
+                String content = BoundedResponseReader.read(httpEntity);
                 FaxJob downloaded = mapper.readValue(content, FaxJob.class);
                 if (FaxJob.STATUS.ERROR.equals(downloaded.getStatus())) {
                     throw new FaxProviderException("Downloaded fax is in ERROR status: " + downloaded.getStatusString());
                 }
                 return downloaded;
             }
-        } catch (IOException | ParseException e) {
+        } catch (IOException e) {
             throw new FaxProviderException("Middleware fax download failure for " + fax.getFile_name() + ": " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
@@ -295,11 +323,49 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                             "Middleware returned HTTP 200 but response body is empty for job " + faxJob.getJobId());
                 }
 
-                String content = EntityUtils.toString(httpEntity);
+                String content = BoundedResponseReader.read(httpEntity);
                 return mapper.readValue(content, FaxJob.class);
             }
-        } catch (IOException | ParseException e) {
+        } catch (IOException e) {
             throw new FaxProviderException("Middleware status check communication failure", e,
+                    FaxProviderException.isTransientNetworkCause(e));
+        }
+    }
+
+    /**
+     * Cancels a queued outbound fax on the middleware relay via HTTP PUT.
+     *
+     * <p>Replaces the ad-hoc client formerly inlined in the Manage Faxes admin action: this
+     * path now goes through the same endpoint allow-list validation, pinned DNS resolution,
+     * timeouts, and disabled redirects as every other middleware operation.</p>
+     */
+    @Override
+    public FaxJob cancelFax(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException {
+        requireMatchingProviderType(faxConfig);
+        if (faxJob.getJobId() == null) {
+            throw new FaxProviderException("Cannot cancel fax: job has no provider job id");
+        }
+        ValidatedHttpEndpoint endpoint = validateMiddlewareConfig(faxConfig);
+        try (CloseableHttpClient client = createHttpClient(faxConfig, endpoint)) {
+            HttpPut put = new HttpPut(endpointUri(endpoint, PATH + "/" + faxJob.getJobId()));
+            put.setHeader("accept", "application/json");
+            put.setHeader("user", faxConfig.getFaxUser());
+            put.setHeader("passwd", faxConfig.getFaxPasswd());
+
+            try (var response = client.execute(put)) {
+                int statusCode = response.getCode();
+                if (statusCode != HttpStatus.SC_OK) {
+                    throw new FaxProviderException(
+                            "Middleware cancel failed for job " + faxJob.getJobId() +
+                            " with HTTP " + statusCode + ": " + response.getReasonPhrase());
+                }
+                FaxJob cancelled = new FaxJob(faxJob);
+                cancelled.setStatus(FaxJob.STATUS.CANCELLED);
+                cancelled.setStatusString("Cancelled on middleware relay");
+                return cancelled;
+            }
+        } catch (IOException e) {
+            throw new FaxProviderException("Middleware fax cancel communication failure", e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
     }

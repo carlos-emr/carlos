@@ -19,6 +19,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerLink;
@@ -62,6 +63,9 @@ class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         // The lazy accessors resolve these via SpringUtils.getBean on first use.
+        // getHtmlTicklers now refuses archive eDocs, so it resolves the archive DAO through
+        // SpringUtils. Unstubbed it answers false, which is what these tickler-rendering tests want.
+        registerMock(OutboundEmailArchiveDao.class, mock(OutboundEmailArchiveDao.class));
         registerMock(TicklerLinkDao.class, mockTicklerLinkDao);
         registerMock(TicklerManager.class, mockTicklerManager);
     }

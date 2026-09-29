@@ -107,6 +107,26 @@ public interface FaxProviderClient {
     }
 
     /**
+     * Verifies that the provider accepts the credentials carried by the given configuration.
+     *
+     * <p>Used by the admin "Test SRFax connection" control so a mistyped account number or
+     * password is reported immediately instead of surfacing minutes later as a scheduler error.
+     * Implementations must use a read-only, side-effect-free provider call and must not log or
+     * echo the credentials.</p>
+     *
+     * <p>The default implementation refuses: providers that offer no cheap probe report the
+     * test as unsupported rather than pretending success.</p>
+     *
+     * @param faxConfig FaxConfig provider configuration containing the credentials to verify
+     * @throws FaxProviderException when the provider rejects the credentials, cannot be reached,
+     *         or does not support a connection test
+     * @since 2026-09-03
+     */
+    default void verifyConnection(FaxConfig faxConfig) throws FaxProviderException {
+        throw new FaxProviderException("Connection test is not supported for provider " + getProviderType());
+    }
+
+    /**
      * Acknowledges or deletes a remote inbound fax after successful local persistence.
      *
      * <p>Behavior is provider-specific: middleware deletes the fax from the relay server,
@@ -130,6 +150,23 @@ public interface FaxProviderClient {
      * @since 2026-02-11
      */
     FaxJob fetchFaxStatus(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException;
+
+    /**
+     * Cancels a queued or in-progress outbound fax at the provider.
+     *
+     * <p>Behavior is provider-specific: SRFax uses the {@code Stop_Fax} action; middleware
+     * issues an HTTP PUT to the relay. Depending on how far transmission has progressed the
+     * provider may report the fax as already sent — implementations must reflect that in the
+     * returned status rather than claiming a cancel that did not happen.</p>
+     *
+     * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
+     * @param faxJob FaxJob outbound job carrying the provider jobId to cancel
+     * @return FaxJob updated job with provider-confirmed status (CANCELLED on success) and
+     *         a human-readable statusString describing the outcome
+     * @throws FaxProviderException when the cancel operation fails or is rejected
+     * @since 2026-08-21
+     */
+    FaxJob cancelFax(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException;
 
     /**
      * Validates that the given fax configuration matches this client's provider type.

@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>The {@code maven-surefire-plugin} in {@code pom.xml} declares explicit {@code <includes>},
  * which <em>replace</em> Surefire's default {@code **}{@code /*Test.java} discovery. A JUnit class is
- * only selected if its simple name ends in {@code UnitTest}/{@code IntegrationTest}/{@code RegressionTest}
+ * only selected if its simple name ends in {@code UnitTest}/{@code IntegrationTest}/{@code RegressionTest}/{@code EndpointTest}
  * (or {@code Tests}), or its package path contains a {@code test}/{@code tickler}/{@code messenger}/
  * {@code provider}/{@code managers} segment. A plain {@code *Test} class anywhere else compiles, is
  * green locally under an explicit {@code -Dtest=...} run, and is <strong>never executed by a plain
@@ -118,6 +118,7 @@ class SurefireIncludeCoverageUnitTest {
         if (info.simpleName.endsWith("UnitTest")
                 || info.simpleName.endsWith("IntegrationTest")
                 || info.simpleName.endsWith("RegressionTest")
+                || info.simpleName.endsWith("EndpointTest")
                 || info.simpleName.endsWith("Tests")) {
             return true;
         }

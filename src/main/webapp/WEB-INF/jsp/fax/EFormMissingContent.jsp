@@ -42,6 +42,7 @@
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
@@ -75,12 +76,34 @@
             <li><fmt:message key="eform.renderIssue.providerStampMissing"/>: <carlos:encode value="${providerStampMissing}"/></li>
             <li><fmt:message key="eform.renderIssue.timerCompatibilityFailure"/>: <carlos:encode value="${timerCompatibilityFailure}"/></li>
             <li><fmt:message key="eform.renderIssue.severeConsoleErrors"/>: <carlos:encode value="${severeConsoleErrors}"/></li>
+            <c:if test="${not empty severeConsoleErrorDetails}">
+                <%-- PHI-safe per-error descriptions (script error type + source location only) so the
+                     clinician can judge the errors before approving the override. --%>
+                <li><fmt:message key="eform.renderIssue.severeConsoleErrorDetails"/>:
+                    <ul>
+                        <c:forEach var="severeConsoleErrorDetail" items="${severeConsoleErrorDetails}">
+                            <li><carlos:encode value="${severeConsoleErrorDetail}"/></li>
+                        </c:forEach>
+                        <%-- The detail list is deduplicated and capped (10 mirrors the renderer's
+                             MAX_CONSOLE_DETAILS / packet MAX_PACKET_CONSOLE_DETAILS). Show the
+                             overflow line only when the cap actually truncated the list: below the
+                             cap, a count above the list size means repeats of the shown lines, not
+                             hidden distinct errors. --%>
+                        <c:if test="${fn:length(severeConsoleErrorDetails) ge 10 and severeConsoleErrors > fn:length(severeConsoleErrorDetails)}">
+                            <li><fmt:message key="eform.renderIssue.severeConsoleErrorsMore">
+                                <fmt:param value="${severeConsoleErrors - fn:length(severeConsoleErrorDetails)}"/>
+                            </fmt:message></li>
+                        </c:if>
+                    </ul>
+                </li>
+            </c:if>
             <li><fmt:message key="eform.renderIssue.containedInteractions"/>: <carlos:encode value="${containedInteractions}"/></li>
+            <li><fmt:message key="eform.renderIssue.decorativeExcludedElements"/>: <carlos:encode value="${decorativeExcludedElements}"/></li>
             <li><fmt:message key="eform.renderIssue.stabilizationCapped"/>: <carlos:encode value="${stabilizationCapped}"/></li>
             <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>
         <div class="d-flex gap-2 mt-3">
-            <form method="post" action="${pageContext.request.contextPath}/fax/faxAction">
+            <form id="approve-incomplete-eform-fax" method="post" action="${pageContext.request.contextPath}/fax/faxAction">
                 <input type="hidden" name="method" value="prepareFax">
                 <input type="hidden" name="transactionType" value="<carlos:encode value="${transactionType}" context="htmlAttribute"/>">
                 <input type="hidden" name="transactionId" value="<carlos:encode value="${transactionId}" context="htmlAttribute"/>">
@@ -89,14 +112,46 @@
                 <input type="hidden" name="recipientFaxNumber" value="<carlos:encode value="${recipientFaxNumber}" context="htmlAttribute"/>">
                 <input type="hidden" name="letterheadFax" value="<carlos:encode value="${letterheadFax}" context="htmlAttribute"/>">
                 <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
-                <button type="submit" class="btn btn-warning"><fmt:message key="fax.eformMissingContent.btnApproveAndFax"/></button>
+                <fmt:message key="fax.eformMissingContent.btnApproveAndFax" var="approveAndFaxLabel"/>
+                <fmt:message key="fax.eformMissingContent.btnPreparingFax" var="preparingFaxLabel"/>
+                <button type="submit" class="btn btn-warning" data-submitting-label="<carlos:encode value="${preparingFaxLabel}" context="htmlAttribute"/>">
+                    <span class="approval-button-label"><carlos:encode value="${approveAndFaxLabel}" context="htmlContent"/></span>
+                    <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                </button>
             </form>
-            <%-- history.back() is correct HERE, unlike the eForm page: this flow is rendered by
-                 Fax2Action against an already-stored document and never calls saveEformData, so
-                 going back returns to the fax dialog without risking a duplicate eform_data row. --%>
-            <button type="button" class="btn btn-secondary" onclick="history.back();"><fmt:message key="fax.eformMissingContent.btnCancel"/></button>
+            <output id="approve-incomplete-eform-fax-status" class="visually-hidden" aria-live="polite" form="approve-incomplete-eform-fax"></output>
+            <form id="cancel-incomplete-eform-fax" method="post" action="${pageContext.request.contextPath}/fax/faxAction">
+                <input type="hidden" name="method" value="cancelStagedEFormFax">
+                <input type="hidden" name="transactionId" value="<carlos:encode value="${transactionId}" context="htmlAttribute"/>">
+                <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
+                <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
+                <fmt:message key="fax.eformMissingContent.btnCancel" var="cancelFaxLabel"/>
+                <button type="submit" class="btn btn-secondary"><carlos:encode value="${cancelFaxLabel}" context="htmlContent"/></button>
+            </form>
         </div>
     </div>
 </div>
+<script>
+    (() => {
+        const form = document.getElementById("approve-incomplete-eform-fax");
+        const status = document.getElementById("approve-incomplete-eform-fax-status");
+        if (!form || !status) {
+            return;
+        }
+        form.addEventListener("submit", (event) => {
+            if (form.dataset.submitting === "true") {
+                event.preventDefault();
+                return;
+            }
+            form.dataset.submitting = "true";
+            const submit = form.querySelector("button[type=\"submit\"]");
+            submit.disabled = true;
+            submit.querySelector(".approval-button-label").textContent = submit.dataset.submittingLabel;
+            submit.querySelector(".spinner-border").classList.remove("d-none");
+            status.textContent = submit.dataset.submittingLabel;
+            status.classList.remove("visually-hidden");
+        });
+    })();
+</script>
 </body>
 </html>

@@ -30,6 +30,7 @@ import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
@@ -38,16 +39,19 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ActionSupport;
 
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -124,6 +128,13 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        EncounterFormDao encounterFormDao = mock(EncounterFormDao.class);
+        EncounterForm encounterForm = new EncounterForm();
+        encounterForm.setFormName("Rourke Growth Chart");
+        encounterForm.setFormTable("");
+        encounterForm.setFormValue("../form/formrourke.jsp?demographic_no=");
+        org.mockito.Mockito.lenient().when(encounterFormDao.findByFormName(any())).thenReturn(List.of(encounterForm));
+        registerMock(EncounterFormDao.class, encounterFormDao);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -229,24 +240,49 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     }
 
     @Test
-    @DisplayName("should return error and name the failing attachment when an attached form cannot be rendered")
-    void shouldReturnErrorNamingFailedAttachment_whenAttachedFormRenderFails() throws Exception {
-        servletActionContextMock.when(ServletActionContext::getServletContext)
-                .thenReturn(new org.springframework.mock.web.MockServletContext());
-        EctFormData.PatientForm form = mock(EctFormData.PatientForm.class);
-        when(form.getFormName()).thenReturn("Rourke Growth Chart");
-        when(form.getDemoNo()).thenReturn("1");
-        when(form.getFormId()).thenReturn("55");
-        when(consultationManager.getAttachedForms(loggedInInfo, 42, 1)).thenReturn(List.of(form));
-        when(faxManager.renderFaxDocument(eq(loggedInInfo), eq(FaxManager.TransactionType.FORM),
-                any(FormTransportContainer.class)))
-                .thenThrow(new PDFGenerationException("renderer unavailable"));
+    @DisplayName("should return error when an attached form has no metadata")
+    void shouldReturnError_whenAttachedFormMetadataIsMissing() throws Exception {
+        when(consultationManager.getAttachedForms(loggedInInfo, 42, 1))
+                .thenReturn(Collections.singletonList(null));
 
         try (LogCapture logCapture = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
             String result = action.execute();
 
             assertThat(result).isEqualTo("error");
             assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(logCapture.events())
+                    .anySatisfy(event -> {
+                        assertThat(event.getThrown()).isInstanceOf(PDFGenerationException.class);
+                        assertThat(event.getThrown().getMessage())
+                                .contains("Attached form \"unknown\"")
+                                .contains("form metadata is missing");
+                    });
+        }
+    }
+
+    @Test
+    @DisplayName("should return error and name the failing attachment when an attached form cannot be rendered")
+    void shouldReturnErrorNamingFailedAttachment_whenAttachedFormRenderFails() throws Exception {
+        servletActionContextMock.when(ServletActionContext::getServletContext)
+                .thenReturn(new org.springframework.mock.web.MockServletContext());
+        EctFormData.PatientForm form = mock(EctFormData.PatientForm.class);
+        when(form.getFormName()).thenReturn("Rourke Growth Chart");
+        when(form.getDemoNo()).thenReturn("2");
+        when(form.getFormId()).thenReturn("55");
+        when(consultationManager.getAttachedForms(loggedInInfo, 42, 1)).thenReturn(List.of(form));
+        when(faxManager.renderFaxDocument(eq(loggedInInfo), eq(FaxManager.TransactionType.FORM),
+                any(FormTransportContainer.class)))
+                .thenThrow(new PDFGenerationException("renderer unavailable"));
+
+        try (MockedConstruction<FormTransportContainer> transportConstruction =
+                     mockConstruction(FormTransportContainer.class);
+             LogCapture logCapture = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("error");
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(transportConstruction.constructed()).hasSize(1);
+            verify(transportConstruction.constructed().get(0)).setDemographicNo("2");
             // The FORM leg wraps identically to the EFORM leg: attachment named, reason preserved.
             assertThat(logCapture.events())
                     .anySatisfy(event -> {

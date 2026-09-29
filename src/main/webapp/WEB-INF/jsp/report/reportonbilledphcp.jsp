@@ -1,3 +1,4 @@
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" buffer="64kb" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -37,7 +38,6 @@
         }
     }
 %>
-<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
 <%@ page import="java.util.ResourceBundle" %>
@@ -47,34 +47,33 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%
-    try {
-        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
-        // select provider list
-        Properties prop = new Properties();
-        String sql = "select u.*, p.first_name, p.last_name from secUserRole u, provider p ";
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    // select provider list
+    Properties prop = new Properties();
+    String sql = "select u.*, p.first_name, p.last_name from secUserRole u, provider p ";
 
-        sql += "where u.provider_no=p.provider_no  order by p.first_name, p.last_name";
+    sql += "where u.provider_no=p.provider_no  order by p.first_name, p.last_name";
 
-        try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, new DBPreparedHandlerParam[0])) {
-            while (rs.next()) {
-                prop = new Properties();
+    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, new DBPreparedHandlerParam[0])) {
+        while (rs.next()) {
+            prop = new Properties();
 
-                prop.setProperty("providerNo", Misc.getString(rs, "provider_no"));
-                prop.setProperty("firstName", Misc.getString(rs, "first_name"));
-                prop.setProperty("lastName", Misc.getString(rs, "last_name"));
+            prop.setProperty("providerNo", Misc.getString(rs, "provider_no"));
+            prop.setProperty("firstName", Misc.getString(rs, "first_name"));
+            prop.setProperty("lastName", Misc.getString(rs, "last_name"));
 
-                String roleName = Misc.getString(rs, "role_name");
+            String roleName = Misc.getString(rs, "role_name");
 
-                for (int i = 0; i < ROLE.length; i++) {
-                    if (ROLE[i].equals(roleName)) {
-                        VEC_PROVIDER[i].add(prop);
-                    }
+            for (int i = 0; i < ROLE.length; i++) {
+                if (ROLE[i].equals(roleName)) {
+                    VEC_PROVIDER[i].add(prop);
                 }
-
-                if (Misc.getString(rs, "provider_no").equals(providerNo))
-                    providerName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
             }
+
+            if (Misc.getString(rs, "provider_no").equals(providerNo))
+                providerName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
         }
+    }
 %>
 <%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 <%@page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
@@ -151,9 +150,9 @@
                         for (int i = 0; i < VEC_PROVIDER[0].size(); i++) {
                     %>
                     <option
-                            value="<%=((Properties)VEC_PROVIDER[0].get(i)).getProperty("providerNo", "")  %>">
-                        <%= ((Properties) VEC_PROVIDER[0].get(i)).getProperty("firstName", "") + " " +
-                                ((Properties) VEC_PROVIDER[0].get(i)).getProperty("lastName", "") %>
+                            value="<carlos:encode value='<%= ((Properties) VEC_PROVIDER[0].get(i)).getProperty("providerNo", "") %>' context="htmlAttribute"/>">
+                        <carlos:encode value='<%= ((Properties) VEC_PROVIDER[0].get(i)).getProperty("firstName", "") + " " +
+                                ((Properties) VEC_PROVIDER[0].get(i)).getProperty("lastName", "") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -164,9 +163,9 @@
                         for (int i = 0; i < VEC_PROVIDER[1].size(); i++) {
                     %>
                     <option
-                            value="<%=((Properties)VEC_PROVIDER[1].get(i)).getProperty("providerNo", "")  %>">
-                        <%= ((Properties) VEC_PROVIDER[1].get(i)).getProperty("firstName", "") + " " +
-                                ((Properties) VEC_PROVIDER[1].get(i)).getProperty("lastName", "") %>
+                            value="<carlos:encode value='<%= ((Properties) VEC_PROVIDER[1].get(i)).getProperty("providerNo", "") %>' context="htmlAttribute"/>">
+                        <carlos:encode value='<%= ((Properties) VEC_PROVIDER[1].get(i)).getProperty("firstName", "") + " " +
+                                ((Properties) VEC_PROVIDER[1].get(i)).getProperty("lastName", "") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -177,9 +176,9 @@
                         for (int i = 0; i < VEC_PROVIDER[2].size(); i++) {
                     %>
                     <option
-                            value="<%=((Properties)VEC_PROVIDER[2].get(i)).getProperty("providerNo", "")  %>">
-                        <%= ((Properties) VEC_PROVIDER[2].get(i)).getProperty("firstName", "") + " " +
-                                ((Properties) VEC_PROVIDER[2].get(i)).getProperty("lastName", "") %>
+                            value="<carlos:encode value='<%= ((Properties) VEC_PROVIDER[2].get(i)).getProperty("providerNo", "") %>' context="htmlAttribute"/>">
+                        <carlos:encode value='<%= ((Properties) VEC_PROVIDER[2].get(i)).getProperty("firstName", "") + " " +
+                                ((Properties) VEC_PROVIDER[2].get(i)).getProperty("lastName", "") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -190,9 +189,9 @@
                         for (int i = 0; i < VEC_PROVIDER[3].size(); i++) {
                     %>
                     <option
-                            value="<%=((Properties)VEC_PROVIDER[3].get(i)).getProperty("providerNo", "")  %>">
-                        <%= ((Properties) VEC_PROVIDER[3].get(i)).getProperty("firstName", "") + " " +
-                                ((Properties) VEC_PROVIDER[3].get(i)).getProperty("lastName", "") %>
+                            value="<carlos:encode value='<%= ((Properties) VEC_PROVIDER[3].get(i)).getProperty("providerNo", "") %>' context="htmlAttribute"/>">
+                        <carlos:encode value='<%= ((Properties) VEC_PROVIDER[3].get(i)).getProperty("firstName", "") + " " +
+                                ((Properties) VEC_PROVIDER[3].get(i)).getProperty("lastName", "") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -221,16 +220,18 @@
                 Properties propCatCode = new Properties();
                 int indexNum = 0;
                 Vector vec = new Vector();
-                sql = "select * from dxphcpgroup order by dxcode, level1, level2 ";
-                try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, new DBPreparedHandlerParam[0])) {
-                    while (rs.next()) {
-                        prop = new Properties();
-                        prop.setProperty("dxcode", "" + rs.getInt("dxcode"));
-                        prop.setProperty("level1", Misc.getString(rs, "level1"));
-                        prop.setProperty("level2", Misc.getString(rs, "level2"));
-                        vec.add(prop);
-                        propCatCode.setProperty("" + rs.getInt("dxcode"), "" + indexNum);
-                        indexNum++;
+                if (bDx) {
+                    sql = "select dxcode, level1, level2 from dxphcpgroup order by dxcode, level1, level2 ";
+                    try (ResultSet rs = LegacyJdbcQuery.queryResults(sql, new DBPreparedHandlerParam[0])) {
+                        while (rs.next()) {
+                            prop = new Properties();
+                            prop.setProperty("dxcode", Misc.getString(rs, "dxcode"));
+                            prop.setProperty("level1", Misc.getString(rs, "level1"));
+                            prop.setProperty("level2", Misc.getString(rs, "level2"));
+                            vec.add(prop);
+                            propCatCode.setProperty(Misc.getString(rs, "dxcode"), "" + indexNum);
+                            indexNum++;
+                        }
                     }
                 }
 
@@ -808,14 +809,15 @@
         <%
             String catName = "";
             String color = "";
-            int codeNum = 0;
             int vecNum = 0;
             for (int i = 0; i < vServiceCode.size(); i++) {
                 if (bDx) {
+                    color = i % 2 == 0 ? tdInterlColor : "white";
+
                     // sync vServiceCode and vec
-                    codeNum = Integer.parseInt((String) vServiceCode.get(i));
-                    if (propCatCode.containsKey("" + codeNum)) {
-                        vecNum = Integer.parseInt(propCatCode.getProperty("" + codeNum));
+                    String serviceCode = (String) vServiceCode.get(i);
+                    if (serviceCode != null && propCatCode.containsKey(serviceCode)) {
+                        vecNum = Integer.parseInt(propCatCode.getProperty(serviceCode));
 
                         // display the category name if necessary
                         String curCatName = ((Properties) vec.get(vecNum)).getProperty("level1", "").toUpperCase() + " - " +
@@ -833,15 +835,17 @@
                             catName = curCatName;
         %>
         <tr bgcolor="<%=tdSubtitleColor%>">
-            <td colspan="24"><%= curCatName %>
+            <td colspan="24"><carlos:encode value='<%= curCatName %>' context="html"/>
             </td>
         </tr>
         <%
                     }
-                    color = i % 2 == 0 ? tdInterlColor : "white";
                 } else {
                     color = "gold";
                 }
+            } else {
+                // Preserve the legacy ServiceCode rendering: only unmapped diagnoses are gold.
+                color = "";
             }
         %>
         <tr bgcolor="<%=color %>" align="center">
@@ -980,13 +984,6 @@
     </table>
     <%
         }
-    } catch (Exception e) {
-        // Log the error to the console
-        System.err.println("JSP Processing Error:");
-        e.printStackTrace(System.err);
-        request.getRequestDispatcher("/WEB-INF/jsp/error/errorpage.jsp").forward(request, response);
-        return;
-    }
     %>
     <script type="text/javascript">
         Calendar.setup({

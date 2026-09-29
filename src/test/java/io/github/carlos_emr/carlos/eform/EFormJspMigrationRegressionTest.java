@@ -53,6 +53,8 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/upload.jsp");
     private static final Path IMPORT_PARTIAL_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
+    private static final Path EFM_FORM_MANAGER_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformmanager.jsp");
     private static final Path EFM_TOP_NAV_JSPF =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf");
     private static final Path EFM_FORM_MANAGER_EDIT_JSP =
@@ -65,8 +67,12 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
     private static final Path RTL_ATTACHMENT_ROUTE_FIX_SQL =
             Path.of("database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql");
+    private static final Path RTL_MODERNIZE_MIGRATION =
+            Path.of("database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql");
     private static final Path WEB_XML =
             Path.of("src/main/webapp/WEB-INF/web.xml");
+    private static final Path EFORM_FAX_MISSING_CONTENT_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/fax/EFormMissingContent.jsp");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
 
@@ -85,6 +91,24 @@ class EFormJspMigrationRegressionTest {
         assertThat(webXml).containsSubsequence(
                 "<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>",
                 "<url-pattern>/EFormViewForPdfGenerationServlet</url-pattern>");
+    }
+
+    @Test
+    @DisplayName("incomplete eForm fax approval should show progress and prevent duplicate submission")
+    void shouldPreventDuplicateSubmission_whenApprovingIncompleteEFormFax() throws IOException {
+        String jsp = Files.readString(EFORM_FAX_MISSING_CONTENT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("id=\"approve-incomplete-eform-fax\"")
+                .contains("form.dataset.submitting === \"true\"")
+                .contains("submit.disabled = true")
+                .contains("spinner-border-sm")
+                .contains("<output id=\"approve-incomplete-eform-fax-status\"")
+                .contains("fax.eformMissingContent.btnPreparingFax")
+                .contains("aria-live=\"polite\"")
+                .contains("id=\"cancel-incomplete-eform-fax\"")
+                .contains("name=\"method\" value=\"cancelStagedEFormFax\"")
+                .doesNotContainPattern("(?s)\\b(?:window\\s*\\.\\s*)?history\\s*\\.\\s*back\\s*\\(");
     }
 
     @Test
@@ -179,12 +203,45 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("eForm uploads and imports should preserve explicit schedule navigation")
+    void shouldPreserveScheduleNavigation_throughEFormUploadAndImport() throws IOException {
+        String manager = Files.readString(EFM_FORM_MANAGER_JSP, StandardCharsets.UTF_8);
+        String upload = Files.readString(UPLOAD_PARTIAL_JSP, StandardCharsets.UTF_8);
+        String importJsp = Files.readString(IMPORT_PARTIAL_JSP, StandardCharsets.UTF_8);
+
+        assertThat(manager)
+                .contains("/eform/partials/upload${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}")
+                .contains("/eform/partials/import${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}");
+
+        for (String partial : List.of(upload, importJsp)) {
+            assertThat(partial)
+                    .contains("<c:if test=\"${param.scheduleNav eq '1'}\">")
+                    .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\"")
+                    .contains("/administration?show=Forms${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}")
+                    .doesNotContain("/administration?show=Forms&scheduleNav=1\"");
+        }
+    }
+
+    @Test
     @DisplayName("struts eForm config should keep both extensionless and legacy displayImage routes")
     void shouldKeepDisplayImageCompatibilityRoutes_whenReadingStrutsEFormConfig() throws IOException {
         String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
 
         assertThat(struts).contains("<action name=\"eform/displayImage\"");
         assertThat(struts).contains("<action name=\"eform/displayImage.do\"");
+    }
+
+    @Test
+    @DisplayName("struts eForm config should keep the rtlPreventions.do alias the shipped letter calls")
+    void shouldKeepRtlPreventionsCompatibilityRoute_whenReadingStrutsEFormConfig() throws IOException {
+        String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
+        String letterMigration = Files.readString(RTL_MODERNIZE_MIGRATION, StandardCharsets.UTF_8);
+
+        // The stored form_html hardcodes the .do spelling; the alias must exist as long as it does.
+        // The relative URL form appears only in the stored form_html, not in the file's SQL comment.
+        assertThat(letterMigration).contains("../eform/rtlPreventions.do");
+        assertThat(struts).contains("<action name=\"eform/rtlPreventions\"");
+        assertThat(struts).contains("<action name=\"eform/rtlPreventions.do\"");
     }
 
     @Test
@@ -349,8 +406,14 @@ class EFormJspMigrationRegressionTest {
         String jsp = Files.readString(IMPORT_PARTIAL_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
-        assertThat(jsp).contains("<carlos:encode value='<%= error %>' context=\"html\"/>");
+        // The multipart-rejection loop was renamed from `error` to `uploadError` when it moved
+        // OUT of the importErrors guard: reaching this page through the action's "input" result
+        // means the action never ran, so importErrors is never set and a block nested inside its
+        // guard could not report the rejection. The encoding requirement is what this test is
+        // for, and it still holds on both loops.
+        assertThat(jsp).contains("<carlos:encode value='<%= uploadError %>' context=\"html\"/>");
         assertThat(jsp).contains("<carlos:encode value='<%= importError %>' context=\"html\"/>");
+        assertThat(jsp).doesNotContain("<li><%= uploadError %></li>");
         assertThat(jsp).doesNotContain("<li><%= error %></li>");
         assertThat(jsp).doesNotContain("<%=importError%>");
     }

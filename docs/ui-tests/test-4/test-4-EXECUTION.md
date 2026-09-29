@@ -14,13 +14,13 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/oscar/index.jsp
 ### 2. Database Connectivity
 ```bash
 # Verify database connection
-mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword carlos -e "SELECT 1;"
 ```
 
 ### 3. Test Patient Exists
 ```bash
 # Verify test patient exists
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT demographic_no, last_name, first_name
 FROM demographic WHERE demographic_no = 1;"
 ```
@@ -28,7 +28,7 @@ FROM demographic WHERE demographic_no = 1;"
 ### 4. Drug Database Available
 ```bash
 # Verify drug database has entries
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT COUNT(*) as drug_count FROM drugs LIMIT 1;"
 ```
 
@@ -224,14 +224,14 @@ ls -1 ui-test-runs/$TIMESTAMP/test-4/screenshots/test-4-*.png | wc -l
 ### 2. Database Verification
 ```bash
 # Verify allergy was added
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT id, description, reaction
 FROM allergies
 WHERE demographic_no = 1
 ORDER BY id DESC LIMIT 1;"
 
 # Verify prescription was created
-mariadb -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword carlos -e "
 SELECT drug_id, BN, special
 FROM drugs
 WHERE demographic_no = 1
