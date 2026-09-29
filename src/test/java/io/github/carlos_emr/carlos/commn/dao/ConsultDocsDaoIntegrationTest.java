@@ -161,9 +161,6 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         return patientLabRouting;
     }
 
-    private String deletedValue(ConsultDocs consultDocs) {
-        return entityManager.find(ConsultDocs.class, consultDocs.getId()).getDeleted();
-    }
 
     @Nested
     @DisplayName("CRUD operations")
@@ -268,26 +265,8 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Nested
-    @DisplayName("stale active consult attachment cleanup")
-    class StaleActiveConsultAttachmentCleanup {
-
-        @Test
-        @DisplayName("should report only invalid active eForm and document attachments")
-        void shouldReportOnlyInvalidActiveEFormAndDocumentAttachments_forCleanupDryRun() {
-            CleanupFixture fixture = createCleanupFixture();
-
-            List<ConsultDocs> results = consultDocsDao.findStaleActiveConsultAttachments();
-
-            assertThat(results)
-                    .extracting(ConsultDocs::getId)
-                    .containsExactlyInAnyOrder(
-                            fixture.wrongPatientEForm.getId(),
-                            fixture.missingEForm.getId(),
-                            fixture.missingDocument.getId(),
-                            fixture.deletedDocument.getId(),
-                            fixture.wrongPatientDocument.getId());
-            assertThat(consultDocsDao.countStaleActiveConsultAttachments()).isEqualTo(5);
-        }
+    @DisplayName("unavailable active consult attachments")
+    class UnavailableActiveConsultAttachments {
 
         @Test
         @DisplayName("should report unavailable active eForm document and lab attachments for runtime warnings")
@@ -306,34 +285,6 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
                             fixture.wrongPatientDocument.getId(),
                             fixture.activeLabWithMissingTarget.getId(),
                             fixture.wrongPatientLab.getId());
-        }
-
-        @Test
-        @DisplayName("should soft-delete only invalid active eForm and document attachments")
-        void shouldSoftDeleteOnlyInvalidActiveEFormAndDocumentAttachments_forCleanup() {
-            CleanupFixture fixture = createCleanupFixture();
-
-            int updated = consultDocsDao.markStaleActiveConsultAttachmentsDeleted();
-            entityManager.flush();
-            entityManager.clear();
-
-            assertThat(updated).isEqualTo(5);
-            assertThat(deletedValue(fixture.validSamePatientEForm)).isNull();
-            assertThat(deletedValue(fixture.patientIndependentEForm)).isNull();
-            assertThat(deletedValue(fixture.validDocument)).isNull();
-            assertThat(deletedValue(fixture.validNonDeletedDocument)).isNull();
-            assertThat(deletedValue(fixture.validLab)).isNull();
-            assertThat(deletedValue(fixture.wrongPatientLab)).isNull();
-            assertThat(deletedValue(fixture.activeLabWithMissingTarget)).isNull();
-            assertThat(deletedValue(fixture.activeFormWithMissingTarget)).isNull();
-            assertThat(deletedValue(fixture.activeHrmWithMissingTarget)).isNull();
-            assertThat(deletedValue(fixture.alreadyDeletedWrongPatientEForm)).isEqualTo(ConsultDocs.DELETED);
-            assertThat(deletedValue(fixture.alreadyDeletedMissingDocument)).isEqualTo(ConsultDocs.DELETED);
-            assertThat(deletedValue(fixture.wrongPatientEForm)).isEqualTo(ConsultDocs.DELETED);
-            assertThat(deletedValue(fixture.missingEForm)).isEqualTo(ConsultDocs.DELETED);
-            assertThat(deletedValue(fixture.missingDocument)).isEqualTo(ConsultDocs.DELETED);
-            assertThat(deletedValue(fixture.deletedDocument)).isEqualTo(ConsultDocs.DELETED);
-            assertThat(deletedValue(fixture.wrongPatientDocument)).isEqualTo(ConsultDocs.DELETED);
         }
 
         private CleanupFixture createCleanupFixture() {
