@@ -26,13 +26,13 @@ migration/
            V1.0.20__widen_fax_destination_for_international_numbers.sql
            V1.0.21__serialize_missing_lab_routing_creation.sql
            V1.0.22__add_lab_routing_lock_audit_columns.sql
-           V1.0.24__add_email_consent_audit.sql
-           V1.0.25__add_sms_system_of_record.sql
-           V1.0.26__widen_email_config_for_encrypted_credentials.sql
-           V1.0.27__prepare_outbound_email_archive_reference_engines.sql
-           V1.0.28__outbound_email_archive.sql
-           V1.0.31__add_sms_security_objects.sql  # 29-30 were held by open PRs; see common/README.md
-           V1.0.32__add_sms_consent.sql
+           V1.0.23.1__widen_email_config.sql  # same file as release/2026.08
+           V1.0.45__add_email_consent_audit.sql  # 24-44 belong to release/2026.08 and #3694; see below
+           V1.0.46__add_sms_system_of_record.sql
+           V1.0.47__prepare_outbound_email_archive_reference_engines.sql
+           V1.0.48__outbound_email_archive.sql
+           V1.0.49__add_sms_security_objects.sql
+           V1.0.50__add_sms_consent.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -47,13 +47,25 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.32`
-(`common/V1.0.32`, shared by both provinces), and the next free number for ANY
-location — shared or province — is `V1.0.33`. The version line is global:
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.50`
+(`common/V1.0.50`, shared by both provinces), and the next free number for ANY
+location — shared or province — is `V1.0.51`.
+
+**Numbers 24 to 44 are not free on this branch.** `release/2026.08` uses versions up to `V1.0.43`
+and is tagged, and open PR #3694 holds `V1.0.44`. The migrations that exist only on develop were
+first merged as `V1.0.24`–`V1.0.28`, `V1.0.31` and `V1.0.32`. None had shipped in a tag, so they
+were renumbered to `V1.0.45`–`V1.0.50` with their order and SQL unchanged (comments inside those
+files still name the old numbers). Without the renumbering, a database that had run the release
+migrations would never apply them. `V1.0.26` was byte-identical to the release's
+`V1.0.23.1__widen_email_config.sql` and now carries that name, so the release back-merge brings
+the same file. A database with a Flyway history that applied the old numbers must be rebuilt;
+the SQL is not all safe to run twice, so `flyway repair` is not a substitute.
+
+The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.32` today on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.32`) but would silently
+run — `common/V1.0.50` today on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.50`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province.

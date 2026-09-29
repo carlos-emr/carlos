@@ -220,8 +220,8 @@ class SmsSecurityObjectsMigrationUnitTest {
                     .filter(p -> p.getFileName().toString().matches("V1\\.0\\.\\d+__add_sms_security_objects\\.sql"))
                     .toList();
             assertThat(candidates).as("exactly one SMS security objects migration").hasSize(1);
-            // A renumber must be loud: the number was chosen to sit above every open claim at the time.
-            assertThat(candidates.get(0).getFileName().toString()).startsWith("V1.0.31__");
+            // A renumber must be loud: the number sits above release/2026.08's migrations and #3694's.
+            assertThat(candidates.get(0).getFileName().toString()).startsWith("V1.0.49__");
             return candidates.get(0);
         }
     }
