@@ -300,7 +300,7 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
             // "TLS" means "the provider's best supported version". Naming a fixed version here
             // would freeze this channel at it; the floor is expressed on the TLS strategy above
             // via setTlsVersions, which is where it belongs.
-            SSLContext context = SSLContext.getInstance("TLS");
+            SSLContext context = SSLContext.getInstance("TLS"); // nosemgrep: java.lang.security.audit.weak-ssl-context.weak-ssl-context -- "TLS" selects the provider's best version; the floor is TLS 1.2/1.3 via setTlsVersions on the TLS strategy above
             context.init(
                     null, new TrustManager[] {PortalCertificatePinning.over(certificatePins)}, null);
             return context;
