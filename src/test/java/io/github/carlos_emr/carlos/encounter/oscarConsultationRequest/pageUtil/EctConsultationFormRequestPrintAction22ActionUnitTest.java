@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -192,6 +194,21 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @Test
+    @DisplayName("should refuse to print a consult for a patient the provider is restricted from, before reading attachments")
+    void shouldRefusePrint_whenPatientIsRestricted() {
+        // General consult read is granted; the restriction is on this consult's own patient.
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("1"))).thenReturn(false);
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        eDocUtilMock.verifyNoInteractions();
+        verifyNoInteractions(consultationManager, faxManager);
+        assertThat(response.getContentAsByteArray()).isEmpty();
     }
 
     @Test
