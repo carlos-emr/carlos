@@ -161,6 +161,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), any(String.class))).thenReturn(true);
 
         action = new EctConsultationFormRequestPrintAction22Action();
         // faxManager is a STATIC field resolved once at class load; capture the original and

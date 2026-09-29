@@ -21,6 +21,10 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import java.lang.reflect.UndeclaredThrowableException;
+import java.util.HashMap;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
@@ -104,7 +108,7 @@ class EctConsultationFormRequestPrintAction22ActionResilienceUnitTest extends Ca
 
     @Test
     @DisplayName("should append the validated PDF file path when the attachment is readable")
-    void shouldAppendValidatedPdfPath_whenDocumentReadable() throws Exception {
+    void shouldAppendValidatedPdfPath_whenDocumentReadable() throws Throwable {
         Path pdfPath = Files.write(tempDir.resolve("consult-attachment.pdf"), "%PDF-1.4".getBytes(StandardCharsets.US_ASCII));
         EDoc doc = printableDocument("42", pdfPath.getFileName().toString(), "application/pdf");
         ArrayList<Object> attachments = new ArrayList<>();
@@ -131,26 +135,69 @@ class EctConsultationFormRequestPrintAction22ActionResilienceUnitTest extends Ca
     }
 
     @Test
-    @DisplayName("should skip malformed image documents instead of failing the print package")
-    void shouldSkipMalformedImageDocument_whenAppendingAttachments() throws Exception {
+    @DisplayName("should fail the print when an attached image cannot be converted, naming it by id only")
+    void shouldFailPrint_whenAttachedImageCannotBeConverted() throws Exception {
         Path imagePath = Files.write(tempDir.resolve("bad-image.png"), new byte[]{1, 2, 3});
         EDoc doc = printableDocument("44", imagePath.getFileName().toString(), "image/png");
         ArrayList<Object> attachments = new ArrayList<>();
         ArrayList<InputStream> streams = new ArrayList<>();
+        List<EDoc> docs = List.of(doc);
 
         try (MockedConstruction<ImagePDFCreator> mockedImages = mockConstruction(ImagePDFCreator.class,
-                (mock, context) -> doThrow(new DocumentException("bad image")).when(mock).printPdf())) {
-            appendDocumentAttachments(attachments, streams, List.of(doc));
+                (mock, context) -> doThrow(new DocumentException("clinical text in a renderer message")).when(mock).printPdf())) {
+            assertThatThrownBy(() -> appendDocumentAttachments(attachments, streams, docs))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessageContaining("DOC 44")
+                    .hasMessageContaining("DocumentException")
+                    .hasMessageNotContaining("clinical text")
+                    .hasMessageNotContaining("bad-image")
+                    .hasNoCause();
 
             assertThat(attachments).isEmpty();
-            assertThat(streams).isEmpty();
-            assertThat(request.getAttribute("imagePath")).isEqualTo(imagePath.toFile().getPath());
             assertThat(mockedImages.constructed()).hasSize(1);
         }
     }
 
-    private void appendDocumentAttachments(ArrayList<Object> attachments, ArrayList<InputStream> streams, List<EDoc> docs) {
-        ReflectionTestUtils.invokeMethod(action, "appendDocumentAttachments", attachments, streams, docs, tempDir.toString() + File.separator);
+    @Test
+    @DisplayName("should fail the print when an attached document's file is missing")
+    void shouldFailPrint_whenAttachedDocumentFileIsMissing() {
+        EDoc doc = printableDocument("45", "gone.pdf", "application/pdf");
+        ArrayList<Object> attachments = new ArrayList<>();
+        ArrayList<InputStream> streams = new ArrayList<>();
+        List<EDoc> docs = List.of(doc);
+
+        assertThatThrownBy(() -> appendDocumentAttachments(attachments, streams, docs))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("DOC 45")
+                .hasMessageNotContaining("gone.pdf");
+        assertThat(attachments).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should fail the print when an attached HRM report has no usable id")
+    void shouldFailPrint_whenAttachedHrmReportHasNoId() {
+        ArrayList<Object> attachments = new ArrayList<>();
+        ArrayList<InputStream> streams = new ArrayList<>();
+        List<HashMap<String, Object>> reports = List.of(new HashMap<>());
+
+        assertThatThrownBy(() -> invokeUnwrapped("appendHRMAttachments",
+                mock(LoggedInInfo.class), attachments, streams, reports))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("HRM");
+        assertThat(attachments).isEmpty();
+    }
+
+    private void appendDocumentAttachments(ArrayList<Object> attachments, ArrayList<InputStream> streams, List<EDoc> docs) throws Throwable {
+        invokeUnwrapped("appendDocumentAttachments", attachments, streams, docs, tempDir.toString() + File.separator);
+    }
+
+    /** Reflection wraps a checked exception; hand the test the one the action threw. */
+    private void invokeUnwrapped(String method, Object... args) throws Throwable {
+        try {
+            ReflectionTestUtils.invokeMethod(action, method, args);
+        } catch (UndeclaredThrowableException e) {
+            throw e.getCause();
+        }
     }
 
     private EDoc printableDocument(String docId, String fileName, String contentType) {

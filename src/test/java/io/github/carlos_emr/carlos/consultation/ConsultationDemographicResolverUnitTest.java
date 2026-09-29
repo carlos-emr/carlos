@@ -36,8 +36,8 @@ class ConsultationDemographicResolverUnitTest {
         assertThat(resolution.demographicId()).isEqualTo("1");
         assertThat(resolution.failureReason()).isNull();
         verify(consultationRequestDao).find(9);
-        verify(logger).warn("Ignoring mismatched consultation {} demographic requestId={} consultationDemographic={}",
-                "preview", 9, "1");
+        // The patient's id is not logged; the request id identifies the consult.
+        verify(logger).warn("Ignoring mismatched consultation {} demographic requestId={}", "preview", 9);
     }
 
     @Test

@@ -83,8 +83,9 @@ public final class ConsultationDemographicResolver {
         String submittedDemographic = Objects.toString(submittedDemographicId, null);
         if (StringUtils.isNotBlank(submittedDemographic) && !consultationDemographicId.equals(submittedDemographic)
                 && logger != null && logger.isWarnEnabled()) {
-            logger.warn("Ignoring mismatched consultation {} demographic requestId={} consultationDemographic={}",
-                    safeContext(context), parsedRequestId, consultationDemographicId);
+            // The request id is enough to investigate; the patient's id stays out of the log.
+            logger.warn("Ignoring mismatched consultation {} demographic requestId={}",
+                    safeContext(context), parsedRequestId);
         }
 
         return Resolution.resolved(consultationDemographicId);
