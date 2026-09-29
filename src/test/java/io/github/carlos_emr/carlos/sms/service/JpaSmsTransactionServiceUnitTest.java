@@ -534,6 +534,58 @@ class JpaSmsTransactionServiceUnitTest {
         verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 
+    @Test
+    @DisplayName("recordDeliveryEvent publishes once when sent and failed callbacks are replayed in turn")
+    void shouldPublishOnce_whenSentAndFailedCallbacksAlternate() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction sent = acceptedOutboundRow();
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(sent));
+        Instant eventAt = Instant.parse("2026-09-22T10:00:00Z");
+        SmsDeliveryWebhookDto sentCallback = new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-1", SmsStatus.SENT, eventAt, null, null, null);
+
+        recorder.recordDeliveryEvent(failedDelivery(eventAt));
+        recorder.recordDeliveryEvent(sentCallback);
+        recorder.recordDeliveryEvent(failedDelivery(eventAt));
+
+        assertThat(sent.getStatus()).isEqualTo(SmsStatus.FAILED);
+        verify(eventPublisher, times(1)).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent publishes nothing when a failed callback follows an unmatched sent callback")
+    void shouldNotPublishFailedEvent_whenPlaceholderRowFails() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction placeholder = SmsTransaction.deliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-1", SmsStatus.SENT,
+                Instant.parse("2026-09-22T09:59:00Z"), null, null, null));
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(placeholder));
+
+        recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
+
+        // The placeholder names no patient, provider or appointment, so nobody could act on the event.
+        assertThat(placeholder.getStatus()).isEqualTo(SmsStatus.FAILED);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent publishes nothing when a failed callback names a message that was never sent")
+    void shouldNotPublishFailedEvent_whenMessageWasNeverSent() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction queued = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(queued));
+
+        recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
+
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
     private static SmsTransaction acceptedOutboundRow() {
         SmsTransaction sent = SmsTransaction.outboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),

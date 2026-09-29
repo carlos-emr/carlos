@@ -402,6 +402,15 @@ public class SmsTransaction extends AbstractModel<Long> {
         touch();
     }
 
+    /**
+     * @return whether this is a message CARLOS sent and whose delivery is still open: it has a recipient
+     *         (a placeholder row created from an unmatched callback has none) and its status is
+     *         {@code SENDING} or {@code SENT}
+     */
+    public boolean isAwaitingCarrierOutcome() {
+        return !isBlank(toPhoneNumber) && (status == SmsStatus.SENDING || status == SmsStatus.SENT);
+    }
+
     public void markDeliveryEvent(SmsDeliveryWebhookDto webhook) {
         Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
         SmsStatus webhookStatus = webhook.status() == null ? SmsStatus.FAILED : webhook.status();
@@ -472,6 +481,11 @@ public class SmsTransaction extends AbstractModel<Long> {
             return true;
         }
         if (status == SmsStatus.DELIVERED && webhookStatus != SmsStatus.DELIVERED) {
+            return true;
+        }
+        if (status == SmsStatus.FAILED && webhookStatus == SmsStatus.SENT) {
+            // A failed message can still turn out delivered, but "sent" says nothing new. Accepting it
+            // would reopen the row, so the same two callbacks replayed in turn would fail it again and again.
             return true;
         }
         return status == SmsStatus.DELIVERED
