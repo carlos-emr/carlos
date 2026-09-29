@@ -236,6 +236,79 @@ class SmsQueueSchedulerUnitTest {
     }
 
     @Test
+    @DisplayName("a settings change follows the saved setting when it differs from the event")
+    void shouldFollowStoredSetting_whenEventIsOutOfDate() {
+        when(smsConfigService.storedSchedulerEnabled()).thenReturn(Optional.of(false), Optional.of(true));
+        SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(true));
+            assertThat(scheduler.isRunning()).isFalse();
+
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(false));
+            assertThat(scheduler.isRunning()).isTrue();
+        } finally {
+            scheduler.stop();
+        }
+    }
+
+    @Test
+    @DisplayName("a settings change follows the event when the saved setting cannot be read")
+    void shouldFollowEvent_whenStoredSettingCannotBeRead() {
+        when(smsConfigService.storedSchedulerEnabled()).thenThrow(new IllegalStateException("sms_config missing"));
+        SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(true));
+
+            assertThat(scheduler.isRunning()).isTrue();
+        } finally {
+            scheduler.stop();
+        }
+    }
+
+    @Test
+    @DisplayName("a settings change after shutdown does not start the scheduler")
+    void shouldStayStopped_whenSettingsChangeAfterShutdown() {
+        SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+            scheduler.stop();
+
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(true));
+
+            assertThat(scheduler.isRunning()).isFalse();
+        } finally {
+            scheduler.stop();
+        }
+    }
+
+    @Test
+    @DisplayName("the scheduler keeps running after a run fails with an Error")
+    void shouldKeepRunning_whenRunFailsWithError() throws Exception {
+        CountDownLatch runs = new CountDownLatch(2);
+        when(carlosProperties.getProperty(eq("sms.queue.scheduler.intervalSeconds"), anyString())).thenReturn("1");
+        when(smsConfigService.sendingEnabled()).thenReturn(true);
+        when(smsQueueWorker.processDueMessages(anyInt())).thenAnswer(invocation -> {
+            runs.countDown();
+            throw new StackOverflowError("run failed");
+        });
+        SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(true));
+            await(runs, 0);
+
+            assertThat(scheduler.isRunning()).isTrue();
+        } finally {
+            scheduler.stop();
+        }
+    }
+
+    @Test
     @DisplayName("runOnce leaves queued messages alone while SMS is turned off in Administration")
     void shouldSkipQueue_whenSendingIsTurnedOff() {
         when(smsConfigService.sendingEnabled()).thenReturn(false);

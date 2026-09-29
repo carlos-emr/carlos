@@ -34,6 +34,9 @@ public class SmsQueueScheduler {
     // scheduler off cancels the schedule, not the executor.
     private ScheduledExecutorService executorService;
     private ScheduledFuture<?> schedule;
+    // Set at application shutdown. A settings save that commits afterwards must not start a thread
+    // that nothing would ever stop.
+    private boolean shutDown;
 
     /** For tests: no stored settings, so the scheduler follows the property. */
     SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker) {
@@ -48,7 +51,8 @@ public class SmsQueueScheduler {
 
     /** @return whether the scheduler is running in this server right now */
     public synchronized boolean isRunning() {
-        return schedule != null;
+        // A schedule that has ended (a run died with an Error) is not running, whatever was asked for.
+        return schedule != null && !schedule.isDone();
     }
 
     /**
@@ -58,7 +62,18 @@ public class SmsQueueScheduler {
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onConfigChanged(SmsConfigChangedEvent event) {
-        if (event.schedulerEnabled()) {
+        // Two saves close together can reach this listener in the opposite order to their commits, so the
+        // saved setting decides, not the event. The event's value is used only if it cannot be read.
+        boolean enabled = event.schedulerEnabled();
+        if (configService != null) {
+            try {
+                enabled = configService.storedSchedulerEnabled().orElse(enabled);
+            } catch (RuntimeException e) {
+                LOGGER.warn("SMS settings could not be re-read after a save; using the saved event. "
+                        + "exceptionClass={}", exceptionClass(e));
+            }
+        }
+        if (enabled) {
             startExecutor();
         } else {
             stopAfterCurrentRun();
@@ -94,7 +109,7 @@ public class SmsQueueScheduler {
     }
 
     private synchronized void startExecutor() {
-        if (schedule != null) {
+        if (shutDown || (schedule != null && !schedule.isDone())) {
             return;
         }
         LOGGER.info(
@@ -118,6 +133,7 @@ public class SmsQueueScheduler {
     /** Stops at once, interrupting a run in progress. For application shutdown. */
     @PreDestroy
     public synchronized void stop() {
+        shutDown = true;
         schedule = null;
         if (executorService != null) {
             executorService.shutdownNow();
@@ -141,6 +157,10 @@ public class SmsQueueScheduler {
             runOnce();
         } catch (RuntimeException e) {
             LOGGER.warn("SMS queue scheduler run failed; exceptionClass={}", exceptionClass(e));
+        } catch (Error e) {
+            // An Error that escapes ends a fixed-delay schedule for good, silently. Log it and carry on
+            // with the next run; the class name only, since a message could quote data.
+            LOGGER.error("SMS queue scheduler run failed with an error; exceptionClass={}", e.getClass().getName());
         }
     }
 
