@@ -481,7 +481,12 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         Consent consent = ConsentRecords.effective(
                 consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographic_no, consentTypeId));
         if (consent == null || consent.isOptout()) {
-            // Confirming consent the patient has refused, or never gave, is not an upgrade.
+            // Confirming consent the patient has refused, or never gave, is not an upgrade. Staff
+            // asked for it, so the refusal is recorded against the patient.
+            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.recordExplicitConsent", CONSENT_LOG_CONTENT,
+                    consent == null ? null : String.valueOf(consent.getId()), demographic_no,
+                    " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentTypeId
+                            + (consent == null ? " skipped: no live record" : " skipped: opted out"));
             return false;
         }
         if (consent.isExplicit()) {

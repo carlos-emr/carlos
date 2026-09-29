@@ -851,6 +851,25 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
             assertThat(optedOut.isExplicit()).isFalse();
             verify(mockConsentDao, never()).merge(any());
+            // Staff asked for it, so the refusal is on the patient's audit trail.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.recordExplicitConsent"), eq("consent"), eq("23"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 skipped: opted out")));
+        }
+
+        @Test
+        @DisplayName("should refuse when an older live opt-out sits beside a newer implied opt-in")
+        void shouldNotUpgrade_whenDuplicateOptOutDecides() {
+            Consent newerOptIn = consent(24, false, new Date(2_000L));
+            newerOptIn.setExplicit(false);
+            Consent olderOptOut = consent(25, true, new Date(1_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1))
+                    .thenReturn(List.of(newerOptIn, olderOptOut));
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
+            assertThat(newerOptIn.isExplicit()).isFalse();
+            verify(mockConsentDao, never()).merge(any());
         }
 
         @Test
@@ -862,6 +881,9 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
             verify(mockConsentDao, never()).merge(any());
             verify(mockConsentDao, never()).persist(any());
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.recordExplicitConsent"), eq("consent"), isNull(), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 skipped: no live record")));
         }
 
         @Test
