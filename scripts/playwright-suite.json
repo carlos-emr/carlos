@@ -204,6 +204,24 @@
       ]
     },
     {
+      "name": "appointment-status-editing",
+      "script": "scripts/appointment-status-editing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "APPOINTMENT_DAYS_AHEAD",
+        "APPOINTMENT_DEMOGRAPHIC_NO",
+        "APPOINTMENT_PROVIDER_NO",
+        "APPT_STATUS_EDITING_EXPECT"
+      ]
+    },
+    {
       "name": "appointment-recurrence",
       "script": "scripts/appointment-recurrence-playwright-checks.js",
       "tiers": [

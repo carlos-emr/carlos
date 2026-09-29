@@ -108,6 +108,7 @@
     "test:schedule-quick-search-appointment-playwright": "node scripts/schedule-quick-search-appointment-playwright-checks.js",
     "test:appointment-recurrence-playwright": "node scripts/appointment-recurrence-playwright-checks.js",
     "test:appointment-lifecycle-playwright": "node scripts/appointment-lifecycle-playwright-checks.js",
+    "test:appointment-status-editing-playwright": "node scripts/appointment-status-editing-playwright-checks.js",
     "test:edit-appointment-direct-link-playwright": "node scripts/edit-appointment-direct-link-playwright-checks.js",
     "test:appointment-patient-typeahead-playwright": "node scripts/appointment-patient-typeahead-playwright-checks.js",
     "test:messenger-inbox-actions-playwright": "node scripts/messenger-inbox-actions-playwright-checks.js",
