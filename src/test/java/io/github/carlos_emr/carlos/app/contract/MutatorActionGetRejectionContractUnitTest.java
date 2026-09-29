@@ -25,8 +25,12 @@ import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
+import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
+import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
+import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action;
 import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -193,6 +197,10 @@ class MutatorActionGetRejectionContractUnitTest {
             // a method=cancel body param). Registered explicitly — the encounter package is not scanned.
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
                     "_con", "r"),
+            // Ocean eReferral attach/edit queues patient records for an external service; rejects
+            // GET/HEAD before auth. Registered explicitly (the encounter package is not scanned).
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action",
+                    "_con", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -232,11 +240,13 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action",
                     "_msg", "w"),
             // --- tickler ---
-            // Both editTickler and suggested-text dispatches are POST-only.
-            Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
-                    "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action",
                     "_tickler", "w"),
+            // Both dispatches (editTickler, suggested-text maintenance) mutate; the verb is
+            // checked before authorization, so a GET rejects with no hasPrivilege call and the
+            // tuple below is the POST-path bar (#3984).
+            Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
+                    "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerMain2Action",
                     "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action",
@@ -268,6 +278,7 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action",
                     "_demographic", "w"),
             // --- eform ---
+            Arguments.of("io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action", "_eform", "u"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
                     "_admin.eform", "w"),
             // Creates a document from an approved-but-incomplete render, so a GET must not reach
@@ -538,6 +549,8 @@ class MutatorActionGetRejectionContractUnitTest {
         // encounter slice: EctConsultationFormFax2Action queues PHI faxes; the encounter package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
+        // encounter slice: ERefer2Action queues attachments for Ocean eReferral (issue #3867).
+        "io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action",
         // security slice: MfaActions2Action's resetMfa is a POST-only privileged mutation; the security
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
@@ -746,6 +759,12 @@ class MutatorActionGetRejectionContractUnitTest {
             throws Exception {
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));
+        }
+        if (actionClass.equals(ERefer2Action.class)) {
+            return new ERefer2Action(mock(SecurityInfoManager.class),
+                    (DocumentAttachmentManager) autoMocks.computeIfAbsent(DocumentAttachmentManager.class, Mockito::mock),
+                    (EReferAttachmentDao) autoMocks.computeIfAbsent(EReferAttachmentDao.class, Mockito::mock),
+                    (AttachmentOwnershipService) autoMocks.computeIfAbsent(AttachmentOwnershipService.class, Mockito::mock));
         }
         if (actionClass.equals(SecurityDelete2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);

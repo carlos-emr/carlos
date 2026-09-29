@@ -56,7 +56,6 @@ io.github.carlos_emr.carlos.documentManager.actions.DocumentRefile2ActionTest
 io.github.carlos_emr.carlos.documentManager.actions.DocumentUndelete2ActionTest
 io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2ActionFilenameValidationTest
 io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2ActionTest
-io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManagerImplTest
 io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2ActionTest
 io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentReportRead2ActionTest
 io.github.carlos_emr.carlos.documentManager.IncomingDocUtilPathValidationTest

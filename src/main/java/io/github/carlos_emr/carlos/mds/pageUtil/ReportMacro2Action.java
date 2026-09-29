@@ -29,6 +29,9 @@
 package io.github.carlos_emr.carlos.mds.pageUtil;
 
 import java.io.IOException;
+import java.util.Set;
+import java.util.Map;
+import java.util.EnumMap;
 import java.util.Calendar;
 
 import jakarta.servlet.ServletException;
@@ -38,10 +41,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
+import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -71,7 +75,7 @@ public class ReportMacro2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private TicklerDao ticklerDao = SpringUtils.getBean(TicklerDao.class);
-    private TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
+    private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -210,6 +214,34 @@ public class ReportMacro2Action extends ActionSupport {
         boolean acknowledged = false;
         int clearedCount = 0;
 
+        // The tickler's lab attachment is validated first, before the acknowledgement mutates
+        // the routing rows: segmentID, labType and demographicNo are all request values, and a
+        // macro whose attachment would be refused must not acknowledge anything either.
+        Tickler pendingTickler = null;
+        Map<DocumentType, Set<String>> pendingAttachment = null;
+        if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
+            ObjectNode jTickler = (ObjectNode) macro.get("tickler");
+
+            if (jTickler.has("taskAssignedTo") && jTickler.has("message")) {
+                // The lab is attached through the attachment service (#3984), which requires
+                // _tickler write on the patient, _lab read, and proves the lab is routed to that
+                // patient under its own source. The checks run before any side effect so a
+                // refused attachment leaves neither an empty tickler nor an acknowledged lab.
+                pendingAttachment = new EnumMap<>(DocumentType.class);
+                pendingAttachment.put(DocumentType.LAB, Set.of(TicklerAttachmentParameters.labValue(labType, segmentID)));
+                try {
+                    pendingTickler = buildTickler(jTickler, Integer.parseInt(demographicNo), providerNo);
+                    ticklerAttachmentService.requireAttachable(loggedInInfo, pendingTickler.getDemographicNo(), pendingAttachment);
+                } catch (SecurityException | IllegalArgumentException refused) {
+                    logger.warn("Lab macro not run: lab attachment refused ({})",
+                            refused.getClass().getSimpleName());
+                    return MacroOutcome.failed();
+                }
+            } else {
+                logger.info("Cannot sent tickler. Not enough information in macro definition. providers taskAssignedTo and message");
+            }
+        }
+
         if (macro.has("acknowledge")) {
             String comment = macro.path("acknowledge").path("comment").asText("");
             if (StringUtils.isBlank(segmentID)) {
@@ -244,90 +276,88 @@ public class ReportMacro2Action extends ActionSupport {
             }
             acknowledged = true;
         }
-        if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
-            ObjectNode jTickler = (ObjectNode) macro.get("tickler");
+        if (pendingTickler != null) {
+            logger.info("Sending Tickler");
+            Tickler t = pendingTickler;
+            ticklerDao.persist(t);
 
-            if (jTickler.has("taskAssignedTo") && jTickler.has("message")) {
-                logger.info("Sending Tickler");
-                Tickler t = new Tickler();
-                t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
-                t.setDemographicNo(Integer.parseInt(demographicNo));
-                t.setMessage(jTickler.get("message").asText());
-                t.setCreator(providerNo);
-
-                // Set future service date if quantity and timeUnits are provided
-                if (jTickler.has("quantity") && jTickler.has("timeUnits")) {
-                    // Validate that quantity and timeUnits are not null
-                    if (!jTickler.get("quantity").isNull() && !jTickler.get("timeUnits").isNull()) {
-                        try {
-                            Calendar cal = Calendar.getInstance();
-                            int qty = Integer.parseInt(jTickler.get("quantity").asText());
-                            int code = Integer.parseInt(jTickler.get("timeUnits").asText());
-
-                            // Validate that quantity is positive (negative values would create past-dated ticklers)
-                            if (qty <= 0) {
-                                logger.warn("Tickler quantity must be positive. Received: {}. Skipping date calculation.", qty);
-                            } else {
-                                // Time unit codes: 1=days, 7=weeks, 30=months, 365=years
-                                boolean validCode = false;
-                                switch (code) {
-                                    case 1:  // days
-                                        cal.add(Calendar.DATE, qty);
-                                        validCode = true;
-                                        break;
-                                    case 7:  // weeks
-                                        cal.add(Calendar.WEEK_OF_YEAR, qty);
-                                        validCode = true;
-                                        break;
-                                    case 30:  // months
-                                        cal.add(Calendar.MONTH, qty);
-                                        validCode = true;
-                                        break;
-                                    case 365:  // years
-                                        cal.add(Calendar.YEAR, qty);
-                                        validCode = true;
-                                        break;
-                                    default:
-                                        logger.warn("Invalid timeUnits code. Valid values are 1 (days), 7 (weeks), 30 (months), 365 (years). Received: {}", code);
-                                        break;
-                                }
-                                // Only set service date if code was valid
-                                if (validCode) {
-                                    t.setServiceDate(cal.getTime());
-                                }
-                            }
-                        } catch (NumberFormatException e) {
-                            logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro ({})", e.getClass().getSimpleName());
-                        }
-                    } else {
-                        logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");
-                    }
-                }
-                ticklerDao.persist(t);
-
-                // The tickler exists already; audit availability must not prevent its
-                // link from being created or mask the preceding acknowledgement.
-                try {
-                    LogAction.addLogSynchronous(providerNo, LogConst.ADD,
-                        "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
-                        LogConst.CON_MDS_LAB, loggedInInfo.getIp());
-                } catch (RuntimeException auditFailure) {
-                    logger.error("Lab macro tickler created but audit logging failed ({})",
-                            auditFailure.getClass().getSimpleName());
-                }
-
-                TicklerLink tl = new TicklerLink();
-                tl.setTableId(Long.valueOf(segmentID));
-                tl.setTableName(labType);
-                tl.setTicklerNo(t.getId());
-                ticklerLinkDao.persist(tl);
-            } else {
-                logger.info("Cannot sent tickler. Not enough information in macro definition. providers taskAssignedTo and message");
+            // The tickler exists already; audit availability must not prevent its
+            // link from being created or mask the preceding acknowledgement.
+            try {
+                LogAction.addLogSynchronous(providerNo, LogConst.ADD,
+                    "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
+                    LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+            } catch (RuntimeException auditFailure) {
+                logger.error("Lab macro tickler created but audit logging failed ({})",
+                        auditFailure.getClass().getSimpleName());
             }
 
+            ticklerAttachmentService.syncAttachments(loggedInInfo, t, pendingAttachment);
         }
 
         return MacroOutcome.ran(acknowledged, clearedCount);
+    }
+
+    /**
+     * Builds the macro's tickler from its definition: assignee, message, creator and, when the
+     * macro carries a valid quantity and time unit, a future service date. Nothing is persisted.
+     */
+    private static Tickler buildTickler(ObjectNode jTickler, int demographicNo, String providerNo) {
+        Tickler t = new Tickler();
+        t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
+        t.setDemographicNo(demographicNo);
+        t.setMessage(jTickler.get("message").asText());
+        t.setCreator(providerNo);
+
+            // Set future service date if quantity and timeUnits are provided
+            if (jTickler.has("quantity") && jTickler.has("timeUnits")) {
+                // Validate that quantity and timeUnits are not null
+                if (!jTickler.get("quantity").isNull() && !jTickler.get("timeUnits").isNull()) {
+                    try {
+                        Calendar cal = Calendar.getInstance();
+                        int qty = Integer.parseInt(jTickler.get("quantity").asText());
+                        int code = Integer.parseInt(jTickler.get("timeUnits").asText());
+
+                        // Validate that quantity is positive (negative values would create past-dated ticklers)
+                        if (qty <= 0) {
+                            logger.warn("Tickler quantity must be positive. Received: {}. Skipping date calculation.", qty);
+                        } else {
+                            // Time unit codes: 1=days, 7=weeks, 30=months, 365=years
+                            boolean validCode = false;
+                            switch (code) {
+                                case 1:  // days
+                                    cal.add(Calendar.DATE, qty);
+                                    validCode = true;
+                                    break;
+                                case 7:  // weeks
+                                    cal.add(Calendar.WEEK_OF_YEAR, qty);
+                                    validCode = true;
+                                    break;
+                                case 30:  // months
+                                    cal.add(Calendar.MONTH, qty);
+                                    validCode = true;
+                                    break;
+                                case 365:  // years
+                                    cal.add(Calendar.YEAR, qty);
+                                    validCode = true;
+                                    break;
+                                default:
+                                    logger.warn("Invalid timeUnits code. Valid values are 1 (days), 7 (weeks), 30 (months), 365 (years). Received: {}", code);
+                                    break;
+                            }
+                            // Only set service date if code was valid
+                            if (validCode) {
+                                t.setServiceDate(cal.getTime());
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro ({})", e.getClass().getSimpleName());
+                    }
+                } else {
+                    logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");
+                }
+            }
+        return t;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

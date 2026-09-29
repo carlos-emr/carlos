@@ -94,9 +94,9 @@ ifneq ($(SKIP_DRUGREF),)
 DH_EXTRA := --no-package=carlos-emr-drugref
 endif
 # SKIP_EFORM_RENDERER is NOT a --no-package knob any more: the renderer lives
-# inside carlos-emr (the carlos-emr-eform-renderer binary package is only the
-# empty transitional one, always built). It leaves the renderer payload out of
-# carlos-emr instead -- see override_dh_auto_install.
+# inside carlos-emr (the former carlos-emr-eform-renderer binary package, later
+# an empty transitional one, is no longer built). It leaves the renderer payload
+# out of carlos-emr instead -- see override_dh_auto_install.
 
 %:
 	dh $@ --with installsysusers $(DH_EXTRA)

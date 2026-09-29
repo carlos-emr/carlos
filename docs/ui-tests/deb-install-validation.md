@@ -389,11 +389,13 @@ carlos-emr carlos-emr/reset-seed-admin boolean true
 carlos-emr carlos-emr/install-demo-data boolean true
 EOF
 lxc file push /tmp/carlos-preseed.txt carlos-test/root/
-# From 2026.08.0-alpha14 carlos-emr is _amd64 (it carries the eForm renderer)
-# and carlos-emr-eform-renderer is an empty _all transitional package; earlier
-# builds were carlos-emr_*_all.deb + carlos-emr-eform-renderer_*_amd64.deb.
+# From 2026.08.0-alpha14 carlos-emr is _amd64 (it carries the eForm renderer);
+# earlier builds were carlos-emr_*_all.deb + carlos-emr-eform-renderer_*_amd64.deb.
+# alpha14 through alpha17 also shipped an empty carlos-emr-eform-renderer_*_all.deb
+# transitional package, which is no longer built. carlos-ctl is the release
+# debian/carlos-ctl.pin names (debian/fetch-carlos-ctl.sh fetches it).
 lxc file push ../carlos-emr_*_amd64.deb ../carlos-emr-drugref_*_all.deb \
-              ../carlos-emr-eform-renderer_*_all.deb carlos-test/root/
+              ../carlos-ctl_*_all.deb carlos-test/root/
 
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
@@ -401,7 +403,7 @@ lxc exec carlos-test -- bash -c '
   debconf-set-selections /root/carlos-preseed.txt
   apt-get install -y --no-remove /root/carlos-emr_*_amd64.deb \
                      /root/carlos-emr-drugref_*_all.deb \
-                     /root/carlos-emr-eform-renderer_*_all.deb'
+                     /root/carlos-ctl_*_all.deb'
 ```
 
 Then verify the deployment before anything else:
@@ -604,6 +606,10 @@ export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=
 # using explicit local database access and the mounted server document directory.
 export PRESCRIPTION_SIGNATURE_CLEANUP=true
 export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
+# Both lab-upload workflows delete their own archived LabUpload.lab-upload-probe-* files here.
+# Configure CML_UPLOAD_KEY on this isolated server and export the same value for full legacy CML coverage.
+# The extended lab-upload-rollback check also needs CREATE/DROP TRIGGER privileges in the test DB.
+export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
 # login-playwright-checks mutates and restores this account; give it the hash of
@@ -1151,7 +1157,7 @@ lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y --reinstall --no-remove /root/carlos-emr_*_amd64.deb \
       /root/carlos-emr-drugref_*_all.deb \
-      /root/carlos-emr-eform-renderer_*_all.deb'
+      /root/carlos-ctl_*_all.deb'
 lxc exec carlos-test -- carlos-ctl check   # expect the same all-OK, with any
                                            # new migrations counted in flyway_schema_history
 ```
@@ -1937,3 +1943,58 @@ validate browser recovery; they are separate from a real concurrent-render capac
 This recovery path applies to attachment previews. Saved-form download, eDoc archive and fax
 preparation are separate workflows and require their own continuation checks; the original
 `AddEForm` clinical save must never be replayed to retry a render.
+
+### Transitional renderer package removal (2026-09-29)
+
+Validation that `release/2026.08` builds and installs correctly without the empty
+transitional `carlos-emr-eform-renderer` package. The branch tree was built in an
+`ubuntu:26.04` container the way `deb-packages.yml` does it: the changelog was
+stamped as `2026.08.0~alpha18`, `CARLOS_WAR` was set to the published
+2026.08.0-alpha17 WAR, DrugRef was built from `debian/drugref.pin` and Chromium
+was fetched from `debian/chromium.pin`. `dpkg-buildpackage -us -uc -b` produced
+exactly `carlos-emr_…_amd64` and `carlos-emr-drugref_…_all`. The workflow's
+`.changes`-versus-`debian/control` cross-check passed. Lintian reported only the
+pre-existing `possible-bashism-in-maintainer-script` warning. The built
+`carlos-emr` still declares `Breaks: carlos-emr-eform-renderer (<< 2026.08.0~alpha14~)`
+and `Replaces: carlos-emr-eform-renderer (<< 2026.08.0~alpha18)`.
+
+Each scenario ran in a fresh privileged `ubuntu:26.04` container with systemd
+as PID 1, using the section 3 preseed (with `install-demo-data=false`) and
+`carlos-ctl_1.1.0_all.deb`:
+
+| Scenario | Result |
+|---|---|
+| Fresh install, `--no-remove` | PASS: `carlos-ctl check` reports "All checks passed" and the render browser is active. `deb-upgrade-baseline.sh` records `pkg.renderer=` (empty) instead of failing. |
+| alpha13 (`_all` EMR + `_amd64` renderer) → new, `--no-remove` | Refused as expected (`E: Packages need to be removed but remove is disabled`). alpha13 is left installed and running. |
+| alpha13 → new, without `--no-remove` | PASS: apt removes only `carlos-emr-eform-renderer`. The render token (`CARLOS_RENDER_URL_BASE`) moves unchanged to `renderer.env`, and `render-browser.env` and `carlos-emr-chromedriver` are gone. The check passes. Flyway goes from 23 to 32 applied migrations. A later `apt purge carlos-emr-eform-renderer` leaves the check passing. |
+| alpha17 as published (with transitional) → new, `--no-remove` | PASS: no removal is proposed, the transitional package stays installed (alpha17), `renderer.env` is unchanged and the check passes. Removing and then purging the leftover transitional package leaves the EMR and render browser active and the check passing. |
+
+The pinned carlos-ctl 1.1.0 suite ran against this tree (`CARLOS_SRC`): 1468
+tests OK. `debian/assets/tests` and `scripts/migration/o19/tests` also passed.
+
+`scripts/deb-split-matrix.sh` was also run against the same build, with
+`CTL_A=carlos-ctl_1.1.0` and a `CTL_B` repacked as `1.1.1~test1`:
+
+- **From 2026.08.0-alpha15 (with its transitional package):** all 102
+  assertions pass across cases 0-7, with `EXPECT_NEW="1.0.36 1.0.39 1.0.40"`.
+  Cases 6 and 7 remove and purge the leftover transitional package through the
+  new `renderer_pkgs` helper.
+- **From 2026.08.0-alpha13 (real `_amd64` renderer, no `TRANSITIONAL_SPLIT`):**
+  the matrix detects the old renderer and runs cases 2 and 1 without
+  `--no-remove`. Case 2 is still refused for the missing `carlos-ctl`, and in
+  case 1 apt removes only the renderer. With the verifier fix below, all 101
+  assertions pass across cases 0-7 (`EXPECT_FLYWAY=32`, nine new migrations).
+
+  The first alpha13 run exposed a false failure in `deb-upgrade-verify.sh`
+  that predates this change. It rejected the upgrade because `carlos.properties`
+  was no longer byte-identical, yet every active setting was unchanged. The old
+  renderer's `postrm` runs `carlos-ctl init-config` while no browser is present,
+  which comments out `eform_pdf_browser_service_url` and
+  `eform_pdf_browser_chromium_path`. The new `carlos-emr` postinst's
+  `init-config` then re-appends both with the same values. The baseline now also
+  records `cfg.carlos.properties.active.sha`, a digest of the active settings
+  that ignores layout. The verifier accepts a byte change only when that digest
+  is unchanged, so any changed, added or removed setting still fails. The two
+  leftover commented lines in the operator's file are cosmetic. Removing them
+  means `carlos-ctl`'s `prop_set` reactivating a commented key in place, which
+  belongs to the carlos-ctl repository.

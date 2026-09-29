@@ -30,12 +30,8 @@ document.addEventListener("DOMContentLoaded", function(){
 
 		// add listener to the subject element
 		if(document.forms[0].elements["subject"]) {
-			document.forms[0].elements["subject"].addEventListener("input", function () {
-				document.getElementById("remote_eform_subject").value = this.value;
-			})
-			document.forms[0].elements["subject"].addEventListener("click", function () {
-				document.getElementById("remote_eform_subject").value = this.value;
-			})
+			document.forms[0].elements["subject"].addEventListener("input", moveSubjectReverse);
+			document.forms[0].elements["subject"].addEventListener("click", moveSubjectReverse);
 		}
 
 	const isSuccessAndAutoclose = document.getElementById("isSuccess_Autoclose") &&
@@ -300,8 +296,10 @@ jQuery(document).on('click', '*[data-poload]', function () {
     trigger.data('poload', context + '/previewDocs?method=fetchEFormDocuments&demographicNo=' + demographicNo + '&fdid=' + fdid);
     trigger.off('click');
     let title = trigger.attr("title");
+    let pickerLoaded = false;
     jQuery("#attachDocumentDisplay").load(trigger.data('poload'), function (response, status, xhr) {
-        if (status === "success") {
+        if (status === "success" && jQuery('#attachDocumentsForm').length) {
+            pickerLoaded = true;
             // Disable the floating toolbar when the attachment window opens
             const eformFloatingToolbar = document.getElementById("eform_floating_toolbar");
             eformFloatingToolbar.classList.add("disabled-toolbar");
@@ -310,7 +308,19 @@ jQuery(document).on('click', '*[data-poload]', function () {
                 let delegate = "#" + this.id.split("_")[1];
                 let element = jQuery('#attachDocumentsForm').find(delegate);
                 if (element.length === 0) {
-                    element = addFormIfNotFound(data, demographicNo, delegate);
+                    if (this.name === 'formNo' && document.getElementById('entry_formNo' + this.value)) {
+                        element = addFormIfNotFound(data, demographicNo, delegate);
+                    } else {
+                        // Unlisted/restricted attachments cannot disappear merely because the
+                        // picker does not offer them. Show an explicit removal choice instead.
+                        element = jQuery('<input>', {
+                            type: 'checkbox', name: this.name, value: this.value,
+                            id: this.id.substring('delegate_'.length), class: 'unlisted_attachment_check'
+                        });
+                        const label = jQuery('<label>').append(element).append(
+                            document.createTextNode(' Existing attachment unavailable in this list; uncheck to remove.'));
+                        jQuery('#attachDocumentsForm').append(jQuery('<div>').append(label));
+                    }
                 }
                 element.attr("checked", true);
 
@@ -340,6 +350,7 @@ jQuery(document).on('click', '*[data-poload]', function () {
         },
 
         beforeClose: function (event, ui) {
+            if (!pickerLoaded) return;
             // before the dialog is closed:
 
             // check if list exists, if yes then empty it otherwise create new
@@ -347,21 +358,30 @@ jQuery(document).on('click', '*[data-poload]', function () {
                 const attachDocumentList = jQuery('<div>', {'id': 'attachDocumentList'});
                 jQuery('form:first').append(attachDocumentList);
             }
-            jQuery('#attachDocumentList').empty();
+            // Build and validate every delegate before touching the stored list: a selection
+            // that eformAttachmentSubmissionValue refuses (a lab checkbox without a valid
+            // source) must not leave the list half replaced or empty, or the next save would
+            // silently drop the attachments the form already had.
+            let inputs;
+            try {
+                inputs = jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled']), .unlisted_attachment_check:checked"
+                ).map(function () {
+                    const element = jQuery(this);
+                    return jQuery("<input />", {
+                        type: 'hidden',
+                        name: element.attr('name'),
+                        value: eformAttachmentSubmissionValue(element),
+                        id: "delegate_" + element.attr('id'),
+                        class: 'delegateAttachment'
+                    })[0];
+                }).get();
+            } catch (selectionError) {
+                alert('An attachment selection is invalid. Please reselect it.');
+                return false;
+            }
 
             // pass the checked documents to the eForm document list(attachDocumentList)
-            jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled'])"
-            ).each(function (index, data) {
-                let element = jQuery(this);
-                let input = jQuery("<input />", {
-                    type: 'hidden',
-                    name: element.attr('name'),
-                    value: element.val(),
-                    id: "delegate_" + element.attr('id'),
-                    class: 'delegateAttachment'
-                });
-                jQuery('#attachDocumentList').append(input);
-            });
+            jQuery('#attachDocumentList').empty().append(inputs);
 
             // show total attachments
             jQuery('#remoteTotalAttachments').empty().append(jQuery('.delegateAttachment').length);
@@ -372,6 +392,17 @@ jQuery(document).on('click', '*[data-poload]', function () {
         }
     });
 });
+
+/** Preserve the lab source when transferring a picker selection to the saved form. */
+function eformAttachmentSubmissionValue(element) {
+    const value = element.val();
+    if (element.attr('name') !== 'labNo' || element.hasClass('unlisted_attachment_check')) return value;
+    const source = element.attr('data-lab-type');
+    if (!/^(HL7|MDS|CML|BCP)$/.test(source || '') || !/^[1-9][0-9]*$/.test(value)) {
+        throw new Error('Invalid lab attachment selection');
+    }
+    return source + ':' + value;
+}
 
 /**
  * This function adds the old form to the attachment window only if that form is displayed in the consultForm/eForm attachments.
@@ -795,7 +826,7 @@ function moveSubject() {
 
 function moveSubjectReverse() {
     let subjectElement = document.forms[0].elements["subject"];
-    let subjectElementValue;
+    let subjectElementValue = "";
 
     if (subjectElement) {
         subjectElementValue = subjectElement.value;
@@ -985,6 +1016,8 @@ function includeHTML(elmnt) {
                 // event handlers — innerHTML is required for toolbar functionality.
                 toolbarWrapper.innerHTML = this.responseText; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
                 elmnt.append(toolbarWrapper);
+                // Initialize only once the asynchronous toolbar input exists.
+                moveSubjectReverse();
                 // The toolbar arrives after DOMContentLoaded, so the preview guard that ran there
                 // found no Save button yet: hide it now that the fragment is in the DOM (#3904).
                 hideAdminPreviewSaveButton();

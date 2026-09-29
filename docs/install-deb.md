@@ -15,7 +15,6 @@ an administration tool — a working, secured EMR from `apt install`.
 | `carlos-emr` | CARLOS on a dedicated Tomcat 11 instance, MariaDB with least-privilege accounts, an nginx front door running ModSecurity 3 + OWASP CRS in blocking mode, HTTPS (self-signed by default, Let's Encrypt on request), and nightly restic backups with a weekly restore drill |
 | `carlos-ctl` | The `carlos-ctl` administration command (`check`, logs, restarts, schema migrations, certificates, the WAF, backups, the OSCAR 19 import). Its own package, built and released from [carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl); `carlos-emr` depends on it, and every CARLOS release re-attaches the pinned `carlos-ctl` release so one download page carries the whole install |
 | `carlos-emr-drugref` | DrugRef2, the drug and drug-interaction reference CARLOS queries when prescribing — co-deployed, loopback-only, with the Health Canada Drug Product Database seed loaded on install |
-| `carlos-emr-eform-renderer` | Empty transitional package. The sandboxed browser that renders saved eForms to PDF now ships inside `carlos-emr`; this package only lets a 2026.08.0-alpha13 or earlier install upgrade cleanly (see [Upgrades](#upgrades)) |
 
 ## Requirements
 
@@ -81,18 +80,16 @@ payload, with its Debian build identity stamped in `carlos-build.properties`
 and the explicit MariaDB metadata default in `jdbc-defaults.properties`;
 the `carlos-ctl` package is the release of
 [carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl) the CARLOS
-release pins, re-attached as is). Download all four, verify, install:
+release pins, re-attached as is). Download all three, verify, install:
 
 ```bash
 sudo apt update
 sha256sum -c carlos-emr_<version>_amd64.deb.sha256
 sha256sum -c carlos-ctl_<ctl-version>_all.deb.sha256
 sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-sha256sum -c carlos-emr-eform-renderer_<version>_all.deb.sha256
 sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
                  ./carlos-ctl_<ctl-version>_all.deb \
-                 ./carlos-emr-drugref_<version>_all.deb \
-                 ./carlos-emr-eform-renderer_<version>_all.deb
+                 ./carlos-emr-drugref_<version>_all.deb
 ```
 
 `<version>` is the release's Debian version as it appears in the asset name,
@@ -117,9 +114,10 @@ gh attestation verify carlos-ctl_<ctl-version>_all.deb --repo carlos-emr/carlos-
 > differently: `carlos-emr_<version>_all.deb`, and the renderer as a real
 > package, `carlos-emr-eform-renderer_<version>_amd64.deb`. From
 > 2026.08.0-alpha14 the renderer is part of `carlos-emr`, which is therefore
-> `_amd64`, and `carlos-emr-eform-renderer_<version>_all.deb` is an empty
-> transitional package. On a fresh install it does nothing and can be left
-> out or removed later.
+> `_amd64`. Releases 2026.08.0-alpha14 through alpha17 also carried an empty
+> transitional `carlos-emr-eform-renderer_<version>_all.deb`; later releases do
+> not build it. If one is installed it does nothing and can be removed with
+> `sudo apt remove carlos-emr-eform-renderer`.
 
 > **Releases up to and including 2026.08.0-alpha12:** the `.sha256` files
 > record the build-time name, which spells the pre-release with a tilde
@@ -142,7 +140,6 @@ What each package is for:
 | `carlos-emr` | The EMR itself: application, database schema, nginx front door, WAF, TLS, backups, and the browser that turns saved eForms into PDFs (eForm print, fax and archive have no other path). | No. |
 | `carlos-ctl` | The administration command; `carlos-emr` depends on it (its installer runs `carlos-ctl` verbs). | No — apt refuses to install `carlos-emr` without it. |
 | `carlos-emr-drugref` | Drug and interaction lookups when prescribing. | Only if you never prescribe — searches return nothing without it. |
-| `carlos-emr-eform-renderer` | Nothing (transitional). | On a fresh install, yes. When upgrading from 2026.08.0-alpha13 or earlier, **no** — see [Upgrades](#upgrades). |
 
 apt may print this while installing local files. It is harmless:
 
@@ -405,7 +402,7 @@ any missing content. Expired, missing or spent receipts do not restart an archiv
 An upgrade is `apt install` of the newer packages — same command as the
 install. Supply the main package and each companion that is already installed,
 all from the same release: DrugRef depends on the matching main-package
-version. For the standard installation this means all four files (the
+version. For the standard installation this means all three files (the
 `carlos-ctl` file too: if the release pins the `carlos-ctl` version you
 already have, apt reports it as already the newest and moves on).
 If you intentionally omitted DrugRef, supply only the packages you use and
@@ -431,19 +428,20 @@ clean up the import first. `apt remove carlos-emr` leaves `carlos-ctl`
 installed; it then answers every verb with "carlos-emr is not installed".
 
 **Upgrading from 2026.08.0-alpha13 or earlier** (when the renderer was its own
-`_amd64` package and `carlos-emr` was `_all`): include
-`carlos-emr-eform-renderer_<version>_all.deb` in the same command, so the old
-renderer package is *upgraded* to the empty transitional one; with
-`--no-remove`, leaving the file out makes apt stop instead of removing it. The
-browser and the existing render token move into `carlos-emr`: the token file is
-now `/etc/carlos-emr/renderer.env` and the service `carlos-emr-render-browser`
-(it was `render-browser.env` and `carlos-emr-chromedriver`). Removing or purging
-the old renderer package, then or later, cannot affect them, so
-`sudo apt remove carlos-emr-eform-renderer` after the upgrade is safe. One side
-effect: if apt *removed* the old renderer (the transitional file was left out
-and `--no-remove` was not used), purging it later runs its old script, which
-re-applies the configuration and restarts the EMR once (about two minutes), so
-do that outside clinic hours.
+`_amd64` package and `carlos-emr` was `_all`): the new `carlos-emr` replaces
+the old `carlos-emr-eform-renderer` package, and no transitional package is
+shipped any more, so apt has to remove the old one. Run the upgrade command
+**without** `--no-remove` and check that the only package apt proposes to
+remove is `carlos-emr-eform-renderer`. The browser and the existing render
+token move into `carlos-emr`: the token file is now
+`/etc/carlos-emr/renderer.env` and the service `carlos-emr-render-browser` (it
+was `render-browser.env` and `carlos-emr-chromedriver`). Removing or purging
+the old renderer package cannot affect them. One side effect: purging the
+removed old renderer later (`sudo apt purge carlos-emr-eform-renderer`) runs
+its old script, which re-applies the configuration and restarts the EMR once
+(about two minutes), so do that outside clinic hours. An install that already
+has the empty transitional package from 2026.08.0-alpha14 through alpha17 can
+keep it or remove it; it owns no files.
 
 The application's ~2-minute redeploy happens once per upgrade, even with DrugRef
 in the same command, and `apt` returns only once the application answers.

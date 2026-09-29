@@ -349,6 +349,7 @@
                 <value>io.github.carlos_emr.carlos.commn.model.QueueDocumentLink</value>
                 <value>io.github.carlos_emr.carlos.commn.model.Site</value>
                 <value>io.github.carlos_emr.carlos.commn.model.TicklerLink</value>
+                <value>io.github.carlos_emr.carlos.commn.model.TicklerDocs</value>
                 <value>io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest</value>
                 <value>io.github.carlos_emr.carlos.commn.model.EncounterTemplate</value>
                 <value>io.github.carlos_emr.carlos.commn.model.EncounterWindow</value>

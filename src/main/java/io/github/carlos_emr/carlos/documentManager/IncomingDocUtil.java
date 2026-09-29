@@ -597,8 +597,12 @@ public final class IncomingDocUtil {
             try {
                 try (PdfReader reader = new PdfReader(filePathName);
                      OutputStream fos = work.output()) {
-                    int rotatedegrees = (reader.getPageRotation(Integer.parseInt(MyPdfPageNumber)) + degrees) % 360;
-                    reader.getPageN(Integer.parseInt(MyPdfPageNumber)).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
+                    // Range-check before touching the page: getPageN returns null outside the
+                    // document, which surfaced as a NullPointerException instead of a bad request.
+                    int page = parsePageNumber(MyPdfPageNumber, reader.getNumberOfPages());
+                    // floorMod keeps a negative rotation (e.g. -90 on an upright page) in 0..359.
+                    int rotatedegrees = Math.floorMod(reader.getPageRotation(page) + degrees, 360);
+                    reader.getPageN(page).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
                     PdfStamper stp = new PdfStamper(reader, fos);
                     stp.close();
                 }
@@ -658,7 +662,7 @@ public final class IncomingDocUtil {
                 try (PdfReader reader = new PdfReader(filePathName);
                      OutputStream fos = work.output()) {
                     for (int p = 1; p <= reader.getNumberOfPages(); ++p) {
-                        int rotatedegrees = (reader.getPageRotation(p) + degrees) % 360;
+                        int rotatedegrees = Math.floorMod(reader.getPageRotation(p) + degrees, 360);
                         reader.getPageN(p).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
                     }
                     PdfStamper stp = new PdfStamper(reader, fos);
@@ -1087,7 +1091,7 @@ public final class IncomingDocUtil {
             PdfCopy extractCopy) throws IOException {
         for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
             if ("1".equals(extractList.get(pageNumber))) {
-                extractCopy.addPage(copy.getImportedPage(reader, pageNumber));
+                extractCopy.addPage(extractCopy.getImportedPage(reader, pageNumber));
             } else {
                 copy.addPage(copy.getImportedPage(reader, pageNumber));
             }
@@ -1406,8 +1410,15 @@ public final class IncomingDocUtil {
             } catch (BoundedPdfTask.BusyException | PageEditAdmissionBusyException busy) {
                 throw busy;
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-                throw e;
+                logger.error("Incoming document extraction failed: {}", LogSafe.exceptionTrace(e));
+                // An occupied extract name is the one failure the user can fix themselves; its
+                // message names only the queue file they are already looking at.
+                if (e.getCause() instanceof FileAlreadyExistsException) {
+                    throw e;
+                }
+                // Filesystem exceptions may contain patient document names. Keep the
+                // visible error localized and the log free of exception messages.
+                throw new Exception(props.getString("dms.incomingDocs.cannotExtractPage"));
             }
         }
     }

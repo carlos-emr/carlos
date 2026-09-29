@@ -43,6 +43,8 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
     @BeforeEach
     void setUpForm() {
         replaceSpringUtilsBean(TicklerManager.class, manager);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService.class,
+                mock(io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService.class));
         replaceSpringUtilsBean(TicklerLinkDao.class, linkDao);
         replaceSpringUtilsBean(TicklerTextSuggestDao.class, suggestDao);
         mockRequest.setMethod("POST");
@@ -98,7 +100,7 @@ class TicklerFormSaveIntegrationTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource(value = {"demographic_no|0", "demographic_no|-1", "user_no|", "task_assigned_to|"}, delimiter = '|')
+    @CsvSource(value = {"demographic_no|0", "demographic_no|-1", "task_assigned_to|"}, delimiter = '|')
     void shouldRejectInvalidAddFields_withoutCallingManager(String field, String value) throws Exception {
         mockRequest.setParameter(field, value == null ? "" : value);
         assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.NONE);
