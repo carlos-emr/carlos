@@ -184,8 +184,10 @@ Then:
      | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
    ```
 
-   The first command reports that the request's self-signature verifies; the second prints the
-   pin on a line of its own.
+   The first command must print `Certificate request self-signature verify OK`. If it prints
+   `verify failure`, stop and do not use the pin: the request was altered, or is not for a key
+   its maker holds. Read the message, because the command can exit 0 either way. The second
+   command prints the pin on a line of its own.
 
 2. Put the pin in `approved-pins.txt`, and in `patient_portal.certificate.pins` in the deployment's
    override properties (the file the `carlos_override_properties` JVM system property names; on the
@@ -465,8 +467,8 @@ follow the next section instead.
    `previous-` files still exist). Otherwise revoke the old certificate
    (`certbot revoke --cert-path /etc/portal-tls/previous-cert.pem --reason superseded
    --no-delete-after-revoke`, or through the certificate authority), destroy the old key
-   (`shred -u /etc/portal-tls/previous-live.key`), remove the other `previous-` files, make sure no backup keeps
-   the old key, and start the renewal job.
+   (`shred -u /etc/portal-tls/previous-live.key`), remove the other `previous-` files, make sure
+   no backup keeps the old key, and start the renewal job.
 
 An aborted rotation can leave `next.key` behind; the first setup commands then refuse to overwrite
 it and print no pin. Delete it and start again, rather than reuse a key whose history is unclear.
@@ -484,10 +486,12 @@ once. If the steps below cannot be finished quickly, switch the portal off (see
 Never bring the standby key onto a host that may be in an attacker's hands. On the rebuilt host,
 create the directory (`install -d -m 700 /etc/portal-tls`), copy `standby.key` and `standby.csr`
 straight into it over SSH as root as `live.key` and `live.csr`, never through `/tmp`, a home
-directory, email or a ticket, `chmod 600 live.key`, and then do the first setup (the guard skips
-key generation). Make one change to
-step 2 of the first setup: set the pins to that key's pin **only** and leave the new standby for
-last; never keep the old live pin. Switch the portal on; unlike step 6 of the first setup, the log
+directory, email or a ticket, `chmod 600 /etc/portal-tls/live.key`, and then do the first setup.
+The guard skips key generation and prints no pin: compute the pin with the step 1 commands, and
+check that it equals the standby pin already in `patient_portal.certificate.pins`; if it does
+not, stop, because this is not the standby key. Make one change to step 2 of the first setup: set
+the pins to that key's pin **only** and leave the new standby for last; never keep the old live
+pin. Switch the portal on; unlike step 6 of the first setup, the log
 (with `LOG_VERBOSITY=info`) then shows 1 pin. The old host also held CARLOS's
 `patient_portal.service_token` and the portal's other secrets: replace them following the portal's
 own secret-rotation procedure. Revoke the old certificate: copy its `cert.pem` off the old host
@@ -508,7 +512,7 @@ need to switch off: do a scheduled rotation.
    encrypted email while `patient_portal.email.enabled=true`.
 2. Copy `standby.key` and `standby.csr` to `/etc/portal-tls` as `next.key`
    and `next.csr`: straight into that directory over SSH as root, never through `/tmp`, a home
-   directory, email or a ticket, and `chmod 600 next.key`. Then issue and install them by running
+   directory, email or a ticket, and `chmod 600 /etc/portal-tls/next.key`. Then issue and install them by running
    **only the command block** of rotation step 3: never the rotation's failure instructions, its
    step 4 rollback or its step 5, which would bring the stolen key back. Open the
    **Patient portal** page; it must load. If this fails, switch the portal off and leave the
@@ -517,8 +521,8 @@ need to switch off: do a scheduled rotation.
    block the key:
    `certbot revoke --cert-path /etc/portal-tls/previous-cert.pem --key-path /etc/portal-tls/previous-live.key --reason keycompromise --no-delete-after-revoke`,
    or, with another certificate authority, revoke every unexpired certificate for that key.
-4. Destroy the old key (`shred -u /etc/portal-tls/previous-live.key`), remove the other `previous-` files, make
-   sure no backup keeps the old key, and start the renewal job.
+4. Destroy the old key (`shred -u /etc/portal-tls/previous-live.key`), remove the other
+   `previous-` files, make sure no backup keeps the old key, and start the renewal job.
 5. Destroy the old `standby.key` and `standby.csr` (they are now the live key), then generate a
    new standby key and add its pin, as above.
 6. Record what happened in the deployment record's change log.

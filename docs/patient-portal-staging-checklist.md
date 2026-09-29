@@ -34,8 +34,8 @@ before configuring anything, because the TLS pin and both public URLs depend on 
 - [ ] Hostname CARLOS will call for the internal API (`patient_portal.base_url`). It may be the same
       host as the patient-facing one, but its `/internal/carlos/` route must be reachable only from
       CARLOS.
-- [ ] Who hosts the portal, and who owns and renews its TLS certificate. Pin rotation (section 2)
-      needs that person.
+- [ ] Who hosts the portal, and who owns and renews its TLS certificate. Pin rotation (section 5
+      of the TLS runbook) needs that person.
 - [ ] Mail relay for the portal (STARTTLS, authenticated) and for CARLOS (the clinic's sending
       account). They may be the same provider; they are configured separately.
 - [ ] SMS provider for the portal's MFA codes, reached through the portal's HTTPS SMS webhook.
