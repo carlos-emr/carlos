@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -193,8 +194,8 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send still answers queued when the claim cannot be handed back after a rate-limit denial")
-    void shouldAnswerQueued_whenReleaseFailsAfterRateLimitDenial() {
+    @DisplayName("send reports the failure when the claim cannot be handed back after a rate-limit denial")
+    void shouldReportFailure_whenReleaseFailsAfterRateLimitDenial() {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService() {
             @Override
             public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
@@ -210,12 +211,12 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(
-                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendCommand command =
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998");
 
-        assertThat(result.accepted()).isTrue();
-        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
-        assertThat(result.providerMessageId()).isNull();
+        assertThatThrownBy(() -> service.send(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("release failed");
     }
 
     @Test
