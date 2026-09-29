@@ -122,8 +122,12 @@ current key cannot read the credentials), `keyMissing` (the credentials are
 encrypted and no key is available) or `keyRequired` (plaintext credentials
 refused under the enforcement setting). Logs name the account id and the
 setting only. They never contain the credential, the configuration JSON or the
-key. At startup CARLOS logs whether the enforcement setting is on, and warns if
-its value is not one it recognises.
+key.
+
+At startup CARLOS logs whether the enforcement setting is on. That line is
+logged at INFO, and the default log level is WARN, so it does not appear unless
+you set `LOG_VERBOSITY=info`. A value CARLOS does not recognise is logged at
+WARN, so that warning appears at the default level; enforcement is then off.
 
 ### Rollout
 
