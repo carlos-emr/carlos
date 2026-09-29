@@ -54,7 +54,7 @@
 <fmt:message key="demographic.portal.patientNumber" var="patientNumber">
     <fmt:param value="${demographicText}"/>
 </fmt:message>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <title><fmt:message key="demographic.portal.title"/></title>
@@ -77,7 +77,8 @@
     </header>
 
     <div class="portal-layout">
-        <nav class="portal-sidebar" aria-label="<fmt:message key="demographic.portal.navigation"/>">
+        <fmt:message key="demographic.portal.navigation" var="navigationLabel"/>
+        <nav class="portal-sidebar" aria-label="${carlos:forHtmlAttribute(navigationLabel)}">
             <a href="${carlos:forHtmlAttribute(demographicRecord)}"><fmt:message key="encounter.Index.masterFile"/></a>
             <a href="${carlos:forHtmlAttribute(ctx)}/demographic/DemographicApptHistory?demographic_no=${carlos:forUriComponent(portalDemographicNo)}&amp;orderby=appttime&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25"><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
             <span class="portal-sidebar__current" aria-current="page"><fmt:message key="demographic.portal.link"/></span>
