@@ -213,6 +213,51 @@ test('upgrade verifier rejects a lost stored document', t => {
   assert.match(result.stdout, /1 document file\(s\) missing/);
 });
 
+test('upgrade verifier accepts a properties key commented out and re-appended with the same value', t => {
+  // What an alpha13 renderer's postrm plus the new init-config do to the renderer keys.
+  const fixture = setup(t); fixture.baseline();
+  fs.writeFileSync(path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties'),
+    '#consultation_signature_enabled=true\nrx_fax_enabled=true\nconsultation_signature_enabled = true\n');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /layout changed but every active setting is preserved/);
+});
+
+test('upgrade verifier accepts a layout change combined with the sanctioned OSCAR-defaults migration', t => {
+  // An alpha13 upgrade does both: init-config moves the renderer keys and the
+  // postinst runs the one-time stock-default migration.
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, 'rx_fax_enabled=false\nrenderer_url=http://127.0.0.1:9515/t\nother=kept\n');
+  fixture.baseline();
+  fs.writeFileSync(props, 'rx_fax_enabled=true\n#renderer_url=http://127.0.0.1:9515/t\nother=kept\nrenderer_url = http://127.0.0.1:9515/t\n');
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, '.oscar-feature-defaults-migrated'), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /layout changed but every active setting is preserved/);
+});
+
+test('upgrade verifier rejects a layout change that hides an unsanctioned migrated-key change', t => {
+  // The migrated key moves the wrong way while another key is re-laid out.
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, 'rx_fax_enabled=true\nrenderer_url=http://127.0.0.1:9515/t\n');
+  fixture.baseline();
+  fs.writeFileSync(props, 'rx_fax_enabled=false\n#renderer_url=http://127.0.0.1:9515/t\nrenderer_url = http://127.0.0.1:9515/t\n');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
+
+test('upgrade verifier rejects a changed properties value even when the key moved', t => {
+  const fixture = setup(t); fixture.baseline();
+  fs.writeFileSync(path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties'),
+    '#consultation_signature_enabled=true\nrx_fax_enabled=true\nconsultation_signature_enabled = false\n');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
+
 test('upgrade verifier refuses a POST hard link to PRE without overwriting the baseline', t => {
   const fixture = setup(t); const original = fixture.baseline();
   fs.linkSync(fixture.env.PRE, fixture.env.POST);

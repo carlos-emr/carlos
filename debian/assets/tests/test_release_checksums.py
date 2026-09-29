@@ -23,7 +23,7 @@ class TestPublishedChecksums(unittest.TestCase):
             root = Path(directory)
             names = ["carlos-emr_2026.08.0~alpha14_amd64.deb",
                      "carlos-emr-drugref_2026.08.0~rc1_all.deb",
-                     "carlos-emr-eform-renderer_2026.08.0_all.deb"]
+                     "carlos-ctl_1.1.0_all.deb"]
             for name in names:
                 (root / name).write_bytes((name + " fixture bytes").encode())
             subprocess.run(["bash", "-c", generator()], cwd=root, check=True, capture_output=True)
