@@ -949,8 +949,8 @@ public class EmailManager {
      *
      * <p>"It did not arrive" claims the delivery by moving it to REVOKED before revoking the code, and
      * releases the claim if the revocation fails, so for that moment the delivery reads as finished and
-     * the row can be resolved here. That is harmless: the code was already dropped from the stored body
-     * when the send settled, and the portal page still offers the attempt once the claim is released.
+     * the row can be resolved here. That is harmless: resolving changes only the row's status, and the
+     * portal page still offers the attempt once the claim is released.
      */
     private boolean isOwnedByOpenInvite(EmailLog emailLog) {
         if (!isPortalInvite(emailLog) || emailLog.getId() == null) {

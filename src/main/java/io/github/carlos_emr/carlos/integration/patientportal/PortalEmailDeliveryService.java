@@ -223,8 +223,14 @@ public class PortalEmailDeliveryService {
                 // Recovery decided while this send was still running and the provider has now
                 // accepted it. Record that loudly: the stored state may contradict the delivery.
                 PortalDeliveryState stored = storedStateAfterRace(log);
-                logger.error("Portal email accepted after its portal state was changed by recovery; "
-                        + "emailLogId={}; portalState={}", log.getId(), stored);
+                if (stored == PortalDeliveryState.PUBLISHED) {
+                    // Recovery confirmed the send the provider has now accepted: no contradiction.
+                    logger.warn("Portal email accepted after recovery had confirmed and published it; "
+                            + "emailLogId={}", log.getId());
+                } else {
+                    logger.error("Portal email accepted after its portal state was changed by recovery; "
+                            + "emailLogId={}; portalState={}", log.getId(), stored);
+                }
                 audit(user, log, "PortalEmailDeliveryService.send.acceptedAfterRecovery");
                 if (stored == PortalDeliveryState.REVOKE_PENDING || stored == PortalDeliveryState.REVOKED) {
                     // The password is revoked or being revoked, so publication can never succeed;

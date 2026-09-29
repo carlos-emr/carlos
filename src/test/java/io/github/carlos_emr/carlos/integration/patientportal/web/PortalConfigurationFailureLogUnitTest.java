@@ -79,6 +79,17 @@ class PortalConfigurationFailureLogUnitTest {
                 .isEqualTo("no detail");
     }
 
+    /** A platform or crypto failure names no setting; its cause's class says where to look. */
+    @Test
+    @DisplayName("should name the cause's class when the message names no setting")
+    void shouldNameTheCauseClass_whenTheMessageNamesNoSetting() {
+        assertThat(PortalJsonAction.settingsNamedBy(new PatientPortalConfigurationException(
+                "could not configure portal certificate pinning",
+                new java.security.NoSuchAlgorithmException("synthetic-secret-value"))))
+                .isEqualTo("no detail (NoSuchAlgorithmException)")
+                .doesNotContain("synthetic-secret-value");
+    }
+
     @Test
     @DisplayName("should stop walking a cause chain that loops back on itself")
     void shouldReportNoDetail_whenTheCauseChainLoops() {

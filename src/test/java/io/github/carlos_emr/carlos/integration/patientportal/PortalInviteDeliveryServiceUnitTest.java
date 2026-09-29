@@ -1082,7 +1082,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery row = queuedResend();
             when(portal.listInvites(anyInt(), any())).thenThrow("unreachable".equals(listing)
                     ? PatientPortalException.ofTransportFailure("/invites", null)
-                    : PatientPortalException.ofStatus(503, "/invites", "portal unavailable"));
+                    : PatientPortalException.ofStatus(403, "/invites", null));
 
             PatientPortalInviteDelivery resolved =
                     service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
