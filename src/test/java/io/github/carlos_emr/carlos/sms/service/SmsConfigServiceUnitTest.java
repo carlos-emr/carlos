@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Map;
@@ -194,10 +193,39 @@ class SmsConfigServiceUnitTest {
     @DisplayName("save reports a conflict when another first save created the row first")
     void shouldReportConflict_whenRowWasCreatedConcurrently() {
         when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
-        doThrow(new DataIntegrityViolationException("duplicate key")).when(smsConfigDao).flush();
+        doThrow(new PersistenceException("could not insert",
+                new java.sql.SQLException("Duplicate entry '1' for key 'PRIMARY'", "23000", 1062)))
+                .when(smsConfigDao).flush();
 
         assertThatThrownBy(() -> service().save(update(SmsProviderType.STUB, true, "", "", false, Map.of()), "999998"))
                 .isInstanceOf(SmsConfigConflictException.class);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("save reports a conflict when MariaDB says the row changed since it was read")
+    void shouldReportConflict_whenRecordChangedSinceLastRead() {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(new SmsConfig()));
+        doThrow(new PersistenceException("could not update",
+                new java.sql.SQLException("Record has changed since last read in table 'sms_config'", "HY000", 1020)))
+                .when(smsConfigDao).flush();
+
+        assertThatThrownBy(() -> service().save(update(SmsProviderType.STUB, true, "", "", false, Map.of()), "999998"))
+                .isInstanceOf(SmsConfigConflictException.class);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+        verify(auditRecorder, never()).recordSaved(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("save does not call a constraint failure of another kind a conflict")
+    void shouldNotReportConflict_whenAnotherConstraintFails() {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
+        PersistenceException missingValue = new PersistenceException("could not insert",
+                new java.sql.SQLException("Column 'updated_at' cannot be null", "23000", 1048));
+        doThrow(missingValue).when(smsConfigDao).flush();
+
+        assertThatThrownBy(() -> service().save(update(SmsProviderType.STUB, true, "", "", false, Map.of()), "999998"))
+                .isSameAs(missingValue);
         verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 

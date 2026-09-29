@@ -30,14 +30,14 @@ import io.github.carlos_emr.carlos.sms.support.SmsPhoneNumbers;
 import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.OptimisticLockException;
 import org.hibernate.StaleStateException;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -61,6 +61,13 @@ import java.util.Set;
  */
 @Service
 public class SmsConfigService {
+    /** MariaDB ER_DUP_ENTRY: the row already exists. */
+    private static final int MARIADB_DUPLICATE_KEY = 1062;
+    /** MariaDB ER_CHECKREAD, "Record has changed since last read": snapshot isolation refused the update. */
+    private static final int MARIADB_RECORD_CHANGED = 1020;
+    /** The standard SQLSTATE for a unique or primary key violation (what H2 reports). */
+    private static final String SQLSTATE_UNIQUE_VIOLATION = "23505";
+
     private final SmsConfigDao smsConfigDao;
     private final SmsProviderClientResolver providerClients;
     private final ApplicationEventPublisher eventPublisher;
@@ -163,17 +170,41 @@ public class SmsConfigService {
     /**
      * Writes the row now, inside this transaction, so a save that raced another administrator's fails
      * here: a second first save hits the fixed id, and a second update fails the version check. The
-     * exception rolls the transaction back. The JPA and Hibernate types are what the flush throws; the
-     * Spring types cover a DAO whose exceptions are translated.
+     * exception rolls the transaction back. Any other database failure passes through unchanged, so a
+     * real defect is never reported as "someone else saved".
      */
     private void flushOrReportConflict() {
         try {
             smsConfigDao.flush();
-        } catch (OptimisticLockException | StaleStateException | EntityExistsException
-                 | ConstraintViolationException | OptimisticLockingFailureException
-                 | DataIntegrityViolationException e) {
-            throw new SmsConfigConflictException(e);
+        } catch (RuntimeException e) {
+            if (isSaveConflict(e)) {
+                throw new SmsConfigConflictException(e);
+            }
+            throw e;
         }
+    }
+
+    /**
+     * Whether the failure, or anything that caused it, says another save got there first: a failed
+     * version check, a duplicate key, or MariaDB refusing to change a row that another transaction
+     * changed after this one read it. A constraint failure of any other kind (a missing value, a failed
+     * check) is not a conflict.
+     */
+    private static boolean isSaveConflict(Throwable failure) {
+        Set<Throwable> seen = new HashSet<>();
+        for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause()) {
+            if (cause instanceof OptimisticLockException || cause instanceof StaleStateException
+                    || cause instanceof EntityExistsException || cause instanceof OptimisticLockingFailureException
+                    || cause instanceof DuplicateKeyException) {
+                return true;
+            }
+            if (cause instanceof SQLException sql && (sql.getErrorCode() == MARIADB_DUPLICATE_KEY
+                    || sql.getErrorCode() == MARIADB_RECORD_CHANGED
+                    || SQLSTATE_UNIQUE_VIOLATION.equals(sql.getSQLState()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void applyCredentials(SmsConfig config, SmsConfigUpdateDto update) {

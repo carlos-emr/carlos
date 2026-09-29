@@ -68,7 +68,7 @@ class SmsConfigCommittedReadIntegrationTest extends CarlosTestBase {
                 mock(SmsConfigAuditRecorder.class)));
         Integer id = null;
         try {
-            // The reads below return the first row, so this test needs the table to itself.
+            // The settings table holds one row at most, so this test needs it to be empty.
             assertThat(service.current()).isEmpty();
             id = commitNewConfig(true);
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
