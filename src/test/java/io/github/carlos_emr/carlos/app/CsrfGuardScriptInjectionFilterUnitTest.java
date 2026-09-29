@@ -426,6 +426,9 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(response.getContentAsString()).isEqualTo(body);
     }
 
+    // These tests use a response double that accepts writes after commit. A suspended Tomcat
+    // response discards them, so they prove what the filter attempts and logs, not what reaches
+    // the browser; the Playwright login check against Tomcat covers delivery.
     @Test
     @DisplayName("should replay captured HTML without reset when response is committed")
     void shouldReplayCapturedHtml_withoutResetWhenResponseIsCommitted() throws Exception {
