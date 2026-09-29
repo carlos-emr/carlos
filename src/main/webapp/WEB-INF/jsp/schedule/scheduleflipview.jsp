@@ -159,7 +159,9 @@
 
     // Validate before rendering any response content so the 400 status cannot be lost to a committed buffer.
     if (requestedStartDate != null && !requestedStartDate.isBlank() && !"today".equals(requestedStartDate)) {
-        if (!requestedStartDate.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+        // Month and day may be unpadded: older links and bookmarks used 2026-9-5, and the strict parser
+        // below still rejects anything that is not a real date.
+        if (!requestedStartDate.matches("[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}")) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid startDate");
             return;
         }
@@ -530,7 +532,7 @@
                     : ""%>
                 title="<%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%>">
                 <button type="button" class="availability-slot"
-                        aria-label="<%=SafeEncode.forHtmlAttribute(outform.format(cal.getTime()))%> <%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%><%= "&nbsp;".equals(temp.toString()) ? "" : " " + SafeEncode.forHtmlAttribute(temp.toString()) %>; <fmt:message key="schedule.scheduleflipview.msgbookings"/>: <%=SafeEncode.forHtmlAttribute(strNumOfAppts)%>; <fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>: <carlos:encode value='<%= bookinglimit %>' context="htmlAttribute"/>"
+                        aria-label="<%=SafeEncode.forHtmlAttribute(outform.format(cal.getTime()))%> <%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%><%= scheduleCode.isEmpty() || "&nbsp;".equals(scheduleCode) ? "" : " " + SafeEncode.forHtmlAttribute(scheduleCode) %>; <fmt:message key="schedule.scheduleflipview.msgbookings"/>: <%=SafeEncode.forHtmlAttribute(strNumOfAppts.isEmpty() ? "0" : strNumOfAppts)%>; <fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>: <carlos:encode value='<%= bookinglimit %>' context="htmlAttribute"/>"
                         onclick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');">
                     <span class="availability-slot-code">
                         <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : SafeEncode.forHtmlContent(temp.toString()) %>

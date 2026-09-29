@@ -133,7 +133,7 @@ body.availability-page {
     align-items: stretch;
     background: transparent;
     border: 0;
-    color: #212529;
+    color: #000;
     cursor: pointer;
     display: flex;
     font: inherit;
@@ -145,11 +145,14 @@ body.availability-page {
     width: 100%;
 }
 
+/* A white ring inside a black one stays visible on every cell colour (red, green, silver and pale
+   template colours alike). Forced-colours (Windows High Contrast) mode drops box-shadow but draws the
+   transparent outline, so keyboard focus stays visible there too. */
 .availability-slot:hover,
 .availability-slot:focus-visible {
-    box-shadow: inset 0 0 0 2px #0d6efd;
+    box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px #000;
     color: #000;
-    outline: 0;
+    outline: 2px solid transparent;
 }
 
 .availability-slot-code {
