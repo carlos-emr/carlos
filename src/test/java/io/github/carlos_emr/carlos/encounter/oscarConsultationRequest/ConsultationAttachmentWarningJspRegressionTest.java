@@ -67,7 +67,10 @@ class ConsultationAttachmentWarningJspRegressionTest {
         int guard = jsp.indexOf("if (<%= hasAttachmentWarnings %>)", finishPage);
         int autoClose = jsp.indexOf("window.setTimeout(closeOrReturn, secs * 1000);", finishPage);
         assertThat(finishPage).isGreaterThanOrEqualTo(0);
-        assertThat(guard).isGreaterThan(finishPage).isLessThan(autoClose);
+        int download = jsp.indexOf("downloadConsultForm(consultPDFName, consultPDF);", finishPage);
+        // After the download branch, so a print with a warning still downloads; before the timer.
+        assertThat(download).isGreaterThan(finishPage);
+        assertThat(guard).isGreaterThan(download).isLessThan(autoClose);
         assertThat(jsp).contains("<% if (!\"true\".equals(isPreview) && !hasAttachmentWarnings) { %>");
     }
 
