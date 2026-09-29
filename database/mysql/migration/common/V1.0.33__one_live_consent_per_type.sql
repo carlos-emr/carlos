@@ -52,7 +52,7 @@ FROM (
     SELECT `id`, `explicit`, `optout`, `deleted`,
            ROW_NUMBER() OVER (
                PARTITION BY `demographic_no`, `consent_type_id`
-               ORDER BY `optout` DESC, IFNULL(`explicit`, 0) DESC, (`edit_date` IS NULL), `edit_date` DESC, `id` DESC
+               ORDER BY `optout` DESC, IFNULL(`explicit`, 0) DESC, (NULLIF(`edit_date`, '0000-00-00 00:00:00') IS NULL), NULLIF(`edit_date`, '0000-00-00 00:00:00') DESC, `id` DESC
            ) AS `rn`
     FROM `Consent`
     WHERE `deleted` = 0 AND `optout` IS NOT NULL
@@ -84,14 +84,15 @@ UPDATE `Consent` SET `explicit` = 0 WHERE `explicit` IS NULL;
 -- 2. Keep one live row per patient and type, chosen exactly as ConsentRecords.effective chooses
 -- it: any opt-out wins; then a record the patient confirmed directly (explicit) wins over an
 -- implied one, even a newer one; among the rest the latest edit_date wins, an undated row counts
--- as the oldest, and a tie goes to the higher id. Rows missing the patient or the type are not
+-- as the oldest (a zero date, 0000-00-00, counts as undated, as the OSCAR 19 import treats it),
+-- and a tie goes to the higher id. Rows missing the patient or the type are not
 -- grouped, because the key below does not constrain them either.
 UPDATE `Consent` c
 JOIN (
     SELECT `id`,
            ROW_NUMBER() OVER (
                PARTITION BY `demographic_no`, `consent_type_id`
-               ORDER BY `optout` DESC, `explicit` DESC, (`edit_date` IS NULL), `edit_date` DESC, `id` DESC
+               ORDER BY `optout` DESC, `explicit` DESC, (NULLIF(`edit_date`, '0000-00-00 00:00:00') IS NULL), NULLIF(`edit_date`, '0000-00-00 00:00:00') DESC, `id` DESC
            ) AS `rn`
     FROM `Consent`
     WHERE `deleted` = 0 AND `demographic_no` IS NOT NULL AND `consent_type_id` IS NOT NULL

@@ -68,8 +68,9 @@ See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient
 `V1.0.33__one_live_consent_per_type.sql` leaves at most one live `Consent` row per patient and
 consent type, then adds a unique key that keeps it that way. It first fills NULL flags, retires
 the extra live rows with the rule `ConsentRecords.effective` uses (an opt-out wins, otherwise the
-latest edit), and makes `explicit`, `optout` and `deleted` NOT NULL. Retired rows are soft-deleted
-with every other value kept. The key sits on an invisible generated column, `live_demographic_no`,
+latest edit), and makes `explicit`, `optout` and `deleted` NOT NULL. Retired duplicates change only
+`deleted`; a row that had a NULL flag also gets that flag filled, and every row the migration
+changes has its earlier values kept in `Consent_migration_audit`. The key sits on an invisible generated column, `live_demographic_no`,
 because deleted rows legitimately repeat and MariaDB has no partial index.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
