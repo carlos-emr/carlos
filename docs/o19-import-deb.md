@@ -752,14 +752,15 @@ rows retired as duplicates; live rows with no recorded decision retired;
 rows with a NULL `deleted` stored as deleted; rows that were not live
 whose NULL `optout` is stored as 1; rows deleted in OSCAR 19 that stay
 deleted. A last line names `o19_archive.Consent__live` whenever the
-import changed any row, including one whose only change was a NULL
+import changed a row, including one whose only change was a NULL
 `explicit` stored as implied.
 
-The manifest this package ships carries the rule. After every `Consent`
-copy the import also counts the patients holding more than one live
-record of a type, and refuses to go on if there are any (see
-[Troubleshooting](#troubleshooting)); that check runs whatever manifest
-is in use.
+The manifest this package ships carries the rule. An import whose
+manifest does not is refused before it writes anything, because without
+the rule deleted consents would arrive live and undecided ones as
+opt-ins. After the copy, the import also counts the patients holding
+more than one live record of a type, and refuses to go on if there are
+any (see [Troubleshooting](#troubleshooting)).
 
 ### What this means for Flyway
 
@@ -835,9 +836,10 @@ clinic's sign-off.
   after the copy"* — the import checks this itself because the copy runs
   with unique checks off. It means the import chose wrongly, not that the
   clinic's data is at fault: restore the pre-import snapshot and report
-  it. The same message ending *"the manifest in use does not carry the
-  one-live-record rule"* means the import ran with a manifest other than
-  the one this package ships; restore the snapshot and report that too.
+  it. *"Consent: the manifest's entry does not carry the one-live-record
+  rule"*, among the ETL pre-checks, means the manifest was replaced or
+  regenerated from an older overlay; nothing was written. Put back the
+  manifest this package ships and run the import again.
   *"the helper table o19_archive.Consent__live does not hold exactly
   one row for every staged row"* means the staged dump changed during
   the import; nothing was copied for that table. Restore the snapshot

@@ -839,9 +839,9 @@ class TestTheConsentRulingIsInTheOverlay(unittest.TestCase):
 
     Asserted on the OVERLAY, which the generator reads;
     TestTheShippedManifestRanksConsent asserts that the manifest
-    generated from it carries the ruling. The ETL still copies an entry
-    without it (o19etl.consent_live_ranked), unranked, so that test is
-    what stands between a stale manifest and the import."""
+    generated from it carries the ruling. The ETL refuses an entry
+    without it before any write (o19etl.consent_live_ranked,
+    etl_precheck_problems)."""
 
     @classmethod
     def setUpClass(cls):
@@ -885,11 +885,11 @@ class TestTheShippedManifestRanksConsent(unittest.TestCase):
 
     """The ruling as the import runs it (#3845), in every profile.
 
-    A manifest without it still imports: o19etl.consent_live_ranked
-    turns the helper off and the copy stores the dump's flags as they
-    are, deleted rows live and a NULL optout unfilled. A merge that
-    took an older o19map_schema.py would pass every other test, so this
-    one reads what shipped."""
+    A manifest without it is refused at import, before the first write
+    (o19etl.etl_precheck_problems): copied, it would store OSCAR 19's
+    deleted rows live and a NULL optout as 0, an opt-in. A merge that
+    took an older o19map_schema.py would pass every other test and fail
+    every clinic's import, so this one reads what shipped."""
 
     #: the module-level default (Ontario) and every other profile
     PROFILE_NAMES = sorted({o19map_schema._DEFAULT_PROFILE["O19_PROFILE"]}

@@ -36,8 +36,9 @@ SRC, DST, ARCH = "src", "dst", "arch"
 
 OVERRIDES = Path(__file__).resolve().parents[4] / "scripts" / "migration" / \
     "o19" / "overrides_schema.py"
-MIGRATION = Path(__file__).resolve().parents[4] / "database" / "mysql" / \
-    "migration" / "common" / "V1.0.33__one_live_consent_per_type.sql"
+#: where V1.0.33 lives; its number changes at merge, its name does not
+MIGRATIONS = Path(__file__).resolve().parents[4] / "database" / "mysql" / \
+    "migration" / "common"
 
 COLLATED = re.compile(
     r"CONVERT\(([ds]\.`\w+`) USING utf8mb4\) COLLATE utf8mb4_bin")
@@ -353,6 +354,9 @@ class TestNullFlags(ConsentReplayBase):
     def test_a_null_explicit_is_stored_as_implied(self):
         self.assertEqual(self.imported(row(1, explicit=None)),
                          [(1, 0, 0, 0)])
+        # no report line counts it; "changed" is what makes the report
+        # point at the helper that records it
+        self.assertEqual(self.counts()["changed"], 1)
 
     def test_a_null_explicit_ranks_as_implied(self):
         self.assertEqual(
@@ -641,10 +645,12 @@ class TestTheWholeImport(ConsentReplayBase):
             "SELECT * FROM src.Consent ORDER BY id").fetchall(), before)
 
 
-class TestTheShippedManifest(unittest.TestCase):
+class TestAManifestWithoutTheRule(unittest.TestCase):
 
     """A manifest generated before the ruling: no `deleted`, no
-    expressions. The import must do exactly what it did."""
+    expressions. run_etl refuses such an entry before its first write
+    (etl_precheck_problems); these pin how it is recognised, and what
+    its copy would store -- the reason for the refusal."""
 
     def test_an_entry_without_the_expression_asks_for_no_helper(self):
         self.assertFalse(o19etl.consent_live_ranked(
@@ -682,8 +688,7 @@ class TestTheShippedManifest(unittest.TestCase):
             "FROM `src`.`Consent` s")
 
 
-
-@unittest.skipUnless(MIGRATION.is_file(), "migrations not in this checkout")
+@unittest.skipUnless(MIGRATIONS.is_dir(), "migrations not in this checkout")
 class TestTheImportRanksAsTheMigrationDoes(unittest.TestCase):
 
     """o19etl.CONSENT_LIVE_ORDER and V1.0.33's ORDER BY are one rule
@@ -697,7 +702,11 @@ class TestTheImportRanksAsTheMigrationDoes(unittest.TestCase):
               ("IFNULL(`explicit`, 0)", "`explicit`"))
 
     def test_every_order_in_the_migration_is_the_imports(self):
-        orders = re.findall(r"ORDER BY (.+)$", MIGRATION.read_text(), re.M)
+        # found by name, not number: renumbering at merge must not turn
+        # this into a skip
+        found = sorted(MIGRATIONS.glob("V*__one_live_consent_per_type.sql"))
+        self.assertEqual(len(found), 1, found)
+        orders = re.findall(r"ORDER BY (.+)$", found[0].read_text(), re.M)
         self.assertEqual(len(orders), 2, orders)
         for order in orders:
             for wrapped, bare in self.UNWRAP:

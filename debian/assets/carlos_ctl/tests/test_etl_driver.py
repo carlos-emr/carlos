@@ -1234,7 +1234,8 @@ class TestOneLiveConsentPerType(ConsentDriverBase):
             "s.`optout` IS NULL AND (": 2,
             "s.`deleted` IS NULL": 4,
             "s.`optout` IS NULL AND NOT (": 5,
-            "s.`deleted` <> 0": 6}))
+            "s.`deleted` <> 0": 6,
+            "WHERE `reason` IS NOT NULL": 14}))
         text = self.report_text(lines)
         self.assertIn("Consent: 3 live row(s) retired (deleted = 1) "
                       "because the patient holds another live record",
@@ -1286,10 +1287,21 @@ class TestOneLiveConsentPerType(ConsentDriverBase):
         # the helper still records it, and the report must say where
         _db, lines, _counts = self.run_etl(db=self.db(scalars={
             "WHERE `reason` IS NOT NULL": 2}))
-        text = self.report_text(lines)
-        self.assertIn("consent records:", text)
-        self.assertIn("is kept in o19_archive.Consent__live", text)
-        self.assertNotIn("row(s)", text.split("consent records:")[1])
+        block = self.consent_block(lines)
+        self.assertIn("is kept in o19_archive.Consent__live", block)
+        self.assertNotIn("row(s)", block)
+
+    def test_rows_that_only_stay_deleted_get_no_pointer(self):
+        # nothing about them changed, so there is nothing to look up
+        _db, lines, _counts = self.run_etl(db=self.db(scalars={
+            "s.`deleted` <> 0": 6}))
+        block = self.consent_block(lines)
+        self.assertIn("6 row(s) deleted in OSCAR 19 stay deleted", block)
+        self.assertNotIn("Consent__live", block)
+
+    def consent_block(self, lines):
+        """The report's consent section alone."""
+        return next(line for line in lines if "consent records:" in line)
 
     def test_nothing_retired_is_nothing_reported(self):
         _db, lines, _counts = self.run_etl(db=self.db())
@@ -1310,46 +1322,33 @@ class TestAManifestFromBeforeTheConsentRuling(ConsentDriverBase):
     expressions. The shipped one carries it
     (test_manifest_integrity.TestTheShippedManifestRanksConsent); this
     is a manifest generated from an older overlay, or put in its place.
-    The copy is the one it was, and the target is still checked."""
+    Copied, it would bring OSCAR 19's deleted consents in live and an
+    undecided one in as an opt-in -- which no duplicate count notices --
+    so the run is refused before its first write."""
 
     ENTRY = CONSENT_UNRANKED
 
-    def test_no_helper_is_built(self):
-        db, lines, _counts = self.run_etl(db=self.db())
-        self.assertEqual([w for w in db.log if "Consent__live" in w], [])
-        self.assertNotIn("consent records:", self.report_text(lines))
-
-    def test_the_target_is_still_checked_after_the_copy(self):
-        # the key exists whatever the manifest says, and this copy
-        # brings the clinic's duplicates in live
-        db, _lines, _counts = self.run_etl(db=self.db())
-        checks = [i for i, w in enumerate(db.log) if self.CHECK in w]
-        self.assertEqual(len(checks), 1, db.log)
-        self.assertLess(self.first(db, self.COPY), checks[0])
-
-    def test_duplicates_fail_the_import_and_name_the_manifest(self):
-        message = self.refusal(self.db(scalars={self.CHECK: 3}))
-        self.assertIn("3 patient/consent-type pair(s)", message)
-        self.assertIn("does not carry the one-live-record rule", message)
-        self.assertNotIn("a defect in the import", message)
-
-    def test_the_copy_is_the_one_it_was(self):
-        db, _lines, _counts = self.run_etl(db=self.db())
-        copies = [w for w in db.writes if w.startswith(self.COPY)]
-        self.assertEqual(len(copies), 1)
-        # the dump's `deleted` is a column that manifest does not know:
-        # preserved beside the row, as any unknown column is, and the
-        # live flag is not read from it
-        self.assertIn("`import_archived_deleted`", copies[0])
-        self.assertNotIn("IFNULL(s.`optout`, 1)", copies[0])
-        self.assertNotIn("s.`deleted` <=>", copies[0])
-
-    def test_a_resumed_run_builds_none_either(self):
-        with self.assertRaises(o19etl.QueryError):
-            self.run_etl(db=self.db(fail_on=self.COPY))
-        resumed, _lines, _counts = self.run_etl(db=self.db())
+    def test_the_run_is_refused_before_any_write(self):
+        db = self.db()
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), \
+                self.assertRaises(SystemExit):
+            self.run_etl(db=db)
+        self.assertIn("does not carry the one-live-record rule",
+                      err.getvalue())
+        # the pre-checks' own TEMPORARY probe is the one allowed
+        # statement (etl_precheck_problems); nothing else may run
         self.assertEqual(
-            [w for w in resumed.log if "Consent__live" in w], [])
+            [w for w in db.writes
+             if w.startswith(("INSERT", "DELETE", "UPDATE", "CREATE",
+                              "RENAME", "ALTER"))
+             and "__o19_twin_probe" not in w], [],
+            "the refusal came after a write")
+
+    def test_a_resumed_run_is_refused_too(self):
+        for _attempt in range(2):
+            self.assertIn("does not carry the one-live-record rule",
+                          self.refusal(self.db()))
 
 
 if __name__ == "__main__":
