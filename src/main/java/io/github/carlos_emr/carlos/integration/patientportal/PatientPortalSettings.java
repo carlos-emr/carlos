@@ -114,7 +114,7 @@ public record PatientPortalSettings(
     private static final String MISSING_MESSAGE = "patient portal is not configured: %s is required";
     private static final String NOT_ENABLED_MESSAGE =
             "patient portal is not enabled: set " + ENABLED_KEY + "=true to use it";
-    /** A fixed message naming only the key, so callers may log it; it never carries a value. */
+    /** The switch's fixed error, naming only its key; public so tests in other packages can match it. */
     public static final String ENABLED_VALUE_MESSAGE = ENABLED_KEY + " must be true or false";
     private static final String PLAINTEXT_MESSAGE = "%s must begin with a lowercase https://";
     private static final String MALFORMED_MESSAGE = "%s is not a valid URL";

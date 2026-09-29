@@ -245,13 +245,14 @@ class PortalFailureLoggingUnitTest {
     void shouldLogGenerically_whenTheCauseChainLoops() {
         // Thrown directly, as a configuration error reaches the action outside Spring. Wrapped in
         // BeanCreationException it would never get here: Spring's own contains() check, which runs
-        // first, does not stop on a cycle either, but Spring never builds one.
+        // first, does not stop on a cycle either, but Spring never builds one. The top message is
+        // null so the walk has to follow the causes, and so reaches the loop.
         Supplier<RuntimeException> looping =
                 () -> {
                     RuntimeException first = new RuntimeException("first");
                     RuntimeException second = new RuntimeException("second");
                     PatientPortalConfigurationException top =
-                            new PatientPortalConfigurationException("another setting is invalid");
+                            new PatientPortalConfigurationException((String) null);
                     top.initCause(first);
                     first.initCause(second);
                     second.initCause(first);
@@ -260,12 +261,12 @@ class PortalFailureLoggingUnitTest {
 
         String log = assertTimeoutPreemptively(
                 Duration.ofSeconds(5), () -> configurationLogOf(looping));
-        assertThat(log).contains("check deployment settings");
+        assertThat(log).contains("check deployment settings: no detail");
     }
 
     @Test
-    @DisplayName("should keep other configuration messages out of the log")
-    void shouldOmitOtherConfigurationMessages_fromTheLog() throws IOException {
+    @DisplayName("should keep a configuration message's text out of the log")
+    void shouldOmitConfigurationMessageText_fromTheLog() throws IOException {
         assertThat(configurationLogOf("secret-token-value is not valid"))
                 .contains("check deployment settings")
                 .doesNotContain("secret-token-value");
