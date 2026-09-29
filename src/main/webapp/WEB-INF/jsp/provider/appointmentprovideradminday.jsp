@@ -1788,8 +1788,11 @@
                                 <%-- Mirrors the desktop availability link above, which the mobile
                                      stylesheet hides with the rest of the provider header. Keep it
                                      under the same infirmary-view guard so CAISI infirmary mode
-                                     suppresses both entry points, not just the desktop one. --%>
+                                     suppresses both entry points, not just the desktop one. The week
+                                     view shows no desktop link either, and this row would repeat
+                                     under each of its seven day columns. --%>
                                 <c:if test="${infirmaryView_isOscar != 'false'}">
+                                <% if (!isWeekView) { %>
                                 <tr class="provider-availability-mobile-row noprint">
                                     <td class="noGrid" align="center">
                                         <a class="provider-availability-link"
@@ -1801,6 +1804,7 @@
                                         </a>
                                     </td>
                                 </tr>
+                                <% } %>
                                 </c:if>
                                 <!-- END for the first providers's name -->
                                 <tr>
