@@ -389,11 +389,13 @@ carlos-emr carlos-emr/reset-seed-admin boolean true
 carlos-emr carlos-emr/install-demo-data boolean true
 EOF
 lxc file push /tmp/carlos-preseed.txt carlos-test/root/
-# From 2026.08.0-alpha14 carlos-emr is _amd64 (it carries the eForm renderer)
-# and carlos-emr-eform-renderer is an empty _all transitional package; earlier
-# builds were carlos-emr_*_all.deb + carlos-emr-eform-renderer_*_amd64.deb.
+# From 2026.08.0-alpha14 carlos-emr is _amd64 (it carries the eForm renderer);
+# earlier builds were carlos-emr_*_all.deb + carlos-emr-eform-renderer_*_amd64.deb.
+# alpha14 through alpha17 also shipped an empty carlos-emr-eform-renderer_*_all.deb
+# transitional package, which is no longer built. carlos-ctl is the release
+# debian/carlos-ctl.pin names (debian/fetch-carlos-ctl.sh fetches it).
 lxc file push ../carlos-emr_*_amd64.deb ../carlos-emr-drugref_*_all.deb \
-              ../carlos-emr-eform-renderer_*_all.deb carlos-test/root/
+              ../carlos-ctl_*_all.deb carlos-test/root/
 
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
@@ -401,7 +403,7 @@ lxc exec carlos-test -- bash -c '
   debconf-set-selections /root/carlos-preseed.txt
   apt-get install -y --no-remove /root/carlos-emr_*_amd64.deb \
                      /root/carlos-emr-drugref_*_all.deb \
-                     /root/carlos-emr-eform-renderer_*_all.deb'
+                     /root/carlos-ctl_*_all.deb'
 ```
 
 Then verify the deployment before anything else:
@@ -1148,7 +1150,7 @@ lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y --reinstall --no-remove /root/carlos-emr_*_amd64.deb \
       /root/carlos-emr-drugref_*_all.deb \
-      /root/carlos-emr-eform-renderer_*_all.deb'
+      /root/carlos-ctl_*_all.deb'
 lxc exec carlos-test -- carlos-ctl check   # expect the same all-OK, with any
                                            # new migrations counted in flyway_schema_history
 ```
@@ -1934,3 +1936,31 @@ validate browser recovery; they are separate from a real concurrent-render capac
 This recovery path applies to attachment previews. Saved-form download, eDoc archive and fax
 preparation are separate workflows and require their own continuation checks; the original
 `AddEForm` clinical save must never be replayed to retry a render.
+
+### Transitional renderer package removal (2026-09-29)
+
+Validation that `release/2026.08` builds and installs correctly without the empty
+transitional `carlos-emr-eform-renderer` package. The branch tree was built in an
+`ubuntu:26.04` container the way `deb-packages.yml` does it: the changelog was
+stamped as `2026.08.0~alpha18`, `CARLOS_WAR` was set to the published
+2026.08.0-alpha17 WAR, DrugRef was built from `debian/drugref.pin` and Chromium
+was fetched from `debian/chromium.pin`. `dpkg-buildpackage -us -uc -b` produced
+exactly `carlos-emr_…_amd64` and `carlos-emr-drugref_…_all`. The workflow's
+`.changes`-versus-`debian/control` cross-check passed. Lintian reported only the
+pre-existing `possible-bashism-in-maintainer-script` warning. The built
+`carlos-emr` still declares `Breaks: carlos-emr-eform-renderer (<< 2026.08.0~alpha14~)`
+and `Replaces: carlos-emr-eform-renderer (<< 2026.08.0~alpha18)`.
+
+Each scenario ran in a fresh privileged `ubuntu:26.04` container with systemd
+as PID 1, using the section 3 preseed (with `install-demo-data=false`) and
+`carlos-ctl_1.1.0_all.deb`:
+
+| Scenario | Result |
+|---|---|
+| Fresh install, `--no-remove` | PASS: `carlos-ctl check` reports "All checks passed" and the render browser is active. `deb-upgrade-baseline.sh` records `pkg.renderer=` (empty) instead of failing. |
+| alpha13 (`_all` EMR + `_amd64` renderer) → new, `--no-remove` | Refused as expected (`E: Packages need to be removed but remove is disabled`). alpha13 is left installed and running. |
+| alpha13 → new, without `--no-remove` | PASS: apt removes only `carlos-emr-eform-renderer`. The render token (`CARLOS_RENDER_URL_BASE`) moves unchanged to `renderer.env`, and `render-browser.env` and `carlos-emr-chromedriver` are gone. The check passes. Flyway goes from 23 to 32 applied migrations. A later `apt purge carlos-emr-eform-renderer` leaves the check passing. |
+| alpha17 as published (with transitional) → new, `--no-remove` | PASS: no removal is proposed, the transitional package stays installed (alpha17), `renderer.env` is unchanged and the check passes. Removing and then purging the leftover transitional package leaves the EMR and render browser active and the check passing. |
+
+The pinned carlos-ctl 1.1.0 suite ran against this tree (`CARLOS_SRC`): 1468
+tests OK. `debian/assets/tests` and `scripts/migration/o19/tests` also passed.
