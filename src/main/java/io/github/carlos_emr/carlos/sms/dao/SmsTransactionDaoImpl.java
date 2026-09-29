@@ -5,7 +5,6 @@ import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueCountDto;
-import io.github.carlos_emr.carlos.sms.dto.SmsQueuePatientCountDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueRowDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import jakarta.persistence.LockModeType;
@@ -21,6 +20,8 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.StringJoiner;
 import java.util.TreeSet;
 import java.util.UUID;
 
@@ -36,6 +37,8 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     private static final String PARAM_STALE_BEFORE = "staleBefore";
     private static final String PARAM_SINCE = "since";
     private static final String PARAM_DEMOGRAPHIC_NOS = "demographicNos";
+    // Followed by the part's position: excluded0, excluded1, ...
+    private static final String PARAM_EXCLUDED_PREFIX = "excluded";
     // The queue view's time period. Added to a query only when a start time is given; the time itself is
     // always a bound parameter.
     private static final String UPDATED_SINCE = "AND t.updatedAt >= :since ";
@@ -247,91 +250,92 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     @Override
     @Transactional(readOnly = true)
     public List<SmsQueueCountDto> countFailedOutboundByProviderAndErrorCode(Date since) {
+        return countFailedOutboundByProviderAndErrorCode(since, List.of());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SmsQueueCountDto> countFailedOutboundByProviderAndErrorCode(
+            Date since, Collection<Integer> excludedDemographicNos) {
+        List<List<Integer>> excluded = inParts(excludedDemographicNos);
         TypedQuery<Object[]> query = entityManager.createQuery(
                 "SELECT t.providerType, t.errorCode, COUNT(t) FROM SmsTransaction t "
                         + "WHERE t.direction = :direction "
                         + "AND t.status = :status "
                         + updatedSince(since)
+                        + notOfPatients(excluded.size())
                         + "GROUP BY t.providerType, t.errorCode",
                 Object[].class
         );
         query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
         query.setParameter(PARAM_STATUS, SmsStatus.FAILED);
         bindSince(query, since);
+        bindExcluded(query, excluded);
         return toCodeCounts(query.getResultList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SmsQueueCountDto> countConsentBlockedOutboundByProviderAndReason(Date since) {
+        return countConsentBlockedOutboundByProviderAndReason(since, List.of());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SmsQueueCountDto> countConsentBlockedOutboundByProviderAndReason(
+            Date since, Collection<Integer> excludedDemographicNos) {
+        List<List<Integer>> excluded = inParts(excludedDemographicNos);
         TypedQuery<Object[]> query = entityManager.createQuery(
                 "SELECT t.providerType, t.consentReasonCode, COUNT(t) FROM SmsTransaction t "
                         + "WHERE t.direction = :direction "
                         + "AND t.status IN (:statuses) "
                         + updatedSince(since)
+                        + notOfPatients(excluded.size())
                         + "GROUP BY t.providerType, t.consentReasonCode",
                 Object[].class
         );
         query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
         query.setParameter(PARAM_STATUSES, CONSENT_BLOCKED_STATUSES);
         bindSince(query, since);
+        bindExcluded(query, excluded);
         return toCodeCounts(query.getResultList());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<SmsQueuePatientCountDto> countFailedOutboundByProviderErrorCodeAndPatient(
-            Date since, Collection<Integer> demographicNos) {
-        return countByProviderCodeAndPatient("t.errorCode", List.of(SmsStatus.FAILED), since, demographicNos);
+    public Set<Integer> findPatientsWithFailedOutbound(Date since, Collection<Integer> demographicNos) {
+        return findPatientsWithOutbound(List.of(SmsStatus.FAILED), since, demographicNos);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<SmsQueuePatientCountDto> countConsentBlockedOutboundByProviderReasonAndPatient(
-            Date since, Collection<Integer> demographicNos) {
-        return countByProviderCodeAndPatient("t.consentReasonCode", CONSENT_BLOCKED_STATUSES, since,
-                demographicNos);
+    public Set<Integer> findPatientsWithConsentBlockedOutbound(Date since, Collection<Integer> demographicNos) {
+        return findPatientsWithOutbound(CONSENT_BLOCKED_STATUSES, since, demographicNos);
     }
 
     /**
-     * @param codeColumn one of this class's own two column names, never outside text; the statuses, the
-     *                   time and the patients are bound parameters
+     * @param statuses the statuses of the section's own count query; they, the time and the patients are
+     *                 bound parameters
      */
-    private List<SmsQueuePatientCountDto> countByProviderCodeAndPatient(
-            String codeColumn, List<SmsStatus> statuses, Date since, Collection<Integer> demographicNos) {
-        if (demographicNos == null) {
-            return List.of();
-        }
-        // Each patient once and in a fixed order, so no patient is in two parts and counted twice over.
-        TreeSet<Integer> wanted = new TreeSet<>();
-        for (Integer demographicNo : demographicNos) {
-            if (demographicNo != null) {
-                wanted.add(demographicNo);
-            }
-        }
-        List<Integer> patients = List.copyOf(wanted);
-        List<SmsQueuePatientCountDto> counts = new ArrayList<>();
-        for (int from = 0; from < patients.size(); from += PATIENT_COUNT_CHUNK_SIZE) {
-            TypedQuery<Object[]> query = entityManager.createQuery(
-                    "SELECT t.providerType, " + codeColumn + ", t.demographicNo, COUNT(t) FROM SmsTransaction t "
+    private Set<Integer> findPatientsWithOutbound(
+            List<SmsStatus> statuses, Date since, Collection<Integer> demographicNos) {
+        Set<Integer> found = new TreeSet<>();
+        for (List<Integer> part : inParts(demographicNos)) {
+            TypedQuery<Integer> query = entityManager.createQuery(
+                    "SELECT DISTINCT t.demographicNo FROM SmsTransaction t "
                             + "WHERE t.direction = :direction "
                             + "AND t.status IN (:statuses) "
                             + "AND t.demographicNo IN (:demographicNos) "
-                            + updatedSince(since)
-                            + "GROUP BY t.providerType, " + codeColumn + ", t.demographicNo",
-                    Object[].class
+                            + updatedSince(since),
+                    Integer.class
             );
             query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
             query.setParameter(PARAM_STATUSES, statuses);
-            query.setParameter(PARAM_DEMOGRAPHIC_NOS, List.copyOf(
-                    patients.subList(from, Math.min(from + PATIENT_COUNT_CHUNK_SIZE, patients.size()))));
+            query.setParameter(PARAM_DEMOGRAPHIC_NOS, part);
             bindSince(query, since);
-            for (Object[] row : query.getResultList()) {
-                counts.add(new SmsQueuePatientCountDto(
-                        (SmsProviderType) row[0], (String) row[1], (Integer) row[2], toLong(row[3])));
-            }
+            found.addAll(query.getResultList());
         }
-        return counts;
+        return found;
     }
 
     @Override
@@ -414,9 +418,54 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         return since == null ? "" : UPDATED_SINCE;
     }
 
-    private static void bindSince(TypedQuery<Object[]> query, Date since) {
+    private static void bindSince(TypedQuery<?> query, Date since) {
         if (since != null) {
             query.setParameter(PARAM_SINCE, since);
+        }
+    }
+
+    /**
+     * The demographic numbers each once, in order and without gaps, split into parts of at most
+     * {@link #PATIENT_COUNT_CHUNK_SIZE}. No patient is in two parts. Empty for an empty or {@code null} list.
+     */
+    private static List<List<Integer>> inParts(Collection<Integer> demographicNos) {
+        if (demographicNos == null) {
+            return List.of();
+        }
+        TreeSet<Integer> distinct = new TreeSet<>();
+        for (Integer demographicNo : demographicNos) {
+            if (demographicNo != null) {
+                distinct.add(demographicNo);
+            }
+        }
+        List<Integer> patients = List.copyOf(distinct);
+        List<List<Integer>> parts = new ArrayList<>();
+        for (int from = 0; from < patients.size(); from += PATIENT_COUNT_CHUNK_SIZE) {
+            parts.add(List.copyOf(patients.subList(from, Math.min(from + PATIENT_COUNT_CHUNK_SIZE, patients.size()))));
+        }
+        return parts;
+    }
+
+    /**
+     * The clause that leaves out the messages of the patients in that many parts, or nothing when there are
+     * no parts. A message without a patient is always kept: {@code NOT IN} alone would drop it, since a
+     * missing number is neither in nor out of a list. The parameter names are made here from the part's
+     * position, never from data; the numbers themselves are bound by {@link #bindExcluded}.
+     */
+    private static String notOfPatients(int parts) {
+        if (parts == 0) {
+            return "";
+        }
+        StringJoiner clause = new StringJoiner(" AND ", "AND (t.demographicNo IS NULL OR (", ")) ");
+        for (int part = 0; part < parts; part++) {
+            clause.add("t.demographicNo NOT IN (:" + PARAM_EXCLUDED_PREFIX + part + ")");
+        }
+        return clause.toString();
+    }
+
+    private static void bindExcluded(TypedQuery<?> query, List<List<Integer>> parts) {
+        for (int part = 0; part < parts.size(); part++) {
+            query.setParameter(PARAM_EXCLUDED_PREFIX + part, parts.get(part));
         }
     }
 

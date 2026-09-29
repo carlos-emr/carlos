@@ -40,9 +40,13 @@ import java.util.regex.Pattern;
  * restricted. The page therefore checks access only for the patients this class returns.
  * <p>
  * This class says which patients <i>could</i> be restricted, not which ones are: it does not look at who
- * the viewer is. It errs on the side of naming too many patients. The database compares object names
- * without regard to letter case or spaces at the end, so this class does the same; a patient named here
- * without need only costs one extra access check.
+ * the viewer is. It errs on the side of naming too many patients, because naming one without need only costs
+ * one extra access check on the page, while missing one would show a restricted patient's messages. So it
+ * trusts the database's {@code LIKE} for the prefix. The database compares object names by its collation,
+ * which ignores letter case, accents and spaces at the end, so every spelling {@code SecurityInfoManager}
+ * would find for a patient is among the names it returns; the extra names {@code LIKE} lets through (its
+ * {@code _} stands for any one character) only name patients too many. Only the demographic number after the
+ * prefix is read here.
  *
  * @since 2026-09-29
  */
@@ -67,8 +71,8 @@ public class SmsPatientRestrictionLookup {
     public Set<Integer> patientsWithOwnEntries() {
         Set<Integer> patients = new TreeSet<>();
         for (String prefix : PREFIXES) {
-            // In a LIKE pattern "_" stands for any one character, so the query can return names such as
-            // "Xdemographic$5". The prefix is checked again below, exactly.
+            // In a LIKE pattern "_" stands for any one character, so the query can also return names such as
+            // "Xdemographic$5". Those are kept: naming a patient too many is harmless.
             for (SecObjPrivilege entry : secObjPrivilegeDao.findByObjectName(prefix + "%")) {
                 String objectName = entry.getId() == null ? null : entry.getId().getObjectName();
                 Integer demographicNo = demographicNumber(prefix, objectName);
@@ -81,11 +85,15 @@ public class SmsPatientRestrictionLookup {
     }
 
     /**
-     * @return the demographic number after the prefix, or {@code null} when the name does not start with
-     *         the prefix or what follows is not a whole number above zero
+     * @param prefix     the prefix the database matched the name against; only its length is used, since the
+     *                   database has already decided that the name starts with it
+     * @param objectName an object name the database returned for {@code prefix + "%"}
+     * @return the demographic number after the first {@code prefix.length()} characters, spaces at the end
+     *         ignored, or {@code null} when that is not a whole number (digits only, so never negative) that
+     *         fits an int
      */
     static Integer demographicNumber(String prefix, String objectName) {
-        if (objectName == null || !objectName.regionMatches(true, 0, prefix, 0, prefix.length())) {
+        if (objectName == null || objectName.length() <= prefix.length()) {
             return null;
         }
         String number = objectName.substring(prefix.length()).stripTrailing();
@@ -93,8 +101,7 @@ public class SmsPatientRestrictionLookup {
             return null;
         }
         try {
-            int demographicNo = Integer.parseInt(number);
-            return demographicNo > 0 ? demographicNo : null;
+            return Integer.parseInt(number);
         } catch (NumberFormatException e) {
             // Ten digits, but more than an int holds: no patient has such a number.
             return null;

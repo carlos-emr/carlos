@@ -78,25 +78,45 @@ class SmsPatientRestrictionLookupUnitTest {
     }
 
     @Test
-    @DisplayName("should ignore a name the LIKE wildcard let through but that does not start with the prefix")
-    void shouldIgnoreName_whenPrefixDoesNotMatchExactly() {
+    @DisplayName("should trust the database's match for the prefix and read only the number after it")
+    void shouldIncludeName_whenPrefixDiffersOnlyWhereTheDatabaseMatchedIt() {
+        // The LIKE wildcard "_" matches any first character, and the collation ignores accents: the database
+        // returned these names for the prefix, so each only costs a check if it names a patient too many.
+        when(dao.findByObjectName(DEMOGRAPHIC_PATTERN)).thenReturn(entries("Xdemographic$5", "_dèmographic$6"));
+        when(dao.findByObjectName(ECHART_PATTERN)).thenReturn(entries("XeChart$8", "_ëChart$9"));
+
+        assertThat(lookup.patientsWithOwnEntries()).containsExactly(5, 6, 8, 9);
+    }
+
+    @Test
+    @DisplayName("should ignore a name that has no whole number right after the prefix's length")
+    void shouldIgnoreName_whenNoNumberFollowsThePrefixLength() {
         when(dao.findByObjectName(DEMOGRAPHIC_PATTERN))
-                .thenReturn(entries("Xdemographic$5", "_demographicX$6", "_demographic", "_demographic.other$7"));
-        when(dao.findByObjectName(ECHART_PATTERN)).thenReturn(entries("XeChart$8", "_eChartX$9"));
+                .thenReturn(entries("_demographicX$6", "_demographic", "_demographic$", "_demographic.other$7"));
+        when(dao.findByObjectName(ECHART_PATTERN)).thenReturn(entries("_eChartX$9", "_eChart"));
 
         assertThat(lookup.patientsWithOwnEntries()).isEmpty();
     }
 
     @Test
-    @DisplayName("should ignore a name whose ending is not a whole number above zero")
-    void shouldIgnoreName_whenSuffixIsNotAPositiveNumber() {
+    @DisplayName("should ignore a name whose ending is not a whole number that fits an int")
+    void shouldIgnoreName_whenSuffixIsNotAWholeNumber() {
         when(dao.findByObjectName(DEMOGRAPHIC_PATTERN)).thenReturn(entries(
-                "_demographic$abc", "_demographic$", "_demographic$-5", "_demographic$0", "_demographic$+5",
-                "_demographic$5a", "_demographic$5.0", "_demographic$ 5", "_demographic$5,6",
-                "_demographic$99999999999", "_demographic$4294967301", "_demographic$٥"));
-        when(dao.findByObjectName(ECHART_PATTERN)).thenReturn(entries("_eChart$-1", "_eChart$0", "_eChart$x"));
+                "_demographic$abc", "_demographic$-5", "_demographic$+5", "_demographic$5a", "_demographic$5.0",
+                "_demographic$ 5", "_demographic$5,6", "_demographic$99999999999", "_demographic$4294967301",
+                "_demographic$2147483648", "_demographic$٥"));
+        when(dao.findByObjectName(ECHART_PATTERN)).thenReturn(entries("_eChart$-1", "_eChart$x"));
 
         assertThat(lookup.patientsWithOwnEntries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should include zero and the largest int, the ends of what a demographic number can be")
+    void shouldIncludeName_whenNumberIsZeroOrTheLargestInt() {
+        when(dao.findByObjectName(DEMOGRAPHIC_PATTERN)).thenReturn(entries("_demographic$0"));
+        when(dao.findByObjectName(ECHART_PATTERN)).thenReturn(entries("_eChart$2147483647"));
+
+        assertThat(lookup.patientsWithOwnEntries()).containsExactly(0, Integer.MAX_VALUE);
     }
 
     @Test

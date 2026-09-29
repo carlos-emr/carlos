@@ -26,9 +26,9 @@ import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueCountDto;
-import io.github.carlos_emr.carlos.sms.dto.SmsQueuePatientCountDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueRowDto;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
+import io.github.carlos_emr.carlos.sms.service.SmsPatientRestrictionLookup;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueProcessingService;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueScheduler;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueViewModel;
@@ -44,20 +44,21 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.Objects;
-import java.util.function.IntPredicate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import java.util.function.IntPredicate;
 
 /**
  * Assembles {@link SmsQueueViewModel} for Administration &gt; SMS &gt; SMS queue ({@code admin/smsQueue.jsp}).
@@ -84,12 +85,20 @@ import java.util.function.Function;
  * and the section totals still include those messages, so the counts by code can add up to less than the
  * section's count.
  * <p>
- * Only a patient with a security entry of their own can be restricted, so the caller passes those patients
- * in and access is checked for them alone, once each per page view.
+ * Only a patient with a security entry of their own can be restricted ({@link SmsPatientRestrictionLookup}),
+ * so access is checked for those patients alone, once each per page view. The counts by code leave the
+ * restricted patients out in the database query itself, not by taking their counts off afterwards: the
+ * database groups codes by its collation, which ignores letter case and spaces at the end, so one code can
+ * come back spelled differently from two queries, and a subtraction matched by spelling would miss it. That
+ * costs zero to two extra queries per section, each split into parts of at most
+ * {@link SmsTransactionDao#PATIENT_COUNT_CHUNK_SIZE} patients, and none when no patient has an entry of their
+ * own: one for which of those patients have a message in the section (skipped when the section is empty),
+ * and one to count again without the restricted ones (only when there are any).
  * <p>
- * All queries run in one read-only transaction so the counts and lists agree. Rows come from a projection
- * that never loads the message body; only display-safe values leave this class, with the recipient masked
- * to its last four digits. The scheduler part is this server's in-memory state.
+ * All queries, the read of the patients with an entry of their own included, run in one read-only
+ * transaction so the counts and lists agree. Rows come from a projection that never loads the message body;
+ * only display-safe values leave this class, with the recipient masked to its last four digits. The
+ * scheduler part is this server's in-memory state.
  * <p>
  * Callers must have checked {@code _admin.sms} read.
  *
@@ -119,26 +128,30 @@ public class SmsQueueViewModelAssembler {
     private final SmsTransactionDao smsTransactionDao;
     private final SmsConfigService configService;
     private final SmsQueueScheduler scheduler;
+    private final SmsPatientRestrictionLookup restrictionLookup;
     private final Clock clock;
     private final BooleanSupplier schedulerProperty;
     private final DateTimeFormatter dateTimeFormatter;
 
     @Autowired
     public SmsQueueViewModelAssembler(SmsTransactionDao smsTransactionDao, SmsConfigService configService,
-                                      SmsQueueScheduler scheduler) {
-        this(smsTransactionDao, configService, scheduler, Clock.systemDefaultZone(),
+                                      SmsQueueScheduler scheduler, SmsPatientRestrictionLookup restrictionLookup) {
+        this(smsTransactionDao, configService, scheduler, restrictionLookup, Clock.systemDefaultZone(),
                 () -> CarlosProperties.getInstance().isPropertyActive(SmsQueueScheduler.ENABLED_PROPERTY));
     }
 
     /**
+     * @param restrictionLookup names the patients that can be restricted; read once per page view
      * @param clock             supplies "now" for the overdue and stale thresholds, and the zone times are shown in
      * @param schedulerProperty the {@link SmsQueueScheduler#ENABLED_PROPERTY} value, used while nothing is saved
      */
     SmsQueueViewModelAssembler(SmsTransactionDao smsTransactionDao, SmsConfigService configService,
-                               SmsQueueScheduler scheduler, Clock clock, BooleanSupplier schedulerProperty) {
+                               SmsQueueScheduler scheduler, SmsPatientRestrictionLookup restrictionLookup,
+                               Clock clock, BooleanSupplier schedulerProperty) {
         this.smsTransactionDao = smsTransactionDao;
         this.configService = configService;
         this.scheduler = scheduler;
+        this.restrictionLookup = restrictionLookup;
         this.clock = clock;
         this.schedulerProperty = schedulerProperty;
         this.dateTimeFormatter = DateTimeFormatter.ofPattern(DATE_TIME_PATTERN, Locale.ROOT).withZone(clock.getZone());
@@ -170,22 +183,23 @@ public class SmsQueueViewModelAssembler {
      * @param window                 the time period for the failed and blocked sections
      * @param showDemographicNumbers whether rows may carry the patient's demographic number; the action passes
      *                               the viewer's {@code _demographic} read right
-     * @param patientsWithOwnEntries the patients that have a security entry of their own (see
-     *                               {@code SmsPatientRestrictionLookup}); only these can be restricted, so
-     *                               only these are checked
-     * @param mayAccessPatient       asked at most once per patient in {@code patientsWithOwnEntries}, with
-     *                               the demographic number: whether this viewer may open that patient's
-     *                               record. When the answer is no, or the check fails, that patient's
-     *                               messages are left out of the lists and of the counts by code
+     * @param mayAccessPatient       asked at most once per patient, with the demographic number, and only
+     *                               about a patient with a security entry of their own (see
+     *                               {@link SmsPatientRestrictionLookup}): whether this viewer may open that
+     *                               patient's record. When the answer is no, or the check fails, that
+     *                               patient's messages are left out of the lists and of the counts by code
      * @return the queue per SMS provider and this server's scheduler state, and the patients shown
+     * @throws RuntimeException when the patients with an entry of their own cannot be read; nothing is shown
+     *                          then, rather than every patient
      */
     @Transactional(readOnly = true)
-    public Result assemble(SmsQueueWindow window, boolean showDemographicNumbers,
-                           Set<Integer> patientsWithOwnEntries, IntPredicate mayAccessPatient) {
+    public Result assemble(SmsQueueWindow window, boolean showDemographicNumbers, IntPredicate mayAccessPatient) {
         Objects.requireNonNull(window, "window is required");
-        Objects.requireNonNull(patientsWithOwnEntries, "patientsWithOwnEntries is required");
         Objects.requireNonNull(mayAccessPatient, "mayAccessPatient is required");
-        RowFilter filter = new RowFilter(showDemographicNumbers, patientsWithOwnEntries, mayAccessPatient);
+        // Only these patients can be restricted. Read first and not caught: if they cannot be read, the page
+        // fails before anything is queried.
+        RowFilter filter = new RowFilter(showDemographicNumbers, restrictionLookup.patientsWithOwnEntries(),
+                mayAccessPatient);
         Instant now = clock.instant();
         Date dueBefore = Date.from(now.minus(OVERDUE_QUEUED_AFTER));
         Date staleBefore = Date.from(now.minus(SmsQueueProcessingService.DEFAULT_STALE_SENDING_TIMEOUT));
@@ -197,20 +211,18 @@ public class SmsQueueViewModelAssembler {
                 byProvider(smsTransactionDao.countOutboundByProviderAndStatus());
         Map<SmsProviderType, Long> overdueCounts = smsTransactionDao.countOverdueQueuedOutboundByProvider(dueBefore);
         Map<SmsProviderType, Long> staleCounts = smsTransactionDao.countStaleSendingOutboundByProvider(staleBefore);
+        // Every message counted, hidden ones included: the section counts are these added up.
         Map<SmsProviderType, Map<String, Long>> failedByErrorCode =
                 byProvider(smsTransactionDao.countFailedOutboundByProviderAndErrorCode(since));
         Map<SmsProviderType, Map<String, Long>> blockedByReason =
                 byProvider(smsTransactionDao.countConsentBlockedOutboundByProviderAndReason(since));
-        // The same counts without the messages of restricted patients. Nothing is queried when no patient
-        // has an entry of their own, or when the section is empty anyway.
-        Map<SmsProviderType, Map<String, Long>> failedByErrorCodeShown = failedByErrorCode.isEmpty()
-                ? failedByErrorCode
-                : filter.withoutRestricted(failedByErrorCode, patients ->
-                        smsTransactionDao.countFailedOutboundByProviderErrorCodeAndPatient(since, patients));
-        Map<SmsProviderType, Map<String, Long>> blockedByReasonShown = blockedByReason.isEmpty()
-                ? blockedByReason
-                : filter.withoutRestricted(blockedByReason, patients ->
-                        smsTransactionDao.countConsentBlockedOutboundByProviderReasonAndPatient(since, patients));
+        // What the counts by code show: the same counts without the messages of restricted patients.
+        Map<SmsProviderType, Map<String, Long>> failedByErrorCodeShown = filter.codeCountsShown(failedByErrorCode,
+                patients -> smsTransactionDao.findPatientsWithFailedOutbound(since, patients),
+                restricted -> smsTransactionDao.countFailedOutboundByProviderAndErrorCode(since, restricted));
+        Map<SmsProviderType, Map<String, Long>> blockedByReasonShown = filter.codeCountsShown(blockedByReason,
+                patients -> smsTransactionDao.findPatientsWithConsentBlockedOutbound(since, patients),
+                restricted -> smsTransactionDao.countConsentBlockedOutboundByProviderAndReason(since, restricted));
 
         List<SmsQueueViewModel.ProviderQueue> providers = new ArrayList<>();
         for (SmsProviderType providerType : SmsProviderType.values()) {
@@ -270,8 +282,8 @@ public class SmsQueueViewModelAssembler {
 
     /**
      * Turns query rows into display rows for one page view: leaves out the messages of patients the viewer
-     * is restricted from, takes those messages out of the counts by code, and remembers which patients were
-     * shown. One instance per call of {@link #assemble}.
+     * is restricted from, has those messages left out of the counts by code, and remembers which patients
+     * were shown. One instance per call of {@link #assemble}.
      */
     private final class RowFilter {
         private final boolean showDemographicNumbers;
@@ -281,7 +293,7 @@ public class SmsQueueViewModelAssembler {
         private final Map<Integer, Boolean> accessible = new HashMap<>();
         private final Set<Integer> displayed = new TreeSet<>();
 
-        private RowFilter(boolean showDemographicNumbers, Set<Integer> patientsWithOwnEntries,
+        private RowFilter(boolean showDemographicNumbers, Collection<Integer> patientsWithOwnEntries,
                           IntPredicate mayAccessPatient) {
             this.showDemographicNumbers = showDemographicNumbers;
             this.patientsWithOwnEntries = Set.copyOf(patientsWithOwnEntries);
@@ -295,30 +307,34 @@ public class SmsQueueViewModelAssembler {
         }
 
         /**
-         * @param byCode        a section's counts by SMS provider and code, hidden messages included
-         * @param patientCounts given the patients with an entry of their own, returns the part of those
-         *                      counts that belongs to them, per patient
-         * @return the counts without the messages of restricted patients; a code left with none is dropped.
-         *         The codes are still the stored ones: what is not a code is replaced only afterwards
+         * A section's counts by code as the page shows them. When some of the patients with an entry of their
+         * own have messages in the section and any of those is restricted, the counts are queried again with
+         * those patients left out, and that result is shown. The codes are then as that query spells them:
+         * what is not a code is replaced only afterwards, and the section's count still comes from
+         * {@code byCode}.
+         *
+         * @param byCode               the section's counts by SMS provider and code, hidden messages included
+         * @param patientsWithMessages given patients, returns those with at least one message in the section
+         * @param countWithout         given patients, returns the section's counts without their messages
+         * @return {@code byCode} when nobody needs to be left out; otherwise the counts without the restricted
+         *         patients
          */
-        private Map<SmsProviderType, Map<String, Long>> withoutRestricted(
+        private Map<SmsProviderType, Map<String, Long>> codeCountsShown(
                 Map<SmsProviderType, Map<String, Long>> byCode,
-                Function<Set<Integer>, List<SmsQueuePatientCountDto>> patientCounts) {
-            if (patientsWithOwnEntries.isEmpty()) {
+                Function<Set<Integer>, Set<Integer>> patientsWithMessages,
+                Function<Set<Integer>, List<SmsQueueCountDto>> countWithout) {
+            long sectionCount = byCode.values().stream().mapToLong(SmsQueueViewModelAssembler::sum).sum();
+            // Nothing to leave out of an empty section, and no one to leave out when nobody can be restricted.
+            if (sectionCount == 0 || patientsWithOwnEntries.isEmpty()) {
                 return byCode;
             }
-            Map<SmsProviderType, Map<String, Long>> shown = new EnumMap<>(SmsProviderType.class);
-            byCode.forEach((providerType, counts) -> shown.put(providerType, new HashMap<>(counts)));
-            for (SmsQueuePatientCountDto count : patientCounts.apply(patientsWithOwnEntries)) {
-                Map<String, Long> counts = shown.get(count.providerType());
-                if (counts == null || count.demographicNo() == null || !restricted(count.demographicNo())) {
-                    continue;
+            Set<Integer> restrictedInSection = new TreeSet<>();
+            for (Integer demographicNo : patientsWithMessages.apply(patientsWithOwnEntries)) {
+                if (demographicNo != null && restricted(demographicNo)) {
+                    restrictedInSection.add(demographicNo);
                 }
-                // Null when nothing is left: the code is then taken out of the map.
-                counts.computeIfPresent(nullToEmpty(count.code()), (code, total) ->
-                        total - count.count() > 0 ? total - count.count() : null);
             }
-            return shown;
+            return restrictedInSection.isEmpty() ? byCode : byProvider(countWithout.apply(restrictedInSection));
         }
 
         private SmsQueueViewModel.RowList rows(List<SmsQueueRowDto> rows) {

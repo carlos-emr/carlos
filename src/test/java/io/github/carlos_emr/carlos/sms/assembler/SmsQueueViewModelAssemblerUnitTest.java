@@ -25,13 +25,14 @@ import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueCountDto;
-import io.github.carlos_emr.carlos.sms.dto.SmsQueuePatientCountDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueRowDto;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
+import io.github.carlos_emr.carlos.sms.service.SmsPatientRestrictionLookup;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueProcessingService;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueScheduler;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueViewModel;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -61,6 +63,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -85,6 +88,12 @@ class SmsQueueViewModelAssemblerUnitTest {
     private final SmsTransactionDao dao = mock(SmsTransactionDao.class);
     private final SmsConfigService configService = mock(SmsConfigService.class);
     private final SmsQueueScheduler scheduler = mock(SmsQueueScheduler.class);
+    private final SmsPatientRestrictionLookup restrictionLookup = mock(SmsPatientRestrictionLookup.class);
+
+    @BeforeEach
+    void setUp() {
+        when(restrictionLookup.patientsWithOwnEntries()).thenReturn(WITH_ENTRIES);
+    }
 
     @Test
     @DisplayName("should list every SMS provider in enum order with its own counts and every status in enum order")
@@ -261,7 +270,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                         NOW.minus(Duration.ofMinutes(20)), NOW.minus(Duration.ofMinutes(20)), null, null)));
         AtomicInteger asked = new AtomicInteger();
 
-        assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> asked.incrementAndGet() > 0);
+        assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> asked.incrementAndGet() > 0);
 
         assertThat(asked).hasValue(1);
     }
@@ -272,7 +281,7 @@ class SmsQueueViewModelAssemblerUnitTest {
         stubAllFourLists(queued(7L, 99), sending(8L, 99), failed(9L, 100), blocked(10L, 100));
         AtomicInteger asked = new AtomicInteger();
 
-        assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> {
+        assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> {
             asked.incrementAndGet();
             return patient != 100;
         });
@@ -288,7 +297,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                 .thenReturn(List.of(queued(7L, 99), queued(11L, 100), queued(12L, 99)));
 
         SmsQueueViewModelAssembler.Result result =
-                assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> patient != 99);
+                assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> patient != 99);
 
         SmsQueueViewModel.ProviderQueue stub = provider(result.model(), "STUB");
         assertThat(stub.overdue().rows()).extracting(SmsQueueViewModel.Row::id, SmsQueueViewModel.Row::demographicNo)
@@ -305,16 +314,17 @@ class SmsQueueViewModelAssemblerUnitTest {
     }
 
     @Test
-    @DisplayName("should keep hidden messages in the totals but take them out of the counts by code")
+    @DisplayName("should keep hidden messages in the totals but leave them out of the counts by code")
     void shouldKeepTotalsAndExcludeFromCodeCounts_whenRowsAreHidden() {
         stubAllFourLists(queued(7L, 99), sending(8L, 99), failed(9L, 99), blocked(10L, 99));
-        when(dao.countFailedOutboundByProviderErrorCodeAndPatient(THIRTY_DAYS_AGO, WITH_ENTRIES))
-                .thenReturn(List.of(new SmsQueuePatientCountDto(SmsProviderType.STUB, "ERR_A", 99, 1)));
-        when(dao.countConsentBlockedOutboundByProviderReasonAndPatient(THIRTY_DAYS_AGO, WITH_ENTRIES))
-                .thenReturn(List.of(new SmsQueuePatientCountDto(SmsProviderType.STUB, "SMS_CONSENT_OPT_OUT", 99, 1)));
+        when(dao.findPatientsWithFailedOutbound(THIRTY_DAYS_AGO, WITH_ENTRIES)).thenReturn(Set.of(99));
+        when(dao.findPatientsWithConsentBlockedOutbound(THIRTY_DAYS_AGO, WITH_ENTRIES)).thenReturn(Set.of(99));
+        // Without patient 99's messages, nothing is left to count.
+        when(dao.countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO, Set.of(99))).thenReturn(List.of());
+        when(dao.countConsentBlockedOutboundByProviderAndReason(THIRTY_DAYS_AGO, Set.of(99))).thenReturn(List.of());
 
         SmsQueueViewModel.ProviderQueue stub = provider(assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> false).model(), "STUB");
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> false).model(), "STUB");
 
         assertThat(stub.outboundTotal()).isEqualTo(4);
         assertThat(stub.statusCounts()).contains(new SmsQueueViewModel.StatusCount("QUEUED", 1),
@@ -333,8 +343,33 @@ class SmsQueueViewModelAssemblerUnitTest {
     }
 
     @Test
-    @DisplayName("should exclude a restricted patient's message from the counts by code when it is beyond the list's 50 rows")
+    @DisplayName("should show the counts that leave a restricted patient out even when their code differs only in case")
+    void shouldShowExcludingCounts_whenRestrictedCodeDiffersOnlyInLetterCase() {
+        // On MariaDB the code columns ignore letter case when grouping: a visible patient's 'invalid_dst' and
+        // restricted patient 99's 'INVALID_DST' come back as one group spelled 'invalid_dst'. Taking 99's
+        // 'INVALID_DST' off by spelling would find nothing, so the query itself must leave 99 out.
+        when(dao.countOutboundByProviderAndStatus()).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "FAILED", 2)));
+        when(dao.countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO)).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "invalid_dst", 2)));
+        // 100 has messages too but is not restricted; 101 is restricted but has no message in this section.
+        when(dao.findPatientsWithFailedOutbound(THIRTY_DAYS_AGO, WITH_ENTRIES)).thenReturn(Set.of(99, 100));
+        when(dao.countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO, Set.of(99))).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "invalid_dst", 1)));
+
+        SmsQueueViewModel.ProviderQueue stub = provider(assembler(() -> false)
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> patient == 100).model(), "STUB");
+
+        assertThat(stub.failedByErrorCode()).containsExactly(new SmsQueueViewModel.CodeCount("invalid_dst", 1));
+        // The section's own count still includes the hidden message.
+        assertThat(stub.failedCount()).isEqualTo(2);
+        verify(dao).countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO, Set.of(99));
+    }
+
+    @Test
+    @DisplayName("should leave a restricted patient's message out of the counts by code when it is beyond the list's 50 rows")
     void shouldExcludeFromCodeCounts_whenRestrictedMessageIsBeyondTheListLimit() {
+        when(restrictionLookup.patientsWithOwnEntries()).thenReturn(Set.of(99));
         when(dao.countOutboundByProviderAndStatus()).thenReturn(List.of(
                 new SmsQueueCountDto(SmsProviderType.STUB, "FAILED", 51)));
         when(dao.countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO)).thenReturn(List.of(
@@ -343,11 +378,13 @@ class SmsQueueViewModelAssemblerUnitTest {
         // The 50 newest all belong to a patient without an entry of their own; the 51st is patient 99's.
         when(dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), THIRTY_DAYS_AGO, 50))
                 .thenReturn(IntStream.rangeClosed(1, 50).mapToObj(id -> failed((long) id, 500)).toList());
-        when(dao.countFailedOutboundByProviderErrorCodeAndPatient(THIRTY_DAYS_AGO, Set.of(99)))
-                .thenReturn(List.of(new SmsQueuePatientCountDto(SmsProviderType.STUB, "ERR_B", 99, 1)));
+        when(dao.findPatientsWithFailedOutbound(THIRTY_DAYS_AGO, Set.of(99))).thenReturn(Set.of(99));
+        when(dao.countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO, Set.of(99))).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "ERR_A", 30),
+                new SmsQueueCountDto(SmsProviderType.STUB, "ERR_B", 20)));
 
         SmsQueueViewModelAssembler.Result result = assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, Set.of(99), patient -> patient != 99);
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> patient != 99);
 
         SmsQueueViewModel.ProviderQueue stub = provider(result.model(), "STUB");
         assertThat(stub.recentFailed().rows()).hasSize(50);
@@ -362,76 +399,54 @@ class SmsQueueViewModelAssemblerUnitTest {
     }
 
     @Test
-    @DisplayName("should take a restricted patient's messages out of every code they have")
-    void shouldExcludeFromEachCode_whenRestrictedPatientHasTwoCodes() {
-        when(dao.countFailedOutboundByProviderAndErrorCode(any())).thenReturn(List.of(
-                new SmsQueueCountDto(SmsProviderType.STUB, "ERR_A", 5),
-                new SmsQueueCountDto(SmsProviderType.STUB, "ERR_B", 3),
-                new SmsQueueCountDto(SmsProviderType.VOIPMS, "ERR_A", 4)));
-        when(dao.countFailedOutboundByProviderErrorCodeAndPatient(any(), any())).thenReturn(List.of(
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "ERR_A", 99, 2),
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "ERR_B", 99, 1)));
+    @DisplayName("should run no extra count query for a section with no messages")
+    void shouldRunNeitherQuery_whenSectionIsEmpty() {
+        // Failed has messages, blocked has none within the time period.
+        when(dao.countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO)).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "ERR_A", 1)));
+        when(dao.findPatientsWithFailedOutbound(THIRTY_DAYS_AGO, WITH_ENTRIES)).thenReturn(Set.of(99));
 
-        SmsQueueViewModel model = assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, Set.of(99), patient -> false).model();
+        assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> false);
 
-        assertThat(provider(model, "STUB").failedByErrorCode()).containsExactly(
-                new SmsQueueViewModel.CodeCount("ERR_A", 3),
-                new SmsQueueViewModel.CodeCount("ERR_B", 2));
-        assertThat(provider(model, "STUB").failedCount()).isEqualTo(8);
-        // Another SMS provider's counts are not touched.
-        assertThat(provider(model, "VOIPMS").failedByErrorCode())
-                .containsExactly(new SmsQueueViewModel.CodeCount("ERR_A", 4));
+        verify(dao).findPatientsWithFailedOutbound(THIRTY_DAYS_AGO, WITH_ENTRIES);
+        verify(dao).countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO, Set.of(99));
+        verify(dao, never()).findPatientsWithConsentBlockedOutbound(any(), any());
+        verify(dao, never()).countConsentBlockedOutboundByProviderAndReason(any(), any());
     }
 
     @Test
-    @DisplayName("should drop a code from the counts when every message with it belongs to restricted patients")
-    void shouldDropCode_whenItsCountReachesZero() {
-        when(dao.countConsentBlockedOutboundByProviderAndReason(any())).thenReturn(List.of(
-                new SmsQueueCountDto(SmsProviderType.STUB, "SMS_CONSENT_OPT_OUT", 4),
-                new SmsQueueCountDto(SmsProviderType.STUB, "SMS_CONSENT_MISSING", 2),
-                new SmsQueueCountDto(SmsProviderType.STUB, null, 1)));
-        when(dao.countConsentBlockedOutboundByProviderReasonAndPatient(any(), any())).thenReturn(List.of(
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "SMS_CONSENT_MISSING", 99, 1),
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "SMS_CONSENT_MISSING", 100, 1),
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, null, 99, 1)));
-
-        SmsQueueViewModel.ProviderQueue stub = provider(assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> false).model(), "STUB");
-
-        assertThat(stub.blockedByReason())
-                .containsExactly(new SmsQueueViewModel.CodeCount("SMS_CONSENT_OPT_OUT", 4));
-        assertThat(stub.blockedCount()).isEqualTo(7);
-    }
-
-    @Test
-    @DisplayName("should replace what is not a code only after the restricted patients' messages are taken out")
-    void shouldFilterCodes_afterSubtractingOnTheStoredCodes() {
+    @DisplayName("should replace what is not a code in the counts that leave restricted patients out")
+    void shouldFilterCodes_inTheCountsWithoutRestrictedPatients() {
         when(dao.countFailedOutboundByProviderAndErrorCode(any())).thenReturn(List.of(
                 new SmsQueueCountDto(SmsProviderType.STUB, "Invalid number +14165550199", 2L),
                 new SmsQueueCountDto(SmsProviderType.STUB, "416-555-0123", 1L)));
-        when(dao.countFailedOutboundByProviderErrorCodeAndPatient(any(), any())).thenReturn(List.of(
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "416-555-0123", 99, 1)));
+        when(dao.findPatientsWithFailedOutbound(any(), any())).thenReturn(Set.of(99));
+        when(dao.countFailedOutboundByProviderAndErrorCode(any(), any())).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "Invalid number +14165550199", 2L)));
 
         SmsQueueViewModel.ProviderQueue stub = provider(assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> false).model(), "STUB");
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> false).model(), "STUB");
 
         assertThat(stub.failedByErrorCode())
                 .containsExactly(new SmsQueueViewModel.CodeCount(SmsQueueViewModelAssembler.NOT_A_CODE, 2));
+        assertThat(stub.toString()).doesNotContain("4165550199");
     }
 
     @Test
-    @DisplayName("should check nobody and run no per-patient count when no patient has an entry of their own")
-    void shouldSkipChecksAndPatientCounts_whenNoPatientHasOwnEntry() {
+    @DisplayName("should check nobody and run no extra count query when no patient has an entry of their own")
+    void shouldSkipChecksAndPatientQueries_whenNoPatientHasOwnEntry() {
+        when(restrictionLookup.patientsWithOwnEntries()).thenReturn(Set.of());
         stubAllFourLists(queued(7L, 99), sending(8L, 100), failed(9L, 99), blocked(10L, 101));
         AtomicInteger asked = new AtomicInteger();
 
         SmsQueueViewModelAssembler.Result result = assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, Set.of(), patient -> asked.incrementAndGet() < 0);
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> asked.incrementAndGet() < 0);
 
         assertThat(asked).hasValue(0);
-        verify(dao, never()).countFailedOutboundByProviderErrorCodeAndPatient(any(), any());
-        verify(dao, never()).countConsentBlockedOutboundByProviderReasonAndPatient(any(), any());
+        verify(dao, never()).findPatientsWithFailedOutbound(any(), any());
+        verify(dao, never()).findPatientsWithConsentBlockedOutbound(any(), any());
+        verify(dao, never()).countFailedOutboundByProviderAndErrorCode(any(), any());
+        verify(dao, never()).countConsentBlockedOutboundByProviderAndReason(any(), any());
         SmsQueueViewModel.ProviderQueue stub = provider(result.model(), "STUB");
         assertThat(List.of(stub.overdue(), stub.stale(), stub.recentFailed(), stub.recentBlocked()))
                 .allSatisfy(list -> {
@@ -447,70 +462,74 @@ class SmsQueueViewModelAssemblerUnitTest {
     @Test
     @DisplayName("should never ask about a patient without an entry of their own, and show their rows")
     void shouldNotCheckPatient_whenTheyHaveNoOwnEntry() {
+        when(restrictionLookup.patientsWithOwnEntries()).thenReturn(Set.of(99));
         stubAllFourLists(queued(7L, 99), sending(8L, 500), failed(9L, 500), blocked(10L, 500));
         List<Integer> asked = new ArrayList<>();
 
         SmsQueueViewModelAssembler.Result result = assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, Set.of(99), patient -> {
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> {
                     asked.add(patient);
                     return false;
                 });
 
         assertThat(asked).containsExactly(99);
         assertThat(result.displayedDemographicNumbers()).containsExactly(500);
+        // Only the patients with an entry of their own are looked for in the sections.
+        verify(dao).findPatientsWithFailedOutbound(THIRTY_DAYS_AGO, Set.of(99));
+        verify(dao).findPatientsWithConsentBlockedOutbound(THIRTY_DAYS_AGO, Set.of(99));
     }
 
     @Test
-    @DisplayName("should keep the counts of a patient who has an entry of their own but is not restricted")
-    void shouldKeepCounts_whenPatientWithOwnEntryIsNotRestricted() {
+    @DisplayName("should run no count without restricted patients when none in the section is restricted")
+    void shouldKeepCountsAndRunNoExcludingQuery_whenNoPatientInTheSectionIsRestricted() {
         stubAllFourLists(queued(7L, 100), sending(8L, 100), failed(9L, 100), blocked(10L, 100));
-        when(dao.countFailedOutboundByProviderErrorCodeAndPatient(THIRTY_DAYS_AGO, WITH_ENTRIES))
-                .thenReturn(List.of(new SmsQueuePatientCountDto(SmsProviderType.STUB, "ERR_A", 100, 1)));
-        when(dao.countConsentBlockedOutboundByProviderReasonAndPatient(THIRTY_DAYS_AGO, WITH_ENTRIES))
-                .thenReturn(List.of(new SmsQueuePatientCountDto(SmsProviderType.STUB, "SMS_CONSENT_OPT_OUT", 100, 1)));
+        when(dao.findPatientsWithFailedOutbound(THIRTY_DAYS_AGO, WITH_ENTRIES)).thenReturn(Set.of(100));
+        when(dao.findPatientsWithConsentBlockedOutbound(THIRTY_DAYS_AGO, WITH_ENTRIES)).thenReturn(Set.of(100));
 
         SmsQueueViewModel.ProviderQueue stub = provider(assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> patient != 99).model(), "STUB");
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> patient != 99).model(), "STUB");
 
         assertThat(stub.failedByErrorCode()).containsExactly(new SmsQueueViewModel.CodeCount("ERR_A", 1));
         assertThat(stub.blockedByReason())
                 .containsExactly(new SmsQueueViewModel.CodeCount("SMS_CONSENT_OPT_OUT", 1));
         assertThat(stub.recentFailed().hiddenCount()).isZero();
+        // 99 is restricted but has no message in either section, so nothing is counted again.
+        verify(dao, never()).countFailedOutboundByProviderAndErrorCode(any(), any());
+        verify(dao, never()).countConsentBlockedOutboundByProviderAndReason(any(), any());
     }
 
     @Test
-    @DisplayName("should ask about each patient once across the lists and the counts by code")
+    @DisplayName("should ask about each patient once across the lists and both sections' counts by code")
     void shouldAskOncePerPatient_acrossListsAndCodeCounts() {
         stubAllFourLists(queued(7L, 99), sending(8L, 99), failed(9L, 99), blocked(10L, 100));
-        when(dao.countFailedOutboundByProviderErrorCodeAndPatient(any(), any())).thenReturn(List.of(
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "ERR_A", 99, 1),
-                new SmsQueuePatientCountDto(SmsProviderType.VOIPMS, "ERR_A", 99, 1)));
-        when(dao.countConsentBlockedOutboundByProviderReasonAndPatient(any(), any())).thenReturn(List.of(
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "SMS_CONSENT_OPT_OUT", 100, 1),
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "SMS_CONSENT_OPT_OUT", 99, 1)));
+        when(dao.findPatientsWithFailedOutbound(any(), any())).thenReturn(Set.of(99));
+        when(dao.findPatientsWithConsentBlockedOutbound(any(), any())).thenReturn(Set.of(99, 100));
         List<Integer> asked = new ArrayList<>();
 
-        assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> {
+        assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> {
             asked.add(patient);
             return patient != 99;
         });
 
         // 101 has an entry of their own but no message here, so nothing is asked about them.
         assertThat(asked).containsExactlyInAnyOrder(99, 100);
+        verify(dao).countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO, Set.of(99));
+        verify(dao).countConsentBlockedOutboundByProviderAndReason(THIRTY_DAYS_AGO, Set.of(99));
     }
 
     @Test
     @DisplayName("should hide a patient's rows and leave their messages out of the counts when the access check fails")
     void shouldHideAndExclude_whenAccessCheckThrows() {
         stubAllFourLists(queued(7L, 100), sending(8L, 100), failed(9L, 99), blocked(10L, 100));
-        when(dao.countFailedOutboundByProviderAndErrorCode(any())).thenReturn(List.of(
+        when(dao.countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO)).thenReturn(List.of(
                 new SmsQueueCountDto(SmsProviderType.STUB, "ERR_A", 3)));
-        when(dao.countFailedOutboundByProviderErrorCodeAndPatient(any(), any())).thenReturn(List.of(
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "ERR_A", 99, 2)));
+        when(dao.findPatientsWithFailedOutbound(any(), any())).thenReturn(Set.of(99, 100));
+        when(dao.countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO, Set.of(99))).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "ERR_A", 1)));
         AtomicInteger askedAbout99 = new AtomicInteger();
 
         SmsQueueViewModelAssembler.Result result = assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> {
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> {
                     if (patient == 99) {
                         askedAbout99.incrementAndGet();
                         throw new IllegalStateException("synthetic lookup failure");
@@ -529,6 +548,17 @@ class SmsQueueViewModelAssemblerUnitTest {
     }
 
     @Test
+    @DisplayName("should fail and query nothing when the patients with an entry of their own cannot be read")
+    void shouldFail_whenPatientsWithOwnEntriesCannotBeRead() {
+        when(restrictionLookup.patientsWithOwnEntries()).thenThrow(new IllegalStateException("synthetic read failure"));
+        SmsQueueViewModelAssembler assembler = assembler(() -> false);
+
+        assertThatThrownBy(() -> assembler.assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> true))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(dao);
+    }
+
+    @Test
     @DisplayName("should never hide a row that has no patient, and never ask about it")
     void shouldShowRow_whenItHasNoPatient() {
         when(dao.countOverdueQueuedOutboundByProvider(any())).thenReturn(Map.of(SmsProviderType.STUB, 1L));
@@ -537,7 +567,7 @@ class SmsQueueViewModelAssemblerUnitTest {
         AtomicInteger asked = new AtomicInteger();
 
         SmsQueueViewModelAssembler.Result result = assembler(() -> false)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> asked.incrementAndGet() < 0);
+                .assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> asked.incrementAndGet() < 0);
 
         SmsQueueViewModel.RowList overdue = provider(result.model(), "STUB").overdue();
         assertThat(overdue.rows()).extracting(SmsQueueViewModel.Row::id).containsExactly("7");
@@ -554,7 +584,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                 .thenReturn(List.of(queued(7L, 99), queued(8L, 100)));
 
         SmsQueueViewModelAssembler.Result result =
-                assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, WITH_ENTRIES, patient -> {
+                assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, true, patient -> {
                     if (patient == 99) {
                         throw new IllegalStateException("synthetic lookup failure");
                     }
@@ -573,7 +603,7 @@ class SmsQueueViewModelAssemblerUnitTest {
         stubAllFourLists(queued(7L, 99), sending(8L, 100), failed(9L, 99), blocked(10L, 101));
 
         SmsQueueViewModelAssembler.Result result =
-                assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, false, WITH_ENTRIES, patient -> patient != 101);
+                assembler(() -> false).assemble(SmsQueueWindow.LAST_30_DAYS, false, patient -> patient != 101);
 
         assertThat(result.displayedDemographicNumbers()).containsExactlyInAnyOrder(99, 100);
         // The page's model itself carries no demographic number for this viewer.
@@ -601,7 +631,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                 new SmsQueueCountDto(SmsProviderType.STUB, "SMS_CONSENT_OPT_OUT", 4)));
 
         SmsQueueViewModel model =
-                assembler(() -> false).assemble(SmsQueueWindow.LAST_7_DAYS, true, WITH_ENTRIES, patient -> true).model();
+                assembler(() -> false).assemble(SmsQueueWindow.LAST_7_DAYS, true, patient -> true).model();
 
         SmsQueueViewModel.ProviderQueue stub = provider(model, "STUB");
         assertThat(stub.failedCount()).isEqualTo(3);
@@ -626,7 +656,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                 new SmsQueueCountDto(SmsProviderType.STUB, "SMS_CONSENT_OPT_OUT", 4)));
 
         SmsQueueViewModel model =
-                assembler(() -> false).assemble(SmsQueueWindow.ALL_TIME, true, WITH_ENTRIES, patient -> true).model();
+                assembler(() -> false).assemble(SmsQueueWindow.ALL_TIME, true, patient -> true).model();
 
         verify(dao).countFailedOutboundByProviderAndErrorCode(null);
         verify(dao).countConsentBlockedOutboundByProviderAndReason(null);
@@ -793,13 +823,13 @@ class SmsQueueViewModelAssemblerUnitTest {
     /** The page's model for the default time period and a viewer who may open every patient. */
     private SmsQueueViewModel assemble(BooleanSupplier schedulerProperty, boolean showDemographicNumbers) {
         return assembler(schedulerProperty)
-                .assemble(SmsQueueWindow.LAST_30_DAYS, showDemographicNumbers, WITH_ENTRIES, patient -> true)
+                .assemble(SmsQueueWindow.LAST_30_DAYS, showDemographicNumbers, patient -> true)
                 .model();
     }
 
     private SmsQueueViewModelAssembler assembler(BooleanSupplier schedulerProperty) {
-        return new SmsQueueViewModelAssembler(dao, configService, scheduler, Clock.fixed(NOW, ZoneOffset.UTC),
-                schedulerProperty);
+        return new SmsQueueViewModelAssembler(dao, configService, scheduler, restrictionLookup,
+                Clock.fixed(NOW, ZoneOffset.UTC), schedulerProperty);
     }
 
     private static SmsQueueViewModel.ProviderQueue provider(SmsQueueViewModel model, String providerType) {

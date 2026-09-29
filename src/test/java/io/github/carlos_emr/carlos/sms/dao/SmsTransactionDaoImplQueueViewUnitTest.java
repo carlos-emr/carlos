@@ -25,7 +25,6 @@ import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueCountDto;
-import io.github.carlos_emr.carlos.sms.dto.SmsQueuePatientCountDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueRowDto;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
@@ -43,16 +42,18 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -79,6 +80,9 @@ class SmsTransactionDaoImplQueueViewUnitTest {
 
     @Mock
     private TypedQuery<Object[]> query;
+
+    @Mock
+    private TypedQuery<Integer> patientQuery;
 
     @Test
     @DisplayName("should count nothing and skip the query when the overdue or stale cutoff is missing")
@@ -222,88 +226,161 @@ class SmsTransactionDaoImplQueueViewUnitTest {
     }
 
     @Test
-    @DisplayName("should run no per-patient count query when no patient is named")
-    void shouldSkipPatientCountQuery_whenNoPatientIsNamed() {
+    @DisplayName("should run exactly the counting query when no patient is left out")
+    void shouldOmitExclusion_whenNoPatientIsExcluded() {
+        Date since = Date.from(Instant.parse("2026-08-29T14:00:00Z"));
+        stubQuery(List.of());
         SmsTransactionDaoImpl dao = newDao();
 
-        assertThat(dao.countFailedOutboundByProviderErrorCodeAndPatient(null, List.of())).isEmpty();
-        assertThat(dao.countFailedOutboundByProviderErrorCodeAndPatient(null, null)).isEmpty();
-        assertThat(dao.countConsentBlockedOutboundByProviderReasonAndPatient(new Date(), List.of())).isEmpty();
-        assertThat(dao.countConsentBlockedOutboundByProviderReasonAndPatient(new Date(), Arrays.asList(null, null)))
-                .isEmpty();
-        verify(entityManager, never()).createQuery(anyString(), eq(Object[].class));
+        dao.countFailedOutboundByProviderAndErrorCode(since);
+        dao.countFailedOutboundByProviderAndErrorCode(since, List.of());
+        dao.countFailedOutboundByProviderAndErrorCode(since, null);
+        dao.countFailedOutboundByProviderAndErrorCode(since, Arrays.asList(null, null));
+        dao.countConsentBlockedOutboundByProviderAndReason(since);
+        dao.countConsentBlockedOutboundByProviderAndReason(since, List.of());
+
+        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
+        verify(entityManager, times(6)).createQuery(jpql.capture(), eq(Object[].class));
+        List<String> failed = jpql.getAllValues().subList(0, 4);
+        List<String> blocked = jpql.getAllValues().subList(4, 6);
+        assertThat(failed).containsOnly(failed.get(0));
+        assertThat(blocked).containsOnly(blocked.get(0));
+        assertThat(jpql.getAllValues()).allSatisfy(text -> assertThat(text).doesNotContain("demographicNo"));
+        verify(query, never()).setParameter(startsWith("excluded"), any());
     }
 
     @Test
-    @DisplayName("should count failed rows per patient with the patients, status and time as bound parameters")
-    void shouldBindPatientsStatusAndSince_whenCountingFailedPerPatient() {
+    @DisplayName("should leave out the named patients' failed rows, keep rows without a patient, and bind each part")
+    @SuppressWarnings("unchecked")
+    void shouldBindEachPartAsItsOwnParameter_whenExcludingPatientsFromFailedCounts() {
         Date since = Date.from(Instant.parse("2026-08-29T14:00:00Z"));
-        stubQuery(List.<Object[]>of(
-                new Object[]{SmsProviderType.STUB, "ERR_A", 4242, 2L},
-                new Object[]{SmsProviderType.STUB, null, 4243, 1L}));
+        stubQuery(List.<Object[]>of(new Object[]{SmsProviderType.STUB, "invalid_dst", 1L}));
+        // 1001 patients, out of order and with a repeat and a gap: two parts, each patient in one of them.
+        List<Integer> excluded = new ArrayList<>(IntStream.rangeClosed(1, 1001).boxed().toList());
+        Collections.reverse(excluded);
+        excluded.add(7);
+        excluded.add(null);
 
-        // Repeats and gaps are dropped, and the patients are bound in order.
-        List<SmsQueuePatientCountDto> counts = newDao().countFailedOutboundByProviderErrorCodeAndPatient(
-                since, Arrays.asList(4243, 4242, null, 4243));
+        List<SmsQueueCountDto> counts = newDao().countFailedOutboundByProviderAndErrorCode(since, excluded);
 
-        assertThat(counts).containsExactly(
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, "ERR_A", 4242, 2),
-                new SmsQueuePatientCountDto(SmsProviderType.STUB, null, 4243, 1));
-        assertThat(counts.get(0).toString()).doesNotContain("4242");
-        verify(query).setParameter("direction", SmsDirection.OUTBOUND);
-        verify(query).setParameter("statuses", List.of(SmsStatus.FAILED));
-        verify(query).setParameter("demographicNos", List.of(4242, 4243));
-        verify(query).setParameter("since", since);
+        assertThat(counts).containsExactly(new SmsQueueCountDto(SmsProviderType.STUB, "invalid_dst", 1));
         ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
         verify(entityManager).createQuery(jpql.capture(), eq(Object[].class));
+        // The numbers are bound parameters: the query text holds only the names made from each part's position.
+        assertThat(jpql.getValue())
+                .contains("AND t.updatedAt >= :since AND (t.demographicNo IS NULL OR "
+                        + "(t.demographicNo NOT IN (:excluded0) AND t.demographicNo NOT IN (:excluded1))) "
+                        + "GROUP BY t.providerType, t.errorCode")
+                .doesNotContain(":excluded2")
+                .doesNotContainPattern("[0-9]{2,}");
+        ArgumentCaptor<Object> first = ArgumentCaptor.forClass(Object.class);
+        ArgumentCaptor<Object> second = ArgumentCaptor.forClass(Object.class);
+        verify(query).setParameter(eq("excluded0"), first.capture());
+        verify(query).setParameter(eq("excluded1"), second.capture());
+        assertThat((List<Integer>) first.getValue())
+                .hasSize(1000)
+                .isSorted()
+                .startsWith(1)
+                .endsWith(1000);
+        assertThat((List<Integer>) second.getValue()).containsExactly(1001);
+        verify(query).setParameter("status", SmsStatus.FAILED);
+        verify(query).setParameter("since", since);
+    }
+
+    @Test
+    @DisplayName("should leave out the named patients' consent-blocked rows with one parameter for a short list")
+    @SuppressWarnings("unchecked")
+    void shouldBindOneParameter_whenExcludingFewPatientsFromConsentBlockedCounts() {
+        stubQuery(List.of());
+
+        newDao().countConsentBlockedOutboundByProviderAndReason(null, List.of(4243, 4242));
+
+        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
+        verify(entityManager).createQuery(jpql.capture(), eq(Object[].class));
+        assertThat(jpql.getValue())
+                .contains("AND t.status IN (:statuses) AND (t.demographicNo IS NULL OR "
+                        + "(t.demographicNo NOT IN (:excluded0))) GROUP BY t.providerType, t.consentReasonCode")
+                .doesNotContain(":excluded1")
+                .doesNotContain("since")
+                .doesNotContain("424");
+        ArgumentCaptor<Object> bound = ArgumentCaptor.forClass(Object.class);
+        verify(query).setParameter(eq("excluded0"), bound.capture());
+        assertThat((Collection<Integer>) bound.getValue()).containsExactly(4242, 4243);
+        verify(query).setParameter("statuses", List.of(SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED));
+    }
+
+    @Test
+    @DisplayName("should run no patient query when no patient is named")
+    void shouldSkipPatientQuery_whenNoPatientIsNamed() {
+        SmsTransactionDaoImpl dao = newDao();
+
+        assertThat(dao.findPatientsWithFailedOutbound(null, List.of())).isEmpty();
+        assertThat(dao.findPatientsWithFailedOutbound(null, null)).isEmpty();
+        assertThat(dao.findPatientsWithConsentBlockedOutbound(new Date(), List.of())).isEmpty();
+        assertThat(dao.findPatientsWithConsentBlockedOutbound(new Date(), Arrays.asList(null, null))).isEmpty();
+        verify(entityManager, never()).createQuery(anyString(), any(Class.class));
+    }
+
+    @Test
+    @DisplayName("should find the named patients with failed rows, with patients, status and time as bound parameters")
+    void shouldBindPatientsStatusAndSince_whenFindingPatientsWithFailedRows() {
+        Date since = Date.from(Instant.parse("2026-08-29T14:00:00Z"));
+        stubPatientQuery();
+        when(patientQuery.getResultList()).thenReturn(List.of(4243, 4242));
+
+        // Repeats and gaps are dropped, and the patients are bound in order.
+        Set<Integer> patients = newDao().findPatientsWithFailedOutbound(since, Arrays.asList(4243, 4242, null, 4243));
+
+        assertThat(patients).containsExactly(4242, 4243);
+        verify(patientQuery).setParameter("direction", SmsDirection.OUTBOUND);
+        verify(patientQuery).setParameter("statuses", List.of(SmsStatus.FAILED));
+        verify(patientQuery).setParameter("demographicNos", List.of(4242, 4243));
+        verify(patientQuery).setParameter("since", since);
+        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
+        verify(entityManager).createQuery(jpql.capture(), eq(Integer.class));
         // The patients are a bound parameter: the query text never holds a demographic number.
         assertThat(jpql.getValue())
+                .startsWith("SELECT DISTINCT t.demographicNo FROM SmsTransaction t ")
                 .contains("AND t.demographicNo IN (:demographicNos) ")
                 .contains("AND t.updatedAt >= :since ")
-                .contains("GROUP BY t.providerType, t.errorCode, t.demographicNo")
                 .doesNotContain("424")
                 .doesNotContain("messageBody");
     }
 
     @Test
-    @DisplayName("should count consent-blocked rows per patient across both blocking statuses, of all time")
-    void shouldBindBothBlockingStatuses_whenCountingConsentBlocksPerPatient() {
-        stubQuery(List.<Object[]>of(new Object[]{SmsProviderType.VOIPMS, "SMS_CONSENT_OPT_OUT", 4242, 3L}));
+    @DisplayName("should find the named patients with consent-blocked rows across both blocking statuses, of all time")
+    void shouldBindBothBlockingStatuses_whenFindingPatientsWithConsentBlocks() {
+        stubPatientQuery();
+        when(patientQuery.getResultList()).thenReturn(List.of(4242));
 
-        List<SmsQueuePatientCountDto> counts =
-                newDao().countConsentBlockedOutboundByProviderReasonAndPatient(null, List.of(4242));
+        Set<Integer> patients = newDao().findPatientsWithConsentBlockedOutbound(null, List.of(4242));
 
-        assertThat(counts).containsExactly(
-                new SmsQueuePatientCountDto(SmsProviderType.VOIPMS, "SMS_CONSENT_OPT_OUT", 4242, 3));
-        verify(query).setParameter("statuses", List.of(SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED));
-        verify(query).setParameter("demographicNos", List.of(4242));
-        verify(query, never()).setParameter(eq("since"), any());
+        assertThat(patients).containsExactly(4242);
+        verify(patientQuery).setParameter("statuses", List.of(SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED));
+        verify(patientQuery).setParameter("demographicNos", List.of(4242));
+        verify(patientQuery, never()).setParameter(eq("since"), any());
         ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
-        verify(entityManager).createQuery(jpql.capture(), eq(Object[].class));
-        assertThat(jpql.getValue())
-                .contains("GROUP BY t.providerType, t.consentReasonCode, t.demographicNo")
-                .doesNotContain("since");
+        verify(entityManager).createQuery(jpql.capture(), eq(Integer.class));
+        assertThat(jpql.getValue()).doesNotContain("since");
     }
 
     @Test
-    @DisplayName("should name at most 1000 patients in one per-patient count query and add the parts together")
+    @DisplayName("should name at most 1000 patients in one patient query and put the parts together")
     @SuppressWarnings("unchecked")
     void shouldQueryInParts_whenMoreThanAThousandPatientsAreNamed() {
-        when(entityManager.createQuery(anyString(), eq(Object[].class))).thenReturn(query);
-        when(query.getResultList())
-                .thenReturn(List.<Object[]>of(new Object[]{SmsProviderType.STUB, "ERR_A", 1, 1L}))
-                .thenReturn(List.<Object[]>of(new Object[]{SmsProviderType.STUB, "ERR_A", 1001, 2L}))
-                .thenReturn(List.<Object[]>of(new Object[]{SmsProviderType.STUB, "ERR_A", 2001, 3L}));
+        stubPatientQuery();
+        when(patientQuery.getResultList())
+                .thenReturn(List.of(1))
+                .thenReturn(List.of(1001))
+                .thenReturn(List.of(2001));
         List<Integer> patients = new ArrayList<>(IntStream.rangeClosed(1, 2001).boxed().toList());
 
-        List<SmsQueuePatientCountDto> counts =
-                newDao().countFailedOutboundByProviderErrorCodeAndPatient(null, patients);
+        Set<Integer> found = newDao().findPatientsWithFailedOutbound(null, patients);
 
-        assertThat(counts).extracting(SmsQueuePatientCountDto::demographicNo, SmsQueuePatientCountDto::count)
-                .containsExactly(tuple(1, 1L), tuple(1001, 2L), tuple(2001, 3L));
-        verify(entityManager, times(3)).createQuery(anyString(), eq(Object[].class));
+        assertThat(found).containsExactly(1, 1001, 2001);
+        verify(entityManager, times(3)).createQuery(anyString(), eq(Integer.class));
         ArgumentCaptor<Object> bound = ArgumentCaptor.forClass(Object.class);
-        verify(query, times(3)).setParameter(eq("demographicNos"), bound.capture());
+        verify(patientQuery, times(3)).setParameter(eq("demographicNos"), bound.capture());
         List<Collection<Integer>> parts = bound.getAllValues().stream()
                 .map(part -> (Collection<Integer>) part)
                 .toList();
@@ -316,6 +393,10 @@ class SmsTransactionDaoImplQueueViewUnitTest {
     private void stubQuery(List<Object[]> results) {
         when(entityManager.createQuery(anyString(), eq(Object[].class))).thenReturn(query);
         when(query.getResultList()).thenReturn(results);
+    }
+
+    private void stubPatientQuery() {
+        when(entityManager.createQuery(anyString(), eq(Integer.class))).thenReturn(patientQuery);
     }
 
     private SmsTransactionDaoImpl newDao() {
