@@ -7,8 +7,6 @@ import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +17,8 @@ import java.util.Objects;
 @Service
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class SmsSendService {
-    private static final Logger LOGGER = MiscUtils.getLogger();
+    private static final org.apache.logging.log4j.Logger LOGGER =
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
 
     private final SmsSendValidator validator;
