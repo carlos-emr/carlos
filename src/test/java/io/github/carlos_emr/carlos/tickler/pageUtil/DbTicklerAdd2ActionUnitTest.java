@@ -182,6 +182,21 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("ticklerLinkFailed")).isEqualTo(true);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {" ", "null", " NULL "})
+    @DisplayName("should save without an attachment warning when a supported forward has no ID")
+    void shouldNotFlagLinkFailure_whenForwardedIdMissing(String docId) throws Exception {
+        request.setParameter("docType", "DOC");
+        if (docId != null) request.setParameter("docId", docId);
+
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(ticklerAttachmentService, never()).syncAttachments(any(), any(), any());
+        assertThat(request.getAttribute("rowsAffected")).isEqualTo(true);
+        assertThat(request.getAttribute("ticklerLinkFailed")).isEqualTo(false);
+    }
+
     @Test
     @DisplayName("should flag and ignore an unknown forwarded document type rather than guess")
     void shouldFlagLinkFailure_whenForwardedTypeUnknown() throws Exception {

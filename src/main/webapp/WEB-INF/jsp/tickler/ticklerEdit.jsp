@@ -154,7 +154,6 @@
         <title><fmt:message key="tickler.ticklerEdit.title"/></title>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <%-- jQuery UI JS is page-specific (global-head ships only its CSS); the attachment picker is a UI dialog. --%>
-        <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <style>
             /* Links — CARLOS primary blue */

@@ -140,8 +140,9 @@ Messenger membership coordination (#3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Automatic MRP routing adds
 `common/V1.0.39__track_automatic_mrp_routing.sql`. Full lab labels add
 `common/V1.0.40__widen_lab_labels.sql`. The Rich Text Letter signature-stamp inputs reach
-upgraded installs through `common/V1.0.41__rtl_provider_stamp_fields.sql`. The next unallocated
-version is `V1.0.42`. Apply/merge these forward migrations in version order; if their merge
+upgraded installs through `common/V1.0.41__rtl_provider_stamp_fields.sql`. Tickler and
+consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`. The next
+unallocated version is `V1.0.44`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

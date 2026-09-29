@@ -318,7 +318,14 @@ public class AddEForm2Action extends ActionSupport {
                 });
             } catch (IllegalArgumentException e) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                request.setAttribute(ERROR_ATTRIBUTE, "true");
                 request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, "The eForm was not saved. Reload and confirm the attachment selections.");
+                return ERROR;
+            } catch (SecurityException e) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                request.setAttribute(ERROR_ATTRIBUTE, "true");
+                request.setAttribute(ERROR_MESSAGE_ATTRIBUTE,
+                        "The eForm was not saved because you do not have permission to use one or more selected attachments.");
                 return ERROR;
             }
 

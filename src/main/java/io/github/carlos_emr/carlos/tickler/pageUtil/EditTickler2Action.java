@@ -70,6 +70,15 @@ public class EditTickler2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
 
+    /**
+     * Dispatches POST submissions to the tickler editor or suggested-text updater.
+     * Rejects every other HTTP method with status 405 and an {@code Allow: POST} header
+     * before dispatching or changing data.
+     *
+     * @return {@link #NONE} for a rejected method; otherwise the selected handler's
+     *         result ({@code close} on success, or {@code failure}/{@code error} on failure)
+     */
+    @Override
     public String execute() {
         // Both dispatch targets mutate; refuse GET/HEAD (and every other verb) before dispatch so
         // a link or image tag can never update a tickler or its suggested texts.

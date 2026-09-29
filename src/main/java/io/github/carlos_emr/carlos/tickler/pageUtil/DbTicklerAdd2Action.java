@@ -216,7 +216,7 @@ public final class DbTicklerAdd2Action extends ActionSupport {
                         ? TicklerAttachmentParameters.labValue(TicklerAttachmentParameters.legacyLabSource(docType), docId.trim())
                         : docId.trim();
                 submitted.computeIfAbsent(forwardedType, type -> new LinkedHashSet<>()).add(forwardedId);
-            } else if (docType != null && !docType.trim().isEmpty()) {
+            } else if (forwardedType == null && docType != null && !docType.trim().isEmpty()) {
                 // The code itself is request input and adds nothing operationally, so it stays out
                 // of the log line; the tickler id is enough to trace the forward.
                 MiscUtils.getLogger().warn("Ignoring unknown forwarded docType for ticklerNo={}", ticklerNo);
