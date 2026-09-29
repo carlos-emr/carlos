@@ -30,7 +30,10 @@ class DocumentPathValidationCases {
     }
 
     Object canonicalizationOnly(HttpServletRequest request) throws Exception {
-        File file = PathValidationUtils.resolveConfiguredDirectory(request.getParameter("path"), "test");
+        // Canonicalization alone is not containment. Keep this deliberately unsafe
+        // case local to the fixture: calling the production helper makes CodeQL
+        // trace this test-only request parameter into production source code.
+        File file = new File(request.getParameter("path")).getCanonicalFile();
         // ruleid: carlos.httpservlet-path-traversal
         return new FileInputStream(file);
     }
