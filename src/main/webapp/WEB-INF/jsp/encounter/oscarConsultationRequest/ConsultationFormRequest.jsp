@@ -2785,6 +2785,13 @@ if (userAgent != null) {
                                                 <carlos:encode value='<%= thisForm.geteReferralService() %>' context="html"/>
                                                 <% } else { %>
                                                 <input type="hidden" id="service" name="service" value=""/>
+                                                <%-- Marks the EDITABLE service picker. The health-care-team variant of this
+                                                     row posts a hidden name="service" fixed at "0" instead, so "a service was
+                                                     posted" does not mean "the clinician could choose one" -- without this
+                                                     marker the print preview would overlay that 0 onto a referral that has a
+                                                     real saved service and print a blank service. See
+                                                     ConsultationPreviewOverlay. --%>
+                                                <input type="hidden" name="serviceRendered" value="1"/>
                                                 <input type="text" id="serviceInput" class="form-control form-control-sm"
                                                        autocomplete="off"
                                                        placeholder="<fmt:message key='consultationList.header.service'/>"/>
@@ -2922,8 +2929,17 @@ if (userAgent != null) {
                                     <oscar:oscarPropertiesCheck defaultVal="false" value="true"
                                                                 property="CONSULTATION_PATIENT_WILL_BOOK">
                                         <tr>
-                                            <td class="consult-form-label"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></td>
-                                            <td class="consult-form-value"><input type="checkbox" name="patientWillBook" value="1" onclick="disableDateFields()" /></td>
+                                            <td class="consult-form-label"><label for="patientWillBook"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></label></td>
+                                            <td class="consult-form-value"><input type="checkbox" id="patientWillBook" name="patientWillBook" value="1" onclick="disableDateFields()" <%="1".equals(consultUtil.pwb) ? "checked" : ""%> />
+                                                <%-- The checked state must come from the stored record: an unchecked box posts
+                                                     nothing, so a box that rendered blank for an already-booked referral reads
+                                                     back as "unchecked" -- clearing pwb in the preview here, and in the database
+                                                     on save (EctConsultationFormRequest2Action defaults pWillBook to false).
+                                                     The marker below is the other half of that contract: this row is only
+                                                     rendered when CONSULTATION_PATIENT_WILL_BOOK is on (it is off by default),
+                                                     and the marker is what lets the print preview tell "the clinician unchecked
+                                                     it" from "this deployment never showed it". See ConsultationPreviewOverlay. --%>
+                                                <input type="hidden" name="patientWillBookRendered" value="1" /></td>
                                         </tr>
                                     </oscar:oscarPropertiesCheck>
 

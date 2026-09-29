@@ -3079,6 +3079,24 @@
       ],
       "timeoutSec": 300,
       "env": []
+    },
+    {
+      "name": "consultation-print-preview",
+      "script": "scripts/consultation-print-preview-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD",
+        "CONSULT_PREVIEW_SEARCH",
+        "CONSULT_PREVIEW_DEMOGRAPHIC_NO",
+        "CONSULT_PREVIEW_TIMEOUT_MS"
+      ]
     }
   ]
 }
