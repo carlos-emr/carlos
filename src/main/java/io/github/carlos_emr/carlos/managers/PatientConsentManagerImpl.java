@@ -319,10 +319,15 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
         Consent consent = consentDao.find(consentId);
 
-        if (consent == null || consent.getDemographicNo() == null) {
-            // A record without a patient cannot be checked against one or locked, so it is left alone.
+        if (consent == null) {
             LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]",
                     LOG_CONSENT_ID + consentId + " skipped: no live record");
+            return;
+        }
+        if (consent.getDemographicNo() == null) {
+            // A record without a patient cannot be checked against one or locked, so it is left alone.
+            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]",
+                    LOG_CONSENT_ID + consentId + " skipped: record has no patient");
             return;
         }
         Integer demographicNo = consent.getDemographicNo();

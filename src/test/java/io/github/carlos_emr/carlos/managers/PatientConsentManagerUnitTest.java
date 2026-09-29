@@ -134,10 +134,20 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             when(mockConsentTypeDao.find(1)).thenReturn(ct);
             when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, ct.getId())).thenReturn(List.of());
 
+            // As the database does on insert: the id exists once persist returns.
+            doAnswer(invocation -> {
+                setConsentId(invocation.getArgument(0), 31);
+                return null;
+            }).when(mockConsentDao).persist(any(Consent.class));
+
             boolean result = manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
 
             assertThat(result).isTrue();
             verify(mockConsentDao).persist(any(Consent.class));
+            // A first decision is audited with the saved record's id, after it is saved.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.changeConsent"), eq("consent"), eq("31"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 31 Choice: none->opt-in")));
         }
 
         @Test
@@ -171,6 +181,9 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isTrue();
             verify(mockConsentDao).merge(existing);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.changeConsent"), eq("consent"), eq("10"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 10 Choice: opt-in->opt-out")));
         }
 
         @Test
@@ -369,7 +382,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             verify(mockConsentDao, never()).lockPatientForConsentChange(anyInt());
             verify(mockConsentDao, never()).merge(any());
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
-                    "PatientConsentManager.optoutConsent[consentID]", " ConsentId: 10 skipped: no live record"));
+                    "PatientConsentManager.optoutConsent[consentID]", " ConsentId: 10 skipped: record has no patient"));
         }
 
         @Test

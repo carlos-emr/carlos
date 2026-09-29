@@ -91,6 +91,8 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
         for (Consent consent : locked) {
             entityManager.refresh(consent);
         }
+        // Again, now on what the rows hold: a re-read may have changed an edit date.
+        locked.sort(ConsentRecords.MOST_RECENT_FIRST);
         return locked;
     }
 
