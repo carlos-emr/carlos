@@ -49,6 +49,7 @@ import org.mockito.MockedConstruction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -179,6 +180,23 @@ class MessageUnitTest extends CarlosUnitTestBase {
             // Before, the empty lookup result was routed as provider "" and no unclaimed row was written.
             assertThat(routers.constructed()).isEmpty();
         }
+        ArgumentCaptor<ProviderLabRoutingModel> routing = ArgumentCaptor.forClass(ProviderLabRoutingModel.class);
+        verify(providerRouting).persist(routing.capture());
+        assertThat(routing.getValue().getProviderNo()).isEqualTo("0");
+    }
+
+    @Test
+    void shouldRouteToUnclaimedProvider_whenMinistryNumberComponentIsBlank() {
+        when(obrs.findByPid(3)).thenReturn(List.of(obr("^DR SMITH", " ^COPY")));
+        // The real DAO rejects a blank ministry number with IllegalArgumentException.
+        when(providers.getBillableProvidersByOHIPNo(anyString())).thenThrow(new IllegalArgumentException());
+
+        try (MockedConstruction<ProviderLabRouting> routers = mockConstruction(ProviderLabRouting.class)) {
+            new Message("now").linkToProvider(7, 3);
+
+            assertThat(routers.constructed()).isEmpty();
+        }
+        verify(providers, never()).getBillableProvidersByOHIPNo(anyString());
         ArgumentCaptor<ProviderLabRoutingModel> routing = ArgumentCaptor.forClass(ProviderLabRoutingModel.class);
         verify(providerRouting).persist(routing.capture());
         assertThat(routing.getValue().getProviderNo()).isEqualTo("0");

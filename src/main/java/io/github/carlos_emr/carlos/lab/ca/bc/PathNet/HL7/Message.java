@@ -174,7 +174,13 @@ public class Message {
         if (hl7Provider == null || hl7Provider.isBlank()) {
             return;
         }
-        String providerNo = getProviderNoFromBillingNo(hl7Provider.split("\\^")[0]);
+        // "^DR SMITH" names no ministry number; the provider lookup rejects a blank one, which
+        // would roll the lab back instead of sending it to the unclaimed inbox.
+        String ministryNo = hl7Provider.split("\\^", -1)[0].trim();
+        if (ministryNo.isEmpty()) {
+            return;
+        }
+        String providerNo = getProviderNoFromBillingNo(ministryNo);
         if (!providerNo.isEmpty() && !providers.contains(providerNo)) {
             providers.add(providerNo);
         }
