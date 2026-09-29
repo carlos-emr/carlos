@@ -100,6 +100,7 @@ public class PortalInvite2Action extends PortalJsonAction {
                         "The selected invitation could not be verified for this patient. Refresh the panel.");
             }
             PatientPortalInviteDto invite = portal.revokeInvite(patient, inviteId, staff);
+            audit(session, "PortalInvite2Action.revoke", invite.id(), patient, "");
             ObjectNode payload = newPayload();
             payload.put("ok", true);
             payload.put("inviteId", invite.id());

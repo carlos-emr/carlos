@@ -143,20 +143,21 @@ public class PortalAccount2Action extends PortalJsonAction {
                 staffContextResolver.resolveForPatient(loggedInInfo, Set.of(securityObject), demographicNo);
         try {
             if (METHOD_UNLOCK.equals(method)) {
-                return unlock(portal, response, demographicNo, staff);
+                return unlock(portal, response, loggedInInfo, demographicNo, staff);
             }
-            return access(portal, request, response, demographicNo, staff);
+            return access(portal, request, response, loggedInInfo, demographicNo, staff);
         } catch (PatientPortalException exception) {
             return portalFailure(response, exception);
         }
     }
 
     private String unlock(
-            PatientPortalService portal, HttpServletResponse response, int demographicNo,
-            PatientPortalStaffContext staff)
+            PatientPortalService portal, HttpServletResponse response, LoggedInInfo loggedInInfo,
+            int demographicNo, PatientPortalStaffContext staff)
             throws IOException {
         PatientPortalAccountAcknowledgementDto account =
                 portal.unlockAccount(demographicNo, staff);
+        audit(loggedInInfo, "PortalAccount2Action.unlock", account.id(), demographicNo, "");
         ObjectNode payload = newPayload();
         payload.put("ok", true);
         payload.put("accountId", account.id());
@@ -190,6 +191,7 @@ public class PortalAccount2Action extends PortalJsonAction {
             PatientPortalService portal,
             HttpServletRequest request,
             HttpServletResponse response,
+            LoggedInInfo loggedInInfo,
             int demographicNo,
             PatientPortalStaffContext staff)
             throws IOException {
@@ -214,6 +216,9 @@ public class PortalAccount2Action extends PortalJsonAction {
                         enabledValue,
                         reasonMissing ? "staff_action" : reason.strip(),
                         staff);
+        // The reason is staff free text and stays with the portal.
+        audit(loggedInInfo, "PortalAccount2Action.access", account.id(), demographicNo,
+                "enabled=" + enabledValue);
         ObjectNode payload = newPayload();
         payload.put("ok", true);
         payload.put("accountId", account.id());

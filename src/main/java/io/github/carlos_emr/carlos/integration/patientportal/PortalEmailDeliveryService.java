@@ -48,6 +48,7 @@ public class PortalEmailDeliveryService {
     public static final String UNAVAILABLE = "Email was not sent. The patient portal password could not be prepared.";
     public static final String RECIPIENT_NOT_RECORDED = "Email was not sent. Select one email address recorded for this patient.";
     public static final String ACCOUNT_NOT_READY = "Email was not sent. The patient's portal account is inactive, locked or awaiting a password reset.";
+    public static final String NO_ACCOUNT = "Email was not sent. The patient does not have a portal account yet.";
     public static final String ENCRYPTION_FAILED = "Email was not sent. Its encrypted attachment could not be prepared.";
     public static final String UNCERTAIN = "Email delivery could not be confirmed. Do not resend until the mail provider's delivery record has been checked.";
     public static final String PUBLISH_PENDING = "Email was sent, but its password is not yet confirmed available in the patient portal. Retry password publication; do not resend the email.";
@@ -187,7 +188,7 @@ public class PortalEmailDeliveryService {
             var configuration = settings.get();
             client = portal.get();
             int demographicNo = log.getDemographic().getDemographicNo();
-            var account = client.findAccount(demographicNo, staff);
+            var account = accountOf(client, demographicNo, staff);
             if (!"active".equals(account.status()) || account.locked() || account.forcePasswordReset()
                     || account.demographicNo() != demographicNo
                     || !configuration.clinicId().equals(account.clinicId())) {
@@ -238,6 +239,7 @@ public class PortalEmailDeliveryService {
                     // in-memory state stays SENDING so the compose page still offers recovery, where
                     // staff can compose the email again; REVOKED would read as settled.
                     log.setErrorMessage(SENT_AFTER_REVOCATION);
+                    recordSentAfterRevocation(log);
                     return EmailSendResult.accepted(log, false, true);
                 }
                 if (stored == PortalDeliveryState.PUBLISHED) {
@@ -403,6 +405,35 @@ public class PortalEmailDeliveryService {
         return EmailStatus.PENDING.equals(log.getStatus())
                 && (log.getTimestamp() == null || log.getTimestamp().getTime()
                         > System.currentTimeMillis() - EmailManager.PENDING_RESOLUTION_MIN_AGE_MILLIS);
+    }
+
+    /**
+     * Recovery that finished first has already stored FAILED, "not sent", which the provider's
+     * acceptance now contradicts. Store the truth, so the row reads as sent with its password
+     * withdrawn and keeps its badge. When recovery has not written its status yet the row is still
+     * PENDING, this changes nothing, and the caller's own status write carries the note.
+     */
+    private void recordSentAfterRevocation(EmailLog log) {
+        try {
+            logs.transitionEmailStatus(log.getId(), EmailStatus.FAILED, EmailStatus.SUCCESS,
+                    SENT_AFTER_REVOCATION, new Date());
+        } catch (RuntimeException unrecorded) {
+            logger.error("Portal email accepted after revocation, and that could not be recorded; "
+                    + "emailLogId={}; causeType={}", log.getId(), unrecorded.getClass().getSimpleName());
+        }
+    }
+
+    /** A patient who has not activated a portal account is a normal refusal, not an outage. */
+    private static PatientPortalAccountDto accountOf(
+            PatientPortalService client, int demographicNo, PatientPortalStaffContext staff) {
+        try {
+            return client.findAccount(demographicNo, staff);
+        } catch (PatientPortalException failure) {
+            if (failure.isAccountAbsent()) {
+                throw new NotSent(NO_ACCOUNT);
+            }
+            throw failure;
+        }
     }
 
     /**

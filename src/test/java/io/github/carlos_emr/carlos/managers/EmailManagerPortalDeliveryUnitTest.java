@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.email.core.*;
 import io.github.carlos_emr.carlos.integration.patientportal.*;
 import io.github.carlos_emr.carlos.managers.OutboundEmailArchiveService.SendOutcome;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.*;
 import org.mockito.MockedStatic;
@@ -139,6 +140,45 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         order.verify(archives).recordSendOutcome(user, ARCHIVE_ID, SendOutcome.ACCEPTED);
         verify(sender, never()).send();
         assertThat(data.getPassword()).isEmpty();
+    }
+
+    /**
+     * Signing is fail-closed on a normal send, so the portal path must not skip it. It has to run
+     * after encryption, while the portal's password is still there to open the encrypted PDF.
+     */
+    @Test
+    @DisplayName("should sign the attachments after encrypting them, with the portal password")
+    void shouldSignAttachments_afterEncryptingWithThePortalPassword() throws Exception {
+        givenConsent(EmailLog.EmailConsentStatus.OPT_IN);
+        AtomicReference<String> signedWith = new AtomicReference<>();
+        doAnswer(call -> {
+            signedWith.set(((EmailData) call.getArgument(0)).getPassword());
+            return null;
+        }).when(manager).signAttachments(any());
+
+        var result = manager.sendEmail(user, encryptedEmail());
+
+        assertThat(result.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        assertThat(signedWith.get()).isEqualTo("strong-portal-password");
+        var order = inOrder(manager, factory);
+        order.verify(manager).encryptEmail(any());
+        order.verify(manager).signAttachments(any());
+        order.verify(factory).create(eq(user), eq(config), any());
+    }
+
+    @Test
+    @DisplayName("should revoke the password and send nothing when an attachment cannot be signed")
+    void shouldRevokeAndNotSend_whenSigningFails() throws Exception {
+        givenConsent(EmailLog.EmailConsentStatus.OPT_IN);
+        doThrow(new EmailSendingException("Failed to sign email PDF attachment"))
+                .when(manager).signAttachments(any());
+
+        var result = manager.sendEmail(user, encryptedEmail());
+
+        assertThat(result.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+        verify(portal).revokeUnlockSecret(eq(SECRET_ID), eq("email_not_sent"), any());
+        verify(portal, never()).publishUnlockSecret(anyLong(), any());
+        verifyNoInteractions(factory, sender, archives);
     }
 
     @Test
