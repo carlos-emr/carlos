@@ -314,9 +314,14 @@ async function assertNotesPaginationSettles(page) {
     if (!anchor || !notes || !notes.contains(anchor.note)) {
       return { tracked: false };
     }
+    // Compare against the first RENDERED note, the same rule parkAtTop() used: a hidden
+    // note ahead of the anchor is not a page-in, and neither is a batch that brought only
+    // hidden notes. Either way nothing moved, so scrollTop rightly stays at 0.
+    const firstRendered = Array.from(notes.children)
+      .find((note) => note.getClientRects().length > 0) || null;
     return {
       tracked: true,
-      pagedIn: notes.firstElementChild !== anchor.note,
+      pagedIn: firstRendered !== null && firstRendered !== anchor.note,
       expectedTop: anchor.top,
       top: anchor.note.getBoundingClientRect().top - element.getBoundingClientRect().top,
       scrollTop: element.scrollTop,
