@@ -161,6 +161,21 @@ class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @DisplayName("should let an older explicit opt-in decide over a newer implied one, as email reads it")
+    void shouldReturnTheExplicitOptIn_whenNewerDuplicateIsImplied() {
+        Consent olderExplicit = consentRecord(512, false, false, 1_000L);
+        Consent newerImplied = consentRecord(512, false, false, 2_000L);
+        newerImplied.setExplicit(false);
+        flushAndClear();
+
+        // The lookup the email consent resolver uses.
+        Consent deciding = consentDao.findByDemographicAndConsentTypeId(512, emailType.getId());
+
+        assertThat(deciding.getId()).isEqualTo(olderExplicit.getId());
+        assertThat(deciding.isExplicit()).isTrue();
+    }
+
+    @Test
     @DisplayName("should run the patient-row lock's SQL in the caller's transaction")
     void shouldRunPatientRowLock_inCallersTransaction() {
         // The native SQL has to match the real table and column; H2 cannot show the lock itself.

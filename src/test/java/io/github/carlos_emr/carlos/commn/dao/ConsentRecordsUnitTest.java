@@ -91,6 +91,40 @@ class ConsentRecordsUnitTest {
         assertDeciding(newer, older, newer);
     }
 
+    private static Consent explicit(Consent consent) {
+        consent.setExplicit(true);
+        return consent;
+    }
+
+    @Test
+    @DisplayName("should let an older explicit opt-in win over a newer implied one")
+    void shouldChooseTheExplicitOptIn_whenNewerOneIsImplied() {
+        // An old chart: the patient confirmed in person, then an import or a routine save added
+        // an implied record. The patient's own confirmation still decides.
+        Consent olderExplicit = explicit(consent(1, false, 1_000L));
+        Consent newerImplied = consent(2, false, 2_000L);
+
+        assertDeciding(olderExplicit, newerImplied, olderExplicit);
+    }
+
+    @Test
+    @DisplayName("should let an implied opt-out win over an explicit opt-in")
+    void shouldChooseTheOptOut_whenOptInIsExplicit() {
+        Consent impliedOptOut = consent(1, true, 1_000L);
+        Consent explicitOptIn = explicit(consent(2, false, 2_000L));
+
+        assertDeciding(impliedOptOut, explicitOptIn, impliedOptOut);
+    }
+
+    @Test
+    @DisplayName("should choose the most recent explicit record when several are explicit")
+    void shouldChooseTheNewestExplicit_whenSeveralAreExplicit() {
+        Consent older = explicit(consent(1, false, 1_000L));
+        Consent newer = explicit(consent(2, false, 2_000L));
+
+        assertDeciding(newer, older, consent(3, false, 5_000L), newer);
+    }
+
     @Test
     @DisplayName("should rank an undated record as the oldest, and break date ties by the higher id")
     void shouldRankUndatedOldest_andBreakTiesById() {
