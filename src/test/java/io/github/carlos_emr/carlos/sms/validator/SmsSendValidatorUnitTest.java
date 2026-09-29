@@ -119,12 +119,22 @@ class SmsSendValidatorUnitTest {
     }
 
     @Test
-    @DisplayName("validation rejects a system test that names a demographic number that is not positive")
-    void shouldRejectCommand_whenSystemTestNamesInvalidPatient() {
+    @DisplayName("validation rejects a system test that names any patient, since it skips that patient's consent")
+    void shouldRejectCommand_whenSystemTestNamesAPatient() {
+        assertThat(validator.validate(systemTest(123)).messages())
+                .containsExactly("A system test message cannot name a patient or an appointment.");
         assertThat(validator.validate(systemTest(0)).messages())
-                .containsExactly("A valid patient demographic number is required.");
-        assertThat(validator.validate(systemTest(-1)).messages())
-                .containsExactly("A valid patient demographic number is required.");
+                .containsExactly("A system test message cannot name a patient or an appointment.");
+    }
+
+    @Test
+    @DisplayName("validation rejects a system test that names an appointment")
+    void shouldRejectCommand_whenSystemTestNamesAnAppointment() {
+        SmsSendCommand command = new SmsSendCommand(null, "416-555-1212", SmsRecipientPhoneType.CELL,
+                "CARLOS SMS system test", SmsMessagePurpose.SYSTEM_TEST, "999998", 1001, 55);
+
+        assertThat(validator.validate(command).messages())
+                .containsExactly("A system test message cannot name a patient or an appointment.");
     }
 
     @Test

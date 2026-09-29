@@ -17,10 +17,16 @@ public class SmsSendValidator {
             return new Result(List.of("SMS send request is required."));
         }
 
-        // A system test is synthetic and has no patient; any demographic number given must still be valid.
-        boolean patientRequired = command.messagePurpose() != SmsMessagePurpose.SYSTEM_TEST;
+        // A system test is synthetic. It is approved on the system-test switch alone, without reading any
+        // consent record, so it must not name a patient or an appointment: that would let it reach a real
+        // patient who has not consented, and file the message on their record.
+        boolean systemTest = command.messagePurpose() == SmsMessagePurpose.SYSTEM_TEST;
         Integer demographicNo = command.demographicNo();
-        if ((patientRequired && demographicNo == null) || (demographicNo != null && demographicNo <= 0)) {
+        if (systemTest) {
+            if (demographicNo != null || command.appointmentNo() != null) {
+                messages.add("A system test message cannot name a patient or an appointment.");
+            }
+        } else if (demographicNo == null || demographicNo <= 0) {
             messages.add("A valid patient demographic number is required.");
         }
 

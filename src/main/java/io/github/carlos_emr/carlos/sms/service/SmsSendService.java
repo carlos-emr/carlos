@@ -7,6 +7,8 @@ import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +19,7 @@ import java.util.Objects;
 @Service
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class SmsSendService {
+    private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
 
     private final SmsSendValidator validator;
@@ -79,7 +82,15 @@ public class SmsSendService {
             throw e;
         }
         if (!permitted) {
-            transactionRecorder.releaseClaim(transaction, new Date());
+            try {
+                transactionRecorder.releaseClaim(transaction, new Date());
+            } catch (RuntimeException releaseFailure) {
+                // Nothing was sent and the message is recorded. If the claim could not be handed back, stale
+                // recovery picks the row up, so the caller still gets "queued" rather than an error.
+                LOGGER.warn("SMS claim could not be released after the rate limit held the send back; "
+                        + "transactionId={} exceptionClass={}", transaction.getId(),
+                        releaseFailure.getClass().getName());
+            }
             return SmsSendResultDto.queued();
         }
 

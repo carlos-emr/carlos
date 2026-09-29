@@ -94,7 +94,7 @@ The actions that check `_sms` and `_admin.sms` arrive with #3836, #3838, #3839 a
 ## Required before real SMS traffic
 
 - Real provider clients, credentials, sender selection, status lookup and authenticated webhook endpoints.
-- The send action must set `SmsMessagePurpose` server-side, never from request data. `SYSTEM_TEST` skips patient consent whenever `sms.systemTest.enabled` is on, and nothing yet stops a system-test command from naming a real patient and phone number.
+- The send action must set `SmsMessagePurpose` server-side, never from request data. `SYSTEM_TEST` skips patient consent whenever `sms.systemTest.enabled` is on. `SmsSendValidator` refuses a system test that names a patient or an appointment, so it cannot be filed on a patient's record, but it cannot tell whose phone number it is given: only offer system tests to administrators.
 - Compliance sign-off on the seeded SMS consent wording, phone-number and message-type consent scoping, and STOP-reply opt-out (issue #2674). Recording SMS consent needs no new UI once the consent type is activated: the patient record's consent section lists every active consent type.
 - Message-body encryption, retention and purge policy. Allowed system-test and inbound bodies still use clear database text; keep them synthetic. Hashes are correlation data, not anonymization.
 - Authorized, redacted UI/API DTOs and operational views for queue backlog, uncertain sends and failures. Do not expose JPA entities or internal send commands directly.

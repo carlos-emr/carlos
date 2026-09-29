@@ -190,6 +190,32 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
+    @DisplayName("send still answers queued when the claim cannot be handed back after a rate-limit denial")
+    void shouldAnswerQueued_whenReleaseFailsAfterRateLimitDenial() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService() {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+                throw new IllegalStateException("release failed");
+            }
+        };
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> false,
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isTrue();
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+        assertThat(result.providerMessageId()).isNull();
+    }
+
+    @Test
     @DisplayName("send releases its claim and rethrows when the rate limiter fails")
     void shouldReleaseClaim_whenRateLimiterThrows() {
         List<String> events = new ArrayList<>();
