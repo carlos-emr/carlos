@@ -27,7 +27,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -214,7 +213,7 @@ class SmsSendServiceUnitTest {
         SmsSendCommand command =
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998");
 
-        assertThatThrownBy(() -> service.send(command))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(command))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("release failed");
     }
