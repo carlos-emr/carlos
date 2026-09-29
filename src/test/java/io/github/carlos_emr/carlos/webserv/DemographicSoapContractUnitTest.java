@@ -173,8 +173,8 @@ class DemographicSoapContractUnitTest extends CarlosUnitTestBase {
             JaxWsServiceFactoryBean factory = new JaxWsServiceFactoryBean();
             factory.setBus(bus);
             factory.setServiceClass(DemographicWs.class);
-            Service service = factory.create();
-            List<String> operations = service.getServiceInfos().get(0).getInterface().getOperations()
+            Service publishedService = factory.create();
+            List<String> operations = publishedService.getServiceInfos().get(0).getInterface().getOperations()
                     .stream()
                     .map(operation -> operation.getName().getLocalPart())
                     .toList();

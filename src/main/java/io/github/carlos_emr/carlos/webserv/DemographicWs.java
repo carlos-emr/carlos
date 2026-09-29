@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -109,10 +110,7 @@ public class DemographicWs extends AbstractWs {
 
 
     public DemographicTransfer[] getDemographics(Integer[] demographicIds) {
-        ArrayList<Integer> ids = new ArrayList<Integer>();
-        for (Integer i : demographicIds) {
-            ids.add(i);
-        }
+        ArrayList<Integer> ids = new ArrayList<Integer>(Arrays.asList(demographicIds));
 
         requireReadPrivilege(ids);
         List<Demographic> demographics = demographicManager.getDemographics(getLoggedInInfo(), ids);
@@ -232,11 +230,6 @@ public class DemographicWs extends AbstractWs {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
         List<Consent> consents = patientConsentManager.getConsentsByTypeAndEditDate(loggedInInfo, consentType, lastUpdate.getTime());
-        List<Integer> demoIds = new ArrayList<Integer>();
-        for (Consent c : consents) {
-            if (!demoIds.contains(c.getDemographicNo())) demoIds.add(c.getDemographicNo());
-        }
-
-        return demoIds.toArray(new Integer[0]);
+        return consents.stream().map(Consent::getDemographicNo).distinct().toArray(Integer[]::new);
     }
 }
