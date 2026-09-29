@@ -46,7 +46,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -195,13 +194,17 @@ class SmsQueue2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should ask, per patient, whether this viewer may open that patient's record")
+    @DisplayName("should ask, per patient, whether this viewer may open that patient's record and read it")
     void shouldCheckEachPatient_againstPatientRecordAccess() {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 456)).thenReturn(false);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 789)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 123)).thenReturn(true);
+        // An entry for patient 789 alone takes this viewer's read right away.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 789)).thenReturn(false);
         when(assembler.assemble(any(), eq(true), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
 
         action().execute();
@@ -210,9 +213,28 @@ class SmsQueue2ActionUnitTest {
         verify(assembler).assemble(any(), eq(true), mayAccess.capture());
         assertThat(mayAccess.getValue().test(123)).isTrue();
         assertThat(mayAccess.getValue().test(456)).isFalse();
-        // The per-patient form of hasPrivilege is not used: only the two page-wide checks were made.
+        assertThat(mayAccess.getValue().test(789)).isFalse();
+        // A restricted patient never reaches the per-patient privilege check, which would mark the session.
+        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_demographic", "r", 456);
+    }
+
+    @Test
+    @DisplayName("should show a viewer without demographics read the patients they are not restricted from")
+    void shouldOnlyCheckRestriction_whenViewerCannotReadDemographics() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(false);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 456)).thenReturn(false);
+        when(assembler.assemble(any(), eq(false), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
+
+        action().execute();
+
+        ArgumentCaptor<IntPredicate> mayAccess = ArgumentCaptor.forClass(IntPredicate.class);
+        verify(assembler).assemble(any(), eq(false), mayAccess.capture());
+        assertThat(mayAccess.getValue().test(123)).isTrue();
+        assertThat(mayAccess.getValue().test(456)).isFalse();
         verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
-        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), notNull(String.class));
     }
 
     @Test

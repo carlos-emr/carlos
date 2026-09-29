@@ -60,6 +60,20 @@ public class SmsQueue2Action extends ActionSupport {
         this.auditRecorder = auditRecorder;
     }
 
+    /**
+     * Whether this viewer may see that patient's messages. No, when the viewer is restricted from the
+     * patient's record. Also no, for a viewer who may read demographics in general, when an entry for this
+     * one patient takes that right away. The restriction is checked first: the per-patient privilege check
+     * marks the session when it meets a restriction, which a list view must not do.
+     */
+    private boolean mayShowPatient(LoggedInInfo loggedInInfo, boolean readsDemographics, int demographicNo) {
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            return false;
+        }
+        return !readsDemographics || securityInfoManager.hasPrivilege(
+                loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo);
+    }
+
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -76,7 +90,7 @@ public class SmsQueue2Action extends ActionSupport {
         SmsQueueWindow window = SmsQueueWindow.fromParameter(request.getParameter(WINDOW_PARAMETER));
         // A patient the viewer is restricted from has their messages left out of the lists.
         SmsQueueViewModelAssembler.Result queue = assembler.assemble(window, showDemographicNumbers,
-                demographicNo -> securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo));
+                demographicNo -> mayShowPatient(loggedInInfo, showDemographicNumbers, demographicNo));
         // Recorded before the page is handed over: if the view cannot be audited, nothing is shown.
         auditRecorder.recordViewed(loggedInInfo, window, queue.displayedDemographicNumbers());
         request.setAttribute("smsQueue", queue.model());
