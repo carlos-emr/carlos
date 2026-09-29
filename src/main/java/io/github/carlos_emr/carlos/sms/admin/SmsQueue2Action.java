@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.sms.admin;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.assembler.SmsQueueViewModelAssembler;
+import io.github.carlos_emr.carlos.sms.service.SmsQueueViewAuditRecorder;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
@@ -44,10 +45,13 @@ public class SmsQueue2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final SmsQueueViewModelAssembler assembler;
+    private final SmsQueueViewAuditRecorder auditRecorder;
 
-    public SmsQueue2Action(SecurityInfoManager securityInfoManager, SmsQueueViewModelAssembler assembler) {
+    public SmsQueue2Action(SecurityInfoManager securityInfoManager, SmsQueueViewModelAssembler assembler,
+                           SmsQueueViewAuditRecorder auditRecorder) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
+        this.auditRecorder = auditRecorder;
     }
 
     @Override
@@ -62,6 +66,8 @@ public class SmsQueue2Action extends ActionSupport {
         // Demographic numbers link a message to a patient, so only viewers who may read demographics see them.
         boolean showDemographicNumbers = securityInfoManager.hasPrivilege(
                 loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, null);
+        // Recorded before anything is shown: if the view cannot be audited, the page is not rendered.
+        auditRecorder.recordViewed(loggedInInfo, showDemographicNumbers);
         request.setAttribute("smsQueue", assembler.assemble(showDemographicNumbers,
                 demographicNo -> securityInfoManager.hasPrivilege(
                         loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo)));

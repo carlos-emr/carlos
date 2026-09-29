@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.sms.admin;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.assembler.SmsQueueViewModelAssembler;
+import io.github.carlos_emr.carlos.sms.service.SmsQueueViewAuditRecorder;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueViewModel;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ServletActionContext;
@@ -58,6 +59,7 @@ import static org.mockito.Mockito.when;
 class SmsQueue2ActionUnitTest {
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
     private final SmsQueueViewModelAssembler assembler = mock(SmsQueueViewModelAssembler.class);
+    private final SmsQueueViewAuditRecorder auditRecorder = mock(SmsQueueViewAuditRecorder.class);
     private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
     private MockHttpServletRequest request;
     private MockedStatic<ServletActionContext> servletActionContext;
@@ -85,7 +87,7 @@ class SmsQueue2ActionUnitTest {
         assertThatThrownBy(() -> action().execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_admin.sms)");
-        verifyNoInteractions(assembler);
+        verifyNoInteractions(assembler, auditRecorder);
         assertThat(request.getAttribute("smsQueue")).isNull();
     }
 
@@ -95,7 +97,7 @@ class SmsQueue2ActionUnitTest {
         assertThatThrownBy(() -> action().execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_admin.sms)");
-        verifyNoInteractions(assembler);
+        verifyNoInteractions(assembler, auditRecorder);
         verifyNoInteractions(securityInfoManager);
     }
 
@@ -112,6 +114,7 @@ class SmsQueue2ActionUnitTest {
 
         assertThat(result).isEqualTo("success");
         assertThat(request.getAttribute("smsQueue")).isSameAs(model);
+        verify(auditRecorder).recordViewed(loggedInInfo, true);
     }
 
     @Test
@@ -127,9 +130,10 @@ class SmsQueue2ActionUnitTest {
 
         assertThat(request.getAttribute("smsQueue")).isSameAs(model);
         verify(assembler, never()).assemble(eq(true), any());
+        verify(auditRecorder).recordViewed(loggedInInfo, false);
     }
 
     private SmsQueue2Action action() {
-        return new SmsQueue2Action(securityInfoManager, assembler);
+        return new SmsQueue2Action(securityInfoManager, assembler, auditRecorder);
     }
 }
