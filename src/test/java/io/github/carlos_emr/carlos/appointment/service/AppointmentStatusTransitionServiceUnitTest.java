@@ -5,9 +5,11 @@
  */
 package io.github.carlos_emr.carlos.appointment.service;
 
+import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.event.EventService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
+import org.mockito.MockedStatic;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -27,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,9 +44,16 @@ class AppointmentStatusTransitionServiceUnitTest {
     private AppointmentArchiveDao appointmentArchiveDao;
     private EventService eventService;
     private AppointmentStatusTransitionService service;
+    private MockedStatic<AppointmentStatusMgrImpl> statusMgr;
 
     @BeforeEach
     void setUp() {
+        // Appointment status editing is on by default, so ApptStatusData derives the next
+        // status from the appointment_status rows rather than its hard-coded table. Serve the
+        // head of the stock seed (V1.0.2 on_data, same order) so T -> H stays the valid step.
+        statusMgr = mockStatic(AppointmentStatusMgrImpl.class);
+        statusMgr.when(AppointmentStatusMgrImpl::getCachedActiveStatuses).thenReturn(List.of(
+                status("t"), status("T"), status("H"), status("P"), status("E")));
         appointmentDao = mock(OscarAppointmentDao.class);
         appointmentArchiveDao = mock(AppointmentArchiveDao.class);
         eventService = mock(EventService.class);
@@ -52,6 +63,7 @@ class AppointmentStatusTransitionServiceUnitTest {
 
     @AfterEach
     void tearDown() {
+        statusMgr.close();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.clearSynchronization();
         }
@@ -192,5 +204,12 @@ class AppointmentStatusTransitionServiceUnitTest {
         appointment.setStatus(status);
         appointment.setProviderNo(providerNo);
         return appointment;
+    }
+
+    private static AppointmentStatus status(String code) {
+        AppointmentStatus status = new AppointmentStatus();
+        status.setStatus(code);
+        status.setActive(1);
+        return status;
     }
 }

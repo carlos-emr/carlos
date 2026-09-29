@@ -204,7 +204,7 @@ Ontario, Canada
     ApptData apptObj = ApptUtil.getAppointmentFromSession(request);
 
     CarlosProperties pros = CarlosProperties.getInstance();
-    String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
+    boolean statusEditable = pros.isAppointmentStatusEditingEnabled();
     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
 
     AppointmentStatusMgr apptStatusMgr = new AppointmentStatusMgrImpl();
@@ -1328,7 +1328,7 @@ Ontario, Canada
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStatus"/>:</label>
                             <div class="col-sm-8">
-                                <% if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
+                                <% if (statusEditable) { %>
                                 <select class="form-select form-select-sm" name="status" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (int i = 0; i < allStatus.size(); i++) { %>
                                     <option class="<carlos:encode value='<%= (allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"

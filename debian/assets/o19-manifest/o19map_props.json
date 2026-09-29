@@ -458,10 +458,10 @@
   "util.erx.clinic_username"
  ],
  "CARLOS_DEFAULTS": {
+  "ALLOW_UPDATE_DOCUMENT_CONTENT": "true",
   "CONSULTATION_AUTO_INCLUDE_ALLERGIES": "false",
   "CONSULTATION_AUTO_INCLUDE_MEDICATIONS": "false",
   "CONSULTATION_LOCK_REFERRAL_DATE": "false",
-  "DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM": "false",
   "ECHART_SIGN_LINE": "[${encounter.class.EctSaveEncounterAction.msgSigned} ${DATE} ${encounter.class.EctSaveEncounterAction.msgSigBy} ${USERSIGNATURE}]\n",
   "ECHART_VERSIGN_LINE": "[${encounter.class.EctSaveEncounterAction.msgVerAndSig} ${DATE} ${encounter.class.EctSaveEncounterAction.msgSigBy} ${USERSIGNATURE}]\n",
   "FORMS_PROMOTEXT": "",
@@ -469,10 +469,21 @@
   "NEW_CONTACTS_UI": "true",
   "NEW_CONTACTS_UI_EXTERNAL_CONTACT": "true",
   "confidentiality_statement.v1": "The information transmitted is intended only for the person to whom it is addressed and may contain confidential, proprietary and/or privileged material. Any unauthorized review, distribution or other use of or the taking of any action in reliance upon this information is prohibited. The contents of this message may be subject to privilege and all rights to that privilege are expressly claimed and not waived. If you receive this in error, please contact the sender  and delete or destroy this message and any copies. Thank you.",
+  "consultation_dynamic_labelling_enabled": "true",
   "consultation_fax_enabled": "true",
+  "displayAlertsOnScheduleScreen": "true",
+  "displayNotesOnScheduleScreen": "true",
+  "eform_signature_enabled": "true",
   "faxPollInterval": "60000",
+  "lab_req_include_chartno": "true",
   "label.top": "24",
-  "save_as_xml": "false"
+  "new_flowsheet_enabled": "true",
+  "onare_labreqver": "10",
+  "rx_fax_enabled": "true",
+  "save_as_xml": "false",
+  "tickler_edit_enabled": "true",
+  "use_lab_clientreference": "true",
+  "workflow_enhance": "true"
  },
  "BUNDLE_KEY_RENAMES": {
   "oscarEncounter.class.EctSaveEncounterAction.msgLocked": "encounter.class.EctSaveEncounterAction.msgLocked",

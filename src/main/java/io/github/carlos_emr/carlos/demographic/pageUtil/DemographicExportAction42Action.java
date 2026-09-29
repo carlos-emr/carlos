@@ -348,7 +348,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
-        String strEditable = oscarProperties.getProperty("ENABLE_EDIT_APPT_STATUS");
+        boolean statusEditable = oscarProperties.isAppointmentStatusEditingEnabled();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -2081,7 +2081,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     ApptStatusData asd = new ApptStatusData();
                                     asd.setApptStatus(ap.getStatus());
                                     String msg = null;
-                                    if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
+                                    if (statusEditable)
                                         msg = asd.getTitle();
                                     else
                                         msg = getText(asd.getTitle());
