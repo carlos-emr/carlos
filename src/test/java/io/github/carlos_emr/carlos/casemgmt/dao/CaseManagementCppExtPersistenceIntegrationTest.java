@@ -147,8 +147,10 @@ public class CaseManagementCppExtPersistenceIntegrationTest extends CarlosTestBa
         caseManagementNoteExtDAO.save(newExtension(CaseManagementNoteExt.RESOLUTIONDATE, RESOLUTION));
         entityManager.flush();
 
-        // The second save of the same note, the way the action performs it: index the rows the
-        // note already has by key, newest first, then update in place instead of persisting.
+        // The second save of the same note, reduced to the one-row-per-key case: look the rows the
+        // note already has up by key and update in place instead of persisting. With a single row
+        // per key, picking that row equals the action's group-and-update-every-row loop; the
+        // duplicate-row test below covers the grouping itself.
         Map<String, CaseManagementNoteExt> extByKey = new HashMap<>();
         for (CaseManagementNoteExt existing : caseManagementNoteExtDAO.getExtByNote(noteId)) {
             extByKey.putIfAbsent(existing.getKeyVal(), existing);

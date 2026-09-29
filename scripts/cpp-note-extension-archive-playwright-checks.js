@@ -570,7 +570,8 @@ async function main() {
       'the saved CPP item\'s extension rows do not hold the two dates that were entered');
 
     // --- reopen it: both dates must come BACK, not just be stored ---
-    const noteId = sqlNumber(sql.value(`SELECT note_id FROM casemgmt_note WHERE note LIKE '${stamp}%' LIMIT 1`),
+    const noteId = sqlNumber(sql.value(
+      `SELECT note_id FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1 ORDER BY note_id DESC LIMIT 1`),
       'the saved CPP item\'s note id');
     const reopen = box.locator(`a[onclick*="noteId=${noteId}"]`).first();
     assert(await reopen.count() > 0, 'the saved CPP item does not appear in the Social History box, so it cannot be archived');

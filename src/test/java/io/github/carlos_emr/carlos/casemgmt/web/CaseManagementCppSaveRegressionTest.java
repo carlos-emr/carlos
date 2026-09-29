@@ -349,7 +349,7 @@ class CaseManagementCppSaveRegressionTest {
         assertThat(block)
                 .as("every row for the key is compared, so a disagreeing duplicate is itself a change")
                 .contains("extKeyMatched = true;")
-                .doesNotContain("extKeyMatched = true;\n                    break;");
+                .doesNotContainPattern("extKeyMatched\\s*=\\s*true\\s*;\\s*break\\s*;");
         assertThat(block)
                 .as("the date comparison is resolved once per key; re-normalising an already "
                         + "normalised value on a second row would compare the wrong thing")
