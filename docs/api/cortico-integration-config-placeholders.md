@@ -17,9 +17,15 @@ adapter work explicit and configurable instead of relying on hardcoded
 assumptions.
 
 Each value is clinic-specific and must be supplied **per environment** — in the
-per-environment override config, never in the committed default
+per-environment override file, never in the committed default
 `carlos.properties` — before a future adapter that consumes the value is wired
 and separately tested. All keys default to empty.
+
+The override file is the one named by the `carlos_override_properties` JVM system
+property (`-Dcarlos_override_properties=/path/to/file`), which `CarlosProperties`
+reads after the bundled defaults. The Debian package and the devcontainer both
+point it at a file that is also called `carlos.properties`; that deployment file,
+not the one in `src/main/resources`, is where real values go.
 
 > **Do not commit** clinic-specific identifiers, status codes, provider/location
 > numbers, OAuth/SOAP credentials, or any PHI into `carlos.properties`. Supply

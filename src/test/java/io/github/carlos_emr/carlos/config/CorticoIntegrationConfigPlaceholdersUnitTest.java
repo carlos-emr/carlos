@@ -73,11 +73,12 @@ class CorticoIntegrationConfigPlaceholdersUnitTest extends CarlosUnitTestBase {
             "integration.cortico.document.default_type");
 
     @Test
-    @DisplayName("should declare Cortico integration placeholder keys in carlos properties")
+    @DisplayName("should declare exactly the documented Cortico placeholder keys, so no other one ships with a value")
     void shouldDeclareCorticoPlaceholderKeys_inCarlosProperties() throws IOException {
         Properties properties = loadCarlosProperties();
 
-        assertThat(properties.stringPropertyNames()).containsAll(CORTICO_PLACEHOLDER_KEYS);
+        assertThat(properties.stringPropertyNames().stream().filter(key -> key.startsWith("integration.cortico.")))
+                .containsExactlyInAnyOrderElementsOf(CORTICO_PLACEHOLDER_KEYS);
     }
 
     @Test
