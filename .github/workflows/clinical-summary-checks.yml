@@ -10,6 +10,10 @@ on:
       - 'src/main/resources/clinical/summary/**'
       - 'src/main/webapp/WEB-INF/jsp/documentManager/ai*.jsp'
       - 'src/main/webapp/js/ai-chart-updates.js'
+      - 'src/main/webapp/css/ai-chart-updates*.css'
+      - 'src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'
+      - 'src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp'
+      - 'src/main/webapp/WEB-INF/jsp/documentManager/documentReport.jsp'
       - 'tools/ai-clinical-summary-draft/**'
       - '.github/workflows/clinical-summary-checks.yml'
 

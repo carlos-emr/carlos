@@ -83,6 +83,7 @@
 
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/css/oscarRx.css">
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/ai-chart-updates-navigation.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all" href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">

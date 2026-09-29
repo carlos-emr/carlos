@@ -34,8 +34,21 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       });
       const chart = await openChart(context, masterPage, recorder, 60000);
       await chart.waitForLoadState('domcontentloaded');
-      const page = await context.newPage();
-      assert.equal((await page.goto(`${config.baseUrl}/documentManager/AiChartUpdates?documentId=${doc}`)).status(), 200);
+      await chart.getByRole('link', { name: 'Review chart updates', exact: true }).waitFor();
+      await chart.screenshot({ path: path.join(output, `${fixture.fixture}-echart-entry.png`) });
+      const pickerOpened = context.waitForEvent('page');
+      await chart.getByRole('link', { name: 'Review chart updates', exact: true }).click();
+      const page = await pickerOpened;
+      await page.waitForLoadState('domcontentloaded');
+      assert.equal(new URL(page.url()).searchParams.get('functionid'), String(patient));
+      await page.locator('#chart-update-picker-title').waitFor();
+      const reviewLink = page.locator(`a.chart-update-document-link[href$="documentId=${doc}"]`);
+      assert.equal(await reviewLink.count(), 1);
+      await page.screenshot({ path: path.join(output, `${fixture.fixture}-document-picker.png`), fullPage: true });
+      const [reviewResponse] = await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded' }), reviewLink.click(),
+      ]);
+      assert.equal(reviewResponse.status(), 200);
       await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
         page.getByRole('button', { name: 'Generate new proposals', exact: true }).click()]);
       assert.equal(await page.locator('article.proposal').count(), 3);
@@ -66,7 +79,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(release.status(), 200);
       assert.equal(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998'`), '0');
       results.push({ fixture: fixture.fixture, documentDate: date, suggestedDate: expected, approvalsUnchanged: true });
-      console.log(`${fixture.fixture}: suggested date, assignee, destinations, explicit approval and mobile layout passed`);
+      console.log(`${fixture.fixture}: eChart navigation, document selection, suggested fields, explicit approval and mobile layout passed`);
       for (const candidate of context.pages()) if (candidate !== schedule) await candidate.close();
     }
     fs.writeFileSync(path.join(output, 'suggestions-result.json'), JSON.stringify(results, null, 2) + '\n');

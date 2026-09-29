@@ -1,31 +1,33 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
-body { max-width: 1440px; margin: auto; background: #f7f9fc; color: #203047; }
-.review-header { margin-bottom: 1.75rem; }
+body { max-width: 1440px; margin: auto; background: #edf4ff; color: #203047; }
+.review-header { margin-bottom: 1.75rem; padding: 1.5rem; border-radius: .9rem; background: linear-gradient(115deg, #11366b, #1c61a8); color: #fff; box-shadow: 0 4px 14px #123b6d20; }
 .review-header h1 { font-weight: 700; }
 .review-header p { margin-bottom: .5rem; }
-.review-guidance { border-left: 3px solid #38748a; padding: .7rem 1rem; background: #edf4f7; border-radius: .25rem; }
+.review-guidance { border-left: 3px solid #8dc6ff; padding: .7rem 1rem; background: #e2efff; color: #183d67; border-radius: .25rem; }
 .chart-update-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 2rem; align-items: start; }
 .chart-update-layout > * { min-width: 0; }
-.review-progress { display: inline-block; padding: .3rem .7rem; border-radius: 1rem; background: #e1edf7; color: #214c70; font-weight: 600; }
+.review-progress { display: inline-block; padding: .3rem .7rem; border-radius: 1rem; background: #cce2ff; color: #123f77; font-weight: 600; }
 .suggestions-help, .field-help { color: #4c6075; font-size: .875rem; }
 .field-help { margin: .5rem 0 0; }
 .past-date { color: #84431a; font-weight: 600; margin: .4rem 0 0; }
-.proposal { border: 1px solid #d5dfe9; border-radius: .8rem; box-shadow: 0 2px 6px #20304708; }
+.proposal { border: 1px solid #b8d0ef; border-top: 4px solid #2d73c3; border-radius: .8rem; box-shadow: 0 2px 6px #20304708; }
 .proposal .card-body { padding: 1.5rem; }
 .proposal-heading { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
 .proposal-heading h3 { margin: 0; font-weight: 650; }
-.proposal-number { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: #e9eff8; color: #274d78; flex-shrink: 0; font-weight: 700; }
-.proposal-evidence { background: #f3f6fa; padding: .85rem 1rem; border-radius: .45rem; margin-bottom: .75rem; }
+.proposal-number { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: #1c5da7; color: #fff; flex-shrink: 0; font-weight: 700; }
+.proposal-evidence { background: #eaf3ff; padding: .85rem 1rem; border-radius: .45rem; margin-bottom: .75rem; }
 .source-text { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; margin-top: .75rem; }
-blockquote { border-left: 3px solid #839db5; padding-left: 1rem; margin-bottom: 0; }
+blockquote { border-left: 3px solid #347cc9; padding-left: 1rem; margin-bottom: 0; }
 .proposal-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; margin-top: .5rem; }
 .form-label { font-weight: 600; }
-.approval-confirmation { display: flex; align-items: start; gap: .65rem; margin: 1.25rem 0; padding: 1rem; border: 1px solid #d5dfe9; border-radius: .45rem; }
+.approval-confirmation { display: flex; align-items: start; gap: .65rem; margin: 1.25rem 0; padding: 1rem; border: 1px solid #c1d8f4; background: #f0f6ff; border-radius: .45rem; }
 .approval-confirmation input { flex-shrink: 0; margin-top: .3rem; width: 1rem; height: 1rem; }
 .proposal-actions { display: flex; gap: .65rem; flex-wrap: wrap; }
 .proposal-actions .btn { min-height: 44px; }
+.proposal-actions .btn-primary, .generation-form .btn { --bs-btn-bg: #185caa; --bs-btn-color: #fff; --bs-btn-border-color: #185caa; --bs-btn-hover-bg: #103f7b; --bs-btn-hover-color: #fff; --bs-btn-hover-border-color: #103f7b; }
+.form-control:focus, .form-select:focus { border-color: #4c8bd0; box-shadow: 0 0 0 .2rem #3d82cf26; }
 .proposal-complete { border-color: #a8c7b7; }
-.chart-reference { padding: 1.25rem; background: white; border: 1px solid #d5dfe9; border-radius: .8rem; position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }
+.chart-reference { padding: 1.25rem; background: white; border: 1px solid #b8d0ef; border-top: 4px solid #2d73c3; border-radius: .8rem; position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }
 summary { cursor: pointer; }
 summary:focus-visible { outline: 2px solid #245f9d; outline-offset: 3px; }
 @media (max-width: 800px) {

@@ -12,7 +12,11 @@ from another machine.
 1. Sign in with the existing development clinician account.
 2. Find **NHSSYN001**, **NHSSYN002**, or **NHSSYN003** and open its eChart. This
    establishes the chart context and editing lock needed for signed history.
-3. Open the corresponding review page in the same browser session:
+3. In the eChart header, click the blue **Review chart updates** link. In the
+   document list that opens, click **Review chart updates** beside the desired
+   document. This keeps the chart open while you review the document.
+
+   Direct links are also available in the same browser session:
 
    | Chart | Review page |
    | --- | --- |

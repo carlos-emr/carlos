@@ -1,7 +1,8 @@
 # Reviewed chart-update prototype
 
 This add-on starts from the **original selected document**, not generated summary
-prose. The document summary links to a separate review page. It is off by default
+prose. The eChart header opens the patient document list, with review links for active
+text and HTML documents. The document summary also links to the review page. It is off by default
 and has not been deployed or clinically validated.
 
 ## Scope

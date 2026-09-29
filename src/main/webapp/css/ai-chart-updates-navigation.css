@@ -1,0 +1,22 @@
+/* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
+#header-bottom-row .chart-update-launch,
+.chart-update-launch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: .45rem .8rem;
+    border: 1px solid #1555a2;
+    border-radius: .45rem;
+    background: #185caa;
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+}
+#header-bottom-row .chart-update-launch:hover,
+.chart-update-launch:hover { background: #103f7b; color: #fff; text-decoration: none; }
+#header-bottom-row .chart-update-launch:focus-visible,
+.chart-update-launch:focus-visible { outline: 3px solid #4596e8; outline-offset: 3px; }
+.chart-update-document-banner { background: #e5f0ff; color: #153e70; padding: 1.25rem; margin: 1rem 0; border: 1px solid #a7c8ef; border-left: 5px solid #1b65bc; border-radius: .6rem; }
+.chart-update-document-banner h3 { font-size: 1.25rem; font-weight: 700; }
+.chart-update-document-banner p { margin: .4rem 0 0; }
