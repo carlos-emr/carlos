@@ -356,6 +356,18 @@ class BillingOnFormViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         assertThat(model.getProviderView()).isEqualTo(model.getProviderPanel().providerView());
     }
 
+
+    @Test
+    void shouldDefaultToAppointmentProvider_whenNoPhysicianWasExplicitlySelected() {
+        request.setParameter("apptProvider_no", "222222");
+        request.setParameter("demographic_no", "1");
+        request.setParameter("appointment_no", "0");
+        request.setParameter("service_date", "2026-04-24");
+        request.setParameter("billForm", "GP");
+        BillingOnFormViewModel model = assembler.assemble(request, loggedInInfo);
+        assertThat(model.getProviderPanel().providerView()).isEqualTo("222222");
+    }
+
     private static void restoreProperty(CarlosProperties properties, String key, String previousValue) {
         if (previousValue == null) {
             properties.remove(key);

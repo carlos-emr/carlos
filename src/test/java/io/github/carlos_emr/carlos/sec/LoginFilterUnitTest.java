@@ -91,6 +91,39 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
             assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
         }
 
+        @ParameterizedTest(name = "user=[{0}]")
+        @ValueSource(strings = {"", "   ", "\t\n", "\u2003"})
+        @DisplayName("should redirect protected browser route when session user is blank")
+        void shouldRedirectProtectedBrowserRoute_whenSessionUserBlank(String blankUser)
+                throws ServletException, IOException {
+            // A blank "user" is reachable: Login2Action stores strAuth[0].trim() and falls back to
+            // "". The canonical gate must fail closed here, because Struts executes PMmodule and
+            // other module actions before the per-module defence-in-depth filters run.
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/PMmodule/ProgramManager");
+            request.getSession(true).setAttribute("user", blankUser);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+            assertThat(chain.getRequest()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass protected browser route when session user is present")
+        void shouldPassProtectedBrowserRoute_whenSessionUserPresent()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = authenticatedRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(chain.getRequest()).isSameAs(request);
+        }
+
         @Test
         @DisplayName("should return 401 for AJAX route when unauthenticated")
         void shouldReturn401ForAjaxRoute_whenUnauthenticated()

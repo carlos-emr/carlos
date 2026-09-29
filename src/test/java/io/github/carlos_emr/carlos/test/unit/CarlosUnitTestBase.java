@@ -25,6 +25,8 @@ package io.github.carlos_emr.carlos.test.unit;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +38,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mockStatic;
 
 /**
@@ -172,6 +177,26 @@ public abstract class CarlosUnitTestBase {
         T mock = Mockito.mock(clazz);
         registerMock(clazz, mock);
         return mock;
+    }
+
+    /**
+     * Explicitly grants only the named objects and operation for an endpoint fixture.
+     * Other permissions retain Mockito's default denial. Both patient-scope overloads
+     * are stubbed because SOAP and REST endpoints use different representations.
+     */
+    protected SecurityInfoManager authorizeEndpoint(String operation, String... securityObjects) {
+        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        grantEndpointPrivileges(security, operation, securityObjects);
+        return security;
+    }
+
+    protected void grantEndpointPrivileges(SecurityInfoManager security, String operation, String... securityObjects) {
+        for (String securityObject : securityObjects) {
+            Mockito.lenient().when(security.hasPrivilege(any(LoggedInInfo.class), eq(securityObject),
+                    eq(operation), nullable(String.class))).thenReturn(true);
+            Mockito.lenient().when(security.hasPrivilege(any(LoggedInInfo.class), eq(securityObject),
+                    eq(operation), anyInt())).thenReturn(true);
+        }
     }
 
     /**

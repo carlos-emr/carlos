@@ -46,6 +46,7 @@ package io.github.carlos_emr.carlos.webserv.oauth.util;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Request;
 import org.springframework.stereotype.Component;
+import org.springframework.http.MediaType;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.*;
@@ -93,7 +94,7 @@ public class OAuth1ParamParser {
 
         // 3) Body params for x-www-form-urlencoded
         String ctype = req.getContentType();
-        if (ctype != null && ctype.toLowerCase().startsWith("application/x-www-form-urlencoded")) {
+        if (isFormUrlEncoded(ctype)) {
             req.getParameterMap().forEach((k, arr) -> {
                 for (String v : arr) r.addParam(k, v);
             });
@@ -116,6 +117,16 @@ public class OAuth1ParamParser {
             throw new OAuth1Exception(400, "invalid_oauth_parameters");
         }
         return r;
+    }
+
+    private static boolean isFormUrlEncoded(String contentType) {
+        if (contentType == null) return false;
+        try {
+            MediaType parsed = MediaType.parseMediaType(contentType);
+            return MediaType.APPLICATION_FORM_URLENCODED.equalsTypeAndSubtype(parsed);
+        } catch (IllegalArgumentException invalidContentType) {
+            return false;
+        }
     }
 
     private static String first(List<String> v) { return (v == null || v.isEmpty()) ? null : v.get(0); }

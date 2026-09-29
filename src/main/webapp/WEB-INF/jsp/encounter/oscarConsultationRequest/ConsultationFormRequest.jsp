@@ -89,7 +89,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FaxConfigDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicContactDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
@@ -204,6 +203,24 @@
             return;
         }
         boolean canWriteConsult = securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, consultSecurityTarget);
+        Integer consultPatientId = null;
+        if (consultSecurityTarget != null) {
+            try {
+                consultPatientId = Integer.valueOf(consultSecurityTarget);
+                if (consultPatientId <= 0) consultPatientId = null;
+            } catch (NumberFormatException invalidPatientId) {
+                // Reject malformed/overflowing IDs before patient loading or any fax controls.
+            }
+            if (consultPatientId == null) {
+                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
+        }
+        boolean canFaxConsult = canWriteConsult && CarlosProperties.getInstance().isConsultationFaxEnabled()
+                && consultPatientId != null
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, consultPatientId)
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null);
 
         // Check if the selected providers is currently active. If it is not active, add it to the prList, as the list only contains active providers.
         Boolean isProviderActive = false;
@@ -245,7 +262,16 @@
         if (request.getParameter("error") != null) {
             String errorMessage = (String) request.getAttribute("errorMessage");
             if (StringUtils.isNullOrEmpty(errorMessage)) {
-                errorMessage = "The form could not be printed due to an error. Please refer to the server logs for more details.";
+                // The "error" result is shared by the save, print and fax actions on this form, so the
+                // fallback must not name printing: a failed Submit landed here too and told the clinician
+                // the form "could not be printed" when it had not been saved.
+                errorMessage = "The consultation request could not be saved or printed due to an error. Please refer to the server logs for more details.";
+            }
+            // When the "error" result was reached through an uncaught exception, the interceptor
+            // left the incident id that names the log entry; give the clinician that to quote.
+            Object incidentId = request.getAttribute("carlosIncidentId");
+            if (incidentId != null) {
+                errorMessage = errorMessage + " Reference: " + incidentId + ".";
             }
     %>
     <SCRIPT LANGUAGE="JavaScript">
@@ -327,7 +353,6 @@
         // A null demo varialbe means that this iteration is a postback. This script need not be run on postback.
         if (demo != null && "true".equals(props.getProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"))) {
 
-            ContactSpecialtyDao contactSpecialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
             List<DemographicContact> demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, Integer.parseInt(demo));
             HashSet<ConsultationServices> consultationServices = new HashSet<ConsultationServices>();
             List<DemographicContact> healthCareTeam = new ArrayList<DemographicContact>();
@@ -365,21 +390,9 @@
             } else if (currentSpecialistIdInt < 0) {
 
                 // this ProfessionalSpecialist needs to have a DemographicContact created.
-                String service = consultUtil.getService();
-
-                ContactSpecialty contactSpecialty = contactSpecialtyDao.findBySpecialty(service);
-
-                if (contactSpecialty == null) {
-                    contactSpecialty = contactSpecialtyDao.findBySpecialty("other");
-                }
-
-                service = contactSpecialty.getId() + "";
-
-                if (service == null) {
-                    service = "";
-                }
-
-                DemographicContact demographicContact = addDemographicContact(loggedInInfo, demo, (currentSpecialistIdInt * -1), service);
+                String role = consultUtil.getHealthCareTeamRole();
+                DemographicContact demographicContact = addDemographicContact(
+                        loggedInInfo, demo, (currentSpecialistIdInt * -1), role);
 
                 demographicContactDao.persist(demographicContact);
                 demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, Integer.parseInt(demo));
@@ -941,6 +954,7 @@
         // All-specialists data for autocomplete (loaded once on page ready)
         var allSpecialistsData = [];
         var allServicesData = [];
+        var lastResolvedServiceId = '';
 
         function loadAllSpecialistsData(callback) {
             jQuery.ajax({
@@ -980,6 +994,34 @@
             });
             jQuery('#serviceInput').on('click', function() {
                 jQuery(this).autocomplete('search', '');
+            });
+            // #service is the field actually posted, and the select handler above is the only
+            // thing that ever wrote it. The id therefore survived the clinician clearing the
+            // visible text, so a service that looked deselected was still submitted and the
+            // submit guard (see issue #2241) approved a value nobody could see. Re-resolve the
+            // hidden id from the visible text on every edit: an exact service name keeps its
+            // id, anything else clears it.
+            //
+            // Keep the last valid id while the text is only a partial/unknown value. That lets us
+            // avoid wiping dependent fields on every keystroke while still detecting when the
+            // clinician has manually entered a different exact service name.
+            jQuery('#serviceInput').on('input', function() {
+                var previousServiceId = lastResolvedServiceId;
+                var typed = jQuery(this).val().trim().toLowerCase();
+                var matchedId = '';
+                for (var i = 0; i < allServicesData.length; i++) {
+                    var description = (allServicesData[i].serviceDesc || '').trim().toLowerCase();
+                    if (description === typed) {
+                        matchedId = allServicesData[i].serviceId;
+                        break;
+                    }
+                }
+                jQuery('#service').val(matchedId);
+                if (matchedId !== '') {
+                    if (String(matchedId) !== String(previousServiceId || '')) {
+                        onServiceSelected(matchedId);
+                    }
+                }
             });
         }
 
@@ -1045,6 +1087,7 @@
         }
 
         function onServiceSelected(serviceId) {
+            lastResolvedServiceId = String(serviceId || '');
             // Clear specialist selection when service changes
             jQuery('#specialistInput').val('');
             jQuery('#specialist').val('');
@@ -1054,7 +1097,7 @@
             form.address.value = '';
             document.getElementById('annotation').value = '';
             document.getElementById('eFormButton').style.display = 'none';
-            <%if (props.isConsultationFaxEnabled()) {%>
+            <%if (canFaxConsult) {%>
             specialistFaxNumber = '';
             updateFaxButton();
             <%}%>
@@ -1071,11 +1114,12 @@
             if ((!currentService || currentService === '' || currentService === '-1') && specData.serviceIds && specData.serviceIds.length > 0) {
                 jQuery('#service').val(specData.serviceIds[0]);
                 jQuery('#serviceInput').val(specData.serviceNames ? specData.serviceNames[0] : '');
+                lastResolvedServiceId = String(specData.serviceIds[0]);
             }
 
             document.getElementById('consult-disclaimer').style.display = 'none';
 
-            <%if (props.isConsultationFaxEnabled()) {%>
+            <%if (canFaxConsult) {%>
             specialistFaxNumber = specData.fax ? specData.fax.trim() : '';
             updateFaxButton();
             <%}%>
@@ -1460,6 +1504,7 @@
             if (savedService && savedService !== 'null' && savedService !== '-1') {
                 jQuery('#service').val(savedService);
                 jQuery('#serviceInput').val(savedServiceName || '');
+                lastResolvedServiceId = String(savedService);
                 // Maintain legacy data structure for backward compatibility
                 if (!services[savedService]) {
                     K(savedService, savedServiceName);
@@ -1477,7 +1522,7 @@
                 if (savedFax) form.fax.value = savedFax;
                 if (savedAddress) form.address.value = savedAddress;
 
-                <%if (props.isConsultationFaxEnabled()) {%>
+                <%if (canFaxConsult) {%>
                 if (savedFax) { specialistFaxNumber = savedFax.trim(); updateFaxButton(); }
                 <%}%>
 
@@ -1508,7 +1553,7 @@
                 document.getElementById("annotation").value = "";
 
                 <%
-		if (props.isConsultationFaxEnabled()) {//
+		if (canFaxConsult) {//
 		%>
                 specialistFaxNumber = "";
                 updateFaxButton();
@@ -1541,7 +1586,7 @@
                     document.getElementById("consult-disclaimer").style.display = 'none';
 
                     <%
-        		if (props.isConsultationFaxEnabled()) {//
+                if (canFaxConsult) {//
 				%>
                     specialistFaxNumber = aSpeci.specFax.trim();
                     updateFaxButton();
@@ -1590,7 +1635,7 @@
                     document.EctConsultationFormRequest2Form.fax.value = (aSpeci.specFax);					// load the text fields with phone fax and address
                     document.EctConsultationFormRequest2Form.address.value = (aSpeci.specAddress);
                     <%
-        		if (props.isConsultationFaxEnabled()) {//
+                if (canFaxConsult) {//
 				%>
                     specialistFaxNumber = aSpeci.specFax.trim();
                     updateFaxButton();
@@ -1693,8 +1738,9 @@
         function checkForm(submissionVal, formName) {
             ShowSpin(true);
             var success = true;
+            var isEReferral = document.getElementById('isOceanEReferral') !== null;
 
-            if (typeof checkFormHCT === "function") {
+            if (!isEReferral && typeof checkFormHCT === "function") {
                 if (!checkFormHCT()) {
                     HideSpin();
                     return false;
@@ -1704,12 +1750,28 @@
             var msg = "<fmt:message key="Errors.service.noServiceSelected"/>";
             msg = msg.replace('<li>', '');
             msg = msg.replace('</li>', '');
-            var serviceOptionsElement = document.EctConsultationFormRequest2Form.service.options;
-            if (serviceOptionsElement && serviceOptionsElement.selectedIndex == 0) {
-                alert(msg);
-                document.EctConsultationFormRequest2Form.service.focus();
-                HideSpin();
-                return false;
+            // `service` is rendered three different ways: a hidden input paired with the
+            // #serviceInput autocomplete (Health Care Team off), a hidden input fixed at "0"
+            // (Health Care Team on), and no field at all on an eReferral, where the service is
+            // read-only text. Reading `.options` only worked for a <select> that this form no
+            // longer renders, so this guard silently passed for every real submission and let a
+            // blank service reach the server. The normal interactive form intentionally requires
+            // a service; the action still accepts null defensively for eReferrals, alternate
+            // clients, and direct requests so a missing value can never discard the referral.
+            // See issue #2241.
+            var serviceElement = document.EctConsultationFormRequest2Form.service;
+            if (serviceElement && !isEReferral) {
+                var serviceValue = serviceElement.options
+                        ? (serviceElement.selectedIndex > 0 ? serviceElement.value : '')
+                        : (serviceElement.value || '').trim();
+                if (serviceValue === '') {
+                    alert(msg);
+                    // Focus the visible autocomplete when present; a hidden input cannot take focus.
+                    var serviceInput = document.getElementById('serviceInput');
+                    (serviceInput || serviceElement).focus();
+                    HideSpin();
+                    return false;
+                }
             }
             var faxNumber = document.EctConsultationFormRequest2Form.fax.value;
             faxNumber = faxNumber.trim();
@@ -2052,7 +2114,7 @@ if (userAgent != null) {
             isSignatureDirty = e.isDirty;
             isSignatureSaved = e.isSave;
             <%
-	if (props.isConsultationFaxEnabled()) { //
+	if (canFaxConsult) { //
 	%>
             updateFaxButton();
             <% } %>
@@ -2301,7 +2363,7 @@ if (userAgent != null) {
             }
         %>
 
-        <% if (!props.isConsultationFaxEnabled() || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+        <% if (!canFaxConsult || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demo %>' context="htmlAttribute"/>">
@@ -2553,11 +2615,12 @@ if (userAgent != null) {
                                        value="<fmt:message key="global.btnPrint"/>"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
+                                <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
+                                <% if (canFaxConsult) { %>
                                     <input id="fax_button" name="updateAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndFax"/>"
                                            onclick="return checkForm('Update And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
+                                <% } %>
 
                                 <% } else { %>
                                 <input name="submitSaveOnly" type="button" class="btn btn-primary btn-sm"
@@ -2567,11 +2630,12 @@ if (userAgent != null) {
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndPrint"/>"
                                        onclick="return checkForm('Submit Consultation Request And Print Preview','EctConsultationFormRequest2Form'); "/>
 
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
+                                <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
+                                <% if (canFaxConsult) { %>
                                     <input id="fax_button" name="submitAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
                                            onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
+                                <% } %>
 
                                 <% } %>
                                 </div>
@@ -2618,7 +2682,7 @@ if (userAgent != null) {
                                 %>
 
                                 <table>
-                                    <% if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+                                    <% if (canFaxConsult && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
                                     <tr>
                                         <td class="consult-form-label" style="width:30%"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
                                         <td class="consult-form-value" style="width:70%">
@@ -2987,7 +3051,7 @@ if (userAgent != null) {
                                                 <% }
                                                 }%>
                                             </select>
-                                            <%if (props.isConsultationFaxEnabled()) {%>
+                                            <%if (canFaxConsult) {%>
                                             <div>
                                                 <input type="checkbox" id="ext_letterheadTitle"
                                                        name="ext_letterheadTitle"
@@ -3059,7 +3123,7 @@ if (userAgent != null) {
 							</td>
 						</tr>
 					</table>
-				<% if (props.isConsultationFaxEnabled()) { %>
+				<% if (canFaxConsult) { %>
                         <div class="consult-section-heading">Fax Account</div>
                                 <table class="w-100">
 								<tr>
@@ -3074,6 +3138,7 @@ if (userAgent != null) {
 										<select name="faxAccount" id="faxAccount" class="form-select form-select-sm">
 								<%
                                     for (FaxConfig faxConfig : faxConfigs) {
+                                        if (!faxConfig.isActive() || faxConfig.getFaxNumber() == null) continue;
                                 %>
 										<option value="<carlos:encode value='<%= faxConfig.getFaxNumber() %>' context="htmlAttribute"/>" <%=faxConfig.getFaxNumber().equalsIgnoreCase(consultUtil.letterheadFax) ? "selected" : ""%>><carlos:encode value='<%= faxConfig.getAccountName() %>' context="html"/></option>
 								<%
@@ -3218,7 +3283,7 @@ if (userAgent != null) {
                         <%
                             if (props.isConsultationSignatureEnabled()) {
                                 String signatureProviderNo = providerNo;
-                                if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
+                                if (canFaxConsult && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
                                     if (consultUtil.providerNo != null && !consultUtil.providerNo.trim().isEmpty()) {
                                         signatureProviderNo = consultUtil.providerNo.trim();
                                     } else if (referringProviderDefault != null && !referringProviderDefault.trim().isEmpty()) {
@@ -3297,6 +3362,9 @@ if (userAgent != null) {
                                     loadAllSpecialistsData(function() {
                                         initServiceAutocomplete();
                                         initSpecialistAutocomplete();
+                                        // Resolve text entered while either asynchronous lookup was loading.
+                                        // Existing consultations are restored from their saved IDs immediately below.
+                                        jQuery('#serviceInput').trigger('input');
                                         initializeConsultation(
                                             '<carlos:encode value='<%= String.valueOf(consultUtil.service) %>' context="javaScriptBlock"/>',
                                             '<%=((consultUtil.service==null)?"":SafeEncode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
@@ -3322,7 +3390,8 @@ if (userAgent != null) {
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
 
-                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null) {
+                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null
+                                        && healthCareTeam[specialist]) {
                                     document.EctConsultationFormRequest2Form.annotation.value = healthCareTeam[specialist].note;
                                     document.EctConsultationFormRequest2Form.phone.value = healthCareTeam[specialist].phoneNum;
                                     document.EctConsultationFormRequest2Form.fax.value = healthCareTeam[specialist].specFax;

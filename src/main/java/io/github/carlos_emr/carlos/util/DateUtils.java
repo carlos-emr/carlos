@@ -656,20 +656,26 @@ public final class DateUtils {
     }
 
     /**
-     * date2-date1
-     * <p>
-     * if either are null, it returns null.
+     * Completed whole years from {@code date1} to {@code date2}.
+     *
+     * <p>This is the copy of {@code yearDifference} that production calls (see
+     * {@code Cds4ReportUIBean}); the one in {@code io.github.carlos_emr.carlos.utility.DateUtils}
+     * has no production callers. Both must agree, so both delegate the calendar arithmetic to
+     * {@link java.time.Period}: the previous hand-rolled form decremented on the wrong side of
+     * the birthday, subtracting a year whenever date2's month was the <em>later</em> one, which
+     * reported an age a year low for most of the calendar. A February 29 birth date has no
+     * anniversary in a non-leap year; {@code Period} settles it on March 1.</p>
+     *
+     * @return years elapsed, or {@code null} if either argument is null
      */
     public static Integer yearDifference(Calendar date1, Calendar date2) {
         if (date1 == null || date2 == null) return (null);
 
-        int yearDiff = date2.get(Calendar.YEAR) - date1.get(Calendar.YEAR);
-
-        if (date2.get(Calendar.MONTH) > date1.get(Calendar.MONTH)) yearDiff--;
-        else if (date2.get(Calendar.MONTH) == date1.get(Calendar.MONTH) && date2.get(Calendar.DAY_OF_MONTH) < date1.get(Calendar.DAY_OF_MONTH))
-            yearDiff--;
-
-        return (yearDiff);
+        java.time.LocalDate from = java.time.LocalDate.of(date1.get(Calendar.YEAR),
+                date1.get(Calendar.MONTH) + 1, date1.get(Calendar.DAY_OF_MONTH));
+        java.time.LocalDate to = java.time.LocalDate.of(date2.get(Calendar.YEAR),
+                date2.get(Calendar.MONTH) + 1, date2.get(Calendar.DAY_OF_MONTH));
+        return java.time.Period.between(from, to).getYears();
     }
 
     /**

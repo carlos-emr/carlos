@@ -663,16 +663,26 @@
             return;
         }
 
-        // Let any scrollable overlay/popup handle its own scrolling
-        for (var el = event.target instanceof Element ? event.target : event.target.parentElement; el && el !== document.body; el = el.parentElement) {
+        var navLayout = document.getElementById('navigation-layout');
+
+        // Let any scrollable overlay/popup NESTED INSIDE navigation-layout handle its own
+        // scrolling; stop the walk before navigation-layout itself. Sidebar rows are commonly
+        // rendered with an inline overflow:hidden (e.g. LeftNavBarDisplay.jsp's nowrap text
+        // clipping), which silently blocks the browser's native wheel scroll-chaining before
+        // it ever reaches navigation-layout even though the row has nothing to scroll. If we
+        // stopped at navigation-layout and deferred to "native scroll" here, hovering a row
+        // (rather than its section title, which has no such style) would scroll nothing.
+        for (var el = event.target instanceof Element ? event.target : event.target.parentElement;
+             el && el !== document.body && el !== navLayout;
+             el = el.parentElement) {
             var style = window.getComputedStyle(el);
             if (/(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight) {
                 return;
             }
         }
 
-        // Sidebar/CPP areas: route scroll to navigation-layout
-        var navLayout = document.getElementById('navigation-layout');
+        // Sidebar/CPP areas: route scroll to navigation-layout directly rather than relying on
+        // native scroll-chaining, which intervening overflow:hidden row markup can silently block.
         if (navLayout) {
             event.preventDefault();
             navLayout.scrollTop += event.deltaY;

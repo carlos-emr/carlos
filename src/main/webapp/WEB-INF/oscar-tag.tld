@@ -109,6 +109,14 @@
     <required>true</required>
     <rtexprvalue>true</rtexprvalue>
   </attribute>
+  <!-- Output context for the rendered patient label; same names as <carlos:encode>.
+       Omitted means html (HTML body content). Use javaScript/htmlAttribute/uriComponent
+       when the label is rendered into those sinks. -->
+  <attribute>
+    <name>context</name>
+    <required>false</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
 </tag>
 
 

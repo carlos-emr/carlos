@@ -92,6 +92,18 @@ Exploded WAR".
     * Password: carlos2026
     * PIN     : 2026
     * **Note**: On first login, you will be forced to change the password. Use the same credentials above to complete the password reset process.
+* JavaMelody monitoring is available at `https://localhost:8443/carlos/monitoring`.
+    * The development image uses a self-signed certificate, so your browser will show a local certificate warning.
+    * Monitoring credentials are `oscar` / `oscar`.
+    * These credentials enable sensitive runtime inspection and system actions. Use them only for local development; do not reuse them in a deployed environment.
+    * Application, monitoring, and debugger ports bind to host loopback only.
+* Administration test account (safe to intentionally lock while testing the Unlock Account screen):
+    * Username: locktest
+    * Password: carlos2026
+    * PIN: 2026
+    * This account has the receptionist role and synthetic provider number `999996`; use `carlosdoc` for administration itself.
+    * The devcontainer sets `login_lock=true` so lockout is tracked by username: after `login_max_failed_times` (10) wrong passwords, `locktest` appears under **Administration → Unlock Account** and `carlosdoc` stays usable from the same browser. Clients whose address starts with `login_local_ip` (`192.168`) are exempt from lockout altogether.
+* Administration seed fixtures (`admin_test_data.sql`, labelled `Local Test -`) include current and deleted patient-independent eForms under **Forms/eForms → Patient-independent eForm**. The same file ships with the deb demo dataset (`carlos-ctl demo-data`); only the `locktest` login (`admin_test_account.sql`) is devcontainer-only.
 
 ### Subsequent Compilations
 
@@ -156,6 +168,54 @@ CARLOS logs are sent to the console and can be viewed using Docker commands. The
 - **SQL Logging**: Available but commented out by default (can be enabled in `local.env`)
 - **Hot Reload Logging**: Console only (viewable via `/tmp/webapp-watcher.log`)
 
+### Email Testing
+
+For local email testing, see [`docs/postfix-mail-server.md`](../docs/postfix-mail-server.md).
+The devcontainer captures outbound email to `/var/log/carlos-mail-capture/messages.eml`
+instead of sending it externally. Start the local mail server with `mail start`
+and inspect captured messages with `mail list` and `mail read`.
+
+### Commit Signing (Optional)
+
+`develop` only accepts signed commits. The devcontainer can sign commits made inside it
+(by you or by AI agents) with an SSH key, which avoids setting up GPG in the container.
+This is opt-in: without a key, nothing changes. Do this once, on your host (in WSL on Windows):
+
+1. **Create a signing key** (no passphrase, so agents can use it unattended; keep it
+   separate from your personal SSH key so you can revoke it on its own). Create the folder
+   yourself *before* the container next starts: if it is missing, Docker creates it owned by
+   root and you will not be able to write the key into it.
+   ```bash
+   mkdir -p ~/.carlos-signing && chmod 700 ~/.carlos-signing
+   ssh-keygen -t ed25519 -N "" -C "carlos-signing" -f ~/.carlos-signing/id_ed25519
+   ```
+   If `mkdir`/`ssh-keygen` fails with "Permission denied" because Docker already created the
+   folder, take ownership of it first: `sudo chown "$USER": ~/.carlos-signing`.
+2. **Register it on GitHub as a signing key:**
+   ```bash
+   gh auth refresh -h github.com -s admin:ssh_signing_key
+   gh ssh-key add ~/.carlos-signing/id_ed25519.pub --type signing --title "CARLOS devcontainer signing"
+   ```
+   Or use GitHub → Settings → SSH and GPG keys → New SSH key, with key type **Signing Key**.
+3. **Check your commit email** is one that is verified on your GitHub account, otherwise
+   commits show as "Unverified":
+   ```bash
+   git config --global user.email
+   ```
+4. **Rebuild the container** (Dev Containers: Rebuild Container).
+
+On start, `setup-commit-signing` configures git in the container to sign every commit.
+Check it with `git log --show-signature -1` after committing. When starting containers
+manually (without VS Code), run it yourself:
+```bash
+docker exec carlos-tomcat-dev sh /workspace/.devcontainer/development/scripts/setup-commit-signing
+```
+
+**Security note:** the key has no passphrase and is readable by anything running in the
+container, including AI agents. Anyone who compromises the container could sign commits as
+you until the key is revoked. Use this dedicated key only for this purpose, and if you suspect
+it has been exposed, delete it under GitHub → Settings → SSH and GPG keys and generate a new one.
+
 ## Manual Container Management (Without VS Code)
 
 ### **Start containers manually:**
@@ -219,7 +279,7 @@ docker exec carlos-tomcat-dev rm -rf /root/.m2/repository
 ### **Database troubleshooting:**
 ```bash
 # Check database users
-docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e "SELECT user_name, pin FROM security;"
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root carlos -e "SELECT user_name, pin FROM security;"
 
 # Reset database only (keeps app container and Maven cache)
 docker-compose stop db
@@ -257,7 +317,7 @@ Database volumes persist data between container restarts. This means that even a
 
 ```bash
 # Check database state
-docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e "SHOW TABLES;" | wc -l
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root carlos -e "SHOW TABLES;" | wc -l
 
 # Force complete database rebuild from SQL files
 docker-compose stop db
@@ -321,15 +381,15 @@ python3 scripts/generate_bcrypt_password.py
 # Copy the generated hash (starts with {bcrypt}$2b$...)
 
 # Update the database with the new hash
-docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root carlos -e \
   "UPDATE security SET password='YOUR_BCRYPT_HASH_HERE' WHERE user_name='carlosdoc';"
 
 # Optional: Force password reset on next login
-docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root carlos -e \
   "UPDATE security SET forcePasswordReset=1 WHERE user_name='carlosdoc';"
 
 # Verify the change
-docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root carlos -e \
   "SELECT user_name, LEFT(password, 20) as password_start FROM security WHERE user_name='carlosdoc';"
 ```
 
@@ -341,7 +401,7 @@ Enter password: mynewpassword
 Generated BCrypt hash: {bcrypt}$2b$12$abc123...xyz789
 
 # Update database
-$ docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
+$ docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root carlos -e \
   "UPDATE security SET password='{bcrypt}\$2b\$12\$abc123...xyz789' WHERE user_name='carlosdoc';"
 ```
 

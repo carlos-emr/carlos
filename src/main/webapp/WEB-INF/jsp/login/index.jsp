@@ -93,6 +93,14 @@
             }
 
             function setfocus() {
+                // Do not steal focus from a user (or password manager) that
+                // began entering credentials before every page asset finished.
+                // On a slow load, moving focus back to username can put the
+                // PIN or password into the wrong field.
+                const activeElement = document.activeElement;
+                if (activeElement && activeElement !== document.body && activeElement !== document.documentElement) {
+                    return;
+                }
                 document.loginForm.username.focus();
                 document.loginForm.username.select();
             }
@@ -565,9 +573,12 @@ body {
 
     <div class="content">
         <div class="topbar">
-            <span id="buildInfo" style="color:black;">
-            	${carlos:forHtml(LoginResourceBean.buildTag)}
-            </span>
+            <%-- Build identity is deliberately NOT shown on the login page: it is disclosed to
+                 unauthenticated visitors and lets an attacker fingerprint the exact build to match
+                 against known CVEs before authenticating (CWE-200). It remains available to
+                 authenticated users on the About page (encounter/ViewAbout). The span is kept
+                 (empty) so the topbar layout is unchanged. --%>
+            <span id="buildInfo" style="color:black;"></span>
         </div>
 
         <div class="heading">
@@ -639,7 +650,7 @@ body {
 
                             <div class="mb-3 ${ login_error }">
                                 <input type="text" name="username" id="username" placeholder="<fmt:message key="Logon.userName"/>"
-                                       value="" size="15" maxlength="15" autocomplete="off"
+                                       value="" size="15" maxlength="30" autocomplete="off"
                                        class="form-control" required>
                             </div>
 

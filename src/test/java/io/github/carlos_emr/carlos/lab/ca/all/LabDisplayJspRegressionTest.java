@@ -89,10 +89,14 @@ class LabDisplayJspRegressionTest {
     void shouldCloseInboxhubIframe_afterSuccessfulLabMacro() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
 
+        // closeLabAfterMacro now also takes whether the macro acknowledged: closing this window
+        // is what closeOnSuccess asks for, but taking the lab out of the inbox is only right
+        // when it was actually acknowledged (a tickler-only macro succeeds and acknowledges
+        // nothing).
         assertThat(jsp)
                 .contains("return response.json();")
                 .contains("if (json && json.success)")
-                .contains("closeLabAfterMacro(formid);")
+                .contains("closeLabAfterMacro(formid, json.acknowledged);")
                 .contains("if (window.frameElement)")
                 .contains("window.frameElement.closest('.document-card.card')")
                 .contains("new BroadcastChannel('inboxhub-refresh')");
