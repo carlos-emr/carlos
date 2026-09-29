@@ -103,15 +103,18 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
     @Test
     @DisplayName("should count a queued row as overdue only when it was due more than five minutes ago")
     void shouldCountOverdueQueued_atFiveMinuteBoundary() {
-        SmsTransaction justOver = persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)),
+        // Retries (one attempt made): the scheduled retry time decides, however old the row is.
+        SmsTransaction justOver = persistRetry(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)),
                 NOW.minus(Duration.ofMinutes(5)).minusSeconds(1));
-        persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)),
+        persistRetry(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)),
                 NOW.minus(Duration.ofMinutes(5)).plusSeconds(1));
-        // No next attempt: due since creation, so the creation time decides.
+        // Exactly at the threshold is not yet overdue.
+        persistRetry(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)), NOW.minus(Duration.ofMinutes(5)));
+        persistRetry(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)), NOW.plus(Duration.ofHours(1)));
+        // Never attempted: due since creation, so the creation time decides.
         SmsTransaction createdLongAgo = persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(10)), null);
         persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(4)), null);
-        // A retry scheduled for later is not overdue, however old the row is.
-        persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)), NOW.plus(Duration.ofHours(1)));
+        persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(5)), null);
         persistQueued(SmsProviderType.VOIPMS, NOW.minus(Duration.ofHours(1)), null);
         entityManager.persist(inbound(SmsProviderType.STUB, SmsStatus.QUEUED, NOW.minus(Duration.ofHours(1))));
         entityManager.flush();
@@ -123,6 +126,21 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         assertThat(counts).containsEntry(SmsProviderType.STUB, 2L).containsEntry(SmsProviderType.VOIPMS, 1L);
         assertThat(rows).extracting(SmsQueueRowDto::id)
                 .containsExactly(createdLongAgo.getId(), justOver.getId());
+    }
+
+    @Test
+    @DisplayName("should count a never-attempted row as overdue even when the rate limit keeps resetting its due time")
+    void shouldCountOverdueQueued_whenRateLimitKeepsReleasingIt() {
+        // The worker claimed this row and handed it back a moment ago because the rate limit held it.
+        SmsTransaction held = persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)), NOW);
+        entityManager.flush();
+
+        Map<SmsProviderType, Long> counts = smsTransactionDao.countOverdueQueuedOutboundByProvider(FIVE_MINUTES_AGO);
+        List<SmsQueueRowDto> rows = smsTransactionDao.findOverdueQueuedOutbound(
+                SmsProviderType.STUB, FIVE_MINUTES_AGO, 10);
+
+        assertThat(counts).containsEntry(SmsProviderType.STUB, 1L);
+        assertThat(rows).extracting(SmsQueueRowDto::id).containsExactly(held.getId());
     }
 
     @Test
@@ -154,6 +172,8 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         SmsTransaction justOver = persistSending(SmsProviderType.STUB,
                 NOW.minus(Duration.ofMinutes(5)).minusSeconds(1));
         persistSending(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(5)).plusSeconds(1));
+        // Exactly at the threshold is not yet stale, as in the worker's own recovery query.
+        persistSending(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(5)));
         persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)), NOW.minus(Duration.ofHours(1)));
         SmsTransaction inbound = inbound(SmsProviderType.STUB, SmsStatus.SENDING, NOW.minus(Duration.ofHours(1)));
         ReflectionTestUtils.setField(inbound, "lastAttemptAt", Date.from(NOW.minus(Duration.ofHours(1))));
@@ -253,6 +273,16 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         ReflectionTestUtils.setField(transaction, "createdAt", Date.from(createdAt));
         Date nextAttempt = nextAttemptAt == null ? null : Date.from(nextAttemptAt);
         ReflectionTestUtils.setField(transaction, "nextAttemptAt", nextAttempt);
+        entityManager.persist(transaction);
+        return transaction;
+    }
+
+    /** A queued row that has been attempted once and is waiting for its retry at {@code nextAttemptAt}. */
+    private SmsTransaction persistRetry(SmsProviderType providerType, Instant createdAt, Instant nextAttemptAt) {
+        SmsTransaction transaction = outbound(providerType);
+        ReflectionTestUtils.setField(transaction, "createdAt", Date.from(createdAt));
+        ReflectionTestUtils.setField(transaction, "attemptCount", 1);
+        ReflectionTestUtils.setField(transaction, "nextAttemptAt", Date.from(nextAttemptAt));
         entityManager.persist(transaction);
         return transaction;
     }

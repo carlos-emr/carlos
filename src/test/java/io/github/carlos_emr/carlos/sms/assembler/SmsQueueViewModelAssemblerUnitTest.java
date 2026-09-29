@@ -85,7 +85,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                 new SmsQueueCountDto(SmsProviderType.STUB, "OPTOUT_BLOCKED", 4),
                 new SmsQueueCountDto(SmsProviderType.VOIPMS, "DELIVERED", 5)));
 
-        SmsQueueViewModel model = assembler(() -> false).assemble(true);
+        SmsQueueViewModel model = assembler(() -> false).assemble(true, patient -> true);
 
         assertThat(model.providers()).extracting(SmsQueueViewModel.ProviderQueue::providerType)
                 .containsExactly("VOIPMS", "CLOUDLI", "STUB");
@@ -116,7 +116,7 @@ class SmsQueueViewModelAssemblerUnitTest {
         when(dao.countOverdueQueuedOutboundByProvider(any())).thenReturn(Map.of(SmsProviderType.STUB, 1L));
         when(dao.countStaleSendingOutboundByProvider(any())).thenReturn(Map.of(SmsProviderType.STUB, 1L));
 
-        assembler(() -> false).assemble(true);
+        assembler(() -> false).assemble(true, patient -> true);
 
         verify(dao).findOverdueQueuedOutbound(eq(SmsProviderType.STUB), any(Date.class), eq(50));
         verify(dao).findStaleSendingOutbound(eq(SmsProviderType.STUB), any(Date.class), eq(50));
@@ -130,7 +130,7 @@ class SmsQueueViewModelAssemblerUnitTest {
     @Test
     @DisplayName("should count overdue from five minutes ago and stale sends by the worker's own threshold")
     void shouldUseThresholds_fromOverdueGraceAndWorkerTimeout() {
-        SmsQueueViewModel model = assembler(() -> false).assemble(true);
+        SmsQueueViewModel model = assembler(() -> false).assemble(true, patient -> true);
 
         verify(dao).countOverdueQueuedOutboundByProvider(Date.from(NOW.minus(Duration.ofMinutes(5))));
         verify(dao).countStaleSendingOutboundByProvider(
@@ -151,7 +151,7 @@ class SmsQueueViewModelAssemblerUnitTest {
         when(dao.countConsentBlockedOutboundByProviderAndReason()).thenReturn(List.of(
                 new SmsQueueCountDto(SmsProviderType.VOIPMS, "SMS_CONSENT_OPT_OUT", 1)));
 
-        SmsQueueViewModel model = assembler(() -> false).assemble(true);
+        SmsQueueViewModel model = assembler(() -> false).assemble(true, patient -> true);
 
         assertThat(provider(model, "STUB").failedByErrorCode()).containsExactly(
                 new SmsQueueViewModel.CodeCount("ERR_A", 5),
@@ -173,7 +173,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                         NOW.minus(Duration.ofHours(2)), NOW.minus(Duration.ofHours(1)), null,
                         NOW.minus(Duration.ofMinutes(61)))));
 
-        SmsQueueViewModel model = assembler(() -> false).assemble(true);
+        SmsQueueViewModel model = assembler(() -> false).assemble(true, patient -> true);
 
         SmsQueueViewModel.Row row = provider(model, "STUB").recentFailed().get(0);
         assertThat(row).isEqualTo(new SmsQueueViewModel.Row("42", "STUB", "FAILED", "2026-09-28 12:00",
@@ -184,10 +184,60 @@ class SmsQueueViewModelAssemblerUnitTest {
 
     @Test
     @DisplayName("should show nothing for a number too short to mask")
-    void shouldShowNothing_forNumberShorterThanFourDigits() {
+    void shouldShowNothing_forNumberShorterThanSevenDigits() {
         assertThat(SmsQueueViewModelAssembler.lastFourDigits("12")).isEmpty();
+        assertThat(SmsQueueViewModelAssembler.lastFourDigits("1234")).isEmpty();
+        assertThat(SmsQueueViewModelAssembler.lastFourDigits("555-012")).isEmpty();
         assertThat(SmsQueueViewModelAssembler.lastFourDigits(null)).isEmpty();
+        assertThat(SmsQueueViewModelAssembler.lastFourDigits("555-0199")).isEqualTo("***0199");
         assertThat(SmsQueueViewModelAssembler.lastFourDigits("416-555-0199")).isEqualTo("***0199");
+    }
+
+    @Test
+    @DisplayName("should show a stored error code only when it looks like a code")
+    void shouldReplaceErrorCode_whenItIsNotACode() {
+        assertThat(SmsQueueViewModelAssembler.codeOnly("QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED"))
+                .isEqualTo("QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED");
+        assertThat(SmsQueueViewModelAssembler.codeOnly("carrier:30006")).isEqualTo("carrier:30006");
+        assertThat(SmsQueueViewModelAssembler.codeOnly(null)).isEmpty();
+        assertThat(SmsQueueViewModelAssembler.codeOnly("Invalid number +14165550199"))
+                .isEqualTo(SmsQueueViewModelAssembler.NOT_A_CODE);
+        assertThat(SmsQueueViewModelAssembler.codeOnly("x".repeat(65)))
+                .isEqualTo(SmsQueueViewModelAssembler.NOT_A_CODE);
+    }
+
+    @Test
+    @DisplayName("should hide the demographic number of a patient this viewer may not read")
+    void shouldHideDemographicNumber_whenViewerMayNotReadThatPatient() {
+        when(dao.countOutboundByProviderAndStatus()).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "QUEUED", 2L)));
+        when(dao.countOverdueQueuedOutboundByProvider(any())).thenReturn(Map.of(SmsProviderType.STUB, 2L));
+        when(dao.findOverdueQueuedOutbound(eq(SmsProviderType.STUB), any(Date.class), eq(50))).thenReturn(List.of(
+                new SmsQueueRowDto(7L, SmsProviderType.STUB, SmsStatus.QUEUED, 99, RECIPIENT, 0, null, null,
+                        NOW.minus(Duration.ofMinutes(30)), NOW.minus(Duration.ofMinutes(30)), null, null),
+                new SmsQueueRowDto(8L, SmsProviderType.STUB, SmsStatus.QUEUED, 100, RECIPIENT, 0, null, null,
+                        NOW.minus(Duration.ofMinutes(20)), NOW.minus(Duration.ofMinutes(20)), null, null)));
+
+        SmsQueueViewModel model = assembler(() -> false).assemble(true, patient -> patient != 99);
+
+        assertThat(provider(model, "STUB").overdue()).extracting(SmsQueueViewModel.Row::demographicNo)
+                .containsExactly("", "100");
+    }
+
+    @Test
+    @DisplayName("should show a run as finished when it ended while the scheduler state was being read")
+    void shouldShowRunAsFinished_whenItEndedDuringTheRead() {
+        Instant started = NOW.minus(Duration.ofSeconds(30));
+        when(configService.storedSchedulerEnabled()).thenReturn(Optional.of(true));
+        when(scheduler.isRunInProgress()).thenReturn(true);
+        when(scheduler.lastRunStartedAt()).thenReturn(Optional.of(started));
+        when(scheduler.lastCompletedRun()).thenReturn(Optional.of(new SmsQueueScheduler.CompletedRun(
+                started, NOW.minus(Duration.ofSeconds(5)), SmsQueueScheduler.RunOutcome.COMPLETED, 3)));
+
+        SmsQueueViewModel.Scheduler state = assembler(() -> true).assemble(true, patient -> true).scheduler();
+
+        assertThat(state.runInProgress()).isFalse();
+        assertThat(state.lastRunOutcome()).isEqualTo("COMPLETED");
     }
 
     @Test
@@ -202,7 +252,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                         NOW.minus(Duration.ofMinutes(20)), NOW.minus(Duration.ofMinutes(10)),
                         NOW.minus(Duration.ofMinutes(20)))));
 
-        List<SmsQueueViewModel.Row> overdue = provider(assembler(() -> false).assemble(true), "STUB").overdue();
+        List<SmsQueueViewModel.Row> overdue = provider(assembler(() -> false).assemble(true, patient -> true), "STUB").overdue();
 
         assertThat(overdue).extracting(SmsQueueViewModel.Row::id, SmsQueueViewModel.Row::dueAt,
                         SmsQueueViewModel.Row::demographicNo)
@@ -219,7 +269,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                 new SmsQueueRowDto(8L, SmsProviderType.STUB, SmsStatus.QUEUED, 99, RECIPIENT, 1, null, null,
                         NOW.minus(Duration.ofMinutes(40)), NOW.minus(Duration.ofMinutes(20)), null, null)));
 
-        SmsQueueViewModel model = assembler(() -> false).assemble(false);
+        SmsQueueViewModel model = assembler(() -> false).assemble(false, patient -> true);
 
         assertThat(model.demographicNumbersShown()).isFalse();
         assertThat(provider(model, "STUB").overdue()).extracting(SmsQueueViewModel.Row::demographicNo)
@@ -250,7 +300,7 @@ class SmsQueueViewModelAssemblerUnitTest {
                 NOW.minus(Duration.ofMinutes(2)), NOW.minus(Duration.ofMinutes(1)),
                 SmsQueueScheduler.RunOutcome.COMPLETED, 4)));
 
-        SmsQueueViewModel.Scheduler state = assembler(() -> true).assemble(true).scheduler();
+        SmsQueueViewModel.Scheduler state = assembler(() -> true).assemble(true, patient -> true).scheduler();
 
         assertThat(state).isEqualTo(new SmsQueueViewModel.Scheduler(false, true, true, true,
                 "2026-09-28 13:59", "2026-09-28 13:59", "COMPLETED", 4));
@@ -261,15 +311,16 @@ class SmsQueueViewModelAssemblerUnitTest {
     void shouldShowFinishedRunsOwnStart_whenNoRunIsInProgress() {
         when(configService.storedSchedulerEnabled()).thenReturn(Optional.of(true));
         when(scheduler.isRunInProgress()).thenReturn(false);
+        // A newer run has started since; the page must not pair its start with the older run's result.
+        when(scheduler.lastRunStartedAt()).thenReturn(Optional.of(NOW.minus(Duration.ofSeconds(2))));
         when(scheduler.lastCompletedRun()).thenReturn(Optional.of(new SmsQueueScheduler.CompletedRun(
                 NOW.minus(Duration.ofMinutes(3)), NOW.minus(Duration.ofMinutes(1)),
                 SmsQueueScheduler.RunOutcome.SENDING_OFF, 0)));
 
-        SmsQueueViewModel.Scheduler state = assembler(() -> true).assemble(true).scheduler();
+        SmsQueueViewModel.Scheduler state = assembler(() -> true).assemble(true, patient -> true).scheduler();
 
         assertThat(state).isEqualTo(new SmsQueueViewModel.Scheduler(true, true, false, false,
                 "2026-09-28 13:57", "2026-09-28 13:59", "SENDING_OFF", 0));
-        verify(scheduler, never()).lastRunStartedAt();
     }
 
     @Test
@@ -277,7 +328,7 @@ class SmsQueueViewModelAssemblerUnitTest {
     void shouldFallBackToProperty_whenNothingSaved() {
         when(configService.storedSchedulerEnabled()).thenReturn(Optional.empty());
 
-        SmsQueueViewModel.Scheduler state = assembler(() -> true).assemble(true).scheduler();
+        SmsQueueViewModel.Scheduler state = assembler(() -> true).assemble(true, patient -> true).scheduler();
 
         assertThat(state).isEqualTo(new SmsQueueViewModel.Scheduler(true, false, false, false, "", "", "", 0));
     }

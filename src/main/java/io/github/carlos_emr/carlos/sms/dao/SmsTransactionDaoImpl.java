@@ -38,8 +38,12 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
             + "t.toPhoneNumber, t.attemptCount, t.errorCode, t.consentReasonCode, "
             + "t.createdAt, t.updatedAt, t.nextAttemptAt, t.lastAttemptAt "
             + "FROM SmsTransaction t ";
-    // The worker treats an empty next_attempt_at as due at once, so such a row has been due since it was created.
-    private static final String QUEUED_DUE_AT = "COALESCE(t.nextAttemptAt, t.createdAt)";
+    // A message that has never been attempted has been due since it was created: its next_attempt_at is
+    // either empty or the time of its last release. The worker resets it to "now" each time the rate limit
+    // holds the message back, so going by next_attempt_at would hide the longest-waiting message for as
+    // long as the rate limit lasts. A message that has been attempted is due at its scheduled retry.
+    private static final String QUEUED_DUE_AT =
+            "CASE WHEN t.attemptCount = 0 THEN t.createdAt ELSE COALESCE(t.nextAttemptAt, t.createdAt) END";
     private static final List<SmsStatus> CONSENT_BLOCKED_STATUSES =
             List.of(SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED);
 

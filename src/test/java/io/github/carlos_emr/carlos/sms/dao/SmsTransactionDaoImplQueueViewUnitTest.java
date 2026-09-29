@@ -115,7 +115,8 @@ class SmsTransactionDaoImplQueueViewUnitTest {
         verify(query).setParameter("dueBefore", dueBefore);
         ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
         verify(entityManager).createQuery(jpql.capture(), eq(Object[].class));
-        assertThat(jpql.getValue()).contains("COALESCE(t.nextAttemptAt, t.createdAt) < :dueBefore");
+        assertThat(jpql.getValue()).contains("CASE WHEN t.attemptCount = 0 THEN t.createdAt "
+                + "ELSE COALESCE(t.nextAttemptAt, t.createdAt) END < :dueBefore");
     }
 
     @Test

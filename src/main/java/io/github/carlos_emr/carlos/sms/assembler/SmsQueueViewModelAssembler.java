@@ -44,6 +44,8 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.Objects;
+import java.util.function.IntPredicate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -77,6 +79,10 @@ import java.util.function.BooleanSupplier;
 public class SmsQueueViewModelAssembler {
     /** The most rows any one list shows. */
     public static final int LIST_LIMIT = 50;
+    private static final int MIN_DIGITS_TO_MASK = 7;
+    private static final java.util.regex.Pattern CODE = java.util.regex.Pattern.compile("[A-Za-z0-9_.:-]{1,64}");
+    /** Shown in place of a stored error or reason code that is not a plain code. */
+    static final String NOT_A_CODE = "NOT_A_CODE";
     /** How long past due a queued message must be before it counts as overdue. */
     public static final Duration OVERDUE_QUEUED_AFTER = Duration.ofMinutes(5);
 
@@ -118,10 +124,17 @@ public class SmsQueueViewModelAssembler {
     /**
      * @param showDemographicNumbers whether rows may carry the patient's demographic number; the action passes
      *                               the viewer's {@code _demographic} read right
+     * @param mayReadPatient         asked per row, with the row's demographic number: whether this viewer may
+     *                               read that patient, so a per-patient restriction hides the number too
      * @return the queue per SMS provider and this server's scheduler state
      */
     @Transactional(readOnly = true)
-    public SmsQueueViewModel assemble(boolean showDemographicNumbers) {
+    public SmsQueueViewModel assemble(boolean showDemographicNumbers, IntPredicate mayReadPatient) {
+        Objects.requireNonNull(mayReadPatient, "mayReadPatient is required");
+        // Asked once per patient, not once per row: the same patient can appear in several lists.
+        Map<Integer, Boolean> readable = new HashMap<>();
+        IntPredicate showPatient = demographicNo -> showDemographicNumbers
+                && readable.computeIfAbsent(demographicNo, mayReadPatient::test);
         Instant now = clock.instant();
         Date dueBefore = Date.from(now.minus(OVERDUE_QUEUED_AFTER));
         Date staleBefore = Date.from(now.minus(SmsQueueProcessingService.DEFAULT_STALE_SENDING_TIMEOUT));
@@ -150,18 +163,18 @@ public class SmsQueueViewModelAssembler {
                     byStatus.values().stream().mapToLong(Long::longValue).sum(),
                     statusCounts(byStatus),
                     overdueCount,
-                    overdueCount == 0 ? List.of() : rows(showDemographicNumbers,
+                    overdueCount == 0 ? List.of() : rows(showPatient,
                             smsTransactionDao.findOverdueQueuedOutbound(providerType, dueBefore, LIST_LIMIT)),
                     staleCount,
-                    staleCount == 0 ? List.of() : rows(showDemographicNumbers,
+                    staleCount == 0 ? List.of() : rows(showPatient,
                             smsTransactionDao.findStaleSendingOutbound(providerType, staleBefore, LIST_LIMIT)),
                     failedCount,
                     codeCounts(failedByErrorCode.getOrDefault(providerType, Map.of())),
-                    failedCount == 0 ? List.of() : rows(showDemographicNumbers, smsTransactionDao.findRecentOutboundByStatuses(
+                    failedCount == 0 ? List.of() : rows(showPatient, smsTransactionDao.findRecentOutboundByStatuses(
                             providerType, List.of(SmsStatus.FAILED), LIST_LIMIT)),
                     blockedCount,
                     codeCounts(blockedByReason.getOrDefault(providerType, Map.of())),
-                    blockedCount == 0 ? List.of() : rows(showDemographicNumbers, smsTransactionDao.findRecentOutboundByStatuses(
+                    blockedCount == 0 ? List.of() : rows(showPatient, smsTransactionDao.findRecentOutboundByStatuses(
                             providerType, CONSENT_BLOCKED_STATUSES, LIST_LIMIT))
             ));
         }
@@ -187,8 +200,14 @@ public class SmsQueueViewModelAssembler {
         // outcome always describe one run even if a new run starts while the page is being built.
         boolean runInProgress = scheduler.isRunInProgress();
         Optional<SmsQueueScheduler.CompletedRun> lastRun = scheduler.lastCompletedRun();
+        Optional<Instant> latestStart = scheduler.lastRunStartedAt();
+        if (runInProgress && lastRun.isPresent() && latestStart.equals(lastRun.map(
+                SmsQueueScheduler.CompletedRun::startedAt))) {
+            // The run that was in progress finished while these values were being read.
+            runInProgress = false;
+        }
         Optional<Instant> startedAt = runInProgress
-                ? scheduler.lastRunStartedAt()
+                ? latestStart
                 : lastRun.map(SmsQueueScheduler.CompletedRun::startedAt);
         return new SmsQueueViewModel.Scheduler(
                 stored.orElseGet(schedulerProperty::getAsBoolean),
@@ -218,7 +237,10 @@ public class SmsQueueViewModelAssembler {
     }
 
     private static List<SmsQueueViewModel.CodeCount> codeCounts(Map<String, Long> byCode) {
-        return byCode.entrySet().stream()
+        // Summed after filtering, so several stored values that are not codes share one line.
+        Map<String, Long> shown = new HashMap<>();
+        byCode.forEach((code, count) -> shown.merge(codeOnly(code), count, Long::sum));
+        return shown.entrySet().stream()
                 .map(entry -> new SmsQueueViewModel.CodeCount(entry.getKey(), entry.getValue()))
                 .sorted(LARGEST_FIRST)
                 .toList();
@@ -236,12 +258,15 @@ public class SmsQueueViewModelAssembler {
         return grouped;
     }
 
-    private List<SmsQueueViewModel.Row> rows(boolean showDemographicNumbers, List<SmsQueueRowDto> rows) {
-        return rows.stream().map(row -> toRow(row, showDemographicNumbers)).toList();
+    private List<SmsQueueViewModel.Row> rows(IntPredicate showPatient, List<SmsQueueRowDto> rows) {
+        return rows.stream().map(row -> toRow(row, showPatient)).toList();
     }
 
-    private SmsQueueViewModel.Row toRow(SmsQueueRowDto row, boolean showDemographicNumbers) {
-        Instant dueAt = row.nextAttemptAt() != null ? row.nextAttemptAt() : row.createdAt();
+    private SmsQueueViewModel.Row toRow(SmsQueueRowDto row, IntPredicate showPatient) {
+        // Same rule as the overdue query: never attempted means due since it was created.
+        Instant dueAt = row.attemptCount() == 0 || row.nextAttemptAt() == null
+                ? row.createdAt()
+                : row.nextAttemptAt();
         return new SmsQueueViewModel.Row(
                 row.id() == null ? "" : String.valueOf(row.id()),
                 code(row.providerType()),
@@ -251,20 +276,33 @@ public class SmsQueueViewModelAssembler {
                 row.status() == SmsStatus.QUEUED ? format(dueAt) : "",
                 format(row.lastAttemptAt()),
                 row.attemptCount(),
-                nullToEmpty(row.errorCode()),
-                nullToEmpty(row.consentReasonCode()),
-                !showDemographicNumbers || row.demographicNo() == null ? "" : String.valueOf(row.demographicNo()),
+                codeOnly(row.errorCode()),
+                codeOnly(row.consentReasonCode()),
+                row.demographicNo() == null || !showPatient.test(row.demographicNo())
+                        ? "" : String.valueOf(row.demographicNo()),
                 lastFourDigits(row.toPhoneNumber())
         );
     }
 
     /**
      * Shows only the last four digits (as {@code ***1234}), the same masking as the patient SMS history, so this
-     * view never displays a full phone number. A number with fewer than four digits shows nothing.
+     * view never displays a full phone number. A number with fewer than seven digits shows nothing, so the last four are never most of it.
      */
     static String lastFourDigits(String phoneNumber) {
         String digits = phoneNumber == null ? "" : phoneNumber.replaceAll("\\D", "");
-        return digits.length() < 4 ? "" : "***" + digits.substring(digits.length() - 4);
+        return digits.length() < MIN_DIGITS_TO_MASK ? "" : "***" + digits.substring(digits.length() - 4);
+    }
+
+    /**
+     * Error and reason codes are shown as they are stored, but only when they look like codes. An SMS
+     * provider could put free text into an error code (a phone number, part of a message), and this page
+     * promises to show none.
+     */
+    static String codeOnly(String code) {
+        if (code == null || code.isEmpty()) {
+            return "";
+        }
+        return CODE.matcher(code).matches() ? code : NOT_A_CODE;
     }
 
     /** The enum name; the page turns statuses into labels through {@code sms.queue.status.*}. */

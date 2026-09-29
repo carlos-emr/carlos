@@ -62,7 +62,9 @@ public class SmsQueue2Action extends ActionSupport {
         // Demographic numbers link a message to a patient, so only viewers who may read demographics see them.
         boolean showDemographicNumbers = securityInfoManager.hasPrivilege(
                 loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, null);
-        request.setAttribute("smsQueue", assembler.assemble(showDemographicNumbers));
+        request.setAttribute("smsQueue", assembler.assemble(showDemographicNumbers,
+                demographicNo -> securityInfoManager.hasPrivilege(
+                        loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo)));
         return SUCCESS;
     }
 }

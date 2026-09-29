@@ -37,6 +37,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -104,7 +106,7 @@ class SmsQueue2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
         SmsQueueViewModel model = mock(SmsQueueViewModel.class);
-        when(assembler.assemble(true)).thenReturn(model);
+        when(assembler.assemble(eq(true), any())).thenReturn(model);
 
         String result = action().execute();
 
@@ -119,12 +121,12 @@ class SmsQueue2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(false);
         SmsQueueViewModel model = mock(SmsQueueViewModel.class);
-        when(assembler.assemble(false)).thenReturn(model);
+        when(assembler.assemble(eq(false), any())).thenReturn(model);
 
         action().execute();
 
         assertThat(request.getAttribute("smsQueue")).isSameAs(model);
-        verify(assembler, never()).assemble(true);
+        verify(assembler, never()).assemble(eq(true), any());
     }
 
     private SmsQueue2Action action() {
