@@ -138,7 +138,7 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
 
     /** How a failure to build the portal client arrives: Spring wraps the configuration error. */
     @Test void shouldReportNotConfigured_whenSpringWrapsTheConfigurationFailure() throws Exception {
-        when(delivery.recover(user, 45, "retry", false)).thenThrow(
+        when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(
                 new org.springframework.beans.factory.BeanCreationException("patientPortalService",
                         "creation failed", new PatientPortalConfigurationException("bad pin")));
         try (var settings = mockStatic(PatientPortalSettings.class)) {
