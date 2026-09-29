@@ -1320,7 +1320,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         /* save extra fields */
-        // Exactly one casemgmt_note_ext row per extension key of this note, updated in place.
+        // One synchronized value per extension key of this note: a key with no casemgmt_note_ext
+        // row gets exactly one inserted; a key that already has rows -- including legacy
+        // duplicates, see below -- has every one of them updated in place, none added or removed.
         //
         // saveNoteExt() is a JPA persist(), and it commits its own transaction, so reusing one
         // entity across the keys leaves it DETACHED with an id assigned by the time the second
