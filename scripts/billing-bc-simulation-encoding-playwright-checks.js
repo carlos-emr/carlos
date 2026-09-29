@@ -140,6 +140,25 @@ async function workflow(s) {
       await page.locator('select[name="providers"]').selectOption(ohipNo);
     });
 
+    await s.step('direct simulation requests handle omitted date fields explicitly', async () => {
+      const csrf = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+      const url = h.appUrl(s.config.baseUrl, '/billing/CA/BC/ViewGenSimulation');
+      const missingEnd = await s.context.request.post(url, {
+        headers: { 'CSRF-TOKEN': csrf }, form: { providers: ohipNo, 'CSRF-TOKEN': csrf },
+      });
+      h.assert(missingEnd.status() === 400, 'Missing end date was not rejected explicitly');
+      const today = s.sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
+      const noStart = await s.context.request.post(url, {
+        headers: { 'CSRF-TOKEN': csrf }, form: {
+          providers: ohipNo, xml_appointment_date: today, verCode: 'V03', 'CSRF-TOKEN': csrf,
+        },
+      });
+      h.assert(noStart.ok(), 'An omitted optional start date broke the simulation');
+      const body = await noStart.text();
+      h.assert(body.includes('Billing Invoice for Billing No.'), 'The direct request did not render its report');
+      h.assert(!body.includes('src="x"'), 'Direct report output interpreted claim markup');
+    });
+
     await s.step('patient-record markup renders as text in the simulation report', async () => {
       const today = s.sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
       // The date inputs are readonly calendar targets; set them the way the popup would.

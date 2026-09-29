@@ -55,7 +55,14 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(SystemMessageDao.class, mockSystemMessageDao);
 
-        action = new SystemMessage2Action();
+        // This focused action test has no Struts container/TextProvider. Keep
+        // message keys observable while exercising the real lookup/session flow.
+        action = new SystemMessage2Action() {
+            @Override
+            public String getText(String key) {
+                return key;
+            }
+        };
         injectField(action, "systemMessageDao", mockSystemMessageDao);
         injectField(action, "securityInfoManager", mockSecurityInfoManager);
     }
@@ -96,6 +103,7 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
             // Then - must NOT store the untrusted ID in session
             assertThat(result).isEqualTo("list");
             assertThat(getMockSession().getAttribute("systemMessageId")).isNull();
+            assertThat(action.getActionMessages()).contains("system_message.missing");
         }
 
         @Test

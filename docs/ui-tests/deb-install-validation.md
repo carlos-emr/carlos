@@ -28,6 +28,22 @@ has not been re-run on a later snapshot.
 against the unfixed release head and against each half of the fix swapped back
 in isolation (old page: Add Contact enabled before a pick; old action: a
 duplicate add answered 200 instead of 409).
+`eform-rtl-signature-stamp-playwright-checks.js` (alpha-tester report: Rich
+Text Letters signed without the provider's signature after a package upgrade)
+was added on 2026-09-28 and run on the **upgrade path** the tester used: the
+published 2026.08.0-alpha13 debs installed into an Ubuntu 26.04 container with
+the demo dataset (its Rich Text Letter has no `user_ohip_no` input), then
+upgraded to a 2026.09.0~snapshot25 package built from the fix branch.
+`common/V1.0.41` applied on the upgrade and added the three identity inputs
+exactly once; `deb-upgrade-verify.sh` 44/44 and `carlos-ctl check` clean. The
+new check **PASS**es 9/9 through `:443` (fixture b), alongside
+`eform-rtl-print-pdf` (21/21 with fixture c) and the four
+`eform-rtl-attachment-*` checks. With the inputs stripped back out of the
+stored form (the tester's pre-fix state) it **FAILS** its input assertions;
+against the pre-fix `editControl2.js` it **FAILS** on the false "could not be
+filled in automatically: stamp_name" banner every Stamp click raised. A fresh
+install of the same packages with demo data also passes 9/9 (V1.0.41 is a
+no-op on the empty schema; the demo load adds the inputs once).
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
@@ -438,7 +454,8 @@ handoff before the suite runs.
 #    done
 #    then chown carlos:carlos and chmod 0640 the pushed files.
 
-# b) Provider stamp for the consultation-signature checks: any small PNG,
+# b) Provider stamp for the consultation-signature checks and
+#    eform-rtl-signature-stamp-playwright-checks.js: any small PNG,
 #    named consult_sig_<providerNo>.png in the eForm image directory.
 #    (Any PNG will do, e.g.: convert -size 240x80 xc:white consult_sig_999998.png,
 #    or reuse a repo image such as release/4422-84v9-1.png renamed.)
@@ -600,7 +617,8 @@ fi
 # Record pointers into the demo dataset:
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
-export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
+export CONSULT_STAMP_PROVIDER_NO=999998
+export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
 # Ontario 3rd-Party / Bonus-Codes bill entry (billing-on-third-party-playwright-checks.js).
 # Read-only: it opens the Ontario bill form for this appointment and switches the bill
@@ -850,12 +868,32 @@ Notes on the contract:
   patient with no drug profile fails the check at staging rather than
   silently measuring the empty state. It stages in memory only: nothing is
   saved, so it seeds and cleans up nothing.
-- **`CONSULT_UNSIGNED_REQUEST_ID` is consumed.** The stamp-update scenario
-  signs that consultation, so a second back-to-back run needs the fixture
-  reset: `UPDATE consultationRequests SET signature_img=NULL WHERE requestId=3;`
+- **Consultation signature submission owns its test requests.** Its missing-stamp
+  create scenario supplies the unsigned request for update and preview. Cleanup
+  removes uniquely marked requests, dependent rows and their linked signatures;
+  existing consultations are untouched. Set `CONSULT_APPLICATION_TEMP_DIR` to
+  the installed JVM's `java.io.tmpdir/carlos-temp` to clean generated preview
+  PDFs by exact returned content and recorded file identity. It preserves
+  preexisting files and rejects files changed after capture.
+- **Inbox acknowledgement checks restore their review state.** Preview,
+  boundary-resync and rapid-review checks restore the original routing rows for
+  the acknowledged lab and older versions, verify status/comment/timestamp,
+  and remove only routes inserted by the test. They require `MYSQL_*` access
+  and results assigned to a real provider; unassigned provider-zero sources
+  are skipped before mutation because acknowledgement archives/deletes them.
 - `eform-consultation-acceptance` skips its stored image-layer template probe
   (with a `[skip]` note) unless `LIBRARY_EFORM_NAME` names a form that exists
-  in the library; the main acceptance workflow runs regardless.
+  in the library; the main acceptance workflow runs regardless. The default is
+  `Signature trick`. For a different genuine imported form, such as
+  `Regional Community Pain - Self Referral` from the original corpus ZIP,
+  set its exact stored name. The check uses Chromium's DOMParser to read the
+  manager editor's decoded template and derive the literal `${oscar_image_path}`
+  filenames of its unique `BGImage1` and `BGImage2` elements. Both runtime images
+  must match those exact filenames on the local `displayImage` endpoint, decode
+  at more than 100 pixels in each dimension, and have successful image responses.
+  Missing, duplicate, substituted or broken backgrounds fail; renaming assets
+  to match a different library's filenames is unnecessary. Import original ZIPs
+  through the production eForm import UI, preserving their HTML and images.
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
@@ -1221,6 +1259,62 @@ Flyway history, clinical row counts, config/TLS hashes, sentinels, the admin
 hash, build tag) taken before and after, and `scripts/deb-upgrade-verify.sh`,
 which diffs the two and asserts the contract below. Both are counts, hashes and
 flags only; no PHI leaves the host.
+
+For current installations, select the actual database and administrator with
+`DB_NAME` and `ADMIN_USER` (defaults: `carlos` and `carlosdoc`). `MYSQL_SOCKET`
+optionally selects a nondefault local socket. Queries ignore MariaDB client
+option files and explicitly use the local socket, so an inherited `force`
+option cannot hide SQL errors. Database names must start with an
+ASCII letter or underscore and contain only letters, digits and underscores,
+up to 64 characters. Administrator names are encoded as UTF-8 SQL hex literals;
+quotes and backslashes do not become SQL syntax. SQL failures and absent or
+ambiguous administrator rows abort the snapshot, and the verifier rejects an
+incomplete snapshot, failed health check, or nonzero `UPGRADE_RC` recorded in
+the upgrade log. PRE and POST must be different files. The split matrix stops
+when snapshot capture or verification fails, including errors before any
+assertions can be printed.
+For a genuinely fresh split-matrix install, supply `PRESPLIT_DRUGREF` and
+`SPLIT_DRUGREF` with the matching DrugRef package paths when the main package
+depends on them; the paths are included in the corresponding apt transactions.
+`TRANSITIONAL_PRESPLIT` and `TRANSITIONAL_SPLIT` independently select the matching
+renderer packages. Each variable accepts one archive path, including spaces.
+
+```bash
+umask 077
+export DB_NAME=clinic_on ADMIN_USER=operator
+# export MYSQL_SOCKET=/run/mysqld/mysqld.sock
+bash scripts/deb-upgrade-baseline.sh > /root/baseline-before.txt
+# Perform the intended package upgrade, retaining its log.
+PRE=/root/baseline-before.txt POST=/root/baseline-after.txt \
+  EXPECT_FLYWAY=32 EXPECT_NEW='1.0.40' \
+  EXPECT_TAG='build.number=2026.08.0~alpha16' \
+  UPGRADE_LOG=/root/upgrade.log bash scripts/deb-upgrade-verify.sh
+```
+
+Set the expected count, migration delta and build stamp for the actual package
+pair and province. The verifier's historical defaults still describe the
+alpha11-to-alpha12 run below. For a same-package reinstall, capture a fresh
+baseline immediately beforehand, set `EXPECT_NEW=''` and use the existing
+successful Flyway count; this proves reconfiguration preserves state, not a
+new migration. `FRONT_URL` defaults to `https://127.0.0.1/carlos/` and all HTTP
+probes have timeouts. Alternate fixtures may override `CARLOS_ETC_DIR`,
+`CARLOS_STATE_DIR` and `CARLOS_SHARE_DIR` without changing production defaults.
+For an application configured with a custom `DOCUMENT_DIR`, set `DOC_DIR` to
+that existing absolute directory; its default is
+`$CARLOS_STATE_DIR/CarlosDocument/carlos/document`. Snapshot file counts and
+missing-document checks both use this selected directory.
+Legacy HTML/link documents may store their body in `document.docxml` without a
+physical file. Verification accepts that fallback only when it is nonempty
+under the application's Java `String.trim()` rules; it queries only a boolean
+eligibility flag and never exports the stored HTML body. Documents with neither
+a file nor a usable inline body still fail verification.
+
+Current snapshots identify themselves as `baseline.format=2`. The existing
+`admin.hash` and `admin.pin` keys now contain SHA-256 digests of their credential
+fields, not the password authentication hash or a PIN prefix, and credential
+fields are excluded from printed diffs. Capture both snapshots with the current
+helper: the verifier rejects legacy snapshots rather than comparing different
+representations or exposing old credential fields. Keep snapshots root-private.
 
 What the review established, from the maintainer scripts and the run:
 
@@ -1726,3 +1820,117 @@ literal containing SQL syntax still matches only its own patient.
 Original properties were restored byte-for-byte, owned fixtures removed, final
 package health passed, and the VM stopped. Compilation ran with the VM stopped;
 all local build and installed-test tasks ran serially.
+
+
+### PR #4055 annotation capacity and session validation
+
+Annotation validation exercises a newly filed multipage document so cached page images cannot
+hide excessive rendering demand. Each viewer limits combined image/text work to four requests
+and keeps its budget through response decoding and zoom changes. The server keeps its global
+PDF-worker limit and admits queued work fairly, with at most twice as many waiting requests as
+workers and a 30-second admission wait. Parsing/rendering retains its separate execution deadline.
+
+When admission remains full, an explicit 503 makes the viewer wait with capped exponential
+backoff and jitter until capacity returns. The waiting status preserves marks and is announced
+accessibly. Scrolling, changing tools or zooming drops obsolete queued demand; leaving the viewer
+cancels retry timers. Ordinary image/authentication/corruption failures remain terminal. Annotation
+opening retries only its safe GET. Saving retries only a parsed 503 response explicitly declaring
+`success=false` and `retryable=true` (nothing accepted); unknown network/JSON outcomes and uncertain
+filing never trigger automatic POST retries. Browser regressions hold capacity unavailable for
+more than three attempts and verify automatic recovery and preserved marks.
+
+For installed multi-provider coverage, set `ANNOTATION_SECOND_USER_FIXTURE` to a private JSON
+fixture containing `user`, `password`, `pin`, `providerNo`, `allowedDocumentId`,
+`deniedDocumentId`, and `deniedDemographicNo`. Use two owned multipage document copies and a
+provider-specific deny on the denied patient's chart. `ANNOTATION_SESSION_COUNT` selects two
+through eight separately authenticated contexts in one browser (default two), alternating the two
+providers. The check scrolls viewers concurrently, verifies four requests per viewer and distinct
+session cookies, and verifies five direct patient-access refusals: warmed image cache, text boxes,
+annotation viewer, Split viewer and fax handoff. Provide an active UI-only fax account available
+to the cloned provider roles; otherwise the earlier no-account refusal cannot exercise the fax
+patient guard. Unsaved marks stay isolated. This subcheck never saves or sends documents, and its
+fax request must stop at HTTP 403 before staging. Its navigation/render waits are bounded at
+120 seconds for queued work. Keep credentials out of logs and remove owned fixture rows/files
+through their recorded cleanup journal.
+
+Legacy inbox, document pagination and Split previews use the same capacity-aware GET policy.
+Each window admits at most four image requests through response-body consumption and decoding;
+initial preview markup does not dispatch native image requests outside that budget. Explicit
+rendering 503 responses wait with capped exponential backoff and jitter, while authentication,
+corrupt-image and other server failures remain visible. Changing pages or removing a patient
+fragment cancels obsolete queued waits without freeing accepted server work early. Decoded
+resources remain available to Split zoom/rotation and are released after their last connected
+owner disappears. Mutation POSTs are never retried. The `document-pagination` check exercises
+five consecutive capacity responses followed by recovery, Split rotation/zoom, and an intercepted
+Split POST while waiting; no document is filed by that subcheck. These additions require the
+next installed validation run before their behavior is reported as verified.
+
+### Logout redirect checks with the installed service journal
+
+The Debian service writes application logs to journald. Run the browser check inside the
+installed validation guest with `CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service` and the usual
+private browser environment:
+
+```bash
+CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service npm run test:logout-redirect-playwright
+```
+
+Use an account that can read that service's system journal. Set exactly one of
+`CARLOS_LOG_JOURNAL_UNIT` and the existing `CARLOS_LOG_FILE` option; the latter retains its
+file-based behavior. The journal option requires an explicit `.service` unit and observes
+that unit in the current boot. It captures journal cursors before and after the browser
+journey, verifies both boundaries still exist, and scans only messages between them with
+the same response-commit and affected-action exception checks. An unchanged valid cursor
+means there were no new records and is a successful empty scan.
+
+Each journal command has a ten-second timeout and a 2 MiB output limit; the interval allows
+at most 10,000 new records. Access warnings, failed commands, malformed data, missing or
+vacuumed boundaries, and exceeded limits fail the check. Findings contain signal names and
+counts, without journal messages or command stderr. The result records `source: "journal"`
+and `checked: true` after a successful scan. If neither log option is configured, it records
+`source: "none"` and `checked: false`; that run supplies browser assertions only.
+
+Incoming queue concurrency checks now include page-count admission and filing admission.
+Run `incoming-pdf-extraction-playwright-checks.js` against the installed package with
+`INCOMINGDOCUMENT_DIR` and `RX_FAX_DOCUMENT_DIR` (or `DOCUMENT_DIR`) pointing to its
+actual incoming queue and document store. The workflow owns its synthetic patient
+and PDFs. It verifies that an ambiguous filing response preserves the entered
+patient and description without retrying, then injects five explicit pre-acceptance
+capacity refusals before allowing one real installed filing. Frozen form values,
+patient linkage, page count, stored PDF content and fixture cleanup are checked.
+
+The browser retries a filing POST only when the response explicitly says
+`accepted:false`, `retryable:true` and `success:false` with HTTP 503. Other failures
+stay visible; uncertain saves require checking the patient's documents. Page-count
+waiting uses a validated GET back to the same queue, never a replay of a previous
+page-edit POST. Incoming edits and filing share a fair per-source admission lease,
+so another session cannot recreate an already-filed source. Failed moves preserve
+the queued original. Patient-specific document write permission and queue access
+are rechecked before filing.
+
+### eForm attachment preview capacity recovery
+
+Attachment previews retain the renderer's fair two-slot, 30-second admission limit. An explicit
+pre-render capacity refusal returns HTTP 503 with `errorCode=eform_render_busy`, `retryable=true`
+and a bounded retry delay. The attachment dialog shows a cancellable waiting notice and sends
+one request at a time, adding jitter between attempts. Changing attachments, closing the dialog,
+or leaving the page cancels client retries. Other HTTP failures and uncertain network outcomes
+do not trigger automatic POST retries.
+
+When a clinician already approved exact omissions, a capacity response rotates that consumed
+ticket once. The replacement retains the original session, provider, requested form, patient,
+operation, issue digests and expiry. Waiting never extends consent. If consent expired while
+waiting, the next attempt runs without it and must obtain fresh approval for current omissions.
+Repeated omission prompts replace the approval parameter rather than appending stale tokens.
+
+Run `node --test scripts/document-preview-retry.test.js` for controller behavior and include
+`EFormRenderApprovalCapacityUnitTest`, `EFormRenderApprovalServiceUnitTest` and
+`DocumentPreview2ActionUnitTest` in the Java unit checks. The installed
+`scripts/eform-saved-render-playwright-checks.js` workflow now opens the actual attachment dialog,
+injects two explicit busy responses, then requires a genuine renderer PDF for its owned saved
+form. It also checks cancellation and refusal to retry an untyped 503. Those injected responses
+validate browser recovery; they are separate from a real concurrent-render capacity test.
+
+This recovery path applies to attachment previews. Saved-form download, eDoc archive and fax
+preparation are separate workflows and require their own continuation checks; the original
+`AddEForm` clinical save must never be replayed to retry a render.

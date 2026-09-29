@@ -3,15 +3,15 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
-// Consume only the exact intentional 404 and matching console message after the UI assertions.
+// Consume only the exact intentional failure and matching console message after the UI assertions.
 // All other HTTP, runtime, console and request failures remain available to the strict harness.
-function consumeExpectedFavoriteFailure(recorder, url, responseStart, consoleStart) {
+function consumeExpectedFavoriteFailure(recorder, url, responseStart, consoleStart, status = 404) {
   const responses = recorder.badResponses.slice(responseStart);
   const consoles = recorder.consoleIssues.slice(consoleStart);
-  h.assert(responses.length === 1 && responses[0].url === url && responses[0].status === 404
+  h.assert(responses.length === 1 && responses[0].url === url && responses[0].status === status
     && responses[0].method === 'POST', 'Unexpected HTTP failure during deleted-favorite control');
   h.assert(consoles.length === 1 && consoles[0].location.url === url && consoles[0].type === 'error'
-    && /Failed to load resource.*404/.test(consoles[0].text), 'Unexpected console failure during deleted-favorite control');
+    && /Failed to load resource/.test(consoles[0].text) && consoles[0].text.includes(String(status)), 'Unexpected console failure during favorite negative control');
   recorder.badResponses.splice(responseStart, 1);
   recorder.consoleIssues.splice(consoleStart, 1);
 }
@@ -50,6 +50,115 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'prompt', 'Favorite naming prompt was not shown');
     await expectValue(s.sql, `SELECT COUNT(*) FROM favorites WHERE provider_no=${h.sqlString(s.provider)} AND favoritename=${h.sqlString(s.marker)} AND \`repeat\`=0 AND special='One tablet daily'`, '1', 'Legacy favorite did not preserve instructions and default repeats');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE drugid=${drug} AND demographic_no=${s.patient} AND \`repeat\` IS NULL AND quantity IS NULL`) === '1', 'Reading the legacy drug rewrote its nullable fields');
+  });
+  await s.step('favorite edits retain their row identity and week/month duration units', async () => {
+    const names = [`${s.marker}-edit-a`, `${s.marker}-edit-b`];
+    const ownedNames = names.map(h.sqlString).join(',');
+    s.cleanup(() => {
+      s.sql.execute(`DELETE FROM favorites WHERE provider_no=${h.sqlString(s.provider)}
+        AND favoritename IN (${ownedNames})`);
+      h.assert(s.sql.value(`SELECT COUNT(*) FROM favorites WHERE provider_no=${h.sqlString(s.provider)}
+        AND favoritename IN (${ownedNames})`) === '0', 'Owned editing favorites were not removed');
+    });
+    const ids = names.map((name, index) => s.sql.value(`INSERT INTO favorites
+      (provider_no,favoritename,BN,GCN_SEQNO,customName,takemin,takemax,freqcode,duration,durunit,
+       quantity,\`repeat\`,nosubs,prn,special,GN,unitName,custom_instructions,dispenseInternal)
+      VALUES(${h.sqlString(s.provider)},${h.sqlString(name)},'Synthetic brand','0','Synthetic drug',
+        1,1,'OD','7','W','7',0,0,0,'Synthetic instructions','Synthetic generic','tablet',0,${index === 0 ? 1 : 0});
+      SELECT LAST_INSERT_ID()`));
+    h.assert(ids.every(id => /^[1-9][0-9]*$/.test(id)), 'Editing favorite fixtures were not created');
+    const editor = await s.context.newPage();
+    await h.gotoApp(editor, s.config.baseUrl, '/rx/updateFavorite');
+    const identity = editor.locator(`input[name^="fldFavoriteId"][value="${ids[0]}"]`);
+    await identity.waitFor({ state: 'attached' });
+    const index = (await identity.getAttribute('name')).replace('fldFavoriteId', '');
+    const nameRow = editor.locator(`tr[name="record${index}Line1"]`);
+    const doseRow = editor.locator(`tr[name="record${index}Line3"]`);
+    // Check every native editor control on this owned custom-drug row. A label
+    // attached to another favorite can look correct while keyboard/AT users
+    // edit that other prescription; require a unique ID and real focus target.
+    for (const prefix of ['fldFavoriteName', 'fldCustomName', 'fldTakeMin', 'fldTakeMax',
+      'fldFrequencyCode', 'fldDuration', 'fldDurationUnit', 'fldQuantity', 'fldRepeat',
+      'fldNosubs', 'fldPrn', 'customInstr', 'fldSpecial']) {
+      const control = editor.locator(`[id="${prefix}${index}"]`);
+      h.assert(await control.count() === 1, `Favorite control ${prefix} has a missing or duplicate row ID`);
+      const label = await control.evaluate(input => Array.from(input.labels || [])
+        .map(item => (item.textContent || '').trim()).filter(Boolean));
+      h.assert(label.length === 1, `Favorite control ${prefix} lacks one associated accessible label`);
+      h.assert(await editor.getByLabel(label[0], { exact: true }).and(control).count() === 1,
+        `Favorite control ${prefix} is not reachable by its label`);
+      await control.focus();
+      h.assert(await control.evaluate(input => input === document.activeElement),
+        `Favorite control ${prefix} cannot receive keyboard focus`);
+    }
+    const favoriteName = nameRow.getByLabel('Favorite Name:', { exact: true });
+    await nameRow.locator(`label[for="fldFavoriteName${index}"]`).click();
+    h.assert(await favoriteName.evaluate(input => input === document.activeElement),
+      'Favorite name label did not focus its own row control');
+    const duration = doseRow.getByLabel('Duration:', { exact: true });
+    await doseRow.locator(`label[for="fldDuration${index}"]`).click();
+    h.assert(await duration.evaluate(input => input === document.activeElement),
+      'Duration label did not focus its own row control');
+    h.assert(await duration.inputValue() === '7', 'Duration label resolved to another favorite row');
+    h.assert(await doseRow.getByLabel('Frequency', { exact: true }).inputValue() === 'OD',
+      'Editing fixture did not retain the frequency needed for the duplicate regression');
+    const unit = doseRow.getByLabel('Duration unit', { exact: true });
+    h.assert(await unit.inputValue() === 'W', 'Opening the editor silently reset weeks to days');
+    await favoriteName.fill(names[1]);
+    const [saved] = await Promise.all([
+      editor.waitForResponse(response => new URL(response.url()).pathname.endsWith('/rx/updateFavorite2')
+        && response.request().method() === 'POST'),
+      editor.locator(`a[onclick="javascript:ajaxUpdateRow(${index});"]`).click(),
+    ]);
+    h.assert(saved.status() === 204, 'Favorite edit did not return explicit no-content success');
+    await editor.locator(`#saveSuccess_${index}`).waitFor({ state: 'visible' });
+    await editor.waitForLoadState('networkidle', { timeout: 20000 });
+    await expectValue(s.sql, `SELECT COUNT(*) FROM favorites WHERE favoriteid=${ids[0]}
+      AND provider_no=${h.sqlString(s.provider)} AND favoritename=${h.sqlString(names[1])} AND durunit='W' AND dispenseInternal=1`,
+    '1', 'Editing a matching favorite saved to the wrong row or changed its duration unit');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM favorites WHERE favoriteid=${ids[1]}
+      AND favoritename=${h.sqlString(names[1])} AND durunit='W' AND dispenseInternal=0`) === '1', 'The matching favorite was modified');
+    const failedRoute = '**/rx/updateFavorite2?**';
+    const responseStart = s.recorder.badResponses.length, consoleStart = s.recorder.consoleIssues.length;
+    let failedResponse;
+    await editor.route(failedRoute, route => new URL(route.request().url()).searchParams.get('method') === 'ajaxEditFavorite'
+      && route.request().method() === 'POST'
+      ? route.fulfill({ status: 500, contentType: 'text/plain', body: 'Synthetic save failure' }) : route.continue());
+    try {
+      const dialogs = await h.withExpectedDialogs(editor, async () => {
+        const [response] = await Promise.all([
+          editor.waitForResponse(r => new URL(r.url()).pathname.endsWith('/rx/updateFavorite2') && r.request().method() === 'POST'),
+          editor.waitForEvent('dialog'),
+          editor.locator(`a[onclick="javascript:ajaxUpdateRow(${index});"]`).click(),
+        ]);
+        failedResponse = response;
+        await editor.locator(`#saveSuccess_${index}`).waitFor({ state: 'hidden' });
+        await editor.waitForLoadState('networkidle', { timeout: 20000 });
+      });
+      h.assert(failedResponse.status() === 500 && dialogs.length === 1 && dialogs[0].text === 'Server Error 500',
+        'Failed favorite save did not show its explicit error');
+      consumeExpectedFavoriteFailure(s.recorder, failedResponse.url(), responseStart, consoleStart, 500);
+    } finally { await editor.unroute(failedRoute); }
+    const [retry] = await Promise.all([
+      editor.waitForResponse(r => new URL(r.url()).pathname.endsWith('/rx/updateFavorite2') && r.request().method() === 'POST'),
+      editor.locator(`a[onclick="javascript:ajaxUpdateRow(${index});"]`).click(),
+    ]);
+    h.assert(retry.status() === 204, 'Retry after failed favorite save did not succeed');
+    await editor.locator(`#saveSuccess_${index}`).waitFor({ state: 'visible' });
+    await editor.waitForLoadState('networkidle', { timeout: 20000 });
+    const csrf = await editor.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl,
+      `/rx/updateFavorite2?method=ajaxEditFavorite&favoriteId=${ids[0]}&favoriteName=unsafe`),
+    { headers: { 'CSRF-TOKEN': csrf } });
+    h.assert(rejected.status() === 405, 'A GET request was allowed to edit a favorite');
+    s.sql.execute(`UPDATE favorites SET durunit='M' WHERE favoriteid=${ids[0]}
+      AND provider_no=${h.sqlString(s.provider)} AND favoritename=${h.sqlString(names[1])}`);
+    await editor.reload();
+    const monthIdentity = editor.locator(`input[name^="fldFavoriteId"][value="${ids[0]}"]`);
+    const monthIndex = (await monthIdentity.getAttribute('name')).replace('fldFavoriteId', '');
+    h.assert(await editor.locator(`[name="fldDurationUnit${monthIndex}"]`).inputValue() === 'M',
+      'Opening the editor silently reset months to days');
+    await editor.close();
   });
   await s.step('stage re-prescribing only after both protected history requests succeed', async () => {
     await page.waitForLoadState('networkidle');

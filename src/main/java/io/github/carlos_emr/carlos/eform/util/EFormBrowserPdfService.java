@@ -196,10 +196,11 @@ public class EFormBrowserPdfService {
     static final Duration LATE_SESSION_REAP_TIMEOUT = Duration.ofSeconds(90);
     static final Duration DRIVER_START_TIMEOUT = Duration.ofSeconds(30);
 
-    /** Bounded well below Tomcat's worker pool so renders can never saturate request threads. */
+    /** Bound both active browsers and waiting servlet threads, leaving workers for renderer callbacks. */
     private static final int MAX_CONCURRENT_RENDERS = 2;
     private static final Duration RENDER_SLOT_WAIT = Duration.ofSeconds(30);
     private static final Semaphore RENDER_SLOTS = new Semaphore(MAX_CONCURRENT_RENDERS, true);
+    private static final Semaphore RENDER_WAITERS = new Semaphore(2 * MAX_CONCURRENT_RENDERS);
 
     /**
      * Filename prefix of the renderer's output PDF. The {@link RenderedEformPdf} guard keys on it
@@ -955,8 +956,8 @@ public class EFormBrowserPdfService {
 
         SlotAcquisition acquisition = acquireRenderSlot(RENDER_SLOTS, RENDER_SLOT_WAIT);
         if (acquisition == SlotAcquisition.TIMED_OUT) {
-            // Load-shed: all render slots were busy for the full wait. Log so a maintainer can see the
-            // renderer is saturated (fdid only — no PHI, no render URL/token).
+            // No render started: either the bounded waiting queue was already full or the
+            // admitted caller reached its deadline (fdid only — no PHI, no render URL/token).
             logger.warn("Browser eForm renderer at capacity ({} concurrent slots); rejecting render for fdid={}",
                     MAX_CONCURRENT_RENDERS, fdid);
             // Retryable: the renderer itself is healthy, every slot is just momentarily busy. Marked
@@ -2856,7 +2857,8 @@ public class EFormBrowserPdfService {
 
     /**
      * Outcome of competing for one of the bounded render slots: {@code ACQUIRED} within the wait,
-     * {@code TIMED_OUT} with every slot busy for the full wait, or {@code INTERRUPTED} when the
+     * {@code TIMED_OUT} when the waiting queue is full or the admission deadline expires,
+     * or {@code INTERRUPTED} when the
      * waiting thread was interrupted (shutdown) before a slot was taken. Distinguishing the last two
      * lets the caller give correct operator guidance — capacity load-shed (retry) versus an aborted
      * render (no retry) — rather than collapsing both into a single boolean {@code false}.
@@ -2864,9 +2866,24 @@ public class EFormBrowserPdfService {
     enum SlotAcquisition { ACQUIRED, TIMED_OUT, INTERRUPTED }
 
     static SlotAcquisition acquireRenderSlot(Semaphore slots, Duration wait) {
+        return acquireRenderSlot(slots, RENDER_WAITERS, wait);
+    }
+
+    /** Custom semaphores let concurrency tests exercise the real admission policy in isolation. */
+    static SlotAcquisition acquireRenderSlot(Semaphore slots, Semaphore waiting, Duration wait) {
         try {
-            return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS)
-                    ? SlotAcquisition.ACQUIRED : SlotAcquisition.TIMED_OUT;
+            // A timed zero probe respects FIFO fairness and the interrupted flag. A free
+            // browser needs no waiting token; untimed tryAcquire would barge past a queue.
+            if (slots.tryAcquire(0, TimeUnit.MILLISECONDS)) return SlotAcquisition.ACQUIRED;
+            // Only a small bounded set may occupy servlet threads while waiting. Chromium
+            // needs other servlet threads to load its token-authorized page and resources.
+            if (!waiting.tryAcquire()) return SlotAcquisition.TIMED_OUT;
+            try {
+                return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS)
+                        ? SlotAcquisition.ACQUIRED : SlotAcquisition.TIMED_OUT;
+            } finally {
+                waiting.release();
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return SlotAcquisition.INTERRUPTED;

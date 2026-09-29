@@ -86,10 +86,28 @@ check the service log before relying on the dataset.
 Deployment fix baked into the webapp
 ------------------------------------
 The package installs WEB-INF/classes/hibernate.properties naming the dialect
-explicitly (org.hibernate.dialect.MariaDBDialect). Hibernate's autodetection
-runs a MySQL-8-only information_schema query that MariaDB rejects, and
-without the pin the /drugref2 context fails to deploy at all; the file
-carries the full analysis.
+explicitly (org.hibernate.dialect.MariaDBDialect). This permits fallback if JDBC
+metadata fails; it does not prevent the MySQL-only KEYWORDS.RESERVED query that
+MariaDB rejects. A second explicit package transformation adds Hikari's
+dataSourceProperties.useInformationSchema to spring_config.xml. Package-owned
+Spring factory definitions parse the unchanged configured JDBC URL using
+Connector/J, select its explicit metadata option if present, then fall back to
+db_use_information_schema (default false). Only this one option is passed to
+Hikari: other URL properties and credential precedence are unchanged. This keeps
+metadata discovery enabled through Connector/J's alternate implementation.
+The build rejects an unexpected or already transformed datasource definition.
+All XML bytes outside the inserted datasource reference and factory definitions
+remain unchanged. The build also rejects collisions with the generated bean names.
+
+The default applies on upgrades without rewriting /etc/carlos-emr/drugref2.properties.
+An explicit db_use_information_schema=true there changes the default after restart;
+an existing explicit parsed URL option retains priority. URL text is passed as
+bean data, never interpolated into executable expressions.
+Do not append query parameters to db_url for this override: DrugRef already
+appends ?serverTimezone=UTC, which can corrupt the last parameter. Existing URLs
+that remain valid (for example with a trailing inert option) retain their
+explicit metadata setting. The ordinary
+upstream DrugRef WAR is unchanged; this is a documented Debian transformation.
 
 A second failure found during validation — DAO EntityManager leaks that
 exhausted the 32-connection pool after a single drug search — is fixed at

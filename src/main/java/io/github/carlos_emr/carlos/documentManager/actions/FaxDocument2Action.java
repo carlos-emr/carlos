@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
@@ -118,6 +119,14 @@ public class FaxDocument2Action extends ActionSupport {
                     "No active fax accounts are configured. Contact your system administrator.");
         }
 
+        response.setHeader("Cache-Control", "no-store");
+        try {
+            DocumentPatientLink.requireAccess(loggedInInfo, docId, securityInfoManager,
+                    SpringUtils.getBean(CtlDocumentDao.class));
+        } catch (SecurityException e) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            throw e;
+        }
         EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
         // EDocUtil.getDoc allocates an empty EDoc even for an unknown ID. Check the linked
         // patient's access before the filename, then use the filename to distinguish an

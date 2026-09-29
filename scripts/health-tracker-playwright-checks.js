@@ -89,6 +89,35 @@ async function workflow(s) {
 
   let page;
 
+  await s.step('the Health Tracker heads the encounter Measurements module', async () => {
+    // Alpha-tester regression: the nav entry was off by default on packaged
+    // installs, and when on it sat below the universal flowsheets. OSCAR 19
+    // lists it first, above any disease-registry flowsheet, and so must CARLOS.
+    // Diabetes (icd9 250) is registered so a dx-triggered flowsheet competes
+    // for the top slot; the one measurement gives the module a dated row too.
+    s.cleanup(() => sql.execute(`DELETE FROM dxresearch WHERE demographic_no=${patient}`));
+    sql.execute(`INSERT INTO dxresearch (demographic_no, start_date, update_date, status, dxresearch_code, coding_system, providerNo)
+      VALUES (${patient}, CURDATE(), NOW(), 'A', '250', 'icd9', ${sqlString(provider)})`);
+    sql.execute(`INSERT INTO measurements
+      (type, demographicNo, providerNo, dataField, measuringInstruction, comments, dateObserved, dateEntered)
+      VALUES (${sqlString(MEASUREMENT_TYPE)}, ${patient}, ${sqlString(provider)}, '80.0', 'kg', '', NOW(), NOW())`);
+    const chart = await s.chart();
+    const rows = chart.locator('#measurementslist li a.links[onclick]');
+    await rows.first().waitFor({ state: 'visible', timeout: 20000 });
+    const onclicks = await rows.evaluateAll((els) => els.map((el) => el.getAttribute('onclick') || ''));
+    const tracker = onclicks.findIndex((js) => js.includes('/encounter/oscarMeasurements/ViewHealthTracker?'));
+    const diabetes = onclicks.findIndex((js) => js.includes('ViewTemplateFlowSheet?') && /template=diab/.test(js));
+    assert(tracker !== -1,
+      'The encounter Measurements module has no Health Tracker entry; health_tracker must default to on');
+    assert(tracker === 0,
+      `The Health Tracker is item ${tracker + 1} of the Measurements module, not the first`);
+    assert(diabetes > tracker,
+      'The diabetes flowsheet triggered by the disease registry is missing or listed above the Health Tracker');
+    // Removed now so the duplicate-suppression counts below start from zero.
+    sql.execute(`DELETE FROM measurements WHERE demographicNo=${patient}`);
+    await chart.close();
+  });
+
   await s.step('an un-customized tracker offers the add-measurements first run', async () => {
     page = await openTracker(s, 'health-tracker-empty');
     const empty = page.getByText('It looks like you are not tracking any measurements!');

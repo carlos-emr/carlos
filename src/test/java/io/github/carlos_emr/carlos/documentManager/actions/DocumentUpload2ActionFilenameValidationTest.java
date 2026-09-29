@@ -173,7 +173,7 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
         assertThat(PathValidationUtils.isInAllowedTempDirectory(tempUploadFile)).isTrue();
 
         try (MockedStatic<IncomingDocUtil> incomingDocUtilMock = mockStatic(IncomingDocUtil.class)) {
-            incomingDocUtilMock.when(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath(null, null))
+            incomingDocUtilMock.when(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", null))
                     .thenReturn(tempDestinationDirectory.getPath());
 
             String result = action.executeUpload();
@@ -242,10 +242,41 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldDenyIncomingDestinationBeforeCreatingQueueOrPublishingUpload() throws Exception {
+        DocumentUpload2Action action = incomingDocsAction("report.pdf");
+        request.setParameter("queue", "2");
+        try (MockedStatic<IncomingDocUtil> incoming = mockStatic(IncomingDocUtil.class)) {
+            assertThatThrownBy(() -> action.executeUpload()).isInstanceOf(SecurityException.class);
+            incoming.verifyNoInteractions();
+        }
+        assertThat(tempUploadFile).doesNotExist(); // validated temporary upload is still cleaned
+        assertThat(response.getContentAsString()).doesNotContain("\"size\"");
+    }
+
+    @Test
+    void shouldAllowAuthorizedNamedIncomingDestination() throws Exception {
+        DocumentUpload2Action action = incomingDocsAction("report.pdf");
+        request.setParameter("queue", "2");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_queue.2"), eq("r"), isNull())).thenReturn(true);
+        tempDestinationDirectory = Files.createTempDirectory("incoming-authorized-target").toFile();
+        try (MockedStatic<IncomingDocUtil> incoming = mockStatic(IncomingDocUtil.class)) {
+            incoming.when(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("2", null))
+                    .thenReturn(tempDestinationDirectory.getPath());
+            assertThat(action.executeUpload()).isNull();
+        }
+        tempDestinationFile = tempDestinationDirectory.toPath().resolve("report.pdf").toFile();
+        assertThat(tempDestinationFile).exists();
+        assertThat(Files.readString(tempDestinationFile.toPath())).isEqualTo("pdf");
+        assertThat(tempUploadFile).doesNotExist();
+        assertThat(response.getContentAsString()).contains("\"size\":3").doesNotContain("error");
+    }
+
     private DocumentUpload2Action incomingDocsAction(String filename) throws Exception {
         tempUploadFile = File.createTempFile("document-upload", ".pdf");
         Files.writeString(tempUploadFile.toPath(), "pdf");
         request.addParameter("destination", "incomingDocs");
+        request.setParameter("queue", "1");
 
         DocumentUpload2Action action = new DocumentUpload2Action();
         action.setFiledata(tempUploadFile);

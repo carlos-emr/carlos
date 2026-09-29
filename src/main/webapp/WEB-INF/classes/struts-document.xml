@@ -156,7 +156,7 @@
         <action name="documentManager/ViewDocumentReport" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentReportRead2Action">
             <result name="success">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
         </action>
-        <action name="documentManager/ViewShowDocument" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+        <action name="documentManager/ViewShowDocument" class="io.github.carlos_emr.carlos.documentManager.gate.ViewStoredDocumentRead2Action">
             <result name="success">/WEB-INF/jsp/documentManager/showDocument.jsp</result>
         </action>
         <action name="documentManager/ViewMultiPageDocDisplay" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">

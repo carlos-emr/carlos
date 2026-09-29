@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-alpha16-SNAPSHOT</version>
+    <version>2026.08.0-alpha18-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -1492,6 +1492,9 @@
                          size after instrumentation; dependency code is outside our coverage scope. -->
                     <excludes>
                         <exclude>net.sf.jsqlparser.*</exclude>
+                        <!-- The generated third-party lexer exceeds the JVM method-size
+                             limit after instrumentation; application rules remain covered. -->
+                        <exclude>org.drools.drl.parser.lang.DRL6Lexer</exclude>
                     </excludes>
                 </configuration>
                 <executions>
@@ -1769,26 +1772,11 @@
                          tests share application-context caches or fixed seed data; fork-level
                          parallelism still provides isolated H2 databases. -->
                     <perCoreThreadCount>false</perCoreThreadCount>
+                    <!-- Discover all existing test classes, including legacy *Test names.
+                         Domain-specific includes silently omitted executable regressions. -->
                     <includes>
-                        <include>**/test/**/*Test.java</include>
-                        <include>**/test/**/*Tests.java</include>
-                        <include>**/tickler/**/*Test.java</include>
-                        <include>**/messenger/**/*Test.java</include>
-                        <include>**/provider/**/*Test.java</include>
-                        <include>**/managers/**/*Test.java</include>
-                        <include>**/i18n/**/*Test.java</include>
-                        <include>**/*IntegrationTest.java</include>
-                        <include>**/*UnitTest.java</include>
-                        <include>**/*EndpointTest.java</include>
-                        <include>**/*RegressionTest.java</include>
-                        <!-- Promotion-touched legacy test names must run without -Dtest. -->
-                        <include>**/eform/actions/AddEForm2Action*Test.java</include>
-                        <include>**/DocumentDelete2ActionTest.java</include>
-                        <include>**/DocumentUndelete2ActionTest.java</include>
-                        <include>**/RxRePrescribe2ActionTest.java</include>
-                        <include>**/RxShowAllergy2ActionTest.java</include>
-                        <include>**/SimpleXmlRpcClientTest.java</include>
-                        <include>**/WLMutation2ActionsTest.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
                     </includes>
                     <argLine>
                        @{argLine}

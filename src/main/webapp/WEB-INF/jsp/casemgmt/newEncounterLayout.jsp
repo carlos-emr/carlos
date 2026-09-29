@@ -267,24 +267,7 @@
             function popColumn(url, div, params, navBar, navBarObj) {
                 params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
 
-                CarlosAjax.request(url, {
-                    method: 'post',
-                    postBody: params,
-                    evalScripts: true,
-                    onSuccess: function (transport) {
-                        $(div).update(transport.responseText);
-
-                        if ($("leftColLoader") != null)
-                            Element.remove("leftColLoader");
-
-                        if ($("rightColLoader") != null)
-                            Element.remove("rightColLoader");
-                    },
-                    onFailure: function (transport) {
-                        var el = document.getElementById(div);
-                        if (el) el.textContent = div + " Error: " + transport.status;
-                    }
-                });
+                return requestNavbarColumn(url, div, params, navBar);
             };
 
             function addLeftNavDiv(name) {

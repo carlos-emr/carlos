@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.upload;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
@@ -49,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
 import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
+import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -155,6 +157,40 @@ class MessageUploaderProviderRoutingUnitTest extends CarlosUnitTestBase {
         MessageUploader.routeToProviders("555", providers(), "101", routing, mrpRouting, null);
         verify(routing).route("555", "0", "HL7");
         verifyNoMoreInteractions(routing);
+    }
+
+    private static Hl7TextInfo labelled(String label) {
+        Hl7TextInfo info = new Hl7TextInfo();
+        info.setLabel(label);
+        return info;
+    }
+
+    @Test
+    void shouldCarryPreviousManualLabel_whenIncomingLabelIsBlank() {
+        assertThat(MessageUploader.mergeLabLabels(List.of(labelled("Review with patient")), "  "))
+                .isEqualTo("Review with patient");
+        assertThat(MessageUploader.mergeLabLabels(List.of(labelled("Review with patient")), null))
+                .isEqualTo("Review with patient");
+    }
+
+    @Test
+    void shouldPreserveDistinctWholeLabels_whenIncomingTokenMatchesOnlySubstring() {
+        assertThat(MessageUploader.mergeLabLabels(List.of(labelled("SALT | ALT follow-up | A+B")), "ALT | A+B"))
+                .isEqualTo("SALT | ALT follow-up | ALT | A+B");
+    }
+
+    @Test
+    void shouldDeduplicateWholeLabels_whenSeveralVersionsCarryTheSamePanels() {
+        assertThat(MessageUploader.mergeLabLabels(
+                List.of(labelled("Original | ALT"), labelled("Older | AST | ALT")), " ALT | New | ALT "))
+                .isEqualTo("Older | AST | Original | ALT | New");
+    }
+
+    @Test
+    void shouldHandleMissingLabels_whenNoVersionHasALabel() {
+        assertThat(MessageUploader.mergeLabLabels(null, null)).isEmpty();
+        assertThat(MessageUploader.mergeLabLabels(List.of(labelled(null), labelled(" | ")), " ")).isEmpty();
+        assertThat(MessageUploader.mergeLabLabels(null, " AST | ALT ")).isEqualTo("AST | ALT");
     }
 
 }
