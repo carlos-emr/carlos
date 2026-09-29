@@ -221,7 +221,8 @@ and the result.
       [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md); the Patient portal page
       loads after steps 2, 4 and 5.
 - [ ] Move the portal to the standby key as in the runbook's compromise steps, with the old pin
-      removed; the page loads, and no call fails while nginx switches.
+      removed first: portal calls fail from step 1 until nginx serves the standby key, and then
+      the page loads.
 
 ## 6. Sign-off
 
