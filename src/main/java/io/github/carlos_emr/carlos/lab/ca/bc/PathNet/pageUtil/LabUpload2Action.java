@@ -237,7 +237,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     /** Also retains an owned partial file when cleanup fails, preventing a second archive. */
     private static File saveFile(InputStream stream, String filename, AtomicReference<File> kept) {
         File outputFile = null;
-        boolean created = false;
+        // kept names a file only once this call's CREATE_NEW open succeeded, so it doubles as
+        // the ownership marker the failure path below relies on.
+        kept.set(null);
 
         try (InputStream uploadStream = stream) {
             //retrieve the file data
@@ -256,7 +258,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // destroyed the colliding upload's lab.
             try (OutputStream bos = Files.newOutputStream(outputFile.toPath(),
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                created = true;
                 kept.set(outputFile);
                 uploadStream.transferTo(bos);
             }
@@ -266,7 +267,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         } catch (IOException | SecurityException ioe) {
             // Only a successful CREATE_NEW establishes ownership. An open failure may name
             // somebody else's file. Retain an undeletable partial output to suppress a second copy.
-            if (created && deletePartialOutput(outputFile)) {
+            File owned = kept.get();
+            if (owned != null && deletePartialOutput(owned)) {
                 kept.set(null);
             }
             // exceptionTrace: the message of a filesystem exception here is the generated path,

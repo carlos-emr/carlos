@@ -124,13 +124,13 @@ public class LabService extends AbstractServiceImpl {
             return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(labT.getFileName(), "Failed", "Invalid encoded file", null, type)).build();
         } catch (IOException e) {
 			logger.error("Lab file could not be saved");
-			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT == null ? null : labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
 		}
 
 		if (filePath == null) {
 			// Utilities.saveFile returns null when the write failed and the partial file was removed.
 			logger.error("Lab file save returned no path; aborting lab import");
-			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT == null ? null : labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
 		}
 
         File savedLabFile;
@@ -140,7 +140,7 @@ public class LabService extends AbstractServiceImpl {
             filePath = savedLabFile.getPath();
         } catch (IOException | SecurityException e) {
             logger.error("Invalid saved lab file path", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT == null ? null : labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
         }
         MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
         if (msgHandler == null) {
