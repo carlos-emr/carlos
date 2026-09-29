@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsInboundWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueCountDto;
+import io.github.carlos_emr.carlos.sms.dto.SmsQueuePatientCountDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueRowDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -55,7 +56,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Every test rolls back. To stay exact even if another test left rows behind, the overdue and stale cases
  * use times in 2001 (far older than any other test data), the grouped cases use error and reason codes no
  * other test uses, the newest-first cases push their rows' {@code updated_at} into 2090, and the time-period
- * cases into 2091.
+ * cases into 2091. The per-patient cases use demographic numbers no other test uses and 2092.
  *
  * @since 2026-09-28
  */
@@ -314,11 +315,110 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
                 .containsExactly(inside.getId());
     }
 
+    @Test
+    @DisplayName("should count failed rows per patient for the named patients only, within the time period")
+    void shouldCountFailedPerPatient_forNamedPatientsWithinTheTimePeriod() {
+        Instant since = Instant.parse("2092-03-01T00:00:00Z");
+        int named = 987_601;
+        int alsoNamed = 987_602;
+        int notNamed = 987_603;
+        SmsTransaction namedInside = persistFailed(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_A", named);
+        SmsTransaction namedInsideToo = persistFailed(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_A", named);
+        SmsTransaction namedOtherCode = persistFailed(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_B", named);
+        SmsTransaction namedBefore = persistFailed(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_A", named);
+        SmsTransaction namedOtherProvider = persistFailed(SmsProviderType.VOIPMS, "QVIEW_ERR_PATIENT_A", named);
+        SmsTransaction alsoNamedInside = persistFailed(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_A", alsoNamed);
+        SmsTransaction notNamedInside = persistFailed(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_A", notNamed);
+        // Not a failure: a consent block of a named patient is no part of the failed counts.
+        SmsTransaction namedBlocked = persistBlocked(SmsProviderType.STUB, SmsStatus.CONSENT_BLOCKED,
+                "QVIEW_ERR_PATIENT_A", named);
+        entityManager.flush();
+        for (SmsTransaction inside : List.of(namedInside, namedInsideToo, namedOtherCode, namedOtherProvider,
+                alsoNamedInside, notNamedInside, namedBlocked)) {
+            setUpdatedAt(inside, since.plus(Duration.ofDays(1)));
+        }
+        setUpdatedAt(namedBefore, since.minusSeconds(1));
+        entityManager.clear();
+
+        List<SmsQueuePatientCountDto> windowed = smsTransactionDao
+                .countFailedOutboundByProviderErrorCodeAndPatient(Date.from(since), List.of(named, alsoNamed));
+        List<SmsQueuePatientCountDto> allTime = smsTransactionDao
+                .countFailedOutboundByProviderErrorCodeAndPatient(null, List.of(named, alsoNamed));
+        List<SmsQueueCountDto> everyone =
+                smsTransactionDao.countFailedOutboundByProviderAndErrorCode(Date.from(since));
+
+        assertThat(windowed).containsExactlyInAnyOrder(
+                new SmsQueuePatientCountDto(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_A", named, 2),
+                new SmsQueuePatientCountDto(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_B", named, 1),
+                new SmsQueuePatientCountDto(SmsProviderType.VOIPMS, "QVIEW_ERR_PATIENT_A", named, 1),
+                new SmsQueuePatientCountDto(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_A", alsoNamed, 1));
+        assertThat(allTime).contains(
+                new SmsQueuePatientCountDto(SmsProviderType.STUB, "QVIEW_ERR_PATIENT_A", named, 3));
+        // The count for everyone holds the named patients' rows and the other patient's row.
+        assertThat(count(everyone, SmsProviderType.STUB, "QVIEW_ERR_PATIENT_A")).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("should count consent-blocked rows per patient for the named patients only, within the time period")
+    void shouldCountConsentBlockedPerPatient_forNamedPatientsWithinTheTimePeriod() {
+        Instant since = Instant.parse("2092-03-01T00:00:00Z");
+        int named = 987_611;
+        int notNamed = 987_612;
+        SmsTransaction noConsent = persistBlocked(SmsProviderType.STUB, SmsStatus.CONSENT_BLOCKED,
+                "QVIEW_REASON_PATIENT", named);
+        SmsTransaction optedOut = persistBlocked(SmsProviderType.STUB, SmsStatus.OPTOUT_BLOCKED,
+                "QVIEW_REASON_PATIENT", named);
+        SmsTransaction before = persistBlocked(SmsProviderType.STUB, SmsStatus.OPTOUT_BLOCKED,
+                "QVIEW_REASON_PATIENT", named);
+        SmsTransaction other = persistBlocked(SmsProviderType.STUB, SmsStatus.CONSENT_BLOCKED,
+                "QVIEW_REASON_PATIENT", notNamed);
+        SmsTransaction namedFailed = persistFailed(SmsProviderType.STUB, "QVIEW_REASON_PATIENT", named);
+        entityManager.flush();
+        for (SmsTransaction inside : List.of(noConsent, optedOut, other, namedFailed)) {
+            setUpdatedAt(inside, since.plus(Duration.ofDays(1)));
+        }
+        setUpdatedAt(before, since.minus(Duration.ofDays(1)));
+        entityManager.clear();
+
+        List<SmsQueuePatientCountDto> windowed = smsTransactionDao
+                .countConsentBlockedOutboundByProviderReasonAndPatient(Date.from(since), List.of(named));
+        List<SmsQueuePatientCountDto> allTime = smsTransactionDao
+                .countConsentBlockedOutboundByProviderReasonAndPatient(null, List.of(named));
+        List<SmsQueuePatientCountDto> nobody = smsTransactionDao
+                .countConsentBlockedOutboundByProviderReasonAndPatient(Date.from(since), List.of());
+
+        // Both kinds of consent block of one patient and reason are one count.
+        assertThat(windowed).containsExactly(
+                new SmsQueuePatientCountDto(SmsProviderType.STUB, "QVIEW_REASON_PATIENT", named, 2));
+        assertThat(allTime).containsExactly(
+                new SmsQueuePatientCountDto(SmsProviderType.STUB, "QVIEW_REASON_PATIENT", named, 3));
+        assertThat(nobody).isEmpty();
+    }
+
     private SmsTransaction outbound(SmsProviderType providerType) {
+        return outbound(providerType, 123);
+    }
+
+    private SmsTransaction outbound(SmsProviderType providerType, int demographicNo) {
         return SmsTransaction.outboundAttempt(
-                SmsSendCommand.patientMessage(123, "416-555-1212", "Synthetic queue view text", "999998"),
+                SmsSendCommand.patientMessage(demographicNo, "416-555-1212", "Synthetic queue view text", "999998"),
                 providerType
         );
+    }
+
+    private SmsTransaction persistFailed(SmsProviderType providerType, String errorCode, int demographicNo) {
+        SmsTransaction transaction = outbound(providerType, demographicNo);
+        transaction.markProviderResult(SmsProviderSendResultDto.failed(errorCode, "synthetic failure"));
+        entityManager.persist(transaction);
+        return transaction;
+    }
+
+    private SmsTransaction persistBlocked(SmsProviderType providerType, SmsStatus status, String reasonCode,
+                                          int demographicNo) {
+        SmsTransaction transaction = outbound(providerType, demographicNo);
+        transaction.markConsentBlocked(SmsConsentDecisionDto.blocked(status, reasonCode, "synthetic block"));
+        entityManager.persist(transaction);
+        return transaction;
     }
 
     /** A queued outbound row created at {@code createdAt} and next due at {@code nextAttemptAt} (null: none). */

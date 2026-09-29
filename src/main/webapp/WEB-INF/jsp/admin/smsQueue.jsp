@@ -232,11 +232,8 @@
                             <p class="text-muted"><fmt:message key="sms.queue.failed.none"/></p>
                         </c:when>
                         <c:otherwise>
-                            <c:choose>
-                                <c:when test="${provider.recentFailed.hiddenCount > 0}">
-                                    <p class="small text-muted"><fmt:message key="sms.queue.codesHidden"/></p>
-                                </c:when>
-                                <c:otherwise>
+                            <%-- Empty when every message here belongs to a patient the viewer has no access to. --%>
+                            <c:if test="${not empty provider.failedByErrorCode}">
                             <table class="table table-sm w-auto">
                                 <thead>
                                 <tr>
@@ -258,8 +255,7 @@
                                 </c:forEach>
                                 </tbody>
                             </table>
-                                </c:otherwise>
-                            </c:choose>
+                            </c:if>
                             <c:set var="queueRows" value="${provider.recentFailed.rows}"/>
                             <c:set var="queueRowsHidden" value="${provider.recentFailed.hiddenCount}"/>
                             <c:set var="queueRowsTotal" value="${provider.failedCount}"/>
@@ -282,11 +278,8 @@
                             <p class="text-muted"><fmt:message key="sms.queue.blocked.none"/></p>
                         </c:when>
                         <c:otherwise>
-                            <c:choose>
-                                <c:when test="${provider.recentBlocked.hiddenCount > 0}">
-                                    <p class="small text-muted"><fmt:message key="sms.queue.codesHidden"/></p>
-                                </c:when>
-                                <c:otherwise>
+                            <%-- Empty when every message here belongs to a patient the viewer has no access to. --%>
+                            <c:if test="${not empty provider.blockedByReason}">
                             <table class="table table-sm w-auto">
                                 <thead>
                                 <tr>
@@ -308,8 +301,7 @@
                                 </c:forEach>
                                 </tbody>
                             </table>
-                                </c:otherwise>
-                            </c:choose>
+                            </c:if>
                             <c:set var="queueRows" value="${provider.recentBlocked.rows}"/>
                             <c:set var="queueRowsHidden" value="${provider.recentBlocked.hiddenCount}"/>
                             <c:set var="queueRowsTotal" value="${provider.blockedCount}"/>

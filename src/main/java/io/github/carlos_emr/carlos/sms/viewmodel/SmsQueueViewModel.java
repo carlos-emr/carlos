@@ -75,8 +75,10 @@ public record SmsQueueViewModel(String generatedAt, long overdueMinutes, long st
      * <p>
      * The failed and blocked sections cover the selected time period ({@link SmsQueueViewModel#window()});
      * their all-time totals are given beside them. The overdue and stale sections and the counts per status
-     * always cover all time. Every count includes the messages of patients this viewer may not open, even
-     * though those messages are left out of the lists (see {@link RowList}).
+     * always cover all time. The counts per status and the section counts include the messages of patients
+     * this viewer is restricted from, even though those messages are left out of the lists (see
+     * {@link RowList}). The counts by code leave those messages out, so they can add up to less than their
+     * section's count.
      *
      * @param providerType      the {@code SmsProviderType} name
      * @param outboundTotal     all outbound messages recorded for this provider
@@ -87,12 +89,14 @@ public record SmsQueueViewModel(String generatedAt, long overdueMinutes, long st
      * @param stale             the oldest of those, oldest last attempt first
      * @param failedCount       {@code FAILED} messages that last changed within the selected time period
      * @param failedTotal       {@code FAILED} messages of all time
-     * @param failedByErrorCode the ones within the time period counted by error code, largest first
+     * @param failedByErrorCode the ones within the time period counted by error code, largest first,
+     *                          without the messages of patients this viewer is restricted from
      * @param recentFailed      the most recently updated of the ones within the time period
      * @param blockedCount      {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} messages that last changed
      *                          within the selected time period
      * @param blockedTotal      {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} messages of all time
-     * @param blockedByReason   the ones within the time period counted by consent reason code, largest first
+     * @param blockedByReason   the ones within the time period counted by consent reason code, largest
+     *                          first, without the messages of patients this viewer is restricted from
      * @param recentBlocked     the most recently updated of the ones within the time period
      */
     public record ProviderQueue(String providerType, long outboundTotal, List<StatusCount> statusCounts,

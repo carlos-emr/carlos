@@ -5,6 +5,7 @@ import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueCountDto;
+import io.github.carlos_emr.carlos.sms.dto.SmsQueuePatientCountDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueRowDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import jakarta.persistence.LockModeType;
@@ -13,12 +14,14 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.UUID;
 
 @Repository
@@ -32,6 +35,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     private static final String PARAM_DUE_BEFORE = "dueBefore";
     private static final String PARAM_STALE_BEFORE = "staleBefore";
     private static final String PARAM_SINCE = "since";
+    private static final String PARAM_DEMOGRAPHIC_NOS = "demographicNos";
     // The queue view's time period. Added to a query only when a start time is given; the time itself is
     // always a bound parameter.
     private static final String UPDATED_SINCE = "AND t.updatedAt >= :since ";
@@ -272,6 +276,62 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         query.setParameter(PARAM_STATUSES, CONSENT_BLOCKED_STATUSES);
         bindSince(query, since);
         return toCodeCounts(query.getResultList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SmsQueuePatientCountDto> countFailedOutboundByProviderErrorCodeAndPatient(
+            Date since, Collection<Integer> demographicNos) {
+        return countByProviderCodeAndPatient("t.errorCode", List.of(SmsStatus.FAILED), since, demographicNos);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SmsQueuePatientCountDto> countConsentBlockedOutboundByProviderReasonAndPatient(
+            Date since, Collection<Integer> demographicNos) {
+        return countByProviderCodeAndPatient("t.consentReasonCode", CONSENT_BLOCKED_STATUSES, since,
+                demographicNos);
+    }
+
+    /**
+     * @param codeColumn one of this class's own two column names, never outside text; the statuses, the
+     *                   time and the patients are bound parameters
+     */
+    private List<SmsQueuePatientCountDto> countByProviderCodeAndPatient(
+            String codeColumn, List<SmsStatus> statuses, Date since, Collection<Integer> demographicNos) {
+        if (demographicNos == null) {
+            return List.of();
+        }
+        // Each patient once and in a fixed order, so no patient is in two parts and counted twice over.
+        TreeSet<Integer> wanted = new TreeSet<>();
+        for (Integer demographicNo : demographicNos) {
+            if (demographicNo != null) {
+                wanted.add(demographicNo);
+            }
+        }
+        List<Integer> patients = List.copyOf(wanted);
+        List<SmsQueuePatientCountDto> counts = new ArrayList<>();
+        for (int from = 0; from < patients.size(); from += PATIENT_COUNT_CHUNK_SIZE) {
+            TypedQuery<Object[]> query = entityManager.createQuery(
+                    "SELECT t.providerType, " + codeColumn + ", t.demographicNo, COUNT(t) FROM SmsTransaction t "
+                            + "WHERE t.direction = :direction "
+                            + "AND t.status IN (:statuses) "
+                            + "AND t.demographicNo IN (:demographicNos) "
+                            + updatedSince(since)
+                            + "GROUP BY t.providerType, " + codeColumn + ", t.demographicNo",
+                    Object[].class
+            );
+            query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
+            query.setParameter(PARAM_STATUSES, statuses);
+            query.setParameter(PARAM_DEMOGRAPHIC_NOS, List.copyOf(
+                    patients.subList(from, Math.min(from + PATIENT_COUNT_CHUNK_SIZE, patients.size()))));
+            bindSince(query, since);
+            for (Object[] row : query.getResultList()) {
+                counts.add(new SmsQueuePatientCountDto(
+                        (SmsProviderType) row[0], (String) row[1], (Integer) row[2], toLong(row[3])));
+            }
+        }
+        return counts;
     }
 
     @Override

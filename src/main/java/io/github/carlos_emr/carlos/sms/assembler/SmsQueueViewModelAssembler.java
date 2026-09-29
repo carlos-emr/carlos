@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueCountDto;
+import io.github.carlos_emr.carlos.sms.dto.SmsQueuePatientCountDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueRowDto;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueProcessingService;
@@ -56,6 +57,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 
 /**
  * Assembles {@link SmsQueueViewModel} for Administration &gt; SMS &gt; SMS queue ({@code admin/smsQueue.jsp}).
@@ -76,9 +78,14 @@ import java.util.function.BooleanSupplier;
  * within it); their all-time totals are given beside them. The overdue and stale sections and the counts by
  * status always cover all time.
  * <p>
- * A message whose patient this viewer may not open is left out of the lists completely; each list only says
- * how many were left out. The counts (by status, by code and the section totals) still include those
- * messages, because a count does not tell which patient a message belongs to.
+ * A message whose patient this viewer is restricted from is left out of the lists completely; each list
+ * only says how many were left out. It is left out of the counts by code too, wherever it stands in the
+ * list's order, so nothing on the page tells a hidden patient's error or reason code. The counts by status
+ * and the section totals still include those messages, so the counts by code can add up to less than the
+ * section's count.
+ * <p>
+ * Only a patient with a security entry of their own can be restricted, so the caller passes those patients
+ * in and access is checked for them alone, once each per page view.
  * <p>
  * All queries run in one read-only transaction so the counts and lists agree. Rows come from a projection
  * that never loads the message body; only display-safe values leave this class, with the recipient masked
@@ -163,16 +170,22 @@ public class SmsQueueViewModelAssembler {
      * @param window                 the time period for the failed and blocked sections
      * @param showDemographicNumbers whether rows may carry the patient's demographic number; the action passes
      *                               the viewer's {@code _demographic} read right
-     * @param mayAccessPatient       asked once per patient, with the demographic number: whether this viewer
-     *                               may open that patient's record. When the answer is no, or the check
-     *                               fails, that patient's messages are left out of the lists
+     * @param patientsWithOwnEntries the patients that have a security entry of their own (see
+     *                               {@code SmsPatientRestrictionLookup}); only these can be restricted, so
+     *                               only these are checked
+     * @param mayAccessPatient       asked at most once per patient in {@code patientsWithOwnEntries}, with
+     *                               the demographic number: whether this viewer may open that patient's
+     *                               record. When the answer is no, or the check fails, that patient's
+     *                               messages are left out of the lists and of the counts by code
      * @return the queue per SMS provider and this server's scheduler state, and the patients shown
      */
     @Transactional(readOnly = true)
-    public Result assemble(SmsQueueWindow window, boolean showDemographicNumbers, IntPredicate mayAccessPatient) {
+    public Result assemble(SmsQueueWindow window, boolean showDemographicNumbers,
+                           Set<Integer> patientsWithOwnEntries, IntPredicate mayAccessPatient) {
         Objects.requireNonNull(window, "window is required");
+        Objects.requireNonNull(patientsWithOwnEntries, "patientsWithOwnEntries is required");
         Objects.requireNonNull(mayAccessPatient, "mayAccessPatient is required");
-        RowFilter filter = new RowFilter(showDemographicNumbers, mayAccessPatient);
+        RowFilter filter = new RowFilter(showDemographicNumbers, patientsWithOwnEntries, mayAccessPatient);
         Instant now = clock.instant();
         Date dueBefore = Date.from(now.minus(OVERDUE_QUEUED_AFTER));
         Date staleBefore = Date.from(now.minus(SmsQueueProcessingService.DEFAULT_STALE_SENDING_TIMEOUT));
@@ -188,6 +201,16 @@ public class SmsQueueViewModelAssembler {
                 byProvider(smsTransactionDao.countFailedOutboundByProviderAndErrorCode(since));
         Map<SmsProviderType, Map<String, Long>> blockedByReason =
                 byProvider(smsTransactionDao.countConsentBlockedOutboundByProviderAndReason(since));
+        // The same counts without the messages of restricted patients. Nothing is queried when no patient
+        // has an entry of their own, or when the section is empty anyway.
+        Map<SmsProviderType, Map<String, Long>> failedByErrorCodeShown = failedByErrorCode.isEmpty()
+                ? failedByErrorCode
+                : filter.withoutRestricted(failedByErrorCode, patients ->
+                        smsTransactionDao.countFailedOutboundByProviderErrorCodeAndPatient(since, patients));
+        Map<SmsProviderType, Map<String, Long>> blockedByReasonShown = blockedByReason.isEmpty()
+                ? blockedByReason
+                : filter.withoutRestricted(blockedByReason, patients ->
+                        smsTransactionDao.countConsentBlockedOutboundByProviderReasonAndPatient(since, patients));
 
         List<SmsQueueViewModel.ProviderQueue> providers = new ArrayList<>();
         for (SmsProviderType providerType : SmsProviderType.values()) {
@@ -196,7 +219,8 @@ public class SmsQueueViewModelAssembler {
             Map<String, Long> blockedCodes = blockedByReason.getOrDefault(providerType, Map.of());
             long overdueCount = overdueCounts.getOrDefault(providerType, 0L);
             long staleCount = staleCounts.getOrDefault(providerType, 0L);
-            // Within the time period: the by-code counts added up. Of all time: from the counts by status.
+            // Within the time period: the by-code counts added up, hidden messages included. Of all time:
+            // from the counts by status.
             long failedCount = sum(failedCodes);
             long failedTotal = byStatus.getOrDefault(SmsStatus.FAILED.name(), 0L);
             long blockedCount = sum(blockedCodes);
@@ -222,11 +246,11 @@ public class SmsQueueViewModelAssembler {
                             smsTransactionDao.findStaleSendingOutbound(providerType, staleBefore, LIST_LIMIT)),
                     failedCount,
                     failedTotal,
-                    codeCountsUnlessHidden(failedCodes, recentFailed),
+                    codeCounts(failedByErrorCodeShown.getOrDefault(providerType, Map.of())),
                     recentFailed,
                     blockedCount,
                     blockedTotal,
-                    codeCountsUnlessHidden(blockedCodes, recentBlocked),
+                    codeCounts(blockedByReasonShown.getOrDefault(providerType, Map.of())),
                     recentBlocked
             ));
         }
@@ -246,18 +270,55 @@ public class SmsQueueViewModelAssembler {
 
     /**
      * Turns query rows into display rows for one page view: leaves out the messages of patients the viewer
-     * may not open, and remembers which patients were shown. One instance per call of {@link #assemble}.
+     * is restricted from, takes those messages out of the counts by code, and remembers which patients were
+     * shown. One instance per call of {@link #assemble}.
      */
     private final class RowFilter {
         private final boolean showDemographicNumbers;
+        private final Set<Integer> patientsWithOwnEntries;
         private final IntPredicate mayAccessPatient;
-        // Asked once per patient, not once per row: the same patient can appear in several lists.
+        // Asked once per patient, not once per row: the same patient can appear in several lists and counts.
         private final Map<Integer, Boolean> accessible = new HashMap<>();
         private final Set<Integer> displayed = new TreeSet<>();
 
-        private RowFilter(boolean showDemographicNumbers, IntPredicate mayAccessPatient) {
+        private RowFilter(boolean showDemographicNumbers, Set<Integer> patientsWithOwnEntries,
+                          IntPredicate mayAccessPatient) {
             this.showDemographicNumbers = showDemographicNumbers;
+            this.patientsWithOwnEntries = Set.copyOf(patientsWithOwnEntries);
             this.mayAccessPatient = mayAccessPatient;
+        }
+
+        /** A patient without an entry of their own cannot be restricted, so nothing is asked about them. */
+        private boolean restricted(Integer demographicNo) {
+            return patientsWithOwnEntries.contains(demographicNo)
+                    && !accessible.computeIfAbsent(demographicNo, this::mayAccess);
+        }
+
+        /**
+         * @param byCode        a section's counts by SMS provider and code, hidden messages included
+         * @param patientCounts given the patients with an entry of their own, returns the part of those
+         *                      counts that belongs to them, per patient
+         * @return the counts without the messages of restricted patients; a code left with none is dropped.
+         *         The codes are still the stored ones: what is not a code is replaced only afterwards
+         */
+        private Map<SmsProviderType, Map<String, Long>> withoutRestricted(
+                Map<SmsProviderType, Map<String, Long>> byCode,
+                Function<Set<Integer>, List<SmsQueuePatientCountDto>> patientCounts) {
+            if (patientsWithOwnEntries.isEmpty()) {
+                return byCode;
+            }
+            Map<SmsProviderType, Map<String, Long>> shown = new EnumMap<>(SmsProviderType.class);
+            byCode.forEach((providerType, counts) -> shown.put(providerType, new HashMap<>(counts)));
+            for (SmsQueuePatientCountDto count : patientCounts.apply(patientsWithOwnEntries)) {
+                Map<String, Long> counts = shown.get(count.providerType());
+                if (counts == null || count.demographicNo() == null || !restricted(count.demographicNo())) {
+                    continue;
+                }
+                // Null when nothing is left: the code is then taken out of the map.
+                counts.computeIfPresent(nullToEmpty(count.code()), (code, total) ->
+                        total - count.count() > 0 ? total - count.count() : null);
+            }
+            return shown;
         }
 
         private SmsQueueViewModel.RowList rows(List<SmsQueueRowDto> rows) {
@@ -266,7 +327,7 @@ public class SmsQueueViewModelAssembler {
             for (SmsQueueRowDto row : rows) {
                 Integer demographicNo = row.demographicNo();
                 // A message without a patient (a system test) has nobody to protect, so it is always shown.
-                if (demographicNo != null && !accessible.computeIfAbsent(demographicNo, this::mayAccess)) {
+                if (demographicNo != null && restricted(demographicNo)) {
                     hidden++;
                     continue;
                 }
@@ -285,7 +346,8 @@ public class SmsQueueViewModelAssembler {
                 // Fail closed. Only the exception type is logged: its message could name the patient.
                 // If the failure came from the database, the surrounding transaction is already marked
                 // for rollback and the whole page fails instead, which shows nothing either.
-                LOGGER.warn("SMS queue view: a patient access check failed ({}); that patient's messages are not shown",
+                LOGGER.warn("SMS queue view: a patient access check failed ({}); that patient's messages are "
+                                + "not shown or counted by code",
                         e.getClass().getName());
                 return false;
             }
@@ -343,15 +405,6 @@ public class SmsQueueViewModelAssembler {
         // every other row which kind a hidden patient's message is.
         counts.add(new SmsQueueViewModel.StatusCount(BLOCKED_BY_CONSENT, blocked));
         return counts;
-    }
-
-    /**
-     * The counts by code, or none when the section's list has hidden rows: the counts include the hidden
-     * messages, so beside the rows that are shown they would give away a hidden patient's code.
-     */
-    private static List<SmsQueueViewModel.CodeCount> codeCountsUnlessHidden(
-            Map<String, Long> byCode, SmsQueueViewModel.RowList list) {
-        return list.hiddenCount() > 0 ? List.of() : codeCounts(byCode);
     }
 
     private static List<SmsQueueViewModel.CodeCount> codeCounts(Map<String, Long> byCode) {

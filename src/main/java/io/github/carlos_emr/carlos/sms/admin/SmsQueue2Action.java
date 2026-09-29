@@ -23,12 +23,15 @@ package io.github.carlos_emr.carlos.sms.admin;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.assembler.SmsQueueViewModelAssembler;
+import io.github.carlos_emr.carlos.sms.service.SmsPatientRestrictionLookup;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueViewAuditRecorder;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+
+import java.util.Set;
 
 /**
  * Administration &gt; SMS &gt; SMS queue ({@code admin/SmsQueue}): a read-only operational view of the outbound
@@ -39,8 +42,10 @@ import org.apache.struts2.ServletActionContext;
  * text and only the last four digits of phone numbers (see {@link SmsQueueViewModelAssembler}).
  * <p>
  * The optional {@code window} request parameter picks the time period of the failed and blocked sections
- * (see {@link SmsQueueWindow}). Messages of patients the viewer may not open are left out of the lists, and
- * every patient whose messages are shown gets an audit record (see {@link SmsQueueViewAuditRecorder}).
+ * (see {@link SmsQueueWindow}). Messages of patients the viewer is restricted from are left out of the lists
+ * and of the counts by code, and every patient whose messages are shown gets an audit record (see
+ * {@link SmsQueueViewAuditRecorder}). Only a patient with a security entry of their own can be restricted
+ * (see {@link SmsPatientRestrictionLookup}), so access is checked for those patients alone.
  *
  * @since 2026-09-28
  */
@@ -52,12 +57,15 @@ public class SmsQueue2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager;
     private final SmsQueueViewModelAssembler assembler;
     private final SmsQueueViewAuditRecorder auditRecorder;
+    private final SmsPatientRestrictionLookup restrictionLookup;
 
     public SmsQueue2Action(SecurityInfoManager securityInfoManager, SmsQueueViewModelAssembler assembler,
-                           SmsQueueViewAuditRecorder auditRecorder) {
+                           SmsQueueViewAuditRecorder auditRecorder,
+                           SmsPatientRestrictionLookup restrictionLookup) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
         this.auditRecorder = auditRecorder;
+        this.restrictionLookup = restrictionLookup;
     }
 
     /**
@@ -88,9 +96,14 @@ public class SmsQueue2Action extends ActionSupport {
                 loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, null);
         // Only an allowed value comes out of this; the text the browser sent goes no further.
         SmsQueueWindow window = SmsQueueWindow.fromParameter(request.getParameter(WINDOW_PARAMETER));
-        // A patient the viewer is restricted from has their messages left out of the lists.
+        // Only these patients can be restricted. Not caught: if they cannot be read, nothing is shown.
+        Set<Integer> patientsWithOwnEntries = Set.copyOf(restrictionLookup.patientsWithOwnEntries());
+        // A patient the viewer is restricted from has their messages left out of the lists and of the
+        // counts by code. A patient without an entry of their own is never checked.
         SmsQueueViewModelAssembler.Result queue = assembler.assemble(window, showDemographicNumbers,
-                demographicNo -> mayShowPatient(loggedInInfo, showDemographicNumbers, demographicNo));
+                patientsWithOwnEntries,
+                demographicNo -> !patientsWithOwnEntries.contains(demographicNo)
+                        || mayShowPatient(loggedInInfo, showDemographicNumbers, demographicNo));
         // Recorded before the page is handed over: if the view cannot be audited, nothing is shown.
         auditRecorder.recordViewed(loggedInInfo, window, queue.displayedDemographicNumbers());
         request.setAttribute("smsQueue", queue.model());

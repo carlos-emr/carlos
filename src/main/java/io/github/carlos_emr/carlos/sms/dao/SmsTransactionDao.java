@@ -4,6 +4,7 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueCountDto;
+import io.github.carlos_emr.carlos.sms.dto.SmsQueuePatientCountDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueRowDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 
@@ -28,6 +29,9 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
             Date recoveryAt,
             int limit
     );
+
+    /** The most patients one per-patient count query names; longer lists are queried in parts. */
+    int PATIENT_COUNT_CHUNK_SIZE = 1000;
 
     // Read-only queries for the Administration > SMS queue view (#3841). All of them look at outbound rows
     // only, and the row lists are projections that never load the message body.
@@ -68,6 +72,38 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
      *         and consent reason code (the code may be null)
      */
     List<SmsQueueCountDto> countConsentBlockedOutboundByProviderAndReason(Date since);
+
+    /**
+     * The part of {@link #countFailedOutboundByProviderAndErrorCode(Date)} that belongs to the given
+     * patients, counted per patient. The queue view uses it to take the messages of patients the viewer is
+     * restricted from out of the counts by error code.
+     *
+     * @param since          only rows last updated at or after this time count; {@code null} counts rows
+     *                       of all time
+     * @param demographicNos the patients to count for; empty or {@code null} runs no query and returns
+     *                       nothing. Long lists are queried in parts of at most
+     *                       {@link #PATIENT_COUNT_CHUNK_SIZE} patients
+     * @return {@code FAILED} outbound row counts of those patients, grouped by SMS provider, error code
+     *         (may be null) and patient
+     */
+    List<SmsQueuePatientCountDto> countFailedOutboundByProviderErrorCodeAndPatient(
+            Date since, Collection<Integer> demographicNos);
+
+    /**
+     * The part of {@link #countConsentBlockedOutboundByProviderAndReason(Date)} that belongs to the given
+     * patients, counted per patient. The queue view uses it to take the messages of patients the viewer is
+     * restricted from out of the counts by consent reason code.
+     *
+     * @param since          only rows last updated at or after this time count; {@code null} counts rows
+     *                       of all time
+     * @param demographicNos the patients to count for; empty or {@code null} runs no query and returns
+     *                       nothing. Long lists are queried in parts of at most
+     *                       {@link #PATIENT_COUNT_CHUNK_SIZE} patients
+     * @return {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} outbound row counts of those patients,
+     *         grouped by SMS provider, consent reason code (may be null) and patient
+     */
+    List<SmsQueuePatientCountDto> countConsentBlockedOutboundByProviderReasonAndPatient(
+            Date since, Collection<Integer> demographicNos);
 
     /**
      * The overdue queued rows {@link #countOverdueQueuedOutboundByProvider(Date)} counts, for one SMS provider,

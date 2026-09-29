@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.sms.admin;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.assembler.SmsQueueViewModelAssembler;
+import io.github.carlos_emr.carlos.sms.service.SmsPatientRestrictionLookup;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueViewAuditRecorder;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueViewModel;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
@@ -70,6 +71,7 @@ class SmsQueue2ActionUnitTest {
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
     private final SmsQueueViewModelAssembler assembler = mock(SmsQueueViewModelAssembler.class);
     private final SmsQueueViewAuditRecorder auditRecorder = mock(SmsQueueViewAuditRecorder.class);
+    private final SmsPatientRestrictionLookup restrictionLookup = mock(SmsPatientRestrictionLookup.class);
     private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
     private MockHttpServletRequest request;
     private MockedStatic<ServletActionContext> servletActionContext;
@@ -97,7 +99,7 @@ class SmsQueue2ActionUnitTest {
         assertThatThrownBy(() -> action().execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_admin.sms)");
-        verifyNoInteractions(assembler, auditRecorder);
+        verifyNoInteractions(assembler, auditRecorder, restrictionLookup);
         assertThat(request.getAttribute("smsQueue")).isNull();
     }
 
@@ -107,7 +109,7 @@ class SmsQueue2ActionUnitTest {
         assertThatThrownBy(() -> action().execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_admin.sms)");
-        verifyNoInteractions(assembler, auditRecorder);
+        verifyNoInteractions(assembler, auditRecorder, restrictionLookup);
         verifyNoInteractions(securityInfoManager);
     }
 
@@ -118,7 +120,7 @@ class SmsQueue2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
         SmsQueueViewModel model = mock(SmsQueueViewModel.class);
-        when(assembler.assemble(any(), eq(true), any())).thenReturn(queueShowing(model));
+        when(assembler.assemble(any(), eq(true), any(), any())).thenReturn(queueShowing(model));
 
         String result = action().execute();
 
@@ -134,12 +136,12 @@ class SmsQueue2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(false);
         SmsQueueViewModel model = mock(SmsQueueViewModel.class);
-        when(assembler.assemble(any(), eq(false), any())).thenReturn(queueShowing(model));
+        when(assembler.assemble(any(), eq(false), any(), any())).thenReturn(queueShowing(model));
 
         action().execute();
 
         assertThat(request.getAttribute("smsQueue")).isSameAs(model);
-        verify(assembler, never()).assemble(any(), eq(true), any());
+        verify(assembler, never()).assemble(any(), eq(true), any(), any());
     }
 
     @Test
@@ -149,7 +151,7 @@ class SmsQueue2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(false);
         SmsQueueViewModel model = mock(SmsQueueViewModel.class);
-        when(assembler.assemble(any(), eq(false), any())).thenReturn(queueShowing(model, 123, 456));
+        when(assembler.assemble(any(), eq(false), any(), any())).thenReturn(queueShowing(model, 123, 456));
 
         action().execute();
 
@@ -163,7 +165,7 @@ class SmsQueue2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
         SmsQueueViewModel model = mock(SmsQueueViewModel.class);
-        when(assembler.assemble(any(), eq(true), any())).thenReturn(queueShowing(model, 123, 456));
+        when(assembler.assemble(any(), eq(true), any(), any())).thenReturn(queueShowing(model, 123, 456));
         // The page must not have been handed over yet when the audit record is written.
         doAnswer(invocation -> {
             assertThat(request.getAttribute("smsQueue")).isNull();
@@ -173,7 +175,7 @@ class SmsQueue2ActionUnitTest {
         action().execute();
 
         InOrder order = inOrder(assembler, auditRecorder);
-        order.verify(assembler).assemble(any(), eq(true), any());
+        order.verify(assembler).assemble(any(), eq(true), any(), any());
         order.verify(auditRecorder).recordViewed(loggedInInfo, SmsQueueWindow.LAST_30_DAYS, Set.of(123, 456));
         assertThat(request.getAttribute("smsQueue")).isSameAs(model);
     }
@@ -183,7 +185,7 @@ class SmsQueue2ActionUnitTest {
     void shouldShowNothing_whenAuditFails() {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
-        when(assembler.assemble(any(), eq(false), any()))
+        when(assembler.assemble(any(), eq(false), any(), any()))
                 .thenReturn(queueShowing(mock(SmsQueueViewModel.class), 123));
         doThrow(new IllegalStateException("audit write failed")).when(auditRecorder)
                 .recordViewed(any(), any(), any());
@@ -199,18 +201,19 @@ class SmsQueue2ActionUnitTest {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
+        when(restrictionLookup.patientsWithOwnEntries()).thenReturn(Set.of(123, 456, 789));
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 456)).thenReturn(false);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 789)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 123)).thenReturn(true);
         // An entry for patient 789 alone takes this viewer's read right away.
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 789)).thenReturn(false);
-        when(assembler.assemble(any(), eq(true), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
+        when(assembler.assemble(any(), eq(true), any(), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
 
         action().execute();
 
         ArgumentCaptor<IntPredicate> mayAccess = ArgumentCaptor.forClass(IntPredicate.class);
-        verify(assembler).assemble(any(), eq(true), mayAccess.capture());
+        verify(assembler).assemble(any(), eq(true), eq(Set.of(123, 456, 789)), mayAccess.capture());
         assertThat(mayAccess.getValue().test(123)).isTrue();
         assertThat(mayAccess.getValue().test(456)).isFalse();
         assertThat(mayAccess.getValue().test(789)).isFalse();
@@ -224,17 +227,74 @@ class SmsQueue2ActionUnitTest {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(false);
+        when(restrictionLookup.patientsWithOwnEntries()).thenReturn(Set.of(123, 456, 789));
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 456)).thenReturn(false);
-        when(assembler.assemble(any(), eq(false), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
+        when(assembler.assemble(any(), eq(false), any(), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
 
         action().execute();
 
         ArgumentCaptor<IntPredicate> mayAccess = ArgumentCaptor.forClass(IntPredicate.class);
-        verify(assembler).assemble(any(), eq(false), mayAccess.capture());
+        verify(assembler).assemble(any(), eq(false), eq(Set.of(123, 456, 789)), mayAccess.capture());
         assertThat(mayAccess.getValue().test(123)).isTrue();
         assertThat(mayAccess.getValue().test(456)).isFalse();
         verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+    }
+
+    @Test
+    @DisplayName("should never check a patient who has no security entry of their own")
+    void shouldNotCheckPatient_whenTheyHaveNoOwnEntry() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
+        when(restrictionLookup.patientsWithOwnEntries()).thenReturn(Set.of(456));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 456)).thenReturn(false);
+        when(assembler.assemble(any(), eq(true), any(), any()))
+                .thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
+
+        action().execute();
+
+        ArgumentCaptor<IntPredicate> mayAccess = ArgumentCaptor.forClass(IntPredicate.class);
+        verify(assembler).assemble(any(), eq(true), eq(Set.of(456)), mayAccess.capture());
+        // Even if asked, a patient without an entry of their own is shown without any lookup.
+        assertThat(mayAccess.getValue().test(123)).isTrue();
+        assertThat(mayAccess.getValue().test(456)).isFalse();
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(loggedInInfo, 123);
+        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_demographic", "r", 123);
+        verify(securityInfoManager).isAllowedAccessToPatientRecord(loggedInInfo, 456);
+    }
+
+    @Test
+    @DisplayName("should check nobody when no patient has a security entry of their own")
+    void shouldCheckNobody_whenNoPatientHasOwnEntry() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
+        when(restrictionLookup.patientsWithOwnEntries()).thenReturn(Set.of());
+        when(assembler.assemble(any(), eq(true), any(), any()))
+                .thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
+
+        action().execute();
+
+        ArgumentCaptor<IntPredicate> mayAccess = ArgumentCaptor.forClass(IntPredicate.class);
+        verify(assembler).assemble(any(), eq(true), eq(Set.of()), mayAccess.capture());
+        assertThat(mayAccess.getValue().test(123)).isTrue();
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), any());
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+    }
+
+    @Test
+    @DisplayName("should show nothing when the patients with entries of their own cannot be read")
+    void shouldShowNothing_whenRestrictionLookupFails() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
+        when(restrictionLookup.patientsWithOwnEntries())
+                .thenThrow(new IllegalStateException("synthetic lookup failure"));
+        SmsQueue2Action action = action();
+
+        assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(assembler, auditRecorder);
+        assertThat(request.getAttribute("smsQueue")).isNull();
     }
 
     @Test
@@ -243,11 +303,11 @@ class SmsQueue2ActionUnitTest {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
         request.setParameter("window", "90d");
-        when(assembler.assemble(any(), eq(false), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
+        when(assembler.assemble(any(), eq(false), any(), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
 
         action().execute();
 
-        verify(assembler).assemble(eq(SmsQueueWindow.LAST_90_DAYS), eq(false), any());
+        verify(assembler).assemble(eq(SmsQueueWindow.LAST_90_DAYS), eq(false), any(), any());
         verify(auditRecorder).recordViewed(loggedInInfo, SmsQueueWindow.LAST_90_DAYS, Set.of());
     }
 
@@ -256,13 +316,13 @@ class SmsQueue2ActionUnitTest {
     void shouldPassDefaultWindow_whenParameterIsMissingOrNotAllowed() {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
-        when(assembler.assemble(any(), eq(false), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
+        when(assembler.assemble(any(), eq(false), any(), any())).thenReturn(queueShowing(mock(SmsQueueViewModel.class)));
 
         action().execute();
         request.setParameter("window", "7d' OR '1'='1");
         action().execute();
 
-        verify(assembler, times(2)).assemble(eq(SmsQueueWindow.LAST_30_DAYS), eq(false), any());
+        verify(assembler, times(2)).assemble(eq(SmsQueueWindow.LAST_30_DAYS), eq(false), any(), any());
     }
 
     /** What the assembler returns: the page's model and, separately, the patients whose messages are in it. */
@@ -272,6 +332,6 @@ class SmsQueue2ActionUnitTest {
     }
 
     private SmsQueue2Action action() {
-        return new SmsQueue2Action(securityInfoManager, assembler, auditRecorder);
+        return new SmsQueue2Action(securityInfoManager, assembler, auditRecorder, restrictionLookup);
     }
 }
