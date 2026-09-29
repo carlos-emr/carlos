@@ -35,8 +35,14 @@ import java.util.Map;
  *
  * <p>The {@code Consent} table has no unique key on patient and consent type, so duplicates can
  * exist (#3845). Reading an arbitrary one could email a patient whose newer record opts out.
- * The rule is fail-safe: any live opt-out wins; otherwise the most recently edited record does.
- * Undated records count as the oldest, and equal dates fall back to the higher id.
+ * The rule is fail-safe: any live opt-out wins. Otherwise a record the patient confirmed directly
+ * (explicit) wins over an implied one, even a newer one: a later import or routine save must not
+ * displace consent the patient gave in person. Among records equal on both, the most recently
+ * edited wins; undated records count as the oldest, and equal dates fall back to the higher id.
+ *
+ * <p>In SQL the order is {@code optout DESC, explicit DESC, (edit_date IS NULL), edit_date DESC,
+ * id DESC}. Anything that repairs stored duplicates, such as a migration or an import, must keep
+ * the record this rule chooses.
  *
  * @since 2026-09-24
  */
@@ -47,6 +53,12 @@ public final class ConsentRecords {
             Comparator.comparing(Consent::getEditDate, Comparator.nullsFirst(Comparator.<Date>naturalOrder()))
                     .thenComparing(Consent::getId, Comparator.nullsFirst(Comparator.<Integer>naturalOrder()))
                     .reversed();
+
+    /** The deciding record first: an opt-out, then an explicit record, then {@link #MOST_RECENT_FIRST}. */
+    public static final Comparator<Consent> DECIDING_FIRST =
+            Comparator.comparing(Consent::isOptout).reversed()
+                    .thenComparing(Comparator.comparing(Consent::isExplicit).reversed())
+                    .thenComparing(MOST_RECENT_FIRST);
 
     private ConsentRecords() {
     }
@@ -59,12 +71,9 @@ public final class ConsentRecords {
         if (live == null || live.isEmpty()) {
             return null;
         }
-        List<Consent> mostRecentFirst = new ArrayList<>(live);
-        mostRecentFirst.sort(MOST_RECENT_FIRST);
-        return mostRecentFirst.stream()
-                .filter(Consent::isOptout)
-                .findFirst()
-                .orElse(mostRecentFirst.get(0));
+        List<Consent> decidingFirst = new ArrayList<>(live);
+        decidingFirst.sort(DECIDING_FIRST);
+        return decidingFirst.get(0);
     }
 
     /**
