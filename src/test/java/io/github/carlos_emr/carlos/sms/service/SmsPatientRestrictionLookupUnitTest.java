@@ -102,12 +102,21 @@ class SmsPatientRestrictionLookupUnitTest {
     @DisplayName("should ignore a name whose ending is not a whole number that fits an int")
     void shouldIgnoreName_whenSuffixIsNotAWholeNumber() {
         when(dao.findByObjectName(DEMOGRAPHIC_PATTERN)).thenReturn(entries(
-                "_demographic$abc", "_demographic$-5", "_demographic$+5", "_demographic$5a", "_demographic$5.0",
+                "_demographic$abc", "_demographic$+5", "_demographic$5a", "_demographic$5.0",
                 "_demographic$ 5", "_demographic$5,6", "_demographic$99999999999", "_demographic$4294967301",
                 "_demographic$2147483648", "_demographic$٥"));
-        when(dao.findByObjectName(ECHART_PATTERN)).thenReturn(entries("_eChart$-1", "_eChart$x"));
+        when(dao.findByObjectName(ECHART_PATTERN)).thenReturn(entries("_eChart$x", "_eChart$--1"));
 
         assertThat(lookup.patientsWithOwnEntries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should include a negative number, since the access check would look that name up too")
+    void shouldIncludeName_whenNumberIsNegative() {
+        when(dao.findByObjectName(DEMOGRAPHIC_PATTERN)).thenReturn(entries("_demographic$-5"));
+        when(dao.findByObjectName(ECHART_PATTERN)).thenReturn(entries("_eChart$-1"));
+
+        assertThat(lookup.patientsWithOwnEntries()).containsExactly(-5, -1);
     }
 
     @Test

@@ -343,11 +343,12 @@ class SmsQueueViewModelAssemblerUnitTest {
     }
 
     @Test
-    @DisplayName("should show the counts that leave a restricted patient out even when their code differs only in case")
-    void shouldShowExcludingCounts_whenRestrictedCodeDiffersOnlyInLetterCase() {
-        // On MariaDB the code columns ignore letter case when grouping: a visible patient's 'invalid_dst' and
-        // restricted patient 99's 'INVALID_DST' come back as one group spelled 'invalid_dst'. Taking 99's
-        // 'INVALID_DST' off by spelling would find nothing, so the query itself must leave 99 out.
+    @DisplayName("should show the counts by code from the query that leaves restricted patients out, not subtract them")
+    void shouldShowCountsFromExcludingQuery_whenAPatientWithMessagesIsRestricted() {
+        // The DAO is stubbed, so this checks which query's result is shown, not the database's grouping. Why the
+        // query must leave patient 99 out: on MariaDB the code columns ignore letter case when grouping, so a
+        // visible patient's 'invalid_dst' and 99's 'INVALID_DST' come back as one group spelled 'invalid_dst',
+        // and taking 99's 'INVALID_DST' off by spelling would find nothing.
         when(dao.countOutboundByProviderAndStatus()).thenReturn(List.of(
                 new SmsQueueCountDto(SmsProviderType.STUB, "FAILED", 2)));
         when(dao.countFailedOutboundByProviderAndErrorCode(THIRTY_DAYS_AGO)).thenReturn(List.of(

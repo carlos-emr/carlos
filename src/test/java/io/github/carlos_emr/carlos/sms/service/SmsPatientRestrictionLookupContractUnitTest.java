@@ -37,7 +37,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,7 +48,11 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -69,11 +73,14 @@ import static org.mockito.Mockito.when;
 class SmsPatientRestrictionLookupContractUnitTest extends CarlosUnitTestBase {
     private static final String PROVIDER_NO = "999998";
     private static final String ROLE = "doctor";
-    private static final int PATIENT = 5;
-    private static final int OTHER_PATIENT = 6;
+    // Distinctive numbers, so a name that carries one can only have been built for that patient.
+    private static final int PATIENT = 48271;
+    private static final int OTHER_PATIENT = 48272;
 
     private final SecObjPrivilegeDao secObjPrivilegeDao = mock(SecObjPrivilegeDao.class);
     private final SecuserroleDao secUserRoleDao = mock(SecuserroleDao.class);
+    // The manager's other privilege DAO. Nothing per patient may be read through it.
+    private final SecobjprivilegeDao otherPrivilegeDao = mock(SecobjprivilegeDao.class);
     private final LoggedInInfo viewer = mock(LoggedInInfo.class);
     /** The security rows, by object name, that both the manager and the lookup read. */
     private final Map<String, List<SecObjPrivilege>> rows = new HashMap<>();
@@ -87,7 +94,7 @@ class SmsPatientRestrictionLookupContractUnitTest extends CarlosUnitTestBase {
         registerMock(SecObjPrivilegeDao.class, secObjPrivilegeDao);
         securityInfoManager = new SecurityInfoManagerImpl();
         injectDependency(securityInfoManager, "secUserRoleDao", secUserRoleDao);
-        injectDependency(securityInfoManager, "secobjprivilegeDao", mock(SecobjprivilegeDao.class));
+        injectDependency(securityInfoManager, "secobjprivilegeDao", otherPrivilegeDao);
 
         when(viewer.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         when(viewer.getSession()).thenReturn(mock(HttpSession.class));
@@ -112,10 +119,10 @@ class SmsPatientRestrictionLookupContractUnitTest extends CarlosUnitTestBase {
         });
     }
 
-    @ParameterizedTest(name = "general _demographic privilege \"{0}\"")
-    @ValueSource(strings = {"", "r", "w", "x", "o"})
+    @ParameterizedTest(name = "general _demographic privilege \"{0}\" gives read {1}")
+    @CsvSource({"'', false", "r, true", "w, true", "x, true", "o, false"})
     @DisplayName("should treat a patient without an entry of their own like any patient, whatever the general right")
-    void shouldAnswerAsForAnyPatient_whenPatientHasNoEntryOfTheirOwn(String generalPrivilege) {
+    void shouldAnswerAsForAnyPatient_whenPatientHasNoEntryOfTheirOwn(String generalPrivilege, boolean readsDemographics) {
         if (!generalPrivilege.isEmpty()) {
             grant("_demographic", generalPrivilege);
         }
@@ -124,9 +131,12 @@ class SmsPatientRestrictionLookupContractUnitTest extends CarlosUnitTestBase {
         grant("_eChart$" + OTHER_PATIENT, "o");
 
         assertThat(securityInfoManager.isAllowedAccessToPatientRecord(viewer, PATIENT)).isTrue();
+        // Stated outright, not only compared: hasPrivilege answers false when it fails, so two failures would
+        // otherwise compare equal.
+        assertThat(securityInfoManager.hasPrivilege(
+                viewer, "_demographic", SecurityInfoManager.READ, (String) null)).isEqualTo(readsDemographics);
         assertThat(securityInfoManager.hasPrivilege(viewer, "_demographic", SecurityInfoManager.READ, PATIENT))
-                .isEqualTo(securityInfoManager.hasPrivilege(
-                        viewer, "_demographic", SecurityInfoManager.READ, (String) null));
+                .isEqualTo(readsDemographics);
         assertThat(new SmsPatientRestrictionLookup(secObjPrivilegeDao).patientsWithOwnEntries())
                 .doesNotContain(PATIENT);
     }
@@ -161,11 +171,16 @@ class SmsPatientRestrictionLookupContractUnitTest extends CarlosUnitTestBase {
         securityInfoManager.isAllowedAccessToPatientRecord(viewer, PATIENT);
         securityInfoManager.hasPrivilege(viewer, "_demographic", SecurityInfoManager.READ, PATIENT);
 
-        List<String> perPatientNames = namesLookedUp.stream().filter(name -> name.contains("$")).toList();
-        assertThat(perPatientNames)
-                .isNotEmpty()
-                .allSatisfy(name -> assertThat(SmsPatientRestrictionLookup.PREFIXES)
-                        .anySatisfy(prefix -> assertThat(name).isEqualTo(prefix + PATIENT)));
+        // Every name read is either the general object or a per-patient name the lookup reads, whatever form a
+        // new per-patient name took (with or without "$").
+        List<String> allowed = new ArrayList<>(List.of("_demographic"));
+        SmsPatientRestrictionLookup.PREFIXES.forEach(prefix -> allowed.add(prefix + PATIENT));
+        assertThat(namesLookedUp).isNotEmpty().allSatisfy(name -> assertThat(allowed).contains(name));
+        assertThat(namesLookedUp).anySatisfy(name -> assertThat(name).contains(String.valueOf(PATIENT)));
+        // And they were read only this way: no other finder, and not through the manager's other DAO.
+        verify(secObjPrivilegeDao, atLeastOnce()).findByObjectNames(any());
+        verifyNoMoreInteractions(secObjPrivilegeDao);
+        verifyNoInteractions(otherPrivilegeDao);
     }
 
     /** A row for the viewer's role on {@code objectName}. */

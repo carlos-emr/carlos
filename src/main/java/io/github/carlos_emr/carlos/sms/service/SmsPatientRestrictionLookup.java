@@ -47,6 +47,11 @@ import java.util.regex.Pattern;
  * would find for a patient is among the names it returns; the extra names {@code LIKE} lets through (its
  * {@code _} stands for any one character) only name patients too many. Only the demographic number after the
  * prefix is read here.
+ * <p>
+ * That relies on the column's collation comparing one character with one character, as
+ * {@code utf8mb4_general_ci} (the collation of {@code secObjPrivilege}) does: then the prefix of any matching
+ * name is exactly as many characters long as {@code _demographic$} or {@code _eChart$}. A collation that
+ * ignores some characters or expands others (the UCA collations) would break that, and this class with it.
  *
  * @since 2026-09-29
  */
@@ -54,8 +59,9 @@ import java.util.regex.Pattern;
 public class SmsPatientRestrictionLookup {
     /** The object name prefixes of per-patient entries. The patient's demographic number follows. */
     static final List<String> PREFIXES = List.of("_demographic$", "_eChart$");
-    // Digits only, and few enough to fit an int most of the time; the rest is caught when parsing.
-    private static final Pattern DIGITS = Pattern.compile("[0-9]{1,10}");
+    // Digits, with a minus sign allowed because SecurityInfoManager would look a negative number up too, and
+    // few enough to fit an int most of the time; the rest is caught when parsing.
+    private static final Pattern DIGITS = Pattern.compile("-?[0-9]{1,10}");
 
     private final SecObjPrivilegeDao secObjPrivilegeDao;
 
@@ -89,8 +95,7 @@ public class SmsPatientRestrictionLookup {
      *                   database has already decided that the name starts with it
      * @param objectName an object name the database returned for {@code prefix + "%"}
      * @return the demographic number after the first {@code prefix.length()} characters, spaces at the end
-     *         ignored, or {@code null} when that is not a whole number (digits only, so never negative) that
-     *         fits an int
+     *         ignored, or {@code null} when that is not a whole number that fits an int
      */
     static Integer demographicNumber(String prefix, String objectName) {
         if (objectName == null || objectName.length() <= prefix.length()) {
