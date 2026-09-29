@@ -390,6 +390,9 @@ public class PortalEmailDeliveryService {
             }
         } catch (RuntimeException failure) {
             logFailure("recovery " + decision + " did not complete", log, failure);
+            // The decision may have taken effect in part, such as a send staff confirmed whose
+            // password could not then be published. Record who decided, with the state reached.
+            audit(user, log, "PortalEmailDeliveryService.recover." + decision + ".incomplete");
             throw failure;
         }
         audit(user, log, "PortalEmailDeliveryService.recover." + decision);

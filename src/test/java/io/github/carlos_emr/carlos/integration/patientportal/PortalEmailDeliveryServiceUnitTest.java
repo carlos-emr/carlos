@@ -162,6 +162,20 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
                 eq("Email was not sent. Its portal password has been revoked."), any());
     }
 
+    /** Staff asserted the send; that decision is recorded even when publishing then fails. */
+    @Test void shouldAuditTheDecision_whenPublishingFailsAfterStaffConfirmTheSend() {
+        stored(PortalDeliveryState.SENDING);
+        log.setStatus(EmailStatus.PENDING);
+        when(portal.publishUnlockSecret(eq(77L), any())).thenThrow(new IllegalStateException("outage"));
+        assertThatThrownBy(() -> delivery.recover(user, 45, "confirmSent", true))
+                .isInstanceOf(IllegalStateException.class);
+        // logActionMock is the base class's LogAction mock.
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(eq(user),
+                eq("PortalEmailDeliveryService.recover.confirmSent.incomplete"), eq("Email"), eq("45"),
+                eq("123"), eq("portalState=SENT&portalSecretId=77")));
+        assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.SENT);
+    }
+
     @Test void shouldRecoverLostCreateResponse_usingSameStoredReference() {
         when(portal.createUnlockSecret(eq(123), anyString(), anyString(), any()))
                 .thenThrow(new IllegalStateException("timeout"));
