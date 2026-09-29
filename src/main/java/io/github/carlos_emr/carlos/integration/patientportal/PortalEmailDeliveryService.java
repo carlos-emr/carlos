@@ -408,15 +408,19 @@ public class PortalEmailDeliveryService {
     }
 
     /**
-     * Recovery that finished first has already stored FAILED, "not sent", which the provider's
-     * acceptance now contradicts. Store the truth, so the row reads as sent with its password
-     * withdrawn and keeps its badge. When recovery has not written its status yet the row is still
-     * PENDING, this changes nothing, and the caller's own status write carries the note.
+     * Stores that the email was sent although its password was withdrawn, so the row reads as
+     * inconsistent and keeps its badge. Recovery writes FAILED, "not sent", when it finishes, which
+     * may be before or after this point: a row still PENDING is settled here, so recovery's later
+     * write cannot land, and a row recovery already marked FAILED is corrected.
      */
     private void recordSentAfterRevocation(EmailLog log) {
         try {
-            logs.transitionEmailStatus(log.getId(), EmailStatus.FAILED, EmailStatus.SUCCESS,
-                    SENT_AFTER_REVOCATION, new Date());
+            Date now = new Date();
+            if (logs.transitionEmailStatus(log.getId(), EmailStatus.PENDING, EmailStatus.SUCCESS,
+                    SENT_AFTER_REVOCATION, now) == 0) {
+                logs.transitionEmailStatus(log.getId(), EmailStatus.FAILED, EmailStatus.SUCCESS,
+                        SENT_AFTER_REVOCATION, now);
+            }
         } catch (RuntimeException unrecorded) {
             logger.error("Portal email accepted after revocation, and that could not be recorded; "
                     + "emailLogId={}; causeType={}", log.getId(), unrecorded.getClass().getSimpleName());

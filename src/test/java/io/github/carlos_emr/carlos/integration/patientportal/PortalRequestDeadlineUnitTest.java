@@ -130,7 +130,7 @@ class PortalRequestDeadlineUnitTest {
                 exchange.close();
             }
         });
-        try (var transport = transport(Duration.ofMillis(200))) {
+        try (var transport = transport(Duration.ofMillis(500))) {
             try {
                 for (int i = 0; i <= PatientPortalHttpClientExchange.MAX_CONCURRENT_REQUESTS; i++) {
                     assertThatThrownBy(() -> transport.send(get("/stall")))

@@ -86,6 +86,7 @@ class PortalAccountAndPanelActionUnitTest {
     private MockHttpServletResponse response;
     private MockedStatic<LoggedInInfo> loggedInInfoStatic;
     private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockedStatic<LogAction> audit;
 
     @BeforeEach
     void setUp() {
@@ -98,6 +99,7 @@ class PortalAccountAndPanelActionUnitTest {
         request.setMethod("POST");
         request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
 
+        audit = mockStatic(LogAction.class);
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
@@ -129,6 +131,9 @@ class PortalAccountAndPanelActionUnitTest {
         }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
+        }
+        if (audit != null) {
+            audit.close();
         }
     }
 
@@ -211,13 +216,11 @@ class PortalAccountAndPanelActionUnitTest {
             when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
                     .thenReturn(acknowledgement());
 
-            try (var audit = mockStatic(LogAction.class)) {
-                accountAction().execute();
+            accountAction().execute();
 
-                audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
-                        eq("PortalAccount2Action.unlock"), eq("PatientPortal"), anyString(),
-                        eq(String.valueOf(DEMOGRAPHIC_NO)), eq("")));
-            }
+            audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
+                    eq("PortalAccount2Action.unlock"), eq("PatientPortal"), anyString(),
+                    eq(String.valueOf(DEMOGRAPHIC_NO)), eq("")));
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentAsString())
@@ -265,18 +268,31 @@ class PortalAccountAndPanelActionUnitTest {
                             eq(DEMOGRAPHIC_NO), eq(false), eq("left_practice"), any()))
                     .thenReturn(acknowledgement());
 
-            try (var audit = mockStatic(LogAction.class)) {
-                accountAction().execute();
+            accountAction().execute();
 
-                // The audit row says what was done, never the staff member's free-text reason.
-                audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
-                        eq("PortalAccount2Action.access"), eq("PatientPortal"), anyString(),
-                        eq(String.valueOf(DEMOGRAPHIC_NO)), eq("enabled=false")));
-            }
+            // The audit row says what was done, never the staff member's free-text reason.
+            audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
+                    eq("PortalAccount2Action.access"), eq("PatientPortal"), anyString(),
+                    eq(String.valueOf(DEMOGRAPHIC_NO)), eq("enabled=false")));
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             verify(patientPortalService)
                     .setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq("left_practice"), any());
+        }
+
+        /** The portal may have applied a change whose answer CARLOS could not read. */
+        @Test
+        @DisplayName("should audit an unconfirmed change when the portal's answer cannot be read")
+        void shouldAuditUnconfirmedChange_whenTheAnswerCannotBeRead() throws Exception {
+            request.setParameter("method", "unlock");
+            when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
+                    .thenThrow(PatientPortalException.ofMalformedResponse(200, "/x/{id}", null));
+
+            accountAction().execute();
+
+            audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
+                    eq("PortalAccount2Action.unlock.unconfirmed"), eq("PatientPortal"), eq("0"),
+                    eq(String.valueOf(DEMOGRAPHIC_NO)), eq("outcome=unconfirmed")));
         }
 
         @Test
@@ -286,11 +302,9 @@ class PortalAccountAndPanelActionUnitTest {
             when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
                     .thenThrow(PatientPortalException.ofStatus(403, "/x/{id}", null));
 
-            try (var audit = mockStatic(LogAction.class)) {
-                accountAction().execute();
+            accountAction().execute();
 
-                audit.verifyNoInteractions();
-            }
+            audit.verifyNoInteractions();
         }
 
         @Test

@@ -147,6 +147,7 @@ public class PortalAccount2Action extends PortalJsonAction {
             }
             return access(portal, request, response, loggedInInfo, demographicNo, staff);
         } catch (PatientPortalException exception) {
+            auditIfUnconfirmed(loggedInInfo, "PortalAccount2Action." + method, demographicNo, exception);
             return portalFailure(response, exception);
         }
     }

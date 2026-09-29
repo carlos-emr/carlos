@@ -107,6 +107,7 @@ public class PortalInvite2Action extends PortalJsonAction {
             payload.put("status", invite.status());
             return write(response, HttpServletResponse.SC_OK, payload);
         } catch (PatientPortalException exception) {
+            auditIfUnconfirmed(session, "PortalInvite2Action.revoke", patient, exception);
             return portalFailure(response, exception);
         }
     }
