@@ -1081,6 +1081,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if note has not changed don't save
             note = this.caseManagementMgr.getNote(noteId);
+            // THE NOTE MUST BE IN THE CHART WHOSE LOCK WAS CHECKED. noteId comes from the request,
+            // and everything below rewrites that note -- its text, signer, archived flag and every
+            // extension row -- so a note from another patient's chart is refused here rather than
+            // trusted because this patient's lock is held.
+            if (note == null || !Objects.equals(demo, note.getDemographic_no())) {
+                throw new SecurityException("CPP note save references a note outside this patient chart");
+            }
             if (strNote.equals(note.getNote()) && !issueChange.equals("true") && !extChanged && (archived == null || archived.equalsIgnoreCase("false")))
                 return null;
         }

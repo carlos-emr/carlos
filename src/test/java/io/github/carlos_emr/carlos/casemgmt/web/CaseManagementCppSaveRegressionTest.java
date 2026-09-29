@@ -344,7 +344,13 @@ class CaseManagementCppSaveRegressionTest {
         assertThat(blockStart)
                 .as("issueNoteSave still reads the note's existing extensions for change detection")
                 .isGreaterThan(-1);
-        String block = action.substring(blockStart, action.indexOf("// if note has not changed don't save", blockStart));
+        int blockEnd = action.indexOf("// if note has not changed don't save", blockStart);
+        String block = action.substring(blockStart, blockEnd);
+        assertThat(action.substring(blockEnd, action.indexOf("note.setNote(strNote);", blockEnd)))
+                .as("the existing note named by the request's noteId must belong to the chart whose "
+                        + "lock was checked before anything rewrites it")
+                .containsPattern("!\\s*Objects\\.equals\\(\\s*demo\\s*,\\s*note\\.getDemographic_no\\(\\)\\s*\\)")
+                .contains("throw new SecurityException(");
 
         assertThat(block)
                 .as("every row for the key is compared, so a disagreeing duplicate is itself a change")
