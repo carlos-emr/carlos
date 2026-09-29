@@ -43,11 +43,12 @@ CREATE TABLE IF NOT EXISTS patient_portal_invite_delivery (
 
 -- Let the `doctor` role invite patients.
 --
--- V1.0.41 seeded the portal objects to `admin` only, and `admin` holds no `_demographic` right in
--- either province's baseline data, so no user could reach a patient's portal panel without an
--- administrator granting rights by hand. `doctor` is the only non-admin role the baseline grants
--- `_email`, which sending an invitation also requires, so it is the only role that can complete an
--- invitation today.
+-- V1.0.41 granted `_portal.invite` to `admin` only, and `admin` holds no `_demographic` right in
+-- either province's baseline data, so no user could invite a patient without an administrator
+-- granting rights by hand. (For portal email, V1.0.41 also gives the doctor and nursing roles
+-- read-only `_portal.account` and full `_portal.secret`.) `doctor` is the only non-admin role the
+-- baseline grants `_email`, which sending an invitation also requires, so it is the only role that
+-- can complete an invitation today.
 --
 -- `_portal.invite` is granted in full: issuing, resending, revoking and resolving a delivery are one
 -- job. `_portal.account` is granted read-only, so the panel can show whether the patient already has
