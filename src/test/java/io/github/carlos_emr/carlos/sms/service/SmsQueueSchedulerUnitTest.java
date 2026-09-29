@@ -11,8 +11,15 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -145,6 +152,70 @@ class SmsQueueSchedulerUnitTest {
         } finally {
             scheduler.stop();
         }
+    }
+
+    @Test
+    @DisplayName("turning the scheduler off lets a run in progress finish, and shutdown interrupts it")
+    void shouldLetRunFinish_whenTurnedOff_andInterruptIt_whenShutDown() throws Exception {
+        CountDownLatch started = new CountDownLatch(2);
+        CountDownLatch release = new CountDownLatch(1);
+        // One stub for both runs: stubbing again from this thread would itself call the first answer.
+        AtomicReference<CountDownLatch> gate = new AtomicReference<>(release);
+        AtomicInteger interrupted = new AtomicInteger();
+        AtomicInteger finished = new AtomicInteger();
+        when(carlosProperties.getProperty(eq("sms.queue.scheduler.intervalSeconds"), anyString())).thenReturn("1");
+        when(smsConfigService.sendingEnabled()).thenReturn(true);
+        when(smsQueueWorker.processDueMessages(anyInt())).thenAnswer(invocation -> {
+            CountDownLatch current = gate.get();
+            started.countDown();
+            try {
+                current.await(10, TimeUnit.SECONDS);
+                finished.incrementAndGet();
+            } catch (InterruptedException e) {
+                interrupted.incrementAndGet();
+            }
+            return 0;
+        });
+        SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(true));
+            await(started, 1);
+
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(false));
+            assertThat(scheduler.isRunning()).isFalse();
+            release.countDown();
+            awaitValue(finished, 1);
+            assertThat(interrupted).hasValue(0);
+
+            // Back on: the next run blocks on a gate nobody opens, and shutdown does interrupt it.
+            gate.set(new CountDownLatch(1));
+            scheduler.onConfigChanged(new SmsConfigChangedEvent(true));
+            await(started, 0);
+            scheduler.stop();
+            awaitValue(interrupted, 1);
+            assertThat(finished).hasValue(1);
+        } finally {
+            release.countDown();
+            scheduler.stop();
+        }
+    }
+
+    private static void awaitValue(AtomicInteger counter, int expected) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (counter.get() != expected && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+        assertThat(counter).hasValue(expected);
+    }
+
+    /** Waits until {@code latch} has counted down to {@code remaining}. */
+    private static void await(CountDownLatch latch, long remaining) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (latch.getCount() > remaining && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+        assertThat(latch.getCount()).isEqualTo(remaining);
     }
 
     @Test

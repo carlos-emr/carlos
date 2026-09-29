@@ -15,6 +15,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -29,7 +30,10 @@ public class SmsQueueScheduler {
 
     private final SmsQueueProcessingService smsQueueWorker;
     private final SmsConfigService configService;
+    // One single-thread executor for the scheduler's whole life, so runs can never overlap. Turning the
+    // scheduler off cancels the schedule, not the executor.
     private ScheduledExecutorService executorService;
+    private ScheduledFuture<?> schedule;
 
     /** For tests: no stored settings, so the scheduler follows the property. */
     SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker) {
@@ -44,7 +48,7 @@ public class SmsQueueScheduler {
 
     /** @return whether the scheduler is running in this server right now */
     public synchronized boolean isRunning() {
-        return executorService != null;
+        return schedule != null;
     }
 
     /**
@@ -67,9 +71,9 @@ public class SmsQueueScheduler {
      * marked as sending with its outcome unknown.
      */
     private synchronized void stopAfterCurrentRun() {
-        if (executorService != null) {
-            executorService.shutdown();
-            executorService = null;
+        if (schedule != null) {
+            schedule.cancel(false);
+            schedule = null;
         }
     }
 
@@ -90,7 +94,7 @@ public class SmsQueueScheduler {
     }
 
     private synchronized void startExecutor() {
-        if (executorService != null) {
+        if (schedule != null) {
             return;
         }
         LOGGER.info(
@@ -98,10 +102,12 @@ public class SmsQueueScheduler {
                 intervalSeconds(),
                 batchSize()
         );
-        executorService = Executors.newSingleThreadScheduledExecutor(
-                new DeamonThreadFactory(SmsQueueScheduler.class.getSimpleName(), Thread.NORM_PRIORITY)
-        );
-        executorService.scheduleWithFixedDelay(
+        if (executorService == null) {
+            executorService = Executors.newSingleThreadScheduledExecutor(
+                    new DeamonThreadFactory(SmsQueueScheduler.class.getSimpleName(), Thread.NORM_PRIORITY)
+            );
+        }
+        schedule = executorService.scheduleWithFixedDelay(
                 this::runSafely,
                 intervalSeconds(),
                 intervalSeconds(),
@@ -109,8 +115,10 @@ public class SmsQueueScheduler {
         );
     }
 
+    /** Stops at once, interrupting a run in progress. For application shutdown. */
     @PreDestroy
     public synchronized void stop() {
+        schedule = null;
         if (executorService != null) {
             executorService.shutdownNow();
             executorService = null;
