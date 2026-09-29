@@ -158,6 +158,26 @@ class MDSResultsDataConsultLabUnitTest extends CarlosUnitTestBase {
                 .extracting(LabResultData::getSegmentID).containsExactly("30");
     }
 
+    @Test
+    void shouldKeepBothExplicitSources_whenAttachedLabNumbersOverlap() {
+        var cml = new ConsultDocs(456, 30, "L", "999998");
+        cml.setLabType("CML");
+        var mds = new ConsultDocs(456, 30, "L", "999998");
+        mds.setLabType("MDS");
+        assertThat(LabResultData.attachedLabKeys(List.of(
+                new Object[]{cml, typedRouting(1, 30, "CML", 123)},
+                new Object[]{mds, typedRouting(2, 30, "MDS", 123)}), DEMOGRAPHIC_NO))
+                .containsExactlyInAnyOrder("CML:30", "MDS:30");
+    }
+
+    @Test
+    void shouldIgnoreMismatchedSource_whenRoutingDoesNotMatchStoredSource() {
+        var cml = new ConsultDocs(456, 30, "L", "999998");
+        cml.setLabType("CML");
+        assertThat(LabResultData.attachedLabKeys(java.util.Collections.singletonList(
+                new Object[]{cml, typedRouting(1, 30, "MDS", 123)}), DEMOGRAPHIC_NO)).isEmpty();
+    }
+
     private static PatientLabRouting typedRouting(int routingId, int labNo, String labType, int demographicNo) {
         PatientLabRouting routing = new PatientLabRouting(labNo, labType, demographicNo);
         ReflectionTestUtils.setField(routing, "id", routingId);

@@ -5,21 +5,24 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferralAttachmentUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Collection;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Set;
-
-import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 public class DocumentAttach {
-    private static final Logger logger = MiscUtils.getLogger();
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private final EFormDocsDao eFormDocsDao = SpringUtils.getBean(EFormDocsDao.class);
 
@@ -34,169 +37,98 @@ public class DocumentAttach {
     private Boolean editOnOcean = false;
 
     private Integer demographicNo;
-
-    static final String ATTACHMENT_NOT_OWNED = "attachment does not belong to the consultation patient";
+    private io.github.carlos_emr.carlos.utility.LoggedInInfo loggedInInfo;
 
     public DocumentAttach() {
     }
-
-    /**
-     * Verifies consult attachment ids against {@link #demographicNo}; {@code null} only on the
-     * eForm-attachment path, which never calls {@link #attachToConsult}.
-     */
-    private AttachmentOwnershipService attachmentOwnershipService;
 
     public DocumentAttach(Integer demographicNo, Boolean editOnOcean) {
         this.demographicNo = demographicNo;
         this.editOnOcean = editOnOcean;
     }
 
-    /**
-     * Consultation attach/detach bound to one patient, with attachment ownership enforced.
-     *
-     * @param demographicNo patient the consultation request belongs to
-     * @param editOnOcean whether new attachments are also queued for Ocean eReferral
-     * @param attachmentOwnershipService verifies that newly attached ids belong to {@code demographicNo}
-     */
-    public DocumentAttach(Integer demographicNo, Boolean editOnOcean, AttachmentOwnershipService attachmentOwnershipService) {
+    public DocumentAttach(io.github.carlos_emr.carlos.utility.LoggedInInfo loggedInInfo,
+                          Integer demographicNo, Boolean editOnOcean) {
         this(demographicNo, editOnOcean);
-        this.attachmentOwnershipService = attachmentOwnershipService;
+        this.loggedInInfo = loggedInInfo;
     }
 
-    /**
-     * Replaces the consultation's attachments of one type with {@code attachments}.
-     *
-     * <p>Every DOC/LAB/EFORM/HRM id in {@code attachments} is checked against the consultation's
-     * patient (issue #3867), because the renderers that print, fax and send consultation
-     * attachments to Ocean resolve each id on its own and a foreign id would disclose another
-     * patient's record:</p>
-     * <ul>
-     *   <li>An id that is <em>not</em> already attached must belong to the patient; otherwise the
-     *       whole call is rejected before any detach or attach, so the consultation is unchanged.</li>
-     *   <li>An id that <em>is</em> already attached but no longer verifies (a legacy foreign row
-     *       written before this check existed, a document deleted since, a lab re-matched to
-     *       another patient) is detached instead of kept. Rejecting it would make every later save
-     *       of that consultation fail, which the user cannot fix from the form; keeping it would
-     *       leave the disclosure in place. Only the count is logged.</li>
-     * </ul>
-     * <p>{@link DocumentType#FORM} ids have no common owner column and are not checked here.</p>
-     *
-     * @throws SecurityException if a newly attached id is unknown, malformed or belongs to another
-     *                           patient, or if no ownership verifier is configured
-     */
+    private boolean validateSelection(DocumentType type, int patient, Collection<String> selected,
+                                      Collection<String> existing) {
+        if (loggedInInfo == null) {
+            // The deprecated lab helpers validate their caller separately; source/owner validation
+            // below still applies. No non-lab caller may bypass the access policy.
+            if (type != DocumentType.LAB) throw new SecurityException("Attachment session is required");
+            return true;
+        }
+        return SpringUtils.getBean(AttachmentSelectionAccess.class)
+                .validate(loggedInInfo, type, patient, selected, existing);
+    }
+
     public void attachToConsult(String[] attachments, DocumentType documentType, String providerNo, Integer requestId) {
-        List<String> oldList = findConsultAttachmentIds(documentType, requestId);
-        List<String> currentList = retainVerifiedAttachments(toList(attachments), oldList, documentType);
-        detachFromConsult(currentList, oldList, documentType, requestId);
-        attachToConsult(currentList, oldList, documentType, providerNo, requestId, findOceanSendableIds(currentList, oldList, documentType));
-    }
-
-    /**
-     * The newly attached ids that may also be queued for Ocean: the ones the Ocean feed
-     * ({@code ConsultationManager#getEReferAttachments}) will actually render and send, i.e.
-     * {@link AttachmentOwnershipService#findOceanSendableIds}. A legacy CML/MDS/BCP lab is
-     * attachable to the consultation but never rendered, so queuing it would only be dropped at
-     * send time; and {@code ERefer2Action}'s attach path already refuses it. The consultation
-     * submits a lab as a bare number with no lab type, so a number the patient holds under both
-     * HL7 and an enabled legacy type is ambiguous and is not queued either: the feed would resolve
-     * it as the HL7 lab even if the legacy one was the one attached. {@code null} means "no filter".
-     */
-    private Set<Integer> findOceanSendableIds(List<String> currentList, List<String> oldList, DocumentType documentType) {
-        if (!editOnOcean || documentType != DocumentType.LAB || attachmentOwnershipService == null) {
-            return null;
-        }
-        Set<Integer> newIds = new HashSet<>();
-        for (String docId : currentList) {
-            if (!oldList.contains(docId)) {
-                newIds.add(Integer.valueOf(docId));
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+            var owner = SpringUtils.getBean(ConsultationRequestDao.class).lockForAttachmentSync(requestId);
+            if (owner == null || owner.getDemographicId() == null
+                    || (demographicNo != null && !demographicNo.equals(owner.getDemographicId()))) {
+                throw new IllegalArgumentException("Attachment parent does not belong to this patient");
             }
-        }
-        return newIds.isEmpty() ? newIds : attachmentOwnershipService.findOceanSendableIds(documentType, demographicNo, newIds);
+            int patient = owner.getDemographicId();
+
+            if (documentType == DocumentType.LAB) {
+                syncConsultLabs(attachments, providerNo, requestId, patient);
+            } else {
+                syncConsultDocuments(attachments, documentType, providerNo, requestId, patient);
+            }
+        });
     }
 
     /**
-     * Runs the ownership check of {@link #attachToConsult(String[], DocumentType, String, Integer)}
-     * without writing anything, so a caller that saves several attachment types (and the
-     * consultation itself) can reject a bad request before its first write.
+     * Validates all selections before the consultation save starts. The writer repeats these
+     * checks under the parent lock, so this preflight never replaces transactional validation.
      *
-     * @param attachments submitted ids of one type; {@code null} is treated as empty
-     * @param documentType attachment type
-     * @param requestId the consultation being edited, or {@code null} for a consultation not yet
-     *                  saved (every id is then new)
-     * @throws SecurityException if a newly attached id is unknown, malformed or belongs to another
-     *                           patient, or if no ownership verifier is configured
+     * @param attachments selected IDs, including source-qualified lab IDs
+     * @param documentType type being replaced
+     * @param requestId stored consultation ID, or null for a new consultation
+     * @throws SecurityException when attachment read access is denied
+     * @throws IllegalArgumentException when the parent or selection is invalid
      */
     public void verifyConsultAttachments(String[] attachments, DocumentType documentType, Integer requestId) {
-        List<String> oldList = requestId == null ? new ArrayList<>() : findConsultAttachmentIds(documentType, requestId);
-        retainVerifiedAttachments(toList(attachments), oldList, documentType);
-    }
-
-    private List<String> findConsultAttachmentIds(DocumentType documentType, Integer requestId) {
-        List<String> oldList = new ArrayList<>();
-        for (ConsultDocs consultDoc : consultDocsDao.findByRequestIdDocType(requestId, documentType.getType())) {
-            oldList.add(Integer.toString(consultDoc.getDocumentNo()));
-        }
-        return oldList;
-    }
-
-    private static List<String> toList(String[] attachments) {
-        return attachments == null ? new ArrayList<>() : new ArrayList<>(Arrays.asList(attachments));
-    }
-
-    /**
-     * Returns the submitted ids to keep: every owned id, minus already-attached ids that no longer
-     * verify. Throws before any write if a new id is malformed or not owned.
-     *
-     * <p>Kept ids are returned in canonical form ({@code Integer.toString}), once each, because
-     * {@link #findConsultAttachmentIds} lists stored ids that way and the attach/detach diff
-     * compares strings: a resubmitted {@code "007"} or {@code "+7"} would otherwise be detached as
-     * {@code "7"} and re-attached as a new row (and queued for Ocean again).</p>
-     */
-    private List<String> retainVerifiedAttachments(List<String> currentList, List<String> oldList, DocumentType documentType) {
-        if (!AttachmentOwnershipService.isVerifiable(documentType) || currentList.isEmpty()) {
-            return currentList;
-        }
-        Set<Integer> ids = new HashSet<>();
-        for (String docId : currentList) {
-            ids.add(parseAttachmentId(docId));
-        }
-        // Fail closed: a caller that did not wire a verifier must not attach unverified ids.
-        if (attachmentOwnershipService == null) {
-            throw new SecurityException(ATTACHMENT_NOT_OWNED);
-        }
-        Set<Integer> owned = attachmentOwnershipService.findAttachableIds(documentType, demographicNo, ids);
-
-        Set<String> retained = new java.util.LinkedHashSet<>();
-        int dropped = 0;
-        for (String docId : currentList) {
-            Integer id = parseAttachmentId(docId);
-            String canonicalId = Integer.toString(id);
-            if (owned.contains(id)) {
-                retained.add(canonicalId);
-            } else if (oldList.contains(canonicalId)) {
-                dropped++;
-            } else {
-                throw new SecurityException(ATTACHMENT_NOT_OWNED);
+        if (demographicNo == null) throw new IllegalArgumentException("Consultation patient is required");
+        if (requestId != null) {
+            var parent = SpringUtils.getBean(ConsultationRequestDao.class).find(requestId);
+            if (parent == null || !demographicNo.equals(parent.getDemographicId())) {
+                throw new IllegalArgumentException("Attachment parent does not belong to this patient");
             }
         }
-        if (dropped > 0) {
-            // Count only: attachment ids and the patient are PHI-correlating identifiers.
-            logger.warn("Detached {} existing consultation attachment(s) that no longer verify for the consultation patient", dropped);
+        List<ConsultDocs> rows = requestId == null ? List.of()
+                : consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
+        List<String> selected = attachments == null ? List.of() : Arrays.asList(attachments);
+        if (documentType == DocumentType.LAB) {
+            Set<LabAttachmentReference> existing = new LinkedHashSet<>();
+            for (ConsultDocs row : rows) existing.add(LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo()));
+            if (validateSelection(documentType, demographicNo, selected,
+                    existing.stream().map(LabAttachmentReference::key).toList())) {
+                selectedLabs(selected.toArray(String[]::new), demographicNo, existing);
+            }
+        } else {
+            List<String> existing = rows.stream().map(row -> Integer.toString(row.getDocumentNo())).toList();
+            validateSelection(documentType, demographicNo, selected, existing);
         }
-        return new ArrayList<>(retained);
     }
 
-    private static Integer parseAttachmentId(String docId) {
-        try {
-            return Integer.valueOf(docId);
-        } catch (NumberFormatException e) {
-            throw new SecurityException(ATTACHMENT_NOT_OWNED);
+    private void syncConsultDocuments(String[] attachments, DocumentType documentType, String providerNo, Integer requestId, int patient) {
+        List<String> currentList = new ArrayList<>(new LinkedHashSet<>(Arrays.asList(attachments)));
+        List<ConsultDocs> consultDocsList = consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, documentType.getType());
+        List<String> oldList = new ArrayList<>();
+        for (ConsultDocs consultDoc : consultDocsList) {
+            oldList.add(Integer.toString(consultDoc.getDocumentNo()));
         }
+        if (!validateSelection(documentType, patient, currentList, oldList)) return;
+        detachFromConsult(currentList, oldList, documentType, requestId);
+        attachToConsult(currentList, oldList, documentType, providerNo, requestId);
     }
 
-    private void attachToConsult(List<String> currentList, List<String> oldList, DocumentType documentType, String providerNo,
-                                 Integer requestId, Set<Integer> oceanSendableIds) {
-        int notQueued = 0;
+    private void attachToConsult(List<String> currentList, List<String> oldList, DocumentType documentType, String providerNo, Integer requestId) {
         for (String docId : currentList) {
             if (oldList.contains(docId)) {
                 continue;
@@ -204,15 +136,9 @@ public class DocumentAttach {
             ConsultDocs consultDoc = new ConsultDocs(requestId, Integer.parseInt(docId), documentType.getType(), providerNo);
             consultDocsDao.persist(consultDoc);
 
-            if (editOnOcean && oceanSendableIds != null && !oceanSendableIds.contains(Integer.valueOf(docId))) {
-                notQueued++;
-            } else if (editOnOcean) {
+            if (Boolean.TRUE.equals(editOnOcean)) {
                 OceanEReferralAttachmentUtil.attachOceanEReferralConsult(docId, demographicNo, documentType.getType());
             }
-        }
-        if (notQueued > 0) {
-            // Count only: attachment ids and the patient are PHI-correlating identifiers.
-            logger.warn("Attached {} consultation lab(s) that Ocean cannot receive (non-HL7 or ambiguous lab number); not queued for Ocean", notQueued);
         }
     }
 
@@ -227,19 +153,37 @@ public class DocumentAttach {
                 consultDocsDao.merge(consultDoc);
             }
 
-            if (editOnOcean) {
+            if (Boolean.TRUE.equals(editOnOcean)) {
                 OceanEReferralAttachmentUtil.detachOceanEReferralConsult(docId, demographicNo, documentType.getType());
             }
         }
     }
 
     public void attachToEForm(String[] attachments, DocumentType documentType, String providerNo, Integer fdid) {
-        List<String> currentList = new ArrayList<>(Arrays.asList(attachments));
-        List<EFormDocs> eFormDocsList = eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType());
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+            var owner = SpringUtils.getBean(EFormDataDao.class).lockForAttachmentSync(fdid);
+            if (owner == null || owner.getDemographicId() == null
+                    || (demographicNo != null && !demographicNo.equals(owner.getDemographicId()))) {
+                throw new IllegalArgumentException("Attachment parent does not belong to this patient");
+            }
+            int patient = owner.getDemographicId();
+
+            if (documentType == DocumentType.LAB) {
+                syncEFormLabs(attachments, providerNo, fdid, patient);
+            } else {
+                syncEFormDocuments(attachments, documentType, providerNo, fdid, patient);
+            }
+        });
+    }
+
+    private void syncEFormDocuments(String[] attachments, DocumentType documentType, String providerNo, Integer fdid, int patient) {
+        List<String> currentList = new ArrayList<>(new LinkedHashSet<>(Arrays.asList(attachments)));
+        List<EFormDocs> eFormDocsList = eFormDocsDao.findByFdidIdDocTypeForUpdate(fdid, documentType.getType());
         List<String> oldList = new ArrayList<>();
         for (EFormDocs eFormDoc : eFormDocsList) {
             oldList.add(Integer.toString(eFormDoc.getDocumentNo()));
         }
+        if (!validateSelection(documentType, patient, currentList, oldList)) return;
         detachFromEForm(currentList, oldList, documentType, fdid);
         attachToEForm(currentList, oldList, documentType, providerNo, fdid);
     }
@@ -266,4 +210,77 @@ public class DocumentAttach {
             }
         }
     }
+    private Set<LabAttachmentReference> selectedLabs(String[] values, int patient,
+                                                     Set<LabAttachmentReference> existing) {
+        PatientLabRoutingDao routing = SpringUtils.getBean(PatientLabRoutingDao.class);
+        Set<LabAttachmentReference> selected = new LinkedHashSet<>();
+        for (String value : values) {
+            if (value != null && value.startsWith(LabAttachmentReference.UNRESOLVED + ":")) {
+                LabAttachmentReference unresolved = LabAttachmentReference.parse(value);
+                if (!existing.contains(unresolved)) {
+                    throw new IllegalArgumentException("Unknown unresolved lab attachment");
+                }
+                selected.add(unresolved);
+            } else {
+                LabAttachmentReference reference = LabAttachmentReference.resolve(value, patient, routing);
+                if (Boolean.TRUE.equals(editOnOcean) && !"HL7".equals(reference.source())) {
+                    throw new IllegalArgumentException("Ocean lab export supports HL7 attachments only");
+                }
+                selected.add(reference);
+            }
+        }
+        return selected;
+    }
+
+    private void syncConsultLabs(String[] values, String providerNo, int requestId, int patient) {
+        List<ConsultDocs> rows = consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, DocumentType.LAB.getType());
+        Set<LabAttachmentReference> existing = new LinkedHashSet<>();
+        for (ConsultDocs row : rows) existing.add(LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo()));
+        if (!validateSelection(DocumentType.LAB, patient, Arrays.asList(values),
+                existing.stream().map(LabAttachmentReference::key).toList())) return;
+        Set<LabAttachmentReference> wanted = selectedLabs(values, patient, existing);
+        // Resolve and validate the complete selection before any detach, persist or Ocean write.
+        for (ConsultDocs row : rows) {
+            LabAttachmentReference ref = LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo());
+            if (!wanted.contains(ref)) {
+                row.setDeleted(ConsultDocs.DELETED);
+                consultDocsDao.merge(row);
+                if (Boolean.TRUE.equals(editOnOcean) && "HL7".equals(ref.source())) {
+                    OceanEReferralAttachmentUtil.detachOceanEReferralConsult("" + ref.id(), patient, DocumentType.LAB.getType());
+                }
+            }
+        }
+        for (LabAttachmentReference ref : wanted) {
+            if (existing.contains(ref)) continue;
+            ConsultDocs row = new ConsultDocs(requestId, ref.id(), DocumentType.LAB.getType(), providerNo);
+            row.setLabType(ref.storageSource());
+            consultDocsDao.persist(row);
+            if (Boolean.TRUE.equals(editOnOcean)) {
+                OceanEReferralAttachmentUtil.attachOceanEReferralConsult("" + ref.id(), patient, DocumentType.LAB.getType());
+            }
+        }
+    }
+
+    private void syncEFormLabs(String[] values, String providerNo, int fdid, int patient) {
+        List<EFormDocs> rows = eFormDocsDao.findByFdidIdDocTypeForUpdate(fdid, DocumentType.LAB.getType());
+        Set<LabAttachmentReference> existing = new LinkedHashSet<>();
+        for (EFormDocs row : rows) existing.add(LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo()));
+        if (!validateSelection(DocumentType.LAB, patient, Arrays.asList(values),
+                existing.stream().map(LabAttachmentReference::key).toList())) return;
+        Set<LabAttachmentReference> wanted = selectedLabs(values, patient, existing);
+        for (EFormDocs row : rows) {
+            LabAttachmentReference ref = LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo());
+            if (!wanted.contains(ref)) {
+                row.setDeleted("Y");
+                eFormDocsDao.merge(row);
+            }
+        }
+        for (LabAttachmentReference ref : wanted) {
+            if (existing.contains(ref)) continue;
+            EFormDocs row = new EFormDocs(fdid, ref.id(), DocumentType.LAB.getType(), providerNo);
+            row.setLabType(ref.storageSource());
+            eFormDocsDao.persist(row);
+        }
+    }
+
 }

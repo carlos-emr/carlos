@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on;
 
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -71,6 +73,8 @@ public class LabResultData implements Comparable<LabResultData> {
 
     //HL7TEXT handles all messages types recieved as a hl7 formatted string
     public static String HL7TEXT = "HL7";
+
+    private boolean attachmentUnavailable;
 
     public String segmentID;
     public String labPatientId;
@@ -130,6 +134,19 @@ public class LabResultData implements Comparable<LabResultData> {
 
     public void setLabPatientId(String lpi) {
         this.labPatientId = lpi;
+    }
+
+    public boolean isAttachmentUnavailable() {
+        return attachmentUnavailable;
+    }
+
+    public void setAttachmentUnavailable(boolean attachmentUnavailable) {
+        this.attachmentUnavailable = attachmentUnavailable;
+    }
+
+    public String getAttachmentKey() {
+        return LabAttachmentReference
+                .stored(labType, Integer.parseInt(segmentID)).key();
     }
 
     public String getSegmentID() {
@@ -259,6 +276,7 @@ public class LabResultData implements Comparable<LabResultData> {
 
 
     public String getDiscipline() {
+        if (attachmentUnavailable) return null;
         if (CML.equals(this.labType)) {
             CMLLabTest cml = new CMLLabTest();
             this.discipline = cml.getDiscipline(this.segmentID);
@@ -353,6 +371,7 @@ public class LabResultData implements Comparable<LabResultData> {
     }
 
     public Date getDateObj() {
+        if (attachmentUnavailable) return null;
         if (EXCELLERIS.equals(this.labType)) {
 
             this.dateTimeObr = UtilDateUtilities.getDateFromString(this.getDateTime(), "yyyy-MM-dd HH:mm:ss");
@@ -399,32 +418,28 @@ public class LabResultData implements Comparable<LabResultData> {
         this.dateTimeObr = d;
     }
 
-    public int compareTo(LabResultData object) {
-        int ret = 0;
-        if (this.getDateObj() != null && object.getDateObj() != null && this.segmentID != null && object.segmentID != null) {
-            try {
-                if (this.dateTimeObr.after(object.getDateObj())) {
-                    ret = -1;
-                } else if (this.dateTimeObr.before(object.getDateObj())) {
-                    ret = 1;
-                } else if (this.finalResultsCount > object.finalResultsCount) {
-                    ret = -1;
-                } else if (this.finalResultsCount < object.finalResultsCount) {
-                    ret = 1;
-                } else if (Integer.parseInt(this.segmentID) > Integer.parseInt(object.segmentID)) {
-                    ret = -1;
-                } else {
-                    ret = 1;
-                }
-            } catch (NumberFormatException ex) {
-                if (this.segmentID.compareTo(object.segmentID) > 0) {
-                    ret = -1;
-                } else {
-                    ret = 1;
-                }
-            }
+    @Override
+    public int compareTo(LabResultData other) {
+        int result = Comparator.nullsLast(Comparator.<Date>reverseOrder()).compare(getDateObj(), other.getDateObj());
+        if (result != 0) return result;
+        result = Integer.compare(other.finalResultsCount, finalResultsCount);
+        if (result != 0) return result;
+        result = compareSegmentIds(segmentID, other.segmentID);
+        if (result != 0) return result;
+        return Comparator.nullsLast(Comparator.<String>naturalOrder()).compare(labType, other.labType);
+    }
+
+    private static int compareSegmentIds(String left, String right) {
+        if (left == null || right == null) {
+            return Comparator.nullsLast(Comparator.<String>reverseOrder()).compare(left, right);
         }
-        return ret;
+        boolean leftNumeric = left.matches("[0-9]+");
+        boolean rightNumeric = right.matches("[0-9]+");
+        if (leftNumeric && rightNumeric) {
+            return new java.math.BigInteger(right).compareTo(new java.math.BigInteger(left));
+        }
+        if (leftNumeric != rightNumeric) return leftNumeric ? -1 : 1;
+        return right.compareTo(left);
     }
 
     public CompareId getComparatorId() {
@@ -436,14 +451,10 @@ public class LabResultData implements Comparable<LabResultData> {
      * Keys ({@link #labKey}) of the labs attached to a consultation, consultation response or eForm,
      * for the CML, MDS and PathNet (BCP) "attached vs. not attached" split.
      *
-     * <p>The attachment row stores only a lab number ({@code document_no}) and the generic lab
-     * document type, so the lab type is recovered from the {@code patient_lab_routing} rows the
-     * {@code findLabs} queries join on {@code lab_no}: only this patient's routings count, and
-     * document routings ({@code DOC}, whose {@code lab_no} is a document id) are ignored. A number
-     * routed to this patient under exactly one lab type yields {@code "TYPE:number"}. A number with
-     * no routing for this patient, or with routings of more than one lab type (e.g. a CML and an MDS
-     * lab that share the number), is ambiguous and yields no key, so it is not reported as attached
-     * in any typed listing rather than in every one.</p>
+     * <p>Source-qualified rows match only a routing of the same source and patient. Different
+     * sources may share a number and both remain attached. For legacy rows without a stored
+     * source, recover a key only when this patient's joined routings identify one lab source;
+     * foreign-patient and document routings never count.</p>
      *
      * @param attachmentRoutingRows {@code findLabs} rows: {@code [attachment, PatientLabRouting]}
      * @param demographicNo the patient whose listing is being built
@@ -451,6 +462,7 @@ public class LabResultData implements Comparable<LabResultData> {
      */
     public static java.util.Set<String> attachedLabKeys(java.util.List<Object[]> attachmentRoutingRows, String demographicNo) {
         java.util.Map<Integer, java.util.Set<String>> typesByLabNo = new java.util.HashMap<>();
+        java.util.Set<String> keys = new java.util.HashSet<>();
         if (attachmentRoutingRows != null && demographicNo != null) {
             for (Object[] row : attachmentRoutingRows) {
                 if (row == null || row.length < 2 || !(row[1] instanceof PatientLabRouting routing)) {
@@ -460,10 +472,21 @@ public class LabResultData implements Comparable<LabResultData> {
                         || routing.getLabType() == null || DOCUMENT.equals(routing.getLabType())) {
                     continue;
                 }
+                String storedSource = switch (row[0]) {
+                    case io.github.carlos_emr.carlos.commn.model.ConsultDocs doc -> doc.getLabType();
+                    case io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc doc -> doc.getLabType();
+                    case io.github.carlos_emr.carlos.commn.model.EFormDocs doc -> doc.getLabType();
+                    case null, default -> null;
+                };
+                if (storedSource != null) {
+                    if (storedSource.equals(routing.getLabType())) {
+                        keys.add(labKey(storedSource, String.valueOf(routing.getLabNo())));
+                    }
+                    continue;
+                }
                 typesByLabNo.computeIfAbsent(routing.getLabNo(), k -> new java.util.HashSet<>()).add(routing.getLabType());
             }
         }
-        java.util.Set<String> keys = new java.util.HashSet<>();
         for (java.util.Map.Entry<Integer, java.util.Set<String>> entry : typesByLabNo.entrySet()) {
             if (entry.getValue().size() == 1) {
                 keys.add(labKey(entry.getValue().iterator().next(), String.valueOf(entry.getKey())));

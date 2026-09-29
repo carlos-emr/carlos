@@ -78,6 +78,24 @@ test('same-address main-frame navigation counts, subframes do not, and errors us
   assert.equal(later.listenerCount('pageerror'), 0);
 });
 
+test('clickOpensPopup clicks the requested point when a position is given', async () => {
+  const context = new EventEmitter();
+  const page = eventPage();
+  const popup = eventPage();
+  const clicks = [];
+  const result = await clickOpensPopup(page, control(async (options) => {
+    clicks.push(options);
+    context.emit('page', popup);
+  }), { context, label: 'covered-title', timeout: 1000, position: { x: 4, y: 8 } });
+  assert.equal(result, popup);
+  assert.deepEqual(clicks[0].position, { x: 4, y: 8 });
+  await clickOpensPopup(page, control(async (options) => {
+    clicks.push(options);
+    context.emit('page', eventPage());
+  }), { context, label: 'plain', timeout: 1000 });
+  assert.equal('position' in clicks[1], false, 'no position means Playwright clicks the centre');
+});
+
 for (const helper of [clickOpensPopup, clickOpensPopupOrNavigates, clickDownloadsOrOpens]) {
   test(`${helper.name} removes all listeners when the click fails`, async () => {
     const context = new EventEmitter();

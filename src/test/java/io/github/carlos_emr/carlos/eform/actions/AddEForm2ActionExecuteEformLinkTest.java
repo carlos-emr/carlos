@@ -93,6 +93,8 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         // introduced dependencies in AddEForm2Action or related code paths.
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
+        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         // execute() resolves EmailManager via SpringUtils; register the declared mock here rather
         // than relying on another test in the suite having registered it first (isolation safety).
@@ -167,6 +169,42 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         verify(mockEformDataManager, never()).saveEformData(any(), any());
+    }
+
+    @Test
+    void shouldRollBackClinicalSave_whenLabAttachmentIsRejected() {
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("ambiguous lab source"))
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+        assertThat(new AddEForm2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.ERROR);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        var transactions = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        org.mockito.Mockito.verify(transactions, org.mockito.Mockito.atLeastOnce()).rollback(any());
+        org.mockito.Mockito.verify(transactions, org.mockito.Mockito.never()).commit(any());
+        assertThat(mockRequest.getAttribute("error")).isEqualTo("true");
+        assertThat(mockRequest.getAttribute("errorMessage")).asString().contains("not saved");
+    }
+
+    @Test
+    @DisplayName("should roll back and show a toolbar error when attachment access is denied")
+    void shouldRollBackAndShowError_whenAttachmentAccessDenied() {
+        String validLink = "doc1_123_1_referralForm";
+        mockRequest.setParameter("eform_link", validLink);
+        doThrow(new SecurityException("PRIVATE_ATTACHMENT_DETAILS"))
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC), any(), any(), any(), any());
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.ERROR);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        var transactions = SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        verify(transactions, atLeastOnce()).rollback(any());
+        verify(transactions, never()).commit(any());
+        assertThat(mockRequest.getAttribute("error")).isEqualTo("true");
+        assertThat(mockRequest.getAttribute("errorMessage")).asString()
+                .contains("not saved", "permission").doesNotContain("PRIVATE_ATTACHMENT_DETAILS");
+        assertThat(mockRequest.getSession().getAttribute(validLink)).isNull();
+        assertThat(mockRequest.getAttribute("fdid")).isNull();
     }
 
     @Test

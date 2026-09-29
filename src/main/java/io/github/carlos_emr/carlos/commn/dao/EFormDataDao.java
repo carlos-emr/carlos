@@ -117,4 +117,6 @@ public interface EFormDataDao extends AbstractDao<EFormData> {
      */
     public List<Integer> findFdidsForDemographic(Integer demographicNo, Collection<Integer> fdids);
 
+    EFormData lockForAttachmentSync(Integer id);
+
 }

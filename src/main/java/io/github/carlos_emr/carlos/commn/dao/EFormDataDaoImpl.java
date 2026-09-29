@@ -31,6 +31,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import jakarta.persistence.LockModeType;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -622,4 +624,10 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         List<Integer> owned = query.getResultList();
         return owned;
     }
+
+    @Override
+    public EFormData lockForAttachmentSync(Integer id) {
+        return entityManager.find(EFormData.class, id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
 }

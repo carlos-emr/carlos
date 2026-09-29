@@ -406,6 +406,13 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
     @DisplayName("Get Request")
     @Tag("read")
     class GetRequest {
+        @Test
+        void shouldReturnNull_whenRequestDoesNotExist() {
+            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(null);
+            assertThat(consultationManager.getRequest(mockLoggedInInfo, TEST_REQUEST_ID)).isNull();
+            verify(mockConsultRequestDao).find(TEST_REQUEST_ID);
+        }
+
 
         @Test
         @DisplayName("should return consultation request when valid ID provided")
@@ -466,6 +473,15 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
     @DisplayName("Get Response")
     @Tag("read")
     class GetResponse {
+
+        @Test
+        void shouldReturnNull_whenResponseDoesNotExist() {
+            when(mockConsultResponseDao.find(TEST_RESPONSE_ID)).thenReturn(null);
+
+            assertThat(consultationManager.getResponse(mockLoggedInInfo, TEST_RESPONSE_ID)).isNull();
+
+            verify(mockConsultResponseDao).find(TEST_RESPONSE_ID);
+        }
 
         @Test
         @DisplayName("should return consultation response when valid ID provided")
@@ -1506,7 +1522,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should handle mix of new and existing extras")
-        void shouldHandleMixOfNewAndExistingExtras() {
+        void shouldHandleMixedExtras_whenSavingNewAndExistingEntries() {
             // Given
             ConsultationRequestExt existing = createExt(1, TEST_REQUEST_ID, "appointmentYear", "2025");
             when(mockConsultationRequestExtDao.getConsultationRequestExts(TEST_REQUEST_ID))

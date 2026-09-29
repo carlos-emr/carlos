@@ -619,12 +619,12 @@
                            title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.scheduleSetting"/></a></li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only"
                                        rights="r" reverse="<%=true%>">
-                        <oscar:oscarPropertiesCheck property="ENABLE_EDIT_APPT_STATUS"
-                                                    value="yes">
+                        <%-- Absent ENABLE_EDIT_APPT_STATUS means enabled; see CarlosProperties.isAppointmentStatusEditingEnabled(). --%>
+                        <% if (CarlosProperties.getInstance().isAppointmentStatusEditingEnabled()) { %>
                             <li><a href="#"
                                    onclick="popupPage(500,600,'${pageContext.request.contextPath}/appointment/apptStatusSetting');return false;"
                                    title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
-                        </oscar:oscarPropertiesCheck>
+                        <% } %>
 
                         <li><a href="#"
                                onclick="popupPage(500,screen.width,'${pageContext.request.contextPath}/appointment/appointmentTypeAction'); return false;"><fmt:message key="admin.admin.appointmentTypeList"/></a></li>

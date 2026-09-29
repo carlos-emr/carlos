@@ -80,6 +80,9 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
     private ConsultationManager consultationManager;
 
     private DocumentAttachmentManagerImpl manager;
+    private io.github.carlos_emr.carlos.commn.dao.DocumentDao documents;
+    private io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao routing;
+
 
     @BeforeEach
     void setUp() {
@@ -92,6 +95,21 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
         lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         registerMock(ConsultDocsDao.class, consultDocsDao);
         registerMock(EFormDocsDao.class, eFormDocsDao);
+        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        lenient().when(transactions.getTransaction(any()))
+                .thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
+        var parents = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao.class);
+        var parent = new io.github.carlos_emr.carlos.commn.model.ConsultationRequest();
+        parent.setDemographicId(123);
+        lenient().when(parents.lockForAttachmentSync(456)).thenReturn(parent);
+        lenient().when(parents.find((Object) 456)).thenReturn(parent);
+        documents = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class);
+        routing = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
+        registerMock(AttachmentSelectionAccess.class, new AttachmentSelectionAccess(securityInfoManager, documents,
+                createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.EFormDataDao.class),
+                createAndRegisterMock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class),
+                createAndRegisterMock(io.github.carlos_emr.carlos.managers.FormsManager.class)));
+        lenient().when(securityInfoManager.hasPrivilege(eq(loggedInInfo), any(), eq("r"), eq("123"))).thenReturn(true);
     }
 
     @Test
@@ -120,10 +138,9 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of());
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(789)))
-                .thenReturn(Set.of(789));
+        ownDocument(789);
 
         manager.attachToConsult(
                 loggedInInfo,
@@ -135,7 +152,7 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
 
         ArgumentCaptor<ConsultDocs> consultDocCaptor = ArgumentCaptor.forClass(ConsultDocs.class);
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
-        verify(consultDocsDao).findByRequestIdDocType(requestId, DocumentType.DOC.getType());
+        verify(consultDocsDao).findByRequestIdDocTypeForUpdate(requestId, DocumentType.DOC.getType());
         verify(consultDocsDao).persist(consultDocCaptor.capture());
         ConsultDocs persisted = consultDocCaptor.getValue();
         assertThat(persisted.getRequestId()).isEqualTo(requestId);
@@ -192,14 +209,12 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of());
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(999)))
-                .thenReturn(Set.of());
 
         assertThatThrownBy(() -> manager.attachToConsult(
                 loggedInInfo, DocumentType.DOC, new String[] {"999"}, "999", requestId, demographicNo, Boolean.TRUE))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         verify(consultDocsDao, never()).persist(any());
         verify(consultDocsDao, never()).merge(any());
@@ -213,12 +228,12 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.LAB.getType()))
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, DocumentType.LAB.getType()))
                 .thenReturn(List.of());
 
         assertThatThrownBy(() -> manager.attachToConsult(
                 loggedInInfo, DocumentType.LAB, new String[] {"12x"}, "999", requestId, demographicNo))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         verify(consultDocsDao, never()).persist(any());
         verifyNoInteractions(attachmentOwnershipService);
@@ -233,10 +248,9 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of(existing));
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(789)))
-                .thenReturn(Set.of(789));
+        ownDocument(789);
 
         manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"789"}, "999", requestId, demographicNo);
 
@@ -251,58 +265,34 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
     @Test
     @DisplayName("should scope the Ocean queue removal to the consultation patient when detaching on an Ocean edit")
     void shouldScopeOceanDetachToPatient_whenDetachingOnOceanEdit() {
-        int demographicNo = 123;
-        int requestId = 456;
-        ConsultDocs legacyForeign = new ConsultDocs(requestId, 555, DocumentType.DOC.getType(), "999");
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
-                .thenReturn(List.of(legacyForeign));
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(555)))
-                .thenReturn(Set.of());
-        when(consultDocsDao.findByRequestIdDocNoDocType(requestId, 555, DocumentType.DOC.getType()))
-                .thenReturn(List.of(legacyForeign));
-
-        // The utility resolves its DAOs in a static initializer that instrumentation runs.
+        var legacy = new ConsultDocs(456, 555, "D", "999");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", 123)).thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(456, "D")).thenReturn(List.of(legacy));
+        when(consultDocsDao.findByRequestIdDocNoDocType(456, 555, "D")).thenReturn(List.of(legacy));
         registerMock(EReferAttachmentDataDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDataDaoImpl.class));
         registerMock(EReferAttachmentDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDaoImpl.class));
         try (MockedStatic<OceanEReferralAttachmentUtil> ocean = mockStatic(OceanEReferralAttachmentUtil.class)) {
-            manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"555"}, "999", requestId, demographicNo, Boolean.TRUE);
-
-            ocean.verify(() -> OceanEReferralAttachmentUtil.detachOceanEReferralConsult("555", demographicNo, DocumentType.DOC.getType()));
+            manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999", 456, 123, true);
+            ocean.verify(() -> OceanEReferralAttachmentUtil.detachOceanEReferralConsult("555", 123, "D"));
             ocean.verifyNoMoreInteractions();
         }
-        assertThat(legacyForeign.getDeleted()).isEqualTo("Y");
+        assertThat(legacy.getDeleted()).isEqualTo("Y");
     }
 
     /**
-     * A consult_docs row written before attach-time ownership checks existed (or a document deleted
-     * or re-filed since) must not survive a re-save, but it must not block the save either: the
-     * user cannot remove it from the form. It is detached and the save continues.
+     * The transactional writer rejects a resubmitted foreign row without partially changing
+     * attachments. Read and render filters keep that legacy row out of the patient packet.
      */
     @Test
-    @DisplayName("should detach an already attached id that no longer belongs to the patient without failing the save")
-    void shouldDetachExistingAttachment_whenNoLongerOwnedByPatient() {
-        int demographicNo = 123;
-        int requestId = 456;
-        ConsultDocs legacyForeign = new ConsultDocs(requestId, 555, DocumentType.DOC.getType(), "999");
-        ConsultDocs owned = new ConsultDocs(requestId, 789, DocumentType.DOC.getType(), "999");
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
-                .thenReturn(List.of(legacyForeign, owned));
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(555, 789)))
-                .thenReturn(Set.of(789));
-        when(consultDocsDao.findByRequestIdDocNoDocType(requestId, 555, DocumentType.DOC.getType()))
-                .thenReturn(List.of(legacyForeign));
-
-        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"555", "789"}, "999", requestId, demographicNo);
-
-        verify(consultDocsDao).merge(legacyForeign);
-        assertThat(legacyForeign.getDeleted()).isEqualTo("Y");
-        verify(consultDocsDao, never()).findByRequestIdDocNoDocType(requestId, 789, DocumentType.DOC.getType());
+    @DisplayName("should reject an existing foreign attachment without partial mutation")
+    void shouldRejectExistingForeignAttachment_withoutPartialMutation() {
+        var foreign = new ConsultDocs(456, 555, "D", "999");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", 123)).thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(456, "D")).thenReturn(List.of(foreign));
+        assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.DOC,
+                new String[]{"555"}, "999", 456, 123)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(foreign.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
         verify(consultDocsDao, never()).persist(any());
     }
 
@@ -314,22 +304,19 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+        lenient().when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of());
         when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.LAB.getType()))
                 .thenReturn(List.of());
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.DOC, demographicNo, Set.of(789)))
-                .thenReturn(Set.of(789));
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, demographicNo, Set.of(999)))
-                .thenReturn(Set.of());
+        ownDocument(789);
 
         Map<DocumentType, String[]> submitted = new EnumMap<>(DocumentType.class);
         submitted.put(DocumentType.DOC, new String[] {"789"});
         submitted.put(DocumentType.LAB, new String[] {"999"});
-        submitted.put(DocumentType.FORM, new String[] {"42"});
 
         assertThatThrownBy(() -> manager.verifyConsultAttachments(loggedInInfo, requestId, demographicNo, submitted))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Lab source");
 
         verify(consultDocsDao, never()).persist(any());
         verify(consultDocsDao, never()).merge(any());
@@ -342,14 +329,12 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.EFORM, demographicNo, Set.of(7)))
-                .thenReturn(Set.of());
 
         Map<DocumentType, String[]> submitted = new EnumMap<>(DocumentType.class);
         submitted.put(DocumentType.EFORM, new String[] {"7"});
 
         assertThatThrownBy(() -> manager.verifyConsultAttachments(loggedInInfo, null, demographicNo, submitted))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoInteractions(consultDocsDao);
     }
@@ -416,7 +401,7 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
     @DisplayName("should still allow a detach-only call when patient record access is denied")
     void shouldAllowDetachOnlyAttachToConsult_whenPatientRecordAccessDenied() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(456, DocumentType.DOC.getType())).thenReturn(List.of());
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(456, DocumentType.DOC.getType())).thenReturn(List.of());
 
         manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999", 456, 123);
 
@@ -462,69 +447,67 @@ class DocumentAttachmentManagerImplConsultAttachmentUnitTest extends CarlosUnitT
      * resubmitted {@code "0789"} used to look new, detaching 789 and attaching it again.
      */
     @Test
-    @DisplayName("should treat a non-canonical resubmitted id as the already attached id")
-    void shouldKeepExistingAttachment_whenIdResubmittedWithLeadingZero() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(456, DocumentType.LAB.getType()))
-                .thenReturn(List.of(new ConsultDocs(456, 789, DocumentType.LAB.getType(), "999")));
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, 123, Set.of(789))).thenReturn(Set.of(789));
-
-        manager.attachToConsult(loggedInInfo, DocumentType.LAB, new String[] {"0789", "789"}, "999", 456, 123);
-
+    @DisplayName("should reject a non-canonical lab ID without changing existing attachments")
+    void shouldRejectNonCanonicalLabId_withoutChangingExistingAttachment() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", 123)).thenReturn(true);
+        var existing = new ConsultDocs(456, 789, "L", "999");
+        existing.setLabType("HL7");
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(456, "L")).thenReturn(List.of(existing));
+        assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.LAB,
+                new String[]{"0789"}, "999", 456, 123)).isInstanceOf(IllegalArgumentException.class);
         verify(consultDocsDao, never()).persist(any());
         verify(consultDocsDao, never()).merge(any());
     }
 
     /**
-     * Lab identifier consistency: the Ocean feed sends only HL7 labs (findOceanSendableIds), and a new
-     * Ocean referral refuses anything else. An Ocean edit attached a legacy CML/MDS/BCP lab to the
-     * consultation (findAttachableIds) and also queued it for Ocean, where it was dropped at send
-     * time. It is still attached to the consultation but no longer queued.
+     * Ocean's queue has no lab-source column. Only an explicitly resolved HL7 selection can
+     * enter it; the source-qualified identity is retained on the local consultation row.
      */
     @Test
-    @DisplayName("should queue only HL7 labs for Ocean while attaching every attachable lab on an Ocean edit")
+    @DisplayName("should queue a source-qualified HL7 lab on an Ocean edit")
     void shouldQueueOnlyHl7Labs_whenAttachingOnOceanEdit() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(456, DocumentType.LAB.getType())).thenReturn(List.of());
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, 123, Set.of(30, 40))).thenReturn(Set.of(30, 40));
-        when(attachmentOwnershipService.findOceanSendableIds(DocumentType.LAB, 123, Set.of(30, 40))).thenReturn(Set.of(30));
-
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", 123)).thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(456, "L")).thenReturn(List.of());
+        when(routing.findByLabNoAndLabType(30, "HL7")).thenReturn(List.of(
+                new io.github.carlos_emr.carlos.commn.model.PatientLabRouting(30, "HL7", 123)));
         registerMock(EReferAttachmentDataDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDataDaoImpl.class));
         registerMock(EReferAttachmentDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDaoImpl.class));
         try (MockedStatic<OceanEReferralAttachmentUtil> ocean = mockStatic(OceanEReferralAttachmentUtil.class)) {
-            manager.attachToConsult(loggedInInfo, DocumentType.LAB, new String[] {"30", "40"}, "999", 456, 123, Boolean.TRUE);
-
-            ocean.verify(() -> OceanEReferralAttachmentUtil.attachOceanEReferralConsult("30", 123, DocumentType.LAB.getType()));
+            manager.attachToConsult(loggedInInfo, DocumentType.LAB, new String[]{"HL7:30"}, "999", 456, 123, true);
+            ocean.verify(() -> OceanEReferralAttachmentUtil.attachOceanEReferralConsult("30", 123, "L"));
             ocean.verifyNoMoreInteractions();
         }
         ArgumentCaptor<ConsultDocs> persisted = ArgumentCaptor.forClass(ConsultDocs.class);
-        verify(consultDocsDao, org.mockito.Mockito.times(2)).persist(persisted.capture());
-        assertThat(persisted.getAllValues()).extracting(ConsultDocs::getDocumentNo).containsExactly(30, 40);
+        verify(consultDocsDao).persist(persisted.capture());
+        assertThat(persisted.getValue().getLabType()).isEqualTo("HL7");
     }
 
     /**
-     * Copilot on #3903: a consultation submits a lab as a bare number, so a legacy CML/MDS/BCP lab
-     * whose number the patient also holds as an HL7 lab is indistinguishable from that HL7 lab.
-     * The queue decision (findOceanSendableIds) reports such a collision as not sendable; the lab
-     * must still be attached but must never be queued, or Ocean would send the other lab.
+     * A legacy lab must never be exported as an unrelated HL7 lab with the same number.
+     * Release rejects non-HL7 Ocean selections before any attachment or queue writes.
      */
     @Test
     @DisplayName("should not queue a legacy lab whose number collides with an HL7 lab on an Ocean edit")
     void shouldNotQueueLegacyLab_whenNumberCollidesWithHl7Lab() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 123)).thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(456, DocumentType.LAB.getType())).thenReturn(List.of());
-        when(attachmentOwnershipService.findAttachableIds(DocumentType.LAB, 123, Set.of(30))).thenReturn(Set.of(30));
-        when(attachmentOwnershipService.findOceanSendableIds(DocumentType.LAB, 123, Set.of(30))).thenReturn(Set.of());
-
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", 123)).thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(456, "L")).thenReturn(List.of());
+        when(routing.findByLabNoAndLabType(30, "MDS")).thenReturn(List.of(
+                new io.github.carlos_emr.carlos.commn.model.PatientLabRouting(30, "MDS", 123)));
+        registerMock(EReferAttachmentDataDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDataDaoImpl.class));
+        registerMock(EReferAttachmentDaoImpl.class, org.mockito.Mockito.mock(EReferAttachmentDaoImpl.class));
         try (MockedStatic<OceanEReferralAttachmentUtil> ocean = mockStatic(OceanEReferralAttachmentUtil.class)) {
-            manager.attachToConsult(loggedInInfo, DocumentType.LAB, new String[] {"30"}, "999", 456, 123, Boolean.TRUE);
-
+            assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.LAB,
+                    new String[]{"MDS:30"}, "999", 456, 123, true)).isInstanceOf(IllegalArgumentException.class);
             ocean.verifyNoInteractions();
         }
-        ArgumentCaptor<ConsultDocs> persisted = ArgumentCaptor.forClass(ConsultDocs.class);
-        verify(consultDocsDao).persist(persisted.capture());
-        assertThat(persisted.getValue().getDocumentNo()).isEqualTo(30);
-        verify(attachmentOwnershipService, never()).findOwnedIds(any(), any(), any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
+    private void ownDocument(int id) {
+        var link = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+        link.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 123, id));
+        lenient().when(documents.findCtlDocsAndDocsByDocNo(id)).thenReturn(java.util.Collections.singletonList(
+                new Object[]{new io.github.carlos_emr.carlos.commn.model.Document(), link}));
     }
 
     private org.springframework.mock.web.MockHttpServletRequest renderRequest(String reqId) {
