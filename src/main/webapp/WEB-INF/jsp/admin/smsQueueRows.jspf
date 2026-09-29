@@ -31,11 +31,15 @@
     smsQueue.demographicNumbersShown is set. Every value is encoded; the status label key is built only
     from the SmsStatus enum name.
 
-    The page already declares the bundle; repeating it here keeps the fragment self-contained for the
-    i18n lint, which checks each changed JSP and fragment on its own.
+    The page already declares these taglibs and the bundle; repeating them keeps the fragment
+    self-contained for the i18n lint and JspTaglibDeclarationRegressionTest, which check each JSP and
+    fragment on its own.
 
     @since 2026-09-28
 --%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:if test="${queueRowsTotal > smsQueue.listLimit}">
     <p class="small text-muted mb-1">
