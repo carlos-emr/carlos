@@ -86,7 +86,9 @@
                 var form = document.createElement('form');
                 form.method = 'post';
                 form.action = '<%=request.getContextPath()%>/eform/unRemoveEForm';
-                var fields = {callpage: 'independent', fdid: fdid};
+                // orderby: sort order the post-restore redirect restores (UnRemEForm2Action#getRedirectTarget).
+                var fields = {callpage: 'independent', fdid: fdid,
+                    orderby: '<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(orderByRequest) %>'};
                 for (var key in fields) {
                     var input = document.createElement('input');
                     input.type = 'hidden';

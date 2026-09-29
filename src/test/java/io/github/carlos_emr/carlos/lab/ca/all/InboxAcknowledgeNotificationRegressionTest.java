@@ -57,7 +57,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         }
         assertThat(read(OSCAR_MDS_INDEX_JS)).contains("labDocumentRows(fileId, file.split(\":\")[1])",
                 "labDocumentRows(num, 'DOC').slideUp()", "labDocumentRows(doclabid, data.labType).slideUp()",
-                "labDocumentRows(docId, type).slideUp()");
+                "labDocumentRows(docId, 'DOC').slideUp()");
     }
 
     private static final Path LAB_DISPLAY_JSP = Path.of(
@@ -347,7 +347,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(read(REPORT_STATUS_UPDATE_ACTION))
                 .as("the AJAX acknowledge response must carry the cleared count")
                 .contains("json.put(\"clearedCount\", clearedCount);")
-                .contains("writeClearedCount(clearedCount);");
+                .contains("writeClearedCount(update.cleared());");
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .as("the browser must ask for that response and use it")
                 .contains("data.ajaxcall = 'yes';")
@@ -485,7 +485,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         // lab's row and decrement the Labs total when a document was acknowledged.
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .contains("self.opener.removeReport(num, 'DOC');")
-                .contains("self.opener.removeReport(docId, type);")
+                .contains("self.opener.removeReport(docId, 'DOC');")
                 .as("no acknowledge path may reach removeReport without a type")
                 .doesNotContain("self.opener.removeReport(num);")
                 .doesNotContain("self.opener.removeReport(docId);");

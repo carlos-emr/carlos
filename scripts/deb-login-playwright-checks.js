@@ -32,7 +32,8 @@
  * NEW_PASSWORD sets the password the reset chooses (a generated one
  * otherwise; it is printed at the end so the host stays usable). The
  * certificate is the package's self-signed one by default, so TLS errors
- * are ignored unless STRICT_TLS=1.
+ * are ignored on local targets unless STRICT_TLS=1. Remote disposable hosts
+ * require ALLOW_NON_LOCAL_BASE_URL=true and a trusted certificate.
  *
  * Exit status: the number of failed checks.
  */
@@ -40,28 +41,16 @@
 
 const assert = require('node:assert');
 const fs = require('node:fs');
-const path = require('node:path');
-
-function loadPlaywright() {
-  try {
-    return require('playwright');
-  } catch (err) {
-    // the global install (npm root -g) when the repo has no node_modules
-    const globalRoot = process.env.NODE_PATH
-      || path.join(path.dirname(path.dirname(process.execPath)), 'lib', 'node_modules');
-    return require(path.join(globalRoot, 'playwright'));
-  }
-}
-const { chromium } = loadPlaywright();
+const { generatedPassword } = require('./lib/deb-login-password');
+const { launchBrowser, validateBaseUrl, isLocalTlsTarget } = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 
 const baseUrl = (process.env.BASE_URL || 'https://127.0.0.1').replace(/\/+$/, '');
-const parsedBase = new URL(baseUrl);
-if (parsedBase.username || parsedBase.password) {
-  throw new Error('BASE_URL must not embed a username or password');
-}
-const appPath = '/carlos';
-const appUrl = (p) => `${baseUrl}${appPath}${p}`;
+const parsedBase = validateBaseUrl(baseUrl);
+assert.equal(parsedBase.protocol, 'https:', 'The packaged login check requires HTTPS');
+// Accept both the documented host URL and the suite's application-context URL.
+const appPath = parsedBase.pathname.replace(/\/+$/, '') || '/carlos';
+const appUrl = (p) => `${parsedBase.origin}${appPath}${p}`;
 
 function credentials() {
   let user = process.env.ADMIN_USER;
@@ -86,16 +75,6 @@ function credentials() {
     throw new Error('ADMIN_USER, ADMIN_PASSWORD and ADMIN_PIN (or ADMIN_FILE) are required');
   }
   return { user, password, pin };
-}
-
-function generatedPassword() {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-  let out = '';
-  for (let i = 0; i < 16; i += 1) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  // the policy wants an upper, a lower, a digit and a symbol
-  return `${out}!Aa1`;
 }
 
 async function bodyText(page) {
@@ -126,6 +105,7 @@ async function expectSchedulePage(page, label) {
   const creds = credentials();
   const newPassword = process.env.NEW_PASSWORD || generatedPassword();
   const strictTls = process.env.STRICT_TLS === '1';
+  const ignoreHTTPSErrors = !strictTls && isLocalTlsTarget(parsedBase);
   const results = [];
   const record = async (name, fn) => {
     try {
@@ -138,8 +118,11 @@ async function expectSchedulePage(page, label) {
     }
   };
 
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ ignoreHTTPSErrors: !strictTls });
+  const browser = await launchBrowser({
+    headless: true,
+    chromePath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',
+  });
+  const context = await browser.newContext({ ignoreHTTPSErrors });
   const page = await context.newPage();
   const consoleErrors = [];
   page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
@@ -185,7 +168,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('a fresh session signs in with the new password straight to the schedule', async () => {
-      const fresh = await context.browser().newContext({ ignoreHTTPSErrors: !strictTls });
+      const fresh = await context.browser().newContext({ ignoreHTTPSErrors });
       const p2 = await fresh.newPage();
       try {
         await fillLogin(p2, { ...creds, password: newPassword });
@@ -196,7 +179,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('the old installer password no longer signs in', async () => {
-      const fresh = await context.browser().newContext({ ignoreHTTPSErrors: !strictTls });
+      const fresh = await context.browser().newContext({ ignoreHTTPSErrors });
       const p3 = await fresh.newPage();
       try {
         await fillLogin(p3, creds);

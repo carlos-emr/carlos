@@ -1,6 +1,6 @@
 {
   "$comment": [
-    "The browser-check suite manifest: one entry per scripts/*-playwright-checks.js.",
+    "The browser-check suite manifest: one entry per scripts/**/*-playwright-checks.js.",
     "",
     "scripts/run-playwright-suite.js reads this instead of the bash for-loop that used",
     "to live in docs/ui-tests/deb-install-validation.md section 6, where the tier, the",
@@ -38,6 +38,24 @@
     "in the PR that measures the tier, not by guess."
   ],
   "checks": [
+    {
+      "name": "annotate-document",
+      "script": "scripts/e2e/fax/annotate-document-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "DOC_ID",
+        "ANNOTATION_SECOND_USER_FIXTURE",
+        "ANNOTATION_SESSION_COUNT",
+        "TEST_NEW_PASSWORD"
+      ]
+    },
     {
       "name": "provider-quick-links",
       "script": "scripts/provider-quick-links-playwright-checks.js",
@@ -401,7 +419,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -411,7 +429,7 @@
         "CONSULT_MISSING_STAMP_PROVIDER_NO",
         "CONSULT_SERVICE_ID",
         "CONSULT_STAMP_PROVIDER_NO",
-        "CONSULT_UNSIGNED_REQUEST_ID"
+        "CONSULT_APPLICATION_TEMP_DIR"
       ]
     },
     {
@@ -489,9 +507,27 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 240,
+      "timeoutSec": 420,
       "env": [
         "DOCUMENT_PAGINATION_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
+      "name": "stored-document-mutations",
+      "script": "scripts/stored-document-mutations-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR",
+        "STORED_DOCUMENT_EXPECT_CONTENT_UPDATES",
+        "STORED_DOCUMENT_METADATA"
       ]
     },
     {
@@ -504,9 +540,11 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 240,
+      "timeoutSec": 420,
       "env": [
-        "INCOMINGDOCUMENT_DIR"
+        "INCOMINGDOCUMENT_DIR",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
       ]
     },
     {
@@ -614,6 +652,18 @@
         "ECHART_NAV_TIMEOUT_MS",
         "ECHART_NAV_SCREENSHOT_DIR"
       ]
+    },
+    {
+      "name": "lab-results-table",
+      "script": "scripts/lab-results-table-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300
     },
     {
       "name": "echart-new-patient-notes",
@@ -950,6 +1000,26 @@
       ]
     },
     {
+      "name": "eform-rtl-signature-stamp",
+      "script": "scripts/eform-rtl-signature-stamp-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RTL_DEMOGRAPHIC_NO",
+        "RTL_FORM_NAME",
+        "RTL_EXPECT_SIGNER",
+        "RTL_STAMP_ALLOW_AP_FALLBACK",
+        "RTL_SCREENSHOT_DIR"
+      ],
+      "fixtures": "Needs consult_sig_<signer>.png in the eForm images directory (deb-install-validation.md fixture b); read-only, never saves the letter."
+    },
+    {
       "name": "eform-runtime-compat",
       "script": "scripts/eform-runtime-compat-playwright-checks.js",
       "tiers": [
@@ -1151,6 +1221,19 @@
       ]
     },
     {
+      "name": "inbox-document-dates",
+      "script": "scripts/inbox-document-dates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": []
+    },
+    {
       "name": "inbox-lab-versions",
       "script": "scripts/inbox-lab-versions-playwright-checks.js",
       "tiers": [
@@ -1169,7 +1252,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -1184,7 +1267,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -1199,7 +1282,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -1426,7 +1509,8 @@
         "GRAPH_DEMOGRAPHIC_NO",
         "GRAPH_MEASUREMENT_TYPE",
         "GRAPH_PATH",
-        "PLAYWRIGHT_TIMEOUT"
+        "PLAYWRIGHT_TIMEOUT",
+        "CARLOS_LOG_JOURNAL_UNIT"
       ]
     },
     {
@@ -1800,7 +1884,8 @@
       "env": [
         "RX_EXPECTED_BUILD_TAG",
         "RX_FAX_DEMOGRAPHIC_NO",
-        "RX_FAX_PROVIDER_NO"
+        "RX_FAX_PROVIDER_NO",
+        "RX_FAX_DOCUMENT_DIR"
       ]
     },
     {
@@ -1816,7 +1901,8 @@
       "timeoutSec": 300,
       "env": [
         "RX_FAX_DEMOGRAPHIC_NO",
-        "RX_FAX_PROVIDER_NO"
+        "RX_FAX_PROVIDER_NO",
+        "RX_FAX_DOCUMENT_DIR"
       ]
     },
     {
@@ -2863,6 +2949,19 @@
         "all"
       ],
       "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "provider-linking-rules",
+      "script": "scripts/provider-linking-rules-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
       "env": []
     },
     {

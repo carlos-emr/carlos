@@ -86,8 +86,8 @@ class ProviderLabRoutingCreationUnitTest {
         void route(int entrypoint, boolean forwardingCycle) throws Exception {
             try (var spring = mockStatic(SpringUtils.class);
                  var rules = mockConstruction(ForwardingRules.class, (mock, context) -> {
-                     when(mock.getStatus(anyString())).thenReturn("N");
-                     when(mock.getProviders(anyString())).thenAnswer(call -> {
+                     when(mock.getStatus(anyString(), anyString())).thenReturn("N");
+                     when(mock.getProviders(anyString(), anyString())).thenAnswer(call -> {
                          var destinations = new ArrayList<ArrayList<String>>();
                          if (forwardingCycle) destinations.add(new ArrayList<>(List.of("999998".equals(call.getArgument(0)) ? "111" : "999998")));
                          return destinations;

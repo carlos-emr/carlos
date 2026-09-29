@@ -390,7 +390,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + "				WHERE d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
                         + "					AND	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
                          + 					(isAbnormal != null ? " AND plr.lab_no = info.lab_no AND "+(!isAbnormal? "(info.result_status IS NULL OR info.result_status != 'A')": "(info.result_status = 'A')")+" " : " " )
-                        + "					AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status + ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
+                        + "					AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 				AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = d.demographic_no "
                         + " 		) "
                         + " 		UNION "

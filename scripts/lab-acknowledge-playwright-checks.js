@@ -109,6 +109,8 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const providerNo = process.env.LAB_PROVIDER_NO || '999998';
 assert(/^\d+$/.test(providerNo), 'LAB_PROVIDER_NO must be numeric');
 
+const {createLabRoutingFixture} = require('./lib/lab-routing-fixture');
+
 const ackComment = `PW_LABACK_${Date.now()}`;
 const recorder = createRecorder();
 const passed = [];
@@ -116,8 +118,7 @@ const passed = [];
 // Captured so cleanup can put the deployment back exactly as it was.
 let segmentId = null;
 let demographicNo = null;
-let routingCreatedByCheck = false;
-let originalRoutingStatus = null;
+let routingFixture = null;
 // The planted queue_document_link row (see the header): created when no document
 // shares the lab's number, otherwise the existing link's status is remembered.
 let queueLinkCreatedByCheck = false;
@@ -129,7 +130,7 @@ let queueLinkRowId = null;
 // The second, read-only fixture has a newer version. Its Inbox row must still open
 // the selected segment; an explicit showLatest request is tested separately.
 let showLatestProbe = null;
-let showLatestRoutingCreated = false;
+let showLatestRoutingFixture = null;
 
 let mysqlDefaults = null;
 // A MySQL option file interprets backslash escapes, so a password containing \ or "
@@ -208,15 +209,19 @@ async function waitFor(probe, description, timeoutMs = 30000) {
  * acknowledge it exists to exercise. CLS-type labs use a different matcher
  * (filler order number) and are excluded from the default fixture search.
  */
-function renderedSegmentFor(labNo) {
-  const last = sql(
+function matchingSegmentsFor(labNo) {
+  const matches = sqlRows(
     'SELECT a.lab_no FROM hl7TextInfo a JOIN hl7TextInfo b ON a.accessionNum = b.accessionNum'
     + ` WHERE b.lab_no=${Number(labNo)} AND a.accessionNum <> ''`
     + " AND a.obr_date IS NOT NULL AND b.obr_date IS NOT NULL"
-    + ' AND ABS(TIMESTAMPDIFF(MONTH, STR_TO_DATE(a.obr_date, \'%Y-%m-%d %H:%i:%s\'), STR_TO_DATE(b.obr_date, \'%Y-%m-%d %H:%i:%s\'))) < 4'
-    + ' ORDER BY a.final_result_count DESC, a.obr_date DESC, a.lab_no DESC LIMIT 1'
-  );
-  return last || String(labNo);
+    + " AND ABS(TIMESTAMPDIFF(MONTH, STR_TO_DATE(a.obr_date, '%Y-%m-%d %H:%i:%s'), STR_TO_DATE(b.obr_date, '%Y-%m-%d %H:%i:%s'))) < 4"
+    + ' ORDER BY a.final_result_count, a.obr_date, a.lab_no'
+  ).map(row => row[0]);
+  return matches.length ? matches : [String(labNo)];
+}
+
+function renderedSegmentFor(labNo) {
+  return matchingSegmentsFor(labNo).at(-1);
 }
 
 function resolveSegment() {
@@ -255,17 +260,12 @@ function routingRow() {
 
 /** Routes the chosen lab to the test provider as unreviewed, remembering what was there. */
 function seedRouting() {
-  const existing = routingRow();
-  if (existing) {
-    originalRoutingStatus = existing.status;
-    sql(`UPDATE providerLabRouting SET status='N' WHERE id=${Number(existing.id)}`);
-    return;
-  }
-  sql(
-    'INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type)'
-    + ` VALUES ('${escapeSql(providerNo)}', ${Number(segmentId)}, 'N', 'HL7')`
-  );
-  routingCreatedByCheck = true;
+  assert(sql(`SELECT type FROM hl7TextMessage WHERE lab_id=${Number(segmentId)}`) !== 'CLS',
+    'the acknowledgement fixture requires a non-CLS source chain');
+  const chain = matchingSegmentsFor(segmentId);
+  assert(chain.at(-1) === String(segmentId), 'the selected lab is no longer the latest version');
+  routingFixture = createLabRoutingFixture(sql, sqlRows, providerNo, chain);
+  routingFixture.prepare();
 }
 
 function queueLinkRow() {
@@ -351,59 +351,17 @@ function formatReceived(value) {
 }
 
 function seedShowLatestRouting(probe) {
-  const existing = sqlRows(
-    `SELECT id FROM providerLabRouting WHERE provider_no='${escapeSql(providerNo)}'`
-    + ` AND lab_no=${Number(probe.requested)} AND lab_type='HL7' LIMIT 1`
-  )[0];
-  if (existing) {
-    return;
-  }
-  sql(
-    'INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type)'
-    + ` VALUES ('${escapeSql(providerNo)}', ${Number(probe.requested)}, 'N', 'HL7')`
-  );
-  showLatestRoutingCreated = true;
-}
-
-function cleanupShowLatestRouting() {
-  if (!showLatestRoutingCreated || showLatestProbe === null) {
-    return;
-  }
-  sql(
-    `DELETE FROM providerLabRouting WHERE provider_no='${escapeSql(providerNo)}'`
-    + ` AND lab_no=${Number(showLatestProbe.requested)} AND lab_type='HL7'`
-  );
-  showLatestRoutingCreated = false;
+  showLatestRoutingFixture = createLabRoutingFixture(sql, sqlRows, providerNo, [probe.requested]);
+  showLatestRoutingFixture.prepare(false);
 }
 
 function cleanupFixture() {
-  cleanupShowLatestRouting();
-  if (segmentId === null) {
-    return;
+  const failures = [];
+  for (const cleanup of [() => showLatestRoutingFixture?.cleanup(), cleanupQueueLink,
+    () => routingFixture?.cleanup()]) {
+    try { cleanup(); } catch (error) { failures.push(error); }
   }
-  cleanupQueueLink();
-  if (routingCreatedByCheck) {
-    sql(
-      `DELETE FROM providerLabRouting WHERE provider_no='${escapeSql(providerNo)}'`
-      + ` AND lab_no=${Number(segmentId)} AND lab_type='HL7'`
-    );
-    return;
-  }
-  if (originalRoutingStatus !== null) {
-    // A routing row that pre-existed is restored rather than removed, and the
-    // reviewer comment this run wrote is cleared off it: the comment lives on the
-    // routing row itself, so leaving it behind would put a test marker into a
-    // clinician's review history.
-    sql(
-      `UPDATE providerLabRouting SET status='${escapeSql(originalRoutingStatus)}', comment=''`
-      + ` WHERE provider_no='${escapeSql(providerNo)}' AND lab_no=${Number(segmentId)}`
-      + ` AND lab_type='HL7' AND comment LIKE '${escapeSql(`%${ackComment}%`)}'`
-    );
-    sql(
-      `UPDATE providerLabRouting SET status='${escapeSql(originalRoutingStatus)}'`
-      + ` WHERE provider_no='${escapeSql(providerNo)}' AND lab_no=${Number(segmentId)} AND lab_type='HL7'`
-    );
-  }
+  if (failures.length) throw new AggregateError(failures, 'Lab acknowledgement fixture cleanup failed');
 }
 
 /**

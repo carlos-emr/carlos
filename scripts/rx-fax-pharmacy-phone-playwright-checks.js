@@ -45,6 +45,7 @@
 'use strict';
 
 const { randomInt } = require('node:crypto');
+const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const { createFaxPhoneFixtures } = require('./rx-fax-pharmacy-fixtures');
@@ -80,7 +81,7 @@ assert(Number.isInteger(faxRoundTripTimeoutMs) && faxRoundTripTimeoutMs >= 1000 
 // Per-run values. The "from" number must be exactly 10 chars (fax_config.faxNumber varchar(10));
 // every destination is NPA 555 so no fixture fax is routable; pharmacyInfo phone columns are
 // varchar(20), which bounds the hostile value below.
-const runSuffix = String(randomInt(100000, 1000000)); // 6 digits, crypto RNG
+const runSuffix = readFaxSuffix(process.env.PR4055_RX_FAX_SUFFIX, 6, randomInt);
 const fromFaxNumber = `416${runSuffix}0`;
 const drugNamePrefix = `PW FAX TEL ${runSuffix}`;
 const CASES = [
@@ -184,10 +185,9 @@ async function faxAndPaste(page, testCase, releasePharmacy) {
     const firstWrite = page.waitForResponse(res => isEncounterWrite(res.request()), { timeout: faxRoundTripTimeoutMs });
     const faxPost = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: faxRoundTripTimeoutMs });
     const modalFrame = page.frameLocator('#carlosModalBody iframe');
-    const roundTrip = settleOperations([faxPost, firstWrite]);
-    roundTrip.catch(() => {});
-    await modalFrame.locator('#faxPasteButton').click();
+    const roundTrip = settleOperations([faxPost, firstWrite, modalFrame.locator('#faxPasteButton').click()]);
     const [faxResponse] = await roundTrip;
+    assertFaxDestination(faxResponse.request(), fromFaxNumber, testCase.pharmacyFax);
     releasePharmacy();
     assert(faxResponse.status() === 200, `case ${testCase.key}: the fax POST answered HTTP ${faxResponse.status()}`);
 
@@ -228,6 +228,9 @@ async function runCase(context, testCase) {
   const page = await context.newPage();
   const label = `case-${testCase.key}`;
   wireStrictPage(page, label, recorder);
+  await installFaxRequestGuard(page, config.baseUrl, fromFaxNumber, testCase.pharmacyFax, () => {
+    recorder.pageErrors.push({ label, text: 'Blocked a fax POST with an unowned sender or destination' });
+  });
   // A pharmacy header must already be available to a fast Fax click. Hold the
   // redundant contact lookup until the fax has queued to expose the old race.
   let releasePharmacy;

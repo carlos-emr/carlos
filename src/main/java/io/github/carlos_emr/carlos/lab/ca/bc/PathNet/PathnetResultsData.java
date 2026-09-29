@@ -264,6 +264,16 @@ public class PathnetResultsData {
      *         is available or lookup fails; may be empty when no candidate matches
      */
     public String getMatchingLabs(String labId) {
+        return getMatchingLabs(labId, false);
+    }
+
+    /**
+     * Resolves a source version chain, optionally propagating lookup failures for atomic mutations.
+     * @param labId selected report identifier
+     * @param failOnLookupError true when fallback to only the selected version would hide a partial operation
+     * @return versions in clinical order
+     */
+    public String getMatchingLabs(String labId, boolean failOnLookupError) {
         String ret = "";
         String accessionNum = "";
         Date labDate = null;
@@ -304,6 +314,7 @@ public class PathnetResultsData {
                 }
             }
         } catch (Exception e) {
+            if (failOnLookupError) throw new IllegalStateException("Lab version lookup failed", e);
             logger.error("exception in PathnetResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }

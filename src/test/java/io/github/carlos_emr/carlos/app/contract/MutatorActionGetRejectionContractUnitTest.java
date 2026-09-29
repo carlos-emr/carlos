@@ -21,11 +21,13 @@
  */
 package io.github.carlos_emr.carlos.app.contract;
 
+import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
+import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
@@ -171,6 +173,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "_admin", "w"),
+            // Provider Linking Rules (issue #3971): the save flips a clinic-wide switch that widens
+            // who receives lab and HRM results, so it is POST-only; the view gate never writes.
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
+                    "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
                     "_admin.eform", "w"),
             // Every forward value (add/delete/up/down) reorders encounter forms; the
@@ -250,6 +256,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // token at all until the gate was added. The gate runs before authorization.
             Arguments.of("io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action",
                     "_hrm", "w"),
+            // --- lab ---
+            // Rewrites a lab's patient routing and, with Provider Linking Rules on, routes it to the
+            // patient's MRP. Its only caller posts; the mds package is not in
+            // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+            Arguments.of("io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
+                    "_lab", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
@@ -290,6 +302,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Empty GET opens the editor; selected-favorite and AJAX edits require POST.
+        // Covered by RxFavoriteFailureUnitTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // BC supplementary billing: view permits GET; edit/delete require POST.
         // Covered by SupServiceCodeAssoc2ActionUnitTest.
@@ -420,6 +435,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
@@ -429,6 +445,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
+        "io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
+        "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
@@ -636,6 +654,11 @@ class MutatorActionGetRejectionContractUnitTest {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
             return new SecurityAddSecurity2Action(methodSecurity);
+        }
+        if (actionClass.equals(SaveProviderLinkingRules2Action.class)) {
+            ProviderLinkingRulesService rules = (ProviderLinkingRulesService)
+                    autoMocks.computeIfAbsent(ProviderLinkingRulesService.class, Mockito::mock);
+            return new SaveProviderLinkingRules2Action(mock(SecurityInfoManager.class), rules);
         }
         if (actionClass.equals(SecurityUpdate2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);

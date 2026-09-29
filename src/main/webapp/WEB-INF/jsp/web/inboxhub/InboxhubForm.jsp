@@ -380,6 +380,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         <div class="d-flex">
             <div class="toast-body">
                 <fmt:message key="inboxhub.form.ajaxError"/>
+                <button id="retryInboxhubPage" type="button" class="btn btn-sm btn-outline-light ms-2"
+                        onclick="retryInboxhubPage();"><fmt:message key="inboxhub.form.retryLoad"/></button>
             </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="<fmt:message key='global.btnClose'/>"></button>
         </div>
@@ -1499,23 +1501,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
     function fetchInboxhubListData() {
         if (!hasMoreData || isFetchingData) { return; }
-        isFetchingData = true; 
+        isFetchingData = true;
+        const generation = inboxhubResultSetGeneration;
         const url = "<carlos:encode value='${pageContext.request.contextPath}' context="javaScript"/>/web/inboxhub/Inboxhub?method=displayInboxList";
         currentFetchRequest = jQuery.ajax({
 			url: url,
 			method: 'POST',
 			data: inboxSearchFormData + filter + "&page=" + page + "&pageSize=" + pageSize,		
-			success: function(data) {
-                HideSpin();
+			success: function(data, status, xhr) {
+                if (!ownsInboxhubPageFetch(xhr, generation)) { return; }
                 addDataInInboxhubListTable(data);
-                isFetchingData = false;
-                jQuery('#btnViewMode').prop('disabled', false);
+                settleInboxhubPageFetch(xhr, generation);
                 loadMoreListData();
 			},
             error: function(xhr, status, error) {
+                if (!settleInboxhubPageFetch(xhr, generation)) { return; }
                 if (status !== 'abort') { toastErrorMessage(); }
-                jQuery('#btnViewMode').prop('disabled', false);
-                HideSpin();
             }
         });
     }
@@ -1524,24 +1525,48 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         if (!hasMoreData || isFetchingData) { return; }
         ShowSpin(true);
         isFetchingData = true;
+        const generation = inboxhubResultSetGeneration;
         const url = "<carlos:encode value='${pageContext.request.contextPath}' context="javaScript"/>/web/inboxhub/Inboxhub?method=displayInboxView";
         currentFetchRequest = jQuery.ajax({
 			url: url,
 			method: 'POST',
 			data: inboxSearchFormData + filter + "&page=" + page + "&pageSize=" + pageSize,			
-			success: function(data) {
-                HideSpin();
+			success: function(data, status, xhr) {
+                if (!ownsInboxhubPageFetch(xhr, generation)) { return; }
                 addDataInInboxhubViewTable(data);
-                isFetchingData = false;
-                jQuery('#btnViewMode').prop('disabled', false);
                 page++;
+                settleInboxhubPageFetch(xhr, generation);
 			},
             error: function(xhr, status, error) {
+                if (!settleInboxhubPageFetch(xhr, generation)) { return; }
                 if (status !== 'abort') { toastErrorMessage(); }
-                jQuery('#btnViewMode').prop('disabled', false);
-                HideSpin();
             }
         });
+    }
+
+    function ownsInboxhubPageFetch(xhr, generation) {
+        return currentFetchRequest === xhr && generation === inboxhubResultSetGeneration;
+    }
+
+    /** A failed page remains the next page; stale callbacks cannot release another request's hold. */
+    function settleInboxhubPageFetch(xhr, generation) {
+        if (!ownsInboxhubPageFetch(xhr, generation)) { return false; }
+        currentFetchRequest = null;
+        isFetchingData = false;
+        jQuery('#btnViewMode').prop('disabled', false);
+        jQuery('#inboxhubFormSearchBtn').prop('disabled', false);
+        jQuery('#inboxhubFormSearchSpinner').hide();
+        HideSpin();
+        return true;
+    }
+
+    function retryInboxhubPage() {
+        bootstrap.Toast.getOrCreateInstance(document.getElementById('ajaxErrorToast')).hide();
+        if (document.getElementById('btnViewMode').value === 'true') {
+            fetchInboxhubViewData();
+        } else {
+            fetchInboxhubListData();
+        }
     }
 
     function addDataInInboxhubListTable(data) {
@@ -1634,6 +1659,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
         if (currentFetchRequest) {
             currentFetchRequest.abort();  // Cancel the ongoing AJAX request
+            currentFetchRequest = null;
         }
         if (pendingBoundaryResync !== null) {
             // A boundary re-sync of the result set being discarded; its answer would be dropped

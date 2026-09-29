@@ -69,6 +69,9 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private MeasurementDao measurementDao;
 
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
@@ -116,6 +119,93 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
                 DEMO_NO, entered, "A1C", "11", "9")).hasSize(1);
         assertThat(measurementDao.findByDemoNoDateTypeAndDataField(
                 DEMO_NO, entered, "A1C", "9", "1")).isEmpty();
+    }
+
+    @Test
+    void shouldPreserveClinicalValuesAndExtensions_whenCorrectingLabPatient() {
+        Measurement measurement = createMeasurement(DEMO_NO, "GLU", "5.4", today);
+        measurement.setComments("retain annotation");
+        entityManager.persist(measurement);
+        MeasurementsExt source = new MeasurementsExt();
+        source.setMeasurementId(measurement.getId());
+        source.setKeyVal("lab_no");
+        source.setVal("9834000");
+        entityManager.persist(source);
+        entityManager.flush();
+
+        measurementDao.reassignLabPatient(measurement, "9834000", DEMO_NO_2);
+        entityManager.flush();
+        entityManager.clear();
+        Measurement corrected = entityManager.find(Measurement.class, measurement.getId());
+        assertThat(corrected.getDemographicId()).isEqualTo(DEMO_NO_2);
+        assertThat(corrected.getDataField()).isEqualTo("5.4");
+        assertThat(corrected.getComments()).isEqualTo("retain annotation");
+        assertThat(corrected.getDateObserved().getTime()).isEqualTo(today.getTime());
+        assertThat(corrected.getProviderNo()).isEqualTo(PROVIDER_NO);
+        assertThat(measurementDao.findByValue("lab_no", "9834000"))
+                .extracting(Measurement::getId).containsExactly(measurement.getId());
+    }
+
+    @Test
+    void shouldRejectWrongSource_whenCorrectingLabPatient() {
+        Measurement measurement = createAndPersist(DEMO_NO, "GLU", "5.4", today);
+        assertThatThrownBy(() -> measurementDao.reassignLabPatient(measurement, "9834000", DEMO_NO_2))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(measurement.getDemographicId()).isEqualTo(DEMO_NO);
+    }
+
+    @Test
+    void shouldRejectInvalidPatientAndDetachedRecord_whenCorrectingLabPatient() {
+        Measurement measurement = createAndPersist(DEMO_NO, "GLU", "5.4", today);
+        assertThatThrownBy(() -> measurementDao.reassignLabPatient(measurement, "9834000", 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        entityManager.detach(measurement);
+        assertThatThrownBy(() -> measurementDao.reassignLabPatient(measurement, "9834000", DEMO_NO_2))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldContinueRejectingClinicalValueEdits_whenMeasurementExists() {
+        Measurement measurement = createAndPersist(DEMO_NO, "GLU", "5.4", today);
+        measurement.setDataField("999");
+        assertThatThrownBy(() -> entityManager.flush()).isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void shouldRestoreOriginalPatient_whenLaterMatchingWorkRollsBack() {
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        Integer id = tx.execute(status -> {
+            Measurement measurement = createAndPersist(DEMO_NO, "GLU", "5.4", today);
+            MeasurementsExt source = new MeasurementsExt();
+            source.setMeasurementId(measurement.getId());
+            source.setKeyVal("lab_no");
+            source.setVal("9834001");
+            entityManager.persist(source);
+            return measurement.getId();
+        });
+        try {
+            assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
+                Measurement measurement = entityManager.find(Measurement.class, id);
+                measurementDao.reassignLabPatient(measurement, "9834001", DEMO_NO_2);
+                entityManager.flush();
+                assertThat(measurement.getDemographicId()).isEqualTo(DEMO_NO_2);
+                throw new IllegalStateException("injected failure after patient correction");
+            })).isInstanceOf(IllegalStateException.class)
+                    .hasMessage("injected failure after patient correction");
+            tx.executeWithoutResult(status -> {
+                Measurement original = entityManager.find(Measurement.class, id);
+                assertThat(original.getDemographicId()).isEqualTo(DEMO_NO);
+                assertThat(original.getDataField()).isEqualTo("5.4");
+            });
+        } finally {
+            tx.executeWithoutResult(status -> {
+                entityManager.createQuery("delete from MeasurementsExt where measurementId=:id")
+                        .setParameter("id", id).executeUpdate();
+                entityManager.createQuery("delete from Measurement where id=:id")
+                        .setParameter("id", id).executeUpdate();
+            });
+        }
     }
 
     private Measurement createMeasurement(int demoNo, String type, String dataField, Date dateObserved) {
