@@ -179,9 +179,13 @@ Then:
    private key, and gets the same value:
 
    ```sh
-   printf 'sha256/'; openssl req -in live.csr -verify -pubkey -noout \
+   openssl req -in live.csr -verify -noout
+   printf 'sha256/'; openssl req -in live.csr -pubkey -noout \
      | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
    ```
+
+   The first command reports that the request's self-signature verifies; the second prints the
+   pin on a line of its own.
 
 2. Put the pin in `approved-pins.txt`, and in `patient_portal.certificate.pins` in the deployment's
    override properties (the file the `carlos_override_properties` JVM system property names; on the
@@ -266,15 +270,15 @@ key.
 
 ### The renewal job
 
-`certbot renew` does not renew certificates issued from a CSR. Save this as
-`/usr/local/sbin/portal-tls-renew`, set `HOST`, `CONNECT` (an address nginx listens on for the
+`certbot renew` does not renew certificates issued from a CSR. Save this as `portal-tls-renew`
+in a working directory, set `HOST`, `CONNECT` (an address nginx listens on for the
 portal) and `<validation>`, and run it daily from a `portal-tls-renew.timer` systemd timer (or
 cron). Make failures reach the owner: a timer's failures go only to the journal unless the service
 has an `OnFailure=` unit that sends mail or a page, and cron needs `MAILTO=`. The external expiry
 monitor from the first setup is the backstop if the job stops running altogether.
 
 The job runs as root, so the script and its timer, service or cron file must be owned by root and
-writable by no one else. Install the script with
+writable by no one else. Install the script as `/usr/local/sbin/portal-tls-renew` with
 `install -o root -g root -m 755 portal-tls-renew /usr/local/sbin/portal-tls-renew`.
 
 The stop and start commands below assume these two systemd units:
@@ -283,11 +287,14 @@ The stop and start commands below assume these two systemd units:
 # /etc/systemd/system/portal-tls-renew.service
 [Unit]
 Description=Renew the patient portal TLS certificate
+# OnFailure=<the unit that alerts the owner>
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/portal-tls-renew
+```
 
+```ini
 # /etc/systemd/system/portal-tls-renew.timer
 [Unit]
 Description=Run the patient portal TLS renewal daily
@@ -458,7 +465,7 @@ follow the next section instead.
    `previous-` files still exist). Otherwise revoke the old certificate
    (`certbot revoke --cert-path /etc/portal-tls/previous-cert.pem --reason superseded
    --no-delete-after-revoke`, or through the certificate authority), destroy the old key
-   (`shred -u previous-live.key`), remove the other `previous-` files, make sure no backup keeps
+   (`shred -u /etc/portal-tls/previous-live.key`), remove the other `previous-` files, make sure no backup keeps
    the old key, and start the renewal job.
 
 An aborted rotation can leave `next.key` behind; the first setup commands then refuse to overwrite
@@ -475,9 +482,10 @@ once. If the steps below cannot be finished quickly, switch the portal off (see
 
 **If the portal host itself may be compromised**, switch the portal off and rebuild the host.
 Never bring the standby key onto a host that may be in an attacker's hands. On the rebuilt host,
-do the first setup with `standby.key` and `standby.csr` copied in as `live.key` and `live.csr` (the
-guard then skips key generation). Copy the key straight into `/etc/portal-tls` over SSH as root,
-never through `/tmp`, a home directory, email or a ticket, and `chmod 600` it. Make one change to
+create the directory (`install -d -m 700 /etc/portal-tls`), copy `standby.key` and `standby.csr`
+straight into it over SSH as root as `live.key` and `live.csr`, never through `/tmp`, a home
+directory, email or a ticket, `chmod 600 live.key`, and then do the first setup (the guard skips
+key generation). Make one change to
 step 2 of the first setup: set the pins to that key's pin **only** and leave the new standby for
 last; never keep the old live pin. Switch the portal on; unlike step 6 of the first setup, the log
 (with `LOG_VERBOSITY=info`) then shows 1 pin. The old host also held CARLOS's
@@ -509,7 +517,7 @@ need to switch off: do a scheduled rotation.
    block the key:
    `certbot revoke --cert-path /etc/portal-tls/previous-cert.pem --key-path /etc/portal-tls/previous-live.key --reason keycompromise --no-delete-after-revoke`,
    or, with another certificate authority, revoke every unexpired certificate for that key.
-4. Destroy the old key (`shred -u previous-live.key`), remove the other `previous-` files, make
+4. Destroy the old key (`shred -u /etc/portal-tls/previous-live.key`), remove the other `previous-` files, make
    sure no backup keeps the old key, and start the renewal job.
 5. Destroy the old `standby.key` and `standby.csr` (they are now the live key), then generate a
    new standby key and add its pin, as above.
