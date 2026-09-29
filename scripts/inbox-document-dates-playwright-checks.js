@@ -62,6 +62,10 @@ async function workflow(s) {
   await pickDate(inbox, '#startDate', '2026-03-03');
   await pickDate(inbox, '#endDate', '2026-03-05');
   const search = async () => {
+    // Searching collapses the filter sidebar. Reopen it before the next query.
+    if (!await inbox.locator('#inbox-sidebar').isVisible()) {
+      await inbox.locator('#inbox-sidebar-toggle').click();
+    }
     await inbox.locator('#inboxhubFormSearchBtn').click();
     await settle(inbox, timeout);
     return shownRows(inbox);

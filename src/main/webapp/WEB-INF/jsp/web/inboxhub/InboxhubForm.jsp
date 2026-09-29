@@ -375,20 +375,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 </div>
 </c:if>
 
-<div aria-live="polite" aria-atomic="true" class="position-absolute bottom-0 end-0 p-3" style="z-index: 11; display: none;">
-    <%-- Keep the retry action available until the clinician dismisses it or retries. --%>
-    <div id="ajaxErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
-        <div class="d-flex">
-            <div class="toast-body">
-                <fmt:message key="inboxhub.form.ajaxError"/>
-                <button id="retryInboxhubPage" type="button" class="btn btn-sm btn-outline-light ms-2"
-                        onclick="retryInboxhubPage();"><fmt:message key="inboxhub.form.retryLoad"/></button>
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="<fmt:message key='global.btnClose'/>"></button>
-        </div>
-    </div>
-</div>
-
 <script>
     var page = 1;
     var pageSize = 20;

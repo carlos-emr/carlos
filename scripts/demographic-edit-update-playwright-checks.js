@@ -264,7 +264,10 @@ async function main() {
           && response.request().method() === 'POST', { timeout }),
       clickAndAwaitReload(masterPage, save, { timeout, label: 'Update Record' }),
     ]);
-    assert(update.ok(), `Update Record was refused with HTTP ${update.status()}; no patient changes were saved`);
+    // The edit action normally redirects after accepting the POST. Verify the
+    // database below instead of treating its 302 as a rejected write.
+    assert(update.status() < 400,
+      `Update Record was refused with HTTP ${update.status()}; no patient changes were saved`);
 
     // 1. The write reached the database.
     const [after] = sql.rows(

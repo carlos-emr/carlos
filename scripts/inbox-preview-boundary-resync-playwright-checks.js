@@ -219,7 +219,19 @@ async function main({throwIfCancelled = () => {}} = {}) {
       container.scrollTop = container.scrollHeight;
       container.dispatchEvent(new Event('scroll'));
     });
-    await inbox.locator('#ajaxErrorToast.show').waitFor({ timeout });
+    const errorToast = inbox.locator('#ajaxErrorToast.show');
+    await errorToast.waitFor({ state: 'attached', timeout });
+    const toastVisibility = await errorToast.evaluate(element => {
+      const layers = [];
+      for (let current = element; current && layers.length < 5; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        layers.push({ tag: current.tagName, id: current.id, display: style.display,
+          visibility: style.visibility, opacity: style.opacity });
+      }
+      return layers;
+    });
+    assert(await errorToast.isVisible(),
+      `Paging failed, but its retry toast is hidden: ${JSON.stringify(toastVisibility)}`);
     await inbox.waitForFunction(() => !window.isFetchingData, null, { timeout });
     assert(await inbox.evaluate(expected => window.page === expected, failedPage),
       'failed paging advanced past the missing results');
