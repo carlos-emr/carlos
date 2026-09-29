@@ -102,6 +102,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
     @Mock private HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
     @Mock private FormsManager formsManager;
     @Mock private DocumentAttachmentManager documentAttachmentManager;
+    @Mock private TicklerDocumentAccess ticklerDocumentAccess;
     @Mock private LoggedInInfo loggedInInfo;
 
     private TicklerAttachmentService service;
@@ -111,13 +112,14 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
     void setUp() {
         service = new TicklerAttachmentService(ticklerDocsDao, securityInfoManager, documentDao,
                 patientLabRoutingDao, eFormDataDao, hrmDocumentToDemographicDao, formsManager,
-                documentAttachmentManager, ticklerDao);
+                documentAttachmentManager, ticklerDao, ticklerDocumentAccess);
         tickler = new Tickler();
         tickler.setId(TICKLER_ID);
         tickler.setDemographicNo(DEMOGRAPHIC_NO);
         lenient().when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         lenient().when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), anyString()))
                 .thenReturn(true);
+        lenient().when(ticklerDocumentAccess.canRead(any(LoggedInInfo.class), anyInt())).thenReturn(true);
     }
 
     private static Map<DocumentType, Set<String>> submission(DocumentType type, String... ids) {
@@ -345,6 +347,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             TicklerDocs removed = stored(12, "D");
             when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(kept, removed));
             documentOwnedBy(11, DEMOGRAPHIC_NO);
+            documentOwnedBy(12, DEMOGRAPHIC_NO);
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
 
@@ -354,6 +357,38 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             verify(ticklerDocsDao, never()).persist(any());
             logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
                     eq("TicklerAttachmentService.delete"), eq("ticklerId=42,type=D,documentNo=12")));
+        }
+
+        @Test
+        @DisplayName("should preserve a document hidden by item-level access while removing a readable document")
+        void shouldKeepRestrictedDocument_whenVisibleSelectionCleared() {
+            TicklerDocs restricted = stored(11, "D");
+            TicklerDocs visible = stored(12, "D");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(restricted, visible));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            documentOwnedBy(12, DEMOGRAPHIC_NO);
+            when(ticklerDocumentAccess.canRead(loggedInInfo, 11)).thenReturn(false);
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC));
+
+            assertThat(restricted.getDeleted()).isNull();
+            assertThat(visible.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            verify(ticklerDocsDao).merge(visible);
+            verify(ticklerDocsDao, never()).merge(restricted);
+        }
+
+        @Test
+        @DisplayName("should refuse a new document whose program or queue the caller cannot access")
+        void shouldRefuseNewDocument_withoutItemAccess() {
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+            org.mockito.Mockito.doThrow(new SecurityException("Document access denied"))
+                    .when(ticklerDocumentAccess).requireRead(loggedInInfo, 11);
+
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler,
+                    submission(DocumentType.DOC, "11")))
+                    .isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).persist(any());
         }
 
         @Test
@@ -461,13 +496,16 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should not detach items of a type the caller cannot read")
+        @DisplayName("should preserve stored items when an unreadable type has no identifiers in the form")
         void shouldLeaveTypeUntouched_whenTypeReadDeniedAndNothingSubmitted() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
-            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+            TicklerDocs mds = stored(77, "L");
+            mds.setLabType("MDS");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(mds));
 
             service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB));
 
+            assertThat(mds.getDeleted()).isNull();
             verify(ticklerDocsDao, never()).merge(any());
             verify(ticklerDocsDao, never()).persist(any());
         }
@@ -475,8 +513,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should leave a type the caller cannot read alone when its stored set is resubmitted unchanged")
         void shouldLeaveTypeUntouched_whenTypeReadDeniedAndStoredSetResubmitted() {
-            // The Edit form carries restricted rows through as hidden delegates, so a save
-            // after opening the picker resubmits exactly the stored set for that type.
+            // A form opened before this change may still submit its restricted delegates.
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
             TicklerDocs mds = stored(77, "L");
             mds.setLabType("MDS");
@@ -520,15 +557,14 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             TicklerDocs mds = stored(77, "L");
             mds.setLabType("MDS");
             when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(mds));
-            // The stored lab is still the patient's, so the form showed it: adding or dropping it
-            // is a change to a type the caller may not read.
+            // A forged nonempty selection is refused even when the caller cannot read the type.
             labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
 
             assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB, "MDS:77", "MDS:79")))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_lab)");
-            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB)))
-                    .isInstanceOf(SecurityException.class);
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB));
+            assertThat(mds.getDeleted()).isNull();
             verify(ticklerDocsDao, never()).merge(any());
             verify(ticklerDocsDao, never()).persist(any());
         }
@@ -564,6 +600,19 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(() -> service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO, submission(DocumentType.LAB, "HL7:77")))
                     .isInstanceOf(SecurityException.class);
+        }
+
+        @Test
+        @DisplayName("should refuse a document outside the caller's program or queue before saving a tickler")
+        void shouldRefuseDocumentWithoutItemAccess_beforeTicklerCreation() {
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            org.mockito.Mockito.doThrow(new SecurityException("Document access denied"))
+                    .when(ticklerDocumentAccess).requireRead(loggedInInfo, 11);
+
+            assertThatThrownBy(() -> service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO,
+                    submission(DocumentType.DOC, "11")))
+                    .isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).persist(any());
         }
 
         @Test
@@ -661,6 +710,21 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should hide the identifier and name when document-level access is denied")
+        void shouldRedactDocument_whenProgramOrQueueReadDenied() {
+            when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            when(ticklerDocumentAccess.canRead(loggedInInfo, 11)).thenReturn(false);
+
+            List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
+
+            assertThat(attachments).hasSize(1);
+            assertThat(attachments.get(0).isViewable()).isFalse();
+            assertThat(attachments.get(0).getDisplayName()).isNull();
+            verify(documentDao, never()).getDocument(anyString());
+        }
+
+        @Test
         @DisplayName("should fall back to a generic label when the item no longer resolves")
         void shouldUseGenericLabel_whenItemMissing() {
             when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
@@ -691,7 +755,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should stamp the audit pair on attach, detach and revive")
         void shouldStampAuditPair_onEveryWrite() {
             documentOwnedBy(11, DEMOGRAPHIC_NO);
-            // 12 is stored but not resubmitted, so no ownership lookup is made for it.
+            documentOwnedBy(12, DEMOGRAPHIC_NO);
             TicklerDocs removed = stored(12, "D");
             removed.setLastUpdateUser("000001");
             when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(removed));

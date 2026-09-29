@@ -233,12 +233,15 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
              MockedStatic<Hl7textResultsData> hl7 = mockStatic(Hl7textResultsData.class)) {
             hl7.when(() -> Hl7textResultsData.getMatchingLabs("171"))
                     .thenAnswer(call -> lateArrival.get() ? "169,172,171" : "169,171");
-            Mockito.doAnswer(call -> { lateArrival.set(true); return null; })
-                    .when(staticRoutingDao()).lockRoutingReport(169);
             common.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
             common.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
+            // CALLS_REAL_METHODS executes the method once while these static stubs are
+            // installed, with Mockito's matcher default id (0). Install the strict DAO
+            // stub afterward so setup does not mistake that invocation for a real lab.
+            Mockito.doAnswer(call -> { lateArrival.set(true); return null; })
+                    .when(staticRoutingDao()).lockRoutingReport(169);
             when(staticRoutingDao().transitionNewRoutingRows(anyInt(), anyString(), anyString(), anyChar()))
                     .thenReturn(1);
 

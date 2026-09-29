@@ -29,7 +29,8 @@
     by the host page. Loads previewDocs?method=fetchTicklerDocuments for the tickler's patient,
     pre-checks the picker from the form's ".delegateAttachment" inputs, and on Save and Close
     rewrites those inputs from the checked boxes, updates the visible name lists and sets the
-    attachmentsSubmitted marker. Restricted delegates (types the reader cannot open) are kept.
+    attachmentsSubmitted marker. Restricted items have no client-side identifiers; the service
+    preserves them when their type is submitted without values.
 
     @since 2026-09-26
 --%>
@@ -45,6 +46,18 @@
         var ctx = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>';
         var saveAndCloseText = '${carlos:forJavaScript(ticklerAttachmentsSaveAndCloseText)}';
         var selectPatientText = '${carlos:forJavaScript(ticklerAttachmentsSelectPatientText)}';
+
+        function updateAssigneeWarning() {
+            var $form = jQuery('form[name="serviceform"]');
+            var $panel = $form.find('.tickler-attachments');
+            var assignee = $form.find('[name="assignedToProviders"], [name="task_assigned_to"]').first().val();
+            var sender = $panel.attr('data-current-provider');
+            $panel.find('#attachmentAssigneeWarning').toggle(
+                $panel.find('#attachmentNames li').length > 0 && !!assignee && assignee !== sender);
+        }
+
+        jQuery(document).on('change', '[name="assignedToProviders"], [name="task_assigned_to"]', updateAssigneeWarning);
+        jQuery(updateAssigneeWarning);
 
         jQuery(document).on('click', '#manageAttachmentsBtn', function () {
             var $form = jQuery('form[name="serviceform"]');
@@ -108,11 +121,10 @@
                         return;
                     }
                     // Rebuild the form's selection from the picker. The action synchronises each
-                    // type against the stored set, so submitting the full current selection is
-                    // sufficient for both adds and removals. Restricted delegates (types this
-                    // reader cannot see) and unlisted ones (items the picker does not offer)
-                    // must survive the rebuild: neither could have been un-checked here.
-                    $form.find('.delegateAttachment:not([data-restricted]):not([data-unlisted])').remove();
+                    // type against the stored set. Restricted items are retained server-side;
+                    // unlisted delegates (items the picker does not offer) must survive the
+                    // rebuild because the reader could not un-check them here.
+                    $form.find('.delegateAttachment:not([data-unlisted])').remove();
                     jQuery('#attachmentNames ul li:not(.restricted):not(.unlisted)').remove();
                     jQuery('#attachDocumentsForm')
                         .find('.document_check:checked, .lab_check:checked, .form_check:checked, .eForm_check:checked, .hrm_check:checked')
@@ -139,8 +151,9 @@
                     jQuery('#attachmentNames .attachment-group').each(function () {
                         jQuery(this).toggle(jQuery(this).find('li').length > 0);
                     });
-                    jQuery('#attachmentCount').text($form.find('.delegateAttachment').length);
+                    jQuery('#attachmentCount').text(jQuery('#attachmentNames li').length);
                     jQuery('#attachmentsSubmitted').val('1');
+                    updateAssigneeWarning();
                 }
             });
         });
