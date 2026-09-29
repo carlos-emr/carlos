@@ -85,6 +85,7 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_RECEIVER_EMAIL_ADDRESS = "receiverEmailAddress";
     private static final String PARAM_PATIENT_CHART_OPTION = "patientChartOption";
     private static final String PARAM_MESSAGE = "message";
+    private static final String PARAM_FOOTER_EMAIL = "footerEmail";
     private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
     private static final String PARAM_DELETE_EFORM_AFTER_EMAIL = "deleteEFormAfterEmail";
@@ -213,6 +214,7 @@ public class EmailSend2Action extends ActionSupport {
         EmailSendResult sendResult;
         try {
             validateMessageRequirement(request);
+            validateFooterLength(request);
             validateEncryptionRequirements(request);
             validateConsentOverrideReason(request);
             int senderConfigId = validateSubmittedEmailFields(request);
@@ -271,6 +273,7 @@ public class EmailSend2Action extends ActionSupport {
         EmailSendResult sendResult;
         try {
             validateMessageRequirement(request);
+            validateFooterLength(request);
             validateEncryptionRequirements(request);
             validateConsentOverrideReason(request);
             int senderConfigId = validateSubmittedEmailFields(request);
@@ -373,6 +376,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute(PARAM_SENDER_CONFIG_ID, request.getParameter(PARAM_SENDER_CONFIG_ID));
         request.setAttribute(PARAM_SUBJECT_EMAIL, request.getParameter(PARAM_SUBJECT_EMAIL));
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
+        request.setAttribute(PARAM_FOOTER_EMAIL, request.getParameter(PARAM_FOOTER_EMAIL));
         request.setAttribute("emailPatientChartOption", request.getParameter(PARAM_PATIENT_CHART_OPTION));
         request.setAttribute(
                 PARAM_DEMOGRAPHIC_ID,
@@ -417,6 +421,8 @@ public class EmailSend2Action extends ActionSupport {
      */
     private void preserveComposeInputsForReRender(EmailLog emailLog) {
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
+        // The footer as submitted, not the account default: a retry keeps what staff sent.
+        request.setAttribute(PARAM_FOOTER_EMAIL, request.getParameter(PARAM_FOOTER_EMAIL));
         // Fail closed on both encryption flags, matching prepareEmailFields: only an explicit
         // "false" re-renders a toggle OFF, so a failed draft cannot silently lose protection.
         request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED,
@@ -574,6 +580,22 @@ public class EmailSend2Action extends ActionSupport {
     }
 
     /**
+     * Enforces the footer's length limit at the server boundary, as the message's is: the
+     * textarea's {@code maxlength} can be bypassed by a direct POST (issue #3981). Line breaks
+     * count once, as the browser counts them, although a form submits each as CR LF.
+     *
+     * @param request request containing the optional footer
+     * @throws EmailSendValidationException when the footer is longer than the limit
+     */
+    private void validateFooterLength(HttpServletRequest request) {
+        String footer = request.getParameter(PARAM_FOOTER_EMAIL);
+        if (footer != null && footer.replace("\r\n", "\n").length() > EmailData.FOOTER_MAX_LENGTH) {
+            throw new EmailSendValidationException(
+                    "Footer must not exceed " + EmailData.FOOTER_MAX_LENGTH + " characters");
+        }
+    }
+
+    /**
      * Enforces the compose form's encryption requirements at the server boundary. Client-side
      * validation is only a usability aid and can be bypassed by a direct POST. The passphrase
      * itself is resolved exclusively from server-owned submission state.
@@ -624,7 +646,7 @@ public class EmailSend2Action extends ActionSupport {
      * <p>This private helper method performs comprehensive email data preparation including:</p>
      * <ul>
      *   <li>Extracting sender and recipient email addresses</li>
-     *   <li>Retrieving subject, body, and internal comment fields</li>
+     *   <li>Retrieving subject, body, footer, and internal comment fields</li>
      *   <li>Processing encryption settings (email body and attachment encryption)</li>
      *   <li>Resolving server-generated PDF password protection values</li>
      *   <li>Retrieving patient chart display options and demographic information</li>
@@ -684,6 +706,8 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setRecipients(receiverEmails);
         emailData.setSubject(subject);
         emailData.setBody(body);
+        // Sent below the body in clear, even when encryption is on; never charted (issue #3981).
+        emailData.setFooter(request.getParameter(PARAM_FOOTER_EMAIL));
         emailData.setEncryptedMessage(encryptedMessage);
         emailData.setPassword(password);
         emailData.setPasswordClue(passwordClue);

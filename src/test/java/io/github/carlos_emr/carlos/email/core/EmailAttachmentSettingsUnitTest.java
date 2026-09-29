@@ -65,6 +65,19 @@ class EmailAttachmentSettingsUnitTest {
             assertThat(settings.bodyEmail()).isNull();
             assertThat(settings.encryptedMessageEmail()).isNull();
             assertThat(settings.emailPatientChartOption()).isNull();
+            assertThat(settings.footerEmail()).isNull();
+        }
+
+        @Test
+        @DisplayName("should cap an eForm footer at the footer limit, as the body is capped")
+        void shouldTruncateFooter_whenLongerThanLimit() {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("footerEmail", "f".repeat(EmailData.FOOTER_MAX_LENGTH + 1));
+
+            assertThat(fromRequest(request).footerEmail()).isEqualTo("f".repeat(2000));
+
+            request.setParameter("footerEmail", "Riverside Clinic\nBook online");
+            assertThat(fromRequest(request).footerEmail()).isEqualTo("Riverside Clinic\nBook online");
         }
 
         @Test

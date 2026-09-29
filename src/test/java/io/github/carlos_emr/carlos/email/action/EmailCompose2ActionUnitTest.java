@@ -5,8 +5,12 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import org.springframework.test.util.ReflectionTestUtils;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -926,6 +930,143 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(new EmailCompose2Action().prepareComposeEFormMailer()).isEqualTo("eFormError");
             assertThat(request.getSession().getAttribute("demographicId")).isEqualTo("789");
         }
+    }
+
+    @Test
+    @DisplayName("should open with the eForm's footer ahead of the sending account's default")
+    void shouldPrefillEFormFooter_overAccountDefault() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        when(mocks.emailComposeManager().getAllSenderAccounts())
+                .thenReturn(List.of(senderAccount("clinic@example.org", "Account footer")));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+        request.getSession(false).setAttribute("footerEmail", "eForm footer");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            assertThat(request.getSession().getAttribute("footerEmail")).isNull();
+            MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("eForm footer");
+            assertThat(rendered.getAttribute("footerFollowsSender")).isEqualTo(false);
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should open with the selected sending account's default when the eForm has no footer")
+    void shouldPrefillSelectedAccountDefault_whenEFormHasNoFooter() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        when(mocks.emailComposeManager().getAllSenderAccounts()).thenReturn(List.of(
+                senderAccount("front@example.org", "Front desk footer"),
+                senderAccount("clinic@example.org", "Clinic footer")));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+        request.getSession(false).setAttribute("senderEmail", "clinic@example.org");
+        request.getSession(false).setAttribute("footerEmail", "  ");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("Clinic footer");
+            assertThat(rendered.getAttribute("footerFollowsSender")).isEqualTo(true);
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should open with an empty footer when neither the eForm nor the account has one")
+    void shouldPrefillEmptyFooter_whenNoFooterSupplied() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        when(mocks.emailComposeManager().getAllSenderAccounts())
+                .thenReturn(List.of(senderAccount("clinic@example.org", null)));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("");
+            assertThat(rendered.getAttribute("footerFollowsSender")).isEqualTo(true);
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should take the default of the account the page selects, as the browser selects it")
+    void shouldResolveFooterFromSelectedAccount_forSenderSelectionRules() {
+        EmailConfig first = senderAccount("front@example.org", "Front desk footer");
+        EmailConfig clinic = senderAccount("clinic@example.org", "Clinic footer");
+        EmailConfig clinicAgain = senderAccount("clinic@example.org", "Second clinic footer");
+
+        // No staged sender: the first option is selected.
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, List.of(first, clinic), null))
+                .isEqualTo(new EmailCompose2Action.ComposeFooter("Front desk footer", true));
+        // Several options match: a browser keeps the last one marked selected.
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, List.of(first, clinic, clinicAgain),
+                "clinic@example.org"))
+                .isEqualTo(new EmailCompose2Action.ComposeFooter("Second clinic footer", true));
+        // An unknown staged sender falls back to the first option.
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, List.of(first, clinic), "other@example.org"))
+                .isEqualTo(new EmailCompose2Action.ComposeFooter("Front desk footer", true));
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, List.of(), "clinic@example.org"))
+                .isEqualTo(new EmailCompose2Action.ComposeFooter("", true));
+        assertThat(EmailCompose2Action.resolveComposeFooter("eForm footer", List.of(first), null))
+                .isEqualTo(new EmailCompose2Action.ComposeFooter("eForm footer", false));
+    }
+
+    @Test
+    @DisplayName("should cut an account default footer over the limit, which a send would otherwise refuse")
+    void shouldCutAccountDefaultFooter_whenLongerThanSendLimit() {
+        int limit = EmailData.FOOTER_MAX_LENGTH;
+        EmailConfig longDefault = senderAccount("clinic@example.org", "x".repeat(limit + 100));
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, List.of(longDefault), null))
+                .isEqualTo(new EmailCompose2Action.ComposeFooter("x".repeat(limit), true));
+
+        // Line breaks count once, as the send action counts them: exactly at the limit is kept as is.
+        String crlf = "a\r\n".repeat(limit / 2);
+        assertThat(EmailCompose2Action.composeDefaultFooter(senderAccount("c@example.org", crlf)))
+                .isEqualTo(crlf);
+        // A surrogate pair straddling the limit is dropped whole, never split.
+        String straddling = "x".repeat(limit - 1) + "\uD83D\uDE00";
+        assertThat(EmailCompose2Action.composeDefaultFooter(senderAccount("c@example.org", straddling)))
+                .isEqualTo("x".repeat(limit - 1));
+        assertThat(EmailCompose2Action.composeDefaultFooter(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should key each account's usable default footer by id, and name an over-long one by id only")
+    void shouldMapDefaultFootersById_forSenderSwitch() {
+        int limit = EmailData.FOOTER_MAX_LENGTH;
+        EmailConfig clinic = senderAccount("clinic@example.org", "Clinic footer");
+        ReflectionTestUtils.setField(clinic, "id", 7);
+        EmailConfig longDefault = senderAccount("long@example.org", "Book online " + "y".repeat(limit));
+        ReflectionTestUtils.setField(longDefault, "id", 8);
+        EmailConfig none = senderAccount("none@example.org", null);
+        ReflectionTestUtils.setField(none, "id", 9);
+
+        try (LogCapture logs = LogCapture.forLogger(EmailCompose2Action.class)) {
+            Map<Integer, String> footers = EmailCompose2Action.senderDefaultFooters(List.of(clinic, longDefault, none));
+
+            assertThat(footers).containsEntry(7, "Clinic footer").containsEntry(9, "");
+            assertThat(footers.get(8)).hasSize(limit).startsWith("Book online ");
+            assertThat(logs.messages()).hasSize(1);
+            assertThat(logs.messages().get(0)).contains("account 8").doesNotContain("Book online");
+        }
+    }
+
+    private static EmailConfig senderAccount(String senderEmail, String defaultFooter) {
+        EmailConfig account = new EmailConfig(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL, senderEmail);
+        account.setDefaultFooter(defaultFooter);
+        return account;
     }
 
     @SuppressWarnings("unchecked")

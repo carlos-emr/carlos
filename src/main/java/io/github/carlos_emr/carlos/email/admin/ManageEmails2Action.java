@@ -305,7 +305,7 @@ public class ManageEmails2Action extends ActionSupport {
      * is advised to create a new email instead of resending. The method returns null in
      * case of validation errors (invalid log ID).
      *
-     * Email data including encryption settings, chart display options, and additional
+     * Email data including the footer, encryption settings, chart display options, and additional
      * parameters are preserved from the original email for potential modification before
      * resending. A new PDF passphrase and delivery instruction are generated for each
      * resend instead of reusing the original email's password values.
@@ -431,6 +431,9 @@ public class ManageEmails2Action extends ActionSupport {
                 emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
         request.setAttribute("message", EmailData.mergeMessage(
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
+        // The footer that was sent (issue #3981), not the account's current default: this is a
+        // copy. A log written before footers existed has none.
+        request.setAttribute("footerEmail", emailLog.getFooter());
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());
         request.setAttribute("emailAttachmentList", emailAttachmentList);

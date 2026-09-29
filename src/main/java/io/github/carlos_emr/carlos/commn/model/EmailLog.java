@@ -158,6 +158,14 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     @Column(columnDefinition = "BLOB")
     private byte[] body;
 
+    /**
+     * Text sent below the body (issue #3981). Kept apart from {@link #body} because the chart
+     * note is built from the body, and the footer is never charted.
+     */
+    @Lob
+    @Column(columnDefinition = "BLOB")
+    private byte[] footer;
+
     @Convert(converter = EmailLogStatusConverter.class)
     private EmailStatus status;
 
@@ -350,6 +358,26 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      */
     public void setBody(String body) {
         this.body = body == null ? null : Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Gets the footer sent below the body. Stored Base64-encoded like the body.
+     *
+     * @return String the decoded footer, or empty for a row written before the footer existed
+     * @since 2026-09-29
+     */
+    public String getFooter() {
+        return footer == null ? "" : new String(Base64.decodeBase64(footer), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Sets the footer sent below the body. It is Base64-encoded before storage.
+     *
+     * @param footer String the footer to encode and store
+     * @since 2026-09-29
+     */
+    public void setFooter(String footer) {
+        this.footer = footer == null ? null : Base64.encodeBase64(footer.getBytes(StandardCharsets.UTF_8));
     }
 
     /**

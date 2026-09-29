@@ -319,6 +319,50 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep the submitted footer on the retry form when delivery fails")
+    void shouldKeepFooter_whenRetryRendersAfterDeliveryFailure() {
+        MockHttpServletRequest request = encryptedSendRequest();
+        request.setParameter("footerEmail", "Riverside Clinic\r\nNot monitored for urgent issues.");
+
+        EmailLog emailLog = mock(EmailLog.class);
+        when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        prepareSubmission(request);
+        action.sendDirectEmail();
+
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
+        assertThat(request.getAttribute("footerEmail"))
+                .isEqualTo("Riverside Clinic\r\nNot monitored for urgent issues.");
+        // A retry keeps the footer staff sent; the page must not swap in an account default.
+        assertThat(request.getAttribute("footerFollowsSender")).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep the submitted footer when the compose window has expired")
+    void shouldKeepFooter_whenComposeStateIsMissing() {
+        MockHttpServletRequest request = encryptedSendRequest();
+        request.setParameter("footerEmail", "Riverside Clinic");
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        action.sendDirectEmail();
+
+        assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("Riverside Clinic");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
     @DisplayName("should retain the failed sender when refreshing sender accounts fails")
     void shouldRetainFailedSender_whenSenderAccountRefreshFails() {
         MockHttpServletRequest request = encryptedSendRequest();
@@ -422,6 +466,52 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject a footer over the server-side size limit before sending")
+    void shouldRejectFooter_whenFooterExceedsSizeLimit() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("message", "Message");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("footerEmail", "f".repeat(EmailData.FOOTER_MAX_LENGTH + 1));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString()).contains("Footer must not exceed 2000 characters");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
+    @DisplayName("should count each submitted line break once against the footer limit")
+    void shouldAcceptFooter_whenLimitReachedOnlyByCrLfLineBreaks() {
+        String footer = "f".repeat(EmailData.FOOTER_MAX_LENGTH - 2) + "\r\n" + "g";
+
+        EmailData sent = captureSentEmail("A non-clinical reminder.", "false", "false", footer);
+
+        assertThat(sent.getFooter()).isEqualTo(footer);
+    }
+
+    @Test
+    @DisplayName("should send the footer after the secure-message notice and outside the encrypted PDF")
+    void shouldSendFooterAfterNotice_whenEncryptionOn() {
+        EmailData sent = captureSentEmail(
+                "Confidential lab result for the patient.", "true", "true", "Riverside Clinic");
+
+        assertThat(sent.getBody()).isEqualTo("SECURE_NOTICE");
+        assertThat(sent.getFooter()).isEqualTo("Riverside Clinic");
+        assertThat(sent.getTransmittedBody()).isEqualTo("SECURE_NOTICE\n\nRiverside Clinic");
+        assertThat(sent.getEncryptedMessage())
+                .isEqualTo("Confidential lab result for the patient.")
+                .doesNotContain("Riverside Clinic");
+    }
+
+    @Test
     @DisplayName("should reject overlong consent override reasons before sending")
     void shouldRejectConsentOverrideReason_whenLongerThanAuditColumn() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
@@ -497,7 +587,16 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
      */
     private EmailData captureSentEmail(
             String message, String isEmailEncrypted, String isEmailAttachmentEncrypted) {
+        return captureSentEmail(message, isEmailEncrypted, isEmailAttachmentEncrypted, null);
+    }
+
+    /** As above, also submitting {@code footerEmail} unless it is null. */
+    private EmailData captureSentEmail(
+            String message, String isEmailEncrypted, String isEmailAttachmentEncrypted, String footer) {
         MockHttpServletRequest request = new MockHttpServletRequest();
+        if (footer != null) {
+            request.setParameter("footerEmail", footer);
+        }
         if (message != null) {
             request.setParameter("message", message);
         }

@@ -61,7 +61,8 @@ public record EmailAttachmentSettings(
     String subjectEmail,
     String bodyEmail,
     String encryptedMessageEmail,
-    String emailPatientChartOption
+    String emailPatientChartOption,
+    String footerEmail
 ) {
 
     /** Simple email format validation pattern. */
@@ -127,7 +128,9 @@ public record EmailAttachmentSettings(
             sanitizeSubject(req.getParameter("subjectEmail")),
             truncate(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
             truncate(req.getParameter("encryptedMessageEmail"), MAX_BODY_LENGTH),
-            validateChartOption(req.getParameter("emailPatientChartOption"))
+            validateChartOption(req.getParameter("emailPatientChartOption")),
+            // Truncated like the body; the send action rejects anything longer outright.
+            truncate(req.getParameter("footerEmail"), EmailData.FOOTER_MAX_LENGTH)
         );
     }
 

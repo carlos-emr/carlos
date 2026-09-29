@@ -10,6 +10,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -163,6 +164,28 @@ class APISendGridEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
             assertThat(payload.path("attachments").get(0).path("type").asText()).isEqualTo(expectedType);
             assertThat(sender.describePreparedAttachments()).singleElement()
                     .satisfies(metadata -> assertThat(metadata.getContentType()).isEqualTo(expectedType));
+        } finally {
+            sender.discardPrepared();
+        }
+    }
+
+    @Test
+    @DisplayName("should archive the SendGrid payload with the footer one blank line below the body")
+    void shouldCarryFooter_inArchivedPayloadContent() throws Exception {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Test body");
+        emailData.setFooter("Riverside Clinic\nNot monitored for urgent issues.");
+        APISendGridEmailSender sender = new APISendGridEmailSender(loggedInInfo, validConfig(),
+                new String[]{"patient@example.test"}, "Test subject", emailData.getTransmittedBody(), "", List.of());
+
+        try {
+            JsonNode payload = OBJECT_MAPPER.readTree(sender.prepareArtifactBytes());
+
+            assertThat(payload.path("content").size()).isEqualTo(1);
+            JsonNode content = payload.path("content").get(0);
+            assertThat(content.path("type").asText()).isEqualTo("text/plain");
+            assertThat(content.path("value").asText())
+                    .isEqualTo("Test body\n\nRiverside Clinic\nNot monitored for urgent issues.");
         } finally {
             sender.discardPrepared();
         }

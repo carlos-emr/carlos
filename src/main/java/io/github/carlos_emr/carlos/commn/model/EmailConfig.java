@@ -42,6 +42,14 @@ public class EmailConfig extends AbstractModel<Integer> {
     @Column(name = "configDetails", columnDefinition = "TEXT")
     private String configDetailsJson;
 
+    /**
+     * Footer the compose screen fills in for this sending account when an eForm supplies none
+     * (issue #3981). A plain column, deliberately not part of configDetails, which holds the
+     * credentials. Set by SQL until an edit screen exists.
+     */
+    @Column(name = "defaultFooter", columnDefinition = "TEXT")
+    private String defaultFooter;
+
     @OneToMany(mappedBy = "emailConfig", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private List<EmailLog> emailLogs;
 
@@ -117,6 +125,14 @@ public class EmailConfig extends AbstractModel<Integer> {
 
     public void setConfigDetailsJson(String configDetailsJson) {
         this.configDetailsJson = configDetailsJson;
+    }
+
+    public String getDefaultFooter() {
+        return defaultFooter;
+    }
+
+    public void setDefaultFooter(String defaultFooter) {
+        this.defaultFooter = defaultFooter;
     }
 
     public List<EmailLog> getEmailLogs() {

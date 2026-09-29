@@ -44,6 +44,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
@@ -399,6 +400,40 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(emailLog.getConsentStatus()).isEqualTo(EmailConsentStatus.OPT_OUT);
         assertThat(emailLog.getConsentOverride()).isFalse();
         assertThat(emailLog.getConsentOverrideReason()).isEmpty();
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should log the footer apart from the body and send both")
+    void shouldStoreFooterApartFromBody_whenSendAccepted() throws Exception {
+        EmailData emailData = emailData();
+        emailData.setFooter("Riverside Clinic footer");
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.OPT_IN, 55, new Date()));
+        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
+        when(emailSenderFactory.create(any(), any(), sent.capture())).thenReturn(emailSender);
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        // The chart note is built from the body, so the body must stay footer-free.
+        assertThat(emailLog.getBody()).isEqualTo("Body");
+        assertThat(emailLog.getFooter()).isEqualTo("Riverside Clinic footer");
+        assertThat(sent.getValue().getTransmittedBody()).isEqualTo("Body\n\nRiverside Clinic footer");
+    }
+
+    @Test
+    @DisplayName("should keep the footer on the failed log when the sender account is missing")
+    void shouldStoreFooterOnFailedLog_whenSenderConfigurationMissing() {
+        EmailData emailData = emailData();
+        emailData.setSenderConfigId(99);
+        emailData.setFooter("Riverside Clinic footer");
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.FAILED);
+        assertThat(emailLog.getBody()).isEqualTo("Body");
+        assertThat(emailLog.getFooter()).isEqualTo("Riverside Clinic footer");
         verifyNoInteractions(emailSenderFactory, emailSender);
     }
 

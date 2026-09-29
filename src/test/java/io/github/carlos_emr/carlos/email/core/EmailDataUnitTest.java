@@ -116,6 +116,58 @@ class EmailDataUnitTest {
         assertThat(emailData.getAttachments()).hasSize(1);
     }
     @Test
+    @DisplayName("should send the body exactly as today when there is no footer")
+    void shouldReturnBodyUnchanged_whenFooterEmptyOrNull() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Hello\n");
+
+        assertThat(emailData.getFooter()).isEmpty();
+        assertThat(emailData.getTransmittedBody()).isEqualTo("Hello\n");
+        emailData.setFooter(null);
+        assertThat(emailData.getFooter()).isEmpty();
+        assertThat(emailData.getTransmittedBody()).isEqualTo("Hello\n");
+    }
+
+    @Test
+    @DisplayName("should add no trailing blank lines for a footer of only whitespace")
+    void shouldReturnBodyUnchanged_whenFooterWhitespaceOnly() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Hello\n");
+        emailData.setFooter(" \r\n\t\u2003 ");
+
+        assertThat(emailData.getTransmittedBody()).isEqualTo("Hello\n");
+        // what the log keeps is what was sent: no footer
+        assertThat(emailData.getSentFooter()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should put the trimmed footer after exactly one blank line")
+    void shouldAppendTrimmedFooter_afterOneBlankLine() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Hello\n\n\n");
+        emailData.setFooter("\n  Riverside Clinic\nNot monitored for urgent issues.  \n");
+
+        assertThat(emailData.getTransmittedBody())
+                .isEqualTo("Hello\n\nRiverside Clinic\nNot monitored for urgent issues.");
+        assertThat(emailData.getBody()).isEqualTo("Hello\n\n\n");
+        assertThat(emailData.getSentFooter()).isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
+    }
+
+    @Test
+    @DisplayName("should put the footer after the encrypted-message notice and never in the PDF content")
+    void shouldAppendFooterAfterNotice_whenMessageEncrypted() {
+        EmailData emailData = new EmailData();
+        emailData.setIsEncrypted(true);
+        emailData.setBody("You have a secure message.");
+        emailData.setEncryptedMessage("Confidential result");
+        emailData.setFooter("Riverside Clinic");
+
+        assertThat(emailData.getTransmittedBody()).isEqualTo("You have a secure message.\n\nRiverside Clinic");
+        assertThat(emailData.getEncryptedMessage()).isEqualTo("Confidential result");
+        assertThat(emailData.getBody()).isEqualTo("You have a secure message.");
+    }
+
+    @Test
     void shouldDefaultToWithoutNote_whenChartOptionIsAbsentOrNull() {
         EmailData data = new EmailData();
         assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITHOUT_NOTE);
