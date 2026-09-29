@@ -85,7 +85,15 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
     public List<Consent> findLiveByDemographicAndConsentTypeIdForUpdate(int demographic_no, int consentTypeId) {
         TypedQuery<Consent> query = liveQuery(demographic_no, consentTypeId);
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
-        return mostRecentFirst(query);
+        List<Consent> locked = mostRecentFirst(query);
+        // A locking query hands back an entity this transaction already loaded with the state it
+        // read before the lock. Re-read each, so the caller edits what the locked row now holds.
+        for (Consent consent : locked) {
+            entityManager.refresh(consent);
+        }
+        // Again, now on what the rows hold: a re-read may have changed an edit date.
+        locked.sort(ConsentRecords.MOST_RECENT_FIRST);
+        return locked;
     }
 
     private TypedQuery<Consent> liveQuery(int demographic_no, int consentTypeId) {

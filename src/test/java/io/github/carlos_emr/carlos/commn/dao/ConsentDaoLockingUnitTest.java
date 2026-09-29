@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -80,6 +81,25 @@ class ConsentDaoLockingUnitTest {
         assertThat(dao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).isEmpty();
 
         verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
+    @DisplayName("should re-read each locked row, so a row loaded before the lock is not edited stale")
+    @SuppressWarnings("unchecked")
+    void shouldRereadLockedRows_whenReadingForUpdate() {
+        ConsentDaoImpl dao = new ConsentDaoImpl();
+        dao.entityManager = mock(EntityManager.class);
+        TypedQuery<Consent> query = mock(TypedQuery.class);
+        Consent first = new Consent();
+        Consent second = new Consent();
+        when(dao.entityManager.createQuery(anyString(), eq(Consent.class))).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of(first, second));
+
+        // Compared by identity: Consent's equals() needs an id, which an unsaved record lacks.
+        assertThat(dao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).hasSize(2);
+
+        verify(dao.entityManager).refresh(same(first));
+        verify(dao.entityManager).refresh(same(second));
     }
 
     @Test
