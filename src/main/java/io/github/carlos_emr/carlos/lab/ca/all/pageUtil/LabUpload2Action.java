@@ -74,10 +74,12 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
+import java.security.SignatureException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
@@ -92,7 +94,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     /**
      * Deliberately non-specific outcome for a message the receiver refuses as the sender's
      * error: an unknown or missing service, or a message that does not decrypt. It must not
-     * distinguish those from each other. A receiver fault, including a stored sender key that
+     * distinguish those from each other. A message that decrypts but fails its signature is
+     * answered separately (406, "validation failed"), as the legacy protocol always has; see the
+     * migration document. A receiver fault, including a stored sender key that
      * cannot be parsed, is not a rejection: it is answered as an exception (500) so the sender
      * retries.
      */
@@ -371,33 +375,44 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
     }
 
-    /*
-     * Check that the signature 'sigString' matches the message InputStream 'msgIS' thus verifying that the message has not been altered.
+    /**
+     * Checks that {@code sigString} is the sender's signature over the staged message, so the
+     * message has not been altered.
+     *
+     * <p>False means the sender's error: a missing, malformed or wrong signature. A fault on the
+     * receiver's side, such as the staged file failing to read or the signature algorithm being
+     * unavailable, is thrown instead, so it is answered 500 and the sender retries rather than
+     * treating a valid lab as rejected.</p>
+     *
+     * @throws IOException if the staged message cannot be read
+     * @throws GeneralSecurityException if the signature algorithm is unavailable
      */
-    public static boolean validateSignature(PublicKey key, String sigString, File input) {
-        byte[] buf = new byte[1024];
-
+    public static boolean validateSignature(PublicKey key, String sigString, File input)
+            throws IOException, GeneralSecurityException {
+        if (sigString == null) {
+            return false;
+        }
+        // MD5WithRSA is required by the external lab upload protocol for signature
+        // verification. Do not change without coordinating with all lab data senders.
+        Signature sig = Signature.getInstance("MD5WithRSA"); // nosemgrep: java.lang.security.audit.crypto.weak-hash -- external lab protocol requirement
         try {
-
-            try (InputStream msgIs = new FileInputStream(input)) {
-                // MD5WithRSA is required by the external lab upload protocol for signature
-                // verification. Do not change without coordinating with all lab data senders.
-                Signature sig = Signature.getInstance("MD5WithRSA"); // nosemgrep: java.lang.security.audit.crypto.weak-hash -- external lab protocol requirement
-                sig.initVerify(key);
-
-                // Read in the message bytes and update the signature
-                int numRead = 0;
-                while ((numRead = msgIs.read(buf)) >= 0) {
-                    sig.update(buf, 0, numRead);
-                }
-
-                return (sig.verify(Base64.decodeBase64(sigString)));
+            sig.initVerify(key);
+        } catch (InvalidKeyException e) {
+            throw new GeneralSecurityException("The stored sender key cannot verify a signature", e);
+        }
+        byte[] buf = new byte[1024];
+        try (InputStream msgIs = new FileInputStream(input)) {
+            int numRead = 0;
+            while ((numRead = msgIs.read(buf)) >= 0) {
+                sig.update(buf, 0, numRead);
             }
-
-        } catch (Exception e) {
-            logger.debug("Could not validate signature: " + e);
-            MiscUtils.getLogger().error("Error", e);
-            return (false);
+        }
+        try {
+            return sig.verify(Base64.decodeBase64(sigString));
+        } catch (SignatureException | IllegalArgumentException e) {
+            // A signature of the wrong length or encoding: the sender's, so not worth a stack trace.
+            logger.warn("Lab upload signature could not be checked ({})", e.getClass().getSimpleName());
+            return false;
         }
     }
 

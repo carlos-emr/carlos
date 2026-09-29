@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -49,6 +50,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
@@ -319,6 +321,32 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         assertRejected();
         verify(publicKeyDao, never()).find(any());
         utilities.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should report a staged message that cannot be read as the receiver's fault, not a bad signature")
+    void shouldThrow_whenStagedMessageCannotBeRead() throws Exception {
+        File missing = new File(System.getProperty("java.io.tmpdir"), "lab-upload-missing-" + System.nanoTime() + ".tmp");
+        String signature = sign(senderKeys, MESSAGE);
+
+        assertThatThrownBy(() -> LabUpload2Action.validateSignature(senderKeys.getPublic(), signature, missing))
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
+    @DisplayName("should treat a missing or malformed signature as the sender's error")
+    void shouldReturnFalse_whenSignatureIsMissingOrMalformed() throws Exception {
+        File staged = File.createTempFile("lab-upload-signature-", ".tmp");
+        try {
+            Files.write(staged.toPath(), MESSAGE);
+
+            assertThat(LabUpload2Action.validateSignature(senderKeys.getPublic(), null, staged)).isFalse();
+            assertThat(LabUpload2Action.validateSignature(senderKeys.getPublic(), "AAAA", staged)).isFalse();
+            assertThat(LabUpload2Action.validateSignature(senderKeys.getPublic(), sign(strangerKeys, MESSAGE), staged)).isFalse();
+            assertThat(LabUpload2Action.validateSignature(senderKeys.getPublic(), sign(senderKeys, MESSAGE), staged)).isTrue();
+        } finally {
+            Files.deleteIfExists(staged.toPath());
+        }
     }
 
     @Test
