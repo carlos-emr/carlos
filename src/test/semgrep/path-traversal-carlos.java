@@ -35,6 +35,7 @@ class DocumentPathValidationCases {
         // trace this test-only request parameter into production source code.
         // ruleid: carlos.httpservlet-path-traversal
         File file = new File(request.getParameter("path")).getCanonicalFile();
+        // ruleid: carlos.httpservlet-path-traversal
         return new FileInputStream(file);
     }
 
