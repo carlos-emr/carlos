@@ -385,7 +385,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * treating a valid lab as rejected.</p>
      *
      * @throws IOException if the staged message cannot be read
-     * @throws GeneralSecurityException if the signature algorithm is unavailable
+     * @throws GeneralSecurityException if the signature algorithm is unavailable, or the stored
+     *         sender key cannot be used to verify
      */
     public static boolean validateSignature(PublicKey key, String sigString, File input)
             throws IOException, GeneralSecurityException {

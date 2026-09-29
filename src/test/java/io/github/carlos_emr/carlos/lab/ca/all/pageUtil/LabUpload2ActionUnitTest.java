@@ -210,8 +210,11 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         executeUpload();
 
         assertThat(response.getStatus()).isEqualTo(406);
+        assertThat(request.getAttribute("outcome")).isEqualTo("validation failed");
         utilities.verifyNoInteractions();
         assertThat(documentDir).isEmptyDirectory();
+        // The decrypted, unverified message must not stay on disk either.
+        assertThat(leftoverStagingFiles()).isEmpty();
     }
 
     @Test

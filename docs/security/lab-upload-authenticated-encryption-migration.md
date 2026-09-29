@@ -76,8 +76,10 @@ receiver; see the verification note below.
   configured service with a bad signature answers `406`; version 2 removes that
   distinction. The endpoint also needs an authenticated `_lab` write session.) A receiver-side
   fault is deliberately *not* folded into that outcome: the key lookup failing, a stored
-  sender key that cannot be parsed, the receiver's own private key being unavailable, or
-  the verified message failing to save all stay `500`, so a sender that treats `4xx` as
+  sender key that cannot be parsed, the receiver's own private key being unavailable, a
+  fault while checking the signature (the staged message cannot be read, the signature
+  algorithm is unavailable, or the stored sender key cannot be used to verify), or the
+  verified message failing to save all answer `500`, so a sender that treats `4xx` as
   permanent keeps retrying through a receiver fault. Version 2 keeps this behavior. A signature failure remains `406`, so the legacy path still separates
   "undecryptable" from "unverified"; version 2 collapses them (see below).
 
@@ -88,7 +90,8 @@ permanent would then stop retrying; confirm with sender owners that such a burst
 investigated, not dropped.
 
 These two fixes are receiver-local. They change no request field and no algorithm, and the
-accepted (`200`), duplicate (`409`), and signature-rejected (`406`) statuses are unchanged,
+accepted (`200`), duplicate (`409`), and signature-rejected (`406`) statuses are unchanged
+for a signature that is missing, malformed or wrong,
 so the fixes did not need the coordination gates below. The response body's `<outcome>`
 element gains one token, `rejected`. The observable differences are on failure paths. With
 `use_http_response_code` set:
@@ -100,6 +103,7 @@ element gains one token, `rejected`. The observable differences are on failure p
 | Failed AES block | `500` (`406` on builds whose storage helpers still returned a path after a failed write) | `400` |
 | Stored sender key cannot be parsed | `500` | `500` |
 | Signature does not verify | `406`, with the decrypted file left in `DOCUMENT_DIR` | `406`, with nothing stored |
+| Receiver fault while checking the signature | `406` | `500`, with nothing stored |
 | Upload validation error, or no uploaded file | `200` | `400` |
 | Uploaded file outside the allowed temp directory | `200` | `403` |
 
