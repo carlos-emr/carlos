@@ -3144,6 +3144,24 @@
       ]
     },
     {
+      "name": "cpp-note-extension-archive",
+      "script": "scripts/cpp-note-extension-archive-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD",
+        "CPP_EXT_SEARCH",
+        "CPP_EXT_DEMOGRAPHIC_NO",
+        "CPP_EXT_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "form-print-pdf",
       "script": "scripts/form-print-pdf-playwright-checks.js",
       "tiers": [
