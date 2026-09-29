@@ -245,7 +245,7 @@ class SmsQueueSchedulerUnitTest {
     @Test
     @DisplayName("a settings change follows the saved setting when it differs from the event")
     void shouldFollowStoredSetting_whenEventIsOutOfDate() {
-        when(smsConfigService.storedSchedulerEnabled()).thenReturn(Optional.of(false), Optional.of(true));
+        when(smsConfigService.committedSchedulerEnabled()).thenReturn(Optional.of(false), Optional.of(true));
         SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
         try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
             properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
@@ -263,7 +263,7 @@ class SmsQueueSchedulerUnitTest {
     @Test
     @DisplayName("a settings change follows the event when the saved setting cannot be read")
     void shouldFollowEvent_whenStoredSettingCannotBeRead() {
-        when(smsConfigService.storedSchedulerEnabled()).thenThrow(new IllegalStateException("sms_config missing"));
+        when(smsConfigService.committedSchedulerEnabled()).thenThrow(new IllegalStateException("sms_config missing"));
         SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService);
         try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
             properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);

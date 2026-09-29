@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.sms.model.SmsConfig;
 import io.github.carlos_emr.carlos.sms.support.SmsPhoneNumbers;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -87,6 +88,20 @@ public class SmsConfigService {
     @Transactional(readOnly = true)
     public Optional<Boolean> storedSchedulerEnabled() {
         return current().map(SmsConfig::isSchedulerEnabled);
+    }
+
+    /**
+     * The saved scheduler setting as the database holds it now, read in a transaction of its own.
+     * <p>
+     * For callers that run after a commit, such as the scheduler's settings listener: there the saving
+     * transaction's session is still bound, and {@link #storedSchedulerEnabled()} would answer from it
+     * with the value that was just saved, not with a later save by someone else.
+     *
+     * @return the committed scheduler setting, or empty while nothing has been saved
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Optional<Boolean> committedSchedulerEnabled() {
+        return smsConfigDao.findCurrent().map(SmsConfig::isSchedulerEnabled);
     }
 
     /** @return the providers that have an installed client; only these can be chosen */
