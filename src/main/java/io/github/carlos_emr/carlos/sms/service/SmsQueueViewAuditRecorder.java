@@ -23,17 +23,27 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.Objects;
+import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Writes one audit record each time the SMS queue page is opened. The page lists messages with their
- * patients' demographic numbers, so who looked, when, and which patients' numbers were shown is recorded.
- * The record holds nothing else about the messages.
+ * Writes the audit records each time the SMS queue page is opened: one for the page view itself, and one
+ * for each patient whose messages were shown. The per-patient record carries the patient's demographic
+ * number in the log's own patient field, so the usual audit search by patient finds it.
+ * <p>
+ * A patient counts as shown when any of their messages was in a list, even if this viewer does not see the
+ * demographic number column: the status, times and last four phone digits were still shown. Patients whose
+ * messages were hidden from this viewer are not recorded as shown. The records hold nothing else about the
+ * messages.
+ * <p>
+ * All records of one page view are written in one transaction, so either all of them are stored or none.
  *
  * @since 2026-09-28
  */
@@ -49,12 +59,31 @@ public class SmsQueueViewAuditRecorder {
     }
 
     /**
-     * @param loggedInInfo            the viewer
-     * @param shownDemographicNumbers the demographic numbers the page is about to show this viewer; empty
-     *                                when the viewer may not see any
+     * @param loggedInInfo                the viewer
+     * @param window                      the time period the page was opened with
+     * @param displayedDemographicNumbers the patients whose messages the page is about to show this viewer;
+     *                                    repeats are recorded once
      */
     @Transactional
-    public void recordViewed(LoggedInInfo loggedInInfo, Collection<String> shownDemographicNumbers) {
+    public void recordViewed(LoggedInInfo loggedInInfo, SmsQueueWindow window,
+                             Collection<Integer> displayedDemographicNumbers) {
+        Objects.requireNonNull(window, "window is required");
+        Set<Integer> patients = new TreeSet<>();
+        for (Integer demographicNo : displayedDemographicNumbers) {
+            if (demographicNo != null) {
+                patients.add(demographicNo);
+            }
+        }
+        String windowData = "window=" + window.parameterValue();
+        // The page view itself, written even when no patient was shown. No demographic number in the text.
+        oscarLogDao.persist(newLog(loggedInInfo, null, windowData + " patientsShown=" + patients.size()));
+        // One record per patient, so "who saw this patient's messages" can be answered by patient.
+        for (Integer demographicNo : patients) {
+            oscarLogDao.persist(newLog(loggedInInfo, demographicNo, windowData));
+        }
+    }
+
+    private static OscarLog newLog(LoggedInInfo loggedInInfo, Integer demographicNo, String data) {
         OscarLog log = new OscarLog();
         if (loggedInInfo.getLoggedInSecurity() != null) {
             log.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
@@ -63,8 +92,8 @@ public class SmsQueueViewAuditRecorder {
         log.setIp(loggedInInfo.getIp());
         log.setAction(ACTION);
         log.setContent(CONTENT);
-        // Which patients were shown, so "who saw this patient's messages" can be answered later.
-        log.setData("demographicNumbersShown=" + String.join(",", new TreeSet<>(shownDemographicNumbers)));
-        oscarLogDao.persist(log);
+        log.setDemographicId(demographicNo);
+        log.setData(data);
+        return log;
     }
 }

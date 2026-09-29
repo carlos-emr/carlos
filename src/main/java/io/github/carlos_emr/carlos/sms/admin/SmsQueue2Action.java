@@ -24,14 +24,11 @@ package io.github.carlos_emr.carlos.sms.admin;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.assembler.SmsQueueViewModelAssembler;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueViewAuditRecorder;
-import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueViewModel;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-
-import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * Administration &gt; SMS &gt; SMS queue ({@code admin/SmsQueue}): a read-only operational view of the outbound
@@ -40,12 +37,17 @@ import java.util.stream.Stream;
  * <p>
  * Needs {@code _admin.sms} read. It changes nothing, so it has no POST-only paths; the page shows no message
  * text and only the last four digits of phone numbers (see {@link SmsQueueViewModelAssembler}).
+ * <p>
+ * The optional {@code window} request parameter picks the time period of the failed and blocked sections
+ * (see {@link SmsQueueWindow}). Messages of patients the viewer may not open are left out of the lists, and
+ * every patient whose messages are shown gets an audit record (see {@link SmsQueueViewAuditRecorder}).
  *
  * @since 2026-09-28
  */
 public class SmsQueue2Action extends ActionSupport {
     private static final String SECURITY_OBJECT = "_admin.sms";
     private static final String DEMOGRAPHIC_SECURITY_OBJECT = "_demographic";
+    private static final String WINDOW_PARAMETER = "window";
 
     private final SecurityInfoManager securityInfoManager;
     private final SmsQueueViewModelAssembler assembler;
@@ -56,17 +58,6 @@ public class SmsQueue2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
         this.auditRecorder = auditRecorder;
-    }
-
-    private static List<String> shownDemographicNumbers(SmsQueueViewModel queue) {
-        return queue.providers().stream()
-                .flatMap(provider -> Stream.of(
-                        provider.overdue(), provider.stale(), provider.recentFailed(), provider.recentBlocked()))
-                .flatMap(List::stream)
-                .map(SmsQueueViewModel.Row::demographicNo)
-                .filter(demographicNo -> !demographicNo.isEmpty())
-                .distinct()
-                .toList();
     }
 
     @Override
@@ -81,12 +72,14 @@ public class SmsQueue2Action extends ActionSupport {
         // Demographic numbers link a message to a patient, so only viewers who may read demographics see them.
         boolean showDemographicNumbers = securityInfoManager.hasPrivilege(
                 loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, null);
-        SmsQueueViewModel queue = assembler.assemble(showDemographicNumbers,
-                demographicNo -> securityInfoManager.hasPrivilege(
-                        loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo));
+        // Only an allowed value comes out of this; the text the browser sent goes no further.
+        SmsQueueWindow window = SmsQueueWindow.fromParameter(request.getParameter(WINDOW_PARAMETER));
+        // A patient the viewer is restricted from has their messages left out of the lists.
+        SmsQueueViewModelAssembler.Result queue = assembler.assemble(window, showDemographicNumbers,
+                demographicNo -> securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo));
         // Recorded before the page is handed over: if the view cannot be audited, nothing is shown.
-        auditRecorder.recordViewed(loggedInInfo, shownDemographicNumbers(queue));
-        request.setAttribute("smsQueue", queue);
+        auditRecorder.recordViewed(loggedInInfo, window, queue.displayedDemographicNumbers());
+        request.setAttribute("smsQueue", queue.model());
         return SUCCESS;
     }
 }

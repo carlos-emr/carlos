@@ -44,9 +44,11 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -81,8 +83,8 @@ class SmsTransactionDaoImplQueueViewUnitTest {
         assertThat(dao.countStaleSendingOutboundByProvider(null)).isEmpty();
         assertThat(dao.findOverdueQueuedOutbound(SmsProviderType.STUB, null, 10)).isEmpty();
         assertThat(dao.findStaleSendingOutbound(null, new Date(), 10)).isEmpty();
-        assertThat(dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(), 10)).isEmpty();
-        assertThat(dao.findRecentOutboundByStatuses(SmsProviderType.STUB, null, 10)).isEmpty();
+        assertThat(dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(), null, 10)).isEmpty();
+        assertThat(dao.findRecentOutboundByStatuses(SmsProviderType.STUB, null, null, 10)).isEmpty();
         verify(entityManager, never()).createQuery(anyString(), eq(Object[].class));
     }
 
@@ -124,10 +126,50 @@ class SmsTransactionDaoImplQueueViewUnitTest {
     void shouldBindBothBlockingStatuses_whenCountingConsentBlocks() {
         stubQuery(List.<Object[]>of(new Object[]{SmsProviderType.STUB, null, 4L}));
 
-        List<SmsQueueCountDto> counts = newDao().countConsentBlockedOutboundByProviderAndReason();
+        List<SmsQueueCountDto> counts = newDao().countConsentBlockedOutboundByProviderAndReason(null);
 
         assertThat(counts).containsExactly(new SmsQueueCountDto(SmsProviderType.STUB, null, 4));
         verify(query).setParameter("statuses", List.of(SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED));
+    }
+
+    @Test
+    @DisplayName("should limit the failed, blocked and recent-row queries to rows updated since the given time")
+    void shouldBindSince_whenATimePeriodIsGiven() {
+        Date since = Date.from(Instant.parse("2026-08-29T14:00:00Z"));
+        stubQuery(List.of());
+        SmsTransactionDaoImpl dao = newDao();
+
+        dao.countFailedOutboundByProviderAndErrorCode(since);
+        dao.countConsentBlockedOutboundByProviderAndReason(since);
+        dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), since, 50);
+
+        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
+        verify(entityManager, times(3)).createQuery(jpql.capture(), eq(Object[].class));
+        // The time is a bound parameter: the query text names it and never holds the value.
+        assertThat(jpql.getAllValues()).allSatisfy(text -> assertThat(text)
+                .contains("AND t.updatedAt >= :since ")
+                .doesNotContain("2026")
+                .doesNotContain(String.valueOf(since.getTime())));
+        assertThat(jpql.getAllValues().get(0)).contains(":since GROUP BY t.providerType, t.errorCode");
+        assertThat(jpql.getAllValues().get(1)).contains(":since GROUP BY t.providerType, t.consentReasonCode");
+        assertThat(jpql.getAllValues().get(2)).contains(":since ORDER BY t.updatedAt DESC");
+        verify(query, times(3)).setParameter("since", since);
+    }
+
+    @Test
+    @DisplayName("should leave the time limit out of the query when no start time is given")
+    void shouldOmitSince_whenAllTime() {
+        stubQuery(List.of());
+        SmsTransactionDaoImpl dao = newDao();
+
+        dao.countFailedOutboundByProviderAndErrorCode(null);
+        dao.countConsentBlockedOutboundByProviderAndReason(null);
+        dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 50);
+
+        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
+        verify(entityManager, times(3)).createQuery(jpql.capture(), eq(Object[].class));
+        assertThat(jpql.getAllValues()).allSatisfy(text -> assertThat(text).doesNotContain("since"));
+        verify(query, never()).setParameter(eq("since"), any());
     }
 
     @Test
@@ -162,7 +204,7 @@ class SmsTransactionDaoImplQueueViewUnitTest {
     void shouldUseDefaultLimit_whenListingRecentRows() {
         stubQuery(List.of());
 
-        newDao().findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), 0);
+        newDao().findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 0);
 
         verify(query).setParameter("direction", SmsDirection.OUTBOUND);
         verify(query).setParameter("providerType", SmsProviderType.STUB);

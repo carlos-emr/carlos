@@ -36,14 +36,19 @@ import java.util.List;
  * @param listLimit       the most rows any one list shows
  * @param demographicNumbersShown whether rows carry the patient's demographic number; only for users who
  *                        may also read demographics, since the number links a message to a patient
+ * @param window          the {@link SmsQueueWindow#parameterValue()} of the time period the failed and
+ *                        blocked sections cover; always one of {@code windowOptions}, never request text
+ * @param windowOptions   the parameter values of every time period the page offers, in display order
  * @param scheduler       this server's queue scheduler
  * @param providers       one entry per SMS provider, in {@code SmsProviderType} order
  * @since 2026-09-28
  */
 public record SmsQueueViewModel(String generatedAt, long overdueMinutes, long staleMinutes, int listLimit,
-                                boolean demographicNumbersShown, Scheduler scheduler, List<ProviderQueue> providers) {
+                                boolean demographicNumbersShown, String window, List<String> windowOptions,
+                                Scheduler scheduler, List<ProviderQueue> providers) {
 
     public SmsQueueViewModel {
+        windowOptions = windowOptions == null ? List.of() : List.copyOf(windowOptions);
         providers = providers == null ? List.of() : List.copyOf(providers);
     }
 
@@ -67,6 +72,11 @@ public record SmsQueueViewModel(String generatedAt, long overdueMinutes, long st
 
     /**
      * One SMS provider's outbound queue.
+     * <p>
+     * The failed and blocked sections cover the selected time period ({@link SmsQueueViewModel#window()});
+     * their all-time totals are given beside them. The overdue and stale sections and the counts per status
+     * always cover all time. Every count includes the messages of patients this viewer may not open, even
+     * though those messages are left out of the lists (see {@link RowList}).
      *
      * @param providerType      the {@code SmsProviderType} name
      * @param outboundTotal     all outbound messages recorded for this provider
@@ -75,31 +85,55 @@ public record SmsQueueViewModel(String generatedAt, long overdueMinutes, long st
      * @param overdue           the oldest of those, oldest due first
      * @param staleCount        {@code SENDING} messages older than {@link SmsQueueViewModel#staleMinutes()}
      * @param stale             the oldest of those, oldest last attempt first
-     * @param failedCount       {@code FAILED} messages
-     * @param failedByErrorCode those counted by error code, largest first
-     * @param recentFailed      the most recently updated of those
-     * @param blockedCount      {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} messages
-     * @param blockedByReason   those counted by consent reason code, largest first
-     * @param recentBlocked     the most recently updated of those
+     * @param failedCount       {@code FAILED} messages that last changed within the selected time period
+     * @param failedTotal       {@code FAILED} messages of all time
+     * @param failedByErrorCode the ones within the time period counted by error code, largest first
+     * @param recentFailed      the most recently updated of the ones within the time period
+     * @param blockedCount      {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} messages that last changed
+     *                          within the selected time period
+     * @param blockedTotal      {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} messages of all time
+     * @param blockedByReason   the ones within the time period counted by consent reason code, largest first
+     * @param recentBlocked     the most recently updated of the ones within the time period
      */
     public record ProviderQueue(String providerType, long outboundTotal, List<StatusCount> statusCounts,
-                                long overdueCount, List<Row> overdue,
-                                long staleCount, List<Row> stale,
-                                long failedCount, List<CodeCount> failedByErrorCode, List<Row> recentFailed,
-                                long blockedCount, List<CodeCount> blockedByReason, List<Row> recentBlocked) {
+                                long overdueCount, RowList overdue,
+                                long staleCount, RowList stale,
+                                long failedCount, long failedTotal, List<CodeCount> failedByErrorCode,
+                                RowList recentFailed,
+                                long blockedCount, long blockedTotal, List<CodeCount> blockedByReason,
+                                RowList recentBlocked) {
 
         public ProviderQueue {
             statusCounts = copy(statusCounts);
-            overdue = copy(overdue);
-            stale = copy(stale);
+            overdue = orEmpty(overdue);
+            stale = orEmpty(stale);
             failedByErrorCode = copy(failedByErrorCode);
-            recentFailed = copy(recentFailed);
+            recentFailed = orEmpty(recentFailed);
             blockedByReason = copy(blockedByReason);
-            recentBlocked = copy(recentBlocked);
+            recentBlocked = orEmpty(recentBlocked);
         }
 
         private static <T> List<T> copy(List<T> values) {
             return values == null ? List.of() : List.copyOf(values);
+        }
+
+        private static RowList orEmpty(RowList list) {
+            return list == null ? RowList.EMPTY : list;
+        }
+    }
+
+    /**
+     * One message list. Messages of patients this viewer may not open are left out completely, so nothing
+     * about them (id, status, reason, times, phone digits) is here; only how many were left out.
+     *
+     * @param rows        the messages shown
+     * @param hiddenCount how many messages were left out because the viewer has no access to their patients
+     */
+    public record RowList(List<Row> rows, int hiddenCount) {
+        public static final RowList EMPTY = new RowList(List.of(), 0);
+
+        public RowList {
+            rows = rows == null ? List.of() : List.copyOf(rows);
         }
     }
 

@@ -54,7 +54,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * Every test rolls back. To stay exact even if another test left rows behind, the overdue and stale cases
  * use times in 2001 (far older than any other test data), the grouped cases use error and reason codes no
- * other test uses, and the newest-first cases push their rows' {@code updated_at} into 2090.
+ * other test uses, the newest-first cases push their rows' {@code updated_at} into 2090, and the time-period
+ * cases into 2091.
  *
  * @since 2026-09-28
  */
@@ -207,7 +208,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         entityManager.persist(inbound);
         entityManager.flush();
 
-        List<SmsQueueCountDto> counts = smsTransactionDao.countFailedOutboundByProviderAndErrorCode();
+        List<SmsQueueCountDto> counts = smsTransactionDao.countFailedOutboundByProviderAndErrorCode(null);
 
         assertThat(count(counts, SmsProviderType.STUB, "QVIEW_ERR_A")).isEqualTo(2);
         assertThat(count(counts, SmsProviderType.STUB, "QVIEW_ERR_B")).isEqualTo(1);
@@ -227,9 +228,9 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         entityManager.persist(inbound);
         entityManager.flush();
 
-        List<SmsQueueCountDto> counts = smsTransactionDao.countConsentBlockedOutboundByProviderAndReason();
+        List<SmsQueueCountDto> counts = smsTransactionDao.countConsentBlockedOutboundByProviderAndReason(null);
         List<SmsQueueRowDto> recent =
-                smsTransactionDao.findRecentOutboundByStatuses(SmsProviderType.STUB, BLOCKED, 500);
+                smsTransactionDao.findRecentOutboundByStatuses(SmsProviderType.STUB, BLOCKED, null, 500);
 
         assertThat(count(counts, SmsProviderType.STUB, "QVIEW_REASON_X")).isEqualTo(3);
         assertThat(count(counts, SmsProviderType.STUB, "QVIEW_REASON_Y")).isEqualTo(1);
@@ -252,11 +253,65 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         entityManager.clear();
 
         List<SmsQueueRowDto> rows = smsTransactionDao.findRecentOutboundByStatuses(
-                SmsProviderType.STUB, List.of(SmsStatus.FAILED), 2);
+                SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 2);
 
         assertThat(rows).extracting(SmsQueueRowDto::id).containsExactly(newest.getId(), second.getId());
         assertThat(rows.get(0).updatedAt()).isEqualTo(Instant.parse("2090-01-01T12:00:00Z"));
         assertThat(rows.get(0).errorCode()).isEqualTo("QVIEW_ERR_ORDER");
+    }
+
+    @Test
+    @DisplayName("should count and list failed rows only when they were updated within the time period")
+    void shouldLimitFailed_toRowsUpdatedSince() {
+        Instant since = Instant.parse("2091-03-01T00:00:00Z");
+        SmsTransaction before = persistFailed(SmsProviderType.STUB, "QVIEW_ERR_WINDOW");
+        SmsTransaction atStart = persistFailed(SmsProviderType.STUB, "QVIEW_ERR_WINDOW");
+        SmsTransaction after = persistFailed(SmsProviderType.STUB, "QVIEW_ERR_WINDOW");
+        entityManager.flush();
+        setUpdatedAt(before, since.minusSeconds(1));
+        // Exactly at the start of the time period is inside it.
+        setUpdatedAt(atStart, since);
+        setUpdatedAt(after, since.plus(Duration.ofDays(1)));
+        entityManager.clear();
+
+        List<SmsQueueCountDto> windowed = smsTransactionDao.countFailedOutboundByProviderAndErrorCode(
+                Date.from(since));
+        List<SmsQueueCountDto> allTime = smsTransactionDao.countFailedOutboundByProviderAndErrorCode(null);
+        List<SmsQueueRowDto> rows = smsTransactionDao.findRecentOutboundByStatuses(
+                SmsProviderType.STUB, List.of(SmsStatus.FAILED), Date.from(since), 500);
+        List<SmsQueueRowDto> allRows = smsTransactionDao.findRecentOutboundByStatuses(
+                SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 500);
+
+        assertThat(count(windowed, SmsProviderType.STUB, "QVIEW_ERR_WINDOW")).isEqualTo(2);
+        assertThat(count(allTime, SmsProviderType.STUB, "QVIEW_ERR_WINDOW")).isEqualTo(3);
+        assertThat(rows).filteredOn(row -> Objects.equals(row.errorCode(), "QVIEW_ERR_WINDOW"))
+                .extracting(SmsQueueRowDto::id)
+                .containsExactly(after.getId(), atStart.getId());
+        assertThat(allRows).extracting(SmsQueueRowDto::id).contains(before.getId());
+    }
+
+    @Test
+    @DisplayName("should count and list consent-blocked rows only when they were updated within the time period")
+    void shouldLimitConsentBlocked_toRowsUpdatedSince() {
+        Instant since = Instant.parse("2091-03-01T00:00:00Z");
+        SmsTransaction before = persistBlocked(SmsProviderType.STUB, SmsStatus.CONSENT_BLOCKED, "QVIEW_REASON_WINDOW");
+        SmsTransaction inside = persistBlocked(SmsProviderType.STUB, SmsStatus.OPTOUT_BLOCKED, "QVIEW_REASON_WINDOW");
+        entityManager.flush();
+        setUpdatedAt(before, since.minus(Duration.ofDays(1)));
+        setUpdatedAt(inside, since.plus(Duration.ofDays(1)));
+        entityManager.clear();
+
+        List<SmsQueueCountDto> windowed = smsTransactionDao.countConsentBlockedOutboundByProviderAndReason(
+                Date.from(since));
+        List<SmsQueueCountDto> allTime = smsTransactionDao.countConsentBlockedOutboundByProviderAndReason(null);
+        List<SmsQueueRowDto> rows = smsTransactionDao.findRecentOutboundByStatuses(
+                SmsProviderType.STUB, BLOCKED, Date.from(since), 500);
+
+        assertThat(count(windowed, SmsProviderType.STUB, "QVIEW_REASON_WINDOW")).isEqualTo(1);
+        assertThat(count(allTime, SmsProviderType.STUB, "QVIEW_REASON_WINDOW")).isEqualTo(2);
+        assertThat(rows).filteredOn(row -> Objects.equals(row.consentReasonCode(), "QVIEW_REASON_WINDOW"))
+                .extracting(SmsQueueRowDto::id)
+                .containsExactly(inside.getId());
     }
 
     private SmsTransaction outbound(SmsProviderType providerType) {

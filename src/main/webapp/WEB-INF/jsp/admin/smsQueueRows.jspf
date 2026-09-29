@@ -22,14 +22,16 @@
 <%--
     smsQueueRows.jspf: one message list on the SMS queue page (statically included by smsQueue.jsp).
 
-    Parameters: the including page sets "queueRows" (a list of SmsQueueViewModel.Row) and
-    "queueRowsTotal" (how many messages the list stands for) in page scope, and relies on the
-    c, fmt and carlos taglibs it declares.
+    Parameters: the including page sets "queueRows" (a list of SmsQueueViewModel.Row),
+    "queueRowsHidden" (how many messages were left out because the viewer has no access to their
+    patients) and "queueRowsTotal" (how many messages the list stands for) in page scope, and relies
+    on the c, fmt and carlos taglibs it declares.
 
     Security: rows are redacted view-model records: no message text, only the recipient's last four
     digits, and the patient only as a plain demographic number (no link), shown only when
-    smsQueue.demographicNumbersShown is set. Every value is encoded; the status label key is built only
-    from the SmsStatus enum name.
+    smsQueue.demographicNumbersShown is set. Hidden messages are only counted; nothing else about them
+    reaches this fragment. Every value is encoded; the status label key is built only from the
+    SmsStatus enum name.
 
     The page already declares these taglibs and the bundle; repeating them keeps the fragment
     self-contained for the i18n lint and JspTaglibDeclarationRegressionTest, which check each JSP and
@@ -49,6 +51,7 @@
         </fmt:message>
     </p>
 </c:if>
+<c:if test="${not empty queueRows}">
 <div class="table-responsive">
     <table class="table table-sm table-striped small align-middle">
         <thead>
@@ -89,3 +92,11 @@
         </tbody>
     </table>
 </div>
+</c:if>
+<c:if test="${queueRowsHidden > 0}">
+    <p class="small text-muted">
+        <fmt:message key="sms.queue.rowsHidden">
+            <fmt:param value="${queueRowsHidden}"/>
+        </fmt:message>
+    </p>
+</c:if>

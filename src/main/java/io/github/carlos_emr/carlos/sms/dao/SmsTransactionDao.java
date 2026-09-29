@@ -38,9 +38,9 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
     List<SmsQueueCountDto> countOutboundByProviderAndStatus();
 
     /**
-     * Counts queued outbound rows that became due before {@code dueBefore}. A row is due at its
-     * {@code nextAttemptAt}, or at {@code createdAt} when that is empty (the worker treats an empty
-     * {@code nextAttemptAt} as due at once).
+     * Counts queued outbound rows that became due before {@code dueBefore}. A message never attempted
+     * ({@code attemptCount = 0}) is due since {@code createdAt}; an attempted one is due at
+     * {@code nextAttemptAt}, or {@code createdAt} when that is empty.
      *
      * @param dueBefore rows due strictly before this time count; {@code null} counts nothing
      * @return counts per SMS provider; providers with no such rows are absent
@@ -57,15 +57,17 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
     Map<SmsProviderType, Long> countStaleSendingOutboundByProvider(Date staleBefore);
 
     /**
+     * @param since only rows last updated at or after this time count; {@code null} counts rows of all time
      * @return {@code FAILED} outbound row counts grouped by SMS provider and error code (the code may be null)
      */
-    List<SmsQueueCountDto> countFailedOutboundByProviderAndErrorCode();
+    List<SmsQueueCountDto> countFailedOutboundByProviderAndErrorCode(Date since);
 
     /**
+     * @param since only rows last updated at or after this time count; {@code null} counts rows of all time
      * @return {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} outbound row counts grouped by SMS provider
      *         and consent reason code (the code may be null)
      */
-    List<SmsQueueCountDto> countConsentBlockedOutboundByProviderAndReason();
+    List<SmsQueueCountDto> countConsentBlockedOutboundByProviderAndReason(Date since);
 
     /**
      * The overdue queued rows {@link #countOverdueQueuedOutboundByProvider(Date)} counts, for one SMS provider,
@@ -87,11 +89,14 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
      * Outbound rows of one SMS provider in any of the given statuses, most recently updated first.
      *
      * @param statuses the statuses to include; empty or {@code null} returns nothing
+     * @param since    only rows last updated at or after this time are returned; {@code null} returns rows
+     *                 of all time
      * @param limit    maximum rows; non-positive values use the default and large values are capped
      */
     List<SmsQueueRowDto> findRecentOutboundByStatuses(
             SmsProviderType providerType,
             Collection<SmsStatus> statuses,
+            Date since,
             int limit
     );
 }

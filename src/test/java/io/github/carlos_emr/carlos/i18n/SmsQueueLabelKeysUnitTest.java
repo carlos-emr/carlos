@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.i18n;
 
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueScheduler;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -41,8 +42,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The SMS queue page ({@code admin/smsQueue.jsp} and its row fragment) builds its status and scheduler-outcome
- * labels from enum names ({@code sms.queue.status.FAILED}, {@code sms.queue.scheduler.outcome.COMPLETED}), so a new
- * enum value without a key would show the raw key. Its fixed labels and the Administration menu entry must be
+ * labels from enum names ({@code sms.queue.status.FAILED}, {@code sms.queue.scheduler.outcome.COMPLETED}) and its
+ * time period labels from their parameter values ({@code sms.queue.window.option.30d}), so a new enum value
+ * without a key would show the raw key. Its fixed labels and the Administration menu entry must be
  * in every locale too.
  *
  * @since 2026-09-28
@@ -59,7 +61,7 @@ class SmsQueueLabelKeysUnitTest {
     private static final Pattern LITERAL_KEY = Pattern.compile("key=\"([^\"$]+)\"");
 
     @Test
-    @DisplayName("should define a label for every SMS status and scheduler outcome in every locale")
+    @DisplayName("should define a label for every SMS status, scheduler outcome and time period in every locale")
     void shouldDefineLabel_forEveryEnumValueInEveryLocale() throws IOException {
         List<String> keys = new ArrayList<>();
         for (SmsStatus status : SmsStatus.values()) {
@@ -67,6 +69,9 @@ class SmsQueueLabelKeysUnitTest {
         }
         for (SmsQueueScheduler.RunOutcome outcome : SmsQueueScheduler.RunOutcome.values()) {
             keys.add("sms.queue.scheduler.outcome." + outcome.name());
+        }
+        for (SmsQueueWindow window : SmsQueueWindow.values()) {
+            keys.add("sms.queue.window.option." + window.parameterValue());
         }
 
         assertDefinedInEveryLocale(keys);

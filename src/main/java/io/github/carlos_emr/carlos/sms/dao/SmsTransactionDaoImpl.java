@@ -31,6 +31,10 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     private static final String PARAM_STATUSES = "statuses";
     private static final String PARAM_DUE_BEFORE = "dueBefore";
     private static final String PARAM_STALE_BEFORE = "staleBefore";
+    private static final String PARAM_SINCE = "since";
+    // The queue view's time period. Added to a query only when a start time is given; the time itself is
+    // always a bound parameter.
+    private static final String UPDATED_SINCE = "AND t.updatedAt >= :since ";
     // Queue-view row projection. It names only operational columns: the message body, sender number,
     // operator/provider messages and provider metadata are never selected, so they are never loaded.
     // SmsQueueRowDto documents the column order that toQueueRow reads.
@@ -238,31 +242,35 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
 
     @Override
     @Transactional(readOnly = true)
-    public List<SmsQueueCountDto> countFailedOutboundByProviderAndErrorCode() {
+    public List<SmsQueueCountDto> countFailedOutboundByProviderAndErrorCode(Date since) {
         TypedQuery<Object[]> query = entityManager.createQuery(
                 "SELECT t.providerType, t.errorCode, COUNT(t) FROM SmsTransaction t "
                         + "WHERE t.direction = :direction "
                         + "AND t.status = :status "
+                        + updatedSince(since)
                         + "GROUP BY t.providerType, t.errorCode",
                 Object[].class
         );
         query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
         query.setParameter(PARAM_STATUS, SmsStatus.FAILED);
+        bindSince(query, since);
         return toCodeCounts(query.getResultList());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<SmsQueueCountDto> countConsentBlockedOutboundByProviderAndReason() {
+    public List<SmsQueueCountDto> countConsentBlockedOutboundByProviderAndReason(Date since) {
         TypedQuery<Object[]> query = entityManager.createQuery(
                 "SELECT t.providerType, t.consentReasonCode, COUNT(t) FROM SmsTransaction t "
                         + "WHERE t.direction = :direction "
                         + "AND t.status IN (:statuses) "
+                        + updatedSince(since)
                         + "GROUP BY t.providerType, t.consentReasonCode",
                 Object[].class
         );
         query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
         query.setParameter(PARAM_STATUSES, CONSENT_BLOCKED_STATUSES);
+        bindSince(query, since);
         return toCodeCounts(query.getResultList());
     }
 
@@ -318,6 +326,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     public List<SmsQueueRowDto> findRecentOutboundByStatuses(
             SmsProviderType providerType,
             Collection<SmsStatus> statuses,
+            Date since,
             int limit
     ) {
         if (providerType == null || statuses == null || statuses.isEmpty()) {
@@ -328,14 +337,27 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
                         + "WHERE t.direction = :direction "
                         + "AND t.providerType = :providerType "
                         + "AND t.status IN (:statuses) "
+                        + updatedSince(since)
                         + "ORDER BY t.updatedAt DESC, t.id DESC",
                 Object[].class
         );
         query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
         query.setParameter(PARAM_PROVIDER_TYPE, providerType);
         query.setParameter(PARAM_STATUSES, List.copyOf(statuses));
+        bindSince(query, since);
         query.setMaxResults(safeLimit(limit));
         return query.getResultList().stream().map(SmsTransactionDaoImpl::toQueueRow).toList();
+    }
+
+    /** The time-period clause, or nothing when there is no start time (all time). */
+    private static String updatedSince(Date since) {
+        return since == null ? "" : UPDATED_SINCE;
+    }
+
+    private static void bindSince(TypedQuery<Object[]> query, Date since) {
+        if (since != null) {
+            query.setParameter(PARAM_SINCE, since);
+        }
     }
 
     private static Map<SmsProviderType, Long> toProviderCounts(List<Object[]> rows) {
