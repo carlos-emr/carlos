@@ -257,6 +257,22 @@ class SmsQueueViewModelAssemblerUnitTest {
     }
 
     @Test
+    @DisplayName("should take the start time from the finished run when no run is in progress")
+    void shouldShowFinishedRunsOwnStart_whenNoRunIsInProgress() {
+        when(configService.storedSchedulerEnabled()).thenReturn(Optional.of(true));
+        when(scheduler.isRunInProgress()).thenReturn(false);
+        when(scheduler.lastCompletedRun()).thenReturn(Optional.of(new SmsQueueScheduler.CompletedRun(
+                NOW.minus(Duration.ofMinutes(3)), NOW.minus(Duration.ofMinutes(1)),
+                SmsQueueScheduler.RunOutcome.SENDING_OFF, 0)));
+
+        SmsQueueViewModel.Scheduler state = assembler(() -> true).assemble(true).scheduler();
+
+        assertThat(state).isEqualTo(new SmsQueueViewModel.Scheduler(true, true, false, false,
+                "2026-09-28 13:57", "2026-09-28 13:59", "SENDING_OFF", 0));
+        verify(scheduler, never()).lastRunStartedAt();
+    }
+
+    @Test
     @DisplayName("should fall back to the scheduler property while nothing is saved, and show no run yet")
     void shouldFallBackToProperty_whenNothingSaved() {
         when(configService.storedSchedulerEnabled()).thenReturn(Optional.empty());

@@ -182,16 +182,20 @@ public class SmsQueueViewModelAssembler {
      */
     private SmsQueueViewModel.Scheduler schedulerState() {
         Optional<Boolean> stored = configService.storedSchedulerEnabled();
-        // In-progress first: a run that ends between the two reads then shows as finished, with its result,
-        // rather than as a finished start time paired with the previous run's result.
+        // In-progress first: a run that ends between the two reads then shows as finished, with its result.
+        // With no run in progress, the start comes from the finished run's own record, so start, finish and
+        // outcome always describe one run even if a new run starts while the page is being built.
         boolean runInProgress = scheduler.isRunInProgress();
         Optional<SmsQueueScheduler.CompletedRun> lastRun = scheduler.lastCompletedRun();
+        Optional<Instant> startedAt = runInProgress
+                ? scheduler.lastRunStartedAt()
+                : lastRun.map(SmsQueueScheduler.CompletedRun::startedAt);
         return new SmsQueueViewModel.Scheduler(
                 stored.orElseGet(schedulerProperty::getAsBoolean),
                 stored.isPresent(),
                 scheduler.isRunning(),
                 runInProgress,
-                scheduler.lastRunStartedAt().map(dateTimeFormatter::format).orElse(""),
+                startedAt.map(dateTimeFormatter::format).orElse(""),
                 lastRun.map(run -> format(run.finishedAt())).orElse(""),
                 lastRun.map(run -> run.outcome().name()).orElse(""),
                 lastRun.map(SmsQueueScheduler.CompletedRun::processed).orElse(0)
