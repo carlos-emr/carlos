@@ -99,17 +99,17 @@ public class PortalEmailDelivery2Action extends ActionSupport {
             return NONE;
         } catch (PatientPortalConfigurationException notConfigured) {
             portalNotConfigured(request, response, id);
-        } catch (BeanCreationException notBuilt) {
-            // Spring wraps a configuration failure raised while the portal client is built.
-            if (!notBuilt.contains(PatientPortalConfigurationException.class)) {
-                throw notBuilt;
-            }
-            portalNotConfigured(request, response, id);
         } catch (RuntimeException unavailable) {
-            // Class name only: portal messages may carry credentials or PHI. A reload re-reads the durable state.
-            logger.warn("Portal email recovery failed; emailLogId={}; causeType={}", id, unavailable.getClass().getSimpleName());
-            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            request.setAttribute("portalRecoveryErrorKey", "email.portalDelivery.error.unavailable");
+            // Spring wraps a configuration failure raised while the portal client is built.
+            if (unavailable instanceof BeanCreationException notBuilt
+                    && notBuilt.contains(PatientPortalConfigurationException.class)) {
+                portalNotConfigured(request, response, id);
+            } else {
+                // Class name only: portal messages may carry credentials or PHI. A reload re-reads the durable state.
+                logger.warn("Portal email recovery failed; emailLogId={}; causeType={}", id, unavailable.getClass().getSimpleName());
+                response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                request.setAttribute("portalRecoveryErrorKey", "email.portalDelivery.error.unavailable");
+            }
         }
         try {
             var emailLog = delivery.findForRecovery(user, id);

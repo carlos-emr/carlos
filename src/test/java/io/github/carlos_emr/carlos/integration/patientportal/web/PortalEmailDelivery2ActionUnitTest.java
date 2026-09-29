@@ -136,6 +136,16 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("emailLog")).isSameAs(stored);
     }
 
+    @Test void shouldReportUnavailable_whenSpringFailsForAnotherReason() throws Exception {
+        when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(
+                new org.springframework.beans.factory.BeanCreationException("patientPortalService",
+                        "creation failed", new IllegalStateException("secret=x")));
+        execute("POST", "45");
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.unavailable");
+        assertThat(request.getAttribute("emailLog")).isSameAs(stored);
+    }
+
     /** How a failure to build the portal client arrives: Spring wraps the configuration error. */
     @Test void shouldReportNotConfigured_whenSpringWrapsTheConfigurationFailure() throws Exception {
         when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(
