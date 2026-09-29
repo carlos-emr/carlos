@@ -36,8 +36,9 @@
     ViewScript2.jsp loads it into its preview frame for printing.
 
     Features:
-    - Reads the prescription from the session RxSessionBean. With no bean in
-      the session the page redirects to error.html instead of rendering.
+    - Reads the prescription from the request's per-patient RxSessionBean
+      (RxSessionBeanResolver). With no bean for that patient the page redirects
+      to error.html instead of rendering.
     - The prescription text and practitioner number are encoded for their
       context (html or htmlAttribute) (#3873). Some older clinic header fields
       are still written unencoded and need the same treatment.
@@ -52,6 +53,9 @@
     @since 2004-02-05
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
@@ -78,7 +82,7 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String providerNo = loggedInInfo.getLoggedInProviderNo();
-    String scriptid = request.getParameter("scriptId");
+    RxPreviewSnapshot previewSnapshot = (RxPreviewSnapshot) request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE);
     String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
     RxSessionBean bean = null;
 %>
@@ -147,13 +151,18 @@
         </style>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
         <c:if test="${empty RxSessionBean}">
             <% response.sendRedirect("error.html"); %>
         </c:if>
-        <c:if test="${not empty sessionScope.RxSessionBean}">
+        <c:if test="${not empty pageScope.RxSessionBean}">
             <%
                 // Directly access the RxSessionBean from the session
-                bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+                bean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
                 if (bean != null && !bean.isValid()) {
                     response.sendRedirect("error.html");
                     return; // Ensure no further JSP processing
@@ -161,7 +170,6 @@
             %>
         </c:if>
 
-            <%--<link rel="stylesheet" type="text/css" href="styles.css">--%>
             <%--<script type="text/javascript" language="Javascript">--%>
             <%--	--%>
 
@@ -180,16 +188,19 @@
     <%
         Date rxDate = RxUtil.Today();
 //String rePrint = request.getParameter("rePrint");
-        String rePrint = (String) request.getSession().getAttribute("rePrint");
-//String rePrint = (String)request.getSession().getAttribute("rePrint");
+        // Reprint state is per patient (#3908): only a reprint loaded for the patient this request
+        // resolved to renders here, never another open window's reprint.
+        RxReprintWorkspace.Entry reprintEntry = previewSnapshot == null ? RxReprintWorkspace.findForRequest(request, session, bean.getDemographicNo()) : null;
+        String rePrint = previewSnapshot != null
+                ? ("true".equals(request.getParameter("rePrint")) ? "true" : "")
+                : reprintEntry != null ? "true" : null;
         RxProviderData.Provider provider;
         String signingProvider;
-        if (rePrint != null && rePrint.equalsIgnoreCase("true")) {
-            bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
+        if (previewSnapshot != null || reprintEntry != null) {
+            bean = previewSnapshot != null ? previewSnapshot.bean() : reprintEntry.bean();
             signingProvider = bean.getStashItem(0).getProviderNo();
             rxDate = bean.getStashItem(0).getRxDate();
             provider = new RxProviderData().getProvider(signingProvider);
-//    session.setAttribute("tmpBeanRX", null);
             String ip = request.getRemoteAddr();
             //LogAction.addLog((String) session.getAttribute("user"), LogConst.UPDATE, LogConst.CON_PRESCRIPTION, String.valueOf(bean.getDemographicNo()), ip);
         } else {
@@ -593,8 +604,8 @@
 
                                     if (bean.getStashSize() > 0 && Objects.nonNull(bean.getStashItem(0).getDigitalSignatureId())) {
                                         startimageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=" + bean.getStashItem(0).getDigitalSignatureId();
-                                    } else if (!"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
-                                        // Only apply the stamp on new prescriptions; reprints use the stored digital signature only.
+                                    } else if (previewSnapshot == null && !"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
+                                        // Persisted previews always use the saved signature, regardless of caller-supplied rePrint.
                                         // When the signing provider differs from the session user, request the actual signing provider's stamp.
                                         startimageUrl = request.getContextPath() + "/provider/providerSignatureImage?providerNo=" + SafeEncode.forUriComponent(signingProvider);
                                     }

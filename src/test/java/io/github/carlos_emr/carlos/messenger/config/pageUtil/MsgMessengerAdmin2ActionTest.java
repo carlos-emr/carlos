@@ -104,6 +104,21 @@ class MsgMessengerAdmin2ActionTest extends CarlosWebTestBase {
         f.set(action, value);
     }
 
+    @Test
+    void shouldEscapeLogLineBoundaries_whenDeniedMethodContainsControlCharacters() {
+        getMockRequest().setParameter("method", "fetch\r\nFORGED\u2028line");
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998\nFORGED");
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), any())).thenReturn(false);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(MsgMessengerAdmin2Action.class)) {
+            assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+            assertThat(logs.messages()).anySatisfy(message -> {
+                assertThat(message).contains("MsgMessengerAdmin denied", "FORGED");
+                assertThat(message).doesNotContain("\r", "\n", "\u2028");
+            });
+        }
+        verifyNoInteractions(mockGroupManager);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"add", "remove", "create", "delete", "update"})
     @DisplayName("should deny each mutating method when _admin write is missing")

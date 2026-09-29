@@ -64,7 +64,9 @@
     <script type="text/javascript" charset="utf8" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/dompurify/purify.min.js"></script>
-    <script src="${pageContext.request.contextPath}/share/javascript/oscarMDSIndex.js"></script>
+    <script src="${pageContext.request.contextPath}/js/documentImageLoader.js"></script>
+    <%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
+<script src="${pageContext.request.contextPath}/share/javascript/oscarMDSIndex.js"></script>
     <title><fmt:message key="inboxhub.title"/></title>
 </head>
 <body>

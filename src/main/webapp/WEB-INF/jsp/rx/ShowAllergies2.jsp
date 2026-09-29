@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
@@ -74,13 +75,18 @@
     PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 %>
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
 <c:if test="${empty RxSessionBean}">
     <% response.sendRedirect("error.html"); %>
 </c:if>
-<c:if test="${not empty sessionScope.RxSessionBean}">
+<c:if test="${not empty pageScope.RxSessionBean}">
     <%
         // Directly access the RxSessionBean from the session
-        bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        bean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r");
         if (bean != null && !bean.isValid()) {
             response.sendRedirect("error.html");
             return; // Ensure no further JSP processing
@@ -88,7 +94,7 @@
     %>
 </c:if>
 <%
-    RxPatientData.Patient patient = (RxPatientData.Patient) session.getAttribute("Patient");
+    RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
     request.setAttribute("patient", patient);
     SecurityManager securityManager = new SecurityManager();
 %>
@@ -99,6 +105,8 @@
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+        <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= patient == null ? "" : String.valueOf(patient.getDemographicNo()) %>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/allergies.css">
         <style type="text/css">
@@ -485,7 +493,7 @@
                 <table>
                     <tr class="DivCCBreadCrumbs">
                         <td>
-                            <a href="${pageContext.request.contextPath}/rx/searchDrug"><fmt:message key="SearchDrug.title"/></a>
+                            <a href="${pageContext.request.contextPath}/rx/searchDrug?demographicNo=<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"><fmt:message key="SearchDrug.title"/></a>
                             &nbsp;&gt;&nbsp;
                             <b><fmt:message key="EditAllergies.title"/></b>
                         </td>

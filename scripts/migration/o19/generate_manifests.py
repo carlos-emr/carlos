@@ -78,8 +78,8 @@ MANIFEST_FILES = {
 #: where the carlos-ctl package is imported from, in order (see
 #: ctl_module); resolved once from --ctl-src / $CARLOS_CTL_SRC
 CTL_SRC: Optional[Path] = None
-#: the carlos_ctl modules the generator may import (an allow-list: the
-#: name reaches importlib.import_module)
+#: the carlos_ctl modules the generator may import; imports below use
+#: literal names so callers cannot choose executable module paths.
 CTL_MODULES = ("o19_preflight",)
 MIGRATION_DIR = REPO_ROOT / "database" / "mysql" / "migration"
 
@@ -1082,7 +1082,6 @@ def ctl_module(name: str):
     o19props imports the props manifest at load, which is the file this
     generator is about to write -- a circular start.
     """
-    import importlib
     if name not in CTL_MODULES:
         raise ValueError("ctl_module: {0!r} is not one of {1}".format(
             name, ", ".join(CTL_MODULES)))
@@ -1093,13 +1092,19 @@ def ctl_module(name: str):
     # properties baseline would come from one parser while the preflight
     # block is rewritten in another tree. The installed package is the
     # last resort and goes last.
-    if src and str(src) not in sys.path and (src / "carlos_ctl").is_dir():
+    if src and (src / "carlos_ctl").is_dir():
+        if str(src) in sys.path:
+            sys.path.remove(str(src))
         sys.path.insert(0, str(src))
     installed = "/usr/lib/carlos-ctl"
     if installed not in sys.path and (Path(installed) / "carlos_ctl").is_dir():
         sys.path.append(installed)
     try:
-        return importlib.import_module("carlos_ctl." + name)
+        # This is the only supported module. Keep the import literal:
+        # adding a module requires an explicit code change, not constructing
+        # an executable import path from the caller's string.
+        from carlos_ctl import o19_preflight
+        return o19_preflight
     except ImportError as exc:
         raise SystemExit(
             "generator: cannot import carlos_ctl.{0} ({1}). Point --ctl-src "

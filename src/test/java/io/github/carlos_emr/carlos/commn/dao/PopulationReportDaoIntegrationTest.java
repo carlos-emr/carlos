@@ -23,16 +23,14 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.EncounterUtil.EncounterType;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -40,10 +38,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
@@ -55,19 +49,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Integration tests for {@link PopulationReportDaoImpl}, the CAISI population reporting DAO.
  *
- * <p>This DAO uses two distinct persistence mechanisms:</p>
- * <ul>
- *   <li><b>HibernateTemplate HQL methods</b> (6 methods): {@code getCurrentPopulationSize},
- *       {@code getCurrentAndHistoricalPopulationSize}, {@code getMortalities},
- *       {@code getPrevalence}, and {@code getIncidence} are fully testable in the Spring test
- *       context. {@code getUsages} is fully testable — the prior HQL defect has been fixed.</li>
- *   <li><b>Raw JDBC methods</b> (7 methods): All {@code getCaseManagementNoteCount*} and
- *       {@code getCaseManagementNoteTotalUnique*} methods. These obtain a JDBC {@link Connection}
- *       from {@link DbConnectionFilter#getThreadLocalDbConnection()}, a servlet filter
- *       thread-local that is not available in the Spring test context. These tests are marked
- *       {@code @Disabled} with full test structure written so they are ready when the DAO is
- *       refactored to accept an injected {@link DataSource}.</li>
- * </ul>
+ * <p>Exercises both HQL population queries and native SQL encounter counts through the
+ * transaction-bound persistence context. Native queries no longer require a servlet
+ * filter connection, so their empty-result and optional-filter regressions run here.</p>
  *
  * <p><b>Bean definition</b>: Registered in {@code test-context-full.xml} as
  * {@code populationReportDao} with {@code sessionFactory} property injection.</p>
@@ -91,9 +75,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private PopulationReportDao populationReportDao;
-
-    @Autowired
-    private DataSource dataSource;
 
     // =====================================================================
     // Helper methods for creating test data
@@ -834,24 +815,54 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
     }
 
     // =====================================================================
-    // Raw JDBC Methods (require DbConnectionFilter thread-local)
-    //
-    // These methods use DbConnectionFilter.getThreadLocalDbConnection() to
-    // obtain a raw JDBC Connection outside of the Hibernate/JPA persistence
-    // context. This servlet filter thread-local is NOT available during
-    // Spring integration tests because the servlet container lifecycle
-    // (filter init/doFilter) is not invoked by the test runner.
-    //
-    // Tests are fully structured with Given/When/Then but @Disabled until
-    // the DAO is refactored to accept an injected DataSource parameter
-    // instead of relying on the thread-local connection pattern.
+    @Test
+    void shouldCountDistinctNotesAndClients_whenNotesShareIssueGroups() {
+        var patient = createActiveDemographic("Report", "Fixture");
+        Issue first = createIssue("Z91", "Synthetic first issue");
+        Issue second = createIssue("Z92", "Synthetic second issue");
+        var firstLink = createCaseManagementIssue(patient.getDemographicNo(), first, false);
+        var secondLink = createCaseManagementIssue(patient.getDemographicNo(), second, false);
+        for (int index = 0; index < 2; index++) {
+            var note = new CaseManagementNote();
+            note.setDemographic_no(patient.getDemographicNo().toString());
+            note.setProviderNo("999998");
+            note.setProgram_no("713");
+            note.setReporter_caisi_role("100");
+            note.setEncounter_type(EncounterType.FACE_TO_FACE_WITH_CLIENT.getOldDbValue());
+            note.setObservation_date(new Date());
+            note.setUpdate_date(new Date());
+            note.setNote("Synthetic encounter " + index);
+            note.setIssues(new java.util.HashSet<>(java.util.List.of(firstLink, secondLink)));
+            hibernateTemplate.save(note);
+        }
+        hibernateTemplate.flush();
+        hibernateTemplate.execute(session -> {
+            session.createNativeMutationQuery("INSERT INTO IssueGroupIssues (issueGroupId, issue_id) VALUES (17, :first), (17, :second)")
+                    .setParameter("first", first.getId()).setParameter("second", second.getId()).executeUpdate();
+            return null;
+        });
+        Date start = monthsAgo(1);
+        Date end = new Date();
+        assertThat(populationReportDao.getCaseManagementNoteCountGroupedByIssueGroup(
+                713, (Integer) null, null, start, end)).containsEntry(17, 2);
+        assertThat(populationReportDao.getCaseManagementNoteTotalUniqueEncounterCountInIssueGroups(
+                713, (Integer) null, null, start, end)).isEqualTo(2);
+        assertThat(populationReportDao.getCaseManagementNoteTotalUniqueClientCountInIssueGroups(
+                713, (Integer) null, null, start, end)).isEqualTo(1);
+        assertThat(populationReportDao.getCaseManagementNoteCountByIssueGroup(
+                713, 17, 100, EncounterType.FACE_TO_FACE_WITH_CLIENT, start, end)).isEqualTo(2);
+        assertThat(populationReportDao.getCaseManagementNoteCountByIssueGroup(
+                713, 17, 101, null, start, end)).isZero();
+    }
+
+    // Native SQL encounter-count queries (transaction-bound EntityManager)
     // =====================================================================
 
     /**
      * Tests for {@link PopulationReportDao#getCaseManagementNoteCountGroupedByIssueGroup(int, Integer, EncounterType, Date, Date)}.
      *
      * <p>Returns a map of issue group ID to note count, filtered by program, optional role,
-     * optional encounter type, and date range. Uses raw JDBC with dynamic SQL construction.</p>
+     * optional encounter type, and date range. Uses parameterized native SQL.</p>
      */
     @Nested
     @DisplayName("getCaseManagementNoteCountGroupedByIssueGroup(programId, roleId, encounterType, startDate, endDate)")
@@ -861,8 +872,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return empty map when no matching notes exist")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context. "
-                + "Refactor DAO to accept injected DataSource for testability.")
         void shouldReturnEmptyMap_whenNoMatchingNotesExist() {
             // Given
             int programId = 1;
@@ -881,7 +890,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should filter by encounter type when provided")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldFilterByEncounterType_whenEncounterTypeProvided() {
             // Given
             int programId = 1;
@@ -902,7 +910,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should filter by role ID when provided")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldFilterByRoleId_whenRoleIdProvided() {
             // Given
             int programId = 1;
@@ -925,7 +932,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
      * Tests for {@link PopulationReportDao#getCaseManagementNoteCountGroupedByIssueGroup(int, Provider, EncounterType, Date, Date)}.
      *
      * <p>Returns a map of issue group ID to note count, filtered by program, provider,
-     * encounter type, and date range. Uses raw JDBC.</p>
+     * encounter type, and date range. Uses parameterized native SQL.</p>
      */
     @Nested
     @DisplayName("getCaseManagementNoteCountGroupedByIssueGroup(programId, provider, encounterType, startDate, endDate)")
@@ -935,7 +942,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return empty map when no matching notes exist for provider")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldReturnEmptyMap_whenNoMatchingNotesForProvider() {
             // Given
             int programId = 1;
@@ -969,7 +975,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return zero when no matching encounters exist")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldReturnZero_whenNoMatchingEncountersExist() {
             // Given
             int programId = 1;
@@ -988,7 +993,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should filter by encounter type and role when both provided")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldFilterByEncounterTypeAndRole_whenBothProvided() {
             // Given
             int programId = 1;
@@ -1022,7 +1026,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return zero when no matching encounters exist for provider")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldReturnZero_whenNoMatchingEncountersForProvider() {
             // Given
             int programId = 1;
@@ -1056,7 +1059,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return zero when no matching client notes exist")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldReturnZero_whenNoMatchingClientNotesExist() {
             // Given
             int programId = 1;
@@ -1075,7 +1077,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should filter by encounter type when provided")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldFilterByEncounterType_whenProvided() {
             // Given
             int programId = 1;
@@ -1108,7 +1109,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return zero when no matching client notes exist for provider")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldReturnZero_whenNoMatchingClientNotesForProvider() {
             // Given
             int programId = 1;
@@ -1130,7 +1130,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should handle null provider gracefully")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldHandleNullProvider_whenProviderIsNull() {
             // Given
             int programId = 1;
@@ -1162,7 +1161,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return zero when no matching notes exist for issue group")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldReturnZero_whenNoMatchingNotesForIssueGroup() {
             // Given
             int programId = 1;
@@ -1181,7 +1179,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should query across all issue groups when issueGroupId is null")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldQueryAllGroups_whenIssueGroupIdIsNull() {
             // Given
             int programId = 1;
@@ -1200,7 +1197,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should filter by all parameters when all provided")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldFilterByAllParameters_whenAllProvided() {
             // Given
             int programId = 1;
@@ -1222,7 +1218,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should handle null start date by using epoch")
         @Tag("read")
-        @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldHandleNullStartDate_byUsingEpoch() {
             // Given
             // When startDate is null, the DAO falls back to new java.sql.Timestamp(0),

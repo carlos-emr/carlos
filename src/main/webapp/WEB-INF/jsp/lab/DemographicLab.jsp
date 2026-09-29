@@ -107,6 +107,7 @@
     <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
+    <fmt:message key="oscarMDS.index.msgNoReports" var="labEmptyTableMessage"/>
     <script type="text/javascript">
         function popupStart(vheight, vwidth, varpage, windowname) {
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
@@ -170,6 +171,7 @@
                 searching: true,
                 pageLength: 25,
                 language: {
+                    emptyTable: '<carlos:encode value='${labEmptyTableMessage}' context="javaScript"/>',
                     url: '${ctx}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
                 }
             });
@@ -262,16 +264,6 @@
                 </thead>
                 <tbody>
                     <%
-                        int colCount = (demographicNo == null) ? 7 : 6;
-                        if (labs.isEmpty()) {
-                    %>
-                    <tr>
-                        <td colspan="<%=colCount%>" class="text-center text-muted fst-italic">
-                            <fmt:message key="oscarMDS.index.msgNoReports"/>
-                        </td>
-                    </tr>
-                    <%
-                        } else {
                             for (int i = 0; i < labs.size(); i++) {
                                 LabResultData result = (LabResultData) labs.get(i);
                                 String segmentID = (String) result.segmentID;
@@ -330,7 +322,6 @@
                     </tr>
                     <%
                             }
-                        }
                     %>
                 </tbody>
             </table>

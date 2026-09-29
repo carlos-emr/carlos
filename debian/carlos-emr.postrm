@@ -67,6 +67,7 @@ case "$1" in
         rm -rf /var/log/carlos-emr/backup-state
         rm -f "${STATE}/.first-configure-pending" \
               "${STATE}/.consult-signature-default-migrated" \
+              "${STATE}/.health-tracker-default-migrated" \
               "${STATE}/.db-name-default-migrated" \
               "${STATE}/.install-incomplete"
         # The OscarDocument -> CarlosDocument compat symlink is package

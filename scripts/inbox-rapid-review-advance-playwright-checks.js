@@ -42,13 +42,9 @@
  *     between the click and the advance would mean the in-place path has
  *     regressed as well.
  *
- * NOT READ-ONLY, AND IT MUST RUN AFTER inboxhub-filters. This check ACKNOWLEDGES
- * one lab -- that is the action under test -- and leaves everything else alone.
- * Acknowledging a lab also files the older versions in its chain, and
- * inboxhub-filters asserts a partition in which nothing has been acknowledged,
- * so this entry sits after that check's (and after inbox-preview-acknowledge,
- * which acknowledges one more) in scripts/playwright-suite.json, whose order
- * is run order. Run against a disposable database.
+ * Acknowledges one lab and restores exact routing status, comment and timestamp
+ * for it and its older versions in finally. Newly inserted routes are removed
+ * by their recorded IDs, and restoration is verified. Use a disposable database.
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   INBOX_TIMEOUT_MS=60000        per-step allowance
@@ -58,6 +54,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext,
   readConfig, runCheck, withExpectedDialogs,
 } = require('./lib/playwright-harness');
+const {createInboxAcknowledgementFixture} = require('./lib/inbox-acknowledgement-fixture');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { settle } = require('./inboxhub-filters-playwright-checks');
 const { widenToAnyProvider } = require('./inbox-preview-acknowledge-playwright-checks');
@@ -211,12 +208,13 @@ async function openAcknowledgeableTarget(context, inbox, rows, recorder, timeout
   return null;
 }
 
-async function main() {
+async function main({throwIfCancelled = () => {}} = {}) {
   const config = readConfig();
   const timeout = Number(process.env.INBOX_TIMEOUT_MS || '60000');
 
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
+  const routingFixture = createInboxAcknowledgementFixture(config);
   try {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
@@ -247,6 +245,8 @@ async function main() {
     // Everything this acknowledgement takes off the list: the lab and the older versions it
     // files. The row Rapid Review must open is the first row below the target that is NOT one
     // of them -- an older version sitting directly below would leave with the acknowledgement.
+    throwIfCancelled();
+    await routingFixture.prepare(target.popup, target.identity);
     const filed = await filedVersionsOf(target.popup, target.identity);
     const expectedNext = before.slice(target.index + 1).find((identity) => !filed.includes(identity));
     assert(expectedNext && expectedNext !== before[0],
@@ -337,7 +337,8 @@ async function main() {
       + `${before.length} row(s) -> ${after.length}`);
     return { acknowledged: target.identity, opened: expectedNext, firstRow: before[0], rows: before.length, filed: filed.length };
   } finally {
-    await browser.close().catch(() => {});
+    try { await browser.close(); }
+    finally { routingFixture.cleanup(); }
   }
 }
 

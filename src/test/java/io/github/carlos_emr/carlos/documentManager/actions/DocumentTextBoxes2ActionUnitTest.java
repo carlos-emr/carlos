@@ -7,6 +7,12 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,12 +39,13 @@ import static org.mockito.Mockito.*;
 /** Exercises the word-box endpoint with real PDF extraction and HTTP method checks.
  * @since 2026-09-20
  */
-class DocumentTextBoxes2ActionUnitTest {
+class DocumentTextBoxes2ActionUnitTest extends CarlosUnitTestBase {
     private final ObjectMapper mapper = new ObjectMapper();
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private LoggedInInfo info;
     private SecurityInfoManager security;
+    private CtlDocumentDao links;
 
     @BeforeEach
     void setUpEndpoint() {
@@ -50,6 +57,13 @@ class DocumentTextBoxes2ActionUnitTest {
         info = mock(LoggedInInfo.class);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         security = mock(SecurityInfoManager.class);
+        links = mock(CtlDocumentDao.class);
+        Document stored = new Document();
+        stored.setDocumentNo(42);
+        stored.setRestrictToProgram(false);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        when(createAndRegisterMock(DocumentDao.class).find(42)).thenReturn(stored);
         when(security.hasPrivilege(eq(info), eq("_edoc"), eq(SecurityInfoManager.READ), isNull()))
                 .thenReturn(true);
     }
@@ -193,11 +207,29 @@ class DocumentTextBoxes2ActionUnitTest {
         }
     }
 
+    @Test
+    void shouldReturnForbiddenBeforeMetadata_whenASecondAuthoritativePatientLinkIsRestricted() {
+        var allowed = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+        allowed.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 10, 42));
+        var denied = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+        denied.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 20, 42));
+        when(links.findByDocumentNoAndModule(42, "demographic")).thenReturn(java.util.List.of(allowed, denied));
+        when(security.isAllowedAccessToPatientRecord(info, 10)).thenReturn(true);
+        request.setParameter("demoNo", "10");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class);
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            documents.verifyNoInteractions();
+        }
+    }
+
     private String execute() throws Exception {
         try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class)) {
             context.when(ServletActionContext::getRequest).thenReturn(request);
             context.when(ServletActionContext::getResponse).thenReturn(response);
-            return new DocumentTextBoxes2Action(security).execute();
+            return new DocumentTextBoxes2Action(security, links).execute();
         }
     }
 

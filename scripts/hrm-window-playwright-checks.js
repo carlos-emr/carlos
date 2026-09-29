@@ -110,7 +110,7 @@ const server = http.createServer(async (req, res) => {
 async function main() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch(getLaunchOptions(process.env.CHROME_BIN));
+  const browser = await chromium.launch(getLaunchOptions(process.env.CHROME_BIN || process.env.CHROME_PATH));
   try {
     for (const mode of ['popup', 'coop', 'fallback', 'iframe', 'legacy', 'chart', 'cached', 'failure']) {
       signed = false; fail = mode === 'failure'; mutations = 0; reloads = 0; restoring = false;
