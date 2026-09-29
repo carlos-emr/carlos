@@ -88,11 +88,15 @@ class TomcatForwardSuspensionRegressionTest {
     }
 
     /**
-     * Resolves against the project directory only. Walking up parent directories could find an
-     * enclosing checkout's copy, and pass, after this checkout had moved or deleted the file.
+     * Resolves against the project directory only: Maven's project directory when Maven set it, so
+     * the test also passes when Maven is started from elsewhere with {@code -f}, otherwise the
+     * working directory. Walking up parent directories could find an enclosing checkout's copy, and
+     * pass, after this checkout had moved or deleted the file.
      */
     private static Path resolveProjectPath(Path relativePath) {
-        Path candidate = Path.of(System.getProperty("user.dir")).toAbsolutePath().resolve(relativePath);
+        Path candidate = Path.of(System.getProperty(
+                "maven.multiModuleProjectDirectory",
+                System.getProperty("user.dir"))).toAbsolutePath().resolve(relativePath);
         if (!Files.exists(candidate)) {
             throw new IllegalStateException("Could not locate " + relativePath + " under the project directory");
         }
