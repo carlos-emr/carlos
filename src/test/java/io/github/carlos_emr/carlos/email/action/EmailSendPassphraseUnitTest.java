@@ -342,6 +342,7 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         // Preparation checks read access to the patient before generating anything.
         when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
 
         EmailCompose2Action composeAction = new EmailCompose2Action();

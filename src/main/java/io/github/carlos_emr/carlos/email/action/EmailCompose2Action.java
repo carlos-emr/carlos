@@ -169,6 +169,13 @@ public class EmailCompose2Action extends ActionSupport {
         if (viewId != null) {
             return renderPreparedCompose(viewId);
         }
+        if ("HEAD".equalsIgnoreCase(request.getMethod())) {
+            // Preparing takes the staged compose. A HEAD must not take it from the window that
+            // is about to ask for it.
+            response.setHeader("Allow", "GET, POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         return prepareComposeEFormMailer();
     }
 
@@ -381,6 +388,9 @@ public class EmailCompose2Action extends ActionSupport {
         List<EmailAttachment> emailAttachmentList;
         try {
             emailAttachmentList = previewCopies(loggedInInfo, state.emailAttachmentList(), view.previews());
+        } catch (SecurityException e) {
+            // A denial is not a stale window; let it surface as one.
+            throw e;
         } catch (PDFGenerationException | RuntimeException e) {
             // A prepared file can only disappear with its state (expiry, trim, or a send), so the
             // window is as stale as an unknown view.
@@ -640,12 +650,16 @@ public class EmailCompose2Action extends ActionSupport {
 
     /**
      * Requires read access to this patient's chart, honouring per-patient restrictions
-     * ({@code _demographic$<no>}). The attachment preparers check their own objects without a
-     * patient, and saving an eForm checks only {@code _eform}, so this is the patient-level check.
+     * ({@code _demographic$<no>} and {@code _eChart$<no>}), as the email views do. The attachment
+     * preparers check their own objects without a patient, and saving an eForm checks only
+     * {@code _eform}, so this is the patient-level check.
      */
     private void requireDemographicRead(LoggedInInfo loggedInInfo, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Access to the email patient record is denied");
         }
     }
 

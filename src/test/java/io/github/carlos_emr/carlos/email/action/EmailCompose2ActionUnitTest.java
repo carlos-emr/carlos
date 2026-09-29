@@ -116,6 +116,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{
                 "Consent", "OPT_IN", "email.consent.status.optIn"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
@@ -184,6 +185,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -236,6 +238,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(EmailPdfPasswordService.class, mock(EmailPdfPasswordService.class));
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -327,6 +330,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -367,6 +371,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
@@ -722,6 +727,83 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             verify(mocks.pdfPreviewCapabilityService(), times(1)).issue(any(), any(), any());
         } finally {
             composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse to prepare a compose for a patient whose chart is restricted, before generating any PDF")
+    void shouldRejectPrepare_whenPatientRecordAccessDenied() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        EmailComposeSubmissionStateService stateService = spy(composeSubmissionStateService);
+        registerMock(EmailComposeSubmissionStateService.class, stateService);
+        SecurityInfoManager restricted = mock(SecurityInfoManager.class);
+        when(restricted.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
+        when(restricted.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        // General demographic read is granted; the chart-level restriction for this patient is not.
+        when(restricted.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(false);
+        registerMock(SecurityInfoManager.class, restricted);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+
+            assertThatThrownBy(new EmailCompose2Action()::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("Access to the email patient record is denied");
+            verify(stateService, never()).createWorkingDirectory();
+            verify(mocks.emailComposeManager(), never()).prepareEFormAttachments(any(), any(), any(), any());
+            verify(mocks.pdfPreviewCapabilityService(), never()).issue(any(), any(), any());
+        }
+    }
+
+    @Test
+    @DisplayName("should surface a denial while copying previews instead of showing the expired page")
+    void shouldSurfaceDenial_whenPreviewCopyIsRefused() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        stageOneEFormAttachment(mocks, request);
+        when(mocks.pdfPreviewCapabilityService().issue(any(), any(), any())).thenReturn("preview-1");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            when(mocks.pdfPreviewCapabilityService().resolve(any(), any(), any()))
+                    .thenThrow(new SecurityException("provider required"));
+            MockHttpServletRequest viewRequest = new MockHttpServletRequest("GET", "/email/emailComposeAction");
+            viewRequest.setSession(request.getSession());
+            viewRequest.setParameter(EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM, viewId);
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(viewRequest);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            EmailCompose2Action action = new EmailCompose2Action();
+
+            assertThatThrownBy(action::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("provider required");
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should answer 405 to a HEAD and leave the staged compose for the window that asks for it")
+    void shouldLeaveStagedCompose_whenRequestIsHead() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("HEAD", "/email/compose");
+        stageOneEFormAttachment(mocks, request);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            String result = new EmailCompose2Action().execute();
+
+            assertThat(result).isEqualTo(EmailCompose2Action.NONE);
+            assertThat(response.getStatus()).isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("GET, POST");
+            assertThat(request.getSession().getAttribute("demographicId")).isNotNull();
+            verify(mocks.emailComposeManager(), never()).prepareEFormAttachments(any(), any(), any(), any());
         }
     }
 
