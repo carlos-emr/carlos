@@ -53,7 +53,11 @@
 #   TRANSITIONAL   optional: carlos-emr-eform-renderer_*.deb matching each
 #                  carlos-emr (TRANSITIONAL_PRESPLIT / TRANSITIONAL_SPLIT);
 #                  only for alpha14..alpha17 builds, which shipped it -- later
-#                  builds no longer produce the transitional package
+#                  builds no longer produce the transitional package. When the
+#                  pre-split install has the REAL renderer (alpha13 or
+#                  earlier) and TRANSITIONAL_SPLIT is unset, cases 2 and 1 run
+#                  without --no-remove, as docs/install-deb.md tells operators
+#                  to, and assert apt removes nothing but that renderer
 #   PROVINCE       on (default) | bc, for the debconf preseed
 #   PAUSE_BEFORE_REMOVE=1
 #                  after case 3, with the upgraded split pair serving, wait
@@ -93,6 +97,26 @@ apt_install() {
     echo "UPGRADE_RC=$rc" >> "$log"
     return $rc
 }
+# Upgrading off an alpha13-or-earlier renderer with no transitional package in
+# the transaction: carlos-emr's Breaks makes apt REMOVE the old renderer, so the
+# documented command drops --no-remove. Simulate first and refuse to proceed if
+# apt would remove anything else -- the operator check the docs ask for.
+apt_install_upgrade() {
+    local log="$1"; shift
+    if [ "${ALLOW_RENDERER_REMOVAL:-0}" != 1 ]; then
+        apt_install "$log" "$@"; return $?
+    fi
+    local others
+    others="$(apt-get install -s "$@" 2>/dev/null | sed -n 's/^Remv \([^ ]*\).*/\1/p' | grep -vx carlos-emr-eform-renderer)"
+    if [ -n "$others" ]; then
+        { echo "apt would also remove: $others"; echo "UPGRADE_RC=99"; } > "$log"
+        return 99
+    fi
+    apt-get install -y "$@" > "$log" 2>&1
+    local rc=$?
+    echo "UPGRADE_RC=$rc" >> "$log"
+    return $rc
+}
 front() { curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1/carlos/ 2>/dev/null; }
 wait_front() { for i in $(seq 1 60); do [ "$(front)" = 200 ] && return 0; sleep 5; done; return 1; }
 flyway_count() { mariadb -u root carlos -Nse 'SELECT COUNT(*) FROM flyway_schema_history WHERE success=1' 2>/dev/null; }
@@ -119,12 +143,18 @@ wait_front && ok "front door 200 on the pre-split install" || bad "front door $(
 [ "$(dpkg -S /usr/sbin/carlos-ctl 2>/dev/null | cut -d: -f1)" = carlos-emr ] && ok "/usr/sbin/carlos-ctl belongs to the pre-split carlos-emr" || bad "/usr/sbin/carlos-ctl owner: $(dpkg -S /usr/sbin/carlos-ctl 2>/dev/null)"
 carlos-ctl check > "$WORK/0-check.log" 2>&1 && ok "carlos-ctl check passes on the pre-split install" || { bad "carlos-ctl check failed on the pre-split install"; grep -E "FAIL" "$WORK/0-check.log" | head; }
 presplit_ver="$(ver carlos-emr)"; flyway_before="$(flyway_count)"
+ALLOW_RENDERER_REMOVAL=0
+if [ -z "${TRANSITIONAL_SPLIT:-}" ] && [ "$(status carlos-emr-eform-renderer)" = installed ] \
+    && dpkg --compare-versions "$(ver carlos-emr-eform-renderer)" lt 2026.08.0~alpha14~; then
+    ALLOW_RENDERER_REMOVAL=1
+    echo "pre-split install carries the real renderer and no transitional package is supplied: upgrades run without --no-remove"
+fi
 "$HERE/deb-upgrade-baseline.sh" > "$WORK/baseline-presplit.txt" || { bad "pre-split baseline failed; refusing further package changes"; exit 1; }
 
 hdr "2. the new carlos-emr WITHOUT the carlos-ctl file is refused up front"
 split_pkgs=("$SPLIT_EMR"); [ -n "${TRANSITIONAL_SPLIT:-}" ] && split_pkgs+=("$TRANSITIONAL_SPLIT")
 [ -n "${SPLIT_DRUGREF:-}" ] && split_pkgs+=("$SPLIT_DRUGREF")
-if apt_install "$WORK/2-refused.log" "${split_pkgs[@]}"; then bad "apt installed the split carlos-emr without carlos-ctl"; else ok "apt refused the split carlos-emr without carlos-ctl (rc $(sed -n 's/^UPGRADE_RC=//p' "$WORK/2-refused.log"))"; fi
+if apt_install_upgrade "$WORK/2-refused.log" "${split_pkgs[@]}"; then bad "apt installed the split carlos-emr without carlos-ctl"; else ok "apt refused the split carlos-emr without carlos-ctl (rc $(sed -n 's/^UPGRADE_RC=//p' "$WORK/2-refused.log"))"; fi
 grep -qiE "carlos-ctl" "$WORK/2-refused.log" && ok "the refusal names carlos-ctl" || bad "the refusal does not name carlos-ctl"
 [ "$(ver carlos-emr)" = "$presplit_ver" ] && ok "carlos-emr still $presplit_ver" || bad "carlos-emr changed to $(ver carlos-emr)"
 [ "$(status carlos-emr)" = installed ] && ok "carlos-emr still fully configured" || bad "carlos-emr status: $(status carlos-emr)"
@@ -135,7 +165,10 @@ grep -qiE "carlos-ctl" "$WORK/2-refused.log" && ok "the refusal names carlos-ctl
 hdr "1. pre-split carlos-emr upgraded to the split pair in one transaction"
 # the cache the old copy left behind: root ran the tool, so it exists
 [ -d /usr/lib/carlos-emr/carlos_ctl/__pycache__ ] || python3 -c 'import compileall; compileall.compile_dir("/usr/lib/carlos-emr/carlos_ctl", quiet=1)'
-if apt_install "$WORK/1-upgrade.log" "${split_pkgs[@]}" "$CTL_A"; then ok "split pair installed in one transaction"; else bad "split upgrade failed (see $WORK/1-upgrade.log)"; tail -40 "$WORK/1-upgrade.log"; fi
+if apt_install_upgrade "$WORK/1-upgrade.log" "${split_pkgs[@]}" "$CTL_A"; then ok "split pair installed in one transaction"; else bad "split upgrade failed (see $WORK/1-upgrade.log)"; tail -40 "$WORK/1-upgrade.log"; fi
+if [ "$ALLOW_RENDERER_REMOVAL" = 1 ]; then
+    [ "$(status carlos-emr-eform-renderer)" != installed ] && ok "apt removed the pre-alpha14 renderer" || bad "the pre-alpha14 renderer is still installed"
+fi
 wait_front || true
 PRE="$WORK/baseline-presplit.txt" POST="$WORK/baseline-split.txt" UPGRADE_LOG="$WORK/1-upgrade.log" \
   EXPECT_FLYWAY="${EXPECT_FLYWAY:-$flyway_before}" EXPECT_NEW="${EXPECT_NEW-}" \
