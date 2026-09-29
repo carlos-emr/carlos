@@ -21,8 +21,6 @@ import java.util.Objects;
 @Service
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class SmsSendService {
-    private static final org.apache.logging.log4j.Logger LOGGER =
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
     /** Returned, without recording anything, while SMS is turned off in Administration &gt; SMS. */
     public static final String SMS_TURNED_OFF_MESSAGE = "SMS sending is turned off in Administration > SMS.";
@@ -146,15 +144,10 @@ public class SmsSendService {
             throw e;
         }
         if (!permitted) {
-            try {
-                transactionRecorder.releaseClaim(transaction, new Date());
-            } catch (RuntimeException releaseFailure) {
-                // Nothing was sent and the message is recorded. If the claim could not be handed back, stale
-                // recovery picks the row up, so the caller still gets "queued" rather than an error.
-                LOGGER.warn("SMS claim could not be released after the rate limit held the send back; "
-                        + "transactionId={} exceptionClass={}", transaction.getId(),
-                        releaseFailure.getClass().getName());
-            }
+            // If the claim cannot be handed back, the failure reaches the caller: the row stays SENDING and
+            // stale recovery will fail it for review, so answering "queued" would promise a send that
+            // does not happen.
+            transactionRecorder.releaseClaim(transaction, new Date());
             return SmsSendResultDto.queued();
         }
 
