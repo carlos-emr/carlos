@@ -47,7 +47,8 @@ const {
   assert, assertNoPageErrors, assertNotErrorPage, buildFailureDetails, getLaunchOptions, gotoApp, login,
   wirePage,
 } = require('./eform-local-playwright-utils');
-const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
 const fixture = require('./appointment-lifecycle-playwright-checks');
 
 const expectation = (process.env.APPT_STATUS_EDITING_EXPECT || 'enabled').toLowerCase();
@@ -170,49 +171,105 @@ async function checkEditPopup(context, daySheet, booked, statuses) {
   pass(`an unlisted status (${UNLISTED_STATUS}) stays selected and survives an edit-form save`);
 }
 
-async function checkAdminLinks(context, statuses) {
-  const page = await context.newPage();
-  wirePage(page, 'admin-status-links', fixture.recorder);
+/** Asserts the status editor's rows in whatever document (popup page or panel frame) it loaded into. */
+async function assertStatusEditor(root, statuses, surface) {
+  const cells = root.locator('td.nowrap:first-child');
+  await cells.first().waitFor({ state: 'attached', timeout: 30000 });
+  const listed = await cells.evaluateAll((nodes) => nodes.map((cell) => cell.textContent.trim()));
+  for (const code of ['t', 'C']) {
+    assert(listed.includes(code), `${surface}: status editor does not list ${code}: ${JSON.stringify(listed)}`);
+  }
+  assert(listed.length >= statuses.length,
+    `${surface}: status editor lists ${listed.length} statuses, fewer than the ${statuses.length} active ones`);
+  assert(await root.locator('a[href*="dispatch=modify"]').count() > 0,
+    `${surface}: status editor offers no Edit link for any status`);
+  return listed.length;
+}
+
+/**
+ * Both admin surfaces, reached and clicked the way an administrator does.
+ *
+ * The administration panel is entered from the schedule's own Administration
+ * control and its link is clicked, so a broken .xlink handler or a frame that
+ * never loads fails here. admin.jsp has no clickable entry point left (only the
+ * month view's Alt+A shortcut opens it), so that host page is loaded directly,
+ * but its link is still clicked through its popupPage() handler.
+ */
+async function checkAdminLinks(context, schedulePage, statuses) {
+  const statusLink = `a[onclick*="${STATUS_SETTING_PATH}"]`;
+  const panelStatusLink = `a.xlink[rel*="${STATUS_SETTING_PATH}"]`;
+
+  const legacy = await context.newPage();
+  wirePage(legacy, 'admin-jsp', fixture.recorder);
+  let legacyLinks;
   try {
-    await gotoApp(page, fixture.config.baseUrl, '/admin/ViewAdmin');
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await assertNotErrorPage(page, 'admin.jsp');
-    const legacyLinks = await page.locator(`a[onclick*="${STATUS_SETTING_PATH}"]`).count();
+    await gotoApp(legacy, fixture.config.baseUrl, '/admin/ViewAdmin');
+    await legacy.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await assertNotErrorPage(legacy, 'admin.jsp');
+    legacyLinks = await legacy.locator(statusLink).count();
+    if (expectEnabled) {
+      assert(legacyLinks > 0, 'admin.jsp has no Appointment Status Setting link');
+      const link = legacy.locator(statusLink).first();
+      await revealAuditLink(legacy, link, 30000);
+      const { page: editor, isPopup } = await clickOpensPopupOrNavigates(legacy, link, {
+        context, label: 'admin.jsp status editor', timeout: 30000,
+      });
+      if (isPopup) wirePage(editor, 'admin-jsp-status-editor', fixture.recorder);
+      const count = await assertStatusEditor(editor, statuses, 'admin.jsp');
+      if (isPopup) await editor.close().catch(() => {});
+      pass(`admin.jsp Appointment Status Setting link opens the status editor (${count} statuses)`);
+    }
+  } finally {
+    await legacy.close().catch(() => {});
+  }
 
-    await gotoApp(page, fixture.config.baseUrl, '/administration');
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await assertNotErrorPage(page, 'administration panel');
-    const panelLink = page.locator(`a.xlink[rel*="${STATUS_SETTING_PATH}"]`);
+  const opener = schedulePage.locator('#admin-panel, #admin2 a').first();
+  assert(await opener.count() > 0, 'the schedule offers no Administration control (#admin-panel / #admin2)');
+  const { page: panel, isPopup: panelIsPopup } = await clickOpensPopupOrNavigates(schedulePage, opener, {
+    context, label: 'administration panel', timeout: 45000,
+  });
+  if (panelIsPopup) wirePage(panel, 'administration-panel', fixture.recorder);
+  try {
+    const panelLink = panel.locator(panelStatusLink);
     const panelLinks = await panelLink.count();
-
     if (!expectEnabled) {
       assert(legacyLinks === 0 && panelLinks === 0,
         `status editor links present although editing is disabled (admin.jsp=${legacyLinks}, panel=${panelLinks})`);
       pass('both admin surfaces hide the Appointment Status Setting link (editing disabled)');
       return;
     }
-    assert(legacyLinks > 0, 'admin.jsp has no Appointment Status Setting link');
     assert(panelLinks > 0, 'the administration panel left navigation has no Appointment Status Setting link');
-    const label = (await panelLink.first().textContent()).trim();
+    const link = panelLink.first();
+    const label = (await link.textContent()).trim();
     assert(/appointment status/i.test(label), `administration panel status link reads ${JSON.stringify(label)}`);
-    pass('admin.jsp and the administration panel both link to Appointment Status Setting');
-
-    await gotoApp(page, fixture.config.baseUrl, `${STATUS_SETTING_PATH}?dispatch=view`);
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await assertNotErrorPage(page, 'appointment status setting');
-    const listed = await page.locator('td.nowrap:first-child').evaluateAll(
-      (cells) => cells.map((cell) => cell.textContent.trim()));
-    for (const code of ['t', 'C']) {
-      assert(listed.includes(code), `status editor does not list ${code}: ${JSON.stringify(listed)}`);
-    }
-    assert(listed.length >= statuses.length,
-      `status editor lists ${listed.length} statuses, fewer than the ${statuses.length} active ones`);
-    const editLinks = await page.locator('a[href*="dispatch=modify"]').count();
-    assert(editLinks > 0, 'status editor offers no Edit link for any status');
-    pass(`status editor lists ${listed.length} statuses with Edit links`);
+    await revealAuditLink(panel, link, 30000);
+    await link.scrollIntoViewIfNeeded().catch(() => {});
+    await link.click({ timeout: 30000 });
+    // The .xlink handler loads the route into #myFrame inside #dynamic-content.
+    const frameElement = panel.locator('#dynamic-content iframe#myFrame');
+    await frameElement.waitFor({ state: 'attached', timeout: 30000 });
+    const frame = await waitForFrameUrl(frameElement, STATUS_SETTING_PATH);
+    await assertNotErrorPage(frame, 'administration panel status editor');
+    const count = await assertStatusEditor(frame, statuses, 'administration panel');
+    pass(`administration panel Appointment Status Setting link loads the status editor (${count} statuses)`);
   } finally {
-    await page.close().catch(() => {});
+    if (panelIsPopup) await panel.close().catch(() => {});
   }
+}
+
+/** Resolves the frame an iframe element hosts once it has loaded the given route. */
+async function waitForFrameUrl(frameElement, routePath) {
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    const handle = await frameElement.elementHandle();
+    const frame = handle && await handle.contentFrame();
+    if (frame && new URL(frame.url(), 'http://x').pathname.endsWith(routePath)) {
+      await frame.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+      return frame;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`the administration panel frame never loaded ${routePath}`);
 }
 
 async function main() {
@@ -231,7 +288,7 @@ async function main() {
     });
     const daySheet = await login(context, fixture.config, fixture.recorder);
 
-    await checkAdminLinks(context, statuses);
+    await checkAdminLinks(context, daySheet, statuses);
     await checkAddPopup(context, daySheet, statuses);
     await fixture.openDaySheet(daySheet);
     const booked = await fixture.bookFromSlot(context, daySheet);
