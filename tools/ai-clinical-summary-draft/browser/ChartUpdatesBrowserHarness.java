@@ -109,7 +109,15 @@ public final class ChartUpdatesBrowserHarness {
     private static void dispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
         var session = request.getSession();
         var fixture = (Fixture) session.getAttribute("fixture");
+        if (request.getServletPath().equals("/documentManager") && request.getPathInfo().equals("/ViewDocumentReport")) {
+            request.getRequestDispatcher("/fixture-picker.jsp").forward(request, response);
+            return;
+        }
         if (request.getServletPath().equals("/fixture")) {
+            if (request.getPathInfo().equals("/echart") && request.getMethod().equals("GET")) {
+                request.getRequestDispatcher("/fixture-echart.jsp").forward(request, response);
+                return;
+            }
             if (request.getPathInfo().equals("/picker") && request.getMethod().equals("GET")) {
                 request.getRequestDispatcher("/fixture-picker.jsp").forward(request, response);
                 return;

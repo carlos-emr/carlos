@@ -46,7 +46,7 @@
             }
             const result = await response.json();
             if (result.available === true) {
-                location.assign(url.href);
+                if (!window.CarlosChartUpdateModal?.open(url.href, link)) location.assign(url.href);
             } else if (result.available === false && typeof result.message === 'string' && result.message.trim()) {
                 showError(link, result.message, result.originalAvailable === true);
             } else {

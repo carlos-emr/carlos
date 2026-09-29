@@ -39,6 +39,7 @@
 </div>
 <c:if test="${not empty chartUpdateError}"><p class="alert alert-danger" role="alert"><carlos:encode value="${chartUpdateError}"/></p></c:if>
 <c:if test="${chartUpdateReady}">
+<fmt:message key="chartUpdates.proposals" var="chartUpdateWorkflowLabel"/>
 <div class="chart-update-layout">
 <main id="proposals">
     <c:choose>
@@ -50,8 +51,13 @@
         <c:if test="${empty chartUpdateRows}"><p><fmt:message key="chartUpdates.none"/></p></c:if>
         <p><a href="#chart-reference"><fmt:message key="chartUpdates.current"/></a></p>
         <p class="suggestions-help"><fmt:message key="chartUpdates.suggestionsHelp"/></p>
+        <nav class="review-steps" aria-label="${carlos:forHtmlAttribute(chartUpdateWorkflowLabel)}" hidden>
+            <button type="button" class="btn btn-secondary btn-sm" data-review-previous><fmt:message key="dms.incomingDocs.previous"/></button>
+            <span data-review-position role="status"></span>
+            <button type="button" class="btn btn-secondary btn-sm" data-review-next><fmt:message key="dms.incomingDocs.next"/></button>
+        </nav>
         <c:forEach items="${chartUpdateRows}" var="proposal" varStatus="position">
-        <article class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}">
+        <article class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}" data-proposal-key="${carlos:forHtmlAttribute(proposal.key)}">
             <div class="card-body">
                 <div class="proposal-heading"><span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/>.</span><h3 class="h5"><c:choose><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3></div>
                 <details class="proposal-evidence" open><summary><fmt:message key="chartUpdates.evidence"/></summary><blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote></details>

@@ -1,13 +1,22 @@
 # Reviewed chart-update prototype
 
 This add-on starts from the **original selected document**, not generated summary
-prose. The eChart header opens the patient document list, with review links for active
-text and HTML documents. The document summary also links to the review page. It is off by default
+prose. The eChart header opens a modal containing the authorized patient document
+list, with review links for active text and HTML documents. Choosing a document
+continues inside that modal, one suggestion at a time with Previous/Next controls. The document summary also links to the review page. It is off by default
 and has not been deployed or clinically validated.
 
 The review page uses CARLOS's shared grey header, white background and standard
 buttons. **Back** returns to the same patient's document list after generation or
-approval. The existing unsaved-edit warning also applies when leaving with Back.
+approval. Close returns to the eChart without opening another tab and restores
+focus to the launch link. The existing unsaved-edit warning also applies when
+leaving with Back; closing the modal asks before discarding edits. Closing is
+blocked while a generation/save request is in progress. Switching suggestions
+keeps their edits, and the existing form submission carries other cards' edits.
+
+The modal contains same-origin pages using the existing authorization, CSRF and
+POST/redirect flow. It does not generate automatically or change the saving
+boundary. Direct standalone review links remain available, showing all cards.
 
 ## Scope
 

@@ -28,3 +28,15 @@
 .chart-update-error-document { font-weight: 600; }
 .chart-update-error-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: .75rem; margin-top: 1.5rem; }
 .chart-update-original[hidden] { display: none; }
+
+.chart-update-workflow-dialog { width: min(1150px, calc(100vw - 2rem)); height: calc(100dvh - 2rem); max-width: none; max-height: none; margin: auto; padding: 0; border: 1px solid #ccc; border-radius: 4px; background: #fff; color: #333; }
+.chart-update-workflow-dialog[open] { display: flex; flex-direction: column; }
+.chart-update-workflow-dialog::backdrop { background: #0006; }
+.chart-update-workflow-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem 1rem; border-bottom: 1px solid #ddd; background: #f5f5f5; }
+.chart-update-workflow-header h2 { margin: 0; font: 600 16px/1.4 Arial, sans-serif; }
+.chart-update-workflow-status { margin: .75rem 1rem; }
+#chart-update-workflow-frame { flex: 1; min-height: 0; width: 100%; border: 0; background: #fff; }
+#chart-update-workflow-frame[hidden] { display: none; }
+@media (max-width: 600px) {
+    .chart-update-workflow-dialog { width: calc(100vw - .5rem); height: calc(100dvh - .5rem); }
+}

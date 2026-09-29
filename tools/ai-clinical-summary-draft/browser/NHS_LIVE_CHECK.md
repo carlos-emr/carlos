@@ -97,12 +97,14 @@ verify pre-filled values without approving any chart entries:
 node tools/ai-clinical-summary-draft/browser/nhs_suggestions_check.cjs
 ```
 
-This follows the eChart header link through the authorized patient document list
-to the review page, then checks NHSSYN001's four-week date, NHSSYN002's next-day date, NHSSYN003's blank
+This follows the eChart header link through the modal patient document list
+to the review step, verifies that only one suggestion is visible at a time, then checks NHSSYN001's four-week date, NHSSYN002's next-day date, NHSSYN003's blank
 unspecified date, the active clinician assignee, suggested chart sections, unchecked
 approvals and mobile layout. Dates are calculated from each document observation
 date. It verifies unchanged receipt counts and releases the browser's editing
-locks. Avoid running it while another browser is editing these test charts.
+locks. Back returns to the same patient document list; Close restores focus to the
+eChart link, with the parent URL and tab count unchanged. Avoid running it while
+another browser is editing these test charts.
 
 The suggested-field check also opens each source document and compares its text
 with the fixture file. If an older missing document is present, it checks that the

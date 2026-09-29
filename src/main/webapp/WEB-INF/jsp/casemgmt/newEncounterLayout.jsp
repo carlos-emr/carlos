@@ -890,5 +890,7 @@
     </div>
     <div id="encounterModal"></div>
 
+    <%@ include file="/WEB-INF/jspf/chart-update-workflow-dialog.jspf" %>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-modal.js"></script>
     </body>
 </html>

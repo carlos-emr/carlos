@@ -48,10 +48,12 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       await chart.waitForLoadState('domcontentloaded');
       await chart.getByRole('link', { name: 'Review chart updates', exact: true }).waitFor();
       await chart.screenshot({ path: path.join(output, `${fixture.fixture}-echart-entry.png`) });
-      const pickerOpened = context.waitForEvent('page');
+      const chartUrl = chart.url();
+      const pageCount = context.pages().length;
       await chart.getByRole('link', { name: 'Review chart updates', exact: true }).click();
-      const page = await pickerOpened;
-      await page.waitForLoadState('domcontentloaded');
+      await chart.frameLocator('#chart-update-workflow-frame').locator('#chart-update-picker-title').waitFor();
+      const page = await (await chart.locator('#chart-update-workflow-frame').elementHandle()).contentFrame();
+      assert.equal(context.pages().length, pageCount);
       assert.equal(new URL(page.url()).searchParams.get('functionid'), String(patient));
       await page.locator('#chart-update-picker-title').waitFor();
       // When a fixture list contains an unavailable older document, verify the actual
@@ -60,7 +62,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       if (index === 0) {
         for (const candidate of await page.locator('a.chart-update-document-link').all()) {
           if ((await candidate.getAttribute('href')).endsWith(`documentId=${doc}`)) continue;
-          const availability = await page.request.get(new URL(await candidate.getAttribute('href'), page.url()).href, { headers: { Accept: 'application/json' } });
+          const availability = await chart.request.get(new URL(await candidate.getAttribute('href'), page.url()).href, { headers: { Accept: 'application/json' } });
           if (!availability.ok() || !availability.headers()['content-type']?.includes('application/json')) continue;
           const state = await availability.json();
           if (state.available !== false) continue;
@@ -73,10 +75,10 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
           assert.equal(await modal.locator('.chart-update-original').isVisible(), state.originalAvailable === true);
           if (state.originalAvailable === false) {
             assert.match(await modal.innerText(), /original document file is missing/);
-            const original = await page.request.get(new URL(await candidate.getAttribute('data-original-url'), page.url()).href);
+            const original = await chart.request.get(new URL(await candidate.getAttribute('data-original-url'), page.url()).href);
             assert.equal(original.status(), 404);
           }
-          await page.screenshot({ path: path.join(output, 'unavailable-document-modal.png'), fullPage: true });
+          await chart.screenshot({ path: path.join(output, 'unavailable-document-modal.png'), fullPage: true });
           await modal.getByRole('button', { name: 'Close', exact: true }).click();
           assert.equal(await candidate.evaluate(el => el === document.activeElement), true);
           unavailableModalChecked = true;
@@ -86,11 +88,11 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       }
       const reviewLink = page.locator(`a.chart-update-document-link[href$="documentId=${doc}"]`);
       assert.equal(await reviewLink.count(), 1);
-      const original = await page.request.get(new URL(await reviewLink.getAttribute('data-original-url'), page.url()).href);
+      const original = await chart.request.get(new URL(await reviewLink.getAttribute('data-original-url'), page.url()).href);
       assert.equal(original.status(), 200);
       assert.equal(await original.text(), fs.readFileSync(fixture.sourceFile, 'utf8'));
       assert.equal(original.headers()['content-type'].split(';')[0], 'text/plain');
-      await page.screenshot({ path: path.join(output, `${fixture.fixture}-document-picker.png`), fullPage: true });
+      await chart.screenshot({ path: path.join(output, `${fixture.fixture}-document-picker.png`), fullPage: true });
       const [reviewResponse] = await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded' }), reviewLink.click(),
       ]);
@@ -98,6 +100,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
         page.getByRole('button', { name: 'Generate new proposals', exact: true }).click()]);
       assert.equal(await page.locator('article.proposal').count(), 3);
+      assert.equal(await page.locator('article.proposal:visible').count(), 1);
       assert.match(await page.locator('main').innerText(), /Fixed NHS proposals - no model/);
       const reminder = page.locator('article').filter({ has: page.locator('[name="dueDate"]') });
       const date = sql.value(`SELECT DATE(observationdate) FROM document WHERE document_no=${doc}`);
@@ -113,8 +116,8 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       for (const field of await page.locator('[name="destination"]').all()) assert.equal(await field.inputValue(), 'Concerns');
       assert.equal(await page.locator('[name="confirmed"]:checked').count(), 0);
       assert.equal(count(), before);
-      await page.screenshot({ path: path.join(output, `${fixture.fixture}-suggestions.png`), fullPage: true });
-      await page.setViewportSize({ width: 390, height: 844 });
+      await chart.screenshot({ path: path.join(output, `${fixture.fixture}-suggestions.png`), fullPage: true });
+      await chart.setViewportSize({ width: 390, height: 844 });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       const csrf = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
       const [backResponse] = await Promise.all([
@@ -125,15 +128,19 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(new URL(page.url()).searchParams.get('functionid'), String(patient));
       await page.locator('#chart-update-picker-title').waitFor();
       assert.equal(await page.locator(`a.chart-update-document-link[href$="documentId=${doc}"]`).count(), 1);
+      await chart.getByRole('dialog', { name: 'Review chart updates', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
+      assert.equal(chart.url(), chartUrl);
+      assert.equal(context.pages().length, pageCount);
+      assert.equal(await chart.getByRole('link', { name: 'Review chart updates', exact: true }).evaluate(el => el === document.activeElement), true);
       const noteId = sql.value(`SELECT note_id FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998' ORDER BY id DESC LIMIT 1`);
       assert.match(noteId, /^\d+$/);
-      const release = await page.request.post(`${config.baseUrl}/CaseManagementEntry`, {
+      const release = await chart.request.post(`${config.baseUrl}/CaseManagementEntry`, {
         form: { method: 'releaseNoteLock', demographicNo: String(patient), noteId, 'CSRF-TOKEN': csrf },
       });
       assert.equal(release.status(), 200);
       assert.equal(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998'`), '0');
       results.push({ fixture: fixture.fixture, documentDate: date, suggestedDate: expected, approvalsUnchanged: true, unavailableModalChecked });
-      console.log(`${fixture.fixture}: eChart navigation, document selection, suggested fields, explicit approval, mobile layout and Back navigation passed`);
+      console.log(`${fixture.fixture}: eChart navigation, document selection, suggested fields, explicit approval, mobile layout, modal steps, Back and Close navigation passed`);
       for (const candidate of context.pages()) if (candidate !== schedule) await candidate.close();
     }
     fs.writeFileSync(path.join(output, 'suggestions-result.json'), JSON.stringify(results, null, 2) + '\n');

@@ -12,8 +12,9 @@ from another machine.
 1. Sign in with the existing development clinician account.
 2. Find **NHSSYN001**, **NHSSYN002**, or **NHSSYN003** and open its eChart. This
    establishes the chart context and editing lock needed for signed history.
-3. In the eChart header, click the blue **Review chart updates** link. In the
-   document list that opens, click **Review chart updates** beside the desired
+3. In the eChart header, click the blue **Review chart updates** link. The workflow
+   stays in a modal over the eChart. In the
+   modal document list that opens, click **Review chart updates** beside the desired
    document. This keeps the chart open while you review the document. If the
    document is unavailable, a modal explains the problem and leaves the document
    list in place. Close it to choose another document. Open original is offered

@@ -25,7 +25,7 @@ function copy(relative) {
   fs.copyFileSync(path.join(root, 'src/main/webapp', relative), dest);
 }
 for (const file of ['WEB-INF/jsp/documentManager/aiChartUpdates.jsp', 'WEB-INF/jspf/bootstrap-css.jspf',
-  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'share/css/global.css', 'js/ai-chart-updates.js', 'js/ai-chart-updates-navigation.js', 'css/ai-chart-updates-navigation.css', 'WEB-INF/jspf/chart-update-error-dialog.jspf', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
+  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'share/css/global.css', 'js/ai-chart-updates.js', 'js/ai-chart-updates-navigation.js', 'js/ai-chart-updates-modal.js', 'WEB-INF/jspf/chart-update-workflow-dialog.jspf', 'css/ai-chart-updates-navigation.css', 'WEB-INF/jspf/chart-update-error-dialog.jspf', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
 fs.writeFileSync(path.join(webroot, 'fixture-picker.jsp'), `<%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
@@ -36,7 +36,19 @@ fs.writeFileSync(path.join(webroot, 'fixture-picker.jsp'), `<%@ page contentType
 <a class="chart-update-document-link" href="/carlos/documentManager/AiChartUpdates?documentId=42"
  data-document-title="Synthetic &lt;img src=x onerror=window.titleExecuted=true&gt;" data-original-url="/carlos/fixture/original">Review chart updates</a>
 <%@ include file="/WEB-INF/jspf/chart-update-error-dialog.jspf" %>
-<script src="/carlos/js/ai-chart-updates-navigation.js"></script></body></html>`);
+<%@ include file="/WEB-INF/jspf/chart-update-workflow-dialog.jspf" %>
+<script src="/carlos/js/ai-chart-updates-navigation.js"></script>
+<script src="/carlos/js/ai-chart-updates-modal.js"></script></body></html>`);
+fs.writeFileSync(path.join(webroot, 'fixture-echart.jsp'), `<%@ page contentType="text/html; charset=UTF-8" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/><!doctype html><html><head><title>Synthetic eChart</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/carlos/library/bootstrap/5.3.8/css/bootstrap.min.css">
+<link rel="stylesheet" href="/carlos/css/ai-chart-updates-navigation.css"></head><body>
+<h1>Synthetic eChart</h1><textarea aria-label="Encounter draft"></textarea>
+<a class="chart-update-workflow-link" target="_blank" href="/carlos/documentManager/ViewDocumentReport?function=demographic&amp;functionid=3001&amp;chartUpdates=1">Review chart updates</a>
+<%@ include file="/WEB-INF/jspf/chart-update-workflow-dialog.jspf" %>
+<script src="/carlos/js/ai-chart-updates-modal.js"></script></body></html>`);
 fs.mkdirSync(path.join(webroot, 'WEB-INF/lib'), { recursive: true });
 for (const jar of deps.split(path.delimiter).filter(p => /(?:jakarta.servlet.jsp.jstl|csrfguard-jsp-tags).*\.jar$/.test(p))) {
   fs.copyFileSync(jar, path.join(webroot, 'WEB-INF/lib', path.basename(jar)));
@@ -195,9 +207,86 @@ async function run() {
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();
     await page.unroute('**/documentManager/AiChartUpdates?documentId=42');
     await change(page, 'available');
-    await click(page, link);
-    assert.match(page.url(), /AiChartUpdates/);
+    await link.click();
+    await page.frameLocator('#chart-update-workflow-frame').getByRole('button', { name: 'Generate new proposals', exact: true }).waitFor();
+    assert.equal(page.url(), originalUrl);
+    assert.equal(context.pages().length, 1);
     assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
+  });
+  await scenario('eChart modal keeps drafts, reviews one item at a time and closes safely', async page => {
+    await page.goto(`${base}/fixture/echart`);
+    await page.getByRole('textbox', { name: 'Encounter draft' }).fill('Unsaved encounter text');
+    const parentUrl = page.url();
+    const launch = page.getByRole('link', { name: 'Review chart updates', exact: true });
+    await launch.click();
+    const modal = page.getByRole('dialog', { name: 'Review chart updates', exact: true });
+    const frame = page.frameLocator('#chart-update-workflow-frame');
+    await frame.getByRole('link', { name: 'Review chart updates', exact: true }).click();
+    await frame.getByRole('button', { name: 'Generate new proposals', exact: true }).click();
+    await frame.locator('.review-steps:not([hidden])').waitFor();
+    await frame.locator('article.proposal:visible').waitFor();
+    assert.equal(await frame.locator('article.proposal:visible').count(), 1);
+    assert.equal(await frame.locator('article.proposal').count(), 2);
+    assert.equal(await frame.locator('[data-review-position]').innerText(), '1 / 2');
+    await frame.locator('article.proposal:visible [name="entryText"]').fill('Edited reminder for later');
+    await frame.getByRole('button', { name: 'Next', exact: true }).click();
+    assert.equal(await frame.locator('[data-review-position]').innerText(), '2 / 2');
+    await frame.getByRole('button', { name: 'Previous', exact: true }).click();
+    assert.equal(await frame.locator('article.proposal:visible [name="entryText"]').inputValue(), 'Edited reminder for later');
+    page.once('dialog', dialog => dialog.dismiss());
+    await modal.getByRole('button', { name: 'Close', exact: true }).click();
+    assert.equal(await modal.isVisible(), true);
+    await frame.getByRole('button', { name: 'Next', exact: true }).click();
+    // Dismissing the current item carries the other card's unsaved edits in the existing POST.
+    await frame.locator('article.proposal:visible').getByRole('button', { name: 'Dismiss', exact: true }).click();
+    await frame.getByRole('heading', { name: 'Follow-up reminder', exact: true }).waitFor();
+    assert.equal(await frame.locator('article.proposal:visible [name="entryText"]').inputValue(), 'Edited reminder for later');
+    assert.equal(await frame.locator('[name="confirmed"]:checked').count(), 0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    assert(await frame.locator('body').evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.screenshot({ path: path.join(runDir, 'echart-review-modal-mobile.png'), fullPage: true });
+    await modal.getByRole('button', { name: 'Close', exact: true }).click();
+    assert.equal(await modal.isVisible(), false);
+    assert.equal(await launch.evaluate(el => el === document.activeElement), true);
+    assert.equal(await page.getByRole('textbox', { name: 'Encounter draft' }).inputValue(), 'Unsaved encounter text');
+    assert.equal(page.url(), parentUrl);
+    assert.equal(context.pages().length, 1);
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
+    await launch.click();
+    await frame.getByRole('link', { name: 'Review chart updates', exact: true }).waitFor();
+    await page.keyboard.press('Escape');
+    await modal.waitFor({ state: 'hidden' });
+  });
+  await scenario('modal stays open while saving and retains edited drafts after approval', async page => {
+    await page.goto(`${base}/fixture/echart`);
+    await page.getByRole('link', { name: 'Review chart updates', exact: true }).click();
+    const modal = page.getByRole('dialog', { name: 'Review chart updates', exact: true });
+    const frame = page.frameLocator('#chart-update-workflow-frame');
+    await frame.getByRole('link', { name: 'Review chart updates', exact: true }).click();
+    await frame.getByRole('button', { name: 'Generate new proposals', exact: true }).click();
+    await frame.locator('.review-steps:not([hidden])').waitFor();
+    await frame.locator('article.proposal:visible [name="entryText"]').waitFor();
+    await frame.locator('article.proposal:visible [name="entryText"]').fill('Reminder draft retained after history save');
+    await frame.getByRole('button', { name: 'Next', exact: true }).click();
+    await frame.locator('article.proposal:visible [name="confirmed"]').check();
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    await page.route('**/documentManager/ApplyAiChartUpdate', async route => { await gate; await route.continue(); });
+    await frame.getByRole('button', { name: 'Accept and save', exact: true }).click({ noWaitAfter: true });
+    await page.waitForFunction(() => document.querySelector('[data-close-chart-update-workflow]').disabled);
+    assert.equal(await modal.isVisible(), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await modal.isVisible(), true);
+    release();
+    await frame.locator('article.proposal:visible [name="entryText"]').waitFor();
+    await page.waitForFunction(() => !document.querySelector('[data-close-chart-update-workflow]').disabled);
+    assert.equal(await frame.locator('article.proposal:visible [name="entryText"]').inputValue(), 'Reminder draft retained after history save');
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 1, receipts: 1 });
+    await frame.getByRole('link', { name: 'Back', exact: true }).click();
+    await frame.getByRole('link', { name: 'Review chart updates', exact: true }).waitFor();
+    await modal.getByRole('button', { name: 'Close', exact: true }).click();
+    assert.equal(context.pages().length, 1);
   });
   await scenario('dismiss bypasses required fields and creates no chart entry', async page => {
     await generate(page);

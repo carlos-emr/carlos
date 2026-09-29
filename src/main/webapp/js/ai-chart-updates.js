@@ -6,10 +6,50 @@
     const proposals = Array.from(document.querySelectorAll('.proposal-form'));
     let submitting = false;
     let edited = false;
+    let workflowFrame;
+    try {
+        if (window.frameElement?.id === 'chart-update-workflow-frame') workflowFrame = window.frameElement;
+    } catch { /* Standalone review still works when framed by another origin. */ }
+    window.CarlosChartUpdateReview = {
+        get busy() { return submitting; },
+        get dirty() { return edited; },
+        discard() { edited = false; },
+    };
+    const notifyState = () => workflowFrame?.dispatchEvent(new Event('chart-update-state'));
+    if (workflowFrame) {
+        document.body.classList.add('review-in-modal');
+        const cards = Array.from(document.querySelectorAll('article.proposal'));
+        const steps = document.querySelector('.review-steps');
+        if (cards.length && steps) {
+            const previous = steps.querySelector('[data-review-previous]');
+            const next = steps.querySelector('[data-review-next]');
+            let index = Math.max(0, cards.findIndex(card => card.querySelector('.proposal-form')));
+            const failed = document.querySelector('.alert-danger') && workflowFrame.dataset.currentProposal;
+            if (failed && cards.some(card => card.dataset.proposalKey === failed)) {
+                index = cards.findIndex(card => card.dataset.proposalKey === failed);
+            }
+            const show = focus => {
+                cards.forEach((card, position) => { card.hidden = position !== index; });
+                previous.disabled = index === 0;
+                next.disabled = index === cards.length - 1;
+                steps.querySelector('[data-review-position]').textContent = `${index + 1} / ${cards.length}`;
+                if (focus) {
+                    const heading = cards[index].querySelector('h3');
+                    heading.setAttribute('tabindex', '-1');
+                    heading.focus();
+                }
+            };
+            previous.addEventListener('click', () => { if (index > 0) { index--; show(true); } });
+            next.addEventListener('click', () => { if (index < cards.length - 1) { index++; show(true); } });
+            steps.hidden = false;
+            show(false);
+        }
+    }
     const clearTransferredDrafts = form => form.querySelectorAll('[data-transferred-draft]').forEach(input => input.remove());
     window.addEventListener('pageshow', () => {
         // Back/forward navigation may restore the previous document and its JavaScript state.
         submitting = false;
+        notifyState();
         document.querySelectorAll('form[aria-busy]').forEach(form => form.removeAttribute('aria-busy'));
         document.querySelectorAll('[data-idle-label]').forEach(button => { button.textContent = button.dataset.idleLabel; });
     });
@@ -44,7 +84,9 @@
                     });
                 });
             }
+            if (workflowFrame) workflowFrame.dataset.currentProposal = form.elements.namedItem('proposalKey')?.value || '';
             submitting = true;
+            notifyState();
             form.setAttribute('aria-busy', 'true');
             if (form.dataset.busyLabel && event.submitter) {
                 event.submitter.dataset.idleLabel = event.submitter.textContent;

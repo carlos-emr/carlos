@@ -34,3 +34,8 @@ summary:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset
     .chart-update-layout, .proposal-fields { grid-template-columns: 1fr; }
     .chart-reference { position: static; max-height: none; }
 }
+
+.review-steps { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.review-steps[hidden], .proposal[hidden] { display: none; }
+.review-in-modal .review-header .page-header-title { display: none; }
+.review-in-modal .review-header { justify-content: end; }
