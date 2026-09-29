@@ -29,7 +29,7 @@
 .chart-update-error-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: .75rem; margin-top: 1.5rem; }
 .chart-update-original[hidden] { display: none; }
 
-.chart-update-workflow-dialog { width: min(1150px, calc(100vw - 2rem)); height: calc(100dvh - 2rem); max-width: none; max-height: none; margin: auto; padding: 0; border: 1px solid #ccc; border-radius: 4px; background: #fff; color: #333; }
+.chart-update-workflow-dialog { box-sizing: border-box; width: calc(100vw - 1rem); height: calc(100dvh - 1rem); max-width: none; max-height: none; margin: auto; padding: 0; border: 1px solid #ccc; border-radius: 4px; background: #fff; color: #333; }
 .chart-update-workflow-dialog[open] { display: flex; flex-direction: column; }
 .chart-update-workflow-dialog::backdrop { background: #0006; }
 .chart-update-workflow-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem 1rem; border-bottom: 1px solid #ddd; background: #f5f5f5; }
