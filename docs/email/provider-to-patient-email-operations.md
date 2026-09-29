@@ -112,11 +112,15 @@ to protect:
 |---|---|
 | Encrypted credentials that decrypt with the current key | Sent. |
 | Encrypted credentials that do **not** decrypt (the key was changed or regenerated) | Refused. The email log records `FAILED`: "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator." An ERROR names the account id and says to restore the original key. |
+| A leftover credential the account's transport never reads (an old password on an API account, an old API key on an SMTP account) that does not decrypt | Sent on the transport's own credential, with one WARN per account asking for the leftover to be removed. The stored row is left exactly as it is: nothing in it is encrypted while it holds a value the current key cannot read. |
 | Plaintext credentials, key available | Encrypted at rest (best-effort: if that write fails, it is retried on the next send), then sent. |
 | Plaintext credentials, no key available | Only possible where CARLOS runs without its Startup listener. Sent with one WARN per account, unless `email.credentials.require_encryption_key` is `true`, `yes` or `on`: then refused with "Email sender account cannot be used until the server encryption key is configured." |
 
 Every refusal is written to the audit log as
-`EmailManager.sendEmail.refusedCredentialKey`. Logs name the account id and the
+`EmailManager.sendEmail.refusedCredentialKey`, with a reason: `keyMismatch` (the
+current key cannot read the credentials), `keyMissing` (the credentials are
+encrypted and no key is available) or `keyRequired` (plaintext credentials
+refused under the enforcement setting). Logs name the account id and the
 setting only. They never contain the credential, the configuration JSON or the
 key. At startup CARLOS logs whether the enforcement setting is on, and warns if
 its value is not one it recognises.

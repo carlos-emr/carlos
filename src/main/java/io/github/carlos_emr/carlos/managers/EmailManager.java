@@ -262,8 +262,9 @@ public class EmailManager {
                         String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
                 return EmailSendResult.failed(emailLog, EmailStatus.FAILED.equals(emailLog.getStatus()));
             }
-            // Only once the send may proceed: re-encrypting a row that was just refused could mix
-            // fields under two keys (a stale {ENC} password beside a newly encrypted api_key).
+            // Only once the send may proceed, and never for a row holding a field the current key
+            // cannot read: either would mix fields under two keys (a stale {ENC} password beside a
+            // newly encrypted api_key).
             upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
 
             try {
@@ -623,7 +624,8 @@ public class EmailManager {
      * <p>The upgrade is best-effort. Without an encryption key it does nothing (see
      * {@link #credentialKeyRefusal}); if encrypting or persisting the re-encrypted row fails, the
      * row is left as-is and the send proceeds with the existing (plaintext) value rather than
-     * blocking outbound mail. Already-encrypted rows are detected by
+     * blocking outbound mail. A row holding any credential the current key cannot decrypt is left
+     * untouched, so its fields never end up under two keys. Already-encrypted rows are detected by
      * {@link EmailConfigSecrets} and produce no database write. Neither the secret nor the raw
      * {@code configDetails} JSON is ever logged.</p>
      *
@@ -639,6 +641,12 @@ public class EmailManager {
             return;
         }
         String original = emailConfig.getConfigDetailsJson();
+        if (!EmailConfigSecrets.encryptedSecretsDecrypt(original)) {
+            // A field the current key cannot read means this key may not be the one to keep: the
+            // runbook restores the original. Encrypting the row's other field now would put the
+            // two under different keys, and restoring the original would then lose this one.
+            return;
+        }
         try {
             String encrypted = EmailConfigSecrets.encryptSecrets(original);
             if (!java.util.Objects.equals(original, encrypted)

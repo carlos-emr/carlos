@@ -491,6 +491,53 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should send on the transport's own credential and leave the row as stored when an unused field is stale")
+        void shouldSendWithoutUpgrade_whenUnusedFieldWasEncryptedUnderOldKey() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String staleApiKey = EmailConfigSecrets.encryptSecrets("{\"api_key\":\"old-key\"}");
+            // The password is plaintext and the leftover API key is under a key since replaced.
+            // Encrypting the password now would put the two fields under different keys.
+            String details = PLAINTEXT_SMTP.substring(0, PLAINTEXT_SMTP.lastIndexOf('}')) + ","
+                    + staleApiKey.substring(staleApiKey.indexOf('{') + 1);
+            EmailConfig smtp = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL, details);
+            injectDependency(smtp, "id", 12);
+            EncryptionKeyTestSupport.seedFreshKey();
+            requireKey(true);
+            when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtp);
+
+            try (MockedConstruction<SMTPEmailSender> transports = mockConstruction(SMTPEmailSender.class,
+                    (transport, context) -> when(transport.prepareArtifactBytes())
+                            .thenReturn("message".getBytes(StandardCharsets.UTF_8)))) {
+                EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+                assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.ACCEPTED);
+                verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
+                assertThat(smtp.getConfigDetailsJson()).isEqualTo(details);
+            }
+        }
+
+        @Test
+        @DisplayName("should audit encrypted credentials with no key at all as keyMissing")
+        void shouldAuditKeyMissing_whenEncryptedCredentialsHaveNoKey() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            EmailConfig encrypted = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL,
+                    EmailConfigSecrets.encryptSecrets(PLAINTEXT_SMTP));
+            injectDependency(encrypted, "id", 12);
+            removeKey();
+            requireKey(false);
+            when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(encrypted);
+
+            try (MockedConstruction<SMTPEmailSender> transports = mockConstruction(SMTPEmailSender.class)) {
+                EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+                assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.FAILED);
+                assertThat(transports.constructed()).isEmpty();
+                logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
+                        eq("Email"), eq("emailLogId=81&senderConfigId=12&reason=keyMissing"), eq("123"), eq("")));
+            }
+        }
+
+        @Test
         @DisplayName("should still send, as before, when the key is missing and enforcement is off")
         void shouldSend_whenKeyMissingAndNotEnforced() throws Exception {
             removeKey();
