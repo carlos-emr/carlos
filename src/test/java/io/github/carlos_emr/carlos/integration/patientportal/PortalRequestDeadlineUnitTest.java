@@ -114,6 +114,36 @@ class PortalRequestDeadlineUnitTest {
         }
     }
 
+    /**
+     * One more timeout than there are slots: a slot lost on each timeout would leave none, and
+     * the healthy call afterwards would be refused as busy.
+     */
+    @Test
+    void shouldReturnItsSlot_afterEveryDeadline() throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
+        server.createContext("/stall", exchange -> {
+            try {
+                release.await();
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            } finally {
+                exchange.close();
+            }
+        });
+        try (var transport = transport(Duration.ofMillis(200))) {
+            try {
+                for (int i = 0; i <= PatientPortalHttpClientExchange.MAX_CONCURRENT_REQUESTS; i++) {
+                    assertThatThrownBy(() -> transport.send(get("/stall")))
+                            .isInstanceOf(SocketTimeoutException.class)
+                            .hasMessage("portal request deadline exceeded");
+                }
+            } finally {
+                release.countDown();
+            }
+            assertThat(transport.send(get("/healthy")).statusCode()).isEqualTo(200);
+        }
+    }
+
     @Test
     void shouldRejectExcessWork_withoutSendingOrQueueingIt() throws Exception {
         int capacity = PatientPortalHttpClientExchange.MAX_CONCURRENT_REQUESTS;

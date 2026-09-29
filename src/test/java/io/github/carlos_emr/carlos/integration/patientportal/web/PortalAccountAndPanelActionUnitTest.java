@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalServic
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -210,7 +211,13 @@ class PortalAccountAndPanelActionUnitTest {
             when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
                     .thenReturn(acknowledgement());
 
-            accountAction().execute();
+            try (var audit = mockStatic(LogAction.class)) {
+                accountAction().execute();
+
+                audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
+                        eq("PortalAccount2Action.unlock"), eq("PatientPortal"), anyString(),
+                        eq(String.valueOf(DEMOGRAPHIC_NO)), eq("")));
+            }
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentAsString())
@@ -258,11 +265,32 @@ class PortalAccountAndPanelActionUnitTest {
                             eq(DEMOGRAPHIC_NO), eq(false), eq("left_practice"), any()))
                     .thenReturn(acknowledgement());
 
-            accountAction().execute();
+            try (var audit = mockStatic(LogAction.class)) {
+                accountAction().execute();
+
+                // The audit row says what was done, never the staff member's free-text reason.
+                audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
+                        eq("PortalAccount2Action.access"), eq("PatientPortal"), anyString(),
+                        eq(String.valueOf(DEMOGRAPHIC_NO)), eq("enabled=false")));
+            }
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             verify(patientPortalService)
                     .setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq("left_practice"), any());
+        }
+
+        @Test
+        @DisplayName("should write no audit row when the portal refuses the change")
+        void shouldNotAudit_whenThePortalRefusesTheChange() throws Exception {
+            request.setParameter("method", "unlock");
+            when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
+                    .thenThrow(PatientPortalException.ofStatus(403, "/x/{id}", null));
+
+            try (var audit = mockStatic(LogAction.class)) {
+                accountAction().execute();
+
+                audit.verifyNoInteractions();
+            }
         }
 
         @Test

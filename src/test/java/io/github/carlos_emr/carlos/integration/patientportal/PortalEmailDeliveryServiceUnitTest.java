@@ -210,6 +210,27 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         outcome = delivery.send(user, log, data, this::encrypt, this::send);
         verify(portal, never()).createUnlockSecret(anyInt(), anyString(), anyString(), any());
         assertThat(operations).isEmpty();
+        assertThat(outcome.isTransportAccepted()).isFalse();
+        assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDeliveryService.ACCOUNT_NOT_READY);
+    }
+
+    /** Most patients have no portal account yet; that must not read like a portal outage. */
+    @Test void shouldSayThePatientHasNoAccount_whenThePortalFindsNone() {
+        when(portal.findAccount(eq(123), any())).thenThrow(PatientPortalException.ofStatus(
+                404, "/internal/carlos/patients/{id}/account", PatientPortalException.ACCOUNT_NOT_FOUND_DETAIL));
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
+        verify(portal, never()).createUnlockSecret(anyInt(), anyString(), anyString(), any());
+        assertThat(operations).isEmpty();
+        assertThat(outcome.isTransportAccepted()).isFalse();
+        assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDeliveryService.NO_ACCOUNT);
+    }
+
+    @Test void shouldReportThePortalUnavailable_whenTheAccountLookupFailsAnotherWay() {
+        when(portal.findAccount(eq(123), any())).thenThrow(PatientPortalException.ofStatus(
+                404, "/internal/carlos/patients/{id}/account", null));
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
+        assertThat(operations).isEmpty();
+        assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDeliveryService.UNAVAILABLE);
     }
 
     @Test void shouldBlockSend_forLockedAccount() {
@@ -420,6 +441,9 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         assertThat(outcome.isTransportAccepted()).isTrue();
         assertThat(outcome.isFollowUpRequired()).isTrue();
         assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDeliveryService.SENT_AFTER_REVOCATION);
+        // Recovery may already have stored FAILED, "not sent"; the stored row is corrected.
+        verify(logs).transitionEmailStatus(eq(45), eq(EmailStatus.FAILED), eq(EmailStatus.SUCCESS),
+                eq(PortalEmailDeliveryService.SENT_AFTER_REVOCATION), any());
         // Left unsettled in memory, so the compose page still offers recovery.
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.SENDING);
         assertThat(operations).containsExactly("create", "encrypt", "send");
