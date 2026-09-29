@@ -204,6 +204,47 @@ class SmsQueueViewModelAssemblerUnitTest {
                 .isEqualTo(SmsQueueViewModelAssembler.NOT_A_CODE);
         assertThat(SmsQueueViewModelAssembler.codeOnly("x".repeat(65)))
                 .isEqualTo(SmsQueueViewModelAssembler.NOT_A_CODE);
+        // Shaped like a code, but really a phone number or a health number.
+        assertThat(SmsQueueViewModelAssembler.codeOnly("416-555-0199"))
+                .isEqualTo(SmsQueueViewModelAssembler.NOT_A_CODE);
+        assertThat(SmsQueueViewModelAssembler.codeOnly("4165550199"))
+                .isEqualTo(SmsQueueViewModelAssembler.NOT_A_CODE);
+    }
+
+    @Test
+    @DisplayName("should count every stored value that is not a code on one line")
+    void shouldMergeNonCodes_intoOneCountLine() {
+        when(dao.countOutboundByProviderAndStatus()).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "FAILED", 5L)));
+        when(dao.countFailedOutboundByProviderAndErrorCode()).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "Invalid number +14165550199", 2L),
+                new SmsQueueCountDto(SmsProviderType.STUB, "416-555-0123", 1L),
+                new SmsQueueCountDto(SmsProviderType.STUB, "CARRIER_REJECTED", 2L)));
+
+        SmsQueueViewModel model = assembler(() -> false).assemble(true, patient -> true);
+
+        assertThat(provider(model, "STUB").failedByErrorCode())
+                .extracting(SmsQueueViewModel.CodeCount::code, SmsQueueViewModel.CodeCount::count)
+                .containsExactlyInAnyOrder(
+                        tuple(SmsQueueViewModelAssembler.NOT_A_CODE, 3L), tuple("CARRIER_REJECTED", 2L));
+    }
+
+    @Test
+    @DisplayName("should ask about each patient once, however many rows name them")
+    void shouldAskOncePerPatient_whenSeveralRowsNameThem() {
+        when(dao.countOutboundByProviderAndStatus()).thenReturn(List.of(
+                new SmsQueueCountDto(SmsProviderType.STUB, "QUEUED", 2L)));
+        when(dao.countOverdueQueuedOutboundByProvider(any())).thenReturn(Map.of(SmsProviderType.STUB, 2L));
+        when(dao.findOverdueQueuedOutbound(eq(SmsProviderType.STUB), any(Date.class), eq(50))).thenReturn(List.of(
+                new SmsQueueRowDto(7L, SmsProviderType.STUB, SmsStatus.QUEUED, 99, RECIPIENT, 0, null, null,
+                        NOW.minus(Duration.ofMinutes(30)), NOW.minus(Duration.ofMinutes(30)), null, null),
+                new SmsQueueRowDto(8L, SmsProviderType.STUB, SmsStatus.QUEUED, 99, RECIPIENT, 0, null, null,
+                        NOW.minus(Duration.ofMinutes(20)), NOW.minus(Duration.ofMinutes(20)), null, null)));
+        java.util.concurrent.atomic.AtomicInteger asked = new java.util.concurrent.atomic.AtomicInteger();
+
+        assembler(() -> false).assemble(true, patient -> asked.incrementAndGet() > 0);
+
+        assertThat(asked).hasValue(1);
     }
 
     @Test

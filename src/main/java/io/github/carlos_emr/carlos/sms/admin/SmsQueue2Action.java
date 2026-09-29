@@ -24,10 +24,14 @@ package io.github.carlos_emr.carlos.sms.admin;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.assembler.SmsQueueViewModelAssembler;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueViewAuditRecorder;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueViewModel;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+
+import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Administration &gt; SMS &gt; SMS queue ({@code admin/SmsQueue}): a read-only operational view of the outbound
@@ -54,6 +58,17 @@ public class SmsQueue2Action extends ActionSupport {
         this.auditRecorder = auditRecorder;
     }
 
+    private static List<String> shownDemographicNumbers(SmsQueueViewModel queue) {
+        return queue.providers().stream()
+                .flatMap(provider -> Stream.of(
+                        provider.overdue(), provider.stale(), provider.recentFailed(), provider.recentBlocked()))
+                .flatMap(List::stream)
+                .map(SmsQueueViewModel.Row::demographicNo)
+                .filter(demographicNo -> !demographicNo.isEmpty())
+                .distinct()
+                .toList();
+    }
+
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -66,11 +81,12 @@ public class SmsQueue2Action extends ActionSupport {
         // Demographic numbers link a message to a patient, so only viewers who may read demographics see them.
         boolean showDemographicNumbers = securityInfoManager.hasPrivilege(
                 loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, null);
-        // Recorded before anything is shown: if the view cannot be audited, the page is not rendered.
-        auditRecorder.recordViewed(loggedInInfo, showDemographicNumbers);
-        request.setAttribute("smsQueue", assembler.assemble(showDemographicNumbers,
+        SmsQueueViewModel queue = assembler.assemble(showDemographicNumbers,
                 demographicNo -> securityInfoManager.hasPrivilege(
-                        loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo)));
+                        loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo));
+        // Recorded before the page is handed over: if the view cannot be audited, nothing is shown.
+        auditRecorder.recordViewed(loggedInInfo, shownDemographicNumbers(queue));
+        request.setAttribute("smsQueue", queue);
         return SUCCESS;
     }
 }

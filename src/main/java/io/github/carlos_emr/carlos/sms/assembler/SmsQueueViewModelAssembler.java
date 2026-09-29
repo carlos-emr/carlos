@@ -302,7 +302,12 @@ public class SmsQueueViewModelAssembler {
         if (code == null || code.isEmpty()) {
             return "";
         }
-        return CODE.matcher(code).matches() ? code : NOT_A_CODE;
+        if (!CODE.matcher(code).matches()) {
+            return NOT_A_CODE;
+        }
+        // A phone number or a health number fits the code pattern too; no real code holds that many digits.
+        long digits = code.chars().filter(Character::isDigit).count();
+        return digits >= MIN_DIGITS_TO_MASK ? NOT_A_CODE : code;
     }
 
     /** The enum name; the page turns statuses into labels through {@code sms.queue.status.*}. */

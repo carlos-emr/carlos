@@ -27,9 +27,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.TreeSet;
+
 /**
  * Writes one audit record each time the SMS queue page is opened. The page lists messages with their
- * patients' demographic numbers, so who looked, and when, is recorded. The record holds no row data.
+ * patients' demographic numbers, so who looked, when, and which patients' numbers were shown is recorded.
+ * The record holds nothing else about the messages.
  *
  * @since 2026-09-28
  */
@@ -45,11 +49,12 @@ public class SmsQueueViewAuditRecorder {
     }
 
     /**
-     * @param loggedInInfo               the viewer
-     * @param demographicNumbersIncluded whether the page showed demographic numbers to this viewer
+     * @param loggedInInfo            the viewer
+     * @param shownDemographicNumbers the demographic numbers the page is about to show this viewer; empty
+     *                                when the viewer may not see any
      */
     @Transactional
-    public void recordViewed(LoggedInInfo loggedInInfo, boolean demographicNumbersIncluded) {
+    public void recordViewed(LoggedInInfo loggedInInfo, Collection<String> shownDemographicNumbers) {
         OscarLog log = new OscarLog();
         if (loggedInInfo.getLoggedInSecurity() != null) {
             log.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
@@ -58,7 +63,8 @@ public class SmsQueueViewAuditRecorder {
         log.setIp(loggedInInfo.getIp());
         log.setAction(ACTION);
         log.setContent(CONTENT);
-        log.setData("demographicNumbersIncluded=" + demographicNumbersIncluded);
+        // Which patients were shown, so "who saw this patient's messages" can be answered later.
+        log.setData("demographicNumbersShown=" + String.join(",", new TreeSet<>(shownDemographicNumbers)));
         oscarLogDao.persist(log);
     }
 }

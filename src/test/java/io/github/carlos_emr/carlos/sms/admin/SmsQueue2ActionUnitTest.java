@@ -32,14 +32,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.List;
+import java.util.function.IntPredicate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -114,7 +120,7 @@ class SmsQueue2ActionUnitTest {
 
         assertThat(result).isEqualTo("success");
         assertThat(request.getAttribute("smsQueue")).isSameAs(model);
-        verify(auditRecorder).recordViewed(loggedInInfo, true);
+        verify(auditRecorder).recordViewed(loggedInInfo, List.of());
     }
 
     @Test
@@ -130,7 +136,67 @@ class SmsQueue2ActionUnitTest {
 
         assertThat(request.getAttribute("smsQueue")).isSameAs(model);
         verify(assembler, never()).assemble(eq(true), any());
-        verify(auditRecorder).recordViewed(loggedInInfo, false);
+        verify(auditRecorder).recordViewed(loggedInInfo, List.of());
+    }
+
+    @Test
+    @DisplayName("should audit which patients' numbers are shown, once each, before handing the page over")
+    void shouldAuditShownPatients_beforeShowingThePage() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
+        SmsQueueViewModel model = queueShowing("123", "", "456", "123");
+        when(assembler.assemble(eq(true), any())).thenReturn(model);
+
+        action().execute();
+
+        InOrder order = inOrder(assembler, auditRecorder);
+        order.verify(assembler).assemble(eq(true), any());
+        order.verify(auditRecorder).recordViewed(loggedInInfo, List.of("123", "456"));
+        assertThat(request.getAttribute("smsQueue")).isSameAs(model);
+    }
+
+    @Test
+    @DisplayName("should show nothing when the view cannot be audited")
+    void shouldShowNothing_whenAuditFails() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
+        when(assembler.assemble(eq(false), any())).thenReturn(queueShowing());
+        doThrow(new IllegalStateException("audit write failed")).when(auditRecorder).recordViewed(any(), any());
+        SmsQueue2Action action = action();
+
+        assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
+        assertThat(request.getAttribute("smsQueue")).isNull();
+    }
+
+    @Test
+    @DisplayName("should ask, per patient, whether this viewer may read that patient")
+    void shouldCheckEachPatient_againstDemographicRead() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 123)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 456)).thenReturn(false);
+        when(assembler.assemble(eq(true), any())).thenReturn(queueShowing());
+
+        action().execute();
+
+        ArgumentCaptor<IntPredicate> mayRead = ArgumentCaptor.forClass(IntPredicate.class);
+        verify(assembler).assemble(eq(true), mayRead.capture());
+        assertThat(mayRead.getValue().test(123)).isTrue();
+        assertThat(mayRead.getValue().test(456)).isFalse();
+    }
+
+    /** A queue whose overdue list shows these demographic numbers (empty: a row whose number is hidden). */
+    private static SmsQueueViewModel queueShowing(String... demographicNumbers) {
+        List<SmsQueueViewModel.Row> rows = java.util.Arrays.stream(demographicNumbers)
+                .map(number -> new SmsQueueViewModel.Row("1", "STUB", "QUEUED", "", "", "", "", 0, "", "", number,
+                        "***1212"))
+                .toList();
+        SmsQueueViewModel.ProviderQueue stub = new SmsQueueViewModel.ProviderQueue("STUB", rows.size(), List.of(),
+                rows.size(), rows, 0, List.of(), 0, List.of(), List.of(), 0, List.of(), List.of());
+        return new SmsQueueViewModel("2026-09-28 14:00", 5, 5, 50, true,
+                new SmsQueueViewModel.Scheduler(false, false, false, false, "", "", "", 0), List.of(stub));
     }
 
     private SmsQueue2Action action() {
