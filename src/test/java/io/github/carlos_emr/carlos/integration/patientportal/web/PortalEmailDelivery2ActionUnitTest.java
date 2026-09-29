@@ -141,7 +141,11 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
         when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(
                 new BeanCreationException("patientPortalService",
                         "creation failed", new IllegalStateException("secret=x")));
-        execute("POST", "45");
+        try (var capture = LogCapture.forLogger(PortalEmailDelivery2Action.class)) {
+            execute("POST", "45");
+            assertThat(capture.messages()).hasSize(1);
+            assertThat(capture.messages().get(0)).contains("BeanCreationException").doesNotContain("secret");
+        }
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.unavailable");
         assertThat(request.getAttribute("emailLog")).isSameAs(stored);
@@ -158,6 +162,7 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
         }
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.notConfigured");
+        assertThat(request.getAttribute("emailLog")).isSameAs(stored);
     }
 
     @Test void shouldReportNotConfiguredAndWarn_whenSwitchedOnPortalConfigurationFailsOnGet() throws Exception {
