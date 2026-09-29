@@ -68,6 +68,8 @@ class SmsConfigCommittedReadIntegrationTest extends CarlosTestBase {
                 mock(SmsConfigAuditRecorder.class)));
         Integer id = null;
         try {
+            // The reads below return the first row, so this test needs the table to itself.
+            assertThat(service.current()).isEmpty();
             id = commitNewConfig(true);
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
             // Loads the row into this transaction's session, as a save does.
@@ -93,6 +95,8 @@ class SmsConfigCommittedReadIntegrationTest extends CarlosTestBase {
         try (EntityManager other = entityManagerFactory.createEntityManager()) {
             other.getTransaction().begin();
             SmsConfig config = new SmsConfig();
+            // Sending stays on, so the row changes nothing for anything else that reads the settings.
+            config.setEnabled(true);
             config.setSchedulerEnabled(schedulerEnabled);
             config.markUpdated("999998");
             other.persist(config);
