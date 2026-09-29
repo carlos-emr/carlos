@@ -22,7 +22,12 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import java.util.Collections;
+import java.util.List;
 
+import org.apache.cxf.Bus;
+import org.apache.cxf.bus.CXFBusFactory;
+import org.apache.cxf.jaxws.support.JaxWsServiceFactoryBean;
+import org.apache.cxf.service.Service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -156,5 +161,30 @@ class DemographicSoapContractUnitTest extends CarlosUnitTestBase {
         verify(demographicManager).searchDemographicsByAttributes(eq(loggedInInfo), eq("9999999999"),
                 isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
                 eq("patient@example.test"), isNull(), eq(0), eq(25));
+    }
+
+    @Test
+    @DisplayName("should not publish getConsentedDemographicIdsAfter when CXF builds the DemographicService")
+    void shouldNotPublishConsentedDemographicIdsOperation_whenCxfBuildsTheService() {
+        // Builds the same service model the jaxws:endpoint publishes, so the assertion is about the
+        // WSDL operations a caller can reach, not about which Java methods exist.
+        Bus bus = new CXFBusFactory().createBus();
+        try {
+            JaxWsServiceFactoryBean factory = new JaxWsServiceFactoryBean();
+            factory.setBus(bus);
+            factory.setServiceClass(DemographicWs.class);
+            Service service = factory.create();
+            List<String> operations = service.getServiceInfos().get(0).getInterface().getOperations()
+                    .stream()
+                    .map(operation -> operation.getName().getLocalPart())
+                    .toList();
+
+            assertThat(operations)
+                    .as("operations published by DemographicService")
+                    .contains("getDemographic", "getAdmittedDemographicIdsByProgramProvider")
+                    .doesNotContain("getConsentedDemographicIdsAfter");
+        } finally {
+            bus.shutdown(true);
+        }
     }
 }
