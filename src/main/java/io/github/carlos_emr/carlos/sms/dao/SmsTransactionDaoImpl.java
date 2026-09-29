@@ -427,8 +427,10 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     }
 
     /**
-     * Binds the start of the time period. All time ({@code null}) is bound as the epoch: {@code updated_at} is
-     * never empty, so every row is at or after it, and the query text stays the same either way.
+     * Binds the start of the time period. All time ({@code null}) is bound as the epoch, and the query text
+     * stays the same either way. Every row is at or after the epoch: {@code updated_at} is {@code NOT NULL}, and
+     * {@code SmsTransaction} always sets it from the clock (when the row is created and on every change), with
+     * no other writer. A zero date typed into the database by hand would fall before it.
      */
     private static void bindSince(TypedQuery<?> query, Date since) {
         query.setParameter(PARAM_SINCE, since == null ? Date.from(Instant.EPOCH) : since);

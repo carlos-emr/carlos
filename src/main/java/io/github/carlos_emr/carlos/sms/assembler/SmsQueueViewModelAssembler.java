@@ -203,7 +203,7 @@ public class SmsQueueViewModelAssembler {
         Instant now = clock.instant();
         Date dueBefore = Date.from(now.minus(OVERDUE_QUEUED_AFTER));
         Date staleBefore = Date.from(now.minus(SmsQueueProcessingService.DEFAULT_STALE_SENDING_TIMEOUT));
-        // Null for "all time": the failed and blocked queries then have no time limit.
+        // Null for "all time": the DAO then binds the epoch as the start, so every message counts.
         Instant windowStart = window.since(now);
         Date since = windowStart == null ? null : Date.from(windowStart);
 

@@ -176,10 +176,37 @@ class SmsTransactionDaoImplQueueViewUnitTest {
         dao.countConsentBlockedOutboundByProviderAndReason(null);
         dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 50);
 
+        Date since = Date.from(Instant.parse("2026-08-29T14:00:00Z"));
+        dao.countFailedOutboundByProviderAndErrorCode(since);
+        dao.countConsentBlockedOutboundByProviderAndReason(since);
+        dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), since, 50);
+
         ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
-        verify(entityManager, times(3)).createQuery(jpql.capture(), eq(Object[].class));
-        assertThat(jpql.getAllValues()).allSatisfy(text -> assertThat(text).contains("AND t.updatedAt >= :since "));
+        verify(entityManager, times(6)).createQuery(jpql.capture(), eq(Object[].class));
+        List<String> texts = jpql.getAllValues();
+        assertThat(texts).allSatisfy(text -> assertThat(text).contains("AND t.updatedAt >= :since "));
+        // The text is the same for all time and for a time period: only the bound value differs.
+        assertThat(texts.subList(0, 3)).isEqualTo(texts.subList(3, 6));
         verify(query, times(3)).setParameter("since", Date.from(Instant.EPOCH));
+        verify(query, times(3)).setParameter("since", since);
+    }
+
+    @Test
+    @DisplayName("should use the same query text however many patients are left out")
+    void shouldKeepQueryText_whateverNumberOfPatientsIsLeftOut() {
+        stubQuery(List.of());
+        SmsTransactionDaoImpl dao = newDao();
+
+        dao.countFailedOutboundByProviderAndErrorCode(null, List.of(4242, 4243));
+        dao.countFailedOutboundByProviderAndErrorCode(null, IntStream.rangeClosed(1, 1001).boxed().toList());
+        dao.countConsentBlockedOutboundByProviderAndReason(null, List.of(4242));
+        dao.countConsentBlockedOutboundByProviderAndReason(null, IntStream.rangeClosed(1, 1001).boxed().toList());
+
+        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
+        verify(entityManager, times(4)).createQuery(jpql.capture(), eq(Object[].class));
+        List<String> texts = jpql.getAllValues();
+        assertThat(texts.get(0)).isEqualTo(texts.get(1)).contains("NOT IN (:excluded)");
+        assertThat(texts.get(2)).isEqualTo(texts.get(3)).contains("NOT IN (:excluded)");
     }
 
     @Test
