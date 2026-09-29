@@ -44,7 +44,8 @@
     Parameters:
     - provider_no      (String, optional) — provider to show; falls back to the session
                                              preference, then the logged-in provider; 400 if
-                                             it is missing or not a valid provider number
+                                             none resolves or it has characters outside
+                                             [A-Za-z0-9._-]
     - startDate        (String, optional) — first date shown (yyyy-MM-dd), default today;
                                              400 if it is not a valid date
     - originalpage     (String, optional) — "waitingList" returns to the waiting list,
@@ -59,6 +60,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+<%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleCssColors" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
@@ -98,16 +100,10 @@
         return "<span style='background-color:" + color + "'>" + SafeEncode.forHtmlContent(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
 
-    private static final java.util.regex.Pattern SAFE_CSS_COLOR_PATTERN =
-            java.util.regex.Pattern.compile("(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|[a-zA-Z]+)");
-
+    // Restricts colours before they go into style attributes (no CSS injection), and gives the bare hex the
+    // seed data stores (EED2EE, FFF68F) its '#', which the old bgcolor attribute did not need.
     private String getSafeCssColor(Object configuredColor) {
-        if (configuredColor == null) {
-            return null;
-        }
-        String color = configuredColor.toString().trim();
-        // Restrict values before interpolation into style attributes to prevent CSS injection.
-        return SAFE_CSS_COLOR_PATTERN.matcher(color).matches() ? color : null;
+        return ScheduleCssColors.safeCssColor(configuredColor);
     }
 %>
 <% if (bMultisites) {
@@ -534,7 +530,7 @@
                     : ""%>
                 title="<%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%>">
                 <button type="button" class="availability-slot"
-                        aria-label="<%=SafeEncode.forHtmlAttribute(outform.format(cal.getTime()))%> <%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%>; <fmt:message key="schedule.scheduleflipview.msgbookings"/>: <%=SafeEncode.forHtmlAttribute(strNumOfAppts)%>; <fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>: <carlos:encode value='<%= bookinglimit %>' context="htmlAttribute"/>"
+                        aria-label="<%=SafeEncode.forHtmlAttribute(outform.format(cal.getTime()))%> <%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%><%= "&nbsp;".equals(temp.toString()) ? "" : " " + SafeEncode.forHtmlAttribute(temp.toString()) %>; <fmt:message key="schedule.scheduleflipview.msgbookings"/>: <%=SafeEncode.forHtmlAttribute(strNumOfAppts)%>; <fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>: <carlos:encode value='<%= bookinglimit %>' context="htmlAttribute"/>"
                         onclick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');">
                     <span class="availability-slot-code">
                         <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : SafeEncode.forHtmlContent(temp.toString()) %>

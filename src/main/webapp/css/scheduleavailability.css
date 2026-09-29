@@ -59,7 +59,8 @@ body.availability-page {
     background: #fff;
     border: 1px solid #dee2e6;
     border-radius: 0.375rem;
-    max-height: calc(100vh - 255px);
+    /* The floor keeps a usable grid in short windows, such as the 400px waiting-list pop-up. */
+    max-height: max(20rem, calc(100vh - 255px));
     overflow: auto;
 }
 
@@ -180,7 +181,7 @@ body.availability-page {
 
 @media (max-width: 767.98px) {
     .availability-grid-wrapper {
-        max-height: calc(100vh - 320px);
+        max-height: max(20rem, calc(100vh - 320px));
     }
 
     .availability-provider-control {

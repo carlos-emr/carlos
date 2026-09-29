@@ -125,8 +125,8 @@ class ScheduleAvailabilityViewJspRegressionTest {
         assertThat(jsp)
                 .contains("SC_BAD_REQUEST, \"Invalid provider_no\"")
                 .contains("SC_BAD_REQUEST, \"Invalid startDate\"")
-                .contains("setLenient(false)")
-                .contains("Locale.ROOT");
+                .contains("new SimpleDateFormat(\"yyyy-MM-dd\", Locale.ROOT)")
+                .contains("inform.setLenient(false)");
 
         int markupStart = jsp.indexOf("<!DOCTYPE html>");
         assertThat(markupStart).as("page emits a doctype").isPositive();
@@ -149,7 +149,7 @@ class ScheduleAvailabilityViewJspRegressionTest {
         String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .doesNotContain("174")
+                .doesNotContain("\"174\"")
                 .contains("providerPreference.getProviderNo()")
                 .contains("getLoggedInProviderNo()")
                 .contains("curProvider_no == null ||");
@@ -194,7 +194,7 @@ class ScheduleAvailabilityViewJspRegressionTest {
     void shouldValidateColoursAndEncoding_forUntrustedValues() throws IOException {
         String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("SAFE_CSS_COLOR_PATTERN");
+        assertThat(jsp).contains("ScheduleCssColors.safeCssColor(");
         assertThat(jsp.split("getSafeCssColor\\(", -1).length - 1)
                 .as("declaration plus both style-attribute call sites share one validator")
                 .isGreaterThanOrEqualTo(3);
