@@ -11,6 +11,13 @@
 <c:if test="${emailStatusResult.status eq 'PENDING' and empty emailStatusDetail}">
     <fmt:message key="admin.manageEmails.pendingDetail" var="emailStatusDetail"/>
 </c:if>
+<%-- SUCCESS only records that the SMTP relay or API accepted the message. A later bounce is never
+     written back, so the label must not read as delivered (issue #3834). The stored value and the
+     status-tag-success class stay SUCCESS. --%>
+<c:set var="emailStatusLabel" value="${emailStatusResult.status}"/>
+<c:if test="${emailStatusResult.status eq 'SUCCESS'}">
+    <fmt:message key="admin.manageEmails.acceptedByMailServer" var="emailStatusLabel"/>
+</c:if>
 <!-- Email Card -->
 <div class="card email-status-card mt-1">
     <div class="card-body vertical-status-divider vertical-status-divider-${fn:toLowerCase(emailStatusResult.status)}" id="cardBody${emailStatusResult.logId}">
@@ -76,7 +83,7 @@
                 <td class="status-and-date">
                     <div class="status-tag status-tag-${fn:toLowerCase(emailStatusResult.status)}" id="emailStatus${emailStatusResult.logId}"
                         ${ empty emailStatusDetail ? '' : "data-bs-toggle='popover'" } data-bs-trigger='hover click' data-bs-content="${carlos:forHtmlAttribute(emailStatusDetail)}">
-                        ${carlos:forHtml(emailStatusResult.status)}
+                        ${carlos:forHtml(emailStatusLabel)}
                     </div>
                     <div class="date-time text-muted">
                         ${carlos:forHtml(emailStatusResult.createdDate)} &#x2022; ${carlos:forHtml(emailStatusResult.createdTime)} 

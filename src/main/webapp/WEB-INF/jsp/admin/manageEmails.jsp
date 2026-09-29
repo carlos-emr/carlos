@@ -336,8 +336,14 @@
                         <select class="form-select" name="emailStatus" id="emailStatus">
                             <option value="-1"><fmt:message key="admin.manageEmails.all"/></option>
                             <c:forEach items="${ emailStatusList }" var="status">
+                                <%-- SUCCESS means the mail server accepted the message, not that it was
+                                     delivered (issue #3834); the option value stays the enum name. --%>
+                                <c:set var="statusLabel" value="${status}"/>
+                                <c:if test="${status eq 'SUCCESS'}">
+                                    <fmt:message key="admin.manageEmails.acceptedByMailServer" var="statusLabel"/>
+                                </c:if>
                                 <option value="${ status }">
-                                    ${carlos:forHtml(status)}
+                                    ${carlos:forHtml(statusLabel)}
                                 </option>
                             </c:forEach>
                         </select>

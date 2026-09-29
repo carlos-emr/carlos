@@ -68,7 +68,13 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
          * @since 2026-08-20
          */
         PENDING,
-        /** The configured transport accepted the send without a synchronous error */
+        /**
+         * The configured transport accepted the send without a synchronous error.
+         *
+         * <p>Acceptance is not delivery: a relay or API can still bounce or drop the message, and
+         * nothing writes that back. User-facing views therefore label this status "Accepted by
+         * mail server" rather than presenting it as a completed send (issue #3834).</p>
+         */
         SUCCESS,
         /** Email failed to send due to an error */
         FAILED,
