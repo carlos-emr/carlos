@@ -90,10 +90,10 @@ import java.util.function.IntPredicate;
  * restricted patients out in the database query itself, not by taking their counts off afterwards: the
  * database groups codes by its collation, which ignores letter case and spaces at the end, so one code can
  * come back spelled differently from two queries, and a subtraction matched by spelling would miss it. That
- * costs zero to two extra queries per section, each split into parts of at most
- * {@link SmsTransactionDao#PATIENT_COUNT_CHUNK_SIZE} patients, and none when no patient has an entry of their
- * own: one for which of those patients have a message in the section (skipped when the section is empty),
- * and one to count again without the restricted ones (only when there are any).
+ * costs zero to two extra queries per section, and none when no patient has an entry of their own: one for
+ * which of those patients have a message in the section (skipped when the section is empty; split into parts
+ * of at most {@link SmsTransactionDao#PATIENT_COUNT_CHUNK_SIZE} patients), and one to count again without the
+ * restricted ones (only when there are any).
  * <p>
  * All queries, the read of the patients with an entry of their own included, run in one read-only
  * transaction so the counts and lists agree. Rows come from a projection that never loads the message body;

@@ -31,8 +31,8 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
     );
 
     /**
-     * The most demographic numbers one list in a queue-view query holds. Longer lists are split into parts of
-     * at most this many, each bound as a parameter of its own.
+     * The most demographic numbers one query names when the queue view looks for which of the patients with a
+     * security entry of their own have messages. Longer lists are queried in parts of at most this many.
      */
     int PATIENT_COUNT_CHUNK_SIZE = 1000;
 
@@ -80,8 +80,8 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
      *                               rows of all time
      * @param excludedDemographicNos the patients whose messages are not counted. Messages without a patient
      *                               are always counted. Empty or {@code null} runs exactly the query of
-     *                               {@link #countFailedOutboundByProviderAndErrorCode(Date)}. Long lists are
-     *                               named in parts of at most {@link #PATIENT_COUNT_CHUNK_SIZE}
+     *                               {@link #countFailedOutboundByProviderAndErrorCode(Date)}. The list is
+     *                               bound as one parameter; it only ever holds restricted patients
      * @return {@code FAILED} outbound row counts grouped by SMS provider and error code (the code may be null)
      */
     List<SmsQueueCountDto> countFailedOutboundByProviderAndErrorCode(
@@ -105,8 +105,8 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
      *                               rows of all time
      * @param excludedDemographicNos the patients whose messages are not counted. Messages without a patient
      *                               are always counted. Empty or {@code null} runs exactly the query of
-     *                               {@link #countConsentBlockedOutboundByProviderAndReason(Date)}. Long lists
-     *                               are named in parts of at most {@link #PATIENT_COUNT_CHUNK_SIZE}
+     *                               {@link #countConsentBlockedOutboundByProviderAndReason(Date)}. The list
+     *                               is bound as one parameter; it only ever holds restricted patients
      * @return {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} outbound row counts grouped by SMS provider
      *         and consent reason code (the code may be null)
      */

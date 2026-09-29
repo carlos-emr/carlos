@@ -389,7 +389,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         persistFailed(SmsProviderType.STUB, "QVIEW_ERR_EXCLUDE", visible);
         persistFailedWithoutPatient(SmsProviderType.STUB, "QVIEW_ERR_EXCLUDE");
         entityManager.flush();
-        // More than one part: the low numbers fill the first, and the restricted patients are in the second.
+        // A long list, bound as one parameter, with the restricted patients at its end.
         List<Integer> excluded = new ArrayList<>(IntStream.rangeClosed(1, 1000).boxed().toList());
         excluded.addAll(List.of(restricted, alsoRestricted));
 

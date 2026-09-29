@@ -167,8 +167,8 @@ class SmsTransactionDaoImplQueueViewUnitTest {
     }
 
     @Test
-    @DisplayName("should leave the time limit out of the query when no start time is given")
-    void shouldOmitSince_whenAllTime() {
+    @DisplayName("should bind the epoch as the start time for all time, keeping the query text the same")
+    void shouldBindEpoch_whenAllTime() {
         stubQuery(List.of());
         SmsTransactionDaoImpl dao = newDao();
 
@@ -178,8 +178,8 @@ class SmsTransactionDaoImplQueueViewUnitTest {
 
         ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
         verify(entityManager, times(3)).createQuery(jpql.capture(), eq(Object[].class));
-        assertThat(jpql.getAllValues()).allSatisfy(text -> assertThat(text).doesNotContain("since"));
-        verify(query, never()).setParameter(eq("since"), any());
+        assertThat(jpql.getAllValues()).allSatisfy(text -> assertThat(text).contains("AND t.updatedAt >= :since "));
+        verify(query, times(3)).setParameter("since", Date.from(Instant.EPOCH));
     }
 
     @Test
@@ -250,12 +250,12 @@ class SmsTransactionDaoImplQueueViewUnitTest {
     }
 
     @Test
-    @DisplayName("should leave out the named patients' failed rows, keep rows without a patient, and bind each part")
+    @DisplayName("should leave out the named patients' failed rows, keep rows without a patient, and bind them as one list")
     @SuppressWarnings("unchecked")
-    void shouldBindEachPartAsItsOwnParameter_whenExcludingPatientsFromFailedCounts() {
+    void shouldBindOneList_whenExcludingPatientsFromFailedCounts() {
         Date since = Date.from(Instant.parse("2026-08-29T14:00:00Z"));
         stubQuery(List.<Object[]>of(new Object[]{SmsProviderType.STUB, "invalid_dst", 1L}));
-        // 1001 patients, out of order and with a repeat and a gap: two parts, each patient in one of them.
+        // 1001 patients, out of order, with a repeat and a gap: bound once, each patient once and in order.
         List<Integer> excluded = new ArrayList<>(IntStream.rangeClosed(1, 1001).boxed().toList());
         Collections.reverse(excluded);
         excluded.add(7);
@@ -266,31 +266,26 @@ class SmsTransactionDaoImplQueueViewUnitTest {
         assertThat(counts).containsExactly(new SmsQueueCountDto(SmsProviderType.STUB, "invalid_dst", 1));
         ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
         verify(entityManager).createQuery(jpql.capture(), eq(Object[].class));
-        // The numbers are bound parameters: the query text holds only the names made from each part's position.
+        // The numbers are a bound parameter: the query text is fixed and holds none of them.
         assertThat(jpql.getValue())
                 .contains("AND t.updatedAt >= :since AND (t.demographicNo IS NULL OR "
-                        + "(t.demographicNo NOT IN (:excluded0) AND t.demographicNo NOT IN (:excluded1))) "
-                        + "GROUP BY t.providerType, t.errorCode")
-                .doesNotContain(":excluded2")
+                        + "t.demographicNo NOT IN (:excluded)) GROUP BY t.providerType, t.errorCode")
                 .doesNotContainPattern("[0-9]{2,}");
-        ArgumentCaptor<Object> first = ArgumentCaptor.forClass(Object.class);
-        ArgumentCaptor<Object> second = ArgumentCaptor.forClass(Object.class);
-        verify(query).setParameter(eq("excluded0"), first.capture());
-        verify(query).setParameter(eq("excluded1"), second.capture());
-        assertThat((List<Integer>) first.getValue())
-                .hasSize(1000)
+        ArgumentCaptor<Object> bound = ArgumentCaptor.forClass(Object.class);
+        verify(query).setParameter(eq("excluded"), bound.capture());
+        assertThat((List<Integer>) bound.getValue())
+                .hasSize(1001)
                 .isSorted()
                 .startsWith(1)
-                .endsWith(1000);
-        assertThat((List<Integer>) second.getValue()).containsExactly(1001);
+                .endsWith(1001);
         verify(query).setParameter("status", SmsStatus.FAILED);
         verify(query).setParameter("since", since);
     }
 
     @Test
-    @DisplayName("should leave out the named patients' consent-blocked rows with one parameter for a short list")
+    @DisplayName("should leave out the named patients' consent-blocked rows, of all time")
     @SuppressWarnings("unchecked")
-    void shouldBindOneParameter_whenExcludingFewPatientsFromConsentBlockedCounts() {
+    void shouldBindOneList_whenExcludingPatientsFromConsentBlockedCounts() {
         stubQuery(List.of());
 
         newDao().countConsentBlockedOutboundByProviderAndReason(null, List.of(4243, 4242));
@@ -298,13 +293,12 @@ class SmsTransactionDaoImplQueueViewUnitTest {
         ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
         verify(entityManager).createQuery(jpql.capture(), eq(Object[].class));
         assertThat(jpql.getValue())
-                .contains("AND t.status IN (:statuses) AND (t.demographicNo IS NULL OR "
-                        + "(t.demographicNo NOT IN (:excluded0))) GROUP BY t.providerType, t.consentReasonCode")
-                .doesNotContain(":excluded1")
-                .doesNotContain("since")
+                .contains("AND t.status IN (:statuses) AND t.updatedAt >= :since AND (t.demographicNo IS NULL OR "
+                        + "t.demographicNo NOT IN (:excluded)) GROUP BY t.providerType, t.consentReasonCode")
                 .doesNotContain("424");
+        verify(query).setParameter("since", Date.from(Instant.EPOCH));
         ArgumentCaptor<Object> bound = ArgumentCaptor.forClass(Object.class);
-        verify(query).setParameter(eq("excluded0"), bound.capture());
+        verify(query).setParameter(eq("excluded"), bound.capture());
         assertThat((Collection<Integer>) bound.getValue()).containsExactly(4242, 4243);
         verify(query).setParameter("statuses", List.of(SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED));
     }
@@ -358,10 +352,7 @@ class SmsTransactionDaoImplQueueViewUnitTest {
         assertThat(patients).containsExactly(4242);
         verify(patientQuery).setParameter("statuses", List.of(SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED));
         verify(patientQuery).setParameter("demographicNos", List.of(4242));
-        verify(patientQuery, never()).setParameter(eq("since"), any());
-        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
-        verify(entityManager).createQuery(jpql.capture(), eq(Integer.class));
-        assertThat(jpql.getValue()).doesNotContain("since");
+        verify(patientQuery).setParameter("since", Date.from(Instant.EPOCH));
     }
 
     @Test

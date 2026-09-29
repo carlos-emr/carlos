@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.StringJoiner;
 import java.util.TreeSet;
 import java.util.UUID;
 
@@ -37,11 +36,14 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     private static final String PARAM_STALE_BEFORE = "staleBefore";
     private static final String PARAM_SINCE = "since";
     private static final String PARAM_DEMOGRAPHIC_NOS = "demographicNos";
-    // Followed by the part's position: excluded0, excluded1, ...
-    private static final String PARAM_EXCLUDED_PREFIX = "excluded";
-    // The queue view's time period. Added to a query only when a start time is given; the time itself is
-    // always a bound parameter.
+    private static final String PARAM_EXCLUDED = "excluded";
+    // The queue view's time period. Every query that has one always carries this clause, so its text never
+    // changes; "all time" is bound as the epoch (see bindSince).
     private static final String UPDATED_SINCE = "AND t.updatedAt >= :since ";
+    // Leaves out the given patients' messages. A message without a patient is always kept: NOT IN alone would
+    // drop it, since a missing number is neither in nor out of a list.
+    private static final String NOT_OF_EXCLUDED_PATIENTS =
+            "AND (t.demographicNo IS NULL OR t.demographicNo NOT IN (:excluded)) ";
     // Queue-view row projection. It names only operational columns: the message body, sender number,
     // operator/provider messages and provider metadata are never selected, so they are never loaded.
     // SmsQueueRowDto documents the column order that toQueueRow reads.
@@ -57,6 +59,38 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
             "CASE WHEN t.attemptCount = 0 THEN t.createdAt ELSE COALESCE(t.nextAttemptAt, t.createdAt) END";
     private static final List<SmsStatus> CONSENT_BLOCKED_STATUSES =
             List.of(SmsStatus.CONSENT_BLOCKED, SmsStatus.OPTOUT_BLOCKED);
+    // The queue view's time-period queries, each one fixed text: only values are bound, nothing is joined in.
+    private static final String FAILED_BY_ERROR_CODE_WHERE = "SELECT t.providerType, t.errorCode, COUNT(t) "
+            + "FROM SmsTransaction t "
+            + "WHERE t.direction = :direction "
+            + "AND t.status = :status "
+            + UPDATED_SINCE;
+    private static final String FAILED_BY_ERROR_CODE = FAILED_BY_ERROR_CODE_WHERE
+            + "GROUP BY t.providerType, t.errorCode";
+    private static final String FAILED_BY_ERROR_CODE_EXCLUDING = FAILED_BY_ERROR_CODE_WHERE
+            + NOT_OF_EXCLUDED_PATIENTS
+            + "GROUP BY t.providerType, t.errorCode";
+    private static final String BLOCKED_BY_REASON_WHERE = "SELECT t.providerType, t.consentReasonCode, COUNT(t) "
+            + "FROM SmsTransaction t "
+            + "WHERE t.direction = :direction "
+            + "AND t.status IN (:statuses) "
+            + UPDATED_SINCE;
+    private static final String BLOCKED_BY_REASON = BLOCKED_BY_REASON_WHERE
+            + "GROUP BY t.providerType, t.consentReasonCode";
+    private static final String BLOCKED_BY_REASON_EXCLUDING = BLOCKED_BY_REASON_WHERE
+            + NOT_OF_EXCLUDED_PATIENTS
+            + "GROUP BY t.providerType, t.consentReasonCode";
+    private static final String PATIENTS_WITH_OUTBOUND = "SELECT DISTINCT t.demographicNo FROM SmsTransaction t "
+            + "WHERE t.direction = :direction "
+            + "AND t.status IN (:statuses) "
+            + "AND t.demographicNo IN (:demographicNos) "
+            + UPDATED_SINCE;
+    private static final String RECENT_BY_STATUSES = QUEUE_ROW_SELECT
+            + "WHERE t.direction = :direction "
+            + "AND t.providerType = :providerType "
+            + "AND t.status IN (:statuses) "
+            + UPDATED_SINCE
+            + "ORDER BY t.updatedAt DESC, t.id DESC";
 
     public SmsTransactionDaoImpl() {
         super(SmsTransaction.class);
@@ -257,20 +291,17 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     @Transactional(readOnly = true)
     public List<SmsQueueCountDto> countFailedOutboundByProviderAndErrorCode(
             Date since, Collection<Integer> excludedDemographicNos) {
-        List<List<Integer>> excluded = inParts(excludedDemographicNos);
-        TypedQuery<Object[]> query = entityManager.createQuery(
-                "SELECT t.providerType, t.errorCode, COUNT(t) FROM SmsTransaction t "
-                        + "WHERE t.direction = :direction "
-                        + "AND t.status = :status "
-                        + updatedSince(since)
-                        + notOfPatients(excluded.size())
-                        + "GROUP BY t.providerType, t.errorCode",
-                Object[].class
-        );
+        List<Integer> excluded = distinctPatients(excludedDemographicNos);
+        TypedQuery<Object[]> query;
+        if (excluded.isEmpty()) {
+            query = entityManager.createQuery(FAILED_BY_ERROR_CODE, Object[].class);
+        } else {
+            query = entityManager.createQuery(FAILED_BY_ERROR_CODE_EXCLUDING, Object[].class);
+            query.setParameter(PARAM_EXCLUDED, excluded);
+        }
         query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
         query.setParameter(PARAM_STATUS, SmsStatus.FAILED);
         bindSince(query, since);
-        bindExcluded(query, excluded);
         return toCodeCounts(query.getResultList());
     }
 
@@ -284,20 +315,17 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     @Transactional(readOnly = true)
     public List<SmsQueueCountDto> countConsentBlockedOutboundByProviderAndReason(
             Date since, Collection<Integer> excludedDemographicNos) {
-        List<List<Integer>> excluded = inParts(excludedDemographicNos);
-        TypedQuery<Object[]> query = entityManager.createQuery(
-                "SELECT t.providerType, t.consentReasonCode, COUNT(t) FROM SmsTransaction t "
-                        + "WHERE t.direction = :direction "
-                        + "AND t.status IN (:statuses) "
-                        + updatedSince(since)
-                        + notOfPatients(excluded.size())
-                        + "GROUP BY t.providerType, t.consentReasonCode",
-                Object[].class
-        );
+        List<Integer> excluded = distinctPatients(excludedDemographicNos);
+        TypedQuery<Object[]> query;
+        if (excluded.isEmpty()) {
+            query = entityManager.createQuery(BLOCKED_BY_REASON, Object[].class);
+        } else {
+            query = entityManager.createQuery(BLOCKED_BY_REASON_EXCLUDING, Object[].class);
+            query.setParameter(PARAM_EXCLUDED, excluded);
+        }
         query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
         query.setParameter(PARAM_STATUSES, CONSENT_BLOCKED_STATUSES);
         bindSince(query, since);
-        bindExcluded(query, excluded);
         return toCodeCounts(query.getResultList());
     }
 
@@ -321,14 +349,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
             List<SmsStatus> statuses, Date since, Collection<Integer> demographicNos) {
         Set<Integer> found = new TreeSet<>();
         for (List<Integer> part : inParts(demographicNos)) {
-            TypedQuery<Integer> query = entityManager.createQuery(
-                    "SELECT DISTINCT t.demographicNo FROM SmsTransaction t "
-                            + "WHERE t.direction = :direction "
-                            + "AND t.status IN (:statuses) "
-                            + "AND t.demographicNo IN (:demographicNos) "
-                            + updatedSince(since),
-                    Integer.class
-            );
+            TypedQuery<Integer> query = entityManager.createQuery(PATIENTS_WITH_OUTBOUND, Integer.class);
             query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
             query.setParameter(PARAM_STATUSES, statuses);
             query.setParameter(PARAM_DEMOGRAPHIC_NOS, part);
@@ -396,15 +417,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         if (providerType == null || statuses == null || statuses.isEmpty()) {
             return List.of();
         }
-        TypedQuery<Object[]> query = entityManager.createQuery(
-                QUEUE_ROW_SELECT
-                        + "WHERE t.direction = :direction "
-                        + "AND t.providerType = :providerType "
-                        + "AND t.status IN (:statuses) "
-                        + updatedSince(since)
-                        + "ORDER BY t.updatedAt DESC, t.id DESC",
-                Object[].class
-        );
+        TypedQuery<Object[]> query = entityManager.createQuery(RECENT_BY_STATUSES, Object[].class);
         query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
         query.setParameter(PARAM_PROVIDER_TYPE, providerType);
         query.setParameter(PARAM_STATUSES, List.copyOf(statuses));
@@ -413,22 +426,16 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         return query.getResultList().stream().map(SmsTransactionDaoImpl::toQueueRow).toList();
     }
 
-    /** The time-period clause, or nothing when there is no start time (all time). */
-    private static String updatedSince(Date since) {
-        return since == null ? "" : UPDATED_SINCE;
-    }
-
-    private static void bindSince(TypedQuery<?> query, Date since) {
-        if (since != null) {
-            query.setParameter(PARAM_SINCE, since);
-        }
-    }
-
     /**
-     * The demographic numbers each once, in order and without gaps, split into parts of at most
-     * {@link #PATIENT_COUNT_CHUNK_SIZE}. No patient is in two parts. Empty for an empty or {@code null} list.
+     * Binds the start of the time period. All time ({@code null}) is bound as the epoch: {@code updated_at} is
+     * never empty, so every row is at or after it, and the query text stays the same either way.
      */
-    private static List<List<Integer>> inParts(Collection<Integer> demographicNos) {
+    private static void bindSince(TypedQuery<?> query, Date since) {
+        query.setParameter(PARAM_SINCE, since == null ? Date.from(Instant.EPOCH) : since);
+    }
+
+    /** The demographic numbers each once and in order, without {@code null}; empty for an empty or null list. */
+    private static List<Integer> distinctPatients(Collection<Integer> demographicNos) {
         if (demographicNos == null) {
             return List.of();
         }
@@ -438,35 +445,20 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
                 distinct.add(demographicNo);
             }
         }
-        List<Integer> patients = List.copyOf(distinct);
+        return List.copyOf(distinct);
+    }
+
+    /**
+     * The demographic numbers each once, in order and without gaps, split into parts of at most
+     * {@link #PATIENT_COUNT_CHUNK_SIZE}. No patient is in two parts. Empty for an empty or {@code null} list.
+     */
+    private static List<List<Integer>> inParts(Collection<Integer> demographicNos) {
+        List<Integer> patients = distinctPatients(demographicNos);
         List<List<Integer>> parts = new ArrayList<>();
         for (int from = 0; from < patients.size(); from += PATIENT_COUNT_CHUNK_SIZE) {
             parts.add(List.copyOf(patients.subList(from, Math.min(from + PATIENT_COUNT_CHUNK_SIZE, patients.size()))));
         }
         return parts;
-    }
-
-    /**
-     * The clause that leaves out the messages of the patients in that many parts, or nothing when there are
-     * no parts. A message without a patient is always kept: {@code NOT IN} alone would drop it, since a
-     * missing number is neither in nor out of a list. The parameter names are made here from the part's
-     * position, never from data; the numbers themselves are bound by {@link #bindExcluded}.
-     */
-    private static String notOfPatients(int parts) {
-        if (parts == 0) {
-            return "";
-        }
-        StringJoiner clause = new StringJoiner(" AND ", "AND (t.demographicNo IS NULL OR (", ")) ");
-        for (int part = 0; part < parts; part++) {
-            clause.add("t.demographicNo NOT IN (:" + PARAM_EXCLUDED_PREFIX + part + ")");
-        }
-        return clause.toString();
-    }
-
-    private static void bindExcluded(TypedQuery<?> query, List<List<Integer>> parts) {
-        for (int part = 0; part < parts.size(); part++) {
-            query.setParameter(PARAM_EXCLUDED_PREFIX + part, parts.get(part));
-        }
     }
 
     private static Map<SmsProviderType, Long> toProviderCounts(List<Object[]> rows) {
