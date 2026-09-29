@@ -99,17 +99,22 @@
         </action>
         <action name="report/GenerateEnvelopes" class="io.github.carlos_emr.carlos.report.pageUtil.GenerateEnvelopes2Action">
             <result name="success">/WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp</result>
+            <!-- No printable patient selected: redisplay Generate Letters with a notice (issue #3963). -->
+            <result name="input">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
         </action>
         <action name="report/GenerateSpreadsheet" class="io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientSpreadSheetList2Action">
             <result name="success">/WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp</result>
         </action>
         <action name="report/GenerateLetters" class="io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action">
             <result name="success">/WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp</result>
+            <!-- No printable patient selected: redisplay Generate Letters with a notice (issue #3963). -->
+            <result name="input">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
         </action>
         <action name="report/ViewManageLetters" class="io.github.carlos_emr.carlos.report.pageUtil.ViewManageLetters2Action">
             <result name="success">/WEB-INF/jsp/report/ManageLetters.jsp</result>
         </action>
         <action name="report/ManageLetters" class="io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action">
+            <result name="input">/WEB-INF/jsp/report/ManageLetters.jsp</result>
             <result name="success">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
             <result name="success_manage_from_prevention">/WEB-INF/jsp/prevention/PreventionReporting.jsp</result>
         </action>

@@ -29,7 +29,6 @@ io.github.carlos_emr.carlos.casemgmt.web.ClientImage2ActionTest
 io.github.carlos_emr.carlos.clinical.gate.ViewClinical2ActionTest
 io.github.carlos_emr.carlos.clinical.StrutsClinicalConfigTest
 io.github.carlos_emr.carlos.commn.dao.EFormReportToolDaoImplTest
-io.github.carlos_emr.carlos.commn.model.UserPropertyScheduleNavigationModeTest
 io.github.carlos_emr.carlos.commn.service.BillingInvoiceTemplateCompileTest
 io.github.carlos_emr.carlos.commn.web.Contact2ActionTest
 io.github.carlos_emr.carlos.commn.web.DxresearchReport2ActionTest
@@ -92,7 +91,6 @@ io.github.carlos_emr.carlos.flowsheet.Flowsheet2ActionTest
 io.github.carlos_emr.carlos.form.gate.FormViewRoutesTest
 io.github.carlos_emr.carlos.form.gate.ViewForm2ActionTest
 io.github.carlos_emr.carlos.form.pageUtil.FormForwardNamed2ActionTest
-io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2ActionTest
 io.github.carlos_emr.carlos.i18n.MasterDemographicRecordKeysTest
 io.github.carlos_emr.carlos.i18n.OscarResourcesBundleParseTest
 io.github.carlos_emr.carlos.i18n.RourkeI18nKeysTest

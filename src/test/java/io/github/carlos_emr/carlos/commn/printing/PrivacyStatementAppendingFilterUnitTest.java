@@ -125,6 +125,87 @@ class PrivacyStatementAppendingFilterUnitTest {
         assertThat(response.getLastRequestedBufferSize()).isEqualTo(APPEND_BUFFER_SIZE_BYTES);
     }
 
+    @Test
+    @DisplayName("should skip the statement when CSRFGuard combined its marker into the AJAX header")
+    void shouldSkipStatement_whenCsrfGuardCombinedItsMarker() throws Exception {
+        // jQuery sets X-Requested-With before send(); CSRFGuard's XHR hijack then calls
+        // setRequestHeader again, and the XHR spec COMBINES repeated values with ", ". The
+        // old exact-match check read that as a browser page request and appended the
+        // confidentiality statement into the AJAX body, which the caller renders verbatim.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/casemgmt/viewNotes");
+            request.setServletPath("/casemgmt/viewNotes");
+            request.addHeader("X-Requested-With", "XMLHttpRequest, OWASP CSRFGuard Project");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<div>note</div>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write(body);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).isEqualTo(body);
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
+    @DisplayName("should skip the statement when only the CSRFGuard marker is present")
+    void shouldSkipStatement_whenOnlyCsrfGuardMarkerIsPresent() throws Exception {
+        // carlos-ajax.js leaves the header to CSRFGuard to avoid a duplicated CSRF-TOKEN, so
+        // its requests carry the marker on its own and never matched the old check at all.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/casemgmt/viewNotes");
+            request.setServletPath("/casemgmt/viewNotes");
+            request.addHeader("X-Requested-With", "OWASP CSRFGuard Project");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<div>note</div>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write(body);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).isEqualTo(body);
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
+    @DisplayName("should still append the statement for an ordinary page request")
+    void shouldStillAppendStatement_forOrdinaryPageRequest() throws Exception {
+        // The widened AJAX test must not swallow the page case the filter exists for.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/casemgmt/viewNotes");
+            request.setServletPath("/casemgmt/viewNotes");
+            request.addHeader("X-Requested-With", "ShockwaveFlash/32.0");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write("<html><body>notes</body></html>");
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).contains("Test confidentiality statement.");
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
     private static class TrackingMockHttpServletResponse extends MockHttpServletResponse {
 
         private int lastRequestedBufferSize;

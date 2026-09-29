@@ -80,6 +80,8 @@
 	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">
 		<property name="locations">
 			<list>
+				<!-- Distribution defaults are lower priority than operator/classpath properties. -->
+				<value>classpath:jdbc-defaults.properties</value>
 				<value>classpath:carlos.properties</value>
 			</list>
 		</property>
@@ -226,6 +228,7 @@
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/ckdFlowsheet.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/painAssistant.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/periodicHealthVisit.xml</value>
+				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/healthTracker.xml</value>
 				<value>classpath:oscar/encounter/oscarMeasurements/flowsheets/hepCFlowsheet.xml</value>
 				
 			</list>

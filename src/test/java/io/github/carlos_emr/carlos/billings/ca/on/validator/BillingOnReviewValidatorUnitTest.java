@@ -128,18 +128,46 @@ class BillingOnReviewValidatorUnitTest {
     }
 
     @Test
-    @DisplayName("escapes underscores in service code so SQL LIKE doesn't wildcard them")
-    void shouldEscapeUnderscores_inServiceCodeLookup() {
-        request.setParameter("serviceCode0", "A_07A");
+    @DisplayName("passes underscore codes unescaped because the DAO lookup is an equality match")
+    void shouldPassUnderscoresUnescaped_inServiceCodeLookup() {
+        request.setParameter("serviceCode0", " _OMA_A003 ");
         when(billingServiceDao.findBillingCodesByCodeAndTerminationDate(anyString(), any(Date.class)))
                 .thenReturn(List.of(new Object()));
 
-        newValidator().validate(request, "1", "2026-04-26");
+        BillingOnReviewValidator.Result result =
+                newValidator().validate(request, "1", "2026-04-26");
 
-        // The DAO call must receive the escaped form so SQL LIKE treats `_`
-        // as a literal — preserves the legacy scriptlet's intent.
+        // findBillingCodesByCodeAndTerminationDate compares with '=', so a LIKE-style
+        // "\_" escape would look up a code that does not exist.
+        assertThat(result.codeValid()).isTrue();
         Mockito.verify(billingServiceDao)
-                .findBillingCodesByCodeAndTerminationDate(eq("A\\_07A"), any(Date.class));
+                .findBillingCodesByCodeAndTerminationDate(eq("_OMA_A003"), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("passes the bill's service date to the effective-row lookup and rejects a code not in effect")
+    void shouldEmitError_whenServiceCodeNotEffectiveOnServiceDate() {
+        // The DAO answers empty for a fee whose row in effect on the service date does not
+        // exist yet (e.g. _OMA_F09, effective 2026-03-01, billed on 2026-02-01) or has
+        // terminated; the validator must reject it exactly like an unknown code.
+        request.setParameter("serviceCode0", "_OMA_F09");
+        Date serviceDate = Date.from(java.time.LocalDate.of(2026, 2, 1)
+                .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+        when(billingServiceDao.findBillingCodesByCodeAndTerminationDate(eq("_OMA_F09"), eq(serviceDate)))
+                .thenReturn(Collections.emptyList());
+
+        BillingOnReviewValidator.Result result =
+                newValidator().validate(request, "1", "2026-02-01");
+
+        assertThat(result.codeValid()).isFalse();
+        assertThat(result.messages())
+                .singleElement()
+                .satisfies(m -> {
+                    assertThat(m.severity())
+                            .isEqualTo(BillingOnReviewValidator.Message.Severity.ERROR);
+                    assertThat(m.text()).contains("_OMA_F09").contains("is invalid");
+                });
+        verify(billingServiceDao).findBillingCodesByCodeAndTerminationDate(eq("_OMA_F09"), eq(serviceDate));
     }
 
     @Test

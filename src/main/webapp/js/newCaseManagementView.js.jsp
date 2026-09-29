@@ -43,6 +43,8 @@
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
 
     var ctx;        //url context
     var providerNo;
@@ -647,6 +649,84 @@
             });
     }
 
+    // Track the actual module requests, independently of chart-note polling.
+    // Empty successful fragments are legitimate (provider preferences/permissions).
+    function updateNavbarLoadState(state) {
+        if (window.carlosNavbarLoadState !== state) return;
+        var pending = {leftNavBar: 0, rightNavBar: 0};
+        state.failed = [];
+        Object.keys(state.modules).forEach(function (name) {
+            var module = state.modules[name];
+            if (module.status === "loading") pending[module.column]++;
+            if (module.status === "error") state.failed.push(name);
+        });
+        state.pending = pending.leftNavBar + pending.rightNavBar;
+        ["leftNavBar", "rightNavBar"].forEach(function (column) {
+            var busy = !state.scheduled || pending[column] > 0;
+            var element = document.getElementById(column);
+            if (element) element.setAttribute("aria-busy", String(busy));
+            if (!busy) {
+                var loader = document.getElementById(column === "leftNavBar" ? "leftColLoader" : "rightColLoader");
+                if (loader) Element.remove(loader);
+            }
+        });
+    }
+
+    function requestNavbarColumn(url, div, params, column) {
+        var state = window.carlosNavbarLoadState;
+        if (!state) return;
+        var previous = state.modules[div];
+        var module = {column: column || (previous && previous.column), status: "loading"};
+        if (module.column !== "leftNavBar" && module.column !== "rightNavBar") {
+            var element = document.getElementById(div);
+            module.column = element && element.closest("#rightNavBar") ? "rightNavBar" : "leftNavBar";
+        }
+        state.modules[div] = module;
+        updateNavbarLoadState(state);
+        function current() {
+            return window.carlosNavbarLoadState === state && state.modules[div] === module;
+        }
+        function failed(request) {
+            if (!current()) return;
+            module.status = "error";
+            var element = document.getElementById(div);
+            if (element) element.textContent = div + " Error: " + request.status;
+            updateNavbarLoadState(state);
+        }
+        try {
+            var xhr = CarlosAjax.request(url, {
+                method: 'post', postBody: params, evalScripts: true,
+                onSuccess: function (request) {
+                    if (!current()) return;
+                    try {
+                        // Preferences may have intentionally removed the module.
+                        var element = $(div);
+                        if (element) element.update(request.responseText);
+                        module.status = "loaded";
+                        updateNavbarLoadState(state);
+                    } catch (error) {
+                        failed(request);
+                        throw error;
+                    }
+                },
+                onFailure: failed,
+                onComplete: function (request) {
+                    // Keep failures/aborted callback paths from leaving a busy column.
+                    if (current() && module.status === "loading") failed(request);
+                }
+            });
+            if (xhr && typeof xhr.addEventListener === "function") {
+                xhr.addEventListener("abort", function () { failed({status: 0}); });
+                xhr.addEventListener("timeout", function () { failed({status: 0}); });
+            }
+            return xhr;
+        } catch (error) {
+            failed({status: 0});
+            // Continue scheduling the remaining modules after a synchronous send failure.
+            console.error("Navbar request failed:", error);
+        }
+    }
+
     function navBarLoader() {
 
         this.maxRightNumLines = Math.floor($("rightNavBar").getHeight() / 14);
@@ -662,6 +742,14 @@
 
         //init ajax calls for all sections of the navbars and create a div for each ajax request
         this.load = function () {
+
+            var previous = window.carlosNavbarLoadState;
+            var state = {generation: previous ? previous.generation + 1 : 1,
+                scheduled: false, modules: {}, pending: 0, failed: []};
+            window.carlosNavbarLoadState = state;
+            this.arrLeftDivs = [];
+            this.arrRightDivs = [];
+            updateNavbarLoadState(state);
 
             var leftNavBar = [
                 ctx + "/encounter/displayPrevention?hC=" + Colour.prevention,
@@ -696,7 +784,7 @@
 
             var navbar = "leftNavBar";
             for (var idx = 0; idx < leftNavBar.length; ++idx) {
-                var div = document.createElement("div");
+                var div = document.getElementById(leftNavBarTitles[idx]) || document.createElement("div");
                 div.className = "leftBox";
                 // Note: develop had div.style.visiblity (typo) which never took effect.
                 // The display() function that sets visibility:visible is commented out,
@@ -711,7 +799,7 @@
 
             navbar = "rightNavBar";
             for (var idx = 0; idx < rightNavBar.length; ++idx) {
-                var div = document.createElement("div");
+                var div = document.getElementById(rightNavBarTitles[idx]) || document.createElement("div");
                 div.className = "leftBox";
                 <%--div.style.display = "block";--%>
                 div.id = rightNavBarTitles[idx];
@@ -719,6 +807,9 @@
                 this.arrRightDivs.push(div);
                 this.popColumn(rightNavBar[idx], rightNavBarTitles[idx], rightNavBarTitles[idx], navbar, this);
             }
+
+            state.scheduled = true;
+            updateNavbarLoadState(state);
 
         };
 
@@ -730,28 +821,7 @@
             if (match) displayCount = match[1];
             params = "reloadURL=" + url + "&numToDisplay=" + displayCount + "&cmd=" + params;
 
-            CarlosAjax.request(
-                url,
-                {
-                    method: 'post',
-                    postBody: params,
-                    evalScripts: true,
-                    onSuccess: function (request) {
-                        $(div).update(request.responseText);
-
-                        if ($("leftColLoader") != null)
-                            Element.remove("leftColLoader");
-
-                        if ($("rightColLoader") != null)
-                            Element.remove("rightColLoader");
-
-                        // notifyDivLoaded removed — was always a no-op (empty function in renal/westernu cme.js, undefined elsewhere)
-                    },
-                    onFailure: function (request) {
-                        $(div).update("<h3>" + div + "</h3>Error: " + request.status);
-                    }
-                }
-            );
+            return requestNavbarColumn(url, div, params, navBar);
         };
 
         //format display and show divs in navbars
@@ -1102,7 +1172,7 @@ function updateCPPNote() {
         loadDiv(data[0], data[1], 0);
     }
 
-    function loadDiv(div, url, limit) {
+    function loadDiv(div, url, limit, complete) {
 
         CarlosAjax.request(
             url,
@@ -1115,6 +1185,9 @@ function updateCPPNote() {
                 },
                 onFailure: function (request) {
                     $(div).update("<h3>" + div + "<\/h3>Error: " + request.status + "<br>" + request.responseText);
+                },
+                onComplete: function (request) {
+                    if (complete) complete(request.status >= 200 && request.status < 300);
                 }
             }
         );
@@ -1470,15 +1543,14 @@ function updateCPPNote() {
     var selectBoxes = new Object();
     var unsavedNoteWarning;
     var editLabel;
-    function changeToView(id) {
+    function changeToView(id, afterSave) {
+        if (deferNoteSaveUntilIssues(function () { changeToView(id, afterSave); })) return false;
+        if ($(id) == null) return true;
+
         var parent = $(id).parentNode.id;
         var nId = parent.substr(1);
 
         var tmp = $(id).value;
-        var saving = false;
-        var summaryId = "summary";
-        var summary;
-
         var sig = 'sig' + nId;
 
         // check if case note has been changed
@@ -1488,11 +1560,23 @@ function updateCPPNote() {
             if (!confirm(unsavedNoteWarning))
                 return false;
             else {
-                saving = true;
-                if (ajaxSaveNote(sig, nId, tmp) == false)
-                    return false;
+                ajaxSaveNote(sig, nId, tmp, function (succeeded) {
+                    if (!succeeded) return; // Keep the text and controls available for recovery.
+                    finishChangeToView(id, true, tmp);
+                    if (afterSave) afterSave();
+                });
+                return false;
             }
         }
+        finishChangeToView(id, false, tmp);
+        return true;
+    }
+
+    function finishChangeToView(id, saving, tmp) {
+        // The save response can rename the note container to its new database ID.
+        var parent = $(id).parentNode.id;
+        var nId = parent.substr(1);
+        var sig = 'sig' + nId;
 
         // remove lock from note
         removeLock(id);
@@ -1952,6 +2036,10 @@ function updateCPPNote() {
     }
 
     function editNote(e) {
+        Event.stop(e);
+        // Defer the entire switch, including locks and editor teardown, until issue fields settle.
+        if (deferNoteSaveUntilIssues(function () { editNote(e); })) return false;
+
         var el = Event.element(e);
         var payload;
         var regEx = /\d+/;
@@ -1996,7 +2084,7 @@ function updateCPPNote() {
 
         // if we have an edit textarea already open, close it
         if ($(caseNote) != null && $(caseNote).parentNode.id != $(txt).id) {
-            if (!changeToView(caseNote)) {
+            if (!changeToView(caseNote, function () { editNote(e); })) {
                 $(caseNote).focus();
                 return;
             }
@@ -2046,7 +2134,10 @@ function updateCPPNote() {
         // tag or an image element with an onerror handler cannot close the element or
         // become markup.
         payload = escapeNoteText(payload);
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
+        // wrap='soft', never 'hard': a hard-wrapped textarea submits a CRLF at every visual
+        // wrap point (Firefox 145+ does so for scripted submissions too), and the server
+        // stores those breaks as part of the note (#3955).
+        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='soft' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
@@ -2336,7 +2427,7 @@ function updateCPPNote() {
     var encMinError;
     var encTimeMandatoryMsg;
     var encTimeMandatory;
-    function ajaxSaveNote(div, noteId, noteTxt) {
+    function ajaxSaveNote(div, noteId, noteTxt, complete) {
 
         if (lostNoteLock) {
             alert(noteLockLostError);
@@ -2427,13 +2518,34 @@ function updateCPPNote() {
         var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
 
-        CarlosAjax.updater(
-            {success: div},
+        updatedNoteId = -1;
+        clearAutoSaveTimer();
+        var restoreControls = beginNoteSwitchSave();
+        var saveConfirmed = false;
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
-                evalScripts: true,
                 postBody: params,
+                onSuccess: function (request) {
+                    // A login page or empty HTTP 200 is not a saved note. Validate the
+                    // server acknowledgement before replacing any recoverable editor fields.
+                    var responseDocument = new DOMParser().parseFromString(request.responseText, "text/html");
+                    var issues = responseDocument.getElementById("noteIssues");
+                    var savedId = issues ? issues.getAttribute("data-saved-note-id") : null;
+                    if (!savedId || !/^[1-9][0-9]*$/.test(savedId)) return;
+                    $(div).update(request.responseText);
+                    saveConfirmed = String(updatedNoteId) === savedId;
+                },
+                onComplete: function (request) {
+                    restoreControls();
+                    var succeeded = request.status >= 200 && request.status < 300 && saveConfirmed;
+                    if (!succeeded) {
+                        setTimer();
+                        if (request.status >= 200 && request.status < 300) alert(savingNoteError);
+                    }
+                    if (complete) complete(succeeded);
+                },
                 onFailure: function (request) {
                     if (request.status == 409) {
                         lostNoteLock = true;
@@ -2441,7 +2553,7 @@ function updateCPPNote() {
                     } else if (request.status == 403) {
                         alert(sessionExpiredError);
                     } else {
-                        alert(savingNoteError + " " + request.status + " " + request.responseText);
+                        alert(savingNoteError + " " + request.status);
                     }
                 }
             }
@@ -2451,6 +2563,9 @@ function updateCPPNote() {
     }
 
     function saveNoteAjax(method, chain) {
+        // Opening/editing a note refreshes its issue fields asynchronously. Save only
+        // after both fragments finish, so the form and its issue selection stay intact.
+        if (deferNoteSaveUntilIssues(function () { saveNoteAjax(method, chain); })) return false;
 
         var noteStr;
         noteStr = $F(caseNote);
@@ -2552,6 +2667,9 @@ function updateCPPNote() {
         return false;
     }
     function savePage(method, chain) {
+        // Opening/editing a note refreshes its issue fields asynchronously. Save only
+        // after both fragments finish, so the form and its issue selection stay intact.
+        if (deferNoteSaveUntilIssues(function () { savePage(method, chain); })) return false;
 
         var noteStr;
         noteStr = $F(caseNote);
@@ -2768,16 +2886,82 @@ function updateCPPNote() {
     }
     var ajaxRequest;
     var updateIssueError;
+    var issueUpdatesPending = 0;
+    var issueUpdateFailed = false;
+    var queuedNoteSave = null;
+    var noteSwitchSavePending = false;
+    var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
+
+    function beginNoteSwitchSave() {
+        noteSwitchSavePending = true;
+        var form = document.forms["caseManagementEntryForm"];
+        var controls = Array.from(form.elements).map(function (control) {
+            var disabled = control.disabled;
+            control.disabled = true;
+            return {control: control, disabled: disabled};
+        });
+        var status = $("autosaveTime");
+        var previousStatus = status ? status.textContent : "";
+        if (status) status.textContent = noteSavingMessage;
+        form.setAttribute("aria-busy", "true");
+        return function () {
+            noteSwitchSavePending = false;
+            controls.forEach(function (entry) { entry.control.disabled = entry.disabled; });
+            if (status) status.textContent = previousStatus;
+            form.removeAttribute("aria-busy");
+        };
+    }
+
+    function deferNoteSaveUntilIssues(save) {
+        if (noteSwitchSavePending) {
+            alert(noteSavingMessage);
+            return true;
+        }
+        if (issueUpdatesPending > 0) {
+            // Keep one action, honoring the latest Save, Sign & Save, or navigation choice.
+            queuedNoteSave = {editor: caseNote, save: save};
+            return true;
+        }
+        if (issueUpdateFailed) {
+            alert(updateIssueError);
+            return true;
+        }
+        return false;
+    }
+
+    function finishIssueUpdate(succeeded) {
+        issueUpdateFailed = issueUpdateFailed || !succeeded;
+        issueUpdatesPending -= 1;
+        if (issueUpdatesPending === 0 && queuedNoteSave != null) {
+            var queued = queuedNoteSave;
+            queuedNoteSave = null;
+            if (!issueUpdateFailed) {
+                if (queued.editor === caseNote) queued.save();
+                else alert(savingNoteError);
+            }
+        }
+    }
+
     function ajaxUpdateIssues(method, div) {
+        if (noteSwitchSavePending) {
+            alert(noteSavingMessage);
+            return false;
+        }
         var frm = document.forms["caseManagementEntryForm"];
         frm.method.value = method;
         frm.ajax.value = true;
 
         var url = ctx + "/CaseManagementEntry";
         var p = Form.serialize(frm);
-        p.note_edit = '';
+        if (issueUpdatesPending === 0) issueUpdateFailed = false;
+        issueUpdatesPending += 1;
         ajaxRequest = CarlosAjax.updater({success: div}, url, {
-            evalScripts: true, postBody: p, onSuccess: onIssueUpdate,
+            evalScripts: true, postBody: p,
+            // onComplete runs after the updater installs the new issue fields.
+            onComplete: function (response) {
+                if (response.status >= 200 && response.status < 300) onIssueUpdate(finishIssueUpdate);
+                else finishIssueUpdate(false);
+            },
             onFailure: function (response) {
                 alert(response.status + " " + updateIssueError);
             }
@@ -2786,21 +2970,19 @@ function updateCPPNote() {
         return false;
     }
 
-    function onIssueUpdate() {
+    function onIssueUpdate(complete) {
+        if ($("issueAutocomplete")) $("issueAutocomplete").value = "";
+        if ($("newIssueId")) $("newIssueId").value = "";
 
-        //this request succeeded so we reset issues
-        if ($("issueAutocomplete")) { $("issueAutocomplete").value = ""; }
-        $("newIssueId").value = "";
-        //notifyIssueUpdate();
-
-        // demographicNo is the module-level variable declared at the top of this file and
-        // assigned by both loaders of it (newEncounterLayout.jsp and ChartNotes.jsp).
-        // Do not read it back off the form: the chart form does not always render an
-        // element with that id, which is what broke CPP saves in #3422.
+        // demographicNo is module state; the form does not always render an element
+        // with that id. Wait for this second refresh before resuming a queued save.
         if (typeof loadDiv === 'function' && demographicNo) {
             var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + encodeURIComponent(demographicNo) + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
-            loadDiv('unresolvedIssueslist', reloadUrl, 0);
-        }
+            loadDiv('unresolvedIssueslist', reloadUrl, 0, function (succeeded) {
+                if (!succeeded) alert(updateIssueError);
+                complete(succeeded);
+            });
+        } else complete(true);
     }
 
     function submitIssue(event) {
@@ -2879,6 +3061,9 @@ function updateCPPNote() {
         if (e != null)
             Event.stop(e);
 
+        // Resume the whole navigation so the requested new editor is opened after the save.
+        if (deferNoteSaveUntilIssues(function () { newNote(null); })) return false;
+
         ++newNoteCounter;
         var newNoteIdx = "0" + newNoteCounter;
         var safeNewNoteIdx = newNoteIdx.replace(/\s+/g, "");
@@ -2888,13 +3073,15 @@ function updateCPPNote() {
         var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
         // reason is the appointment reason as typed (ChartNotesAjax.jsp hands it over as a
         // JavaScript string), spliced into markup here: escape it like every other note text.
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
+        // wrap='soft' for the same reason as editNote(): only line breaks the clinician types
+        // may reach the saved note (#3955).
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='soft' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
 
 
-        if (changeToView(caseNote)) {
+        if (changeToView(caseNote, function () { newNote(null); })) {
 
             caseNote = "caseNote_note" + safeNoteIdSuffix;
             document.forms["caseManagementEntryForm"].note_edit.value = "new";

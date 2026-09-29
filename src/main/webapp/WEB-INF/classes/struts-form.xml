@@ -111,7 +111,7 @@
             <result name="success">/WEB-INF/jsp/form/formRhImmuneGlobulin.jsp</result>
         </action>
         <action name="form/AddRHWorkFlow" class="io.github.carlos_emr.carlos.form.pageUtil.FrmFormAddRHWorkFlow2Action">
-            <result name="success">/form/RHPrevention</result>
+            <result name="success">/WEB-INF/jsp/form/formRhImmuneGlobulin.jsp</result>
         </action>
         <action name="form/BCAR2020" class="io.github.carlos_emr.carlos.form.FrmBCAR20202Action">
             <result name="pg1">/WEB-INF/jsp/form/formBCAR2020pg1.jsp</result>

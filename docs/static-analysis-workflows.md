@@ -32,7 +32,7 @@ healthcare application handling PHI.
 Semgrep runs two scans in `.github/workflows/semgrep.yml`:
 
 - `semgrep ci --sarif --output semgrep.sarif` runs the Semgrep Cloud policy, including Semgrep Pro rules when `SEMGREP_APP_TOKEN` is configured.
-- `semgrep scan --config .semgrep/jsp-scriptlet-xss-carlos.yml --sarif --output semgrep-carlos.sarif` runs CARLOS sanitizer-aware JSP checks that recognize project encoders.
+- `semgrep scan --config .semgrep/ --sarif --output semgrep-carlos.sarif` runs every CARLOS sanitizer-aware rule under `.semgrep/` — JSP scriptlet XSS, CRLF log injection, and path traversal — recognizing project encoders and `PathValidationUtils`/`LogSafe` sanitizers. See `.semgrep/README.md` for the full rule list and the built-in Semgrep Cloud rules each one replaces.
 
 ### False-positive handling
 
@@ -43,7 +43,7 @@ Use the narrowest control that preserves useful coverage:
 3. Disable exact built-in rules in Semgrep Cloud only when a CARLOS rule fully replaces their coverage. `.semgrep/README.md` lists the rules intended for policy disablement.
 4. For isolated already-safe findings from still-useful built-in rules, use rule-specific `nosemgrep: <rule-id>` comments at the finding site.
 
-Semgrep CI honors `nosemgrep` by treating those findings as ignored, but Semgrep still includes them in SARIF with `result.suppressions`. GitHub Code Scanning creates PR alerts from uploaded SARIF results, so the workflow runs `scripts/filter_suppressed_sarif.py semgrep.sarif` before uploading the Semgrep Cloud SARIF. This removes only explicitly suppressed results from the GitHub upload; unsuppressed Semgrep Pro findings still appear in Code Scanning.
+Semgrep honors `nosemgrep` by treating those findings as ignored, but still includes them in SARIF with `result.suppressions`. GitHub Code Scanning creates PR alerts from uploaded SARIF results, so the workflow runs `scripts/filter_suppressed_sarif.py` separately on both `semgrep.sarif` and `semgrep-carlos.sarif` before their uploads. This removes only explicitly suppressed results; unsuppressed Cloud and CARLOS findings still appear in Code Scanning. Both filters also run when an earlier scan fails but produces a report.
 
 Do not use broad `.semgrepignore` entries, blanket rule disables, or bare `nosemgrep` comments to clear PR noise unless a narrower option is impossible and the rationale is documented.
 
@@ -146,12 +146,24 @@ Suppresses known false positives:
 > `@SuppressFBWarnings` annotations carrying a justification, **plus an adjacent `//` comment** —
 > see [SpotBugs exclusions](#spotbugs) below.
 
+The incoming-document capacity page uses a method-local `XSS_SERVLET`
+suppression because its two dynamic values already use OWASP encoding for
+HTML text and quoted attributes. Its regression parses hostile context-path
+markup and verifies that it remains one inert script URL, without injected
+elements or event handlers. Preview reloads require exact `GET`; case-folded
+or mutating method names receive no preview reload script. The separate incoming
+page-edit waiting response is emitted only before mutation admission and preserves
+the original POST fields, CSRF token and source revision. An uncertain result or
+a revision conflict never uses that automatic retry path.
+
 **Maven profile**: `spotbugs` (defined in `pom.xml`)
 
-- SpotBugs Maven Plugin: 4.9.3.0
-- SpotBugs Engine: 4.9.3
+- SpotBugs Maven Plugin: 4.10.2.0 — held here deliberately; 4.10.4.x requires Maven >= 3.8.9,
+  which the `carlos-tomcat-dev` image cannot supply from apt on noble. See the rationale comment
+  on the plugin declaration in `pom.xml`.
+- SpotBugs Engine: 4.10.2
 - Find Security Bugs: 1.14.0
-- `spotbugs-annotations` 4.9.3 (`provided` scope, in `pom.xml`) — supplies
+- `spotbugs-annotations` 4.10.2 (`provided` scope, in `pom.xml`) — supplies
   `edu.umd.cs.findbugs.annotations.SuppressFBWarnings` for per-site suppression
 - Effort: `Max` (deepest analysis)
 - Threshold: `Low` (report everything, filter via exclude file)

@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.documentManager;
 
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.verify;
@@ -85,6 +87,10 @@ class IncomingDocExtractionIntegrityUnitTest {
         IncomingDocUtil.extractPage("1", "File", "fixture.pdf", pages);
     }
 
+    private static boolean isSource(Path path) {
+        return path != null && path.getFileName().toString().equals("fixture.pdf");
+    }
+
     private List<String> names() throws Exception {
         try (var files = Files.list(directory)) {
             return files.map(path -> path.getFileName().toString()).sorted().toList();
@@ -110,7 +116,10 @@ class IncomingDocExtractionIntegrityUnitTest {
     void shouldRetainOriginalAndCloseBothWriters_whenFinalizationFails() throws Exception {
         try (MockedConstruction<PdfCopy> copies = mockConstruction(PdfCopy.class, (copy, context) ->
                 doThrow(new IllegalStateException("synthetic close failure")).when(copy).close())) {
-            assertThatThrownBy(() -> extract("2")).isInstanceOf(IllegalStateException.class);
+            // A writer that fails to finalize has not written its cross-reference table, so the
+            // failure is surfaced (wrapping each close failure) rather than publishing a truncated PDF.
+            assertThatThrownBy(() -> extract("2")).isInstanceOf(IOException.class)
+                    .hasMessage("Could not finish PDF page extraction");
             assertThat(copies.constructed()).hasSize(2);
             for (PdfCopy copy : copies.constructed()) verify(copy).close();
         }
@@ -121,8 +130,8 @@ class IncomingDocExtractionIntegrityUnitTest {
     @Test
     void shouldRemovePublishedExtractionAndRetainSource_whenSourceReplacementFails() throws Exception {
         try (MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
-            files.when(() -> Files.move(any(Path.class), eq(source),
-                    eq(StandardCopyOption.ATOMIC_MOVE), eq(StandardCopyOption.REPLACE_EXISTING)))
+            files.when(() -> Files.move(any(Path.class), argThat(IncomingDocExtractionIntegrityUnitTest::isSource),
+                    eq(StandardCopyOption.REPLACE_EXISTING)))
                     .thenThrow(new IOException("synthetic replacement failure"));
             assertThatThrownBy(() -> extract("2")).isInstanceOf(IOException.class)
                     .hasMessage("synthetic replacement failure");
@@ -134,7 +143,8 @@ class IncomingDocExtractionIntegrityUnitTest {
     @Test
     void shouldPreserveExistingExtractedDocument_whenDestinationAlreadyExists() throws Exception {
         Path existing = directory.resolve("fixtureE3.pdf"); Files.write(existing, original);
-        assertThatThrownBy(() -> extract("2")).isInstanceOf(java.nio.file.FileAlreadyExistsException.class);
+        assertThatThrownBy(() -> extract("2")).hasMessageContaining("is already in this queue")
+                .hasCauseInstanceOf(FileAlreadyExistsException.class);
         assertThat(Files.readAllBytes(source)).isEqualTo(original);
         assertThat(Files.readAllBytes(existing)).isEqualTo(original);
         assertThat(names()).containsExactly("fixture.pdf", "fixtureE3.pdf");
@@ -203,8 +213,8 @@ class IncomingDocExtractionIntegrityUnitTest {
     @ValueSource(strings = {"rotate", "rotateAll", "delete"})
     void shouldRetainOriginalAndRemoveOutputs_whenPageMutationReplacementFails(String operation) throws Exception {
         try (MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
-            files.when(() -> Files.move(any(Path.class), eq(source),
-                    eq(StandardCopyOption.ATOMIC_MOVE), eq(StandardCopyOption.REPLACE_EXISTING)))
+            files.when(() -> Files.move(any(Path.class), argThat(IncomingDocExtractionIntegrityUnitTest::isSource),
+                    eq(StandardCopyOption.REPLACE_EXISTING)))
                     .thenThrow(new IOException("synthetic replacement failure"));
             assertThatThrownBy(() -> mutate(operation)).isInstanceOf(IOException.class)
                     .hasMessage("synthetic replacement failure");
@@ -238,12 +248,18 @@ class IncomingDocExtractionIntegrityUnitTest {
     }
 
     @Test
-    void shouldPreserveRecycledDocumentAndSource_whenDeletedPageDestinationExists() throws Exception {
-        Path recycled = Files.createDirectories(root.resolve("1/File_deleted")).resolve("fixtured2of3.pdf");
+    void shouldFileDeletedPageUnderUnusedName_whenRecycledDestinationExists() throws Exception {
+        Path recycleDir = Files.createDirectories(root.resolve("1/File_deleted"));
+        Path recycled = recycleDir.resolve("fixtured2of3.pdf");
         Files.write(recycled, original);
-        assertThatThrownBy(() -> mutate("delete")).isInstanceOf(java.nio.file.FileAlreadyExistsException.class);
-        assertThat(Files.readAllBytes(source)).isEqualTo(original);
+        mutate("delete");
+        // The earlier recycled copy is never replaced; the new page takes the next free suffix.
         assertThat(Files.readAllBytes(recycled)).isEqualTo(original);
+        try (PDDocument deleted = Loader.loadPDF(recycleDir.resolve("fixtured2of3-2.pdf").toFile());
+             PDDocument remaining = Loader.loadPDF(source.toFile())) {
+            assertThat(new PDFTextStripper().getText(deleted)).contains("Synthetic page 2");
+            assertThat(remaining.getNumberOfPages()).isEqualTo(2);
+        }
         assertThat(names()).containsExactly("fixture.pdf");
     }
 

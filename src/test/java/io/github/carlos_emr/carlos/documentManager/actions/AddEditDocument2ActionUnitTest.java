@@ -19,6 +19,12 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentExtraReviewerDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -160,6 +166,13 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(CtlDocTypeDao.class, mockCtlDocTypeDao);
         registerMock(DemographicManager.class, mockDemographicManager);
         registerMock(CtlDocumentDao.class, mockCtlDocumentDao);
+        DocumentDao storedDocuments = mock(DocumentDao.class);
+        registerMock(DocumentDao.class, storedDocuments);
+        registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
+        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        lenient().when(storedDocuments.find(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document());
+        lenient().when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 123)).thenReturn(true);
+        lenient().when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", "w", "123")).thenReturn(true);
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
         lenient().when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -177,6 +190,67 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
+        }
+    }
+
+    @Test
+    void deniedStoredPatientCannotWriteReviewerMetadataContentOrAuditUsingForgedFunctionId() {
+        CtlDocument link = new CtlDocument(); link.setId(new CtlDocumentPK("demographic", 987, 123));
+        when(mockCtlDocumentDao.findByDocumentNoAndModule(123, "demographic")).thenReturn(List.of(link));
+        DocumentExtraReviewerDao reviewers = mock(DocumentExtraReviewerDao.class);
+        registerMock(DocumentExtraReviewerDao.class, reviewers);
+        action.setMode("123"); action.setFunction("demographic"); action.setFunctionId("123");
+        action.setReviewDoc(true); action.setExtraReviewDoc(true); action.setExtraReviewerId("999998");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class);
+            documents.verifyNoInteractions(); logActionMock.verifyNoInteractions();
+            org.mockito.Mockito.verifyNoInteractions(reviewers);
+            assertThat(request.getAttribute("docerrors")).isNull();
+        }
+    }
+
+    @Test
+    void inaccessibleNewPatientIsDeniedBeforeUploadValidationOrClinicalWrites() {
+        action.setMode("add"); action.setFunction("demographic"); action.setFunctionId("987");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class);
+            documents.verifyNoInteractions(); logActionMock.verifyNoInteractions();
+            assertThat(request.getAttribute("docerrors")).isNull();
+        }
+    }
+
+    @Test
+    void mixedCaseAndWhitespaceDemographicTargetCannotBypassPatientAuthorization() {
+        action.setMode("add"); action.setFunction(" DeMoGrApHiC "); action.setFunctionId("987");
+        assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class);
+        org.mockito.Mockito.verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(mockLoggedInInfo, 987);
+    }
+
+    @Test
+    void collationLookalikeModuleCannotBypassPatientAuthorization() {
+        action.setMode("add"); action.setFunction("demograph\u0131c"); action.setFunctionId("987");
+        assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class).hasMessageContaining("module");
+    }
+
+    @Test
+    void accessiblePatientWithoutDocumentWritePrivilegeCannotUpload() {
+        action.setMode("add"); action.setFunction("demographic"); action.setFunctionId("123");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", "w", "123")).thenReturn(false);
+        assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void authorizedStoredMetadataEditRemainsAvailableWhenContentUpdatesAreDisabled() {
+        String previous = CarlosProperties.getInstance().getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT");
+        CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "false");
+        action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
+        action.setDocDesc("Owned metadata edit"); action.setDocType("Consultant Report"); action.setAppointmentNo("0");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute2()).isEqualTo("successEdit");
+            documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), eq(false)));
+        } finally {
+            if (previous == null) CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
+            else CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previous);
         }
     }
 

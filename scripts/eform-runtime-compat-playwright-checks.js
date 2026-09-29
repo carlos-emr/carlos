@@ -39,6 +39,8 @@ const { chromium } = require('playwright');
 const { assert, getLaunchOptions } = require('./eform-local-playwright-utils');
 
 const SHIM_PATH = path.join(__dirname, '..', 'src', 'main', 'webapp', 'eform', 'eform-runtime-compat.js');
+const JQUERY_PATH = path.join(__dirname, '..', 'src', 'main', 'webapp', 'library', 'jquery', 'jquery-3.7.1.min.js');
+const JSIGNATURE_PATH = path.join(__dirname, '..', 'src', 'main', 'webapp', 'library', 'jquery', 'jSignature.min.js');
 const PAYLOAD_ELEMENT_ID = 'carlos-legacy-measurement-history';
 const LEGACY_URL = '/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=';
 
@@ -124,13 +126,162 @@ function page(withPayload) {
     + `<script>${FORM_SCRIPT}</script></body></html>`;
 }
 
+function signaturePage() {
+  return `<!doctype html><html><body><div id="pad"></div><div id="not-ready"></div>
+    <script src="/eform-runtime-compat.js"></script>
+    <script src="/jquery.js"></script><script src="/jSignature.js"></script>
+    <script>
+      var calls = [];
+      // The compatibility file defers its guard until DOMContentLoaded. This inline spy runs
+      // during parsing, so the guard captures the spy as its original plugin function. Calls
+      // recorded below are calls that actually reach the bundled plugin through that function.
+      var guardInstalledAtSpySetup = window.__carlosEformSignatureCompat.installed;
+      var original = jQuery.fn.jSignature;
+      var pluginSpy = function () {
+        calls.push({verb: arguments[0], data: arguments[1]});
+        return original.apply(this, arguments);
+      };
+      jQuery.fn.jSignature = pluginSpy;
+      window.addEventListener('load', function () {
+        var guardWrapsSpy = jQuery.fn.jSignature.__carlosEmptyDataGuard
+          && jQuery.fn.jSignature !== pluginSpy;
+        var pad = jQuery('#pad').jSignature();
+        calls.length = 0;
+        var errors = [];
+        function attempt(value, target, mayReject) {
+          try { target.jSignature('setData', value); }
+          catch (error) { if (!mayReject) { errors.push(String(error)); } }
+        }
+        attempt('data:image/jsignature;base30,', pad);
+        var resetAfterEmpty = calls.filter(function (call) { return call.verb === 'reset'; }).length;
+        var setDataAfterEmpty = calls.filter(function (call) { return call.verb === 'setData'; }).length;
+        attempt('data:IMAGE/JSIGNATURE;BASE30,', pad);
+        attempt('data:image/jsignature;base30,', jQuery('#not-ready'));
+        var resetAfterNotReady = calls.filter(function (call) { return call.verb === 'reset'; }).length;
+        attempt('data:image/jsignature;base30,0A_0A', pad, true);
+        attempt('data:text/jsignature-foo,', pad, true);
+        var malformedRejected = [];
+        [' ', '\\t', '\\n'].forEach(function (payload) {
+          try { pad.jSignature('setData', 'data:image/jsignature;base30,' + payload); }
+          catch (error) { malformedRejected.push(payload); }
+        });
+        window.__signatureResult = {
+          malformedRejected: malformedRejected,
+          guardInstalledAtSpySetup: guardInstalledAtSpySetup,
+          guardWrapsSpy: guardWrapsSpy,
+          resetAfterEmpty: resetAfterEmpty,
+          setDataAfterEmpty: setDataAfterEmpty,
+          resetAfterNotReady: resetAfterNotReady,
+          delegated: calls.filter(function (call) { return call.verb === 'setData'; })
+            .map(function (call) { return call.data; }),
+          skipped: window.__carlosEformSignatureCompat.skippedEmptyLoads,
+          installed: window.__carlosEformSignatureCompat.installed,
+          errors: errors
+        };
+      });
+    </script></body></html>`;
+}
+
+// The server withholds the async plugin until this fixture's DOMContentLoaded callback releases
+// it. This proves the retry, without depending on a timer racing page parsing.
+function asyncSignaturePage() {
+  return `<!doctype html><html><body onload="restoreAsyncSignature()"><div id="pad"></div>
+    <script src="/eform-runtime-compat.js"></script><script src="/jquery.js"></script>
+    <script async src="/jSignature-async.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        window.__pluginAbsentAtReady = typeof jQuery.fn.jSignature !== 'function';
+        fetch('/release-jSignature');
+      });
+      function restoreAsyncSignature() {
+        var errors = [], malformedRejected = false;
+        var wrappedBeforeBodyLoad = !!jQuery.fn.jSignature.__carlosEmptyDataGuard;
+        var pad = jQuery('#pad').jSignature();
+        try { pad.jSignature('setData', 'data:image/jsignature;base30,'); }
+        catch (error) { errors.push(String(error)); }
+        try { pad.jSignature('setData', 'data:image/jsignature;base30, '); }
+        catch (error) { malformedRejected = true; }
+        window.__asyncSignatureResult = {
+          absentAtReady: window.__pluginAbsentAtReady,
+          wrappedBeforeBodyLoad: wrappedBeforeBodyLoad,
+          skipped: window.__carlosEformSignatureCompat.skippedEmptyLoads,
+          malformedRejected: malformedRejected,
+          errors: errors
+        };
+      }
+    </script></body></html>`;
+}
+
+function jqueryAliasesPage(withPreloadedJquery) {
+  const preload = withPreloadedJquery ? '<script src="/jquery.js"></script>' : '';
+  return `<!doctype html><html><body>
+    <script>window.__carlosEformPdfRender = true;</script>
+    ${preload}<script src="/eform-runtime-compat.js"></script>
+    <script>window.__jqueryBeforeForm = window.jQuery;</script>
+    <script src="/jquery.js"></script>
+    <script>
+      var jq = window.jQuery;
+      window.__aliasesResult = {
+        size: jq('body').size(),
+        dollarSize: window.$('body').size(),
+        hasErrorShortcut: typeof jq.fn.error === 'function',
+        replaced: window.__jqueryBeforeForm !== jq,
+        readyState: document.readyState
+      };
+    </script></body></html>`;
+}
+
 async function main() {
   const shim = fs.readFileSync(SHIM_PATH, 'utf8');
+  const jquery = fs.readFileSync(JQUERY_PATH, 'utf8');
+  const jsignature = fs.readFileSync(JSIGNATURE_PATH, 'utf8');
   const networkHits = [];
+  let asyncPluginResponse;
+  let releaseAsyncPlugin = false;
+  function sendAsyncPlugin() {
+    if (releaseAsyncPlugin && asyncPluginResponse) {
+      asyncPluginResponse.writeHead(200, { 'Content-Type': 'application/javascript' });
+      asyncPluginResponse.end(jsignature);
+      asyncPluginResponse = null;
+    }
+  }
   const server = http.createServer((request, response) => {
     if (request.url === '/eform-runtime-compat.js') {
       response.writeHead(200, { 'Content-Type': 'application/javascript' });
       response.end(shim);
+      return;
+    }
+    if (request.url === '/jquery.js' || request.url === '/jSignature.js') {
+      response.writeHead(200, { 'Content-Type': 'application/javascript' });
+      response.end(request.url === '/jquery.js' ? jquery : jsignature);
+      return;
+    }
+    if (request.url === '/signature-async') {
+      releaseAsyncPlugin = false;
+      response.writeHead(200, { 'Content-Type': 'text/html' });
+      response.end(asyncSignaturePage());
+      return;
+    }
+    if (request.url === '/jSignature-async.js') {
+      asyncPluginResponse = response;
+      sendAsyncPlugin();
+      return;
+    }
+    if (request.url === '/release-jSignature') {
+      releaseAsyncPlugin = true;
+      sendAsyncPlugin();
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+    if (request.url === '/signature') {
+      response.writeHead(200, { 'Content-Type': 'text/html' });
+      response.end(signaturePage());
+      return;
+    }
+    if (request.url === '/aliases-no-preload' || request.url === '/aliases-with-preload') {
+      response.writeHead(200, { 'Content-Type': 'text/html' });
+      response.end(jqueryAliasesPage(request.url === '/aliases-with-preload'));
       return;
     }
     if (request.url.startsWith('/embedded')) {
@@ -158,7 +309,7 @@ async function main() {
     const context = await browser.newContext();
     const tab = await context.newPage();
 
-    await tab.goto(`${base}/embedded`);
+    await tab.goto(`${base}/embedded`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const served = await tab.evaluate('window.__result');
     try {
       assert(JSON.stringify(served.ht.dataAtReturn) === '["101.5","99"]',
@@ -185,7 +336,7 @@ async function main() {
     }
 
     const hitsAfterEmbedded = networkHits.length;
-    await tab.goto(`${base}/absent`);
+    await tab.goto(`${base}/absent`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const unserved = await tab.evaluate('window.__result');
     try {
       assert(unserved.ht.status === 404,
@@ -195,6 +346,56 @@ async function main() {
         'missing payload did not reach the network; the completeness gate would never see it');
     } catch (error) {
       failures.push(`absent payload: ${error.message}`);
+    }
+
+    await tab.goto(`${base}/signature`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
+    const signature = await tab.evaluate('window.__signatureResult');
+    try {
+      assert(signature && signature.installed, 'jSignature guard was not installed before window load');
+      assert(signature.guardInstalledAtSpySetup === false && signature.guardWrapsSpy,
+        `plugin spy must be installed before the guard wraps it: ${JSON.stringify(signature)}`);
+      assert(signature.errors.length === 0, `jSignature fixture threw: ${signature.errors.join('; ')}`);
+      assert(signature.resetAfterEmpty === 1 && signature.setDataAfterEmpty === 0,
+        `empty base30 was not reset without decoding: ${JSON.stringify(signature)}`);
+      assert(signature.resetAfterNotReady === 2,
+        'empty data on an uninitialised pad should wait for its normal initialiser');
+      assert(signature.skipped === 3, `expected three empty base30 loads, got ${signature.skipped}`);
+      assert(JSON.stringify(signature.delegated) === JSON.stringify([
+        'data:image/jsignature;base30,0A_0A', 'data:text/jsignature-foo,',
+        'data:image/jsignature;base30, ', 'data:image/jsignature;base30,\t', 'data:image/jsignature;base30,\n',
+      ]), `populated, unsupported or malformed data did not reach the bundled plugin: ${JSON.stringify(signature.delegated)}`);
+      assert(JSON.stringify(signature.malformedRejected) === JSON.stringify([' ', '\t', '\n']),
+        `malformed signature failures were suppressed: ${JSON.stringify(signature.malformedRejected)}`);
+    } catch (error) {
+      failures.push(`jSignature compatibility: ${error.message}`);
+    }
+
+    await tab.goto(`${base}/signature-async`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
+    const asyncSignature = await tab.evaluate('window.__asyncSignatureResult');
+    try {
+      assert(asyncSignature && asyncSignature.absentAtReady === true,
+        'async fixture must load the real plugin after DOMContentLoaded');
+      assert(asyncSignature.wrappedBeforeBodyLoad && asyncSignature.skipped === 1,
+        `async signature was not guarded before body onload: ${JSON.stringify(asyncSignature)}`);
+      assert(asyncSignature.errors.length === 0 && asyncSignature.malformedRejected,
+        `async guard must skip exactly empty data and preserve malformed errors: ${JSON.stringify(asyncSignature)}`);
+    } catch (error) {
+      failures.push(`async jSignature compatibility: ${error.message}`);
+    }
+
+    for (const preloaded of [false, true]) {
+      const label = preloaded ? 'with preloaded jQuery' : 'without preloaded jQuery';
+      await tab.goto(`${base}/aliases-${preloaded ? 'with' : 'no'}-preload`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
+      const aliases = await tab.evaluate('window.__aliasesResult');
+      try {
+        assert(aliases && aliases.readyState === 'loading',
+          `${label}: aliases were not exercised by the immediate inline consumer`);
+        assert(aliases.size === 1 && aliases.dollarSize === 1 && aliases.hasErrorShortcut,
+          `${label}: legacy aliases missing after the form loaded jQuery: ${JSON.stringify(aliases)}`);
+        assert(aliases.replaced, `${label}: fixture did not replace the jQuery instance`);
+      } catch (error) {
+        failures.push(`jQuery aliases ${label}: ${error.message}`);
+      }
     }
   } finally {
     if (browser) {
@@ -208,8 +409,9 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log('PASS eForm runtime compatibility shim: synchronous delivery, aligned arrays, '
-    + 'listener delivery, and visible failure when no payload is embedded.');
+  console.log('PASS eForm runtime compatibility: synchronous delivery, aligned arrays, '
+    + 'visible missing-payload failure, bundled synchronous/async jSignature empty base30 handling, '
+    + 'and immediate jQuery aliases after replacement.');
 }
 
 main().catch((error) => {

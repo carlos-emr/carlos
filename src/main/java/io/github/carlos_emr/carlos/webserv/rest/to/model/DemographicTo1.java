@@ -71,6 +71,7 @@ public class DemographicTo1 implements Serializable {
     private Date rosterDate;
     private Date rosterTerminationDate;
     private String rosterTerminationReason;
+    private String rosterEnrolledTo;
     private String links;
     private String alias;
     private AddressTo1 previousAddress = new AddressTo1();
@@ -352,6 +353,27 @@ public class DemographicTo1 implements Serializable {
 
     public void setRosterTerminationReason(String rosterTerminationReason) {
         this.rosterTerminationReason = rosterTerminationReason;
+    }
+
+    /**
+     * Provider number ({@code demographic.roster_enrolled_to}) the patient is rostered/enrolled to.
+     * Exposed as the raw provider number, not a resolved provider object.
+     *
+     * @return the enrolled-to provider number, or {@code null} when the patient is not enrolled to
+     *         a provider (or the field was not supplied)
+     */
+    public String getRosterEnrolledTo() {
+        return rosterEnrolledTo;
+    }
+
+    /**
+     * Sets the provider number the patient is rostered/enrolled to. The value is stored as given:
+     * no provider lookup or validation happens here, and {@code null} is accepted and clears it.
+     *
+     * @param rosterEnrolledTo the enrolled-to provider number, or {@code null}
+     */
+    public void setRosterEnrolledTo(String rosterEnrolledTo) {
+        this.rosterEnrolledTo = rosterEnrolledTo;
     }
 
     public String getLinks() {

@@ -271,6 +271,9 @@ function parseMysqlBatchOutput(stdout) {
  * throws. 35 scripts each reimplemented a piece of this.
  */
 function createSqlRunner(mysqlConfig, options = {}) {
+  // Full schema/reference catalogs exceed Node's 1MiB default. Keep both captured
+  // streams bounded even when a catalog or query unexpectedly grows.
+  const maxBuffer = 8 * 1024 * 1024;
   const exec = options.exec || execFileSync;
   const host = validateMysqlHost(mysqlConfig.host, options.env || process.env);
   const { password } = mysqlConfig;
@@ -290,7 +293,7 @@ function createSqlRunner(mysqlConfig, options = {}) {
         '-u', mysqlConfig.user || 'root',
         mysqlConfig.database || 'carlos',
         '-N', '-B', '-e', query,
-      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, maxBuffer });
     } catch (error) {
       // CAPTURING stderr IS NOT ENOUGH. execFileSync folds the captured stderr
       // into the thrown error's own message, and runCheck() logs that message --
@@ -298,11 +301,15 @@ function createSqlRunner(mysqlConfig, options = {}) {
       // the query can carry a patient's name or a clinical note. Rethrow a
       // bounded reason instead: enough to tell a timeout from a refusal, and
       // nothing of the statement or the row.
-      const timedOut = error && (error.code === 'ETIMEDOUT' || error.signal === 'SIGTERM');
+      // Buffer overflow also terminates the child with SIGTERM. Classify its
+      // code first, and never infer a 30s timeout from the signal alone.
+      const outputLimit = error && (error.code === 'ENOBUFS' || error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER');
+      const timedOut = error && error.code === 'ETIMEDOUT';
       const status = error && typeof error.status === 'number' ? ` (mysql exit ${error.status})` : '';
-      const failure = new Error(timedOut
-        ? 'the database query timed out after 30s'
-        : `the database query failed${status}; its text and any rows it carried are withheld deliberately`);
+      const failure = new Error(outputLimit
+        ? 'the database query exceeded its 8MiB output limit; its text and any rows it carried are withheld deliberately'
+        : timedOut ? 'the database query timed out after 30s'
+          : `the database query failed${status}; its text and any rows it carried are withheld deliberately`);
       failure.cause = undefined;
       throw failure;
     }
@@ -815,8 +822,17 @@ async function launchBrowser(config) {
   return chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
 }
 
-async function newContext(browser, config) {
-  return browser.newContext({ ignoreHTTPSErrors: config.ignoreHTTPSErrors === true });
+/**
+ * A browser context for the application under test.
+ *
+ * `options` is merged over the defaults for the checks that need a context the
+ * default cannot express -- in particular a browser that asks for a language
+ * other than the runner's, which is how a locale check proves the server
+ * answers the BROWSER's Accept-Language rather than its own JVM locale. Callers
+ * that pass nothing get exactly the previous behaviour.
+ */
+async function newContext(browser, config, options = {}) {
+  return browser.newContext({ ...options, ignoreHTTPSErrors: config.ignoreHTTPSErrors === true });
 }
 
 async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {

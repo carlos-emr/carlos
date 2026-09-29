@@ -43,11 +43,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -78,7 +75,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>Key healthcare features include:</p>
  * <ul>
- *   <li>Duplicate lab version filtering based on accession numbers and date proximity</li>
+ *   <li>Status-preserving laboratory result pagination</li>
  *   <li>URL generation for different lab display types with proper encoding</li>
  *   <li>Category-based document counting for inbox organization</li>
  *   <li>Support for matched and unmatched patient records</li>
@@ -151,7 +148,7 @@ public class LabDataController {
      *
      * <p>Supported result types and their display destinations:</p>
      * <ul>
-     *   <li><b>MDS</b>: Routed to /SegmentDisplay.jsp for Medical Data Systems results</li>
+     *   <li><b>MDS</b>: Routed to /oscarMDS/ViewSegmentDisplay for Medical Data Systems results</li>
      *   <li><b>CML</b>: Routed to /lab/CA/ON/ViewCMLDisplay for Ontario CML lab results</li>
      *   <li><b>HL7 TEXT</b>: Routes based on discipline/category:
      *     <ul>
@@ -182,7 +179,7 @@ public class LabDataController {
             LabResultData labResult = results.get(i);
             //Setting inbox item type:
             if (labResult.isMDS()) {
-                url.append("/SegmentDisplay.jsp?");
+                url.append("/oscarMDS/ViewSegmentDisplay?");
             }
             else if (labResult.isCML()) {
                 url.append("/lab/CA/ON/ViewCMLDisplay?");
@@ -194,21 +191,28 @@ public class LabDataController {
                 }
                 else {
                     url.append("/lab/CA/ALL/ViewLabDisplay?inWindow=true");
-                    url.append("&showLatest=true");
+                    // Open the report represented by this row, including a filed older
+                    // version. Substituting another version breaks the row's identity
+                    // and can acknowledge a different report from the one selected.
+                    url.append("&showLatest=false");
                 }
             }
             else if (labResult.isDocument()) {
                 url.append("/documentManager/ViewShowDocument?inWindow=true");
             }
             else if (labResult.isHRM()) {
-                url.append("/hospitalReportManager/Display?");
+                // inWindow marks a report the INBOX opened, the same way the HL7 and document
+                // links above do. The HRM viewer closes itself after a sign-off only when it sees
+                // this: ticklers and the eChart open the very same route in a popup, and closing
+                // those would take away the revoke affordance they rely on.
+                url.append("/hospitalReportManager/Display?inWindow=true");
                 StringBuilder duplicateLabIds=new StringBuilder();
                 for (Integer duplicateLabId : labResult.getDuplicateLabIds())
                 {
                     if (duplicateLabIds.length()>0) duplicateLabIds.append(',');
                     duplicateLabIds.append(duplicateLabId);
                 }
-                url.append("duplicateLabIds=");
+                url.append("&duplicateLabIds=");
                 url.append(encodeURL(duplicateLabIds.toString()));
                 url.append("&id=");
                 url.append(encodeURL(labResult.getSegmentID()));
@@ -294,9 +298,8 @@ public class LabDataController {
      *
      * <p>Special processing for laboratory results:</p>
      * <ul>
-     *   <li>Uses increased page size (100) to reduce older lab versions in results</li>
-     *   <li>Applies duplicate lab version filtering based on accession numbers and date proximity</li>
-     *   <li>Filters out labs within 4 months of each other with matching accession numbers</li>
+     *   <li>Uses a laboratory page size of 100 results</li>
+     *   <li>Preserves all laboratory rows selected by the query, including version history</li>
      * </ul>
      *
      * <p>HRM-specific behavior:</p>
@@ -313,14 +316,14 @@ public class LabDataController {
      * @param query InboxhubQuery the query object containing all search parameters, filters, pagination
      *              settings, and type flags (lab, doc, hrm)
      * @return ArrayList&lt;LabResultData&gt; unified list of laboratory results, documents, and HRM records
-     *         matching the query criteria, with duplicate lab versions filtered and results from
+     *         matching the query criteria, with results from
      *         selected data sources combined
      */
     public ArrayList<LabResultData> getLabData(LoggedInInfo loggedInInfo, InboxhubQuery query) {
         Integer page = query.getPage() - 1;
         Integer pageSize = query.getPageSize();
 
-        // Increase page size to 100 to reduce older versions
+        // Retain the established laboratory page size independently of document pagination.
         Integer labPageSize = 100;
 
         //Whether to use the paging functionality. Currently setting this to false does not function and crashes the inbox.
@@ -341,7 +344,12 @@ public class LabDataController {
         if (query.getLab() || all) {
             List<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, query.getSearchProviderNo(), query.getDemographicNo(), query.getPatientFirstName(),
                                                 query.getPatientLastName(), query.getPatientHealthNumber(), query.getStatusFilter().getValue(), isPaged, page, labPageSize, mixLabsAndDocs, query.getAbnormalBool(), startDate, endDate);
-            labDocs.addAll(filterOldLabVersions(labs));
+            // Preserve the rows selected by the status-aware, paginated query. Collapsing
+            // accession numbers afterwards hid reports (even from different patients),
+            // made All disagree with New/Acknowledged/Filed, and disagreed with the
+            // database counts. Version history belongs in the lab viewer, not in a
+            // second lossy filter over one page of an already-filtered result set.
+            labDocs.addAll(labs);
         }
         if ((query.getHrm() || all) && (query.getAbnormalBool() == null || !query.getAbnormalBool())) {
             HRMResultsData hrmResult = new HRMResultsData();
@@ -543,74 +551,6 @@ public class LabDataController {
             MiscUtils.getLogger().error(e);
         }
         return encodedUrl;
-    }
-
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private List<LabResultData> filterOldLabVersions(List<LabResultData> labs) {
-        HashMap<String, LabResultData> labMap = new HashMap<>();
-
-        // Maps unique accession keys to a list of associated segment IDs
-        LinkedHashMap<String, ArrayList<String>> accessionMap = new LinkedHashMap<>();
-
-        // Counter to handle cases where accession numbers are missing
-        int accessionNumCount = 0;
-
-        for (LabResultData result : labs) {
-            String segmentId = result.getSegmentID();
-            labMap.put(segmentId, result);
-
-            String accessionKey;
-            ArrayList<String> labNums = new ArrayList<>();
-
-            if (Objects.isNull(result.accessionNumber) || result.accessionNumber.equalsIgnoreCase("null") || result.accessionNumber.isEmpty()) {
-                accessionNumCount++;
-                accessionKey = "noAccessionNum" + accessionNumCount + result.labType;
-                labNums.add(segmentId);
-                accessionMap.put(accessionKey, labNums);
-                continue;
-            }
-
-            accessionKey = result.accessionNumber + result.labType;
-            labNums = accessionMap.getOrDefault(accessionKey, new ArrayList<>());
-            
-            boolean isMatchFound = false;
-
-            // Compare the current lab result with existing ones in the same accession group
-            for (String labSegmentId : labNums) {
-                LabResultData matchingResult = labMap.get(labSegmentId);
-
-                LocalDate dateA = result.getDateObj().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-                LocalDate dateB = matchingResult.getDateObj().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-
-                // Calculate the difference in months between the two dates
-                long monthsBetween = (dateA == null || dateB == null) ? 5 : Math.abs(ChronoUnit.MONTHS.between(dateA, dateB));
-
-                // Skip if the difference in months is 4 or more
-                if (monthsBetween >= 4) { continue; }
-
-                // Mark a match as found and break the loop
-                isMatchFound = true;
-                break;
-            }
-
-            // Skip adding this result if a match is found
-            if (isMatchFound) { continue; }
-
-            labNums.add(segmentId);
-            accessionMap.put(accessionKey, labNums);
-        }
-
-        labs.clear();
-
-        // Collect filtered lab results based on the accessionMap
-        for (ArrayList<String> labNums : accessionMap.values()) {
-            for (int j = 0; j < labNums.size(); j++) {
-                labs.add(labMap.get(labNums.get(j)));
-            }
-        }
-
-        return labs;
     }
 
     /*

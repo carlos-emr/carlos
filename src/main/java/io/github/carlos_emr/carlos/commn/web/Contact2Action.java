@@ -228,6 +228,9 @@ public class Contact2Action extends ActionSupport {
         }
     }
 
+    // IMPROPER_UNICODE: "ajax" selects the response shape for the caller's own postMethod flag;
+    // it is an internal domain value, not identity or authorization.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String saveManagedContacts() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 

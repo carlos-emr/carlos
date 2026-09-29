@@ -833,13 +833,24 @@ public class NioFileManagerImpl implements NioFileManager {
 
         try {
             file = PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile()).toPath();
-        } catch (SecurityException e) {
-            throw new SecurityException("File can only be created in temporary directory.");
+            // Streamed, so the document's size never lands on the heap.
+            Files.copy(source, file, StandardCopyOption.REPLACE_EXISTING);
+            return file;
+        } catch (IOException | RuntimeException failure) {
+            // Files.copy may have created a partial document before failing. The caller has no
+            // path to clean up when this method throws, so remove both artifacts here.
+            try {
+                Files.deleteIfExists(file);
+            } catch (IOException | RuntimeException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            try {
+                Files.deleteIfExists(directory);
+            } catch (IOException | RuntimeException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            throw failure;
         }
-
-        // Streamed, so the document's size never lands on the heap.
-        Files.copy(source, file, StandardCopyOption.REPLACE_EXISTING);
-        return file;
     }
 
     /**

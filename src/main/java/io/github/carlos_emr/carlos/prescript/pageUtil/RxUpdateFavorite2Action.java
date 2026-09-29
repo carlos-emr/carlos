@@ -60,17 +60,26 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
             throws IOException, ServletException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
+        // The Edit Favorites link opens this route without edit parameters. Preserve
+        // that read-only navigation while rejecting all safe-method save attempts.
+        if (("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))
+                && getFavoriteId() == null && request.getParameter("favoriteId") == null
+                && request.getParameter("method") == null) {
+            return SUCCESS;
         }
 
         if ("ajaxEditFavorite".equals(request.getParameter("method"))) {
             return ajaxEditFavorite();
         }
 
-        // Setup variables
-        int favId = Integer.parseInt(this.getFavoriteId());
+        if (!requirePost()) return NONE;
 
-        RxPrescriptionData.Favorite fav = new RxPrescriptionData().getFavorite(favId);
+        // Setup variables
+        RxPrescriptionData.Favorite fav = findFavorite(this.getFavoriteId());
+        if (fav == null) return NONE;
 
         fav.setFavoriteName(this.getFavoriteName());
         fav.setCustomName(this.getCustomName());
@@ -93,15 +102,16 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public String ajaxEditFavorite() {
+    public String ajaxEditFavorite() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
-        // Setup variables
-        int favId = Integer.parseInt(request.getParameter("favoriteId"));
+        if (!requirePost()) return NONE;
 
-        RxPrescriptionData.Favorite fav = new RxPrescriptionData().getFavorite(favId);
+        // Setup variables
+        RxPrescriptionData.Favorite fav = findFavorite(request.getParameter("favoriteId"));
+        if (fav == null) return NONE;
         String favName = request.getParameter("favoriteName");
         String customName = request.getParameter("customName");
         String takeMin = request.getParameter("takeMin");
@@ -138,15 +148,53 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         else
             fav.setCustomInstr(false);
 
-        if (request.getParameter("dispenseInternal") != null && request.getParameter("dispenseInternal").length() > 0) {
-            fav.setDispenseInternal(true);
+        // The editor has no dispensing control. Omission preserves the saved flag;
+        // clients explicitly sending false must be able to clear it.
+        if (request.getParameter("dispenseInternal") != null) {
+            fav.setDispenseInternal("true".equalsIgnoreCase(request.getParameter("dispenseInternal")));
         }
 
         fav.Save();
 
-        return null;
+        // This AJAX endpoint has no representation. An explicit no-content
+        // response completes the fetch without an unread, empty 200 stream.
+        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        return NONE;
     }
 
+    /** Refuse safe-method edits before loading or changing a favorite. */
+    private boolean requirePost() {
+        if ("POST".equals(request.getMethod())) return true;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
+    }
+
+    /** Resolve a positive favorite identity before applying any submitted fields. */
+    private RxPrescriptionData.Favorite findFavorite(String rawId) throws IOException {
+        int id;
+        try {
+            id = Integer.parseInt(rawId);
+            if (id <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException invalidId) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid prescription favorite identifier");
+            return null;
+        }
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription session is unavailable");
+            return null;
+        }
+        RxPrescriptionData.Favorite favorite = new RxPrescriptionData().getFavorite(id);
+        // The editor lists the current prescribing provider's favorites. Sharing copies
+        // favorites into that list; it never grants permission to edit another provider's row.
+        if (favorite == null || bean.getProviderNo() == null
+                || !bean.getProviderNo().equals(favorite.getProviderNo())) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription favorite is unavailable");
+            return null;
+        }
+        return favorite;
+    }
 
     private String favoriteId = null;
     private String favoriteName = null;

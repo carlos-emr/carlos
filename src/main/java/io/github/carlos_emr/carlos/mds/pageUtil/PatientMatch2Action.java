@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
 
 import org.owasp.encoder.Encode;
 
@@ -55,7 +55,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>Invoked after {@code SearchPatient2Action} resolves (or the user manually
  * selects) a demographic match for an MDS lab. Updates the lab-to-demographic
- * routing via {@code CommonLabResultData.updatePatientLabRouting(...)} then
+ * routing and MRP access atomically via {@link MrpRoutingService#matchPatientLab} then
  * redirects to {@code /oscarMDS/ViewOpenEChart} (the {@code _lab r} gate
  * for {@code OpenEChart.jsp}) rather than self-redirecting.
  *
@@ -66,9 +66,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>{@code labType} — lab result type (e.g. {@code HL7})</li>
  * </ul>
  *
- * <p>Security: requires {@code _lab} write privilege; throws {@code SecurityException}
- * on failure. All user-provided URL components are encoded via
- * {@link org.owasp.encoder.Encode#forUriComponent(String)}.
+ * <p>When the clinic has Provider Linking Rules turned on, the lab (every version of it) is also
+ * routed to the patient's Most Responsible Provider; see {@link MrpRoutingService}.
+ *
+ * <p>Security: POST only (GET and HEAD answer 405 before anything else runs), then {@code _lab}
+ * write privilege; throws {@code SecurityException} on failure. All user-provided URL components
+ * are encoded via {@link org.owasp.encoder.Encode#forUriComponent(String)}.
  *
  * @since 2004-02-04
  */
@@ -79,7 +82,15 @@ public class PatientMatch2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // transient: ActionSupport implements Serializable; Spring-managed beans are not serializable.
+    private final transient MrpRoutingService mrpRoutingService;
+
     public PatientMatch2Action() {
+        this(SpringUtils.getBean(MrpRoutingService.class));
+    }
+
+    PatientMatch2Action(MrpRoutingService mrpRoutingService) {
+        this.mrpRoutingService = mrpRoutingService;
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
@@ -87,7 +98,16 @@ public class PatientMatch2Action extends ActionSupport {
     public String execute()
             throws ServletException, IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
+        // Matching rewrites the lab's patient routing (and may route it to the MRP), so a crafted
+        // link must not reach it: CSRFGuard does not protect GET. The only caller posts.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
@@ -98,15 +118,22 @@ public class PatientMatch2Action extends ActionSupport {
         String newURL;
 
         try {
-            CommonLabResultData.updatePatientLabRouting(labNo, demographicNo, labType);
+            mrpRoutingService.matchPatientLab(labNo, labType, Integer.valueOf(demographicNo == null ? "" : demographicNo.trim()),
+                    loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
             newURL = request.getContextPath() + "/oscarMDS/ViewOpenEChart"
                     + "?demographicNo=" + Encode.forUriComponent(demographicNo == null ? "" : demographicNo);
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         } catch (Exception e) {
             MiscUtils.getLogger().error("exception in PatientMatch2Action", e);
-            newURL = request.getContextPath() + "/errorpage";
+            // The popup uses fetch(response.ok); redirecting to a 200 error page falsely closes it.
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         response.sendRedirect(newURL);
         return NONE;
     }
+
 }

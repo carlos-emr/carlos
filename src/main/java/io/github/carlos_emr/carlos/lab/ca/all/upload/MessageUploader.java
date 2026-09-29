@@ -44,7 +44,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.regex.Pattern;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -62,6 +61,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
+import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -274,7 +274,8 @@ public final class MessageUploader {
         }
 
         try (Connection connection = LegacyJdbcQuery.getConnection()) {
-            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
+            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength,
+                    loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
         }
         retVal = h.audit();
         if (results != null) {
@@ -345,14 +346,14 @@ public final class MessageUploader {
 
     // Allowed column names for provider search to prevent SQL injection
     private static final java.util.Set<String> VALID_SEARCH_COLUMNS = java.util.Set.of(
-            "ohip_no", "provider_no", "last_name", "first_name", "practitioner_no");
+            "ohip_no", "provider_no", "last_name", "first_name", "practitionerno", "hso_no");
 
     /**
      * Attempt to match the doctors from the lab to a providers
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength) throws Exception {
+    private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength, String uploaderProviderNo) throws Exception {
         // Using HashSet to avoid duplicate providers numbers
         LinkedHashSet<String> providerNums = new LinkedHashSet<>();
         PreparedStatement pstmt;
@@ -418,16 +419,45 @@ public final class MessageUploader {
         }
 
 
-        ProviderLabRouting routing = new ProviderLabRouting();
-        if (providerNums.size() > 0) {
+        routeToProviders(labId, providerNums, altProviderNo, new ProviderLabRouting(),
+                SpringUtils.getBean(MrpRoutingService.class), uploaderProviderNo);
+    }
+
+    /**
+     * Routes an uploaded HL7 lab to the providers matched from the message.
+     *
+     * <p>When nothing in the message matched a provider, the lab goes to the matched patient's
+     * MRP ({@code altProviderNo}), or to the unassigned inbox ({@code 0}) when no patient matched
+     * either. When providers did match and the clinic has Provider Linking Rules on, the lab goes
+     * to the MRP as well, so the family physician sees a result a specialist or locum ordered.
+     * The router is idempotent and applies each recipient's forwarding rules.</p>
+     *
+     * @param labId the uploaded lab segment
+     * @param providerNums providers matched from the message, in match order
+     * @param altProviderNo the matched patient's MRP, or {@code 0} / {@code null}
+     * @param routing the lab router
+     * @param mrpRouting the Provider Linking Rules decision
+     * @param uploaderProviderNo the uploading provider for the audit log, or {@code null}
+     * @throws SQLException if a lab identifier is not numeric
+     */
+    static void routeToProviders(String labId, Set<String> providerNums, String altProviderNo,
+                                 ProviderLabRouting routing, MrpRoutingService mrpRouting,
+                                 String uploaderProviderNo) throws SQLException {
+        if (!providerNums.isEmpty()) {
             for (String provider_no : providerNums) {
-                routing.route(labId, provider_no, conn, "HL7");
+                routing.route(labId, provider_no, "HL7");
+            }
+            if (mrpRouting.shouldRouteUploadToMrp(altProviderNo)) {
+                String mrp = altProviderNo.trim();
+                // An MRP who ordered the test was routed above; this is not a linking-rule routing.
+                if (!providerNums.contains(mrp)) {
+                    mrpRouting.routeUploadedLabToMrp(labId, uploaderProviderNo);
+                }
             }
         } else {
-            if (altProviderNo != null && !altProviderNo.equals("0")) {
-                routing.route(labId, altProviderNo, conn, "HL7");
-            } else {
-                routing.route(labId, "0", conn, "HL7");
+            if (altProviderNo == null || "0".equals(altProviderNo)
+                    || !mrpRouting.routeUploadedFallbackToMrp(labId, uploaderProviderNo)) {
+                routing.route(labId, "0", "HL7");
             }
         }
     }
@@ -436,7 +466,7 @@ public final class MessageUploader {
      * Attempt to match the doctors from the lab to a providers
      */
     private static void providerRouteReport(String labId, ArrayList docNums, Connection conn, String altProviderNo, String labType) throws Exception {
-        providerRouteReport(labId, docNums, conn, altProviderNo, labType, null, null, false);
+        providerRouteReport(labId, docNums, conn, altProviderNo, labType, null, null, false, null);
     }
 
 
@@ -727,35 +757,26 @@ public final class MessageUploader {
      * String arrays are delineated with a pipe |
      */
     public static String mergeLabLabels(List<Hl7TextInfo> currentLabs, String incoming) {
-        // If a past lab with the same AccessionNumber exist carry over the label
-        String mergedLabel = StringUtils.trimToEmpty(incoming);
-        if (currentLabs == null) {
-            currentLabs = Collections.emptyList();
-        }
-        for (Hl7TextInfo matchingLab : currentLabs) {
-            String currentLabel = matchingLab.getLabel();
-            // if the lab has an entered label to carry over
-            if (!StringUtils.isBlank(currentLabel) && !StringUtils.isBlank(mergedLabel)) {
-                // compare labels and eliminate duplicates.
-                String[] labelArray = mergedLabel.split("\\s?\\|\\s?");
-                for (String labelItem : labelArray) {
-                    if (!labelItem.isEmpty()) {
-                        String regex = Pattern.quote(labelItem) + "\\s?\\|?\\s?";
-                        currentLabel = currentLabel.replaceAll(regex, "");
-                    }
-                }
-                currentLabel = StringUtils.trimToEmpty(currentLabel);
-
-                if (!currentLabel.isEmpty()) {
-                    mergedLabel = currentLabel + " | " + mergedLabel;
-                }
-
-                if (mergedLabel.startsWith("|")) {
-                    mergedLabel = mergedLabel.substring(1);
-                    mergedLabel = mergedLabel.trim();
-                }
+        LinkedHashSet<String> merged = labelTokens(incoming);
+        if (currentLabs != null) {
+            for (Hl7TextInfo matchingLab : currentLabs) {
+                LinkedHashSet<String> previous = labelTokens(matchingLab.getLabel());
+                // Compare whole panel/manual label tokens, never substrings (ALT is not SALT).
+                // Preserve the existing ordering: carried labels precede the incoming label.
+                previous.removeAll(merged);
+                previous.addAll(merged);
+                merged = previous;
             }
         }
-        return mergedLabel;
+        return String.join(" | ", merged);
+    }
+
+    private static LinkedHashSet<String> labelTokens(String label) {
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        for (String token : StringUtils.trimToEmpty(label).split("\\|")) {
+            String trimmed = token.trim();
+            if (!trimmed.isEmpty()) tokens.add(trimmed);
+        }
+        return tokens;
     }
 }

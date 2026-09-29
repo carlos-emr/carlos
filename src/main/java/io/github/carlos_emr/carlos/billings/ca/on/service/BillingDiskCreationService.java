@@ -323,35 +323,44 @@ public class BillingDiskCreationService {
 
     public int updateBatchHeader(BillingProviderDto providerData, String disk_id, String moh_office, String seqNum,
                                  String creator) {
-        boolean ret = false;
-        BillingBatchHeaderDto obj = diskQuery.getBatchHeaderObj(providerData, disk_id);
-        claimPersister.addRepoBatchHeader(obj);
-        obj.setDiskId(disk_id);
-        obj.setTranscId(BillingOnConstants.BATCHHEADER_TRANSACTIONIDENTIFIER);
-        obj.setRecId(BillingOnConstants.BATCHHEADER_REORDIDENTIFICATION);
-        obj.setSpecId(BillingOnConstants.BATCHHEADER_SPECID);
-        obj.setMohOffice(moh_office);
+        PreparedBatchHeader prepared = prepareBatchHeader(providerData, disk_id, moh_office, seqNum, creator);
+        finalizeBatchHeader(prepared);
+        return Integer.parseInt(prepared.replacement().getId());
+    }
 
+    /** Keeps the prior audit value separate from the replacement rendered into the file. */
+    public record PreparedBatchHeader(BillingBatchHeaderDto original, BillingBatchHeaderDto replacement) { }
+
+    /** Prepares regeneration metadata without changing the database before rendering succeeds. */
+    @Transactional(readOnly = true)
+    public PreparedBatchHeader prepareBatchHeader(BillingProviderDto providerData, String disk_id,
+                                                   String moh_office, String seqNum, String creator) {
+        BillingBatchHeaderDto original = diskQuery.getBatchHeaderObj(providerData, disk_id);
+        if (original.getId() == null || original.getId().isBlank()) {
+            throw new BillingValidationException("Cannot regenerate a missing batch header");
+        }
+        BillingBatchHeaderDto obj = new BillingBatchHeaderDto();
+        org.springframework.beans.BeanUtils.copyProperties(original, obj);
+        // Preserve the stored batch identity and counts; the persister updates
+        // only the operator-editable fields, so the rendered DTO must match it.
+        obj.setMohOffice(moh_office);
         String batchid = UtilDateUtilities.getToday("yyyyMMdd") + getDefaultRightJust("0", 4, seqNum);
         obj.setBatchId(batchid);
-        obj.setOperator("");
-        obj.setGroupNum(providerData.getBillingGroupNo());
-        obj.setProviderRegNum(providerData.getOhipNo());
         obj.setSpecialty(providerData.getSpecialtyCode());
-        obj.setHCount("");
-        obj.setRCount("");
-        obj.setTCount("");
-        obj.setBatchDate(UtilDateUtilities.getToday("yyyy-MM-dd"));
-
         String strDateTime = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
-        // obj.setCreatedatetime(strDateTime);
         obj.setUpdatedatetime(strDateTime);
         obj.setCreator(creator);
         obj.setAction(BillingOnConstants.BILLINGACTION_UPDATE);
         obj.setComment("");
-        ret = claimPersister.updateBatchHeaderRecord(obj);
-        int retval = ret ? Integer.parseInt(obj.getId()) : 0;
-        return retval;
+        return new PreparedBatchHeader(original, obj);
+    }
+
+    /** Persists the prepared metadata and its audit record inside disk finalization's transaction. */
+    public void finalizeBatchHeader(PreparedBatchHeader prepared) {
+        claimPersister.addRepoBatchHeader(prepared.original());
+        if (!claimPersister.updateBatchHeaderRecord(prepared.replacement())) {
+            throw new BillingValidationException("Could not finalize regenerated batch metadata");
+        }
     }
 
     private ArrayList getSoloHtmlfilename(String ohipNo, String monthCode, String batchNum) {

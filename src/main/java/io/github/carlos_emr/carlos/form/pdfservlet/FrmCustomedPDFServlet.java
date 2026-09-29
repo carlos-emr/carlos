@@ -78,7 +78,6 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -116,6 +115,15 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final String TELEPHONE_LABEL = "RxPreview.msgTel";
+    /** Distance from the page top to the patient heading's top edge. */
+    private static final float PATIENT_HEADER_TOP_OFFSET = 110f;
+    /** Historical distance from the page top to the narrow-page pharmacy block. */
+    private static final float NARROW_PHARMACY_TOP_OFFSET = 170f;
+    /** Vertical clearance kept between the patient heading and a displaced pharmacy block. */
+    private static final float NARROW_PHARMACY_GAP = 5f;
+    /** Prescription body top margin when no narrow-page pharmacy block is reserved. */
+    private static final float DEFAULT_BODY_TOP_MARGIN = 185f;
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
@@ -671,6 +679,103 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return LocaleUtils.getMessage(locale, tag);
         }
 
+        /** Build a wrapping pharmacy block, reserving its height above the drugs on narrow paper. */
+        private PdfPTable createPharmacyTable(Rectangle page) throws DocumentException, IOException {
+            BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            List<String> pharmacy = new ArrayList<>();
+            pharmacy.add("ATTENTION:");
+            pharmacy.add(pharmacyInfo.getName());
+            pharmacy.add(pharmacyInfo.getAddress());
+            pharmacy.add(java.util.stream.Stream.of(pharmacyInfo.getCity(), pharmacyInfo.getProvince(), pharmacyInfo.getPostalCode())
+                    .filter(java.util.Objects::nonNull).map(String::trim).filter(value -> !value.isEmpty())
+                    .collect(java.util.stream.Collectors.joining(", ")));
+            // Both numbers, under the same localized label as the clinic's phone, and only
+            // when one is on file: the bare getPhone1() line dropped phone2 and wrote a null
+            // item for a pharmacy without phone1 (issue #3974).
+            String pharmacyPhone = RxPharmacyData.composePharmacyPhone(pharmacyInfo);
+            if (!pharmacyPhone.isEmpty()) {
+                pharmacy.add(geti18nTagValue(locale, TELEPHONE_LABEL) + ": " + pharmacyPhone);
+            }
+            pharmacy.add(pharmacyInfo.getFax());
+            PdfPTable pharmacyTable = new PdfPTable(1);
+            pharmacyTable.setTotalWidth(page.getWidth() < 400f ? 272f : page.getWidth() - 313f);
+            for (String pharmacyItem : pharmacy) {
+                // An absent field is skipped rather than handed to showTextAligned as null;
+                // the block moves up a line, it never prints "null".
+                if (pharmacyItem != null && !pharmacyItem.isBlank()) {
+                    PdfPCell pharmacyCell = new PdfPCell(new Phrase(pharmacyItem, new Font(bf, 10)));
+                    pharmacyCell.setBorder(0);
+                    pharmacyCell.setPadding(0);
+                    pharmacyCell.setLeading(11f, 0);
+                    pharmacyTable.addCell(pharmacyCell);
+                }
+            }
+            return pharmacyTable;
+        }
+
+        /**
+         * Builds the patient heading (Rx date, name, DOB, address, phone, HIN, chart number)
+         * at its rendered 272-point width, so its height can be measured before it is drawn.
+         */
+        private PdfPTable createPatientHeadingTable() throws DocumentException, IOException {
+            BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            String newline = System.getProperty("line.separator");
+            boolean showPatientDOB = (this.patientDOB != null && this.patientDOB.length() > 0);
+
+            PdfPTable patientHeadingTable = new PdfPTable(1);
+
+            // Rx date at top right, over the patient heading.
+            PdfPCell dateCell = new PdfPCell(new Phrase(this.rxDate, new Font(bfBold, 10)));
+            dateCell.setBorder(0);
+            dateCell.setHorizontalAlignment(PdfContentByte.ALIGN_RIGHT);
+            patientHeadingTable.addCell(dateCell);
+
+            StringBuilder patientHeading = new StringBuilder(this.patientName);
+            if (showPatientDOB) {
+                patientHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgDOB")).append(": ").append(this.patientDOB);
+            }
+            patientHeading.append(newline).append(this.patientAddress).append(newline).append(this.patientCityPostal).append(newline).append(this.patientPhone);
+
+            if (patientHIN != null && patientHIN.trim().length() > 0) {
+                patientHeading.append(newline).append(geti18nTagValue(locale, "io.github.carlos_emr.carlos.rx.hin")).append(" ").append(patientHIN);
+            }
+
+            if (patientChartNo != null && !patientChartNo.isEmpty()) {
+                String chartNoTitle = geti18nTagValue(locale, "io.github.carlos_emr.carlos.rx.chartNo");
+                patientHeading.append(newline).append(chartNoTitle).append(patientChartNo);
+            }
+
+            patientHeadingTable.addCell(new Phrase(patientHeading.toString(), new Font(bf, 10)));
+            patientHeadingTable.setTotalWidth(272f);
+            return patientHeadingTable;
+        }
+
+        /**
+         * Distance from the page top to the narrow-page pharmacy block. The block keeps its
+         * historical 170-point position unless the measured patient heading (which starts at
+         * {@code PATIENT_HEADER_TOP_OFFSET}) reaches further down; then it moves below the
+         * heading so the two never overlap.
+         */
+        private float narrowPharmacyTopOffset() throws DocumentException, IOException {
+            float patientBottom = PATIENT_HEADER_TOP_OFFSET + createPatientHeadingTable().getTotalHeight();
+            return Math.max(NARROW_PHARMACY_TOP_OFFSET, patientBottom + NARROW_PHARMACY_GAP);
+        }
+
+        /**
+         * Top margin for the prescription body. Wide pages keep the fixed default; on A6 and
+         * half-letter the pharmacy sits below the patient heading, so the body starts beneath
+         * the pharmacy block's measured bottom.
+         */
+        private float bodyTopMargin(Rectangle page) throws DocumentException, IOException {
+            if (pharmacyInfo == null || page.getWidth() >= 400f) {
+                return DEFAULT_BODY_TOP_MARGIN;
+            }
+            // Same clearance below the pharmacy as the historical 185/170 pair left.
+            return narrowPharmacyTopOffset() + createPharmacyTable(page).getTotalHeight()
+                    + (DEFAULT_BODY_TOP_MARGIN - NARROW_PHARMACY_TOP_OFFSET);
+        }
+
         /**
          * Renders the prescription page frame: prescriber info, patient demographics,
          * border lines, signature block, and fax disclaimer. Draws all content using
@@ -679,13 +784,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         public void renderPage(PdfWriter writer, Document document) {
             Rectangle page = document.getPageSize();
             float height = page.getHeight();
-            boolean showPatientDOB = (this.patientDOB != null && this.patientDOB.length() > 0);
             PdfContentByte cb = writer.getDirectContent();
             String newline = System.getProperty("line.separator");
 
             try {
                 BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-                BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
 
                 /*
                  *  Create the special CARLOS Rx logo at the top
@@ -701,17 +804,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                  * put the Pharmacy info at the top offset next to the prescribers name
                  */
                 if (this.pharmacyInfo != null) {
-                    List<String> pharmacy = new ArrayList<>();
-                    pharmacy.add("ATTENTION:");
-                    pharmacy.add(pharmacyInfo.getName());
-                    pharmacy.add(pharmacyInfo.getAddress());
-                    pharmacy.add(pharmacyInfo.getCity() + ", " + pharmacyInfo.getProvince() + ", " + pharmacyInfo.getPostalCode());
-                    pharmacy.add(pharmacyInfo.getPhone1());
-                    pharmacy.add(pharmacyInfo.getFax());
-                    float position = height - 26f;
-                    for (String pharmacyItem : pharmacy) {
-                        writeDirectContent(cb, bf, 10, PdfContentByte.ALIGN_LEFT, pharmacyItem, 300, position, 0);
-                        position -= 11f;
+                    PdfPTable pharmacyTable = createPharmacyTable(page);
+                    if (page.getWidth() < 400f) {
+                        pharmacyTable.writeSelectedRows(0, -1, 15, height - narrowPharmacyTopOffset(), cb);
+                    } else {
+                        pharmacyTable.writeSelectedRows(0, -1, 300, height - 16f, cb);
                     }
                 }
 
@@ -755,7 +852,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
                 // render clnicaTel;
                 if (this.clinicTel != null && !this.clinicTel.isEmpty()) {
-                    prescriberHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgTel")).append(": ").append(this.clinicTel);
+                    prescriberHeading.append(newline).append(geti18nTagValue(locale, TELEPHONE_LABEL)).append(": ").append(this.clinicTel);
                 }
                 if (this.clinicFax != null && !this.clinicFax.isEmpty()) {
                     prescriberHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgFax")).append(": ").append(this.clinicFax);
@@ -765,40 +862,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 prescriberHeadingTable.addCell(cell);
                 prescriberHeadingTable.writeSelectedRows(0, -1, 80f, height - 13f, cb);
 
-                /*
-                 * Create the patient information heading
-                 * Patient name
-                 * Address
-                 * City, Province, Postal
-                 * Phone
-                 * PHN and or DOB
-                 */
-                PdfPTable patientHeadingTable = new PdfPTable(1);
-
-                // Rx date at top right, over the patient heading.
-                PdfPCell dateCell = new PdfPCell(new Phrase(this.rxDate, new Font(bfBold, 10)));
-                dateCell.setBorder(0);
-                dateCell.setHorizontalAlignment(PdfContentByte.ALIGN_RIGHT);
-                patientHeadingTable.addCell(dateCell);
-
-                StringBuilder patientHeading = new StringBuilder(this.patientName);
-                if (showPatientDOB) {
-                    patientHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgDOB")).append(": ").append(this.patientDOB);
-                }
-                patientHeading.append(newline).append(this.patientAddress).append(newline).append(this.patientCityPostal).append(newline).append(this.patientPhone);
-
-                if (patientHIN != null && patientHIN.trim().length() > 0) {
-                    patientHeading.append(newline).append(geti18nTagValue(locale, "io.github.carlos_emr.carlos.rx.hin")).append(" ").append(patientHIN);
-                }
-
-                if (patientChartNo != null && !patientChartNo.isEmpty()) {
-                    String chartNoTitle = geti18nTagValue(locale, "io.github.carlos_emr.carlos.rx.chartNo");
-                    patientHeading.append(newline).append(chartNoTitle).append(patientChartNo);
-                }
-
-                patientHeadingTable.addCell(new Phrase(patientHeading.toString(), new Font(bf, 10)));
-                patientHeadingTable.setTotalWidth(272f);
-                patientHeadingTable.writeSelectedRows(0, -1, 13f, height - 110f, cb);
+                PdfPTable patientHeadingTable = createPatientHeadingTable();
+                patientHeadingTable.writeSelectedRows(0, -1, 13f, height - PATIENT_HEADER_TOP_OFFSET, cb);
                 patientHeadingTable.setSpacingAfter(10f);
 
                 /*
@@ -973,7 +1038,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             }
         }
         if (recordLines.isEmpty()) {
-            logger.warn("Refusing to fax prescription {}: its record has no drug lines", LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.warn("Refusing to fax prescription: its record has no drug lines");
             return null;
         }
 
@@ -995,8 +1060,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         if (!remaining.isEmpty() || ordered.size() != requestBlocks.size()) {
             // Anything but an exact reordering of the record is discarded wholesale: the fax is the
             // record in the record's own order, never a partially request-shaped body.
-            logger.warn("Fax body for prescription {} did not match its record; faxing the record instead",
-                    LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.warn("Fax body did not match its prescription record; faxing the record instead");
             ordered = new ArrayList<>(recordLines);
         }
         StringBuilder body = new StringBuilder();
@@ -1118,16 +1182,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // the main clinic bound above.
         String offeredBlock = null;
         if (RxSatelliteClinicAddress.clinicPart(req.getParameter("scAddress")) != null) {
-            String tel = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel"));
-            String fax = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgFax"));
+            String tel = SafeEncode.forHtml(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(req), TELEPHONE_LABEL));
+            String fax = SafeEncode.forHtml(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(req), "RxPreview.msgFax"));
             // A covering provider may legitimately refax this stored prescription. The callback
             // header still belongs to the persisted prescriber whose name and signature are on the
             // document, never to the covering provider who happened to open the fax dialog.
             offeredBlock = RxSatelliteClinicAddress.offeredBlock(
                     RxSatelliteClinicAddress.blocksFor(prescriber, tel, fax), req.getParameter("scAddress"));
             if (offeredBlock == null) {
-                logger.warn("Fax for prescription {} named a satellite clinic block its prescriber is not offered; using the main clinic header",
-                        LogSafe.sanitize(String.valueOf(prescription.getId())));
+                logger.warn("Fax named a satellite clinic block its prescriber is not offered; using the main clinic header");
             }
         }
         // Render the original encoded OFFERED block, not the request's copy: the parser
@@ -1204,8 +1267,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return false;
         }
         if (demographic == null) {
-            logger.warn("Refusing to fax prescription for demographic {}: its demographic row is missing",
-                    LogSafe.sanitize(String.valueOf(demographicId)));
+            logger.warn("Refusing to fax prescription: its demographic row is missing");
             return false;
         }
         String first = demographic.getFirstName() == null ? "" : demographic.getFirstName();
@@ -1221,7 +1283,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         bound.put("patientAddress", demographic.getAddress() == null ? "" : demographic.getAddress());
         bound.put("patientCityPostal", formatCityPostal(city, province, postal));
         bound.put("patientHIN", demographic.getHin() == null ? "" : demographic.getHin());
-        bound.put("patientPhone", LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel") + ": " + phone);
+        bound.put("patientPhone", LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(req), TELEPHONE_LABEL) + ": " + phone);
         return true;
     }
 
@@ -1512,8 +1574,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             authorized = false;
         }
         if (!authorized) {
-            logger.debug("Denied signature render for prescription {}: caller lacks _rx {} for its patient",
-                    LogSafe.sanitize(String.valueOf(scriptNo)), requiredRight);
+            logger.debug("Denied prescription signature render: caller lacks _rx {} for its patient", requiredRight);
             return null;
         }
         // The caller-supplied demographic_no is validation input only; the fax branch stamps the
@@ -1526,8 +1587,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 ? (requestDemographic <= 0 || demographicId.intValue() != requestDemographic)
                 : (requestDemographic > 0 && demographicId.intValue() != requestDemographic);
         if (badDemographic) {
-            logger.debug("Denied signature render for prescription {}: demographic_no missing or does not match its patient",
-                    LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.debug("Denied prescription signature render: demographic_no missing or does not match its patient");
             return null;
         }
 
@@ -1581,7 +1641,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 || !metadata.getDemographicId().equals(demographicId)
                 || prescribingProviderNo == null || prescribingProviderNo.isBlank()
                 || !prescribingProviderNo.equals(metadata.getProviderNo())) {
-            logger.debug("Stored signature does not belong to prescription {}; not rendering it", LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.debug("Stored signature does not belong to the prescription; not rendering it");
             return null;
         }
         DigitalSignature signature = digitalSignatureManager.getDigitalSignature(signatureId);
@@ -1592,8 +1652,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // "signed" gate here and then be dropped silently in EndPage, sending a fax reported as
         // signed with a blank signature line. Treat undecodable bytes as no signature at all.
         if (!isRenderableImage(signature.getSignatureImage())) {
-            logger.warn("Stored signature {} for prescription {} is not a readable image; treating the script as unsigned",
-                    LogSafe.sanitize(String.valueOf(signatureId)), LogSafe.sanitize(String.valueOf(scriptNo)));
+            logger.warn("Stored prescription signature is not a readable image; treating the script as unsigned");
             return null;
         }
         return signature.getSignatureImage();
@@ -1660,7 +1719,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String patientHIN = req.getParameter("patientHIN");
         String patientChartNo = req.getParameter("patientChartNo");
         String pracNo = req.getParameter("pracNo");
-        Locale locale = req.getLocale();
+        Locale locale = LocaleUtils.resolveBundleLocale(req);
         String billingNumber = req.getParameter("billingNumber");
         String pharmacyInfo = req.getParameter("pharmacyInfo");
         String title = req.getParameter("__title") != null ? req.getParameter("__title") : "Unknown";
@@ -1709,11 +1768,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
         document.setPageSize(pageSize);
 
-        // 285=left margin+width of box, 5f is space for looking nice
-        // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
-        document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
-
-        writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, signatureImage, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
+        EndPage pageHeader = new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal,
+                patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint,
+                signatureImage, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo);
+        // The prescription body is 270 points wide; narrow paper places the pharmacy below
+        // the patient header instead of outside the page, and reserves that block's full height.
+        document.setMargins(15, pageSize.getWidth() - 285f + 5f,
+                pageHeader.bodyTopMargin(pageSize), 60);
+        writer.setPageEvent(pageHeader);
         document.addTitle(title);
         document.addSubject("");
         document.addKeywords("pdf");
