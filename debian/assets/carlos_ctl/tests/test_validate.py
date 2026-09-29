@@ -4,9 +4,13 @@
 import contextlib
 import io
 import subprocess
+import types
 import unittest
 from unittest.mock import patch
 from carlos_ctl import validate
+
+# The IPv4 wildcard as test input: a CARLOS_BIND_IP value. No test binds a socket.
+WILDCARD_IPV4 = "0.0.0.0"  # nosec B104
 
 
 class TestProcessOwnership(unittest.TestCase):
@@ -96,7 +100,7 @@ class TestFrontDoorListeners(unittest.TestCase):
 
     def test_a_stale_wildcard_is_not_the_configured_address(self):
         found = self.listeners(self._ss("0.0.0.0:80"), self._ss("0.0.0.0:443"))
-        self.assertEqual(found, [["0.0.0.0"], ["0.0.0.0"]])
+        self.assertEqual(found, [[WILDCARD_IPV4], [WILDCARD_IPV4]])
 
     def test_another_daemons_sockets_do_not_count_as_the_front_door(self):
         found = self.listeners(self._ss("127.0.0.1:80", owner="haproxy"),
@@ -111,3 +115,59 @@ class TestFrontDoorListeners(unittest.TestCase):
     def test_an_ipv6_literal_compares_as_the_operator_wrote_it(self):
         found = self.listeners(self._ss("[::1]:80"), self._ss("[::1]:443"))
         self.assertEqual(found, [["::1"], ["::1"]])
+
+
+class TestCheckSections(unittest.TestCase):
+    """cmd_check is a list of sections; what one learns must reach the next."""
+
+    SECTIONS = (
+        "_check_installation", "_check_services", "_check_process_ownership",
+        "_check_network_exposure", "_check_render_browser", "_check_tls",
+        "_check_front_door_responses", "_check_ws_catalog", "_check_ws_auth_gate",
+        "_check_path_normalisation", "_check_waf", "_check_drugref", "_check_database",
+        "_check_backups",
+    )
+
+    def check(self, failing=()):
+        settings = types.SimpleNamespace(server_name="emr.example", bind_ip="127.0.0.1",
+                                         db_name="carlos")
+        calls = []
+
+        def section(name):
+            def run_section(*args):
+                calls.append((name, args))
+                if name in failing:
+                    validate._bad(name + " failed")
+                return {"_check_services": True,
+                        "_check_front_door_responses": ["--resolve", "x"]}.get(name)
+            return run_section
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch.object(validate, "need_root"))
+            stack.enter_context(patch.object(validate, "_load_settings", return_value=settings))
+            for name in self.SECTIONS:
+                stack.enter_context(patch.object(validate, name, side_effect=section(name)))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            return validate.cmd_check([]), calls, settings
+
+    def test_every_section_runs_once_in_the_documented_order(self):
+        _, calls, _ = self.check()
+        self.assertEqual([name for name, _ in calls], list(self.SECTIONS))
+
+    def test_later_sections_get_what_earlier_ones_learned(self):
+        _, calls, settings = self.check()
+        args = dict(calls)
+        self.assertEqual(args["_check_drugref"], (True,))
+        for name in ("_check_ws_catalog", "_check_ws_auth_gate",
+                     "_check_path_normalisation", "_check_waf"):
+            self.assertEqual(args[name], (settings, ["--resolve", "x"]), name)
+
+    def test_a_clean_run_exits_zero(self):
+        self.assertEqual(self.check()[0], 0)
+
+    def test_a_failure_in_any_section_exits_one(self):
+        self.assertEqual(self.check(failing=("_check_backups",))[0], 1)
+
+    def test_failures_from_an_earlier_run_are_not_carried_over(self):
+        self.check(failing=("_check_tls",))
+        self.assertEqual(self.check()[0], 0)
