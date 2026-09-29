@@ -475,9 +475,10 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         consent.setEditDate(now);
         consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
         consentDao.merge(consent);
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.recordExplicitConsent",
-                " Demographic: " + demographic_no + LOG_CONSENT_ID + consent.getId()
-                        + " implied->explicit PriorConsentDate: " + priorConsentDate);
+        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.recordExplicitConsent", CONSENT_LOG_CONTENT,
+                String.valueOf(consent.getId()), demographic_no,
+                " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentTypeId + LOG_CONSENT_ID
+                        + consent.getId() + " implied->explicit PriorConsentDate: " + priorConsentDate);
         return true;
     }
 

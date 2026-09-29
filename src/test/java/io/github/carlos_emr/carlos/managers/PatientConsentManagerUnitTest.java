@@ -748,6 +748,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
         private Consent impliedOptIn() {
             Consent consent = consent(21, false, new Date(1_000L));
+            consent.setConsentDate(new Date(1_000L));
             consent.setExplicit(false);
             return consent;
         }
@@ -768,6 +769,11 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(implied.getEditDate()).isAfter(new Date(1_000L));
             assertThat(implied.getLastEnteredBy()).isEqualTo("999998");
             verify(mockConsentDao).merge(implied);
+            // Filed under the patient and the consent record, so an audit by patient finds it.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.recordExplicitConsent"), eq("consent"), eq("21"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 21 implied->explicit PriorConsentDate: "
+                            + new Date(1_000L))));
         }
 
         @Test
