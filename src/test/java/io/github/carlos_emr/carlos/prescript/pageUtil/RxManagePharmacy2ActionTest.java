@@ -46,6 +46,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link RxManagePharmacy2Action}.
+ * Patient-link scenarios cover Simran Panda's PR #3304 (issue #2463), using the authorised
+ * named patient rather than its obsolete session-wide active-patient assumption.
  *
  * @since 2026-05-03
  */
@@ -78,12 +80,17 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
+        // The pharmacy writes are POST-only (#3908); the read methods accept any verb.
+        mockRequest.setMethod("POST");
         mockResponse = new MockHttpServletResponse();
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(PharmacyInfoDao.class, mockPharmacyInfoDao);
         registerMock(DemographicPharmacyDao.class, mockDemographicPharmacyDao);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull()))
                 .thenReturn(true);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
@@ -108,6 +115,244 @@ class RxManagePharmacy2ActionTest extends CarlosUnitTestBase {
         if (mocks != null) {
             mocks.close();
         }
+    }
+
+    @Test
+    @DisplayName("should unlink a pharmacy for an authorised patient even when no Rx bean is open")
+    void shouldUnlinkPharmacy_whenPatientAuthorisedWithoutOpenRxBean() throws Exception {
+        // The pharmacy selector can outlive the patient's Rx bean (per-session cap eviction).
+        mockRequest.setParameter("method", "unlink");
+        mockRequest.setParameter("pharmacyId", "7");
+        mockRequest.setParameter("demographicNo", "42");
+        authorisePatient(42, true, true);
+
+        action.execute();
+
+        verify(mockDemographicPharmacyDao).unlinkPharmacy(7, 42);
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should refuse a pharmacy link change without patient-level Rx write")
+    void shouldRefusePharmacyChange_whenPatientLevelWriteDenied() throws Exception {
+        mockRequest.setParameter("method", "setPreferred");
+        mockRequest.setParameter("pharmId", "7");
+        mockRequest.setParameter("preferredOrder", "1");
+        mockRequest.setParameter("demographicNo", "42");
+        authorisePatient(42, true, false, true);
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
+    @Test
+    @DisplayName("should refuse a pharmacy link change for a patient whose record the caller may not open")
+    void shouldRefusePharmacyChange_whenPatientRecordAccessDenied() throws Exception {
+        mockRequest.setParameter("method", "unlink");
+        mockRequest.setParameter("pharmacyId", "7");
+        mockRequest.setParameter("demographicNo", "42");
+        authorisePatient(42, true, false);
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "unlink,missing", "unlink,conflicting", "setPreferred,missing", "setPreferred,conflicting"})
+    @DisplayName("should refuse a pharmacy link change that names no patient or conflicting patients")
+    void shouldRefusePharmacyChange_whenPatientMissingOrConflicting(String method, String context) throws Exception {
+        mockRequest.setParameter("method", method);
+        mockRequest.setParameter("pharmacyId", "7");
+        mockRequest.setParameter("pharmId", "7");
+        mockRequest.setParameter("preferredOrder", "1");
+        if ("conflicting".equals(context)) {
+            mockRequest.setParameter("demographicNo", "42");
+            mockRequest.setParameter("demographic_no", "43");
+        }
+        authorisePatient(42, true, true);
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"unlink", "setPreferred"})
+    @DisplayName("should change only the authorised named patient's pharmacy while another chart is active")
+    void shouldUseNamedPatient_whenPharmacyChangeComesFromAnOlderWindow(String method) throws Exception {
+        mockRequest.setParameter("method", method);
+        mockRequest.setParameter("pharmacyId", "7");
+        mockRequest.setParameter("pharmId", "7");
+        mockRequest.setParameter("preferredOrder", "1");
+        mockRequest.setParameter("demographicNo", "42");
+        authorisePatient(42, true, true);
+        RxSessionBean otherPatient = new RxSessionBean();
+        otherPatient.setDemographicNo(43);
+        otherPatient.setProviderNo("999998");
+        RxSessionBeanResolver.register(mockRequest.getSession(), otherPatient);
+        var pharmacy = new io.github.carlos_emr.carlos.commn.model.PharmacyInfo();
+        pharmacy.setId(7);
+        when(mockPharmacyInfoDao.find(7)).thenReturn(pharmacy);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        if ("unlink".equals(method)) {
+            verify(mockDemographicPharmacyDao).unlinkPharmacy(7, 42);
+            verify(mockDemographicPharmacyDao, never()).unlinkPharmacy(7, 43);
+        } else {
+            verify(mockDemographicPharmacyDao).addPharmacyToDemographic(7, 42, 1);
+            verify(mockDemographicPharmacyDao, never()).addPharmacyToDemographic(7, 43, 1);
+        }
+        assertThat(RxSessionBeanResolver.find(mockRequest.getSession(), 43)).isSameAs(otherPatient);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"99999999999", "abc", "0", "-4"})
+    @DisplayName("should refuse a pharmacy lookup for a malformed or out-of-range patient instead of failing")
+    void shouldRefusePharmacyLookup_whenPatientMalformed(String demographicNo) throws Exception {
+        mockRequest.setParameter("method", "getPharmacyFromDemographic");
+        mockRequest.setParameter("demographicNo", demographicNo);
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
+    @Test
+    @DisplayName("should list the pharmacies of an authorised patient")
+    void shouldListPharmacies_whenPatientAuthorised() throws Exception {
+        mockRequest.setParameter("method", "getPharmacyFromDemographic");
+        mockRequest.setParameter("demographicNo", "42");
+        authorisePatient(42, true, true);
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+    }
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"getPharmacyFromDemographic", "search", "searchCity", "getPharmacyInfo", "getTotalDemographicsPreferedToPharmacy"})
+    void shouldReturnLookup_whenOnlyReadPrivilegeGranted(String method) throws Exception {
+        mockRequest.setMethod("GET");
+        mockRequest.setParameter("method", method);
+        mockRequest.setParameter("demographicNo", "42");
+        mockRequest.setParameter("pharmacyId", "7");
+        mockRequest.setParameter("term", "Test");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", null)).thenReturn(false);
+        authorisePatient(42, false, true);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", 42)).thenReturn(true);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_rx", "w", null);
+        if ("getPharmacyFromDemographic".equals(method)) {
+            verify(mockDemographicPharmacyDao).findByDemographicId(42);
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", 42);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"delete", "unlink", "setPreferred", "add", "save"})
+    void shouldRefuseMutation_whenOnlyReadPrivilegeGranted(String method) {
+        mockRequest.setParameter("method", method);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", null)).thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,true", "true,false"})
+    void shouldRefusePatientLookup_whenPatientReadOrRecordAccessDenied(boolean rxRead, boolean recordAccess) throws Exception {
+        mockRequest.setParameter("method", "getPharmacyFromDemographic");
+        mockRequest.setParameter("demographicNo", "42");
+        authorisePatient(42, rxRead, false, recordAccess);
+
+        action.execute();
+
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
+    @Test
+    void shouldRefuseLegacyMutation_whenLookupMethodAlsoSuppliedWithoutWritePrivilege() {
+        mockRequest.setParameter("method", "search");
+        action.setPharmacyAction("Add");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", null)).thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verifyNoInteractions(mockPharmacyInfoDao, mockDemographicPharmacyDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "delete,deletePharmacy", "unlink,unlinkPharmacy", "setPreferred,addPharmacyToDemographic",
+            "add,addPharmacy", "save,updatePharmacy"})
+    @DisplayName("should report pharmacy write failures with an explicit incomplete-change response")
+    void shouldReportIncompleteChange_whenPharmacyPersistenceFails(String method, String writeMethod) throws Exception {
+        mockRequest.setParameter("method", method);
+        mockRequest.setParameter("pharmacyId", "7");
+        mockRequest.setParameter("pharmId", "7");
+        mockRequest.setParameter("preferredOrder", "1");
+        mockRequest.setParameter("demographicNo", "42");
+        authorisePatient(42, true, true);
+        try (var data = org.mockito.Mockito.mockConstruction(
+                io.github.carlos_emr.carlos.prescript.data.RxPharmacyData.class,
+                org.mockito.Mockito.withSettings().defaultAnswer(invocation -> {
+                    if (writeMethod.equals(invocation.getMethod().getName())) {
+                        throw new org.springframework.dao.DataAccessResourceFailureException("Unavailable");
+                    }
+                    return org.mockito.Answers.RETURNS_DEFAULTS.answer(invocation);
+                }))) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(data.constructed()).hasSize(1);
+        }
+
+        assertThat(mockResponse.getStatus()).isEqualTo(500);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+        assertThat(mockResponse.getContentAsString()).contains("INCOMPLETE_PHARMACY_UPDATE", "\"success\":false");
+    }
+
+    @Test
+    @DisplayName("should disclose a failed pharmacy lookup after its preference change was persisted")
+    void shouldReportIncompleteChange_whenPreferenceLookupFailsAfterWrite() throws Exception {
+        mockRequest.setParameter("method", "setPreferred");
+        mockRequest.setParameter("pharmId", "7");
+        mockRequest.setParameter("preferredOrder", "1");
+        mockRequest.setParameter("demographicNo", "42");
+        authorisePatient(42, true, true);
+        when(mockPharmacyInfoDao.find(7)).thenThrow(new IllegalStateException("Lookup unavailable"));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        verify(mockDemographicPharmacyDao).addPharmacyToDemographic(7, 42, 1);
+        assertThat(mockResponse.getStatus()).isEqualTo(500);
+        assertThat(mockResponse.getContentAsString()).contains("INCOMPLETE_PHARMACY_UPDATE");
+    }
+
+    private void authorisePatient(int demographicNo, boolean rxWrite, boolean recordAccess) {
+        authorisePatient(demographicNo, rxWrite, rxWrite, recordAccess);
+    }
+
+    private void authorisePatient(int demographicNo, boolean rxRead, boolean rxWrite, boolean recordAccess) {
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "w", demographicNo)).thenReturn(rxWrite);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_rx", "r", demographicNo)).thenReturn(rxRead);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, demographicNo))
+                .thenReturn(recordAccess);
     }
 
     @Test

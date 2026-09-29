@@ -41,3 +41,30 @@ for (const launchFails of [false, true]) {
     assert.equal(events.includes('close'), !launchFails);
   });
 }
+
+const reprintHelper = source.slice(source.indexOf('async function postReprintSession('),
+  source.indexOf('async function checkEmptyPrescriptionPrint('));
+for (const status of [200, 409]) {
+  test(`signature reprint setup binds its configured patient and preserves CSRF for HTTP ${status}`, async () => {
+    const requests = [];
+    const context = {
+      prescriptionScriptId: '45', prescriptionDemographicNo: '42', URLSearchParams,
+      document: { querySelector() { return { value: 'fixture-csrf-token' }; } },
+      window: { location: { pathname: '/carlos/rx/choosePatient', search: '?demographicNo=99' } },
+      async fetch(url, options) { requests.push({ url, options }); return { status }; },
+    };
+    vm.runInNewContext(reprintHelper, context);
+    const page = { async evaluate(body, parameters) { return body(parameters); } };
+    if (status === 200) await context.postReprintSession(page);
+    else await assert.rejects(context.postReprintSession(page), /HTTP 409/);
+    assert.equal(requests.length, 1);
+    const { url, options } = requests[0];
+    assert.equal(url, '/carlos/rx/rePrescribe2?method=reprint2');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(options.body.get('scriptNo'), '45');
+    assert.equal(options.body.get('demographicNo'), '42');
+    assert.equal(options.body.get('CSRF-TOKEN'), 'fixture-csrf-token');
+    assert.equal(options.headers['CSRF-TOKEN'], 'fixture-csrf-token');
+  });
+}

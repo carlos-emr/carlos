@@ -66,7 +66,7 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
@@ -171,20 +171,10 @@
     }
 
     // Setup prescription session bean and patient data for drug profile generation
-    RxSessionBean Rxbean;
-    if (request.getSession().getAttribute("RxSessionBean") != null) {
-        Rxbean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-    } else {
-        Rxbean = new RxSessionBean();
-    }
-    request.getSession().setAttribute("RxSessionBean", Rxbean);
-
-    RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demographic_no);
-    if (patient != null) {
-        request.getSession().setAttribute("Patient", patient);
-    }
-    Rxbean.setProviderNo((String) request.getSession().getAttribute("user"));
-    Rxbean.setDemographicNo(demographicNoInt);
+    // The drug-profile link below resolves this patient's Rx bean from its demographic_no, so make
+    // sure one exists. This used to take whatever bean the session held (possibly another
+    // patient's, with a staged stash) and overwrite its demographic number (#3875).
+    RxSessionBeanResolver.ensure(request, demographicNoInt, (String) request.getSession().getAttribute("user"));
 
     String rxUri = request.getContextPath() + "/rx/ViewPrintDrugProfile2?demographic_no=" + encDemoNo;
     pageContext.setAttribute("rxUri", rxUri);
