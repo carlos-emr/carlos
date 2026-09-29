@@ -289,8 +289,13 @@ public class EmailManager {
                 AtomicReference<Integer> archiveId = new AtomicReference<>();
                 EmailSendResult portalResult;
                 try {
+                    // Signing belongs to this step: it needs the password as the owner password,
+                    // and the portal service clears the password as soon as the step returns.
                     portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
-                            () -> encryptEmail(emailData),
+                            () -> {
+                                encryptEmail(emailData);
+                                signAttachments(emailData);
+                            },
                             () -> archiveId.set(sendWithArchive(loggedInInfo,
                                     createSenderBeforeTransport(loggedInInfo, emailLog, emailData), emailLog,
                                     emailData.getArchiveRedactions(), dispatchGate)));

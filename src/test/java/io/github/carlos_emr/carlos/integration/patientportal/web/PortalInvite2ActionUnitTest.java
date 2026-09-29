@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalServic
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.Collections;
 import java.util.List;
@@ -71,6 +72,7 @@ class PortalInvite2ActionUnitTest {
             "999998", "Synthetic Provider", Set.of(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE));
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> login;
+    private MockedStatic<LogAction> audit;
 
     @BeforeEach
     void setUp() {
@@ -78,6 +80,7 @@ class PortalInvite2ActionUnitTest {
         request.setParameter("method", "revoke");
         request.setParameter("demographicNo", "123");
         request.setParameter("inviteId", "7");
+        audit = mockStatic(LogAction.class);
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
@@ -93,6 +96,7 @@ class PortalInvite2ActionUnitTest {
     void tearDown() {
         login.close();
         servlet.close();
+        audit.close();
     }
 
     private void execute() throws Exception {
@@ -174,6 +178,8 @@ class PortalInvite2ActionUnitTest {
                 .thenReturn(List.of(invite(7, 123, "pending")));
         when(portal.revokeInvite(eq(123), eq(7L), same(staff))).thenReturn(invite(7, 123, "revoked"));
         execute();
+        audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class), eq("PortalInvite2Action.revoke"),
+                eq("PatientPortal"), eq("7"), eq("123"), eq("")));
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("revoked");
         verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_INVITE)), eq(123));

@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalServic
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -177,6 +178,33 @@ public abstract class PortalJsonAction extends ActionSupport {
             cause = cause.getCause();
         }
         return NO_DETAIL;
+    }
+
+    /**
+     * Records a portal change that the portal has confirmed. Best effort: the change is already
+     * made, so a failed audit write must not report it as failed. Never pass staff free text.
+     */
+    void audit(LoggedInInfo session, String action, long portalRecordId, int patient, String data) {
+        try {
+            LogAction.addLog(session, action, "PatientPortal", String.valueOf(portalRecordId),
+                    String.valueOf(patient), data);
+        } catch (RuntimeException auditFailure) {
+            logger.warn("patient portal audit entry was not written: action={}, causeType={}",
+                    action, auditFailure.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Records a portal change whose outcome is unknown: the portal may have applied it although
+     * CARLOS could not read the answer. A definite refusal changed nothing and is not recorded.
+     */
+    void auditIfUnconfirmed(LoggedInInfo session, String action, int patient, PatientPortalException failure) {
+        boolean unread = failure.kind() == PatientPortalException.Kind.MALFORMED_RESPONSE;
+        boolean interrupted = failure.kind() == PatientPortalException.Kind.TRANSPORT_FAILURE
+                && !failure.isRequestNotSent();
+        if (unread || interrupted) {
+            audit(session, action + ".unconfirmed", 0, patient, "outcome=unconfirmed");
+        }
     }
 
     static void requirePatientAccess(SecurityInfoManager security, LoggedInInfo session, int patient) {
