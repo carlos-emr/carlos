@@ -37,6 +37,10 @@ public class SmsQueueScheduler {
     // Set at application shutdown. A settings save that commits afterwards must not start a thread
     // that nothing would ever stop.
     private boolean shutDown;
+    // Held while a settings change reads the saved setting and applies it, so two changes cannot read in
+    // one order and apply in the other. Separate from this object's monitor so isRunning() never waits
+    // for the database.
+    private final Object settingsChangeLock = new Object();
 
     /** For tests: no stored settings, so the scheduler follows the property. */
     SmsQueueScheduler(SmsQueueProcessingService smsQueueWorker) {
@@ -51,7 +55,8 @@ public class SmsQueueScheduler {
 
     /** @return whether the scheduler is running in this server right now */
     public synchronized boolean isRunning() {
-        // A schedule that has ended (a run died with an Error) is not running, whatever was asked for.
+        // A schedule that has ended (a run failed in a way runSafely could not absorb) is not running,
+        // whatever was asked for. The next settings save or restart starts it again.
         return schedule != null && !schedule.isDone();
     }
 
@@ -63,20 +68,22 @@ public class SmsQueueScheduler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onConfigChanged(SmsConfigChangedEvent event) {
         // Two saves close together can reach this listener in the opposite order to their commits, so the
-        // saved setting decides, not the event. The event's value is used only if it cannot be read.
-        boolean enabled = event.schedulerEnabled();
-        if (configService != null) {
-            try {
-                enabled = configService.storedSchedulerEnabled().orElse(enabled);
-            } catch (RuntimeException e) {
-                LOGGER.warn("SMS settings could not be re-read after a save; using the saved event. "
-                        + "exceptionClass={}", exceptionClass(e));
+        // committed setting decides, not the event. The event's value is used only if it cannot be read.
+        synchronized (settingsChangeLock) {
+            boolean enabled = event.schedulerEnabled();
+            if (configService != null) {
+                try {
+                    enabled = configService.committedSchedulerEnabled().orElse(enabled);
+                } catch (RuntimeException e) {
+                    LOGGER.warn("SMS settings could not be re-read after a save; using the value from the save. "
+                            + "exceptionClass={}", exceptionClass(e));
+                }
             }
-        }
-        if (enabled) {
-            startExecutor();
-        } else {
-            stopAfterCurrentRun();
+            if (enabled) {
+                startExecutor();
+            } else {
+                stopAfterCurrentRun();
+            }
         }
     }
 
@@ -130,7 +137,10 @@ public class SmsQueueScheduler {
         );
     }
 
-    /** Stops at once, interrupting a run in progress. For application shutdown. */
+    /**
+     * Stops at once, interrupting a run in progress. For application shutdown: it is final, and the
+     * scheduler cannot be started again afterwards.
+     */
     @PreDestroy
     public synchronized void stop() {
         shutDown = true;
