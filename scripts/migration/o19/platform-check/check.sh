@@ -132,7 +132,9 @@ verdict "$(printf '%s\n' "$FN_BODY" | grep -c . | awk '{exit !($1 < 25)}'; echo 
 # service" -- while postinst then runs Flyway and starts the webapp into
 # the half-copied schema anyway. So assert the consequent too, and that
 # the variable it sets is the one the migrate and start steps read.
-CONSEQ=$(sed -n '/^        if o19_import_in_progress; then$/{n;p;q;}' \
+# The provisioning lock is checked first, so this predicate may be an
+# elif branch; the import gate must still clear the same flag immediately.
+CONSEQ=$(sed -n '/^        \(if\|elif\) o19_import_in_progress; then$/{n;p;q;}' \
          debian/carlos-emr.postinst)
 verdict "$([ "$CONSEQ" = "            MIGRATION_OK=0" ]; echo $?)" \
   "the gate branch clears MIGRATION_OK" \

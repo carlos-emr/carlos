@@ -261,7 +261,7 @@ sender with polling disabled, and sends nothing.
 
 ```sh
 npm run test:scripts
-python3 -m unittest discover -s debian/assets/tests -t .   # the CLI suite itself lives in carlos-emr/carlos-ctl now
+python3 -m unittest discover -s debian/assets/tests   # the CLI suite itself lives in carlos-emr/carlos-ctl now
 node scripts/run-playwright-suite.js --province ON \
   --only episode-lifecycle --only diagnosis-flowsheet \
   --only prevention-lifecycle --only allergy-custom-lifecycle \

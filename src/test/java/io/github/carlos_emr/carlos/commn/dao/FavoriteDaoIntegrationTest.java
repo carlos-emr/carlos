@@ -63,6 +63,112 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
         return entity;
     }
 
+    @Test
+    @Tag("update")
+    void shouldRetainSelectedFavorite_whenEditedFieldsMatchAnotherFavorite() {
+        var first = favoriteForSave("Original");
+        var duplicate = favoriteForSave("Replacement");
+        first.setDispenseInternal(true);
+        assertThat(first.Save()).isTrue();
+        assertThat(duplicate.Save()).isTrue();
+        Integer firstId = first.getFavoriteId();
+        Integer duplicateId = duplicate.getFavoriteId();
+        first.setFavoriteName("Replacement");
+        // Editing one favorite must not overwrite the other row's clinical metadata.
+        first.setAtcCode("EDITED");
+
+        assertThat(first.Save()).isTrue();
+
+        assertThat(dao.find(firstId).getName()).isEqualTo("Replacement");
+        assertThat(dao.find(firstId).getAtc()).isEqualTo("EDITED");
+        assertThat(dao.find(firstId).isDispenseInternal()).isTrue();
+        assertThat(dao.find(duplicateId).isDispenseInternal()).isFalse();
+        assertThat(dao.find(duplicateId).getAtc()).isEqualTo("ORIGINAL");
+        assertThat(dao.findByProviderNo("FAVFIX")).hasSize(2);
+    }
+
+    @Test
+    void shouldMatchDispensingMode_whenCreatingOtherwiseIdenticalFavorites() {
+        var external = favoriteForSave("Dispensing");
+        external.setDispenseInternal(null); // Legacy absent flag has the same meaning as false.
+        assertThat(external.Save()).isTrue();
+        var internal = favoriteForSave("Dispensing");
+        internal.setDispenseInternal(true);
+        assertThat(internal.Save()).isTrue();
+        assertThat(internal.getFavoriteId()).isNotEqualTo(external.getFavoriteId());
+        var sameExternal = favoriteForSave("Dispensing");
+        sameExternal.setDispenseInternal(false);
+        assertThat(sameExternal.Save()).isTrue();
+        var sameInternal = favoriteForSave("Dispensing");
+        sameInternal.setDispenseInternal(true);
+        assertThat(sameInternal.Save()).isTrue();
+
+        assertThat(sameExternal.getFavoriteId()).isEqualTo(external.getFavoriteId());
+        assertThat(sameInternal.getFavoriteId()).isEqualTo(internal.getFavoriteId());
+        assertThat(dao.find(external.getFavoriteId()).isDispenseInternal()).isFalse();
+        assertThat(dao.find(internal.getFavoriteId()).isDispenseInternal()).isTrue();
+        assertThat(dao.findByProviderNo("FAVFIX")).hasSize(2);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "atc", "regionalIdentifier", "unit", "method", "route", "drugForm", "dosage"})
+    void shouldKeepDistinctClinicalValues_whenCreatingFavorites(String field) {
+        var original = favoriteForSave("Clinical metadata");
+        original.setSpecial("Patient's synthetic instructions");
+        assertThat(original.Save()).isTrue();
+        var changed = favoriteForSave("Clinical metadata");
+        changed.setSpecial("Patient's synthetic instructions");
+        setClinicalField(changed, field);
+        assertThat(changed.Save()).isTrue();
+        assertThat(changed.getFavoriteId()).isNotEqualTo(original.getFavoriteId());
+        var repeated = favoriteForSave("Clinical metadata");
+        repeated.setSpecial("Patient's synthetic instructions");
+        setClinicalField(repeated, field);
+        assertThat(repeated.Save()).isTrue();
+        assertThat(repeated.getFavoriteId()).isEqualTo(changed.getFavoriteId());
+        var repeatedOriginal = favoriteForSave("Clinical metadata");
+        repeatedOriginal.setSpecial("Patient's synthetic instructions");
+        assertThat(repeatedOriginal.Save()).isTrue();
+        assertThat(repeatedOriginal.getFavoriteId()).isEqualTo(original.getFavoriteId());
+        assertThat(dao.findByProviderNo("FAVFIX")).hasSize(2);
+    }
+
+    @Test
+    void shouldReuseFavorite_whenOptionalClinicalMetadataIsNull() {
+        var original = favoriteForSave("Legacy null metadata");
+        original.setRegionalIdentifier(null);
+        original.setDrugForm(null);
+        assertThat(original.Save()).isTrue();
+        var repeated = favoriteForSave("Legacy null metadata");
+        repeated.setRegionalIdentifier(null);
+        repeated.setDrugForm(null);
+        assertThat(repeated.Save()).isTrue();
+
+        assertThat(repeated.getFavoriteId()).isEqualTo(original.getFavoriteId());
+        assertThat(dao.findByProviderNo("FAVFIX")).hasSize(1);
+    }
+
+    private void setClinicalField(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Favorite favorite, String field) {
+        switch (field) {
+            case "atc" -> favorite.setAtcCode("CHANGED");
+            case "regionalIdentifier" -> favorite.setRegionalIdentifier("12345678");
+            case "unit" -> favorite.setUnit("mg");
+            case "method" -> favorite.setMethod("Take");
+            case "route" -> favorite.setRoute("PO");
+            case "drugForm" -> favorite.setDrugForm("Capsule");
+            case "dosage" -> favorite.setDosage("20 mg");
+            default -> throw new IllegalArgumentException(field);
+        }
+    }
+
+    private io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Favorite favoriteForSave(String name) {
+        return new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Favorite(
+                0, "FAVFIX", name, "Synthetic brand", "0", "Synthetic drug", 1, 1, "OD", "7", "D",
+                "7", 0, false, false, "Synthetic instructions", "Synthetic generic", "ORIGINAL",
+                "", "", "tablet", "", "", "", false, "");
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

@@ -5,8 +5,8 @@
 These tests gate what the manifest is allowed to ship: every table
 consciously classified, every copy/merge column list grounded in the CARLOS
 target schema, and the archive/drop policy invariants from
-docs/oscar19-to-carlos-migration-plan.md §4. They read only the generated
-manifests — no database, no network.
+docs/oscar19-to-carlos-migration-plan.md §4. They compare the generated
+manifests with the current migration sources — no database, no network.
 
 Run (from the repository root):
     python3 -m unittest discover -s scripts/migration/o19/tests -t .
@@ -51,6 +51,29 @@ VALID_CLASSES = {"copy", "merge", "reference", "archive", "drop"}
 VALID_DISPOSITIONS = {
     "carry", "carry-secret", "translate", "deploy-owned", "dropped-flag",
 }
+
+
+class TestPackagedTargetSchemaColumns(unittest.TestCase):
+
+    def test_target_column_inventory_matches_current_migrations_for_every_profile(self):
+        # The pinned upstream checkout is unavailable in normal CI. The target side
+        # is local, so a new common/province migration must never leave the packaged
+        # importer's destination-column metadata silently stale.
+        generator = load_generator()
+        for province in generator.PROVINCES:
+            with self.subTest(province=province):
+                schema = generator.load_schema(generator.carlos_schema_files(province))
+                profile = profile_data(province)
+                copied_tables = sorted(table for table, entry in profile["TABLES"].items()
+                                       if entry["class"] in ("copy", "merge"))
+                self.assertTrue(copied_tables, "import target inventory must not be empty")
+                self.assertTrue(set(copied_tables).issubset(schema.tables),
+                                "every import destination table must exist in current migrations")
+                expected = {table: list(schema.tables[table]) for table in copied_tables}
+                self.assertEqual(
+                    profile["CARLOS_COLUMNS"], expected,
+                    "Shipped {0} target columns differ from current Flyway migrations; "
+                    "regenerate the OSCAR19 manifests from the pinned source".format(province))
 
 
 class TestSchemaManifest(unittest.TestCase):

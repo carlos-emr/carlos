@@ -149,6 +149,8 @@ public class AnnotatedDocumentService {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        DocumentPatientLink.requireAccess(loggedInInfo, sourceDocNo, securityInfoManager,
+                SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class));
         EDoc source = EDocUtil.getDoc(String.valueOf(sourceDocNo));
         if (source == null || StringUtils.isBlank(source.getFileName())) {
             throw new IllegalArgumentException("The document could not be found.");

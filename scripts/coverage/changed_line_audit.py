@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
-"""Intersect a Git Java diff with JaCoCo source-line hits for an audit."""
+"""Intersect a Git Java diff with JaCoCo source-line hits for an audit.
+
+Usage:
+  changed_line_audit.py JACOCO_XML BASE [HEAD] [--path PREFIX ...] [--per-file] [--fail-under PCT]
+
+With HEAD omitted the working tree is compared with BASE, so a branch can be audited before it is
+committed (new files need ``git add -N`` to appear in the diff).
+
+``--path`` narrows the diff to production paths under the given prefixes (default: all of
+src/main/java), so a feature PR can audit only the code it touched. ``--per-file`` lists every
+changed file with its covered/missed counts and the missed line numbers. ``--fail-under`` exits
+non-zero when changed-line coverage is below PCT percent, for use as a gate.
+"""
 
 import argparse
 import codecs
+import math
 import re
 import subprocess
 import sys
@@ -79,70 +92,96 @@ def changed_lines(diff):
     return changed
 
 
+# Older name kept for callers written against the provider-linking audit.
+parse_diff = changed_lines
+
+
 def audit(source_lines, changed):
-    """Count covered/missed changed lines per file; lines JaCoCo did not instrument are ignored."""
-    per_file = {}
+    """Return per-file (covered, missed, missed line numbers) plus the unmapped files."""
+    files = {}
     unmapped = []
     for filename, lines in sorted(changed.items()):
         if filename not in source_lines:
             unmapped.append(filename)
             continue
-        covered = missed = 0
-        for number in lines:
+        covered = 0
+        missed_lines = []
+        for number in sorted(lines):
             hits = source_lines[filename].get(number)
             if hits is not None and sum(hits) > 0:
                 if hits[0] > 0:
                     covered += 1
                 else:
-                    missed += 1
-        per_file[filename] = (covered, missed)
-    return per_file, unmapped
+                    missed_lines.append(number)
+        files[filename] = (covered, len(missed_lines), missed_lines)
+    return files, unmapped
 
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(
-        description="Intersect a Git Java diff with JaCoCo source-line hits.",
+        description=__doc__.splitlines()[0],
         epilog="With HEAD omitted the working tree is compared with BASE, so a branch can be "
                "audited before it is committed (new files need `git add -N` to appear in the diff).",
     )
     parser.add_argument("jacoco_xml", help="JaCoCo XML report, e.g. target/site/jacoco/jacoco.xml")
     parser.add_argument("base", help="base revision, e.g. origin/release/2026.08")
     parser.add_argument("head", nargs="?", help="head revision; omit to audit the working tree")
+    parser.add_argument("--path", action="append", default=[],
+                        help="restrict the diff to this src/main/java prefix (repeatable)")
     parser.add_argument("--per-file", action="store_true",
-                        help="print covered/total for every changed file, not only fully missed ones")
-    return parser.parse_args(argv)
+                        help="list every changed file with its missed line numbers")
+    parser.add_argument("--fail-under", type=float, default=None, metavar="PCT",
+                        help="exit 1 when changed-line coverage is below PCT percent")
+    args = parser.parse_args(argv)
+    if args.fail_under is not None and (not math.isfinite(args.fail_under) or not 0 <= args.fail_under <= 100):
+        parser.error("--fail-under must be a finite percentage from 0 to 100")
+    return args
 
 
 def main(argv=None):
     args = parse_args(sys.argv[1:] if argv is None else argv)
     source_lines = read_jacoco_lines(args.jacoco_xml)
+    paths = args.path or ["src/main/java"]
+    for prefix in paths:
+        if (prefix != "src/main/java" and not prefix.startswith("src/main/java/")) or ".." in prefix.split("/"):
+            raise SystemExit(f"--path must be under src/main/java: {prefix}")
 
+    # Explicit prefixes keep parsing stable under diff.noprefix / diff.mnemonicPrefix configs.
     revisions = [args.base] + ([args.head] if args.head else [])
     diff = subprocess.check_output(
-        ["git", "diff", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", "-U0", *revisions, "--", "src/main/java"],
+        ["git", "diff", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", "-U0", *revisions, "--", *paths],
         text=True,
     )
-    changed = changed_lines(diff)
-    per_file, unmapped = audit(source_lines, changed)
+    files, unmapped = audit(source_lines, changed_lines(diff))
 
-    covered_total = sum(covered for covered, _ in per_file.values())
-    missed_total = sum(missed for _, missed in per_file.values())
-    zero = [(missed, filename) for filename, (covered, missed) in per_file.items()
-            if covered == 0 and missed > 0]
+    covered_total = sum(covered for covered, _, _ in files.values())
+    missed_total = sum(missed for _, missed, _ in files.values())
+    zero = sorted(((missed, name) for name, (covered, missed, _) in files.items()
+                   if covered == 0 and missed > 0), reverse=True)
 
     denominator = covered_total + missed_total
     percentage = f"{covered_total / denominator:.1%}" if denominator else "n/a"
     print(f"Changed executable Java lines: {covered_total} covered / {denominator} ({percentage})")
-    print(f"Changed Java files: {len(changed)}; unmapped by JaCoCo: {len(unmapped)}")
-    if args.per_file:
-        for filename, (covered, missed) in per_file.items():
-            print(f"  {covered:4} / {covered + missed:<4} {filename}")
+    print(f"Changed Java files: {len(files) + len(unmapped)}; unmapped by JaCoCo: {len(unmapped)}")
     print(f"Files with zero covered changed lines: {len(zero)}")
-    for missed, filename in sorted(zero, reverse=True):
+    for missed, filename in zero:
         print(f"  {missed:3} missed  {filename}")
     for filename in unmapped:
         print(f"  UNMAPPED  {filename}")
+    if args.per_file:
+        print("Per file (covered / executable, missed lines):")
+        for filename, (covered, missed, missed_lines) in files.items():
+            listed = ",".join(str(n) for n in missed_lines) or "-"
+            print(f"  {covered:3} / {covered + missed:3}  {filename}  missed: {listed}")
+
+    if args.fail_under is not None and unmapped:
+        print("FAIL changed Java files are missing from the JaCoCo report")
+        return 1
+    if args.fail_under is not None and denominator and 100.0 * covered_total / denominator < args.fail_under:
+        print(f"FAIL changed-line coverage {percentage} is below {args.fail_under:g}%")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -7,9 +7,11 @@ function stageRxFaxAccount(db, faxNumber) {
   assert(/^[0-9]{10}$/.test(faxNumber), 'Fixture sender number must contain ten digits');
   const existing = db.value(`SELECT id FROM fax_config WHERE faxNumber=${sqlString(faxNumber)} LIMIT 1`);
   assert(!existing, 'Random sender number collided with an existing account; rerun with a new fixture');
+  assert(!db.value(`SELECT id FROM faxes WHERE faxline=${sqlString(faxNumber)} LIMIT 1`),
+    'Random sender number collided with an existing fax job; rerun with a new fixture');
   const id = db.value('INSERT INTO fax_config '
     + '(providerType,active,faxNumber,faxReply,accountName,senderEmail,faxUser,siteUser,passwd,faxPasswd,gatewayName,queue,url,download) '
-    + `VALUES ('SRFAX',1,${sqlString(faxNumber)},${sqlString(faxNumber)},'Playwright Fax','fax@example.invalid','faxuser','siteuser','x','x','srfax','0','',1); SELECT LAST_INSERT_ID()`);
+    + `VALUES ('SRFAX',1,${sqlString(faxNumber)},${sqlString(faxNumber)},'Playwright Fax','fax@example.invalid','faxuser','siteuser','x','x','srfax','0','',0); SELECT LAST_INSERT_ID()`);
   assert(/^[1-9][0-9]*$/.test(id), 'Owned fax sender was not created');
   return { id, faxNumber };
 }

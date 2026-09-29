@@ -56,20 +56,36 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
+    /**
+     * Saves an edited favourite of the logged-in provider. POST-only (405 otherwise), needs global
+     * {@code _rx} update, and refuses a malformed id or repeat (400), a missing favourite (404) or
+     * another provider's (403) before anything changes (#3908). {@code method=ajaxEditFavorite}
+     * dispatches to {@link #ajaxEditFavorite()}.
+     *
+     * @return {@code success}, or {@code NONE} after an error response
+     */
     public String execute()
             throws IOException, ServletException {
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        if (RxFavoriteAccess.refuseUnlessPost(request, response)) {
+            return NONE;
         }
 
         if ("ajaxEditFavorite".equals(request.getParameter("method"))) {
             return ajaxEditFavorite();
         }
 
-        // Setup variables
-        RxPrescriptionData.Favorite fav = findFavorite(this.getFavoriteId());
-        if (fav == null) return null;
+        Integer repeatCount = RxFavoriteAccess.parseRepeat(this.getRepeat());
+        if (repeatCount == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, this.getFavoriteId());
+        if (fav == null) {
+            return NONE;
+        }
 
         fav.setFavoriteName(this.getFavoriteName());
         fav.setCustomName(this.getCustomName());
@@ -79,7 +95,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         fav.setDuration(this.getDuration());
         fav.setDurationUnit(this.getDurationUnit());
         fav.setQuantity(this.getQuantity());
-        fav.setRepeat(Integer.parseInt(this.getRepeat()));
+        fav.setRepeat(repeatCount);
         fav.setNosubs(this.getNosubs());
         fav.setPrn(this.getPrn());
         fav.setSpecial(this.getSpecial());
@@ -90,75 +106,56 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * The AJAX edit from EditFavorites2.jsp, with the same POST, ownership and input checks as
+     * {@link #execute()}.
+     *
+     * @return {@code NONE}; the status is the answer
+     * @throws IOException when an error response cannot be sent
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of "true"/"false" form flags; not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of true/false form flags; not a security or authorization decision")
     public String ajaxEditFavorite() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        if (RxFavoriteAccess.refuseUnlessPost(request, response)) {
+            return NONE;
         }
 
-        // Setup variables
-        RxPrescriptionData.Favorite fav = findFavorite(request.getParameter("favoriteId"));
-        if (fav == null) return null;
-        String favName = request.getParameter("favoriteName");
-        String customName = request.getParameter("customName");
-        String takeMin = request.getParameter("takeMin");
-        String takeMax = request.getParameter("takeMax");
-        String freqCode = request.getParameter("frequencyCode");
-        String duration = request.getParameter("duration");
-        String durationUnit = request.getParameter("durationUnit");
-        String quantity = request.getParameter("quantity");
-        String repeat = request.getParameter("repeat");
-        String noSubs = request.getParameter("nosubs");
-        String prn = request.getParameter("prn");
-        String special = request.getParameter("special");
-        String customInstr = request.getParameter("customInstr");
-        fav.setFavoriteName(favName);
-        fav.setCustomName(customName);
-        fav.setTakeMin(RxUtil.StringToFloat(takeMin));
-        fav.setTakeMax(RxUtil.StringToFloat(takeMax));
-        fav.setFrequencyCode(freqCode);
-        fav.setDuration(duration);
-        fav.setDurationUnit(durationUnit);
-        fav.setQuantity(quantity);
-        fav.setRepeat(Integer.parseInt(repeat));
-        if (noSubs.equalsIgnoreCase("true"))
-            fav.setNosubs(true);
-        else
-            fav.setNosubs(false);
-        if (prn.equalsIgnoreCase("true"))
-            fav.setPrn(true);
-        else
-            fav.setPrn(false);
-        fav.setSpecial(special);
-        if (customInstr.equalsIgnoreCase("true"))
-            fav.setCustomInstr(true);
-        else
-            fav.setCustomInstr(false);
+        Integer repeatCount = RxFavoriteAccess.parseRepeat(request.getParameter("repeat"));
+        if (repeatCount == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, request.getParameter("favoriteId"));
+        if (fav == null) {
+            return NONE;
+        }
+        fav.setFavoriteName(request.getParameter("favoriteName"));
+        fav.setCustomName(request.getParameter("customName"));
+        fav.setTakeMin(RxUtil.StringToFloat(request.getParameter("takeMin")));
+        fav.setTakeMax(RxUtil.StringToFloat(request.getParameter("takeMax")));
+        fav.setFrequencyCode(request.getParameter("frequencyCode"));
+        fav.setDuration(request.getParameter("duration"));
+        fav.setDurationUnit(request.getParameter("durationUnit"));
+        fav.setQuantity(request.getParameter("quantity"));
+        fav.setRepeat(repeatCount);
+        fav.setNosubs("true".equalsIgnoreCase(request.getParameter("nosubs")));
+        fav.setPrn("true".equalsIgnoreCase(request.getParameter("prn")));
+        fav.setSpecial(request.getParameter("special"));
+        fav.setCustomInstr("true".equalsIgnoreCase(request.getParameter("customInstr")));
 
-        if (request.getParameter("dispenseInternal") != null && request.getParameter("dispenseInternal").length() > 0) {
-            fav.setDispenseInternal(true);
+        // The editor has no dispensing control. Omission preserves the saved flag;
+        // clients explicitly sending false must be able to clear it.
+        if (request.getParameter("dispenseInternal") != null) {
+            fav.setDispenseInternal("true".equalsIgnoreCase(request.getParameter("dispenseInternal")));
         }
 
         fav.Save();
+        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
 
-        return null;
-    }
-
-
-    /** Resolve a positive favorite identity before applying any submitted fields. */
-    private RxPrescriptionData.Favorite findFavorite(String rawId) throws IOException {
-        int id;
-        try {
-            id = Integer.parseInt(rawId);
-            if (id <= 0) throw new NumberFormatException();
-        } catch (NumberFormatException invalidId) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid prescription favorite identifier");
-            return null;
-        }
-        RxPrescriptionData.Favorite favorite = new RxPrescriptionData().getFavorite(id);
-        if (favorite == null) response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription favorite is unavailable");
-        return favorite;
+        return NONE;
     }
 
     private String favoriteId = null;

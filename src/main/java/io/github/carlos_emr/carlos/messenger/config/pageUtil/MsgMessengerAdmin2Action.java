@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.Groups;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
@@ -124,12 +125,12 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
         if (isMutation) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
                 logger.warn("MsgMessengerAdmin denied: provider={} method={} lacks _admin write",
-                        providerNo, method);
+                        LogSafe.sanitize(providerNo), LogSafe.sanitize(method));
                 throw new SecurityException("missing required sec object (_admin)");
             }
             if (!"POST".equalsIgnoreCase(request.getMethod())) {
                 logger.warn("MsgMessengerAdmin method not allowed: provider={} method={} httpMethod={}",
-                        providerNo, method, request.getMethod());
+                        LogSafe.sanitize(providerNo), LogSafe.sanitize(method), LogSafe.sanitize(request.getMethod()));
                 response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return NONE;
@@ -137,7 +138,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
         } else {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
                 logger.warn("MsgMessengerAdmin denied: provider={} lacks _admin read (method={})",
-                        providerNo, method);
+                        LogSafe.sanitize(providerNo), LogSafe.sanitize(method));
                 throw new SecurityException("missing required sec object (_admin)");
             }
         }

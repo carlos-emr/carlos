@@ -11,10 +11,10 @@ assert.ok(start > 0 && end > start);
 
 function harness() {
   let request; const alerts = []; let renders = 0;
-  const context = { ctx: '/carlos', skipParseInstr: false, jsMsg: { favoriteLoadFailed: 'Favorite unavailable' },
+  const context = { ctx: '/carlos', skipParseInstr: false, jsMsg: { requestRefused: 'Favorite unavailable' },
     alert: message => alerts.push(message), renderRxStage: () => renders++,
     CarlosAjax: { updater: (target, url, options) => { request = { target, url, options }; } } };
-  vm.runInNewContext(source.slice(start, end), context);
+  vm.runInNewContext(source.slice(start, end) + source.slice(source.indexOf('function reportRefusedRequest('), source.indexOf('//represcribe a drug')), context);
   context.useFav2(42);
   return { context, alerts, get request() { return request; }, get renders() { return renders; } };
 }
@@ -57,6 +57,17 @@ test('the deliberate missing-favorite response excludes only its exact 404 signa
   consumeExpectedFavoriteFailure(recorder, failureUrl, 0, 0);
   assert.equal(recorder.badResponses.length, 0);
   assert.equal(recorder.consoleIssues.length, 0);
+});
+
+test('the deliberate save failure excludes its asserted500 but keeps an unrelated404', () => {
+  const recorder = h.createRecorder();
+  const saveUrl = 'https://127.0.0.1/carlos/rx/updateFavorite2?method=ajaxEditFavorite';
+  recorder.badResponses.push({ url: saveUrl, status: 500, method: 'POST' });
+  recorder.consoleIssues.push({ location: { url: saveUrl }, type: 'error', text: 'Failed to load resource: 500 (Internal Server Error)' });
+  consumeExpectedFavoriteFailure(recorder, saveUrl, 0, 0, 500);
+  assert.equal(recorder.badResponses.length, 0);
+  recorder.badResponses.push({ url: saveUrl, status: 404, method: 'POST' });
+  assert.throws(() => h.assertStrictPage(recorder), /HTTP 404/);
 });
 
 test('unrelated console, HTTP and runtime errors remain failures during the negative control', () => {

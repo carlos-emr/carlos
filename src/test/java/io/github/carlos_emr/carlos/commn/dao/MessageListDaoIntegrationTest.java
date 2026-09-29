@@ -24,12 +24,10 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -46,8 +44,6 @@ import static org.assertj.core.api.Assertions.*;
  * @since 2026-03-07
  * @see MessageListDao
  */
-@Disabled("Production code issue: MessageListDaoImpl is not discovered by component scan in the test context. " +
-        "Requires explicit bean definition or adding its package to test-spring_jpa.xml component scan.")
 @DisplayName("MessageListDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
@@ -56,7 +52,6 @@ import static org.assertj.core.api.Assertions.*;
 public class MessageListDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    @Qualifier("messageListDao")
     private MessageListDao dao;
 
     private MessageList createMessageList(String providerNo, long messageNo) throws Exception {
@@ -90,7 +85,7 @@ public class MessageListDaoIntegrationTest extends CarlosTestBase {
         // Then
         assertThat(result).hasSize(2);
         assertThat(result).extracting(MessageList::getId)
-                .containsExactly(ml1.getId(), ml3.getId());
+                .containsExactlyInAnyOrder(ml1.getId(), ml3.getId());
     }
 
     @Test

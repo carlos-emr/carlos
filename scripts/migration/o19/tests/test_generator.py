@@ -9,9 +9,13 @@ Run (from the repository root):
 """
 
 import importlib.util
+import os
 import re
+import runpy
+import sys
 import types
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from carlos_ctl import o19etl, o19map_schema, o19roles
@@ -55,6 +59,45 @@ class TestGenerator(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.gen = load_generator()
+
+    def test_ctl_module_rejects_unapproved_names(self):
+        for name in ("os", "o19props", "o19_preflight.extra", "../o19_preflight", ""):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                self.gen.ctl_module(name)
+
+    def test_ctl_module_loads_standalone_properties_parser(self):
+        module = self.gen.ctl_module("o19_preflight")
+        self.assertEqual(module.__name__, "carlos_ctl.o19_preflight")
+        self.assertEqual(dict(module.parse_properties_text("key=value\n")),
+                         {"key": "value"})
+
+    def test_verification_scripts_prefer_checkout_to_installed_cli(self):
+        checkout = "/fixture/pinned-checkout"
+        installed = "/usr/lib/carlos-ctl"
+        for script in ("verify_client_transport.py", "verify_sql_semantics.py", "tests/__init__.py"):
+            for present in (False, True):
+                initial = [p for p in sys.path if p not in (checkout, installed)]
+                if present:
+                    initial.append(checkout)
+                with self.subTest(script=script, checkout_already_in_path=present), \
+                        mock.patch.dict(os.environ, CARLOS_CTL_SRC=checkout), \
+                        mock.patch("os.path.isdir", return_value=True), \
+                        mock.patch.object(sys, "path", initial[:]):
+                    # Import the real verification script without invoking main:
+                    # no database connection is opened by these modules.
+                    runpy.run_path(str(GEN.parent / script))
+                    self.assertEqual(sys.path[0], checkout)
+                    self.assertEqual(sys.path[-1], installed)
+                    self.assertEqual(sys.path.count(checkout), 1)
+
+    def test_generator_moves_explicit_checkout_ahead_of_existing_paths(self):
+        checkout = "/fixture/pinned-checkout"
+        with mock.patch.dict(os.environ, CARLOS_CTL_SRC=checkout), \
+                mock.patch.object(self.gen, "CTL_SRC", None), \
+                mock.patch.object(Path, "is_dir", return_value=True), \
+                mock.patch.object(sys, "path", ["/another-checkout", checkout]):
+            self.gen.ctl_module("o19_preflight")
+            self.assertEqual(sys.path, [checkout, "/another-checkout", "/usr/lib/carlos-ctl"])
 
     def test_flyway_files_sort_by_numeric_version(self):
         names = ["V1.0.10__a.sql", "V1.0.2__b.sql", "V1__base.sql",
