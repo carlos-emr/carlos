@@ -68,6 +68,7 @@ case "$1" in
         rm -f "${STATE}/.first-configure-pending" \
               "${STATE}/.consult-signature-default-migrated" \
               "${STATE}/.health-tracker-default-migrated" \
+              "${STATE}/.oscar-feature-defaults-migrated" \
               "${STATE}/.db-name-default-migrated" \
               "${STATE}/.install-incomplete"
         # The OscarDocument -> CarlosDocument compat symlink is package

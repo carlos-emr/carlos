@@ -109,34 +109,83 @@ lost=$(comm -23 <(g "$PRE" flyway.versions | tr , '\n' | sort) <(g "$POST" flywa
 [ "$(g "$PRE" admin.pin)" = "$(g "$POST" admin.pin)" ] && ok "operator PIN digest unchanged" || bad "selected administrator PIN CHANGED across upgrade"
 [ "$(g "$POST" admin.forceReset)" = "$(g "$PRE" admin.forceReset)" ] && ok "forcePasswordReset unchanged" || bad "forcePasswordReset $(g "$PRE" admin.forceReset) -> $(g "$POST" admin.forceReset)"
 for k in cfg.carlos-emr.env.sha cfg.backup.env.sha cfg.tls.cert.sha cfg.province cfg.tz cfg.dbname cfg.tls.mode; do [ "$(g "$PRE" $k)" = "$(g "$POST" $k)" ] && ok "$k preserved" || bad "$k changed: $(g "$PRE" $k) -> $(g "$POST" $k)"; done
-# carlos.properties must be byte-identical EXCEPT for the one rewrite the
-# postinst is allowed to make: the old stock health_tracker=false becomes true
-# once, on the upgrade that first writes the .health-tracker-default-migrated
-# sentinel. The one other tolerated difference is layout alone -- the same
-# active settings, with keys commented out and re-appended unchanged -- which
-# the cfg.carlos.properties.active.sha digest isolates. Any changed, added or
-# removed active setting is still a failure.
+# carlos.properties must be byte-identical EXCEPT for the one-time rewrites the
+# postinst is allowed to make on the upgrade that first writes each sentinel:
+# the old stock health_tracker=false becomes true (.health-tracker-default-migrated),
+# and each OSCAR_DEFAULT_MIGRATIONS key's old stock line becomes the OSCAR
+# installer value (.oscar-feature-defaults-migrated). The one other tolerated
+# difference is layout alone -- the same active settings, with keys commented
+# out and re-appended unchanged -- which the cfg.carlos.properties.active.sha
+# digest isolates. Any other changed, added or removed active setting is still
+# a failure. Keep the pairs in step with debian/carlos-emr.postinst.
+OSCAR_DEFAULT_MIGRATIONS=(
+  'new_flowsheet_enabled=false|new_flowsheet_enabled=true'
+  'workflow_enhance=false|workflow_enhance=true'
+  'rx_fax_enabled=false|rx_fax_enabled=true'
+  'eform_signature_enabled=false|eform_signature_enabled=true'
+  'eform_generator_indivica_signature_enabled=false|eform_generator_indivica_signature_enabled=true'
+  'eform_generator_indivica_print_enabled=false|eform_generator_indivica_print_enabled=true'
+  'eform_generator_indivica_fax_enabled=false|eform_generator_indivica_fax_enabled=true'
+  'tickler_edit_enabled=false|tickler_edit_enabled=true'
+  'consultation_dynamic_labelling_enabled=false|consultation_dynamic_labelling_enabled=true'
+  'onare_labreqver=07|onare_labreqver=10'
+  'lab_req_include_chartno=false|lab_req_include_chartno=true'
+  'use_lab_clientreference=false|use_lab_clientreference=true'
+  'ALLOW_UPDATE_DOCUMENT_CONTENT= false|ALLOW_UPDATE_DOCUMENT_CONTENT= true'
+  'displayNotesOnScheduleScreen=false|displayNotesOnScheduleScreen=true'
+  'displayAlertsOnScheduleScreen=false|displayAlertsOnScheduleScreen=true'
+  'DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=false|DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=true'
+)
 ht_pre=$(g "$PRE" cfg.healthTracker 2>/dev/null || true); ht_post=$(g "$POST" cfg.healthTracker 2>/dev/null || true)
 ht_sentinel_pre=$(g "$PRE" sentinel..health-tracker-default-migrated 2>/dev/null || true)
+od_sentinel_pre=$(g "$PRE" sentinel..oscar-feature-defaults-migrated 2>/dev/null || true)
+# Every migrated line either stayed put or made exactly its sanctioned
+# old-stock -> new-stock move on an upgrade that had not yet run that migration.
+ht_ok=0
+if [ "$ht_pre" = "$ht_post" ] || { [ "$ht_pre" = health_tracker=false ] && [ "$ht_post" = health_tracker=true ] && [ "$ht_sentinel_pre" != yes ]; }; then ht_ok=1; fi
+od_ok=1; od_changed=""
+for pair in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
+  old_line=${pair%%|*}; new_line=${pair#*|}; k=${old_line%%=*}
+  pre=$(g "$PRE" "cfg.oscarDefault.$k" 2>/dev/null || true); post=$(g "$POST" "cfg.oscarDefault.$k" 2>/dev/null || true)
+  [ "$pre" = "$post" ] && continue
+  od_changed="$od_changed $k"
+  { [ "$pre" = "$old_line" ] && [ "$post" = "$new_line" ] && [ "$od_sentinel_pre" != yes ]; } || od_ok=0
+done
 if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
   ok "cfg.carlos.properties.sha preserved"
-elif [ "$ht_pre" = health_tracker=false ] && [ "$ht_post" = health_tracker=true ] && [ "$ht_sentinel_pre" != yes ] \
+elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] \
     && [ -n "$(g "$PRE" cfg.carlos.properties.otherKeys.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.otherKeys.sha)" = "$(g "$POST" cfg.carlos.properties.otherKeys.sha)" ]; then
-  ok "cfg.carlos.properties.sha changed only by the one-time health_tracker=false -> true migration"
+  ok "cfg.carlos.properties.sha changed only by the one-time stock-default migrations (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none})"
 elif [ -n "$(g "$PRE" cfg.carlos.properties.active.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.active.sha)" = "$(g "$POST" cfg.carlos.properties.active.sha)" ] \
-    && { [ "$ht_pre" = "$ht_post" ] \
-         || { [ "$ht_pre" = health_tracker=false ] && [ "$ht_post" = health_tracker=true ] && [ "$ht_sentinel_pre" != yes ]; }; }; then
-  # Same active settings, different bytes: a key was commented out and
-  # re-appended with its old value (see deb-upgrade-baseline.sh).
-  ok "cfg.carlos.properties layout changed but every active setting is preserved"
+    && [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ]; then
+  # Same active settings apart from any sanctioned migration, different bytes:
+  # a key was commented out and re-appended with its old value (see
+  # deb-upgrade-baseline.sh).
+  ok "cfg.carlos.properties layout changed but every active setting is preserved (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none})"
 else
-  bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post')"
+  bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults changed:${od_changed:- none})"
 fi
 if [ "$ht_pre" = health_tracker=false ] && [ "$ht_sentinel_pre" != yes ]; then
   [ "$ht_post" = health_tracker=true ] && ok "the old stock health_tracker=false was migrated to true" || bad "health_tracker was not migrated: '$ht_post'"
   [ "$(g "$POST" sentinel..health-tracker-default-migrated)" = yes ] && ok "health-tracker migration sentinel written" || bad "health-tracker migration sentinel missing after upgrade"
+fi
+# Like the health_tracker check above, the migration is only asserted when the
+# PRE snapshot carries at least one old stock line it should have rewritten.
+if [ "$od_sentinel_pre" != yes ]; then
+  od_expected=0
+  for pair in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
+    old_line=${pair%%|*}; new_line=${pair#*|}; k=${old_line%%=*}
+    if [ "$(g "$PRE" "cfg.oscarDefault.$k" 2>/dev/null || true)" = "$old_line" ]; then
+      od_expected=1
+      post=$(g "$POST" "cfg.oscarDefault.$k" 2>/dev/null || true)
+      [ "$post" = "$new_line" ] && ok "the old stock $old_line was migrated to $new_line" || bad "$k was not migrated: '$post'"
+    fi
+  done
+  if [ "$od_expected" = 1 ]; then
+    [ "$(g "$POST" sentinel..oscar-feature-defaults-migrated)" = yes ] && ok "OSCAR feature-defaults migration sentinel written" || bad "OSCAR feature-defaults migration sentinel missing after upgrade"
+  fi
 fi
 for k in rows.demographic rows.appointment rows.prescription rows.drugs rows.allergies rows.consultationRequests rows.casemgmt_note rows.preventions rows.hl7TextMessage rows.document rows.tickler; do [ "$(g "$PRE" $k)" = "$(g "$POST" $k)" ] && ok "$k preserved ($(g "$POST" $k))" || bad "$k changed: $(g "$PRE" $k) -> $(g "$POST" $k)"; done
 # The document store may legitimately GROW on upgrade (a12 ships synthetic HRM

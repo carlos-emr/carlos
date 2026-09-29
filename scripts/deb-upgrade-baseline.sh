@@ -75,23 +75,40 @@ done
 value=$(grep -E '^consultation_signature_enabled=' "$CARLOS_ETC_DIR/carlos.properties" || true); emit cfg.consultSig "$value"
 value=$(grep -E '^rx_fax_enabled=' "$CARLOS_ETC_DIR/carlos.properties" || true); emit cfg.rxFax "$value"
 # The carlos-emr postinst rewrites health_tracker=false -> true once on upgrade,
-# so deb-upgrade-verify.sh needs the value and a hash of everything else in the
-# file to tell that sanctioned rewrite apart from any other change.
+# and the OSCAR_DEFAULT_MIGRATIONS keys (old stock line -> OSCAR installer
+# value) once on upgrade, so deb-upgrade-verify.sh needs each value and a hash
+# of everything else in the file to tell those sanctioned rewrites apart from
+# any other change. Keep this list in step with the OSCAR_DEFAULTS block in
+# debian/carlos-emr.postinst.
+OSCAR_DEFAULT_MIGRATIONS=(new_flowsheet_enabled workflow_enhance rx_fax_enabled eform_signature_enabled
+    eform_generator_indivica_signature_enabled eform_generator_indivica_print_enabled
+    eform_generator_indivica_fax_enabled tickler_edit_enabled consultation_dynamic_labelling_enabled
+    onare_labreqver lab_req_include_chartno use_lab_clientreference ALLOW_UPDATE_DOCUMENT_CONTENT
+    displayNotesOnScheduleScreen displayAlertsOnScheduleScreen DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM)
 value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true); emit cfg.healthTracker "$value"
-value=$(grep -vE '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
+migrated_keys_re="^(health_tracker$(printf '|%s' "${OSCAR_DEFAULT_MIGRATIONS[@]}"))="
+for k in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
+    # A key the operator redefined appears more than once; join the lines so
+    # the snapshot stays one record per key. Percent-encode '%' and ';' first
+    # so one line containing ';' can never read the same as two joined lines.
+    value=$(grep -E "^$k=" "$CARLOS_ETC_DIR/carlos.properties" | sed 's/%/%25/g; s/;/%3B/g' | paste -sd';' - || true); emit "cfg.oscarDefault.$k" "$value"
+done
+value=$(grep -vE "$migrated_keys_re" "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 # The ACTIVE settings, independent of layout: comments and blank lines dropped,
 # whitespace around '=' normalised, sorted. carlos-ctl's prop_comment/prop_set
 # can move a key without changing it -- e.g. an alpha13 renderer's postrm runs
 # init-config with no browser present (commenting the renderer keys out) and
 # the new carlos-emr's init-config then re-appends them with the same values --
-# and deb-upgrade-verify.sh must not mistake that for a changed setting.
+# and deb-upgrade-verify.sh must not mistake that for a changed setting. The
+# sanctioned one-time migrations are left out here too; the verifier checks
+# those keys one by one.
 value=$(sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' "$CARLOS_ETC_DIR/carlos.properties" \
     | grep -vE '^([#!]|$)' | sed -E 's/^([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/' \
-    | grep -vE '^health_tracker=' | LC_ALL=C sort | sha256sum) || exit 1
+    | grep -vE "$migrated_keys_re" | LC_ALL=C sort | sha256sum) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
-for s in .consult-signature-default-migrated .health-tracker-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
+for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"
 done
 emit docs.store ok

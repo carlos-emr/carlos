@@ -129,13 +129,19 @@
         </action>
         <action name="eform/efmOpenEformByName" class="io.github.carlos_emr.carlos.eform.actions.OpenEFormByName2Action"/>
         <action name="eform/removeEForm" class="io.github.carlos_emr.carlos.eform.actions.RemEForm2Action">
-            <result name="success">/eform/efmpatientformlist</result>
-            <result name="single">/eform/efmpatientformlistsingle</result>
-            <result name="independent">/eform/efmmanageindependent</result>
+            <!-- REDIRECT, not a forward, for the same reason as delEForm above: the
+                 delete buttons POST here, a forward keeps the POST method, and the
+                 list gate (ViewEFormPage2Action) rejects POST on these pages, so a
+                 SUCCESSFUL delete landed the operator on "CARLOS Error: 405".
+                 getRedirectTarget() picks the list the button lived on (callpage)
+                 and carries its context (patient, group, popup id, sort) into the
+                 GET. A redirect also stops a refresh from re-submitting the delete. -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eform/unRemoveEForm" class="io.github.carlos_emr.carlos.eform.actions.UnRemEForm2Action">
-            <result name="success">/eform/efmpatientformlistdeleted</result>
-            <result name="independent">/eform/efmmanageindependentdeleted</result>
+            <!-- REDIRECT, not a forward: same 405-after-success defect and fix as
+                 removeEForm above, for the deleted-list pages. -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eform/eFormAttachmentForm" class="io.github.carlos_emr.carlos.eform.upload.UploadEFormAttachment2Action">
         </action>

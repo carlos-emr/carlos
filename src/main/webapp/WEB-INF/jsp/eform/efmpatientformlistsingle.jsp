@@ -183,6 +183,9 @@
                                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
                                     <input type="hidden" name="callpage" value="single"/>
                                     <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>"/>
+                                    <%-- List state the post-delete redirect restores (RemEForm2Action#getRedirectTarget). --%>
+                                    <input type="hidden" name="appointment" value="<carlos:encode value='<%= appointment %>' context="htmlAttribute"/>"/>
+                                    <input type="hidden" name="orderby" value="<carlos:encode value='<%= orderByRequest %>' context="htmlAttribute"/>"/>
                                     <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"><fmt:message key="eform.uploadimages.btnDelete"/></a>
                                 </form>
                             </td>
