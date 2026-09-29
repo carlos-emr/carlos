@@ -1971,7 +1971,7 @@ tests OK. `debian/assets/tests` and `scripts/migration/o19/tests` also passed.
 - **From 2026.08.0-alpha15 (with its transitional package):** all 102
   assertions pass across cases 0-7, with `EXPECT_NEW="1.0.36 1.0.39 1.0.40"`.
   Cases 6 and 7 remove and purge the leftover transitional package through the
-  new `installed_renderer` helper.
+  new `renderer_pkgs` helper.
 - **From 2026.08.0-alpha13 (real `_amd64` renderer, no `TRANSITIONAL_SPLIT`):**
   the matrix detects the old renderer and runs cases 2 and 1 without
   `--no-remove`. Case 2 is still refused for the missing `carlos-ctl`, and in
