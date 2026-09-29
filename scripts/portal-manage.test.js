@@ -70,7 +70,7 @@ test('shows no replacement question for a press made while a request is running'
   assert.equal(page.inviteStep(false, undefined), 'send');
 });
 
-test('calls only a delivered invitation good news', () => {
+test('calls a delivered invitation good news unless its chart note failed', () => {
   const page = logic({});
   assert.equal(page.isGoodNews({state: 'sent', outcome: null}), true);
   assert.equal(page.isGoodNews({state: 'sent', outcome: 'confirmed_sent'}), true);

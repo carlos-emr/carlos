@@ -199,8 +199,9 @@ public class PortalInvite2Action extends PortalJsonAction {
         }
         PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(session,
                 Set.of(PortalStaffContextResolver.OBJECT_INVITE), patient);
+        // Stored as it was checked: strip() also removes the line separators trim() would keep.
         InviteRequest invite = new InviteRequest(channel, "true".equals(request.getParameter("confirmReplace")),
-                consentOverride, overrideReason,
+                consentOverride, overrideReason == null ? null : overrideReason.strip(),
                 "true".equals(request.getParameter("withdrawStale")));
         try {
             PatientPortalInviteDelivery row = switch (method) {
