@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -26,6 +27,8 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @Tag("service")
@@ -105,7 +108,7 @@ class SmsSendServiceUnitTest {
                 command -> CONSENTED,
                 new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
-                providerType -> true,
+                providerType -> events.add("tryAcquire"),
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
@@ -115,6 +118,7 @@ class SmsSendServiceUnitTest {
         assertThat(events).containsExactly(
                 "recordOutboundAttempt",
                 "markSending",
+                "tryAcquire",
                 "providerSend",
                 "markProviderResult"
         );
@@ -126,7 +130,7 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send does not call the SMS provider when the queued row is already claimed")
+    @DisplayName("send neither calls the SMS provider nor takes a rate-limit permit when the row is already claimed")
     void shouldSkipProviderSend_whenClaimConflictOccurs() {
         List<String> events = new ArrayList<>();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events) {
@@ -141,7 +145,7 @@ class SmsSendServiceUnitTest {
                 command -> CONSENTED,
                 new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
-                providerType -> true,
+                providerType -> events.add("tryAcquire"),
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
@@ -160,9 +164,43 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send leaves the message queued and skips the SMS provider when rate limited")
+    @DisplayName("send releases its claim, leaves the message queued and skips the SMS provider when rate limited")
     void shouldLeaveQueued_whenRateLimited() {
-        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> !events.add("tryAcquire"),
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isTrue();
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+        assertThat(result.providerMessageId()).isNull();
+        assertThat(events).containsExactly("recordOutboundAttempt", "markSending", "tryAcquire", "releaseClaim");
+        assertThat(recorder.transactions()).singleElement()
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                    assertThat(transaction.getProviderMessageId()).isNull();
+                    assertThat(transaction.getAttemptCount()).isZero();
+                    assertThat(transaction.getNextAttemptAt()).isNotNull();
+                });
+    }
+
+    @Test
+    @DisplayName("send reports the failure when the claim cannot be handed back after a rate-limit denial")
+    void shouldReportFailure_whenReleaseFailsAfterRateLimitDenial() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService() {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+                throw new IllegalStateException("release failed");
+            }
+        };
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 command -> CONSENTED,
@@ -172,14 +210,43 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendCommand command =
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998");
 
-        assertThat(result.accepted()).isTrue();
-        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
-        assertThat(result.providerMessageId()).isNull();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("release failed");
+    }
+
+    @Test
+    @DisplayName("send releases its claim and rethrows when the rate limiter fails")
+    void shouldReleaseClaim_whenRateLimiterThrows() {
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
+        IllegalStateException limiterFailure = new IllegalStateException("rate-limit row lock timed out");
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
+                recorder,
+                providerType -> {
+                    events.add("tryAcquire");
+                    throw limiterFailure;
+                },
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998")))
+                .isSameAs(limiterFailure);
+
+        // Nothing was sent, so the row must not be left SENDING for stale recovery to misjudge.
+        assertThat(events).containsExactly("recordOutboundAttempt", "markSending", "tryAcquire", "releaseClaim");
         assertThat(recorder.transactions()).singleElement()
-                .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
-                .containsExactly(SmsStatus.QUEUED, null);
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                    assertThat(transaction.getAttemptCount()).isZero();
+                });
     }
 
     @Test
@@ -294,6 +361,76 @@ class SmsSendServiceUnitTest {
 
         assertThat(result.status()).isEqualTo(SmsStatus.DELIVERED);
         assertThat(result.providerMessageId()).isEqualTo("webhook-result");
+    }
+
+    @Test
+    @DisplayName("send refuses without recording anything when SMS is turned off in Administration")
+    void shouldRefuseSend_whenSmsIsTurnedOff() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsConfigService configService = mock(SmsConfigService.class);
+        when(configService.sendingEnabled()).thenReturn(false);
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> true,
+                new SmsDefaultProviderResolver(() -> "STUB"),
+                configService
+        );
+
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.messages()).containsExactly(SmsSendService.SMS_TURNED_OFF_MESSAGE);
+        assertThat(recorder.transactions()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("sendSystemTest sends a synthetic SYSTEM_TEST through STUB only, even while SMS is turned off")
+    void shouldSendSystemTest_throughStubOnly() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsConfigService configService = mock(SmsConfigService.class);
+        when(configService.sendingEnabled()).thenReturn(false);
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permitted(SmsConsentStatus.SYSTEM_TEST, null, null),
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> true,
+                new SmsDefaultProviderResolver(() -> "VOIPMS"),
+                configService
+        );
+
+        SmsSendResultDto result = service.sendSystemTest("416-555-1212", "999998", 1001);
+
+        assertThat(result.status()).isEqualTo(SmsStatus.SENT);
+        assertThat(recorder.transactions()).singleElement().satisfies(transaction -> {
+            assertThat(transaction.getProviderType()).isEqualTo(SmsProviderType.STUB);
+            assertThat(transaction.getMessagePurpose()).isEqualTo(SmsMessagePurpose.SYSTEM_TEST);
+            assertThat(transaction.getDemographicNo()).isNull();
+            assertThat(transaction.getRequestedByHealthcareProviderNo()).isEqualTo("999998");
+        });
+    }
+
+    @Test
+    @DisplayName("sendSystemTest refuses a number that is not a valid phone number")
+    void shouldRejectSystemTest_whenNumberIsInvalid() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> true,
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.sendSystemTest("not-a-number", "999998", 1001);
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(recorder.transactions()).isEmpty();
     }
 
     private static class RecordingSmsTransactionService implements SmsTransactionService {

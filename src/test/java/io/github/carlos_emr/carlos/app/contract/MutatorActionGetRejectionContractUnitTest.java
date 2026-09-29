@@ -316,6 +316,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
         // Prescription: read methods permit GET; saveDigitalSignature is a method-mapped POST-only mutator.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        // SMS: the SMS settings page renders on a bare GET (_admin.sms r); method=configure and
+        // method=sendSystemTest are POST-only (see ConfigureSms2ActionUnitTest). Issue #3836.
+        "io.github.carlos_emr.carlos.sms.admin.ConfigureSms2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
@@ -436,6 +439,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // eform slice: only these are registered; broader slice audit tracked in issue #2828.
         "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
         "io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
+        // sms slice: the sms package is not in IN_SCOPE_PACKAGE_PREFIXES, so its admin settings
+        // action registers explicitly (conditional mutator, #3836).
+        "io.github.carlos_emr.carlos.sms.admin.ConfigureSms2Action",
         // Fax slice: the fax package is not in IN_SCOPE_PACKAGE_PREFIXES, so its gated
         // mutators register explicitly (clinician queue/cancel plus the two admin actions).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
