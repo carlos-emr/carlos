@@ -330,9 +330,11 @@ async function assertNotesPaginationSettles(page) {
 
   let restoredBatches = 0;
   try {
+    // Take the baseline before parking: parking at the top is what arms the poll, and a
+    // request it fires while this await is pending must still count as a batch to check.
+    let observed = notesLoadRequests.length;
     await parkAtTop();
     const deadline = Date.now() + NOTES_POLL_TIMEOUT_MS;
-    let observed = notesLoadRequests.length;
     let awaitingBatch = false;
     let stableSince = Date.now();
     while (Date.now() < deadline) {
