@@ -45,6 +45,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -330,6 +331,9 @@ public class PortalInviteDeliveryService {
         PatientPortalIssuedInviteDto issued;
         try {
             issued = prepare(demographicNo, contact, supersededInviteId, operationId, staff).issuedInvite();
+            // Checked here, where a failure is still recorded on the attempt.
+            Objects.requireNonNull(issued.invite(), "prepared invitation");
+            Objects.requireNonNull(issued.inviteToken(), "prepared invitation code");
         } catch (PatientPortalException exception) {
             if (outcomeUnknown(exception)) {
                 // The portal may hold a prepared code whose id CARLOS never learned, and a live
@@ -341,6 +345,17 @@ public class PortalInviteDeliveryService {
             } else {
                 // The portal refused outright, so it prepared nothing and there is nothing to withdraw.
                 abandon(row.getId(), State.PREPARING, Outcome.PREPARE_REFUSED, null, staff, demographicNo);
+            }
+            throw exception;
+        } catch (RuntimeException exception) {
+            // Anything else must not leave the attempt claimed with no explanation, which would block the
+            // patient's next invitation until staff withdrew an attempt the page could not explain.
+            if (exception instanceof PortalRequestPreparationException) {
+                // CARLOS refused to build the request, so the portal was never asked.
+                abandon(row.getId(), State.PREPARING, Outcome.PREPARE_REFUSED, null, staff, demographicNo);
+            } else {
+                deliveries.advance(row.getId(), State.PREPARING, State.PREPARING,
+                        r -> r.setOutcome(Outcome.PREPARE_UNCONFIRMED));
             }
             throw exception;
         }
@@ -717,8 +732,12 @@ public class PortalInviteDeliveryService {
                 throw exception;
             }
             // Refused: another staff member, or chart details that changed. Look it up instead.
-        } catch (PortalInviteException exception) {
-            // The chart no longer holds what the original request sent. Look it up instead.
+        } catch (RuntimeException exception) {
+            // The chart no longer holds what the original request sent, the request can no longer be built,
+            // or the answer could not be read. Whatever stopped the first attempt must not stop its
+            // withdrawal too, so look it up instead.
+            logger.warn("patient portal preparation could not be asked for again: {}",
+                    exception.getClass().getSimpleName());
         }
         Set<Long> claimed = new HashSet<>();
         for (PatientPortalInviteDelivery other : unfinishedFor(row.getDemographicNo())) {

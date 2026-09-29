@@ -1208,6 +1208,62 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @DisplayName("a prepare that fails without a portal answer")
+    class PrepareFaults {
+
+        @Test
+        @DisplayName("should finish the attempt as refused when CARLOS could not build the request")
+        void shouldAbandon_whenTheRequestCannotBePrepared() {
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(new PortalRequestPreparationException("provider name cannot be sent"));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(PortalRequestPreparationException.class);
+
+            PatientPortalInviteDelivery row = onlyRow();
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.PREPARE_REFUSED);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+            verify(emailManager, never()).sendEmailWithResult(any(), any(), any(EmailManager.DispatchGate.class));
+        }
+
+        @Test
+        @DisplayName("should leave the attempt open and explained when the portal's answer names no invitation")
+        void shouldRecordUnconfirmed_whenTheAnswerNamesNoInvitation() {
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenAnswer(invocation -> new PatientPortalPreparedInviteDto(
+                            new PatientPortalIssuedInviteDto(null, PortalSecret.of(CODE)), invocation.getArgument(4)));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(NullPointerException.class);
+
+            PatientPortalInviteDelivery row = onlyRow();
+            assertThat(row.getState()).isEqualTo(State.PREPARING);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.PREPARE_UNCONFIRMED);
+            assertThat(PortalInviteDeliveryService.decisionsFor(row.getState())).contains(Decision.ABANDON);
+            verify(emailManager, never()).sendEmailWithResult(any(), any(), any(EmailManager.DispatchGate.class));
+        }
+
+        @Test
+        @DisplayName("should still withdraw a stuck attempt when the request can no longer be built")
+        void shouldWithdraw_whenAskingAgainCannotBePrepared() {
+            PatientPortalInviteDelivery row = storedRow(State.PREPARING, Duration.ofMinutes(16));
+            injectDependency(row, "portalInviteId", null);
+            injectDependency(row, "emailLogId", null);
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(new PortalRequestPreparationException("provider name cannot be sent"));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(88L, "prepared")));
+
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+
+            verify(portal).revokeInvite(PATIENT, 88L, staff);
+            assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.ABANDONED_BY_STAFF);
+        }
+    }
+
+    @Nested
     @DisplayName("withdrawing a lost preparation")
     class LostPreparation {
 
