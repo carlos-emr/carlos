@@ -37,10 +37,6 @@ public class SmsConfigDaoImpl extends AbstractDaoImpl<SmsConfig> implements SmsC
     @Override
     @Transactional(readOnly = true)
     public Optional<SmsConfig> findCurrent() {
-        return entityManager.createQuery("SELECT c FROM SmsConfig c ORDER BY c.id", SmsConfig.class)
-                .setMaxResults(1)
-                .getResultList()
-                .stream()
-                .findFirst();
+        return Optional.ofNullable(entityManager.find(SmsConfig.class, SmsConfig.SINGLETON_ID));
     }
 }

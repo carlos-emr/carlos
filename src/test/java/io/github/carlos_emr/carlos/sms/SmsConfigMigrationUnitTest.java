@@ -33,9 +33,11 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Runs the SMS settings migration verbatim against H2 in MySQL mode. The H2 test schema is built from
@@ -56,18 +58,45 @@ class SmsConfigMigrationUnitTest {
             applyMigration(connection);
 
             statement.execute("""
-                    INSERT INTO sms_config (provider_type, enabled, scheduler_enabled, sender_number,
+                    INSERT INTO sms_config (id, provider_type, enabled, scheduler_enabled, sender_number,
                                             webhook_secret, credentials, updated_at, updated_by)
-                    VALUES ('STUB', 1, 0, '+14165551212', '{ENC}abc', '{}', CURRENT_TIMESTAMP, '999998')""");
+                    VALUES (1, 'STUB', 1, 0, '+14165551212', '{ENC}abc', '{}', CURRENT_TIMESTAMP, '999998')""");
             try (ResultSet row = statement.executeQuery(
-                    "SELECT provider_type, enabled, scheduler_enabled, sender_number FROM sms_config")) {
+                    "SELECT provider_type, enabled, scheduler_enabled, sender_number, version FROM sms_config")) {
                 assertThat(row.next()).isTrue();
                 assertThat(row.getString("provider_type")).isEqualTo("STUB");
                 assertThat(row.getBoolean("enabled")).isTrue();
                 assertThat(row.getBoolean("scheduler_enabled")).isFalse();
                 assertThat(row.getString("sender_number")).isEqualTo("+14165551212");
+                assertThat(row.getInt("version")).isZero();
             }
         }
+    }
+
+    @Test
+    @DisplayName("holds at most one row: a second row with the same id or any other id is refused")
+    void shouldRefuseSecondRow_whenIdRepeatsOrIsNotOne() throws Exception {
+        try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:sms_config_single_row;MODE=MySQL");
+             Statement statement = connection.createStatement()) {
+            applyMigration(connection);
+            statement.execute(insertRow(1));
+
+            assertThatThrownBy(() -> statement.execute(insertRow(1)))
+                    .as("the fixed primary key refuses a second first save")
+                    .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> statement.execute(insertRow(2)))
+                    .as("the CHECK constraint refuses any id but 1")
+                    .isInstanceOf(SQLException.class);
+            try (ResultSet count = statement.executeQuery("SELECT COUNT(*) FROM sms_config")) {
+                assertThat(count.next()).isTrue();
+                assertThat(count.getInt(1)).isEqualTo(1);
+            }
+        }
+    }
+
+    private static String insertRow(int id) {
+        return "INSERT INTO sms_config (id, provider_type, enabled, scheduler_enabled, updated_at) "
+                + "VALUES (" + id + ", 'STUB', 0, 0, CURRENT_TIMESTAMP)";
     }
 
     @Test
