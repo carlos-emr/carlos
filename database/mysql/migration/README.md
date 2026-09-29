@@ -35,6 +35,8 @@ migration/
            V1.0.39__track_automatic_mrp_routing.sql
            V1.0.40__widen_lab_labels.sql
            V1.0.41__rtl_provider_stamp_fields.sql
+           V1.0.42__tickler_docs.sql
+           V1.0.43__consultation_eform_lab_sources.sql
            V1.0.44__enforce_provider_signature_identity.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
@@ -52,14 +54,11 @@ migration/
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
 `V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.44`.
-`V1.0.31`, `V1.0.35` and `V1.0.37`–`V1.0.38` are unused gaps here, and `V1.0.42`–`V1.0.43` are
-claimed by open PR #3996; the next unallocated number for ANY location — shared or province — is
-`V1.0.45`.
-PR #3996 remains open and its tickler/consultation attachment feature is not included in alpha16.
-Its earlier proposed `V1.0.37` and `V1.0.38` are not prerequisites for `V1.0.39`; version gaps are valid.
-Before that feature merges, renumber its unpublished migrations above the then-current
-high-water mark. Do not deploy migrations from an unmerged feature branch or enable
-`outOfOrder` to fill these gaps. The version line is global:
+The next unallocated number for ANY location — shared or province — is `V1.0.45`.
+PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
+V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
+The V1.0.31/V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
+do not enable `outOfOrder` to fill gaps. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
 run — including `common/V1.0.44` on either province after this change. A hypothetical new `bc/V1.0.11` would
@@ -108,7 +107,7 @@ for PR #3694, but `V1.0.32`–`V1.0.34` and `V1.0.36` merged first, so databases
 already have run past `V1.0.31` and Flyway (no `outOfOrder`) would never apply it there. Per the
 rule above, PR #3694 was renumbered above the high-water mark, first to `V1.0.40`; release
 2026.08 then shipped its own `V1.0.40` (lab labels) and `V1.0.41` (Rich Text Letter stamp
-inputs), and open PR #3996 claims `V1.0.42`–`V1.0.43`, so it now uses `V1.0.44`. `V1.0.31`, like
+inputs), and PR #3996 merged as `V1.0.42`–`V1.0.43`, so it now uses `V1.0.44`. `V1.0.31`, like
 the other gaps, stays unused.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
@@ -179,7 +178,8 @@ Messenger membership coordination (PR #3986, issue #3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Automatic MRP routing adds
 `common/V1.0.39__track_automatic_mrp_routing.sql`. Full lab labels add
 `common/V1.0.40__widen_lab_labels.sql`. The Rich Text Letter signature-stamp inputs reach
-upgraded installs through `common/V1.0.41__rtl_provider_stamp_fields.sql`. Provider signature
+upgraded installs through `common/V1.0.41__rtl_provider_stamp_fields.sql`. Tickler and
+consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`. Provider signature
 identity is enforced by `common/V1.0.44__enforce_provider_signature_identity.sql`. The next
 unallocated version is `V1.0.45`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before

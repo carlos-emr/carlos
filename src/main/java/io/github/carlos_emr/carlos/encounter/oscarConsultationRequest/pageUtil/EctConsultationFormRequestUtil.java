@@ -559,6 +559,22 @@ public class EctConsultationFormRequestUtil {
         this.appointmentInstructions = appointmentInstructions;
     }
 
+    /**
+     * Set both halves of the appointment instruction for a print preview of unsaved work.
+     *
+     * <p>The setters are private because the stored record is the only thing that normally writes
+     * them. The preview renders a form the clinician has edited but not saved, and the PDF prints
+     * the label rather than the value, so the two have to move together — see
+     * {@link ConsultationPreviewOverlay}. Nothing here reaches the database.</p>
+     *
+     * @param value the posted lookup value
+     * @param label the label that value resolves to, as the PDF will print it
+     */
+    void setAppointmentInstructionsForPreview(String value, String label) {
+        setAppointmentInstructions(value);
+        setAppointmentInstructionsLabel(label);
+    }
+
     public String getAppointmentInstructionsLabel() {
         return appointmentInstructionsLabel;
     }

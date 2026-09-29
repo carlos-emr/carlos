@@ -34,10 +34,19 @@ package io.github.carlos_emr.carlos.tickler.dto;
 
 import java.io.Serializable;
 
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
+
 /**
  * Lightweight data transfer object for tickler link display, used for
  * batch loading links to avoid N+1 query problems. The {@code tableName}
  * field determines the link type (e.g., "HL7", "document", "HRM").
+ *
+ * <p>Since the {@code ticklerdocs} store (#3984) a link also carries its
+ * storage type ({@link #getDocType()}: D/L/E/F/H) and, for labs, the lab
+ * source. {@code tableName} keeps the legacy viewer code the JSON clients
+ * switch on: the lab source for labs, {@code DOC}/{@code HRM} as before, and
+ * {@code EFORM}/{@code FORM} for the two types the legacy store never held.</p>
  *
  * @since 2026-02-27
  */
@@ -49,6 +58,13 @@ public class TicklerLinkDTO implements Serializable {
     private Integer ticklerNo;
     private String tableName;
     private Long tableId;
+    private String docType;
+    private String labType;
+
+    /** Viewer code for eForm attachments in {@link #getTableName()}. */
+    public static final String TABLE_NAME_EFORM = "EFORM";
+    /** Viewer code for encounter form attachments in {@link #getTableName()}. */
+    public static final String TABLE_NAME_FORM = "FORM";
 
     /**
      * Default constructor required by frameworks.
@@ -101,5 +117,61 @@ public class TicklerLinkDTO implements Serializable {
 
     public void setTableId(Long tableId) {
         this.tableId = tableId;
+    }
+
+    public String getDocType() {
+        return docType;
+    }
+
+    public void setDocType(String docType) {
+        this.docType = docType;
+    }
+
+    public String getLabType() {
+        return labType;
+    }
+
+    public void setLabType(String labType) {
+        this.labType = labType;
+    }
+
+    /**
+     * Builds the display DTO for a {@code ticklerdocs} row.
+     *
+     * @param ticklerDocs TicklerDocs a live attachment row
+     * @return TicklerLinkDTO with {@code tableName} set to the legacy viewer code
+     */
+    public static TicklerLinkDTO fromTicklerDocs(TicklerDocs ticklerDocs) {
+        TicklerLinkDTO dto = new TicklerLinkDTO(ticklerDocs.getId(), ticklerDocs.getTicklerId(),
+                legacyTableName(ticklerDocs), (long) ticklerDocs.getDocumentNo());
+        dto.setDocType(ticklerDocs.getDocType());
+        dto.setLabType(ticklerDocs.getLabType());
+        return dto;
+    }
+
+    /**
+     * Maps a {@code ticklerdocs} row back to the {@code tickler_link.table_name} code the
+     * viewers and the REST {@code ticklerLinks} shape expect.
+     *
+     * @param ticklerDocs TicklerDocs the attachment row
+     * @return String {@code DOC}, {@code HRM}, {@code EFORM}, {@code FORM}, or the lab source
+     *         ({@code HL7} when a lab row carries none)
+     */
+    public static String legacyTableName(TicklerDocs ticklerDocs) {
+        String docType = ticklerDocs.getDocType();
+        if (TicklerDocs.DOCTYPE_DOC.equals(docType)) {
+            return LabResultData.DOCUMENT;
+        }
+        if (TicklerDocs.DOCTYPE_HRM.equals(docType)) {
+            return LabResultData.HRM;
+        }
+        if (TicklerDocs.DOCTYPE_EFORM.equals(docType)) {
+            return TABLE_NAME_EFORM;
+        }
+        if (TicklerDocs.DOCTYPE_FORM.equals(docType)) {
+            return TABLE_NAME_FORM;
+        }
+        String labType = ticklerDocs.getLabType();
+        return labType == null || labType.trim().isEmpty() ? LabResultData.HL7TEXT : labType;
     }
 }

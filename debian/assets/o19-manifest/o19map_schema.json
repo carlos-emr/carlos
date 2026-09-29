@@ -13873,7 +13873,8 @@
    "docType",
    "deleted",
    "attachDate",
-   "providerNo"
+   "providerNo",
+   "lab_type"
   ],
   "consultationRequestExt": [
    "id",
@@ -13954,7 +13955,8 @@
    "doctype",
    "deleted",
    "attach_date",
-   "provider_no"
+   "provider_no",
+   "lab_type"
   ],
   "criteria": [
    "CRITERIA_ID",
@@ -43839,7 +43841,8 @@
      "docType",
      "deleted",
      "attachDate",
-     "providerNo"
+     "providerNo",
+     "lab_type"
     ],
     "consultationRequestExt": [
      "id",
@@ -43920,7 +43923,8 @@
      "doctype",
      "deleted",
      "attach_date",
-     "provider_no"
+     "provider_no",
+     "lab_type"
     ],
     "criteria": [
      "CRITERIA_ID",

@@ -170,6 +170,18 @@ class CarlosEncodeTagUnitTest {
         }
 
         @Test
+        @DisplayName("should keep stored drug names inside a JavaScript href argument")
+        void shouldEncodeDrugNameQuotesAndEntities_forJavaScriptAttribute() throws JspException {
+            // WriteScript's ShowDrugInfo link uses this context inside a double-quoted href
+            // and a single-quoted JS argument. HTML entities must not reopen either quote.
+            run("javaScriptAttribute", "O'Brien');alert(1);//\" onmouseover=\"alert(2) &quot;");
+
+            assertThat(captured.toString())
+                    .doesNotContain("'", "\"", "&")
+                    .contains("\\x27", "\\x22", "\\x26");
+        }
+
+        @Test
         void shouldDispatchToForJavaScriptBlock_whenContextIsSet() throws JspException {
             run("javaScriptBlock", "value");
             assertThat(captured.toString()).isEqualTo(Encode.forJavaScriptBlock("value"));

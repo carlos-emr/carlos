@@ -120,12 +120,12 @@ public class Tickler extends AbstractModel<Integer> {
     @Fetch(FetchMode.SELECT)
     private TicklerCategory ticklerCategory;
 
-    @OneToMany(fetch = FetchType.LAZY)
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     @BatchSize(size = 25)
     private Set<TicklerUpdate> updates = new HashSet<TicklerUpdate>();
 
-    @OneToMany(fetch = FetchType.LAZY)
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
     @JoinColumn(name = "tickler_no", referencedColumnName = "tickler_no")
     @OrderBy("updateDate ASC")
     @Fetch(FetchMode.SELECT)

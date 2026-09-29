@@ -30,6 +30,13 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
+
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -140,6 +147,16 @@ public class CommonLabResultData {
             labs.addAll(hl7Labs);
         }
 
+        if (attach && isConsultResponse && consultId != null && !consultId.isBlank()) {
+            var rows = SpringUtils.getBean(ConsultResponseDocDao.class)
+                    .findByResponseId(Integer.valueOf(consultId));
+            for (var row : rows) if ("L".equals(row.getDocType())) addUnavailableAttachment(labs, row.getLabType(), row.getDocumentNo());
+        }
+        if (attach && !isConsultResponse && consultId != null && !consultId.isBlank()) {
+            var rows = SpringUtils.getBean(ConsultDocsDao.class)
+                    .findByRequestIdDocType(Integer.valueOf(consultId), "L");
+            for (var row : rows) addUnavailableAttachment(labs, row.getLabType(), row.getDocumentNo());
+        }
         return labs;
     }
 
@@ -183,9 +200,28 @@ public class CommonLabResultData {
             labs.addAll(hl7Labs);
         }
 
+        if (attach) {
+            var rows = SpringUtils.getBean(EFormDocsDao.class)
+                    .findByFdidIdDocType(Integer.valueOf(fdid), "L");
+            for (var row : rows) addUnavailableAttachment(labs, row.getLabType(), row.getDocumentNo());
+        }
         return labs;
     }
 
+
+    private static void addUnavailableAttachment(List<LabResultData> labs, String source, int id) {
+        String key = LabAttachmentReference.stored(source, id).key();
+        if (labs.stream().anyMatch(lab -> key.equals(lab.getAttachmentKey()))) return;
+        LabResultData missing = new LabResultData(source == null
+                ? LabAttachmentReference.UNRESOLVED : source);
+        missing.labType = source == null ? LabAttachmentReference.UNRESOLVED : source;
+        missing.segmentID = String.valueOf(id);
+        missing.labPatientId = String.valueOf(id);
+        missing.label = "Lab attachment unavailable: select the lab again to confirm its source before printing";
+        missing.description = "";
+        missing.setAttachmentUnavailable(true);
+        labs.add(missing);
+    }
 
     public ArrayList<LabResultData> populateLabResultsData(LoggedInInfo loggedInInfo, String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
 
@@ -441,9 +477,9 @@ public class CommonLabResultData {
                                                           boolean skipCommentOnUpdate, String multiId) {
         // Static legacy callers cannot receive a Spring @Transactional proxy. Start an outer
         // REQUIRED transaction explicitly so all routing/archive DAO calls join one unit.
-        org.springframework.transaction.support.TransactionTemplate transaction =
-                new org.springframework.transaction.support.TransactionTemplate(
-                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        TransactionTemplate transaction =
+                new TransactionTemplate(
+                        SpringUtils.getBean(PlatformTransactionManager.class));
         // MariaDB 11.8 enables snapshot isolation: a REPEATABLE_READ snapshot taken
         // while resolving versions can reject rows committed before our lock is acquired.
         // Report locks serialize writers; each subsequent read must see their committed rows.
@@ -524,9 +560,9 @@ public class CommonLabResultData {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType, boolean skipCommentOnUpdate) {
-        org.springframework.transaction.support.TransactionTemplate transaction =
-                new org.springframework.transaction.support.TransactionTemplate(
-                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        TransactionTemplate transaction =
+                new TransactionTemplate(
+                        SpringUtils.getBean(PlatformTransactionManager.class));
         transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
         return Boolean.TRUE.equals(transaction.execute(transactionStatus -> {
             providerLabRoutingDao.lockRoutingReport(labNo);

@@ -110,9 +110,12 @@ async function clickOpensPopup(page, locator, options = {}) {
     // Some menus close their own window in the click handler. Their callers
     // can skip waiting on that opener; the popup is still awaited below.
     // options.position lets a caller click a specific point of the target, for links whose
-    // centre sits under a sibling overlay (the eChart navbar's "...date" suffix).
+    // centre sits under a sibling overlay (the eChart navbar's "...date" suffix). Omitted, the
+    // key stays absent so Playwright clicks the centre.
+    const click = { timeout, noWaitAfter: options.closesOpener === true };
+    if (options.position) click.position = options.position;
     try {
-      await target.click({ timeout, noWaitAfter: options.closesOpener === true, position: options.position });
+      await target.click(click);
     } catch (error) {
       // Chromium can acknowledge the menu's window.close() before acknowledging
       // the click, even with noWaitAfter. Accept only this explicit opt-in and

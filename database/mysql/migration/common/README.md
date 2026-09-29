@@ -36,6 +36,16 @@ metadata when the idempotent V1.0.21 creation finds a pre-existing coordination 
 DE16.066; the insert is existence-guarded because `measurementType.type` is not unique.
 `V1.0.33__aacp_provided_revised_reviewed_validation.sql` moves the Asthma Action Plan (AACP)
 measurement type from Yes/No/NA to a Provided/Revised/Reviewed validation (OntarioMD DE16.098).
+`V1.0.42__tickler_docs.sql` creates `ticklerdocs`, the multi-attachment tickler store behind the
+shared attachment picker (#3984), with the standard `lastUpdateUser` / `lastUpdateDate` audit pair,
+and backfills it idempotently from `tickler_link` (creator and creation date preserved, lab source
+kept in `lab_type`); `tickler_link` stays read-only for one release.
+
+`V1.0.43__consultation_eform_lab_sources.sql` preserves the lab source in consultation request,
+response and eForm attachments (#4024). It backfills only sources uniquely routed to the parent
+patient; ambiguous legacy rows remain unresolved and require confirmation before printing.
+These unpublished migrations were renumbered from V1.0.37/V1.0.38 after the release reached
+V1.0.41. Apply V1.0.42 and then V1.0.43 with normal Flyway ordering; no `outOfOrder` is needed.
 
 `V1.0.23.1__widen_email_config.sql` widens `emailConfig.configDetails` to `TEXT` to match the
 entity mapping. `V1.0.29__rename_placeholder_demo_clinic.sql` replaces the seeded placeholder
@@ -49,9 +59,9 @@ Applied together with the selected province (`common` + `on`, or `common` + `bc`
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
 next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.44`.
-`V1.0.42`–`V1.0.43` are claimed by open PR #3996, so the next unallocated version for ANY location
-is `V1.0.45` (see `../README.md`). Consult every active branch inventory before assigning a version.
-Never edit a published migration or silently enable out-of-order application during promotion.
+The next unallocated version for ANY location is `V1.0.45` (see `../README.md`). Consult every active
+branch inventory before assigning a version. Never edit a published migration or silently enable
+out-of-order application during promotion.
 
 Messenger membership coordination (PR #3986, issue #3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations
@@ -66,10 +76,10 @@ PR #4000 adds nullable `mrpDemographicNo` to `HRMDocumentToProvider` and
 `providerLabRouting`. Existing rows remain independent (`NULL`); new automatic MRP and
 forwarded access can then be revoked safely when a patient match is corrected or removed.
 The two `ADD COLUMN IF NOT EXISTS` statements can be retried after interrupted DDL.
-Deploy the migrations present in the release in version order, ending with V1.0.36,
-V1.0.39, V1.0.40, V1.0.41 and V1.0.44 on both provinces. V1.0.39 has no dependency on the unmerged attachment migrations
-V1.0.37/V1.0.38 from PR #3996. Its original SQL header describes the planned merge order;
-that comment is retained to preserve the migration checksum. The release ordering here supersedes it.
+Deploy the migrations present in the release in version order. V1.0.39 has no dependency on
+the attachment migrations now numbered V1.0.42/V1.0.43. Its original SQL header describes the
+planned merge order; that comment is retained to preserve the migration checksum. The release
+ordering here supersedes it.
 
 ## V1.0.40 — Complete lab labels
 

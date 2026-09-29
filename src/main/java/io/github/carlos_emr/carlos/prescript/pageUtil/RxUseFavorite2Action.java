@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,128 +59,159 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages a favourite as a new card.
+     *
+     * @return the staging view, or {@code NONE} after an error response
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
+    // Staging and cursor selection use the same monitor as edits and closes in other windows.
+    @SuppressWarnings("java:S2445")
     public String execute()
             throws IOException, ServletException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
+        // Staging a favourite changes the patient's stash: POST-only (#3908). SearchDrug3's
+        // useFav2 posts it.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         if ("useFav2".equals(request.getParameter("parameterValue"))) {
             return useFav2();
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return null;
-        }
 
 
         // Setup variables
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875),
+        // staged only by a caller with _rx write, globally and for that patient: a staged card can
+        // only ever be saved by a writer (#3908).
         RxSessionBean bean =
-                (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+                RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription session is unavailable");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
+        // Favourites are provider-owned: only the caller's own may be staged (400/404/403 otherwise),
+        // so another provider's dosing and instruction text cannot be copied by guessing ids (#3908).
         try {
-            RxPrescriptionData rxData =
-                    new RxPrescriptionData();
+            RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, this.getFavoriteId());
+            if (fav == null) {
+                return NONE;
+            }
+            synchronized (bean) {
+                RxPrescriptionData rxData =
+                        new RxPrescriptionData();
 
-            // get favorite
-            RxPrescriptionData.Favorite fav =
-                    findFavorite(rxData, this.getFavoriteId());
-            if (fav == null) return null;
+                // create Prescription
+                RxPrescriptionData.Prescription rx =
+                        rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), fav);
 
-            // create Prescription
-            RxPrescriptionData.Prescription rx =
-                    rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), fav);
-
-            bean.setStashIndex(bean.addStashItem(loggedInInfo, rx));
-            request.setAttribute("BoxNoFillFirstLoad", "true");
+                bean.setStashIndex(bean.addStashItem(loggedInInfo, rx));
+                request.setAttribute("BoxNoFillFirstLoad", "true");
+            }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Could not stage prescription favorite ({})", e.getClass().getSimpleName());
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Prescription favorite could not be loaded");
-            return null;
+            MiscUtils.getLogger().error("Favorite staging failed ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         return SUCCESS;
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * The AJAX variant of {@link #execute()}: stages the favourite and returns its card.
+     *
+     * @return {@code useFav2}, or {@code NONE} after an error response
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
+    // The uniqueness decision, insertion and rendered card must describe one atomic operation.
+    @SuppressWarnings("java:S2445")
     public String useFav2()
             throws IOException {
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return null;
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
         }
+
+        // Staging a favourite changes the patient's stash: POST-only (#3908). SearchDrug3's
+        // useFav2 posts it.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
 
         // Setup variables
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875),
+        // staged only by a caller with _rx write, globally and for that patient: a staged card can
+        // only ever be saved by a writer (#3908).
         RxSessionBean bean =
-                (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+                RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription session is unavailable");
-            return null;
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
         }
 
+        // Only the caller's own favourite may be staged; see execute() (#3908).
         try {
-            long randomId;
-            try {
-                randomId = Long.parseLong(request.getParameter("randomId"));
-                if (randomId < 0 || randomId > Integer.MAX_VALUE) throw new NumberFormatException();
-            } catch (NumberFormatException invalidId) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid staged prescription identifier");
-                return null;
+            RxPrescriptionData.Favorite fav = RxFavoriteAccess.loadOwned(request, response, request.getParameter("favoriteId"));
+            if (fav == null) {
+                return NONE;
             }
+            synchronized (bean) {
+                String randomId = request.getParameter("randomId");
+
+                RxPrescriptionData rxData =
+                        new RxPrescriptionData();
+
+                // create Prescription
+                RxPrescriptionData.Prescription rx =
+                        rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), fav);
+                // The page names the card's key; it must be unused in this stash (#3908).
+                rx.setRandomId(RxStashIds.acceptOrNext(bean, randomId, RxStashIds.DEFAULT_BOUND));
+
+                String spec = RxUtil.trimSpecial(rx);
+                rx.setSpecial(spec);
+
+                List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
+                if (RxUtil.isRxUniqueInStash(bean, rx)) {
+                    int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
+                    // addStashItem may reuse an existing card. Never render the discarded copy
+                    // with a key that no card in the shared stash actually carries.
+                    if (bean.getStashItem(rxStashIndex) == rx) {
+                        listRxDrugs.add(rx);
+                    }
+                    bean.setStashIndex(rxStashIndex);
+                }
 
 
-            RxPrescriptionData rxData =
-                    new RxPrescriptionData();
-
-            // get favorite
-            RxPrescriptionData.Favorite fav =
-                    findFavorite(rxData, request.getParameter("favoriteId"));
-            if (fav == null) return null;
-
-            // create Prescription
-            RxPrescriptionData.Prescription rx =
-                    rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), fav);
-            rx.setRandomId(randomId);
-
-            String spec = RxUtil.trimSpecial(rx);
-            rx.setSpecial(spec);
-
-            List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
-            if (RxUtil.isRxUniqueInStash(bean, rx)) {
-                listRxDrugs.add(rx);
-                int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
-                bean.setStashIndex(rxStashIndex);
+                request.setAttribute("listRxDrugs", listRxDrugs);
+                request.setAttribute("BoxNoFillFirstLoad", "true");
             }
-
-
-            request.setAttribute("listRxDrugs", listRxDrugs);
-            request.setAttribute("BoxNoFillFirstLoad", "true");
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Could not stage prescription favorite ({})", e.getClass().getSimpleName());
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Prescription favorite could not be loaded");
-            return null;
+            MiscUtils.getLogger().error("Favorite staging failed ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         return "useFav2";
-    }
-
-    /** Resolve a positive favorite identity before changing the prescription stash. */
-    private RxPrescriptionData.Favorite findFavorite(RxPrescriptionData data, String rawId) throws IOException {
-        int id;
-        try {
-            id = Integer.parseInt(rawId);
-            if (id <= 0) throw new NumberFormatException();
-        } catch (NumberFormatException invalidId) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid prescription favorite identifier");
-            return null;
-        }
-        RxPrescriptionData.Favorite favorite = data.getFavorite(id);
-        if (favorite == null) response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription favorite is unavailable");
-        return favorite;
     }
 
     private String favoriteId = null;
