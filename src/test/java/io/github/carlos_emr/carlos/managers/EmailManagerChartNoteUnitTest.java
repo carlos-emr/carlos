@@ -144,6 +144,7 @@ class EmailManagerChartNoteUnitTest extends CarlosUnitTestBase {
     @DisplayName("should refuse a caller without email read rights before writing anything")
     void shouldRefuse_withoutEmailReadPrivilege() {
         assertThatThrownBy(() -> emailManager.addEmailNote(loggedInInfo, emailLog, "any text"))
+                .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_email)");
         verifyNoInteractions(caseManagementManager);
     }

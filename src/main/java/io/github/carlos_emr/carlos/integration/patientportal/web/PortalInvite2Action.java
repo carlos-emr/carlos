@@ -135,12 +135,14 @@ public class PortalInvite2Action extends PortalJsonAction {
                         "The selected invitation could not be verified for this patient. Refresh the panel.");
             }
             PatientPortalInviteDto invite = portal.revokeInvite(patient, inviteId, staff);
+            audit(session, "PortalInvite2Action.revoke", invite.id(), patient, "");
             ObjectNode payload = newPayload();
             payload.put("ok", true);
             payload.put("inviteId", invite.id());
             payload.put("status", invite.status());
             return write(response, HttpServletResponse.SC_OK, payload);
         } catch (PatientPortalException exception) {
+            auditIfUnconfirmed(session, "PortalInvite2Action.revoke", patient, exception);
             return portalFailure(response, exception);
         }
     }
@@ -183,6 +185,12 @@ public class PortalInvite2Action extends PortalJsonAction {
         if (overrideReason != null && overrideReason.trim().length() > EmailData.CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
             return badRequest(response, "the consent override reason is too long");
         }
+        // The reason is the chart's only record of a consent it does not otherwise hold, so it must be
+        // something a person can read: not blank, not only spaces or symbols, and with no hidden characters.
+        boolean consentOverride = "true".equals(request.getParameter("consentOverride"));
+        if (sends && consentOverride && !isDocumentedReason(overrideReason)) {
+            return badRequest(response, "a consent override needs a written reason, in plain text");
+        }
         PortalInviteDeliveryService invites = inviteDeliveryService();
         if (invites == null) {
             return portalNotConfigured(response);
@@ -193,8 +201,9 @@ public class PortalInvite2Action extends PortalJsonAction {
         }
         PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(session,
                 Set.of(PortalStaffContextResolver.OBJECT_INVITE), patient);
+        // Stored as it was checked: strip() also removes the line separators trim() would keep.
         InviteRequest invite = new InviteRequest(channel, "true".equals(request.getParameter("confirmReplace")),
-                "true".equals(request.getParameter("consentOverride")), overrideReason,
+                consentOverride, overrideReason == null ? null : overrideReason.strip(),
                 "true".equals(request.getParameter("withdrawStale")));
         try {
             PatientPortalInviteDelivery row = switch (method) {
@@ -222,6 +231,15 @@ public class PortalInvite2Action extends PortalJsonAction {
     static boolean maySend(SecurityInfoManager security, LoggedInInfo session) {
         return mayResolve(security, session)
                 && security.hasPrivilege(session, DOCUMENT_OBJECT, SecurityInfoManager.WRITE, null);
+    }
+
+    /** @return whether {@code reason} is readable text: a letter or digit, and no control or hidden characters */
+    static boolean isDocumentedReason(String reason) {
+        if (reason == null) {
+            return false;
+        }
+        String text = reason.strip();
+        return !text.isEmpty() && text.codePoints().anyMatch(Character::isLetterOrDigit) && isPlainText(text);
     }
 
     /** Parses {@code channel}; absent means email. */

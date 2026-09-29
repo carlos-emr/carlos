@@ -289,8 +289,13 @@ public class EmailManager {
                 AtomicReference<Integer> archiveId = new AtomicReference<>();
                 EmailSendResult portalResult;
                 try {
+                    // Signing belongs to this step: it needs the password as the owner password,
+                    // and the portal service clears the password as soon as the step returns.
                     portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
-                            () -> encryptEmail(emailData),
+                            () -> {
+                                encryptEmail(emailData);
+                                signAttachments(emailData);
+                            },
                             () -> archiveId.set(sendWithArchive(loggedInInfo,
                                     createSenderBeforeTransport(loggedInInfo, emailLog, emailData), emailLog,
                                     emailData.getArchiveRedactions(), dispatchGate)));
@@ -947,10 +952,9 @@ public class EmailManager {
      * the row, the row is resolvable like any other: a status write that failed after the send (see
      * {@code completeAcceptedSend}) leaves it PENDING with nothing else able to clear it.
      *
-     * <p>"It did not arrive" claims the delivery by moving it to REVOKED before revoking the code, and
-     * releases the claim if the revocation fails, so for that moment the delivery reads as finished and
-     * the row can be resolved here. That is harmless: resolving changes only the row's status, and the
-     * portal page still offers the attempt once the claim is released.
+     * <p>"It did not arrive" claims the delivery as REVOKING while the portal revokes the code. That state
+     * is unfinished, so the row stays owned until the portal has confirmed the code dead, even when the
+     * revocation is interrupted.
      */
     private boolean isOwnedByOpenInvite(EmailLog emailLog) {
         if (!isPortalInvite(emailLog) || emailLog.getId() == null) {
@@ -1169,13 +1173,12 @@ public class EmailManager {
      * @param loggedInInfo the logged-in user, who signs the note
      * @param emailLog the sent email the note documents
      * @param emailNote the note text; it must not contain anything the chart may not hold
-     * @throws RuntimeException if user lacks _email READ privilege
-     * @throws SecurityException if the user may not open the patient's record
+     * @throws SecurityException if the user lacks _email READ privilege or may not open the patient's record
      * @since 2026-09-22
      */
     public void addEmailNote(LoggedInInfo loggedInInfo, EmailLog emailLog, String emailNote) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
         // Called by workflows outside the send (a portal invitation, possibly confirmed by staff later), so the
         // chart this writes to is checked here rather than trusted from the caller.

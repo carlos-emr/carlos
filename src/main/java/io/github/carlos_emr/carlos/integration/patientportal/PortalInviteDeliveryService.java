@@ -41,10 +41,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -67,7 +71,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * PREPARING, portal refused    -> ABANDONED (nothing was prepared)
  * PREPARING, outcome unknown   stays PREPARING until staff withdraw it
  * staff, before COMMITTED      -> ABANDONED (the token, if any, is found and revoked)
- * staff, COMMITTED | SEND_UNCERTAIN -> SENT ("it arrived") | REVOKED ("it did not arrive")
+ * staff, COMMITTED | SEND_UNCERTAIN -> SENT ("it arrived")
+ *                                   -> REVOKING -> REVOKED ("it did not arrive", once the portal revoked)
  * </pre>
  *
  * <p>The ordering is the point. Committing before the email is durable could activate a token that
@@ -79,8 +84,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * <p>Why an attempt stopped is recorded as an {@link Outcome} code. The chart checks live in
  * {@link PortalInviteContact} and the email itself in {@link PortalInviteEmailComposer}.
  *
- * <p>The invite code is never stored by CARLOS outside the email itself. A lost prepare response is
- * recovered by retrying with the same operation id, which the portal answers with the same token.
+ * <p>The invite code is stored by CARLOS only in the body of the email's outbox row, and only until the
+ * send settles or staff resolve the delivery, when it is replaced there; a crash in the middle of a send
+ * leaves it in that row until then. It is never stored on the attempt, in the archive, or on the chart. A
+ * lost prepare response is recovered by retrying with the same operation id, which the portal answers
+ * with the same token.
  *
  * <p>Recovery is by staff, as for every other CARLOS email: a stuck attempt is shown as incomplete and
  * can be resolved after {@link #RECOVERY_MIN_AGE}. Nothing here runs in the background.
@@ -92,7 +100,7 @@ public class PortalInviteDeliveryService {
     /** How long an attempt must be idle before staff may resolve it, matching stuck-email resolution. */
     public static final Duration RECOVERY_MIN_AGE = Duration.ofMinutes(15);
 
-    /** How many recent attempts the panel shows per patient. */
+    /** How many recent attempts the panel shows per patient, beside every unfinished one. */
     public static final int RECENT_LIMIT = 10;
 
     static final String OPERATION_PREFIX = "inv-";
@@ -290,10 +298,25 @@ public class PortalInviteDeliveryService {
         };
     }
 
-    /** @return the patient's recent attempts, newest first; read from CARLOS, so available offline */
+    /**
+     * The attempts the panel shows: the patient's {@link #RECENT_LIMIT} most recent, and every unfinished
+     * one however old. An unfinished attempt is resolved only from the panel, so one that later attempts
+     * pushed off a recent-only list would keep its code, and its email row, unresolvable.
+     *
+     * @return those attempts, newest first; read from CARLOS, so available offline
+     */
     public List<PatientPortalInviteDelivery> recentFor(int demographicNo) {
-        List<PatientPortalInviteDelivery> rows = deliveries.findRecentByDemographic(demographicNo, RECENT_LIMIT);
-        return rows == null ? Collections.emptyList() : rows;
+        Map<Long, PatientPortalInviteDelivery> rows = new LinkedHashMap<>();
+        List<PatientPortalInviteDelivery> recent = deliveries.findRecentByDemographic(demographicNo, RECENT_LIMIT);
+        if (recent != null) {
+            recent.forEach(row -> rows.put(row.getId(), row));
+        }
+        unfinishedFor(demographicNo).forEach(row -> rows.putIfAbsent(row.getId(), row));
+        List<PatientPortalInviteDelivery> shown = new ArrayList<>(rows.values());
+        shown.sort(Comparator
+                .comparing(PatientPortalInviteDelivery::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(PatientPortalInviteDelivery::getId, Comparator.reverseOrder()));
+        return shown;
     }
 
     /** @return whether staff may resolve the attempt now: unfinished and idle for {@link #RECOVERY_MIN_AGE} */
@@ -311,6 +334,8 @@ public class PortalInviteDeliveryService {
         return switch (state) {
             case PREPARING, PREPARED, QUEUED -> List.of(Decision.ABANDON);
             case COMMITTED, SEND_UNCERTAIN -> List.of(Decision.CONFIRM_SENT, Decision.CONFIRM_NOT_SENT);
+            // A revocation that was interrupted: only asking the portal again can finish it.
+            case REVOKING -> List.of(Decision.CONFIRM_NOT_SENT);
             default -> List.of();
         };
     }
@@ -327,6 +352,9 @@ public class PortalInviteDeliveryService {
         PatientPortalIssuedInviteDto issued;
         try {
             issued = prepare(demographicNo, contact, supersededInviteId, operationId, staff).issuedInvite();
+            // Checked here, where a failure is still recorded on the attempt.
+            Objects.requireNonNull(issued.invite(), "prepared invitation");
+            Objects.requireNonNull(issued.inviteToken(), "prepared invitation code");
         } catch (PatientPortalException exception) {
             if (outcomeUnknown(exception)) {
                 // The portal may hold a prepared code whose id CARLOS never learned, and a live
@@ -338,6 +366,17 @@ public class PortalInviteDeliveryService {
             } else {
                 // The portal refused outright, so it prepared nothing and there is nothing to withdraw.
                 abandon(row.getId(), State.PREPARING, Outcome.PREPARE_REFUSED, null, staff, demographicNo);
+            }
+            throw exception;
+        } catch (RuntimeException exception) {
+            // Anything else must not leave the attempt claimed with no explanation, which would block the
+            // patient's next invitation until staff withdrew an attempt the page could not explain.
+            if (exception instanceof PortalRequestPreparationException) {
+                // CARLOS refused to build the request, so the portal was never asked.
+                abandon(row.getId(), State.PREPARING, Outcome.PREPARE_REFUSED, null, staff, demographicNo);
+            } else {
+                deliveries.advance(row.getId(), State.PREPARING, State.PREPARING,
+                        r -> r.setOutcome(Outcome.PREPARE_UNCONFIRMED));
             }
             throw exception;
         }
@@ -714,8 +753,12 @@ public class PortalInviteDeliveryService {
                 throw exception;
             }
             // Refused: another staff member, or chart details that changed. Look it up instead.
-        } catch (PortalInviteException exception) {
-            // The chart no longer holds what the original request sent. Look it up instead.
+        } catch (RuntimeException exception) {
+            // The chart no longer holds what the original request sent, the request can no longer be built,
+            // or the answer could not be read. Whatever stopped the first attempt must not stop its
+            // withdrawal too, so look it up instead.
+            logger.warn("patient portal preparation could not be asked for again: {}",
+                    exception.getClass().getSimpleName());
         }
         Set<Long> claimed = new HashSet<>();
         for (PatientPortalInviteDelivery other : unfinishedFor(row.getDemographicNo())) {
@@ -740,31 +783,39 @@ public class PortalInviteDeliveryService {
 
     /**
      * Revokes the code of an email staff say never arrived. The attempt is claimed first, so a colleague
-     * answering "it arrived" at the same moment cannot win after the code is already revoked. Unless the
-     * code is confirmed dead, the claim is released in one place, whatever failed, and the attempt is
-     * left exactly as it was, idle time included, for staff to act on again.
+     * answering "it arrived" at the same moment cannot win after the code is already revoked. The claim
+     * is {@link State#REVOKING}, which is not finished: the attempt reads as revoked only once the portal
+     * has confirmed the code dead, so a crash in between leaves it open for staff to revoke again, never
+     * a finished attempt whose code is still live. Unless the code is confirmed dead, the claim is
+     * released in one place, whatever failed, and the attempt is left exactly as it was, idle time
+     * included, for staff to act on again.
      */
     private PatientPortalInviteDelivery confirmNotSent(LoggedInInfo user, PatientPortalInviteDelivery row,
             PatientPortalStaffContext staff) {
         State previous = row.getState();
         Outcome previousOutcome = row.getOutcome();
         Date previousUpdatedAt = row.getUpdatedAt();
-        PatientPortalInviteDelivery claimed =
-                advance(row.getId(), previous, State.REVOKED, r -> r.setOutcome(Outcome.CONFIRMED_NOT_SENT));
+        advance(row.getId(), previous, State.REVOKING, null);
         CodeFate fate = null;
         try {
             fate = revokeCode(row, staff);
         } finally {
             if (fate != CodeFate.DEAD) {
-                deliveries.release(row.getId(), State.REVOKED, previous, previousOutcome, previousUpdatedAt);
+                // A used code means the email arrived. An attempt found mid-revocation offers no "it
+                // arrived", so it is released to the state that does.
+                State released = fate == CodeFate.USED && previous == State.REVOKING
+                        ? State.SEND_UNCERTAIN : previous;
+                deliveries.release(row.getId(), State.REVOKING, released, previousOutcome, previousUpdatedAt);
             }
         }
         if (fate == CodeFate.USED) {
             throw new PortalInviteException(Reason.INVITE_ALREADY_USED);
         }
-        // The code is dead and the claim stands.
-        audit(user, claimed, Decision.CONFIRM_NOT_SENT.requestValue());
-        return closeEmail(claimed, EMAIL_CONFIRMED_NOT_SENT);
+        // The code is dead; only now does the attempt read as revoked.
+        PatientPortalInviteDelivery revoked = advance(row.getId(), State.REVOKING, State.REVOKED,
+                r -> r.setOutcome(Outcome.CONFIRMED_NOT_SENT));
+        audit(user, revoked, Decision.CONFIRM_NOT_SENT.requestValue());
+        return closeEmail(revoked, EMAIL_CONFIRMED_NOT_SENT);
     }
 
     /** What revoking an attempt's code found. */

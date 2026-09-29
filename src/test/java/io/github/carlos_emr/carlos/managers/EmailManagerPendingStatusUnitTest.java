@@ -498,6 +498,15 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep an invitation whose revocation was interrupted with its delivery, as its code may be live")
+    void shouldNotOfferResolution_whileTheRevocationIsUnconfirmed() {
+        EmailLog stalePending = stale(portalInvitation(42, EmailStatus.PENDING));
+        deliveryFor(42, PatientPortalInviteDelivery.State.REVOKING);
+
+        assertThat(emailManager.isManuallyResolvable(stalePending)).isFalse();
+    }
+
+    @Test
     @DisplayName("should not look up the delivery of an invitation email its status already rules out")
     void shouldSkipTheDeliveryLookup_whenTheStatusRulesTheRowOut() {
         // The email list asks this of every row, and the lookup is a query.
