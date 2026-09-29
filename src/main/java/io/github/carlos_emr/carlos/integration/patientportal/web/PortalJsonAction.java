@@ -119,6 +119,25 @@ public abstract class PortalJsonAction extends ActionSupport {
 
     protected abstract String handleRequest() throws IOException;
 
+    /** Zero-width non-joiner, zero-width joiner and soft hyphen: the formatting characters the portal allows. */
+    private static final Set<Integer> ALLOWED_FORMAT_CHARACTERS = Set.of(0x200C, 0x200D, 0x00AD);
+
+    /**
+     * Whether text has no control character, line or paragraph separator, or hidden formatting character.
+     * Mirrors the portal's {@code StaffText} rule ({@code is_hidden_character} in its {@code identity.py}),
+     * which keeps three formatting characters ordinary text needs: the zero-width non-joiner and joiner,
+     * which shape Persian, Indic and other scripts and build emoji sequences, and the soft hyphen.
+     */
+    static boolean isPlainText(String text) {
+        return text.codePoints().noneMatch(codePoint -> {
+            int type = Character.getType(codePoint);
+            return Character.isISOControl(codePoint)
+                    || (type == Character.FORMAT && !ALLOWED_FORMAT_CHARACTERS.contains(codePoint))
+                    || type == Character.LINE_SEPARATOR
+                    || type == Character.PARAGRAPH_SEPARATOR;
+        });
+    }
+
     private String configurationFailure(HttpServletResponse response, Exception exception)
             throws IOException {
         // BeanCreationException may carry configured values in its own message or a nested cause,

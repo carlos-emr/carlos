@@ -81,8 +81,6 @@ public class PortalAccount2Action extends PortalJsonAction {
             "the reason must be at most " + MAX_REASON_LENGTH + " characters";
     private static final String REASON_UNSAFE =
             "the reason must not contain line breaks, control or formatting characters";
-    /** Zero-width non-joiner, zero-width joiner and soft hyphen: the formatting characters the portal allows. */
-    private static final Set<Integer> ALLOWED_FORMAT_CHARACTERS = Set.of(0x200C, 0x200D, 0x00AD);
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient PortalStaffContextResolver staffContextResolver;
@@ -232,21 +230,5 @@ public class PortalAccount2Action extends PortalJsonAction {
         payload.put("enabled", enabledValue);
         payload.put("forcePasswordReset", account.forcePasswordReset());
         return write(response, HttpServletResponse.SC_OK, payload);
-    }
-
-    /**
-     * Whether text has no control character, line or paragraph separator, or hidden formatting character.
-     * Mirrors the portal's {@code StaffText} rule ({@code is_hidden_character} in its {@code identity.py}),
-     * which keeps three formatting characters ordinary text needs: the zero-width non-joiner and joiner,
-     * which shape Persian, Indic and other scripts and build emoji sequences, and the soft hyphen.
-     */
-    static boolean isPlainText(String text) {
-        return text.codePoints().noneMatch(codePoint -> {
-            int type = Character.getType(codePoint);
-            return Character.isISOControl(codePoint)
-                    || (type == Character.FORMAT && !ALLOWED_FORMAT_CHARACTERS.contains(codePoint))
-                    || type == Character.LINE_SEPARATOR
-                    || type == Character.PARAGRAPH_SEPARATOR;
-        });
     }
 }

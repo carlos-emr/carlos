@@ -60,6 +60,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -367,6 +369,46 @@ class PortalInvite2ActionDeliveryUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(200);
         verify(invites).invite(any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   ", "\u200B\u200B", "\u00A0\u00A0", "...", "verbal consent\u202Etnesnoc"})
+    @DisplayName("should refuse a consent override whose reason nobody could read back")
+    void shouldRefuseOverride_whenTheReasonIsNotReadableText(String reason) throws Exception {
+        // Blank, zero-width spaces, no-break spaces, punctuation only, and a right-to-left override.
+        request.setParameter("method", "create");
+        request.setParameter("consentOverride", "true");
+        request.setParameter("consentOverrideReason", reason);
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(payload().get("message").asText()).contains("written reason");
+        verifyNoInteractions(invites);
+    }
+
+    @Test
+    @DisplayName("should refuse a consent override sent with no reason at all")
+    void shouldRefuseOverride_whenNoReasonIsSent() throws Exception {
+        request.setParameter("method", "create");
+        request.setParameter("consentOverride", "true");
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(invites);
+    }
+
+    @Test
+    @DisplayName("should not ask for a reason when no override is claimed")
+    void shouldIgnoreTheReason_withoutAnOverride() throws Exception {
+        request.setParameter("method", "create");
+        request.setParameter("consentOverrideReason", "\u200B");
+        when(invites.invite(any(), any(), any(), any())).thenReturn(delivery(State.SENT));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(200);
     }
 
     @Test

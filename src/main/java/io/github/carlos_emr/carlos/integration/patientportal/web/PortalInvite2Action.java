@@ -183,6 +183,12 @@ public class PortalInvite2Action extends PortalJsonAction {
         if (overrideReason != null && overrideReason.trim().length() > EmailData.CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
             return badRequest(response, "the consent override reason is too long");
         }
+        // The reason is the chart's only record of a consent it does not otherwise hold, so it must be
+        // something a person can read: not blank, not only spaces or symbols, and with no hidden characters.
+        boolean consentOverride = "true".equals(request.getParameter("consentOverride"));
+        if (sends && consentOverride && !isDocumentedReason(overrideReason)) {
+            return badRequest(response, "a consent override needs a written reason, in plain text");
+        }
         PortalInviteDeliveryService invites = inviteDeliveryService();
         if (invites == null) {
             return portalNotConfigured(response);
@@ -194,7 +200,7 @@ public class PortalInvite2Action extends PortalJsonAction {
         PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(session,
                 Set.of(PortalStaffContextResolver.OBJECT_INVITE), patient);
         InviteRequest invite = new InviteRequest(channel, "true".equals(request.getParameter("confirmReplace")),
-                "true".equals(request.getParameter("consentOverride")), overrideReason,
+                consentOverride, overrideReason,
                 "true".equals(request.getParameter("withdrawStale")));
         try {
             PatientPortalInviteDelivery row = switch (method) {
@@ -222,6 +228,15 @@ public class PortalInvite2Action extends PortalJsonAction {
     static boolean maySend(SecurityInfoManager security, LoggedInInfo session) {
         return mayResolve(security, session)
                 && security.hasPrivilege(session, DOCUMENT_OBJECT, SecurityInfoManager.WRITE, null);
+    }
+
+    /** @return whether {@code reason} is readable text: a letter or digit, and no control or hidden characters */
+    static boolean isDocumentedReason(String reason) {
+        if (reason == null) {
+            return false;
+        }
+        String text = reason.strip();
+        return !text.isEmpty() && text.codePoints().anyMatch(Character::isLetterOrDigit) && isPlainText(text);
     }
 
     /** Parses {@code channel}; absent means email. */
