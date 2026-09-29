@@ -491,6 +491,64 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("should inject once and log both replays without stack traces when a nested forward meets a committed response")
+    void shouldInjectOnceWithoutStackTraces_whenNestedForwardMeetsCommittedResponse() throws Exception {
+        // The #3434 shape through the real wrapper: the container has committed the response, the
+        // outer CaptureResponseWrapper still reports uncommitted in writer-capture mode, so the
+        // inner replay's resetBuffer() reaches the committed response and is rejected.
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol");
+        request.setDispatcherType(DispatcherType.REQUEST);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setCommitted(true);
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.getWriter();
+            MockHttpServletRequest forwardRequest = new MockHttpServletRequest("GET",
+                    "/WEB-INF/jsp/provider/providercontrol.jsp");
+            forwardRequest.setContextPath("/carlos");
+            forwardRequest.setDispatcherType(DispatcherType.FORWARD);
+
+            filter.doFilter(forwardRequest, servletResponse, (forwardServletRequest, forwardServletResponse) -> {
+                forwardServletResponse.setContentType("text/html;charset=UTF-8");
+                forwardServletResponse.getWriter()
+                        .write("<html><head><title>Provider</title></head><body></body></html>");
+            });
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            String content = response.getContentAsString();
+            assertThat(content).contains("<script src=\"/carlos/csrfguard\"></script>\n</head>");
+            assertThat(countOccurrences(content, "/csrfguard")).isEqualTo(1);
+
+            assertThat(capture.events())
+                    .filteredOn(event -> event.getLevel() == Level.WARN)
+                    .allSatisfy(event -> assertThat(event.getThrown()).isNull());
+            assertThat(capture.events())
+                    .filteredOn(event -> event.getMessage().getFormattedMessage()
+                            .contains("resetBuffer() rejected although the response reported uncommitted"))
+                    .singleElement()
+                    .satisfies(event -> {
+                        assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                        assertThat(event.getMessage().getFormattedMessage())
+                                .contains("uri=/WEB-INF/jsp/provider/providercontrol.jsp");
+                    });
+            assertThat(capture.events())
+                    .filteredOn(event -> event.getMessage().getFormattedMessage()
+                            .contains("response already committed"))
+                    .singleElement()
+                    .satisfies(event -> {
+                        assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                        assertThat(event.getMessage().getFormattedMessage())
+                                .contains("uri=/carlos/provider/providercontrol,");
+                    });
+        }
+    }
+
     private void withEnabledCsrfGuard(Executable executable) throws Exception {
         CsrfGuard csrfGuard = mock(CsrfGuard.class);
         when(csrfGuard.isEnabled()).thenReturn(true);
