@@ -1112,5 +1112,207 @@ class TestRowParityOnALowerPatchLevel(EtlDriverBase):
                         "the merge table was not checked at all")
 
 
+CONSENT_LOOKUP = ("IFNULL((SELECT r.`deleted` FROM "
+                  "{archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)")
+CONSENT_COLUMNS = ["id", "demographic_no", "consent_type_id", "explicit",
+                   "optout", "edit_date"]
+CONSENT_TYPE = {"class": "merge", "merge_keys": ["type"],
+                "surrogate_pk": "id", "cols": ["id", "type"]}
+#: the entry as a manifest generated before the ruling carries it ...
+CONSENT_SHIPPED = {"class": "copy", "cols": list(CONSENT_COLUMNS),
+                   "fk_remap": {"consent_type_id": "consentType"}}
+#: ... and as one regenerated from the overlay does
+CONSENT_RANKED = dict(
+    CONSENT_SHIPPED, cols=CONSENT_COLUMNS + ["deleted"],
+    value_exprs={"optout": "IFNULL(s.`optout`, 1)",
+                 "deleted": CONSENT_LOOKUP})
+
+
+class ConsentDriverBase(EtlDriverBase):
+    """MANIFEST plus consentType and one shape of the Consent entry,
+    over a dump whose Consent carries `deleted`."""
+
+    ENTRY = CONSENT_RANKED
+    HELPER = "INSERT INTO `o19_archive`.`Consent__live__new`"
+    COPY = "INSERT INTO `carlos`.`Consent`"
+    CHECK = "HAVING COUNT(*) > 1"
+
+    def setUp(self):
+        super(ConsentDriverBase, self).setUp()
+        manifest = dict(MANIFEST, consentType=CONSENT_TYPE,
+                        Consent=self.ENTRY)
+        patch = mock.patch.object(o19map_schema, "TABLES", manifest)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def db(self, **over):
+        src = dict(SRC_COLUMNS, consentType=["id", "type"],
+                   Consent=CONSENT_COLUMNS + ["deleted"])
+        dst = dict(DST_COLUMNS, consentType=["id", "type"],
+                   Consent=CONSENT_COLUMNS + ["deleted"])
+        return FakeDb(src_columns=src, dst_columns=dst, **over)
+
+    def first(self, db, prefix):
+        return next(i for i, w in enumerate(db.log) if w.startswith(prefix))
+
+
+class TestOneLiveConsentPerType(ConsentDriverBase):
+
+    """The Consent helper's place in the run (#3845).
+
+    It reads the consentType id map and the copy reads it, so its
+    position is the whole contract; and a resumed run must not copy
+    through a helper built from a dump or a map that has since
+    changed."""
+
+    def test_the_helper_is_built_between_the_id_map_and_the_copy(self):
+        db, _lines, _counts = self.run_etl(db=self.db())
+        idmap = self.first(
+            db, "RENAME TABLE `o19_archive`.`consentType__idmap`")
+        helper = self.first(db, self.HELPER)
+        swapped = self.first(
+            db, "RENAME TABLE `o19_archive`.`Consent__live`")
+        copy = self.first(db, self.COPY)
+        self.assertLess(idmap, helper, db.log)
+        self.assertLess(helper, swapped, db.log)
+        self.assertLess(swapped, copy, db.log)
+        self.assertIn("`o19_archive`.`Consent__live` r", db.log[copy])
+
+    def test_the_target_is_checked_after_the_copy(self):
+        db, _lines, _counts = self.run_etl(db=self.db())
+        copy = self.first(db, self.COPY)
+        checks = [i for i, w in enumerate(db.log) if self.CHECK in w]
+        self.assertEqual(len(checks), 1, db.log)
+        self.assertLess(copy, checks[0])
+        self.assertIn("FROM `carlos`.`Consent`", db.log[checks[0]])
+
+    def test_a_target_holding_duplicates_fails_the_import(self):
+        with self.assertRaises(SystemExit):
+            self.run_etl(db=self.db(scalars={self.CHECK: 2}))
+
+    def test_a_resumed_run_rebuilds_the_helper(self):
+        with self.assertRaises(o19etl.QueryError):
+            self.run_etl(db=self.db(fail_on=self.COPY))
+        ledger = o19etl.load_progress(self.state_dir)
+        self.assertNotIn("done", ledger["tables"]["Consent"])
+
+        resumed, _lines, _counts = self.run_etl(db=self.db())
+        helper = self.first(resumed, self.HELPER)
+        # the first attempt may have landed rows: cleared, then copied
+        delete = self.first(resumed, "DELETE FROM `carlos`.`Consent`")
+        copy = self.first(resumed, self.COPY)
+        self.assertLess(helper, copy, resumed.log)
+        self.assertLess(delete, copy, resumed.log)
+
+    def test_a_finished_copy_keeps_the_helper_it_was_made_from(self):
+        # P7 compares the stored values with the helper THAT RAN
+        self.run_etl(db=self.db())
+        again, _lines, _counts = self.run_etl(db=self.db())
+        self.assertEqual(
+            [w for w in again.writes if "Consent__live" in w], [])
+        self.assertEqual(
+            [w for w in again.writes if w.startswith(self.COPY)], [])
+        # still asked, because it is the only thing that would notice
+        self.assertEqual(
+            len([w for w in again.reads if self.CHECK in w]), 1)
+
+    def test_the_report_says_how_many_rows_were_retired(self):
+        _db, lines, _counts = self.run_etl(db=self.db(scalars={
+            "r.`deleted` = 1 AND": 3,
+            "s.`optout` IS NULL AND (": 2,
+            "s.`deleted` IS NULL": 4,
+            "s.`optout` IS NULL AND NOT (": 5,
+            "s.`deleted` <> 0": 6}))
+        text = self.report_text(lines)
+        self.assertIn("Consent: 3 live row(s) retired (deleted = 1) "
+                      "because the patient holds another live record",
+                      text)
+        self.assertIn("Consent: 2 live row(s) with no recorded decision "
+                      "(optout NULL) retired", text)
+        self.assertIn("Consent: 4 row(s) with no deleted flag (deleted "
+                      "NULL) stored as deleted", text)
+        self.assertIn("Consent: 5 row(s) that were not live and had no "
+                      "recorded decision (optout NULL) have optout "
+                      "stored as 1", text)
+        self.assertIn("Consent: 6 row(s) deleted in OSCAR 19 stay "
+                      "deleted. This is a change: earlier versions of "
+                      "this import brought them in live", text)
+        self.assertIn("is kept in o19_archive.Consent__live "
+                      "(prior_explicit, prior_optout, prior_deleted, "
+                      "reason)", text)
+
+    def test_the_helper_is_checked_against_the_dump_before_the_copy(self):
+        db, _lines, _counts = self.run_etl(db=self.db())
+        covered = self.first(
+            db, "SELECT (SELECT COUNT(*) FROM `o19_import`.`Consent` s "
+                "WHERE NOT EXISTS")
+        self.assertLess(self.first(
+            db, "RENAME TABLE `o19_archive`.`Consent__live`"), covered)
+        self.assertLess(covered, self.first(db, self.COPY))
+
+    def test_a_helper_that_does_not_cover_the_dump_stops_the_copy(self):
+        db = self.db(scalars={"s WHERE NOT EXISTS (SELECT 1 FROM "
+                              "`o19_archive`.`Consent__live`": 1})
+        with self.assertRaises(SystemExit):
+            self.run_etl(db=db)
+        self.assertEqual(
+            [w for w in db.writes if w.startswith(self.COPY)], [])
+
+    def test_a_resumed_run_still_reports_them_once(self):
+        scalars = {"r.`deleted` = 1 AND": 3}
+        with self.assertRaises(o19etl.QueryError):
+            self.run_etl(db=self.db(scalars=scalars, fail_on=self.COPY))
+        _db, lines, _counts = self.run_etl(db=self.db(scalars=scalars))
+        self.assertEqual(
+            self.report_text(lines).count("Consent: 3 live row(s)"), 1)
+        _db, lines, _counts = self.run_etl(db=self.db(scalars=scalars))
+        self.assertEqual(
+            self.report_text(lines).count("Consent: 3 live row(s)"), 1)
+
+    def test_nothing_retired_is_nothing_reported(self):
+        _db, lines, _counts = self.run_etl(db=self.db())
+        self.assertNotIn("consent records:", self.report_text(lines))
+
+    def test_the_staged_dump_is_never_written(self):
+        db, _lines, _counts = self.run_etl(db=self.db())
+        self.assertEqual(
+            [w for w in db.writes
+             if re.match(r"^(INSERT INTO|UPDATE|DELETE FROM|ALTER TABLE|"
+                         r"DROP TABLE( IF EXISTS)?|CREATE TABLE|RENAME "
+                         r"TABLE) `o19_import`\.`Consent`", w)], [])
+
+
+class TestAManifestFromBeforeTheConsentRuling(ConsentDriverBase):
+
+    """The shipped manifest until it is regenerated: no `deleted` in
+    cols, no expressions. The run must be the one it was."""
+
+    ENTRY = CONSENT_SHIPPED
+
+    def test_no_helper_is_built_and_nothing_is_checked(self):
+        db, lines, _counts = self.run_etl(db=self.db())
+        self.assertEqual([w for w in db.log if "Consent__live" in w], [])
+        self.assertEqual([w for w in db.log if self.CHECK in w], [])
+        self.assertNotIn("consent records:", self.report_text(lines))
+
+    def test_the_copy_is_the_one_it_was(self):
+        db, _lines, _counts = self.run_etl(db=self.db())
+        copies = [w for w in db.writes if w.startswith(self.COPY)]
+        self.assertEqual(len(copies), 1)
+        # the dump's `deleted` is a column that manifest does not know:
+        # preserved beside the row, as any unknown column is, and the
+        # live flag is not read from it
+        self.assertIn("`import_archived_deleted`", copies[0])
+        self.assertNotIn("IFNULL(s.`optout`, 1)", copies[0])
+        self.assertNotIn("s.`deleted` <=>", copies[0])
+
+    def test_a_resumed_run_builds_none_either(self):
+        with self.assertRaises(o19etl.QueryError):
+            self.run_etl(db=self.db(fail_on=self.COPY))
+        resumed, _lines, _counts = self.run_etl(db=self.db())
+        self.assertEqual(
+            [w for w in resumed.log if "Consent__live" in w], [])
+
+
 if __name__ == "__main__":
     unittest.main()

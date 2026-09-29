@@ -717,6 +717,44 @@ credential note, the properties fragment and `bundle/`, but not
 objects. `destroy-data` says so when backups are kept; pass
 `--including-backups`, or treat the repository as clinical records.
 
+### Consent records: one live record per patient and consent type
+
+CARLOS allows a patient one live (`deleted = 0`) `Consent` row per
+consent type. An OSCAR 19 database can hold several, and flags that are
+NULL. The import does not drop any row; it decides which one stays live.
+
+- **Which one stays live.** An opt-out first; then a consent the patient
+  confirmed directly (explicit) over an implied one, even a newer one;
+  then the most recently edited, a row with no edit date counting as the
+  oldest; then the higher id. This is the rule CARLOS itself uses. The
+  other live rows for that patient and type are stored with
+  `deleted = 1`.
+- **Consents deleted in OSCAR 19 stay deleted.** Earlier versions of the
+  import brought them in live.
+- **A consent with no recorded decision** (`optout` NULL) is retired and
+  stored as an opt-out, so it permits nothing if someone restores it by
+  hand. A NULL `deleted` is stored as deleted, and a NULL `explicit` as
+  implied.
+- Rows with no patient, or whose consent type does not exist on either
+  side, are left as they are.
+
+**Where the record is kept.** `o19_archive.Consent__live` has one row for
+every OSCAR 19 consent row: the `deleted` value the import stored, the
+three flags as the clinic's row held them (`prior_explicit`,
+`prior_optout`, `prior_deleted`; NULL where the row held NULL or the dump
+has no such column), and `reason`: `duplicate_retired`, `null_flag`,
+both, or empty when the flags arrived unchanged. It is in the archive
+CSV export as `Consent__live.csv`.
+
+**Report lines** (counts only, each printed when it is not zero): live
+rows retired as duplicates; live rows with no recorded decision retired;
+rows with a NULL `deleted` stored as deleted; rows that were not live
+whose NULL `optout` is stored as 1; rows deleted in OSCAR 19 that stay
+deleted.
+
+This applies once the shipped manifest has been regenerated from the
+overlay that carries the rule (`scripts/migration/o19/README.md`).
+
 ### What this means for Flyway
 
 The import writes into the schema Flyway owns, so the contract is worth
@@ -787,6 +825,14 @@ clinic's sign-off.
   view; run `o19_preflight.py` on the OSCAR 19 server and it lists them
   with the exact flags. The import migrates base tables only, so leaving
   the views out costs nothing.
+- *"Consent: N patient/consent-type pair(s) hold more than one live row
+  after the copy"* — the import checks this itself because the copy runs
+  with unique checks off. It means the import chose wrongly, not that the
+  clinic's data is at fault: restore the pre-import snapshot and report
+  it. *"the helper table o19_archive.Consent__live does not hold exactly
+  one row for every staged row"* means the staged dump changed during
+  the import; nothing was copied for that table. Restore the snapshot
+  and start over.
 - *documents reconciliation FAILED* — a `document` row's file is missing,
   empty, named with a subdirectory or with a leading dot (CARLOS opens the
   basename only and refuses dot-leading names), an eForm references an

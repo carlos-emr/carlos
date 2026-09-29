@@ -833,6 +833,53 @@ class TestOverlayRulingsReachTheManifest(unittest.TestCase):
             self.stale("SCHEMA_MAP_VERSION"))
 
 
+@unittest.skipUnless(OVERRIDES.is_file(), "overlay not in this checkout")
+class TestTheConsentRulingIsInTheOverlay(unittest.TestCase):
+    """One live Consent row per patient and consent type (#3845).
+
+    Asserted on the OVERLAY, not on the shipped manifest: regeneration
+    needs an OSCAR 19 checkout, so the ruling lands here first and takes
+    effect in the import once the manifest is regenerated from it. The
+    ETL tolerates both (o19etl.consent_live_ranked)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.exprs = load_overrides().VALUE_EXPRS.get("Consent", {})
+
+    def test_a_null_optout_is_stored_as_an_opt_out(self):
+        self.assertEqual(self.exprs.get("optout"), "IFNULL(s.`optout`, 1)")
+
+    def test_a_row_the_helper_does_not_know_arrives_retired(self):
+        self.assertTrue(self.exprs["deleted"].startswith("IFNULL((SELECT"))
+        self.assertTrue(self.exprs["deleted"].endswith(", 1)"))
+
+    def test_deleted_is_read_from_the_helper_the_etl_builds(self):
+        self.assertEqual(
+            self.exprs.get("deleted"),
+            "IFNULL((SELECT r.`deleted` FROM {archive}.`Consent__live` r "
+            "WHERE r.`id` = s.`id`), 1)")
+        self.assertIn(o19etl.ARCHIVE_SLOT, self.exprs["deleted"])
+        self.assertIn(o19etl.ident(o19etl.consent_live_table()),
+                      self.exprs["deleted"])
+
+    def test_the_etl_recognises_the_entry_the_generator_would_emit(self):
+        entry = dict(o19map_schema.TABLES["Consent"],
+                     value_exprs=dict(self.exprs))
+        entry["cols"] = list(entry["cols"]) + [
+            c for c in sorted(self.exprs) if c not in entry["cols"]]
+        self.assertTrue(o19etl.consent_live_ranked(entry))
+
+    def test_both_targets_are_carlos_columns(self):
+        # the generator refuses an expression for a column CARLOS lacks
+        for column in self.exprs:
+            self.assertIn(column, o19map_schema.CARLOS_COLUMNS["Consent"])
+
+    def test_no_window_function_is_in_an_expression(self):
+        # P7 rebuilds them inside a WHERE
+        for column, expr in self.exprs.items():
+            self.assertNotIn("OVER", expr.upper().split(), column)
+
+
 class TestTheOntarioProfile(unittest.TestCase):
 
     """What is true of the Ontario profile ALONE.

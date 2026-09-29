@@ -88,6 +88,24 @@ those so a baseline-skipped key cannot flip behaviour silently), and
 A declared bundle prefix that matches no O19 key, or that still resolves in the
 CARLOS bundle, fails generation.
 
+### The Consent ruling (one live record per patient and consent type)
+
+`VALUE_EXPRS["Consent"]` in `overrides_schema.py` makes the import keep
+one live `Consent` row per patient and consent type: an opt-out first,
+then a consent the patient confirmed directly, then the most recent,
+then the higher id. Consents deleted in OSCAR 19 stay deleted, a consent
+with no recorded decision is retired and stored as an opt-out, and no
+row is dropped. `deleted` is read from a helper table the ETL builds
+before the copy, `o19_archive.Consent__live`, which also records what
+each row held before and why it was changed. `{archive}` in an
+expression stands for the archive schema; the ETL fills it in.
+
+The ETL applies the rule only when the manifest's `Consent` entry
+carries these expressions. A manifest generated before the ruling is
+copied exactly as before, so **regenerate after pulling this change**.
+What the operator sees (report lines, failure messages) is in
+`docs/o19-import-deb.md`.
+
 ## Verifying the DDL parse
 
 `generate_manifests.py` reads the SQL with a hand-written DDL reader
