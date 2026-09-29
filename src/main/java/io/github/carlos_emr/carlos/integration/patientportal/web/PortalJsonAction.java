@@ -165,6 +165,19 @@ public abstract class PortalJsonAction extends ActionSupport {
         }
     }
 
+    /**
+     * Records a portal change whose outcome is unknown: the portal may have applied it although
+     * CARLOS could not read the answer. A definite refusal changed nothing and is not recorded.
+     */
+    void auditIfUnconfirmed(LoggedInInfo session, String action, int patient, PatientPortalException failure) {
+        boolean unread = failure.kind() == PatientPortalException.Kind.MALFORMED_RESPONSE;
+        boolean interrupted = failure.kind() == PatientPortalException.Kind.TRANSPORT_FAILURE
+                && !failure.isRequestNotSent();
+        if (unread || interrupted) {
+            audit(session, action + ".unconfirmed", 0, patient, "outcome=unconfirmed");
+        }
+    }
+
     static void requirePatientAccess(SecurityInfoManager security, LoggedInInfo session, int patient) {
         if (!security.hasPrivilege(
                         session, "_demographic", SecurityInfoManager.READ, String.valueOf(patient))

@@ -162,6 +162,20 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
                 eq("Email was not sent. Its portal password has been revoked."), any());
     }
 
+    /** Staff asserted the send; that decision is recorded even when publishing then fails. */
+    @Test void shouldAuditTheDecision_whenPublishingFailsAfterStaffConfirmTheSend() {
+        stored(PortalDeliveryState.SENDING);
+        log.setStatus(EmailStatus.PENDING);
+        when(portal.publishUnlockSecret(eq(77L), any())).thenThrow(new IllegalStateException("outage"));
+        assertThatThrownBy(() -> delivery.recover(user, 45, "confirmSent", true))
+                .isInstanceOf(IllegalStateException.class);
+        // logActionMock is the base class's LogAction mock.
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(eq(user),
+                eq("PortalEmailDeliveryService.recover.confirmSent.incomplete"), eq("Email"), eq("45"),
+                eq("123"), eq("portalState=SENT&portalSecretId=77")));
+        assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.SENT);
+    }
+
     @Test void shouldRecoverLostCreateResponse_usingSameStoredReference() {
         when(portal.createUnlockSecret(eq(123), anyString(), anyString(), any()))
                 .thenThrow(new IllegalStateException("timeout"));
@@ -441,12 +455,26 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
         assertThat(outcome.isTransportAccepted()).isTrue();
         assertThat(outcome.isFollowUpRequired()).isTrue();
         assertThat(log.getErrorMessage()).isEqualTo(PortalEmailDeliveryService.SENT_AFTER_REVOCATION);
-        // Recovery may already have stored FAILED, "not sent"; the stored row is corrected.
-        verify(logs).transitionEmailStatus(eq(45), eq(EmailStatus.FAILED), eq(EmailStatus.SUCCESS),
+        // Still PENDING here, so the row is settled before recovery can store "not sent".
+        verify(logs).transitionEmailStatus(eq(45), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
                 eq(PortalEmailDeliveryService.SENT_AFTER_REVOCATION), any());
+        verify(logs, never()).transitionEmailStatus(eq(45), eq(EmailStatus.FAILED), any(), anyString(), any());
         // Left unsettled in memory, so the compose page still offers recovery.
         assertThat(log.getPortalDeliveryState()).isEqualTo(PortalDeliveryState.SENDING);
         assertThat(operations).containsExactly("create", "encrypt", "send");
+    }
+
+    @Test void shouldCorrectTheStoredRow_whenRecoveryAlreadyRecordedTheEmailAsNotSent() {
+        when(logs.transitionPortalDelivery(log, PortalDeliveryState.SENDING, PortalDeliveryState.SENT, 77L)).thenReturn(false);
+        EmailLog withdrawn = new EmailLog();
+        withdrawn.setPortalDeliveryState(PortalDeliveryState.REVOKED);
+        when(logs.find(45)).thenReturn(withdrawn);
+        when(logs.transitionEmailStatus(eq(45), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS), anyString(), any()))
+                .thenReturn(0);
+        outcome = delivery.send(user, log, data, this::encrypt, this::send);
+        assertThat(outcome.isTransportAccepted()).isTrue();
+        verify(logs).transitionEmailStatus(eq(45), eq(EmailStatus.FAILED), eq(EmailStatus.SUCCESS),
+                eq(PortalEmailDeliveryService.SENT_AFTER_REVOCATION), any());
     }
 
     @Test void shouldReportPlainSuccess_whenRecoveryAlreadyPublishedThePasswordDuringTheSend() {
