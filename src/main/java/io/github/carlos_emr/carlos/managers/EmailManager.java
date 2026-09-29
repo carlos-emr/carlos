@@ -947,10 +947,9 @@ public class EmailManager {
      * the row, the row is resolvable like any other: a status write that failed after the send (see
      * {@code completeAcceptedSend}) leaves it PENDING with nothing else able to clear it.
      *
-     * <p>"It did not arrive" claims the delivery by moving it to REVOKED before revoking the code, and
-     * releases the claim if the revocation fails, so for that moment the delivery reads as finished and
-     * the row can be resolved here. That is harmless: resolving changes only the row's status, and the
-     * portal page still offers the attempt once the claim is released.
+     * <p>"It did not arrive" claims the delivery as REVOKING while the portal revokes the code. That state
+     * is unfinished, so the row stays owned until the portal has confirmed the code dead, even when the
+     * revocation is interrupted.
      */
     private boolean isOwnedByOpenInvite(EmailLog emailLog) {
         if (!isPortalInvite(emailLog) || emailLog.getId() == null) {

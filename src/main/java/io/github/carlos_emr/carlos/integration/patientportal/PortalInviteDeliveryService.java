@@ -67,7 +67,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * PREPARING, portal refused    -> ABANDONED (nothing was prepared)
  * PREPARING, outcome unknown   stays PREPARING until staff withdraw it
  * staff, before COMMITTED      -> ABANDONED (the token, if any, is found and revoked)
- * staff, COMMITTED | SEND_UNCERTAIN -> SENT ("it arrived") | REVOKED ("it did not arrive")
+ * staff, COMMITTED | SEND_UNCERTAIN -> SENT ("it arrived")
+ *                                   -> REVOKING -> REVOKED ("it did not arrive", once the portal revoked)
  * </pre>
  *
  * <p>The ordering is the point. Committing before the email is durable could activate a token that
@@ -311,6 +312,8 @@ public class PortalInviteDeliveryService {
         return switch (state) {
             case PREPARING, PREPARED, QUEUED -> List.of(Decision.ABANDON);
             case COMMITTED, SEND_UNCERTAIN -> List.of(Decision.CONFIRM_SENT, Decision.CONFIRM_NOT_SENT);
+            // A revocation that was interrupted: only asking the portal again can finish it.
+            case REVOKING -> List.of(Decision.CONFIRM_NOT_SENT);
             default -> List.of();
         };
     }
@@ -740,31 +743,39 @@ public class PortalInviteDeliveryService {
 
     /**
      * Revokes the code of an email staff say never arrived. The attempt is claimed first, so a colleague
-     * answering "it arrived" at the same moment cannot win after the code is already revoked. Unless the
-     * code is confirmed dead, the claim is released in one place, whatever failed, and the attempt is
-     * left exactly as it was, idle time included, for staff to act on again.
+     * answering "it arrived" at the same moment cannot win after the code is already revoked. The claim
+     * is {@link State#REVOKING}, which is not finished: the attempt reads as revoked only once the portal
+     * has confirmed the code dead, so a crash in between leaves it open for staff to revoke again, never
+     * a finished attempt whose code is still live. Unless the code is confirmed dead, the claim is
+     * released in one place, whatever failed, and the attempt is left exactly as it was, idle time
+     * included, for staff to act on again.
      */
     private PatientPortalInviteDelivery confirmNotSent(LoggedInInfo user, PatientPortalInviteDelivery row,
             PatientPortalStaffContext staff) {
         State previous = row.getState();
         Outcome previousOutcome = row.getOutcome();
         Date previousUpdatedAt = row.getUpdatedAt();
-        PatientPortalInviteDelivery claimed =
-                advance(row.getId(), previous, State.REVOKED, r -> r.setOutcome(Outcome.CONFIRMED_NOT_SENT));
+        advance(row.getId(), previous, State.REVOKING, null);
         CodeFate fate = null;
         try {
             fate = revokeCode(row, staff);
         } finally {
             if (fate != CodeFate.DEAD) {
-                deliveries.release(row.getId(), State.REVOKED, previous, previousOutcome, previousUpdatedAt);
+                // A used code means the email arrived. An attempt found mid-revocation offers no "it
+                // arrived", so it is released to the state that does.
+                State released = fate == CodeFate.USED && previous == State.REVOKING
+                        ? State.SEND_UNCERTAIN : previous;
+                deliveries.release(row.getId(), State.REVOKING, released, previousOutcome, previousUpdatedAt);
             }
         }
         if (fate == CodeFate.USED) {
             throw new PortalInviteException(Reason.INVITE_ALREADY_USED);
         }
-        // The code is dead and the claim stands.
-        audit(user, claimed, Decision.CONFIRM_NOT_SENT.requestValue());
-        return closeEmail(claimed, EMAIL_CONFIRMED_NOT_SENT);
+        // The code is dead; only now does the attempt read as revoked.
+        PatientPortalInviteDelivery revoked = advance(row.getId(), State.REVOKING, State.REVOKED,
+                r -> r.setOutcome(Outcome.CONFIRMED_NOT_SENT));
+        audit(user, revoked, Decision.CONFIRM_NOT_SENT.requestValue());
+        return closeEmail(revoked, EMAIL_CONFIRMED_NOT_SENT);
     }
 
     /** What revoking an attempt's code found. */

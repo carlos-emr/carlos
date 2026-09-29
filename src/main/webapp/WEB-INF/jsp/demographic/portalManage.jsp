@@ -175,7 +175,7 @@
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- delivery states --%>
-        <c:forTokens var="key" delims="," items="deliveries.state.abandoned,deliveries.state.committed,deliveries.state.prepared,deliveries.state.preparing,deliveries.state.queued,deliveries.state.revoked,deliveries.state.send_failed,deliveries.state.send_uncertain,deliveries.state.sent">
+        <c:forTokens var="key" delims="," items="deliveries.state.abandoned,deliveries.state.committed,deliveries.state.prepared,deliveries.state.preparing,deliveries.state.queued,deliveries.state.revoked,deliveries.state.revoking,deliveries.state.send_failed,deliveries.state.send_uncertain,deliveries.state.sent">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- delivery outcomes --%>

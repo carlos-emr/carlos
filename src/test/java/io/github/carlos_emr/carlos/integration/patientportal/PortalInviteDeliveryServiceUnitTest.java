@@ -1324,6 +1324,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse, and leave the attempt as it was, when the patient already used the code")
         void shouldRefuse_whenThePatientAlreadyUsedIt() {
             PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+            row.setOutcome(Outcome.SEND_UNCONFIRMED);
             doThrow(PatientPortalException.ofStatus(409, "/revoke", "invite is accepted"))
                     .when(portal).revokeInvite(anyInt(), anyLong(), any());
             when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "accepted")));
@@ -1332,6 +1333,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     .isInstanceOfSatisfying(PortalInviteException.class,
                             exception -> assertThat(exception.reason()).isEqualTo(Reason.INVITE_ALREADY_USED));
             assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.SEND_UNCONFIRMED);
         }
 
         @Test
@@ -1346,13 +1348,74 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
             service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff);
 
-            assertThat(stateAtRevoke).containsExactly(State.REVOKED);
+            // Claimed, but not yet called revoked: the code is live until the portal answers.
+            assertThat(stateAtRevoke).containsExactly(State.REVOKING);
+            assertThat(row.getState()).isEqualTo(State.REVOKED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.CONFIRMED_NOT_SENT);
+        }
+
+        @Test
+        @DisplayName("should leave an interrupted revocation unfinished, for staff to revoke again")
+        void shouldLeaveTheAttemptRevoking_whenInterruptedBeforeTheRevoke() {
+            PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+            // As a crash between the claim and the revoke leaves it: nothing runs afterwards, the release included.
+            doThrow(new IllegalStateException("interrupted")).when(portal).revokeInvite(anyInt(), anyLong(), any());
+            when(deliveries.release(anyLong(), any(State.class), any(State.class), any(), any()))
+                    .thenThrow(new IllegalStateException("interrupted"));
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
+                    .isInstanceOf(IllegalStateException.class);
+
+            assertThat(row.getState()).isEqualTo(State.REVOKING);
+            assertThat(row.getState().isTerminal()).isFalse();
+            assertThat(State.unfinished()).contains(State.REVOKING);
+            assertThat(PortalInviteDeliveryService.decisionsFor(State.REVOKING))
+                    .containsExactly(Decision.CONFIRM_NOT_SENT);
+            logActionMock.verifyNoInteractions();
+            verify(emailLogs, never()).transitionEmailStatus(anyInt(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should finish an interrupted revocation when staff ask again after the wait")
+        void shouldRevoke_whenStaffAskAgainAfterAnInterruption() {
+            PatientPortalInviteDelivery fresh = storedRow(State.REVOKING, Duration.ofMinutes(14));
+            assertThatThrownBy(() -> service.recover(user, patient(), fresh.getId(), Decision.CONFIRM_NOT_SENT, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.RECOVERY_TOO_EARLY));
+            PatientPortalInviteDelivery row = storedRow(State.REVOKING, Duration.ofMinutes(16));
+
+            PatientPortalInviteDelivery resolved =
+                    service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff);
+
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+            assertThat(resolved.getState()).isEqualTo(State.REVOKED);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.CONFIRMED_NOT_SENT);
+            logActionMock.verify(() -> LogAction.addLog(user, "PortalInviteDeliveryService.recover.confirmNotSent",
+                    "PortalInviteDelivery", String.valueOf(row.getId()), String.valueOf(PATIENT),
+                    "state=REVOKED&outcome=CONFIRMED_NOT_SENT"));
+        }
+
+        @Test
+        @DisplayName("should offer 'it arrived' again when an interrupted revocation finds the code was used")
+        void shouldReleaseToUncertain_whenAnInterruptedRevocationFindsTheCodeUsed() {
+            PatientPortalInviteDelivery row = storedRow(State.REVOKING, Duration.ofMinutes(16));
+            doThrow(PatientPortalException.ofStatus(409, "/revoke", "invite is accepted"))
+                    .when(portal).revokeInvite(anyInt(), anyLong(), any());
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "accepted")));
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.INVITE_ALREADY_USED));
+
+            assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+            assertThat(PortalInviteDeliveryService.decisionsFor(row.getState())).contains(Decision.CONFIRM_SENT);
         }
 
         @Test
         @DisplayName("should release the claim when the portal cannot revoke, so staff can try again at once")
         void shouldReleaseTheClaim_whenTheRevokeFails() {
             PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+            row.setOutcome(Outcome.SEND_UNCONFIRMED);
             Date idleSince = row.getUpdatedAt();
             doThrow(PatientPortalException.ofTransportFailure("/revoke", null))
                     .when(portal).revokeInvite(anyInt(), anyLong(), any());
@@ -1361,6 +1424,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     .isInstanceOf(PatientPortalException.class);
 
             assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.SEND_UNCONFIRMED);
             // The release changes nothing, so the 15-minute wait does not start again.
             assertThat(row.getUpdatedAt()).isEqualTo(idleSince);
             assertThat(service.isRecoverable(row)).isTrue();

@@ -153,7 +153,9 @@ an SMS provider.
 
 An attempt that did not finish shows as incomplete on the page. After 15 minutes without a change,
 staff can resolve it: **Stop and withdraw the code** before the commit, or **It arrived** / **It did
-not arrive; revoke it** after it. Recovery re-checks that the patient and the portal connection match
+not arrive; revoke it** after it. "It did not arrive" first marks the attempt `REVOKING`, which is
+unfinished, and marks it `REVOKED` only once the portal has confirmed the code dead; if that is
+interrupted, the attempt stays open and staff can revoke it again after the same wait. Recovery re-checks that the patient and the portal connection match
 the attempt, and the page offers no decision for an attempt made on another portal connection. Each
 decision is written to the CARLOS audit log as `PortalInviteDeliveryService.recover.<decision>`, with the
 delivery id, the patient, and the state and outcome codes it left; never the code. Nothing runs in the
