@@ -169,8 +169,9 @@ public class SmsConfigService {
 
     /**
      * Writes the row now, inside this transaction, so a save that raced another administrator's fails
-     * here: a second first save hits the fixed id, and a second update fails the version check. The
-     * exception rolls the transaction back. Any other database failure passes through unchanged, so a
+     * here. On MariaDB with snapshot isolation (the default since 11.6) both races fail with error 1020,
+     * "Record has changed since last read". Where that is off, and on H2, a second first save hits the
+     * fixed id and a second update fails the version check. The exception rolls the transaction back. Any other database failure passes through unchanged, so a
      * real defect is never reported as "someone else saved".
      */
     private void flushOrReportConflict() {
