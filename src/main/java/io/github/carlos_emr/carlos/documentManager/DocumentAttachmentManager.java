@@ -267,8 +267,14 @@ public interface DocumentAttachmentManager {
      *
      * @param request HttpServletRequest the HTTP request containing consultation parameters
      * @param response HttpServletResponse the HTTP response for potential streaming operations
+     * <p>An attachment that fails to render fails the whole render, unless the request carries
+     * {@link #ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE}; then it is left out and a warning is added to
+     * the {@link #ATTACHMENT_WARNINGS_ATTRIBUTE} list. Attachments whose target no longer exists
+     * are always left out with a warning.</p>
+     *
      * @return Path the file system path to the rendered PDF document containing the consultation form and attachments
-     * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process
+     * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process,
+     *         including an attachment that fails to render when skipping is not allowed
      */
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
 

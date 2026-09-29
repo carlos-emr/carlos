@@ -576,23 +576,24 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         String demographicId = resolveConsultationDemographicId(requestId, attributeToString(request.getAttribute(ATTR_DEMOGRAPHIC_ID)));
         request.setAttribute(ATTR_DEMOGRAPHIC_ID, demographicId);
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
-        List<String> attachmentWarnings = initializeAttachmentWarnings(request);
-        recordUnavailableConsultAttachmentWarnings(requestId, attachmentWarnings);
-
-        List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
-        List<EDoc> attachedEDocs = EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED);
-        CommonLabResultData labResultData = new CommonLabResultData();
-        List<LabResultData> attachedLabs = labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED);
-        ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
-        List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
-
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         pdfDocumentList.add(consultationFormPDFPath.toString());
-        // Warnings so far are for attachments whose target no longer exists, which the lists
-        // above already leave out. Any warning added below is an attachment that failed to render.
-        int unavailableWarnings = attachmentWarnings.size();
-        boolean allowSkipped = Boolean.TRUE.equals(request.getAttribute(ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE));
         try {
+            List<String> attachmentWarnings = initializeAttachmentWarnings(request);
+            recordUnavailableConsultAttachmentWarnings(requestId, attachmentWarnings);
+
+            List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
+            List<EDoc> attachedEDocs = EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED);
+            CommonLabResultData labResultData = new CommonLabResultData();
+            List<LabResultData> attachedLabs = labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED);
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
+            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
+
+            // Warnings so far are for attachments the lists above already leave out: a target that
+            // no longer exists or belongs to another patient. Any warning added below is an
+            // attachment that failed to render.
+            int unavailableWarnings = attachmentWarnings.size();
+            boolean allowSkipped = Boolean.TRUE.equals(request.getAttribute(ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE));
             attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
             attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList, attachmentWarnings);
             attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList, attachmentWarnings);
@@ -887,11 +888,6 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 break;
         }
         return path;
-    }
-
-    private void attachEFormPDFs(LoggedInInfo loggedInInfo, List<EFormData> attachedEForms, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
-        attachEFormPDFs(
-                loggedInInfo, attachedEForms, pdfDocumentList, (EFormRenderApproval) null);
     }
 
     /**

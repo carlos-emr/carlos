@@ -241,6 +241,23 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("lets only the on-screen preview leave out an attachment that fails to render")
+    void shouldAllowSkippedAttachments_onlyWhileRenderingOnScreenPreview() throws Exception {
+        java.util.concurrent.atomic.AtomicReference<Object> flagDuringRender = new java.util.concurrent.atomic.AtomicReference<>();
+        doAnswer(invocation -> {
+            flagDuringRender.set(request.getAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE));
+            request.setAttribute("demographicId", "1");
+            return pdfPath;
+        }).when(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
+
+        action.execute();
+
+        // The preview shows the warnings, so it may skip; the flag must not outlive that render.
+        assertThat(flagDuringRender).hasValue(Boolean.TRUE);
+        assertThat(request.getAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE)).isNull();
+    }
+
+    @Test
     @DisplayName("isolates renderer response mutations from direct print preview JSON")
     void shouldIsolateRendererResponseMutations_whenDirectPrintPreviewSucceeds() throws Exception {
         doAnswer(invocation -> {

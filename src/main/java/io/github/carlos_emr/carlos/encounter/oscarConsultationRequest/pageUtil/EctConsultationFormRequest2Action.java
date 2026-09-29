@@ -799,6 +799,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                                     request, renderResponse, requestId, previewDemographicNo);
                         } finally {
                             ServletActionContext.setResponse(previousResponse);
+                            request.removeAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE);
                         }
                     }
                 } catch (RuntimeException e) {

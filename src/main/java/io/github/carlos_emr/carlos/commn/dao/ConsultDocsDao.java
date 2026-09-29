@@ -83,7 +83,8 @@ public interface ConsultDocsDao extends AbstractDao<ConsultDocs> {
      * <p>The stale attachment semantics match
      * {@link #findStaleActiveConsultAttachments()}: active E/D rows only,
      * patient-owned eForms/documents must match the consultation demographic,
-     * patient-independent eForms remain allowed, and lab/HRM/form rows are
+     * patient-independent eForms are not treated as stale (they are kept, although consult
+     * rendering leaves them out), and lab/HRM/form rows are
      * excluded.</p>
      *
      * @return number of active stale eForm/document consultation attachments
