@@ -103,6 +103,8 @@ const fixture = {
   sessionId: '',
   /** What the patient's chart summary looked like before this run wrote anything. */
   chartBefore: null,
+  /** eChart rows this run's own saves wrote: id -> fingerprint when last written by the run. */
+  echartOwned: {},
 };
 
 /**
@@ -126,6 +128,53 @@ const ECHART_TEXT_COLUMNS = [...CHART_TEXT_COLUMNS, 'encounter'];
  */
 function holds(column, needle) {
   return `LOCATE(${sqlString(needle)}, COALESCE(${column}, '')) > 0`;
+}
+
+/**
+ * A SQL expression fingerprinting everything an eChart row holds that a save can change.
+ *
+ * NULL and '' are kept distinct, so a later write that only normalises one into the other still
+ * reads as a change.
+ */
+const ECHART_FINGERPRINT = `MD5(CONCAT_WS(CHAR(31), providerNo, ${
+  ECHART_TEXT_COLUMNS.map((column) => `${column} IS NULL, COALESCE(${column}, '')`).join(', ')}))`;
+
+/**
+ * Remember the legacy eChart rows this run's own save just wrote, as they stand right now.
+ *
+ * Called straight after each issueNoteSave answers. saveEchart() adds a row per note save, copying
+ * the previous row's encounter text forward, and saveCPPIntoEchart() then UPDATES the newest row
+ * (EChartDaoImpl:70-182). So "newer than the snapshot and carrying the stamp" does not identify
+ * this run's rows: a clinician saving on the same chart during the run gets a row that is newer,
+ * inherits the stamp through that copy, and holds their own note as well. Cleanup deletes only rows
+ * recorded here, written as this run's provider, and only while they are unchanged since.
+ */
+function recordOwnEchartRows(sql) {
+  const { demographicNo, providerNo, chartBefore } = fixture;
+  if (!demographicNo || !providerNo || !chartBefore) {
+    return;
+  }
+  const rows = sql.rows(
+    `SELECT eChartId, ${ECHART_FINGERPRINT} FROM eChart WHERE demographicNo = ${demographicNo} `
+    + `AND eChartId > ${chartBefore.echartMaxId} AND providerNo = ${sqlString(providerNo)}`,
+  );
+  for (const [id, fingerprint] of rows) {
+    fixture.echartOwned[sqlNumber(id, 'an eChart row id')] = String(fingerprint);
+  }
+}
+
+/**
+ * The deletes for the eChart rows recordOwnEchartRows() saw, each guarded so that it only lands
+ * while the row still belongs to this run's provider and is byte-for-byte what the run left.
+ * Exported for the node test: what these statements refuse to delete is the point of them.
+ */
+function ownedEchartDeletes(demographicNo, providerNo, owned) {
+  return Object.entries(owned || {}).map(([id, fingerprint]) => [
+    `the legacy eChart row ${id} this run created`,
+    `DELETE FROM eChart WHERE eChartId = ${sqlNumber(id, 'an eChart row id')} `
+    + `AND demographicNo = ${demographicNo} AND providerNo = ${sqlString(providerNo)} `
+    + `AND ${ECHART_FINGERPRINT} = ${sqlString(fingerprint)}`,
+  ]);
 }
 
 /**
@@ -289,11 +338,12 @@ async function cleanup() {
   // would a blunter cleanup take a clinician's row with it, because the eChart write UPDATES the
   // newest row the patient already has rather than adding one.
   if (stamp && demographicNo && chartBefore) {
-    // Rows this run CREATED: newer than anything the patient had, and carrying the stamp.
-    const echartStamped = ECHART_TEXT_COLUMNS.map((column) => holds(column, stamp)).join(' OR ');
-    statements.push(['the legacy eChart rows this run created',
-      `DELETE FROM eChart WHERE demographicNo = ${demographicNo} `
-      + `AND eChartId > ${chartBefore.echartMaxId} AND (${echartStamped})`]);
+    // Rows this run CREATED, and only those it recorded right after its own saves, still unchanged.
+    // A stamped row outside that set -- a concurrent save's, or one of ours written to since -- is
+    // left in place and reported below: it can hold a clinician's note alongside the copied stamp.
+    if (providerNo) {
+      statements.push(...ownedEchartDeletes(demographicNo, providerNo, fixture.echartOwned));
+    }
 
     // THE ROW THE RUN WROTE INTO, WHICHEVER IT IS. When the patient already had a summary row the
     // save appended to that one, and the snapshot named it. When the patient had none, saveCPP()
@@ -367,6 +417,23 @@ async function cleanup() {
         sql.execute(statement);
       } catch (error) {
         failures.push(`${what}: ${(error && error.message) || 'delete failed'}`);
+      }
+    }
+    // LOUD, NOT DESTRUCTIVE. Whatever stamped eChart row survived the guarded deletes was written
+    // by something other than this run's recorded saves; removing it could take clinical text.
+    if (stamp && demographicNo && chartBefore) {
+      try {
+        const echartStamped = ECHART_TEXT_COLUMNS.map((column) => holds(column, stamp)).join(' OR ');
+        const left = sql.rows(
+          `SELECT eChartId FROM eChart WHERE demographicNo = ${demographicNo} `
+          + `AND eChartId > ${chartBefore.echartMaxId} AND (${echartStamped})`,
+        ).map((row) => row[0]);
+        if (left.length) {
+          failures.push(`legacy eChart row(s) ${left.join(', ')} still carry this run's text but were changed or `
+            + 'created by a save outside this run, so they were left in place; remove the stamped text by hand');
+        }
+      } catch (error) {
+        failures.push(`the leftover eChart check: ${(error && error.message) || 'query failed'}`);
       }
     }
   } finally {
@@ -480,6 +547,7 @@ async function main() {
     const saveArrived = chartPage.waitForResponse(isNoteSave, { timeout });
     await clickDialogButton(chartPage, /sign|save/i, 'save');
     await saveArrived;
+    recordOwnEchartRows(sql);
     await chartPage.waitForTimeout(1500);
 
     const savedError = await boxErrorText(chartPage);
@@ -520,6 +588,7 @@ async function main() {
     const archiveArrived = chartPage.waitForResponse(isNoteSave, { timeout });
     await clickDialogButton(chartPage, /archive/i, 'archive');
     await archiveArrived;
+    recordOwnEchartRows(sql);
     await chartPage.waitForTimeout(1500);
     const archiveSaves = saves.slice(savesBeforeArchive);
     assert(archiveSaves.length > 0, 'clicking Archive posted nothing, so the archive path was never exercised');
@@ -552,5 +621,5 @@ if (require.main === module) {
 
 module.exports = {
   BOX_ID, DIALOG, EXPECTED_KEYS, RESOLUTION_DATE, START_DATE, cleanup, fixture, main,
-  withoutStampedBlocks,
+  ownedEchartDeletes, withoutStampedBlocks,
 };

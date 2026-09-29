@@ -19,7 +19,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { withoutStampedBlocks } = require('./cpp-note-extension-archive-playwright-checks');
+const { ownedEchartDeletes, withoutStampedBlocks } = require('./cpp-note-extension-archive-playwright-checks');
 
 const STAMP = 'PW_CPP_EXT_1790000000000';
 const BEFORE = '\n-----[[Thu Sep 24 2026]]-----\nclinician entry before';
@@ -48,4 +48,23 @@ test('handles an absent summary and an absent stamp without throwing', () => {
   assert.equal(withoutStampedBlocks('', STAMP), '');
   assert.equal(withoutStampedBlocks(null, STAMP), '');
   assert.equal(withoutStampedBlocks(BEFORE, ''), BEFORE);
+});
+
+test('eChart deletes are guarded by row id, provider and the fingerprint recorded after the run\'s save', () => {
+  const statements = ownedEchartDeletes('2', '999998', { 41: 'abc123' });
+  assert.equal(statements.length, 1);
+  const [what, sql] = statements[0];
+  assert.match(what, /eChart row 41/);
+  assert.match(sql, /^DELETE FROM eChart WHERE eChartId = 41 AND demographicNo = 2 /);
+  assert.match(sql, /providerNo = '999998'/);
+  assert.match(sql, /MD5\(CONCAT_WS\(CHAR\(31\), providerNo, .*encounter IS NULL, COALESCE\(encounter, ''\)\)\) = 'abc123'$/);
+});
+
+test('no recorded eChart rows means no eChart delete at all', () => {
+  assert.deepEqual(ownedEchartDeletes('2', '999998', {}), []);
+  assert.deepEqual(ownedEchartDeletes('2', '999998', undefined), []);
+});
+
+test('a recorded eChart id that is not a plain number never reaches a statement', () => {
+  assert.throws(() => ownedEchartDeletes('2', '999998', { '1 OR 1=1': 'abc' }));
 });
