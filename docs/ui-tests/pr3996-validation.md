@@ -141,3 +141,27 @@ Validation of this merge:
 
 The Debian installation and browser results above belong to the prior revision;
 this conflict-resolution pass did not rebuild or reinstall the Debian packages.
+
+## CI and review follow-up — 2026-09-29
+
+The development database's post-demo backfill now names V1.0.43. A regression checks
+that every explicit demo reapply path exists. Regenerated the OSCAR19 importer schema
+manifest from the pinned `a7900d569d3faf741993e5e1da8c14021bbefede` source; both province
+profiles now include the new consultation attachment `lab_type` destination columns.
+
+Consultation request and response REST saves now acquire the attachment parent lock
+and use its stored patient to validate every selected attachment type through
+`AttachmentSelectionAccess`, including removals and pending document uploads, before
+attachment writes. Unchanged restricted selections remain untouched. Foreign IDs and
+unauthorized selection changes fail explicitly; permission errors return 403 after
+transaction rollback. Lab source validation remains in place, and non-lab deduplication
+ignores irrelevant client-supplied lab metadata.
+
+Local validation: 798 focused Java unit/integration/contract tests and all 2,089 Node
+regressions passed without failures or skips. All 249 importer manifest tests and 45
+packaging tests passed. The pinned CLI suite passed 1,468 reported tests with 19
+existing environment-dependent skips. Full regeneration with `--check` matched the
+shipped manifests. New REST regressions exercise the real shared policy for both parent
+types, foreign IDs, missing permissions, unchanged restricted selections, restricted
+removals and rollback, invalid type codes, stored-patient mismatch, uploads before
+writes, and duplicate owned documents.

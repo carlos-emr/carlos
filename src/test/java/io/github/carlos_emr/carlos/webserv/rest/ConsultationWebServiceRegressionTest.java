@@ -74,6 +74,21 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
     @Mock
     private io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao routing;
 
+    @Mock
+    private io.github.carlos_emr.carlos.managers.SecurityInfoManager attachmentSecurity;
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.DocumentDao attachmentDocuments;
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.EFormDataDao attachmentEforms;
+    @Mock
+    private io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao attachmentHrms;
+    @Mock
+    private io.github.carlos_emr.carlos.managers.FormsManager attachmentForms;
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao requestDao;
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.ConsultResponseDao responseDao;
+
     private ConsultationWebService service;
 
     @BeforeEach
@@ -84,6 +99,14 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
                 return loggedInInfo;
             }
         };
+        ReflectionTestUtils.setField(service, "attachmentSelectionAccess",
+                new io.github.carlos_emr.carlos.documentManager.AttachmentSelectionAccess(
+                        attachmentSecurity, attachmentDocuments, attachmentEforms, attachmentHrms, attachmentForms));
+        ReflectionTestUtils.setField(service, "consultationRequestDao", requestDao);
+        ReflectionTestUtils.setField(service, "consultationResponseDao", responseDao);
+        org.mockito.Mockito.lenient().when(attachmentSecurity.hasPrivilege(eq(loggedInInfo), any(), eq("r"), eq("123"))).thenReturn(true);
+        org.mockito.Mockito.lenient().when(requestDao.lockForAttachmentSync(456)).thenReturn(storedRequest());
+        org.mockito.Mockito.lenient().when(responseDao.lockForAttachmentSync(456)).thenReturn(storedResponse());
         ReflectionTestUtils.setField(service, "patientLabRoutingDao", routing);
         ReflectionTestUtils.setField(service, "documentManager", documentManager);
         ReflectionTestUtils.setField(service, "consultationManager", consultationManager);
@@ -100,7 +123,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
                 eq(PROVIDER_NO), eq(FILE_CONTENTS)))
                 .thenThrow(new IOException("Document filename failed path validation",
                         new FileValidationException("unsafe filename ../secret.pdf")));
-        when(consultationManager.getConsultRequestDocs(loggedInInfo, request.getId())).thenReturn(null);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, request.getId())).thenReturn(List.of());
 
         ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
 
@@ -393,6 +416,157 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         attachment.setAttached(true);
         attachment.setDocument(validDocument());
         return attachment;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"D,_edoc", "E,_eform", "H,_hrm", "F,_form", "L,_lab"})
+    void shouldRejectNewAttachments_whenTypeReadAccessIsMissing(String type, String privilege) {
+        when(attachmentSecurity.hasPrivilege(loggedInInfo, privilege, "r", "123")).thenReturn(false);
+        assertRejectedSelection(type, SecurityException.class);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"D", "E", "H", "F"})
+    void shouldRejectForeignAttachments_beforeAnyRequestOrResponseAttachmentWrite(String type) {
+        // The real shared policy sees no patient ownership in any of its DAO results.
+        assertRejectedSelection(type, IllegalArgumentException.class);
+    }
+
+    private void assertRejectedSelection(String type, Class<? extends Throwable> failure) {
+        var selected = new ConsultationAttachmentTo1(78, type, true, "Selected", null);
+        if ("L".equals(type)) selected.setLabType("MDS");
+        var request = requestSubmission();
+        request.setAttachments(List.of(selected));
+        var oldRequestDoc = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(456, 77, "D", PROVIDER_NO);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of(oldRequestDoc));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request))
+                .isInstanceOf(failure);
+        var response = responseSubmission(null);
+        response.setAttachments(List.of(selected));
+        var oldResponseDoc = new io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc(456, 77, "D", PROVIDER_NO);
+        when(consultationManager.getConsultResponseDocs(loggedInInfo, 456)).thenReturn(List.of(oldResponseDoc));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "saveResponseAttachments", response))
+                .isInstanceOf(failure);
+        assertThat(oldRequestDoc.getDeleted()).isNull();
+        assertThat(oldResponseDoc.getDeleted()).isNull();
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultRequestDoc(any(), any());
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultResponseDoc(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(documentManager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"D,_edoc", "E,_eform", "H,_hrm", "F,_form", "L,_lab"})
+    void shouldPreserveUnchangedRestrictedAttachments_withoutOwnershipReadsOrWrites(String type, String privilege) {
+        when(attachmentSecurity.hasPrivilege(loggedInInfo, privilege, "r", "123")).thenReturn(false);
+        var selected = new ConsultationAttachmentTo1(77, type, true, "Restricted", null);
+        if ("L".equals(type)) selected.setLabType("UNRESOLVED");
+        var request = requestSubmission();
+        request.setAttachments(List.of(selected));
+        var oldRequestDoc = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(456, 77, type, PROVIDER_NO);
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of(oldRequestDoc));
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+        var response = responseSubmission(null);
+        response.setAttachments(List.of(selected));
+        var oldResponseDoc = new io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc(456, 77, type, PROVIDER_NO);
+        when(consultationManager.getConsultResponseDocs(loggedInInfo, 456)).thenReturn(List.of(oldResponseDoc));
+        ReflectionTestUtils.invokeMethod(service, "saveResponseAttachments", response);
+        assertThat(oldRequestDoc.getDeleted()).isNull();
+        assertThat(oldResponseDoc.getDeleted()).isNull();
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultRequestDoc(any(), any());
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultResponseDoc(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(attachmentDocuments, attachmentEforms, attachmentHrms, attachmentForms, routing);
+    }
+
+    @Test
+    void shouldValidateAllSelections_beforeCreatingUploadedDocument() {
+        var request = requestSubmission();
+        request.setAttachments(List.of(newDocumentAttachment(), new ConsultationAttachmentTo1(78, "E", true, "Foreign", null)));
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.mockito.Mockito.verifyNoInteractions(documentManager);
+    }
+
+    @Test
+    void shouldRejectUploadedDocument_whenReadPermissionIsMissing() {
+        when(attachmentSecurity.hasPrivilege(loggedInInfo, "_edoc", "r", "123")).thenReturn(false);
+        var request = requestSubmission();
+        request.setAttachments(List.of(newDocumentAttachment()));
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request))
+                .isInstanceOf(SecurityException.class);
+        org.mockito.Mockito.verifyNoInteractions(documentManager);
+    }
+
+    @Test
+    void shouldDeduplicateOwnedDocumentsIgnoringLabMetadata_forBothParents() {
+        var link = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+        link.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 123, 77));
+        when(attachmentDocuments.findCtlDocsAndDocsByDocNo(77))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {new Document(), link}));
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
+        var first = new ConsultationAttachmentTo1(77, "D", true, "Document", null);
+        var duplicate = new ConsultationAttachmentTo1(77, "D", true, "Document", null);
+        duplicate.setLabType("MDS");
+        var request = requestSubmission();
+        request.setAttachments(List.of(first, duplicate));
+        when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of());
+        ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", request);
+        var response = responseSubmission(null);
+        response.setAttachments(List.of(first, duplicate));
+        when(consultationManager.getConsultResponseDocs(loggedInInfo, 456)).thenReturn(List.of());
+        ReflectionTestUtils.invokeMethod(service, "saveResponseAttachments", response);
+        org.mockito.Mockito.verify(consultationManager).saveConsultRequestDoc(any(), any());
+        org.mockito.Mockito.verify(consultationManager).saveConsultResponseDoc(any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldRollbackAndReportForbidden_whenRestSelectionRemovesRestrictedAttachment(boolean responsePath) {
+        when(attachmentSecurity.hasPrivilege(loggedInInfo, "_edoc", "r", "123")).thenReturn(false);
+        var transaction = responseTransaction();
+        if (responsePath) {
+            var response = responseSubmission(null);
+            response.setAttachments(List.of());
+            when(consultationManager.getResponse(loggedInInfo, 456)).thenReturn(storedResponse());
+            when(consultationManager.getConsultResponseDocs(loggedInInfo, 456)).thenReturn(List.of(
+                    new io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc(456, 77, "D", PROVIDER_NO)));
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.saveResponse(response))
+                    .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        } else {
+            var request = requestSubmission();
+            request.setAttachments(List.of());
+            var demographics = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+            ReflectionTestUtils.setField(service, "demographicManager", demographics);
+            when(demographics.getDemographic(loggedInInfo, DEMOGRAPHIC_NO))
+                    .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(storedRequest());
+            when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of(
+                    new io.github.carlos_emr.carlos.commn.model.ConsultDocs(456, 77, "D", PROVIDER_NO)));
+            assertThat(service.updateConsultation(request).getStatus()).isEqualTo(403);
+        }
+        org.mockito.Mockito.verify(transaction).rollback(any());
+        org.mockito.Mockito.verify(transaction, org.mockito.Mockito.never()).commit(any());
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultRequestDoc(any(), any());
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).saveConsultResponseDoc(any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"X", "doc"})
+    void shouldRejectUnknownTypes_withoutAttachmentWrites(String type) {
+        assertRejectedSelection(type, IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldRejectRequestPatientMismatch_underParentLock() {
+        var stored = storedRequest();
+        stored.setDemographicId(999);
+        when(requestDao.lockForAttachmentSync(456)).thenReturn(stored);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "saveRequestAttachments", requestSubmission()))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.mockito.Mockito.verify(consultationManager, org.mockito.Mockito.never()).getConsultRequestDocs(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(attachmentSecurity, documentManager);
     }
 
     private static DocumentTo1 validDocument() {

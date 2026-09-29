@@ -42,6 +42,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDao;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentSelectionAccess;
+
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
@@ -124,6 +134,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     private PatientLabRoutingDao patientLabRoutingDao;
+
+    @Autowired
+    private AttachmentSelectionAccess attachmentSelectionAccess;
+
+    @Autowired
+    private ConsultationRequestDao consultationRequestDao;
+
+    @Autowired
+    private ConsultResponseDao consultationResponseDao;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -256,6 +275,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
         try {
             return new TransactionTemplate(transactionManager)
                     .execute(status -> createConsultationInTransaction(data));
+        } catch (SecurityException e) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Consultation attachment access denied").build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid consultation request or attachment selection; reload and try again").build();
         }
@@ -298,6 +319,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
         try {
             return new TransactionTemplate(transactionManager)
                     .execute(status -> updateConsultationInTransaction(data));
+        } catch (SecurityException e) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Consultation attachment access denied").build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid consultation request or attachment selection; reload and try again").build();
         }
@@ -437,6 +460,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
         try {
             return new TransactionTemplate(transactionManager)
                     .execute(status -> saveResponseInTransaction(data));
+        } catch (SecurityException e) {
+            throw new jakarta.ws.rs.ForbiddenException("Consultation attachment access denied");
         } catch (IllegalArgumentException e) {
             throw new jakarta.ws.rs.BadRequestException("Invalid consultation response or attachment selection; reload and try again");
         }
@@ -779,6 +804,23 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     private void saveRequestAttachments(ConsultationRequestTo1 request) {
         if (request.getAttachments() == null) return;
+        // Authenticate the parent read before acquiring its lock, then use its stored patient.
+        consultationManager.getRequest(getLoggedInInfo(), request.getId());
+        ConsultationRequest owner = consultationRequestDao.lockForAttachmentSync(request.getId());
+        if (owner == null || owner.getDemographicId() == null || owner.getDemographicId() <= 0
+                || !owner.getDemographicId().equals(request.getDemographicId())) {
+            throw new IllegalArgumentException("Consultation request has no matching patient");
+        }
+        List<ConsultDocs> storedDocs = consultationManager.getConsultRequestDocs(getLoggedInInfo(), request.getId());
+        if (storedDocs == null) throw new IllegalArgumentException("Consultation attachments are unavailable");
+        Map<DocumentType, Set<String>> existing = new EnumMap<>(DocumentType.class);
+        for (ConsultDocs row : storedDocs) {
+            addSelection(existing, row.getDocType(), row.getDocumentNo(), row.getLabType());
+        }
+        Set<DocumentType> restricted = validateAttachments(owner.getDemographicId(), request.getAttachments(), existing, true);
+        // Validate every selection before creating even an uploaded document or changing rows.
+        List<ConsultDocs> currentDocs = new ArrayList<>(storedDocs);
+        currentDocs.removeIf(row -> restricted.contains(DocumentType.fromType(row.getDocType())));
         List<ConsultationAttachmentTo1> goodAttachments = new ArrayList<>();
         for (ConsultationAttachmentTo1 attachment : request.getAttachments()) {
 
@@ -816,37 +858,17 @@ public class ConsultationWebService extends AbstractServiceImpl {
         request.setAttachments(goodAttachments);
 
         List<ConsultationAttachmentTo1> newAttachments = request.getAttachments();
-        List<ConsultDocs> storedDocs = consultationManager.getConsultRequestDocs(getLoggedInInfo(), request.getId());
-        if (newAttachments == null || storedDocs == null) return;
-        List<ConsultDocs> currentDocs = new ArrayList<>(storedDocs);
-
-        // Resolve all lab sources before mutating any attachment.
-        for (ConsultationAttachmentTo1 attachment : newAttachments) {
-            if (ConsultationAttachmentTo1.TYPE_LAB.equals(attachment.getDocumentType())) {
-                String source = attachment.getLabType();
-                boolean retainedUnresolved = "UNRESOLVED".equals(source) && currentDocs.stream().anyMatch(
-                        row -> "L".equals(row.getDocType()) && row.getDocumentNo() == attachment.getDocumentNo()
-                                && row.getLabType() == null);
-                if (!retainedUnresolved) {
-                    String selection = source == null ? Integer.toString(attachment.getDocumentNo())
-                            : source + ":" + attachment.getDocumentNo();
-                    var reference = LabAttachmentReference.resolve(
-                            selection, request.getDemographicId(), patientLabRoutingDao);
-                    attachment.setLabType(reference.source());
-                }
-            }
-        }
-
         List<String> uniqueAttachments = new ArrayList<>();
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
-            if (newAtth.getValidationError() != null) {
+            if (newAtth.getValidationError() != null
+                    || restricted.contains(DocumentType.fromType(newAtth.getDocumentType()))) {
                 continue;
             }
-            if (uniqueAttachments.contains(newAtth.getDocumentType() + ":" + newAtth.getLabType() + ":" + newAtth.getDocumentNo())) {
+            if (uniqueAttachments.contains(attachmentIdentity(newAtth))) {
                 continue;
             }
-            uniqueAttachments.add(newAtth.getDocumentType() + ":" + newAtth.getLabType() + ":" + newAtth.getDocumentNo());
+            uniqueAttachments.add(attachmentIdentity(newAtth));
 
             boolean isNew = true;
             for (ConsultDocs doc : currentDocs) {
@@ -860,7 +882,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
             }
             if (isNew) { //save the new attachment
                 ConsultDocs row = new ConsultDocs(request.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo());
-                row.setLabType(newAtth.getLabType());
+                row.setLabType("L".equals(newAtth.getDocumentType()) ? newAtth.getLabType() : null);
                 consultationManager.saveConsultRequestDoc(getLoggedInInfo(), row);
             }
         }
@@ -872,54 +894,30 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
     }
 
-    /** The patient the stored response belongs to; refuses a response that has none. */
-    private Integer requireResponseDemographic(ConsultationResponseTo1 response) {
-        ConsultationResponse stored = response.getId() == null
-                ? null : consultationManager.getResponse(getLoggedInInfo(), response.getId());
-        Integer demographicNo = stored == null ? null : stored.getDemographicNo();
-        if (demographicNo == null) {
-            throw new IllegalArgumentException("Consultation response has no patient");
-        }
-        return demographicNo;
-    }
-
     private void saveResponseAttachments(ConsultationResponseTo1 response) {
         List<ConsultationAttachmentTo1> newAttachments = response.getAttachments();
-        List<ConsultResponseDoc> storedDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
-        if (newAttachments == null || storedDocs == null) return;
-        List<ConsultResponseDoc> currentDocs = new ArrayList<>(storedDocs);
-
-        // Resolve all lab sources before mutating any attachment. The patient comes from the
-        // stored response, not the client payload: a request may omit the demographic object
-        // (a NullPointerException would surface as a 500 inside the transaction) and it must
-        // not be able to validate a lab against a different patient than the response's.
-        Integer responseDemographicNo = null;
-        for (ConsultationAttachmentTo1 attachment : newAttachments) {
-            if (ConsultationAttachmentTo1.TYPE_LAB.equals(attachment.getDocumentType())) {
-                if (responseDemographicNo == null) {
-                    responseDemographicNo = requireResponseDemographic(response);
-                }
-                String source = attachment.getLabType();
-                boolean retainedUnresolved = "UNRESOLVED".equals(source) && currentDocs.stream().anyMatch(
-                        row -> "L".equals(row.getDocType()) && row.getDocumentNo() == attachment.getDocumentNo()
-                                && row.getLabType() == null);
-                if (!retainedUnresolved) {
-                    String selection = source == null ? Integer.toString(attachment.getDocumentNo())
-                            : source + ":" + attachment.getDocumentNo();
-                    var reference = LabAttachmentReference.resolve(
-                            selection, responseDemographicNo, patientLabRoutingDao);
-                    attachment.setLabType(reference.source());
-                }
-            }
+        if (newAttachments == null) return;
+        consultationManager.getResponse(getLoggedInInfo(), response.getId());
+        ConsultationResponse owner = consultationResponseDao.lockForAttachmentSync(response.getId());
+        if (owner == null || owner.getDemographicNo() == null || owner.getDemographicNo() <= 0) {
+            throw new IllegalArgumentException("Consultation response has no patient");
         }
+        List<ConsultResponseDoc> storedDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
+        if (storedDocs == null) throw new IllegalArgumentException("Consultation attachments are unavailable");
+        Map<DocumentType, Set<String>> existing = new EnumMap<>(DocumentType.class);
+        for (ConsultResponseDoc row : storedDocs) {
+            addSelection(existing, row.getDocType(), row.getDocumentNo(), row.getLabType());
+        }
+        Set<DocumentType> restricted = validateAttachments(owner.getDemographicNo(), newAttachments, existing, false);
+        List<ConsultResponseDoc> currentDocs = new ArrayList<>(storedDocs);
+        currentDocs.removeIf(row -> restricted.contains(DocumentType.fromType(row.getDocType())));
 
         // Compare each source-qualified selection once; duplicate checkboxes must not
         // create duplicate rows or consume an already-matched existing attachment again.
         java.util.Set<String> uniqueAttachments = new java.util.HashSet<>();
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
-            String identity = newAtth.getDocumentType() + ":"
-                    + (ConsultationAttachmentTo1.TYPE_LAB.equals(newAtth.getDocumentType()) ? newAtth.getLabType() : "")
-                    + ":" + newAtth.getDocumentNo();
+            if (restricted.contains(DocumentType.fromType(newAtth.getDocumentType()))) continue;
+            String identity = attachmentIdentity(newAtth);
             if (!uniqueAttachments.add(identity)) continue;
             boolean isNew = true;
             for (ConsultResponseDoc doc : currentDocs) {
@@ -933,7 +931,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
             }
             if (isNew) { //save the new attachment
                 ConsultResponseDoc row = new ConsultResponseDoc(response.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo());
-                row.setLabType(newAtth.getLabType());
+                row.setLabType("L".equals(newAtth.getDocumentType()) ? newAtth.getLabType() : null);
                 consultationManager.saveConsultResponseDoc(getLoggedInInfo(), row);
             }
         }
@@ -943,6 +941,53 @@ public class ConsultationWebService extends AbstractServiceImpl {
             doc.setDeleted(ConsultResponseDoc.DELETED);
             consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
         }
+    }
+
+    private static String attachmentIdentity(ConsultationAttachmentTo1 attachment) {
+        return attachment.getDocumentType() + ":"
+                + ("L".equals(attachment.getDocumentType()) ? attachment.getLabType() : "")
+                + ":" + attachment.getDocumentNo();
+    }
+
+    private static void addSelection(Map<DocumentType, Set<String>> selection, String code, int id, String labType) {
+        DocumentType type = DocumentType.fromType(code);
+        if (type == null || id <= 0) throw new IllegalArgumentException("Invalid attachment type or identifier");
+        String value = type == DocumentType.LAB ? LabAttachmentReference.stored(labType, id).key() : Integer.toString(id);
+        selection.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(value);
+    }
+
+    /** Validate the complete replacement, including removals, before any attachment write. */
+    private Set<DocumentType> validateAttachments(int patient, List<ConsultationAttachmentTo1> attachments,
+            Map<DocumentType, Set<String>> existing, boolean allowUploads) {
+        Map<DocumentType, Set<String>> selected = new EnumMap<>(DocumentType.class);
+        for (ConsultationAttachmentTo1 attachment : attachments) {
+            if (attachment == null) throw new IllegalArgumentException("Attachment is required");
+            if (attachment.getDocument() != null && attachment.getDocument().getId() == null) {
+                if (!allowUploads || !"D".equals(attachment.getDocumentType())) {
+                    throw new IllegalArgumentException("Only request documents support uploads");
+                }
+                attachmentSelectionAccess.requireRead(getLoggedInInfo(), DocumentType.DOC, patient);
+                continue;
+            }
+            addSelection(selected, attachment.getDocumentType(), attachment.getDocumentNo(), attachment.getLabType());
+        }
+        Set<DocumentType> restricted = EnumSet.noneOf(DocumentType.class);
+        for (DocumentType type : DocumentType.values()) {
+            if (!attachmentSelectionAccess.validate(getLoggedInInfo(), type, patient,
+                    selected.getOrDefault(type, Set.of()), existing.getOrDefault(type, Set.of()))) {
+                restricted.add(type);
+            }
+        }
+        for (ConsultationAttachmentTo1 attachment : attachments) {
+            if (!"L".equals(attachment.getDocumentType()) || restricted.contains(DocumentType.LAB)) continue;
+            String source = attachment.getLabType();
+            String key = LabAttachmentReference.stored(source, attachment.getDocumentNo()).key();
+            if (LabAttachmentReference.UNRESOLVED.equals(source)
+                    && existing.getOrDefault(DocumentType.LAB, Set.of()).contains(key)) continue;
+            String value = source == null ? Integer.toString(attachment.getDocumentNo()) : key;
+            attachment.setLabType(LabAttachmentReference.resolve(value, patient, patientLabRoutingDao).source());
+        }
+        return restricted;
     }
 
     private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,

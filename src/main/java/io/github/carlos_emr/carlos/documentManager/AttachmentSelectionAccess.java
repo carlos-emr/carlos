@@ -36,19 +36,12 @@ public class AttachmentSelectionAccess {
     /** Returns false for an unchanged restricted selection, which must be preserved verbatim. */
     public boolean validate(LoggedInInfo info, DocumentType type, int patient,
                             Collection<String> selected, Collection<String> existing) {
-        String privilege = switch (type) {
-            case DOC -> "_edoc";
-            case LAB -> "_lab";
-            case EFORM -> "_eform";
-            case HRM -> "_hrm";
-            case FORM -> "_form";
-            default -> throw new IllegalArgumentException("Unsupported attachment type");
-        };
+        String privilege = privilege(type);
         if (!security.hasPrivilege(info, privilege, SecurityInfoManager.READ, String.valueOf(patient))) {
             if (new HashSet<>(selected).equals(new HashSet<>(existing))) return false;
             throw new SecurityException("missing required sec object (" + privilege + ")");
         }
-        // LAB source and ownership are checked together by DocumentAttach before any writes.
+        // LAB source and ownership are checked together by the caller before any writes.
         if (type == DocumentType.LAB) return true;
         for (String value : selected) {
             if (value == null || !value.matches("[1-9][0-9]{0,9}")) {
@@ -75,4 +68,24 @@ public class AttachmentSelectionAccess {
         }
         return true;
     }
+
+    /** Uploads have no stored ID yet, so require read permission before creating a file. */
+    public void requireRead(LoggedInInfo info, DocumentType type, int patient) {
+        String privilege = privilege(type);
+        if (!security.hasPrivilege(info, privilege, SecurityInfoManager.READ, String.valueOf(patient))) {
+            throw new SecurityException("missing required sec object (" + privilege + ")");
+        }
+    }
+
+    private static String privilege(DocumentType type) {
+        return switch (type) {
+            case DOC -> "_edoc";
+            case LAB -> "_lab";
+            case EFORM -> "_eform";
+            case HRM -> "_hrm";
+            case FORM -> "_form";
+            default -> throw new IllegalArgumentException("Unsupported attachment type");
+        };
+    }
+
 }
