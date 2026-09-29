@@ -316,4 +316,10 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         return results;
     }
 
+    @Override
+    public List<String> findLabSourcesForPatient(int labNo, int demographicNo) {
+        return entityManager.createQuery("select distinct p.labType from PatientLabRouting p where p.labNo = :labNo and p.demographicNo = :demographicNo and p.labType in ('HL7', 'MDS', 'CML', 'BCP')", String.class)
+                .setParameter("labNo", labNo).setParameter("demographicNo", demographicNo).getResultList();
+    }
+
 }

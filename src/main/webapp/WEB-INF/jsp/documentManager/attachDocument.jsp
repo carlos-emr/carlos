@@ -38,7 +38,13 @@
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String attachmentSecurityObjectRequest = (String) request.getAttribute("attachmentSecurityObject");
-    String attachmentSecurityObject = "_eform".equals(attachmentSecurityObjectRequest) ? "_eform" : "_con";
+    // The picker is shared by consultation requests, eForms and ticklers; each host route sets
+    // the object its own users hold. Anything else falls back to the consultation gate, so a
+    // caller cannot pick a weaker object than the ones the routes vouch for.
+    String attachmentSecurityObject = "_con";
+    if ("_eform".equals(attachmentSecurityObjectRequest) || "_tickler".equals(attachmentSecurityObjectRequest)) {
+        attachmentSecurityObject = attachmentSecurityObjectRequest;
+    }
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="<%=attachmentSecurityObject%>" rights="r" reverse="<%=true%>">
@@ -592,15 +598,18 @@
                                 <c:forEach items="${ allLabsSortedByVersions }" var="lab" varStatus="loop">
                                     <c:set var="labName" value="${fn:substring(lab.labName, 0, 30)}"/>
                                     <c:set var="totalVersions" value="${fn:length(lab.labVersionIds)}"/>
-                                    <c:set var="labPreviewParameters">method=renderLabPDF&segmentId=${carlos:forUriComponent(lab.segmentID)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
-                                    <c:set var="labPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.segmentID)}', '${carlos:forJavaScript(labPreviewParameters)}')</c:set>
+                                    <c:set var="labPreviewParameters">method=renderLabPDF&labType=${carlos:forUriComponent(lab.labType)}&segmentId=${carlos:forUriComponent(lab.segmentID)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
+                                    <c:set var="labPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.labType)}:${carlos:forJavaScript(lab.segmentID)}', '${carlos:forJavaScript(labPreviewParameters)}')</c:set>
                                     <li class="lab ${loop.index > 19 ? 'd-none' : ''}">
+                                        <%-- Lab ids are only unique within their source, so the DOM id carries the
+                                             source too (labNoHL7123); the submitted value stays the bare segment id. --%>
                                         <input class="lab_check" type="checkbox" name="labNo"
-                                               id="labNo${ lab.segmentID }" value="${lab.segmentID}"
+                                               id="labNo${ lab.labType }${ lab.segmentID }" value="${lab.segmentID}"
+                                               data-lab-type="${carlos:forHtmlAttribute(lab.labType)}"
                                                title="${carlos:forHtmlAttribute(labName)}"
                                                <c:if test="${attachmentSelectionDisabled}">disabled="disabled"</c:if>/>
-                                        <label for="labNo${lab.segmentID}" title="${carlos:forHtmlAttribute(labName)}">${carlos:forHtml(labName)}&nbsp;</label>
-                                        <label for="labNo${lab.segmentID}"
+                                        <label for="labNo${lab.labType}${lab.segmentID}" title="${carlos:forHtmlAttribute(labName)}">${carlos:forHtml(labName)}&nbsp;</label>
+                                        <label for="labNo${lab.labType}${lab.segmentID}"
                                                class="lab-date">${lab.labDateFormated}</label>
                                         <c:if test="${not empty lab.labVersionIds}">
                                             &nbsp;<i class="collapse-arrow" onclick="toggleLabVersionList(this)"></i>&nbsp;
@@ -612,24 +621,25 @@
                                         <ul class="collapsible-content" style="list-style-type: none;padding:0px;">
                                             <c:forEach items="${ lab.labVersionIds }" var="version"
                                                        varStatus="versionLoop">
-                                                <c:set var="labVersionPreviewParameters">method=renderLabPDF&segmentId=${carlos:forUriComponent(version.key)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
-                                                <c:set var="labVersionPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(version.key)}', '${carlos:forJavaScript(labVersionPreviewParameters)}')</c:set>
+                                                <c:set var="labVersionPreviewParameters">method=renderLabPDF&labType=${carlos:forUriComponent(lab.labType)}&segmentId=${carlos:forUriComponent(version.key)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
+                                                <c:set var="labVersionPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.labType)}:${carlos:forJavaScript(version.key)}', '${carlos:forJavaScript(labVersionPreviewParameters)}')</c:set>
                                                 <li>
                                                     <input class="lab_check"
                                                            data-version="${totalVersions - versionLoop.index}"
-                                                           type="checkbox" name="labNo" id="labNo${ version.key }"
+                                                           data-lab-type="${carlos:forHtmlAttribute(lab.labType)}"
+                                                           type="checkbox" name="labNo" id="labNo${ lab.labType }${ version.key }"
                                                            value="${version.key}"
                                                            title="v${totalVersions - versionLoop.index} ${carlos:forHtmlAttribute(labName)}"
                                                            <c:if test="${attachmentSelectionDisabled}">disabled="disabled"</c:if>/>
                                                     <em>
-                                                        <label for="labNo${version.key}"
+                                                        <label for="labNo${lab.labType}${version.key}"
                                                                title="v${totalVersions - versionLoop.index} ${carlos:forHtmlAttribute(labName)}">
                                                              <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf">
                                                                  <fmt:param value="${totalVersions - versionLoop.index}"/>
                                                                  <fmt:param value="${totalVersions + 1}"/>
                                                              </fmt:message>&nbsp;
                                                          </label>
-                                                        <label for="labNo${version.key}"
+                                                        <label for="labNo${lab.labType}${version.key}"
                                                                class="lab-date">(${version.value})</label>
                                                     </em>
                                                      <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"

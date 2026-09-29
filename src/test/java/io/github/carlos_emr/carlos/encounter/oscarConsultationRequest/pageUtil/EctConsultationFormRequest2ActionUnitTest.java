@@ -112,6 +112,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         consultationManager = mock(ConsultationManager.class);
         consultationRequestDao = mock(ConsultationRequestDao.class);
 
+        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ConsultationManager.class, consultationManager);
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
@@ -536,6 +538,26 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         verify(consultationRequestDao).merge(existing);
     }
 
+    @Test
+    void shouldRollBackConsultationSave_whenAttachmentSelectionFails() throws Exception {
+        capturePersistedConsultationRequest();
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        request.setParameter("newSignature", "true");
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("ambiguous lab source"))
+                .when(documentAttachmentManager).attachToConsult(eq(loggedInInfo),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+
+        assertThat(action.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        var transactions = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        verify(transactions).rollback(any());
+        verify(transactions, never()).commit(any());
+        assertThat(response.getRedirectedUrl()).isNull();
+    }
+
     /**
      * Pins the intended create/update asymmetry: unlike the update branch, a new consultation has no
      * stored-id fallback, so a manual re-sign that yields no DigitalSignature persists a null signatureImg
@@ -932,6 +954,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
     private ConsultationRequest consultationRequest(Integer demographicId) {
         ConsultationRequest consult = new ConsultationRequest();
+        ReflectionTestUtils.setField(consult, "id", 9);
+        consult.setProviderNo("999998");
         consult.setDemographicId(demographicId);
         return consult;
     }

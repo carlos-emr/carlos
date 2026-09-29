@@ -46,7 +46,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("DocumentAttachmentManagerImpl Unit Tests")
 @Tag("unit")
 @Tag("documentManager")
-class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
+class DocumentAttachmentManagerConsultAccessUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private SecurityInfoManager securityInfoManager;
@@ -97,7 +97,17 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactions.getTransaction(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
+        var parents = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao.class);
+        var parent = new io.github.carlos_emr.carlos.commn.model.ConsultationRequest();
+        parent.setDemographicId(demographicNo);
+        when(parents.lockForAttachmentSync(requestId)).thenReturn(parent);
+        var policy = createAndRegisterMock(AttachmentSelectionAccess.class);
+        when(policy.validate(loggedInInfo, DocumentType.DOC, demographicNo, List.of("789"), List.of()))
+                .thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, DocumentType.DOC.getType()))
                 .thenReturn(List.of());
 
         manager.attachToConsult(
@@ -110,7 +120,7 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
 
         ArgumentCaptor<ConsultDocs> consultDocCaptor = ArgumentCaptor.forClass(ConsultDocs.class);
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
-        verify(consultDocsDao).findByRequestIdDocType(requestId, DocumentType.DOC.getType());
+        verify(consultDocsDao).findByRequestIdDocTypeForUpdate(requestId, DocumentType.DOC.getType());
         verify(consultDocsDao).persist(consultDocCaptor.capture());
         ConsultDocs persisted = consultDocCaptor.getValue();
         assertThat(persisted.getRequestId()).isEqualTo(requestId);
