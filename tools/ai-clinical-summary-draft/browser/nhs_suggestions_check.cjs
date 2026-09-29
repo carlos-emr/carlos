@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { readConfig, createRecorder, launchBrowser, newContext, login, createSqlRunner } =
+const { readConfig, createRecorder, launchBrowser, newContext, login, createSqlRunner, wireStrictPage } =
   require('../../../scripts/lib/playwright-harness');
 const { openMasterRecord } = require('../../../scripts/master-record-tabs-playwright-checks');
 const { openChart } = require('../../../scripts/echart-navbar-modules-playwright-checks');
@@ -21,6 +21,18 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
   const results = [];
   try {
     const context = await newContext(browser, config);
+    // A failed earlier browser run can leave this test account's lock in the
+    // isolated copy. Use CARLOS's explicit same-user takeover flow only.
+    context.on('page', candidate => wireStrictPage(candidate, 'nhs-suggestions', recorder, {
+      dialogHandler: async dialog => {
+        if (dialog.type() === 'confirm' && dialog.message().startsWith('You have started to edit this note in another window at ')) {
+          await dialog.accept();
+        } else {
+          recorder.unexpectedDialogs.push({ type: dialog.type(), text: dialog.message() });
+          await dialog.dismiss();
+        }
+      },
+    }));
     const schedule = await login(context, config, recorder);
     for (const [index, fixture] of fixtures.entries()) {
       const { demographicId: patient, documentId: doc } = fixture;
@@ -48,7 +60,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       if (index === 0) {
         for (const candidate of await page.locator('a.chart-update-document-link').all()) {
           if ((await candidate.getAttribute('href')).endsWith(`documentId=${doc}`)) continue;
-          const availability = await page.request.get(await candidate.getAttribute('href'), { headers: { Accept: 'application/json' } });
+          const availability = await page.request.get(new URL(await candidate.getAttribute('href'), page.url()).href, { headers: { Accept: 'application/json' } });
           if (!availability.ok() || !availability.headers()['content-type']?.includes('application/json')) continue;
           if ((await availability.json()).available !== false) continue;
           const listUrl = page.url();
