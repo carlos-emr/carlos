@@ -1,0 +1,14 @@
+<%-- Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. --%>
+<fmt:message key="chartUpdates.openFailed" var="chartUpdateOpenFailed"/>
+<fmt:message key="chartUpdates.checking" var="chartUpdateChecking"/>
+<dialog id="chart-update-error-dialog" class="chart-update-error-dialog" aria-labelledby="chart-update-error-title"
+        aria-describedby="chart-update-error-message" data-fallback-message="${carlos:forHtmlAttribute(chartUpdateOpenFailed)}"
+        data-checking-label="${carlos:forHtmlAttribute(chartUpdateChecking)}">
+    <h2 id="chart-update-error-title"><fmt:message key="chartUpdates.unavailableTitle"/></h2>
+    <p class="chart-update-error-document"></p>
+    <p id="chart-update-error-message"></p>
+    <div class="chart-update-error-actions">
+        <a class="chart-update-launch chart-update-original" target="_blank" rel="noopener noreferrer"><fmt:message key="chartUpdates.openOriginal"/></a>
+        <button class="btn btn-outline-secondary" type="button" data-close-chart-update-dialog autofocus><fmt:message key="global.btnClose"/></button>
+    </div>
+</dialog>

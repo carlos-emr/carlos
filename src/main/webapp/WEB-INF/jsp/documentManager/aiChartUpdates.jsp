@@ -16,9 +16,11 @@
 <body class="container-fluid py-4">
 <header class="review-header">
     <h1 class="h3"><fmt:message key="chartUpdates.title"/></h1>
+    <c:if test="${chartUpdateReady}">
     <p><fmt:message key="chartUpdates.patient"/>: <carlos:encode value="${chartUpdatePatientLabel}"/> (#<carlos:encode value="${chartUpdatePatient}"/>)</p>
     <p><carlos:encode value="${chartUpdateTitle}"/> · <carlos:encode value="${chartUpdateDate}"/></p>
     <p class="review-guidance"><fmt:message key="chartUpdates.warning"/></p>
+    </c:if>
 </header>
 <c:if test="${not empty chartUpdateError}"><p class="alert alert-danger" role="alert"><carlos:encode value="${chartUpdateError}"/></p></c:if>
 <c:if test="${chartUpdateReady}">

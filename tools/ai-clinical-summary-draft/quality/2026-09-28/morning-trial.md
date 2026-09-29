@@ -14,7 +14,9 @@ from another machine.
    establishes the chart context and editing lock needed for signed history.
 3. In the eChart header, click the blue **Review chart updates** link. In the
    document list that opens, click **Review chart updates** beside the desired
-   document. This keeps the chart open while you review the document.
+   document. This keeps the chart open while you review the document. If the
+   document is unavailable, a modal explains the problem and leaves the document
+   list in place. Close it to choose another document, or open the original.
 
    Direct links are also available in the same browser session:
 

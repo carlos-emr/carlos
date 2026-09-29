@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.clinical.summary.ReviewedChartUpdateService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
@@ -86,6 +87,23 @@ public final class AiChartUpdates2Action extends ActionSupport {
         } catch (IllegalArgumentException invalid) { response.sendError(400); return NONE; }
         var session = request.getSession(false);
         if (session == null) throw new SecurityException("Session unavailable");
+        // The document list checks this same authorized read boundary before navigating.
+        // It receives no source/chart text and never generates proposals or changes review state.
+        if (view && "application/json".equals(request.getHeader("Accept"))) {
+            Map<String, Object> availability = new LinkedHashMap<>();
+            try {
+                context.load(user, document);
+                availability.put("available", true);
+            } catch (IllegalStateException unavailable) {
+                availability.put("available", false);
+                availability.put("message", unavailable.getMessage());
+            }
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.getWriter().write(new ObjectMapper().writeValueAsString(availability));
+            return NONE;
+        }
         try {
             var snapshot = context.load(user, document);
             if ("generate".equals(operation)) {

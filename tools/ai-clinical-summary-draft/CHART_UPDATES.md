@@ -26,6 +26,13 @@ containment plus durable replay protection, not semantic equivalence detection.
 The comparison excludes restricted notes, other chart sections and inactive
 ticklers. Review the normal chart when needed.
 
+The document list checks availability through the same authorized read boundary
+before navigating. Missing or unreadable documents show a modal over the list,
+with the document name, an original-document link and a Close button. Escape
+closes the modal and focus returns to the selected review link. Network/access
+failures show a generic message without replacing the list. This check does not
+generate proposals, expose source/chart text or change the session review.
+
 ## Suggested form values
 
 The review form pre-fills exact source text and makes editable suggestions without

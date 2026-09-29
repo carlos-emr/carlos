@@ -25,7 +25,18 @@ function copy(relative) {
   fs.copyFileSync(path.join(root, 'src/main/webapp', relative), dest);
 }
 for (const file of ['WEB-INF/jsp/documentManager/aiChartUpdates.jsp', 'WEB-INF/jspf/bootstrap-css.jspf',
-  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'js/ai-chart-updates.js', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
+  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'js/ai-chart-updates.js', 'js/ai-chart-updates-navigation.js', 'css/ai-chart-updates-navigation.css', 'WEB-INF/jspf/chart-update-error-dialog.jspf', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
+fs.writeFileSync(path.join(webroot, 'fixture-picker.jsp'), `<%@ page contentType="text/html; charset=UTF-8" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
+<fmt:setBundle basename="oscarResources"/><!doctype html><html><head><title>Synthetic document list</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/carlos/css/ai-chart-updates-navigation.css"></head><body>
+<h1>Synthetic patient document list</h1><input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
+<a class="chart-update-document-link" href="/carlos/documentManager/AiChartUpdates?documentId=42"
+ data-document-title="Synthetic &lt;img src=x onerror=window.titleExecuted=true&gt;" data-original-url="/carlos/original">Review chart updates</a>
+<%@ include file="/WEB-INF/jspf/chart-update-error-dialog.jspf" %>
+<script src="/carlos/js/ai-chart-updates-navigation.js"></script></body></html>`);
 fs.mkdirSync(path.join(webroot, 'WEB-INF/lib'), { recursive: true });
 for (const jar of deps.split(path.delimiter).filter(p => /(?:jakarta.servlet.jsp.jstl|csrfguard-jsp-tags).*\.jar$/.test(p))) {
   fs.copyFileSync(jar, path.join(webroot, 'WEB-INF/lib', path.basename(jar)));
@@ -142,6 +153,37 @@ async function run() {
     await page.reload();
     assert.equal(await card(page, 'Follow-up reminder').locator('[name="dueDate"]').inputValue(), '2026-11-02');
     assert.equal(await card(page, 'Follow-up reminder').locator('[name="confirmed"]').isChecked(), false);
+  });
+  await scenario('unavailable document opens a modal and keeps the document list usable', async page => {
+    await change(page, 'unavailable');
+    await page.goto(`${base}/fixture/picker`);
+    const originalUrl = page.url();
+    const link = page.getByRole('link', { name: 'Review chart updates', exact: true });
+    await link.click();
+    const dialog = page.getByRole('dialog', { name: 'Document review unavailable' });
+    await dialog.waitFor();
+    assert.equal(page.url(), originalUrl);
+    assert.match(await dialog.innerText(), /Document text is unavailable. Reopen the original/);
+    assert.match(await dialog.locator('.chart-update-error-document').innerText(), /<img/);
+    assert.equal(await page.evaluate(() => window.titleExecuted), undefined);
+    assert.equal(await dialog.getByRole('link', { name: 'Open original' }).getAttribute('href'), `${base}/original`);
+    assert.equal(await dialog.getByRole('button', { name: 'Close', exact: true }).evaluate(el => el === document.activeElement), true);
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.screenshot({ path: path.join(runDir, 'unavailable-document-modal.png'), fullPage: true });
+    await page.keyboard.press('Escape');
+    assert.equal(await dialog.isVisible(), false);
+    assert.equal(await link.evaluate(el => el === document.activeElement), true);
+    await page.route('**/documentManager/AiChartUpdates?documentId=42', route => route.fulfill({ status: 403, body: 'Forbidden' }));
+    await link.click();
+    await dialog.waitFor();
+    assert.match(await dialog.innerText(), /Could not open this review/);
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.unroute('**/documentManager/AiChartUpdates?documentId=42');
+    await change(page, 'available');
+    await click(page, link);
+    assert.match(page.url(), /AiChartUpdates/);
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
   });
   await scenario('dismiss bypasses required fields and creates no chart entry', async page => {
     await generate(page);

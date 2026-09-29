@@ -674,6 +674,8 @@
                                     <% if (chartUpdatesEnabled && curdoc.getStatus() == 'A'
                                             && java.util.Set.of("text/plain", "text/html").contains(java.util.Objects.toString(curdoc.getContentType(), "").split(";", 2)[0].trim().toLowerCase(java.util.Locale.ROOT))) { %>
                                     <div class="mt-2"><a class="chart-update-launch chart-update-document-link"
+                                            data-document-title="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"
+                                            data-original-url="${carlos:forHtmlAttribute(ctx)}/documentManager/<carlos:encode value='<%= url %>' context="htmlAttribute"/>"
                                             href="${carlos:forHtmlAttribute(ctx)}/documentManager/AiChartUpdates?documentId=<carlos:encode value='<%= curdoc.getDocId() %>' context="uriComponent"/>"><fmt:message key="chartUpdates.title"/></a></div>
                                     <% } %>
                                 </td>
@@ -821,5 +823,7 @@
 
 
     </div>
+    <%@ include file="/WEB-INF/jspf/chart-update-error-dialog.jspf" %>
+    <script src="${carlos:forHtmlAttribute(ctx)}/js/ai-chart-updates-navigation.js"></script>
     </body>
 </html>

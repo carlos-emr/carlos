@@ -20,3 +20,11 @@
 .chart-update-document-banner { background: #e5f0ff; color: #153e70; padding: 1.25rem; margin: 1rem 0; border: 1px solid #a7c8ef; border-left: 5px solid #1b65bc; border-radius: .6rem; }
 .chart-update-document-banner h3 { font-size: 1.25rem; font-weight: 700; }
 .chart-update-document-banner p { margin: .4rem 0 0; }
+
+.chart-update-error-dialog { width: min(34rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 1.5rem; border: 1px solid #a7c8ef; border-top: 5px solid #1b65bc; border-radius: .75rem; color: #203047; background: #fff; box-shadow: 0 18px 60px #102d5550; }
+.chart-update-error-dialog::backdrop { background: #102d5580; }
+.chart-update-error-dialog h2 { font-size: 1.35rem; color: #153e70; margin: 0 0 1rem; }
+.chart-update-error-dialog p { overflow-wrap: anywhere; }
+.chart-update-error-document { font-weight: 600; }
+.chart-update-error-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: .75rem; margin-top: 1.5rem; }
+.chart-update-original[hidden] { display: none; }

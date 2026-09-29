@@ -86,6 +86,39 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(generator, writer);
     }
 
+    @Test void shouldCheckAvailability_withoutGeneratingOrChangingReviewState() throws Exception {
+        request.setMethod("GET");
+        request.addHeader("Accept", "application/json");
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).isEqualTo("{\"available\":true}");
+        assertThat(request.getSession().getAttribute(ChartUpdateReview.SESSION_KEY)).isSameAs(review);
+        assertThat(request.getAttribute("chartUpdateSource")).isNull();
+        verify(context, times(1)).load(user, 42);
+        verifyNoInteractions(generator, writer);
+    }
+
+    @Test void shouldReturnUnavailableMessage_withoutRenderingAnEmptyPatientPage() throws Exception {
+        request.setMethod("GET");
+        request.addHeader("Accept", "application/json");
+        when(context.load(user, 42)).thenThrow(new IllegalStateException("Document text is unavailable. Reopen the original."));
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(response.getContentAsString()).contains("\"available\":false", "Document text is unavailable");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        verify(context, times(1)).load(user, 42);
+        verifyNoInteractions(generator, writer);
+    }
+
+    @Test void shouldKeepAuthorizationEnforced_forAvailabilityRequests() {
+        request.setMethod("GET");
+        request.addHeader("Accept", "application/json");
+        when(context.load(user, 42)).thenThrow(new SecurityException("Denied"));
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        verifyNoInteractions(generator, writer);
+    }
+
     @Test void shouldRejectMutation_whenMethodIsGet() throws Exception {
         request.setMethod("GET");
         assertThat(action.apply()).isEqualTo("none");
