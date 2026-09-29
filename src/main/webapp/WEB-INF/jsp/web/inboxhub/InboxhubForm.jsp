@@ -376,7 +376,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 </c:if>
 
 <div aria-live="polite" aria-atomic="true" class="position-absolute bottom-0 end-0 p-3" style="z-index: 11; display: none;">
-    <div id="ajaxErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+    <%-- Keep the retry action available until the clinician dismisses it or retries. --%>
+    <div id="ajaxErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
         <div class="d-flex">
             <div class="toast-body">
                 <fmt:message key="inboxhub.form.ajaxError"/>

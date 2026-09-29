@@ -334,6 +334,29 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     class PopulateDocumentResultsDataFull {
 
         @Test
+        @DisplayName("name search includes a patient without a health number when HIN is blank")
+        void shouldFindDocumentForPatientWithoutHin() {
+            Demographic patient = entityManager.find(Demographic.class, demoId);
+            patient.setHin(null);
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            entityManager.flush();
+
+            for (boolean mixLabsAndDocs : new boolean[] {false, true}) {
+                ArrayList<LabResultData> matches = inboxResultsDao.populateDocumentResultsData(
+                        PROVIDER_NO, null, "Test", "Patient", "", "N",
+                        false, null, null, mixLabsAndDocs, null);
+                assertThat(matches).extracting(result -> result.segmentID)
+                        .containsExactly(doc.getDocumentNo().toString());
+
+                assertThat(inboxResultsDao.populateDocumentResultsData(
+                        PROVIDER_NO, null, "Test", "Patient", "other-hin", "N",
+                        false, null, null, mixLabsAndDocs, null)).isEmpty();
+            }
+        }
+
+        @Test
         @DisplayName("should return documents for specific demographic when routing exists")
         @SuppressWarnings("unchecked")
         void shouldReturnDocuments_forDemographicWithRouting() {

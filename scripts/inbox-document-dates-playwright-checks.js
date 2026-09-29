@@ -67,7 +67,24 @@ async function workflow(s) {
     return shownRows(inbox);
   };
   await s.step('received-date search includes the document with its exact identity', async () => {
-    assert((await search()).includes(`DOC:${documentNo}`), 'Received-date search silently omitted the matching document');
+    const rows = await search();
+    const preference = s.sql.value(`SELECT value FROM SystemPreferences WHERE ${preferenceName} LIMIT 1`);
+    const matchingDocument = s.sql.value(`SELECT COUNT(*) FROM document doc JOIN ctl_document cd ON cd.document_no=doc.document_no
+      JOIN providerLabRouting plr ON plr.lab_no=doc.document_no AND plr.lab_type='DOC'
+      JOIN demographic d ON d.demographic_no=cd.module_id
+      WHERE doc.document_no=${documentNo} AND doc.contentdatetime BETWEEN '2026-03-03' AND '2026-03-05'
+      AND d.last_name=${sqlString(s.marker)} AND plr.status='N'`);
+    const filters = await Promise.all(['#anyProvider', '#statusNew', '#specificPatients'].map(selector => inbox.locator(selector).isChecked()));
+    const form = await Promise.all(['#inputLastName', '#startDate', '#endDate'].map(selector => inbox.locator(selector).inputValue()));
+    const hidden = await Promise.all(['#searchProviderAll', '#findProvider', '#unmatchedId', '#statusId', '#abnormalId']
+      .map(selector => inbox.locator(selector).inputValue()));
+    const types = await Promise.all(['#btnDoc', '#btnLab', '#btnHrm'].map(async selector =>
+      await inbox.locator(selector).count() ? inbox.locator(selector).isChecked() : null));
+    assert(rows.includes(`DOC:${documentNo}`),
+      `Received-date search silently omitted the matching document (preference=${preference}, SQL match=${matchingDocument}, filters=${filters}, hidden=${hidden}, types=${types}, form=${form}, rows=${rows.length})`);
+    const total = Number(await inbox.locator('#totalResultsCount').inputValue());
+    assert(Number.isInteger(total) && total >= 1,
+      `Received-date search found the document but the inbox count omitted it (total=${total})`);
   });
   await s.step('observation-date search excludes the same document', async () => {
     setPreference('serviceObservation');

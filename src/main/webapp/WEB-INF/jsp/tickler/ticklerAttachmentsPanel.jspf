@@ -114,7 +114,7 @@
     <input type="hidden" class="delegateAttachment" name="<%= ticklerAttachmentParam %>"
            value="<carlos:encode value='<%= ticklerAttachment.getSubmissionValue() %>' context="htmlAttribute"/>"
            data-picker-id="<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"
-           id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"
+           id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"/>
     <% } %>
     <%-- Set to 1 by the dialog's Save and Close; without it the action leaves the stored set alone. --%>
     <input type="hidden" name="<%= io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters.SUBMITTED_MARKER %>" id="attachmentsSubmitted" value="">
