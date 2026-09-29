@@ -33,13 +33,24 @@
     - Navigation actions: Back (browser history) and Exit (main schedule)
     - Optional support contact information from LoginResourceBean
   Parameters:
-    - pageContext.errorData.statusCode: HTTP error status code forwarded by the container
+    - _responseStatus: Existing HTTP error status, or 500 for a successful Struts error forward
     - LoginResourceBean.supportLink: URL for support contact link (optional)
     - LoginResourceBean.supportName: Support contact display name (optional)
     - LoginResourceBean.supportText: Support contact descriptive text or HTML (optional)
   @since 2026-03
 --%>
 <%@ page isErrorPage="true" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%-- Struts exception mappings dispatch this JSP as a normal result, leaving the
+     response at 200 with no servlet error status. Preserve an
+     existing HTTP error status, but normalize a successful response to 500. --%>
+<%
+    int _responseStatus = response.getStatus();
+    if (_responseStatus < 400) {
+        _responseStatus = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+        response.setStatus(_responseStatus);
+    }
+    request.setAttribute("_responseStatus", _responseStatus);
+%>
 <%-- Log the captured exception so JSP-render failures don't disappear into a
      generic "CARLOS Error" page with nothing in catalina.out. The logic
      lives in ErrorPageLogger so it can be unit-tested without a JSP
@@ -191,7 +202,16 @@
 <div id="container">
     <div id="error-code">
         <h2><fmt:message key="error.msgException"/>:</h2>
-        <p>CARLOS Error: ${carlos:forHtml(pageContext.errorData.statusCode)}</p>
+        <p>CARLOS Error: ${carlos:forHtml(_responseStatus)}</p>
+        <%-- Set by CarlosExceptionMappingInterceptor when an action's uncaught exception was
+             mapped here. The same id is on the log line that carries the trace, so this is the
+             one thing worth asking a clinician to read back. Nothing else about the failure is
+             rendered outside the developer block below. --%>
+        <c:if test="${not empty carlosIncidentId}">
+            <p id="incident-reference"><fmt:message key="error.incidentReference"/>:
+                <code>${carlos:forHtml(carlosIncidentId)}</code><br/>
+                <small><fmt:message key="error.incidentReferenceHint"/></small></p>
+        </c:if>
 
         <div id="navigation">
             <a class="btn btn-secondary float-start" title="${carlos:forHtmlAttribute(btnBackTitle)}"

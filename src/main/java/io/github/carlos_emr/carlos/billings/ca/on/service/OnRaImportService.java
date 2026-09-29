@@ -32,6 +32,7 @@ import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Handles the optional RA-file import requested by {@code documentBean}.
@@ -85,6 +86,8 @@ public class OnRaImportService {
         return importDocumentBeanFileOutcome(request).ok();
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public ImportOutcome importDocumentBeanFileOutcome(HttpServletRequest request) {
         Object dbAttr = request.getAttribute("documentBean");
         if (!(dbAttr instanceof DocumentBean documentBean)) {

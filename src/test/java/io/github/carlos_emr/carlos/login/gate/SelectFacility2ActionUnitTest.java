@@ -12,6 +12,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.login.Login2Action;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
@@ -176,6 +177,24 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should sanitize remote address when writing login audit log")
+    void shouldSanitizeRemoteAddress_whenWritingLoginAuditLog() throws Exception {
+        Facility facility = new Facility();
+        facility.setId(10);
+        request.setRemoteAddr("127.0.0.1\r\nforged-login");
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "10");
+        request.addParameter("nextPage", "provider");
+        when(providerDao.getFacilityIds("999998")).thenReturn(List.of(10));
+        when(facilityDao.find(10)).thenReturn(facility);
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("provider");
+        logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login",
+                "facilityId=10", "127.0.0.1\\r\\nforged-login"));
+    }
+
+    @Test
     @DisplayName("should default to provider when next page is blank")
     void shouldDefaultToProvider_whenNextPageIsBlank() throws Exception {
         Facility facility = new Facility();
@@ -243,6 +262,26 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getSession(false).getAttribute(SessionConstants.PENDING_FACILITY_SELECTION))
                 .isEqualTo(Boolean.TRUE);
         verifyNoInteractions(providerDao, facilityDao);
+    }
+
+    @Test
+    @DisplayName("should sanitize nextPage when rejecting before facility mutation")
+    void shouldSanitizeNextPage_whenRejectingBeforeFacilityMutation() throws Exception {
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "10");
+        request.addParameter("nextPage", "provider\r\nforged-next");
+        request.getSession(false).setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
+
+        try (LogCapture capture = LogCapture.forLogger(SelectFacility2Action.class)) {
+            String result = action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            String logged = capture.messages().stream()
+                    .filter(message -> message.contains("nextPage before facility mutation"))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).contains("provider\\r\\nforged-next");
+        }
     }
 
     private SelectFacility2Action action() {

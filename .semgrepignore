@@ -14,6 +14,11 @@ src/main/java/io/github/carlos_emr/carlos/ar2005/
 # Test sources (Semgrep Cloud excludes by default, explicit for CLI)
 src/test/
 src/test-modern/
+.claude/hooks/test-sql-safety-fixtures.json
+# Lint fixtures are deliberately-violating samples consumed only by
+# scripts/lint/test-*.sh; they are never deployed, so scanning them only
+# produces alerts on the very patterns the fixtures exist to reproduce.
+scripts/lint/test-fixtures/
 
 # Non-code assets
 database/

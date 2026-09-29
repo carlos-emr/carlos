@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Admin upload gate for an OHIP Schedule of Benefits fee-schedule file.
  * Validates the upload through {@link PathValidationUtils} and delegates
@@ -75,6 +76,8 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
         return check;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws java.io.IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -149,12 +152,14 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport implements Up
     private BigDecimal updateAssistantFeesValue;
     private BigDecimal updateAnaesthetistFeesValue;
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
             this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
-            this.importFileFileName = uploaded.getOriginalName();
+            this.importFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
         }
     }
 

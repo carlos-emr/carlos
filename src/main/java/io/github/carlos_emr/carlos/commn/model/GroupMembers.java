@@ -55,7 +55,10 @@ public class GroupMembers extends AbstractModel<Integer> {
     private int facilityId;
 
     @Column(name = "clinicLocationNo")
-    private int clinicLocationNo;
+    // The baseline schema and legacy/demo rows allow NULL here. Field-access
+    // hydration must accept it; the public API retains the local-location zero
+    // convention used by the original 2019 messaging migration.
+    private Integer clinicLocationNo = 0;
 
     public Integer getId() {
         return id;
@@ -89,8 +92,14 @@ public class GroupMembers extends AbstractModel<Integer> {
         this.facilityId = facilityId;
     }
 
+    /**
+     * Returns the member's clinic location, treating a legacy persisted NULL as
+     * zero, the messaging convention for the local location.
+     *
+     * @return the configured clinic location, or zero for a legacy NULL
+     */
     public int getClinicLocationNo() {
-        return clinicLocationNo;
+        return clinicLocationNo == null ? 0 : clinicLocationNo;
     }
 
     public void setClinicLocationNo(int clinicLocationNo) {

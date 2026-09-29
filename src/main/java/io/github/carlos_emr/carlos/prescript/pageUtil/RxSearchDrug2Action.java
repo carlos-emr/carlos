@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -74,7 +75,8 @@ public final class RxSearchDrug2Action extends ActionSupport {
             throws IOException, ServletException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "missing required sec object (_rx)");
+            return NONE;
         }
 
         String method = request.getParameter("method");
@@ -120,12 +122,12 @@ public final class RxSearchDrug2Action extends ActionSupport {
 
     public String searchAllCategories() {
         logger.debug("Calling searchAllCategories");
-        Parameter.setParameters(request.getParameterMap());
+        Parameter parameter = Parameter.from(request.getParameterMap());
         Vector<Hashtable<String, Object>> results = null;
 
 
         try {
-            results = drugref.list_drug_element3(Parameter.SEARCH_STRING, wildCardRight(Parameter.WILDCARD));
+            results = drugref.list_drug_element3(parameter.searchString(), wildCardRight(parameter.wildcard()));
             jsonify(results, response);
         } catch (IOException e) {
             logger.error("Exception while attempting to contact DrugRef", e);
@@ -141,13 +143,13 @@ public final class RxSearchDrug2Action extends ActionSupport {
     @SuppressWarnings({"unused", "rawtypes", "unchecked"})
     public String searchBrandName() {
         logger.debug("Calling searchBrandName");
-        Parameter.setParameters(request.getParameterMap());
+        Parameter parameter = Parameter.from(request.getParameterMap());
         Vector catVec = new Vector();
         catVec.add(RxDrugRef.CAT_BRAND);
         Vector<Hashtable<String, Object>> results = drugref.list_search_element_select_categories(
-                Parameter.SEARCH_STRING,
+                parameter.searchString(),
                 catVec,
-                wildCardRight(Parameter.WILDCARD));
+                wildCardRight(parameter.wildcard()));
         try {
             jsonify(results, response);
         } catch (IOException e) {
@@ -160,14 +162,14 @@ public final class RxSearchDrug2Action extends ActionSupport {
     @SuppressWarnings({"unused", "rawtypes", "unchecked"})
     public String searchGenericName() {
         logger.debug("Calling searchGenericName");
-        Parameter.setParameters(request.getParameterMap());
+        Parameter parameter = Parameter.from(request.getParameterMap());
 
         Vector catVec = new Vector();
         catVec.add(RxDrugRef.CAT_AI_COMPOSITE_GENERIC);
         Vector<Hashtable<String, Object>> results = drugref.list_search_element_select_categories(
-                Parameter.SEARCH_STRING,
+                parameter.searchString(),
                 catVec,
-                wildCardRight(Parameter.WILDCARD));
+                wildCardRight(parameter.wildcard()));
         try {
             jsonify(results, response);
         } catch (IOException e) {
@@ -184,29 +186,42 @@ public final class RxSearchDrug2Action extends ActionSupport {
     }
 
 
-    private String getInactiveDate () {
-        String din = request.getParameter("din");
-        String id = request.getParameter("id");
-
+    // FindSecBugs XSS_SERVLET: Jackson serializes every value into an application/json response;
+    // returning NONE prevents JSP/HTML rendering. See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Jackson ObjectNode serialization with application/json content type; no HTML rendering")
+    private String getInactiveDate() throws IOException {
+        response.setContentType("application/json");
+        response.setHeader("Cache-Control", "no-store");
+        ObjectNode result = OBJECT_MAPPER.createObjectNode();
         try {
-            RxDrugRef drugData = new RxDrugRef();
-            Vector vec = drugData.getInactiveDate(din);
-            vec.add(id);
-            jsonify(vec, response);
-
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            try {
-                if (!response.isCommitted()) {
-                    response.resetBuffer();
-                    response.setContentType("application/json");
-                    response.getWriter().write("{}");
-                }
-            } catch (java.io.IOException ioe) {
-                MiscUtils.getLogger().error("Error writing empty inactive date JSON response", ioe);
+            Vector<?> dates = drugref.getInactiveDate(request.getParameter("din"));
+            if (dates == null || dates.stream().anyMatch(value -> !(value instanceof java.util.Date))) {
+                throw new IllegalStateException("Invalid inactive-date response");
             }
+            result.put("checked", true);
+            if (dates.isEmpty()) {
+                result.putNull("inactiveDate");
+            } else {
+                java.util.Date date = (java.util.Date) dates.firstElement();
+                java.time.LocalDate calendarDate = date instanceof java.sql.Date sqlDate
+                        ? sqlDate.toLocalDate()
+                        : java.time.Instant.ofEpochMilli(date.getTime())
+                                .atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                result.put("inactiveDate", calendarDate.toString());
+            }
+            // Retain the previous results payload for existing consumers.
+            Vector<Object> legacyResults = new Vector<>(dates);
+            legacyResults.add(request.getParameter("id"));
+            result.set("results", OBJECT_MAPPER.valueToTree(legacyResults));
+        } catch (Exception e) {
+            logger.error("Inactive drug date lookup failed ({})", e.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            result.removeAll();
+            result.put("checked", false);
+            result.put("error", "Drug status could not be checked");
         }
-        return null;
+        response.getWriter().write(result.toString());
+        return NONE;
     }
 
     /**
@@ -237,35 +252,55 @@ public final class RxSearchDrug2Action extends ActionSupport {
 
     }
 
-    private static class Parameter {
+    /**
+     * The search terms for one request.
+     *
+     * <p>These were {@code static} fields mutated in place by a {@code setParameters} call at the
+     * top of each search method. Being static, they were shared across every request in the JVM
+     * regardless of action lifecycle, so two prescribers searching at the same moment overwrote
+     * each other's term between the write and the read a few lines later — one clinician's search
+     * silently returning the other's drug list. Per-request state removes the shared mutable field
+     * entirely; nothing outside a single method call ever sees one.</p>
+     *
+     * <p>Note this was <em>only</em> ever about the {@code static} modifier. Struts 7 with the
+     * Spring object factory builds a new action instance per request, so the ordinary instance
+     * fields on this class are not shared between threads and need no such treatment.</p>
+     */
+    private static final class Parameter {
 
-        //public static String DRUG_STATUS;
-        public static String WILDCARD;
-        public static String SEARCH_STRING;
+        private final String searchString;
+        private final String wildcard;
 
-        private static void reset() {
-            //DRUG_STATUS = "";
-            WILDCARD = "";
-            SEARCH_STRING = "";
+        private Parameter(String searchString, String wildcard) {
+            this.searchString = searchString;
+            this.wildcard = wildcard;
         }
 
-        public static void setParameters(Map<String, String[]> parameters) {
-            reset();
-
-    		if (parameters.containsKey("name")) {
-    			Parameter.SEARCH_STRING = parameters.get("name")[0];
-    		} else if (parameters.containsKey("query")) {
-    			Parameter.SEARCH_STRING = parameters.get("query")[0];
-    		} else if (parameters.containsKey("searchString")) {
-    			Parameter.SEARCH_STRING = parameters.get("searchString")[0];
-    		}
-
-            if (parameters.containsKey("wildcard")) {
-                Parameter.WILDCARD = parameters.get("wildcard")[0];
+        static Parameter from(Map<String, String[]> parameters) {
+            String search = "";
+            if (parameters.containsKey("name")) {
+                search = parameters.get("name")[0];
+            } else if (parameters.containsKey("query")) {
+                search = parameters.get("query")[0];
+            } else if (parameters.containsKey("searchString")) {
+                search = parameters.get("searchString")[0];
             }
 
+            String wildcard = "";
+            if (parameters.containsKey("wildcard")) {
+                wildcard = parameters.get("wildcard")[0];
+            }
+
+            return new Parameter(search, wildcard);
         }
 
+        String searchString() {
+            return searchString;
+        }
+
+        String wildcard() {
+            return wildcard;
+        }
     }
 
 

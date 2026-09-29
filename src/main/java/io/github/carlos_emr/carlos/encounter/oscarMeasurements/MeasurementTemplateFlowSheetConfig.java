@@ -69,6 +69,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.DSCondition;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.Recommendation;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCreator;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Central configuration manager for clinical measurement flowsheet templates in CARLOS EMR.
@@ -713,6 +714,8 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      * @param parent Node the parent node (null for top-level elements)
      * @param mFlowSheet MeasurementFlowSheet the flowsheet being populated with items
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void processItems(List<Element> elements, List<Node> aLevels, Node parent, MeasurementFlowSheet mFlowSheet) {
         for (Element e : elements) {
             // Extract all XML attributes into a properties map for the FlowSheetItem

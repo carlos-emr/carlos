@@ -36,6 +36,7 @@ import java.util.List;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public final class ProviderTransfer {
@@ -248,6 +249,11 @@ public final class ProviderTransfer {
         this.title = title;
     }
 
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public static ProviderTransfer toTransfer(Provider provider) {
         if (provider == null) return (null);
 

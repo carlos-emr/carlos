@@ -38,8 +38,11 @@ import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -65,6 +68,8 @@ public class HRMFixMissingReportHelper {
     public static final String SCRIPT_PROPERTY = "HRMFixMissingReportHelper.Run";
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void fixIt() {
 
         if (hasThisRunBefore()) {
@@ -80,35 +85,45 @@ public class HRMFixMissingReportHelper {
             documents = hrmDocumentDao.findAll(offset, limit);
 
             for (HRMDocument doc : documents) {
-                String hrmReportFileLocation = doc.getReportFile();
+                // A blank DOCUMENT_DIR or a malformed/traversal-bearing report path throws an unchecked
+                // SecurityException from PathValidationUtils; skip that one document and keep fixing the
+                // rest of the batch rather than aborting the whole run.
+                try {
+                    String hrmReportFileLocation = doc.getReportFile();
 
-                File tmpXMLholder = new File(hrmReportFileLocation);
+                    File tmpXMLholder = PathValidationUtils.resolveTrustedPath(new File(hrmReportFileLocation));
 
-                if (tmpXMLholder.exists()) {
-                    continue;
-                }
-                String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                tmpXMLholder = new File(place + File.separator + hrmReportFileLocation);
-
-                if (tmpXMLholder.exists()) {
-                    continue;
-                }
-
-                logger.info("Searching for report file:" + hrmReportFileLocation);
-
-                //if we got to here, it means we can't find the file..let's go on a hunt
-                File file = searchForFile(tmpXMLholder.getName());
-
-                if (file != null) {
-                    //copy it over to document_dir
-                    try {
-                        FileUtils.copyFileToDirectory(file, new File(place));
-                        logger.info("Fixed:" + hrmReportFileLocation);
-                    } catch (IOException e) {
-                        logger.error("Unable to copy the file to DOCUMENT_DIR:" + file);
+                    if (tmpXMLholder.exists()) {
+                        continue;
                     }
-                } else {
-                    logger.warn("UNABLE TO FIND THE FILE:" + tmpXMLholder);
+                    String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+                    File documentDir = PathValidationUtils.resolveConfiguredDirectory(place, "DOCUMENT_DIR");
+                    tmpXMLholder = PathValidationUtils.validateExistingPath(new File(documentDir, hrmReportFileLocation), documentDir);
+
+                    if (tmpXMLholder.exists()) {
+                        continue;
+                    }
+
+                    // Sanitize the report path before logging: it is a DB-sourced, PHI-adjacent value,
+                    // so route it through LogSafe to neutralize CRLF log-forging and bound its length.
+                    logger.info("Searching for report file: {}", LogSafe.sanitize(hrmReportFileLocation));
+
+                    //if we got to here, it means we can't find the file..let's go on a hunt
+                    File file = searchForFile(tmpXMLholder.getName());
+
+                    if (file != null) {
+                        //copy it over to document_dir
+                        try {
+                            FileUtils.copyFileToDirectory(file, documentDir);
+                            logger.info("Fixed: {}", LogSafe.sanitize(hrmReportFileLocation));
+                        } catch (IOException e) {
+                            logger.error("Unable to copy the file to DOCUMENT_DIR: {}", LogSafe.sanitize(file.getPath()));
+                        }
+                    } else {
+                        logger.warn("UNABLE TO FIND THE FILE: {}", LogSafe.sanitize(tmpXMLholder.getPath()));
+                    }
+                } catch (SecurityException e) {
+                    logger.error("Skipping HRM document with an invalid report path", e);
                 }
             }
 
@@ -125,7 +140,7 @@ public class HRMFixMissingReportHelper {
 
     private File searchForFile(String fileName) {
         //root dir = downloadsDirectory
-        File rootDir = new File(downloadsDirectory);
+        File rootDir = PathValidationUtils.validateConfiguredDirectory(downloadsDirectory, "OMD_downloads");
         if (!rootDir.exists() || !rootDir.isDirectory()) {
             logger.error("HRM Downloads directory not found..can't continue with 4195 fixer");
             throw new IllegalArgumentException("Directory not found: " + downloadsDirectory);
@@ -137,15 +152,15 @@ public class HRMFixMissingReportHelper {
                 logger.warn("skipping file in the root directory:" + datedDirectory);
                 continue;
             }
-            File decryptedDirectory = new File(datedDirectory, "decrypted");
+            File decryptedDirectory = PathValidationUtils.validateGeneratedChildPath("decrypted", datedDirectory);
             if (!decryptedDirectory.exists() || !decryptedDirectory.isDirectory()) {
                 logger.warn("skipping.decrypted subdirectory not found in :" + datedDirectory);
                 continue;
             }
             //we can now check for the file
-            File theFile = new File(decryptedDirectory, fileName);
+            File theFile = PathValidationUtils.validateGeneratedChildPath(fileName, decryptedDirectory);
             if (theFile != null && theFile.exists()) {
-                logger.info("Found the file we were missing:" + theFile);
+                logger.info("Found the file we were missing: {}", LogSafe.sanitize(theFile.getPath()));
                 return theFile;
             }
         }

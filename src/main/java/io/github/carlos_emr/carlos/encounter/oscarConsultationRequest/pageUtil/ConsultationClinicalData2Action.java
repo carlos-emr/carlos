@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.List;
 
@@ -130,6 +131,8 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @SuppressWarnings("unused")
     public String fetchAllergies() {
 
@@ -196,6 +199,8 @@ public class ConsultationClinicalData2Action extends ActionSupport {
      * @param response
      * @return
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String fetchRiskFactors() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -240,6 +245,8 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @SuppressWarnings("unused")
     public String fetchIssueNote() {
 
@@ -299,6 +306,8 @@ public class ConsultationClinicalData2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void medicationToJson(HttpServletResponse response, List<Drug> medications, String notetype) {
 
         ObjectNode json = objectMapper.createObjectNode();

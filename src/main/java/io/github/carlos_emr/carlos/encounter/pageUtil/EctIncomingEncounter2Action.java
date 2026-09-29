@@ -86,6 +86,7 @@ import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctIncomingEncounter2Action extends ActionSupport {
 
@@ -102,6 +103,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     private CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException, ServletException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
@@ -122,7 +125,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         // Validate demographicNo is numeric before crossing the trust boundary
         if (!demoNo.matches("\\d+")) {
-            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo: {}", LogSafe.sanitize(demoNo));
+            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo");
             return "failure";
         }
 
@@ -145,7 +148,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
             String apptListNo = request.getParameter("appointmentNo");
             if (apptListNo != null && !apptListNo.matches("\\d{1,9}")) {
-                log.warn("Invalid non-numeric appointmentNo in appointmentList branch: {}", LogSafe.sanitize(apptListNo));
+                log.warn("Invalid non-numeric appointmentNo in appointmentList branch");
                 return "failure";
             }
             bean.setUpEncounterPage(loggedInInfo, apptListNo);
@@ -200,7 +203,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
             bean.providerNo = request.getParameter("providerNo");
             if (bean.providerNo != null && !bean.providerNo.isEmpty() && !bean.providerNo.matches("[a-zA-Z0-9]{1,6}")) {
-                log.warn("Invalid providerNo: {}", LogSafe.sanitize(bean.providerNo));
+                log.warn("Invalid providerNo");
                 return "failure";
             }
             if (bean.providerNo == null || bean.providerNo.isEmpty()) {
@@ -212,7 +215,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             if (bean.appointmentNo == null || "null".equalsIgnoreCase(bean.appointmentNo) || bean.appointmentNo.isEmpty()) {
                 bean.appointmentNo = null;
             } else if (!bean.appointmentNo.matches("\\d{1,9}")) {
-                log.warn("Invalid appointmentNo: {}", LogSafe.sanitize(bean.appointmentNo));
+                log.warn("Invalid appointmentNo");
                 return "failure";
             }
             // use this one.
@@ -222,7 +225,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
             bean.curProviderNo = request.getParameter("curProviderNo");
             if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
-                log.warn("Invalid curProviderNo: {}", LogSafe.sanitize(bean.curProviderNo));
+                log.warn("Invalid curProviderNo");
                 return "failure";
             }
             Provider provider = loggedInInfo.getLoggedInProvider();
@@ -268,7 +271,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.check = "myCheck";
             bean.oscarMsgID = request.getParameter("msgId");
             if (bean.oscarMsgID != null && !bean.oscarMsgID.matches("\\d+")) {
-                log.warn("Invalid msgId: {}", LogSafe.sanitize(bean.oscarMsgID));
+                log.warn("Invalid msgId");
                 return "failure";
             }
             String sourceParam = request.getParameter("source");

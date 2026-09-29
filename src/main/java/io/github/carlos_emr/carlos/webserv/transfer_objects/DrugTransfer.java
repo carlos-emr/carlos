@@ -33,6 +33,7 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public class DrugTransfer {
@@ -552,12 +553,21 @@ public class DrugTransfer {
         this.lastUpdateDate = lastUpdateDate;
     }
 
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public static DrugTransfer toTransfer(Drug drug) {
         if (drug == null) return (null);
 
         DrugTransfer transfer = new DrugTransfer();
 
-        BeanUtils.copyProperties(drug, transfer);
+        // Drug.pastMed is a nullable Boolean (default null) while DrugTransfer.pastMed is a
+        // primitive boolean; copying it directly faults when unboxing null. Skip it here and set
+        // it via Drug.isPastMed(), which coalesces null to false.
+        BeanUtils.copyProperties(drug, transfer, "pastMed");
+        transfer.setPastMed(drug.isPastMed());
 
         return (transfer);
     }

@@ -402,7 +402,7 @@
         <div class="adminBox">
             <h3>&nbsp;<fmt:message key="admin.admin.LabsInbox"/></h3>
             <ul>
-                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/ALL/insideLabUpload");return false;'><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/ALL/ViewInsideLabUpload");return false;'><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
                 <oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes"
                                             defaultVal="false">
                     <li><a href="#"
@@ -426,8 +426,10 @@
             <ul>
                 <li><a href="#"
                        onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/setupSelect");return false;'><fmt:message key="admin.admin.btnSelectForm"/></a></li>
-                <li><a href="#"
-                       onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/formXmlUpload");return false;'><fmt:message key="admin.admin.btnImportFormData"/></a></li>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="w" reverse="<%=false%>">
+                    <li><a href="#"
+                           onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/formXmlUpload");return false;'><fmt:message key="admin.admin.btnImportFormData"/></a></li>
+                </security:oscarSec>
                 <li><a href="${pageContext.request.contextPath}/eform/efmformmanager">
                     <fmt:message key="admin.admin.btnUploadForm"/>
                 </a></li>
@@ -630,7 +632,7 @@
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.groupCreate"
                                            rights="w" reverse="<%=false%>">
                             <li><a href="#"
-                                   onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup?submit=blank");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+                                   onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
                         </security:oscarSec>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup");return false;'><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
@@ -814,7 +816,7 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.Status"/></h3>
                 <ul>
                     <% if (CarlosProperties.getInstance().isFaxEnabled()) { %>
-                    <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/faxStatus");return false;'><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
+                    <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/ViewManageFaxes");return false;'><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
                     <% } %>
 
                 </ul>

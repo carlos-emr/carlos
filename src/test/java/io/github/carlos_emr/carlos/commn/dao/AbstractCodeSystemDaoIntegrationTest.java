@@ -28,6 +28,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Integration tests for {@link AbstractCodeSystemDao} static utility method.
@@ -76,6 +78,30 @@ public class AbstractCodeSystemDaoIntegrationTest {
         void shouldThrowIllegalArgumentException_forInvalidCodingSystem() {
             assertThatThrownBy(() -> getDaoName(AbstractCodeSystemDao.codingSystem.valueOf("FAIL")))
                     .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    /**
+     * Every caller of {@link AbstractCodeSystemDao#getDaoName} casts the Spring bean it resolves
+     * to {@code AbstractCodeSystemDao} (see {@code dxResearch2Action}). The switch returns a DAO
+     * *interface* class, and nothing in the type system forces that interface to actually extend
+     * {@code AbstractCodeSystemDao}, so a DAO could be wired into the switch while only extending
+     * {@code AbstractDao} — exactly what happened to {@code IchppccodeDao} and what made adding an
+     * ICHPPC code to the disease registry answer HTTP 500 with a {@code ClassCastException}
+     * (issue #3741). These cases pin the contract for every coding system, present and future.
+     */
+    @Nested
+    @DisplayName("getDaoName contract")
+    class GetDaoNameContract {
+
+        @ParameterizedTest
+        @EnumSource(AbstractCodeSystemDao.codingSystem.class)
+        @Tag("read")
+        @DisplayName("should resolve a DAO assignable to AbstractCodeSystemDao for every coding system")
+        void shouldResolveAssignableDao_forEveryCodingSystem(AbstractCodeSystemDao.codingSystem system) {
+            assertThat(getDaoName(system))
+                    .as("getDaoName(%s) must resolve a DAO its callers can cast to AbstractCodeSystemDao", system)
+                    .matches(AbstractCodeSystemDao.class::isAssignableFrom);
         }
     }
 }

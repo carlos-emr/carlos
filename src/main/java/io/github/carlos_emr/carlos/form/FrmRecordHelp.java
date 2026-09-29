@@ -59,9 +59,18 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.CachedDateFormats;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRecordHelp {
     private static final Pattern INSERT_ROW_ID_FILTER = Pattern.compile("(?i)\\bID\\s*=\\s*0\\b");
+
+    /**
+     * JDBC type names these legacy form tables report for the 1-bit columns the JSPs
+     * render as checkboxes. MySQL/MariaDB answer {@code TINYINT} with a display-width
+     * suffix (for example {@code TINYINT(1)}), hence the prefix match rather than equality.
+     */
+    private static final String TINYINT_TYPE = "TINYINT";
+    private static final String BIT_TYPE = "bit";
 
     private String _dateFormat = "yyyy/MM/dd";
     private String _newDateFormat = "yyyy-MM-dd"; //handles both date formats, but yyyy/MM/dd is displayed to avoid deprecation
@@ -107,6 +116,8 @@ public class FrmRecordHelp {
      * @return Properties containing the column name/value pairs from the first result row
      * @throws SQLException if a database access error occurs
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Properties getFormRecord(String sql, Object... params)
             throws SQLException {
         Properties props = new Properties();
@@ -118,7 +129,7 @@ public class FrmRecordHelp {
                     String name = md.getColumnName(i);
                     String value;
 
-                    if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
+                    if (isBooleanColumnType(md.getColumnTypeName(i))) {
                         if (rs.getInt(i) == 1)
                             value = "checked='checked'";
                         else
@@ -155,6 +166,8 @@ public class FrmRecordHelp {
      * @return the auto-generated ID of the inserted record
      * @throws SQLException if a database access error occurs
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public synchronized int saveFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
         try (Connection connection = LegacyJdbcQuery.getConnection()) {
@@ -202,6 +215,21 @@ public class FrmRecordHelp {
 
             return insertedId;
         }
+    }
+
+    /**
+     * Whether a JDBC column type name denotes one of the boolean-valued columns these
+     * legacy form tables use for checkbox fields.
+     *
+     * @param columnTypeName value from {@code ResultSetMetaData.getColumnTypeName}; may be null
+     * @return true for {@code TINYINT...} or {@code bit}, in any case
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (JDBC column type name); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (JDBC column type name); not a security or authorization decision")
+    private static boolean isBooleanColumnType(String columnTypeName) {
+        return columnTypeName != null
+                && (columnTypeName.regionMatches(true, 0, TINYINT_TYPE, 0, TINYINT_TYPE.length())
+                        || BIT_TYPE.equalsIgnoreCase(columnTypeName));
     }
 
     private String archiveSelectSql(String sql) throws SQLException {
@@ -277,6 +305,8 @@ public class FrmRecordHelp {
         throw new SQLException("ERROR: Database " + dbType + " unrecognized.");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ResultSet updateResultSet(Properties props, ResultSet rs, boolean bInsert) throws SQLException {
         ResultSetMetaData md = rs.getMetaData();
 
@@ -290,7 +320,7 @@ public class FrmRecordHelp {
 
             String value = props.getProperty(name, null);
 
-            if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
+            if (isBooleanColumnType(md.getColumnTypeName(i))) {
                 if (value != null) {
                     if (value.equalsIgnoreCase("on") || value.equalsIgnoreCase("checked='checked'")) {
                         rs.updateInt(name, 1);
@@ -429,6 +459,8 @@ public class FrmRecordHelp {
         return results;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private Properties getResultsAsProperties(ResultSet rs) throws SQLException {
         Properties p = new Properties();
         ResultSetMetaData md = rs.getMetaData();
@@ -436,7 +468,7 @@ public class FrmRecordHelp {
             String name = md.getColumnName(i);
             String value;
 
-            if ((md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) && md.getScale(i) == 1) {
+            if (isBooleanColumnType(md.getColumnTypeName(i)) && md.getScale(i) == 1) {
                 if (rs.getInt(i) == 1)
                     value = "on";
                 else
@@ -485,6 +517,8 @@ public class FrmRecordHelp {
         return VALID_ACTION_VALUES.contains(submit) ? submit : "failure";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String createActionURL(String where, String action, String demoId, String formId) {
         String temp = null;
 
@@ -513,6 +547,8 @@ public class FrmRecordHelp {
         return temp;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean isOpenHealthCustomForm(String action) {
         return "formEpistaxisLetter".equalsIgnoreCase(action)
                 || "formOtologicLetter".equalsIgnoreCase(action)

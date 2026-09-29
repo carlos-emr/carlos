@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.entities.PaymentType;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class BillingFormData {
 
@@ -302,6 +303,8 @@ public class BillingFormData {
             return description;
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         public String getDisplayName() {
             return visitType.equalsIgnoreCase(Property.PROPERTY_VALUE.clinicdefault.name()) ? description : visitType + "|" + description;
         }

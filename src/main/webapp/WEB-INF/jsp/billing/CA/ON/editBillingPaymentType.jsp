@@ -46,6 +46,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title><carlos:encode value='${paymentTypeModel.title}' context='html'/>
     </title>
+    <script src="${pageContext.request.contextPath}/billing/CA/ON/payment-type-csrf.js"></script>
     <script type="text/javascript"
             src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
             <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
@@ -59,78 +60,46 @@
             return true;
         }
 
-        function csrfTokenValue() {
-            var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
-            return tokenInput ? tokenInput.value : "";
-        }
-
-        function createType() {
+        async function createType() {
             if (!check()) {
                 return;
             }
+            const token = await paymentTypeBeginRequest();
+            if (!token) return;
             $.ajax({
                 type: "POST",
                 async: true,
-                headers: {"CSRF-TOKEN": csrfTokenValue()},
-                data: {paymentType: document.getElementById("paymentType").value},
+                timeout: 30000,
+                data: {"CSRF-TOKEN": token, paymentType: document.getElementById("paymentType").value},
                 url: "${pageContext.request.contextPath}/billing/CA/ON/createPaymentType",
                 dataType: "json",
-                success: function (ret) {
-                    if (!ret) {
-                        alert("Failed to create new payment type!");
-                    } else if (ret.ret == "1") {
-                        alert(ret.reason);
-                    } else {
-                        alert("Success");
-                        history.back();
-                    }
-                },
-                error: function (XMLHttpRequest, textStatus, errorThrown) {
-                    if (textStatus) {
-                        alert(JSON.toString(textStatus));
-                    } else if (errorThrown) {
-                        alert(JSON.toString(errorThrown));
-                    } else {
-                        alert("Unknown error happened!");
-                    }
-                }
+                complete: paymentTypeRequestComplete,
+                success: paymentTypeSaveResult,
+                error: paymentTypeRequestFailed
             });
         }
 
-        function saveType() {
+        async function saveType() {
             if (!check()) {
                 return;
             }
+            const token = await paymentTypeBeginRequest();
+            if (!token) return;
             $.ajax({
                 type: "POST",
                 async: true,
-                headers: {"CSRF-TOKEN": csrfTokenValue()},
+                timeout: 30000,
                 data: {
+                    "CSRF-TOKEN": token,
                     id: "<carlos:encode value='${paymentTypeModel.id}' context='javaScriptBlock'/>",
                     oldPaymentType: "<carlos:encode value='${paymentTypeModel.type}' context='javaScriptBlock'/>",
                     paymentType: document.getElementById("paymentType").value
                 },
                 url: "${pageContext.request.contextPath}/billing/CA/ON/updatePaymentType",
                 dataType: "json",
-                success: function (ret) {
-                    if (!ret) {
-                        alert("Failed to create new payment type!");
-                    } else if (ret.ret == "1") {
-                        alert(ret.reason);
-                    } else {
-                        alert("Success");
-                        history.back();
-                    }
-                },
-                error: function (XMLHttpRequest, textStatus, errorThrown) {
-                    if (textStatus) {
-                        alert(JSON.toString(textStatus));
-                    } else if (errorThrown) {
-                        alert(JSON.toString(errorThrown));
-                    } else {
-                        alert("Unknown error happened!");
-                    }
-                }
+                complete: paymentTypeRequestComplete,
+                success: paymentTypeSaveResult,
+                error: paymentTypeRequestFailed
             });
         }
     </script>

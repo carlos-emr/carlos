@@ -555,17 +555,18 @@ public final class XmlUtils {
     public static Document toDocumentFromFile(String url) throws ParserConfigurationException, SAXException, IOException {
         InputStream is = XmlUtils.class.getResourceAsStream(url);
         if (is == null) {
-            is = new FileInputStream(url);
+            try {
+                is = new FileInputStream(PathValidationUtils.validateConfiguredFile(url, "XML document file"));
+            } catch (SecurityException e) {
+                // Preserve the declared IOException contract: validateConfiguredFile throws an
+                // unchecked SecurityException for a missing/invalid path, but callers catch IOException.
+                throw new IOException("Cannot read XML document file", e);
+            }
         }
 
-        Document var2;
-        try {
-            var2 = toDocument((InputStream) is);
-        } finally {
-            ((InputStream) is).close();
+        try (InputStream input = is) {
+            return toDocument(input);
         }
-
-        return var2;
     }
 
     public static Document toDocument(String s) throws IOException, SAXException, ParserConfigurationException {

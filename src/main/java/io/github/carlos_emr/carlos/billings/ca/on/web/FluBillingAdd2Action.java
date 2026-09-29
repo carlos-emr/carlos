@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for adding a flu billing record.
@@ -88,6 +89,8 @@ public class FluBillingAdd2Action extends ActionSupport {
      * @return {@link #SUCCESS}, {@link #ERROR} for validation failures, or {@link #NONE} for a redirect or invalid method
      * @throws Exception if an unexpected error occurs during persistence
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -133,7 +136,7 @@ public class FluBillingAdd2Action extends ActionSupport {
         // wrong fee would silently misprice the bill.
         List<BillingService> bsList = billingServiceDao.findByServiceCode(request.getParameter("svcCode"));
         if (bsList != null && bsList.size() > 1) {
-            MiscUtils.getLogger().error(
+            MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "FluBillingAdd2Action: ambiguous fee — {} BillingService rows for svcCode={}",
                     bsList.size(),
                     LogSafe.sanitize(request.getParameter("svcCode")));

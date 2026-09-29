@@ -48,6 +48,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
@@ -327,6 +329,8 @@ public class ExtractBean extends Object implements Serializable {
         return n;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
         try {
             String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
@@ -343,6 +347,8 @@ public class ExtractBean extends Object implements Serializable {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         if (eFlag.equals("1")) {
             try {

@@ -31,7 +31,6 @@ package io.github.carlos_emr.carlos.form.pageUtil;
 
 import java.io.IOException;
 import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.sql.SQLException;
 
 import jakarta.servlet.ServletException;
@@ -45,11 +44,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.form.data.FrmData;
-import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
+import io.github.carlos_emr.carlos.form.gate.FormShortcutRouteResolver;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FormForward2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -62,9 +61,11 @@ public class FormForward2Action extends ActionSupport {
     /**
      * forward to the current specified form, e.g. ../form/formar.jsp?demographic_no=
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws ServletException, IOException {
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicNo = request.getParameter("demographic_no");
 
@@ -76,108 +77,24 @@ public class FormForward2Action extends ActionSupport {
         String appointmentNo = request.getParameter("appointmentNo");
         String formId = request.getParameter("formId");
         String provNo = request.getParameter("provNo");
-        String strFrm = URLDecoder.decode(formName, CharEncoding.UTF_8);
-        int requestedForm = 0;
-        int latestForm = 0;
-        String[] formPath = null;
 
-        /*
-         * Fetch all the meta data for the requested form
-         */
         try {
-            FrmData frmData = new FrmData();
-            // deepcode ignore SqlInjection: delegates to FrmData which validates table name via regex + uses GetPreSQL
-            formPath = frmData.getShortcutFormValue(demographicNo, strFrm);
-            formPath[0] = formPath[0].trim();
-
-            /*
-             * edit some soon-to-be deprecated methods of storing path values.
-             */
-            if (formPath[0].startsWith("../")) {
-                formPath[0] = formPath[0].replace("../", "/");
+            if (formName == null || formName.isBlank()) {
+                throw new IllegalArgumentException("Invalid form name");
             }
-
-            formPath[0] = request.getContextPath() + formPath[0];
-
-            if (formPath[0].endsWith("?demographic_no=")) {
-                formPath[0] = formPath[0].replace("?demographic_no=", "");
-            }
-
-            if (formPath[0].endsWith("?demographicNo=")) {
-                formPath[0] = formPath[0].replace("?demographicNo=", "");
-            }
-
-            if (formPath[0].endsWith("&demographic_no=")) {
-                formPath[0] = formPath[0].replace("&demographic_no=", "");
-            }
-
-            if (formPath[0].endsWith("&demographicNo=")) {
-                formPath[0] = formPath[0].replace("&demographicNo=", "");
-            }
+            String strFrm = URLDecoder.decode(formName, CharEncoding.UTF_8);
+            String redirect = request.getContextPath()
+                    + FormShortcutRouteResolver.resolve(demographicNo, strFrm, formId, appointmentNo, provNo);
+            response.sendRedirect(redirect);
         } catch (SQLException e) {
-            logger.error("failed to fetch formPath for " + strFrm, e);
-        }
-
-        /*
-         * Build a custom forward path to the requested form.
-         */
-        String actionPath = FormViewRoutes.resolveActionPath(formPath[0]);
-        if (actionPath == null) {
-            logger.warn("Failed to resolve action path for form {}", strFrm);
+            logger.error("Failed to resolve form shortcut path", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to resolve form path");
+        } catch (IllegalArgumentException e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("Invalid form shortcut path requested");
+            }
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form path");
-            return NONE;
         }
-
-        StringBuilder redirect = new StringBuilder(request.getContextPath()).append(actionPath);
-        redirect.append(actionPath.contains("?") ? "&" : "?")
-                .append("demographic_no=")
-                .append(URLEncoder.encode(demographicNo, CharEncoding.UTF_8));
-
-        /*
-         * If the formId is requesting the latest form then change its
-         * value to null.  The null value will indicate that the most recent
-         * form should be fetched.
-         * Done this way to ensure that incoming null values are also respected.
-         */
-        if ("latest".equalsIgnoreCase(formId)) {
-            formId = null;
-        }
-
-        /*
-         * get the latest form id from the formPath return by the frmData object.
-         */
-        if (formPath.length > 1 && formPath[1] != null) {
-            latestForm = Integer.parseInt(formPath[1]);
-        }
-
-        /*
-         * When the form id is null the most updated form id from the formPath
-         * array is used.
-         * This can be handy to force results of the most recent form only
-         */
-        if (formId != null) {
-            requestedForm = Integer.parseInt(formId);
-            redirect.append("&formId=").append(URLEncoder.encode(formId, CharEncoding.UTF_8));
-        } else if (latestForm > 0) {
-            redirect.append("&formId=").append(latestForm);
-        }
-
-        /*
-         * Send a warning back to the user that this is an older version
-         * of the form.
-         */
-        if (requestedForm > 0 && requestedForm < latestForm) {
-            redirect.append("&warning=").append("history");
-        }
-
-        if (appointmentNo != null && !appointmentNo.isEmpty()) {
-            redirect.append("&appointmentNo=").append(URLEncoder.encode(appointmentNo, CharEncoding.UTF_8));
-        }
-        if (provNo != null && !provNo.isEmpty()) {
-            redirect.append("&provNo=").append(URLEncoder.encode(provNo, CharEncoding.UTF_8));
-        }
-
-        response.sendRedirect(redirect.toString());
         return NONE;
     }
 

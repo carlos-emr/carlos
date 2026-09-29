@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.OscarAuditLogger;
@@ -89,7 +90,10 @@ public class UnlinkDemographic2Action extends ActionSupport {
             plrDao.merge(patientLabRouting);
             if (patientLabRouting.getDemographicNo().equals(PatientLabRoutingDao.UNMATCHED)) {
                 success = true;
-                logger.debug("Unlinked lab with segmentID: " + labNo + " from eChart of Demographic " + demoNo);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Unlinked lab segmentID={} from demographic={}",
+                            LogSafe.sanitizeObject(labNo), LogSafe.sanitizeObject(demoNo));
+                }
                 OscarAuditLogger.getInstance().log(loggedInInfo, LogConst.UNLINK, LogConst.CON_HL7_LAB, String.valueOf(labNo), request.getRemoteAddr(), demoNo, reason);
             } else {
                 break;

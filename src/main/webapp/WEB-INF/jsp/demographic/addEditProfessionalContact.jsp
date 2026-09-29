@@ -56,11 +56,11 @@
 
             function captureParameters(id) {
 
-                var keyword = '${ param.keyword }';
+                var keyword = '${carlos:forJavaScript(param.keyword)}';
                 var keywordLastName = null;
                 var keywordFirstName = null;
-                var firstName = '${ pcontact.firstName }';
-                var lastName = '${ pcontact.lastName }';
+                var firstName = '${carlos:forJavaScript(pcontact.firstName)}';
+                var lastName = '${carlos:forJavaScript(pcontact.lastName)}';
 
                 if (keyword && keyword.includes(",")) {
                     keywordLastName = keyword.split(",")[0].trim();
@@ -79,11 +79,11 @@
 
             function forwardToParent() {
 
-                var contactId = '${ requestScope.contactId }'; // server returns the id that was saved.
-                var demographicContactId = '${ requestScope.demographicContactId }';
-                var contactRole = '${ requestScope.contactRole }';
-                var contactName = '${ requestScope.contactName }';
-                var contactType = '${ requestScope.contactType }';
+                var contactId = '${carlos:forJavaScript(requestScope.contactId)}'; // server returns the id that was saved.
+                var demographicContactId = '${carlos:forJavaScript(requestScope.demographicContactId)}';
+                var contactRole = '${carlos:forJavaScript(requestScope.contactRole)}';
+                var contactName = '${carlos:forJavaScript(requestScope.contactName)}';
+                var contactType = '${carlos:forJavaScript(requestScope.contactType)}';
 
                 if (contactId) {
 
@@ -214,7 +214,7 @@
         <input type="hidden" name="demographicContactId" value="${ demographicContactId }"/>
         <input type="hidden" name="keywordFirstName" id="keywordFirstName" value=""/>
         <input type="hidden" name="keywordLastName" id="keywordLastName" value=""/>
-        <input type="hidden" name="contactType" id="contactType" value="${ param.contactType }"/>
+        <input type="hidden" name="contactType" id="contactType" value="${carlos:forHtmlAttribute(param.contactType)}"/>
 
         <table width="100%" border="0" cellspacing="2" cellpadding="2">
             <tr>
@@ -224,7 +224,7 @@
                 <td align="right"><b><fmt:message key="demographic.contactForm.lastName"/></b></td>
                 <td>
                     <input type="text" name="pcontact.lastName" id="pcontact.lastName"
-                           value="${ pcontact.lastName }" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.lastName)}" size="30">
                 </td>
             </tr>
             <tr>

@@ -35,6 +35,13 @@ extensions:
       # flow source so that taint from it is cut off at the sanitizer boundary.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validatePath", "(java.lang.String,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
 
+      # validatePathComponent(String value, String label) -> String
+      # Validates that the user-provided value is exactly one safe path component
+      # and returns it unchanged. The checked value (Argument[0]) is intentionally
+      # NOT modelled as a flow source so request taint is cut off at this sanitizer
+      # boundary; the fixed diagnostic label (Argument[1]) is used as the source.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validatePathComponent", "(java.lang.String,java.lang.String)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+
       # validateUserFilePath(String userFilename, File allowedDir) -> File
       # Applies legacy filename normalization and validates the resulting path is
       # within allowedDir. Like validatePath, the return value is bounded by
@@ -47,6 +54,14 @@ extensions:
       # argument prevents taint from a possibly-tainted file path (Argument[0])
       # propagating past the sanitizer boundary.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateExistingPath", "(java.io.File,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+
+      # validateExistingPath(String path, File allowedDir) -> File
+      # Convenience overload of validateExistingPath(File, File) that constructs the
+      # File internally so call sites never build `new File(taintedPath)` themselves.
+      # Identical model to the File overload: the return value is bounded by
+      # allowedDir (Argument[1]), and the user-provided path string (Argument[0]) is
+      # intentionally NOT modelled as a flow source.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateExistingPath", "(java.lang.String,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
 
       # validateUpload(File sourceFile) -> File
       # Validates that the uploaded file (a framework-assigned temp path, not
@@ -94,6 +109,14 @@ extensions:
       # PathValidationUtils.validateExistingPath. Returns validated File.
       - ["io.github.carlos_emr.carlos.managers", "NioFileManagerImpl", false, "getOscarDocument", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
 
+      # NioFileManagerImpl.validateTempDeletionTarget(String) -> File
+      # Validates path-derived delete requests against approved temp directories,
+      # returns null for missing approved temp files, and returns a canonical
+      # regular file from PathValidationUtils.validateUpload for existing files.
+      # The user-provided path (Argument[0]) is intentionally not modelled as a
+      # flow source because the return value is bounded by approved temp roots.
+      - ["io.github.carlos_emr.carlos.managers", "NioFileManagerImpl", false, "validateTempDeletionTarget", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
+
   # neutralModel entries suppress auto-generated/heuristic taint summaries for
   # guard methods and sanitizer wrappers where no relevant taint flow should be
   # inferred, including boolean, void, and reference-returning methods.
@@ -110,6 +133,21 @@ extensions:
       # bounds the source path to an allowed temp directory.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "openValidatedUploadInputStream", "(java.io.File)", "summary", "manual"]
 
+      # getRequiredDocumentDirectory() -> File
+      # Takes no arguments: resolves DOCUMENT_DIR from server configuration, requires
+      # it to be an existing directory, and returns its canonical File. Nothing
+      # user-controlled flows in, so there is no taint to summarise; modelled as
+      # neutral to suppress auto-generated models.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "getRequiredDocumentDirectory", "()", "summary", "manual"]
+
+      # validateExistingDocumentPath(String path) -> File
+      # Validates containment of path within DOCUMENT_DIR, which it resolves itself via
+      # getRequiredDocumentDirectory(). The allowed directory is therefore not an
+      # argument, and the only argument is the user-provided path, so there is no safe
+      # argument to model as the return source. Static, so no Argument[this] either -
+      # modelled as neutral for the same reason as EDocUtil.resolvePath below.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateExistingDocumentPath", "(java.lang.String)", "summary", "manual"]
+
       # FaxManagerImpl.validateFilePath(String) -> void
       # Guard method that validates and throws on failure. No taint flows through.
       - ["io.github.carlos_emr.carlos.managers", "FaxManagerImpl", "validateFilePath", "(java.lang.String)", "summary", "manual"]
@@ -117,10 +155,6 @@ extensions:
       # Util.isPathWithinDirectory(File, String) -> boolean
       # Boolean guard that delegates to PathValidationUtils.validateExistingPath.
       - ["io.github.carlos_emr.carlos.demographic.pageUtil", "Util", "isPathWithinDirectory", "(java.io.File,java.lang.String)", "summary", "manual"]
-
-      # IncomingDocUtil.isValidPathComponent(String) -> boolean
-      # Boolean guard using PathValidationUtils.validatePath.
-      - ["io.github.carlos_emr.carlos.documentManager", "IncomingDocUtil", "isValidPathComponent", "(java.lang.String)", "summary", "manual"]
 
       # IncomingDocUtil.isPathWithinBounds(String, String) -> boolean
       # Boolean guard using PathValidationUtils.validateExistingPath.

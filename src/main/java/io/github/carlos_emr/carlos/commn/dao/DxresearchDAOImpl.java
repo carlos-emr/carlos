@@ -52,6 +52,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author toby
@@ -65,6 +66,8 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         super(Dxresearch.class);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<DxRegistedPTInfo> getPatientRegisted(List<Dxresearch> dList, List<String> doctorList) {
 
         List<DxRegistedPTInfo> rList = new ArrayList<DxRegistedPTInfo>();
@@ -193,20 +196,48 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         }
     }
 
+    /**
+     * Returns registry records whose status is active ({@code 'A'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedActive(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("A", searchItems, doctorList);
+        return patientRegistedStatus('A', searchItems, doctorList);
     }
 
+    /**
+     * Returns registry records whose status is resolved ({@code 'C'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedResolve(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("C", searchItems, doctorList);
+        return patientRegistedStatus('C', searchItems, doctorList);
     }
 
+    /**
+     * Returns registry records whose status is deleted ({@code 'D'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedDeleted(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("D", searchItems, doctorList);
+        return patientRegistedStatus('D', searchItems, doctorList);
     }
 
-
-    public List<DxRegistedPTInfo> patientRegistedStatus(String status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
+    /**
+     * Returns registry records matching one entity-level status code.
+     *
+     * @param status registry status stored by {@link Dxresearch}, normally {@code 'A'}, {@code 'C'}, or {@code 'D'}
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
+    private List<DxRegistedPTInfo> patientRegistedStatus(Character status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
         List<Dxresearch> dList = null;
 
         List<dxCodeSearchBean> listItems = searchItems;

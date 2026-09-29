@@ -61,6 +61,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class SubmitLabByForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -89,6 +90,10 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
      * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
+    // FindSecBugs PREDICTABLE_RANDOM: Math.random only adds a local HL7 filename suffix.
+    // Do not use this suppression for secrets, tokens, authorization, or request-controlled random values.
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "PREDICTABLE_RANDOM"}, justification = "PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use. PREDICTABLE_RANDOM: Math.random only creates a local HL7 filename suffix, not a secret, token, or authorization decision")
     public String saveManage() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -200,8 +205,14 @@ public class SubmitLabByForm2Action extends ActionSupport {
         ByteArrayInputStream is = new ByteArrayInputStream(hl7.getBytes());
         String filePath = Utilities.saveFile(is, filename);
         is.close();
+        if (filePath == null) {
+            // Utilities.saveFile returns null when the write failed and the partial file was removed.
+            logger.error("Lab file save returned no path; aborting lab submission");
+            addActionError(getText("oscarMDS.createLab.submitError"));
+            return manage();
+        }
         File uploadDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        File file = PathValidationUtils.validateExistingPath(new File(filePath), uploadDir);
+        File file = PathValidationUtils.validateExistingPath(filePath, uploadDir);
 
         int checkFileUploadedSuccessfully;
         try (FileInputStream fis = new FileInputStream(file)) {
@@ -255,6 +266,8 @@ public class SubmitLabByForm2Action extends ActionSupport {
 	 * @param lab the Lab model containing patient and test data to include in the message
 	 * @return the generated HL7 message as a String
 	 */
+	// FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+	@SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
 	private String generateHL7(Lab lab) {
 		// Generate appropriate HL7 format based on lab type
 		String labType = lab.getLabName();

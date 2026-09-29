@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Vector;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class DrugLookUpManager implements DrugLookUp {
@@ -185,6 +186,8 @@ public class DrugLookUpManager implements DrugLookUp {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     protected void extractAndPopulateDetails(DrugSearchTo1 t, Hashtable h, String id) throws Exception {
 
         RxDrugRef dr = new RxDrugRef();

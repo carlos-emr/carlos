@@ -1,0 +1,157 @@
+<%--
+
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+
+--%>
+<%--
+    EFormMissingContent.jsp — informed approval for an incomplete eForm render.
+
+    Purpose:
+      Shown by Fax2Action.prepareFax when required resources, layout, signature content, or timer
+      behavior could not be represented. The page shows sanitized issue categories before the
+      clinician may approve the exact incomplete render.
+
+    Behaviour:
+      The approval action submits a one-time exact-issue capability and re-runs prepareFax. "Cancel"
+      returns to the prior page. Security and renderer-integrity failures remain non-overridable.
+
+    Access control:
+      Reached only as an internal forward from Fax2Action.prepareFax, which enforces the _fax READ
+      security object before returning this result.
+
+    @since 2026-07-23
+--%>
+<%@ page contentType="text/html; charset=UTF-8" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
+<head>
+    <meta charset="UTF-8">
+    <title><fmt:message key="fax.eformMissingContent.title"/></title>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
+    <style>
+        body { padding: 2rem; }
+        .missing-content-card { max-width: 640px; margin: 0 auto; }
+    </style>
+</head>
+<body>
+<div class="card missing-content-card">
+    <div class="card-header bg-warning-subtle">
+        <h5 class="mb-0"><fmt:message key="eform.renderMissingContent.heading"/></h5>
+    </div>
+    <div class="card-body">
+        <p><carlos:encode value="${missingContentMessage}"/></p>
+        <p class="text-muted small">
+            <fmt:message key="fax.eformMissingContent.msgDecision"/>
+        </p>
+        <%-- Same nine keys as the eForm page: these labels were previously duplicated verbatim in three
+             places (here, EFormRenderMissingContent.jsp, and the JS in attachDocument.jsp) and could
+             drift independently. One key per category means all three surfaces move together. --%>
+        <ul class="small">
+            <li><fmt:message key="eform.renderIssue.failedContentResources"/>: <carlos:encode value="${failedContentResources}"/></li>
+            <li><fmt:message key="eform.renderIssue.excludedContentElements"/>: <carlos:encode value="${excludedContentElements}"/></li>
+            <li><fmt:message key="eform.renderIssue.signatureMissing"/>: <carlos:encode value="${signatureMissing}"/></li>
+            <li><fmt:message key="eform.renderIssue.providerStampMissing"/>: <carlos:encode value="${providerStampMissing}"/></li>
+            <li><fmt:message key="eform.renderIssue.timerCompatibilityFailure"/>: <carlos:encode value="${timerCompatibilityFailure}"/></li>
+            <li><fmt:message key="eform.renderIssue.severeConsoleErrors"/>: <carlos:encode value="${severeConsoleErrors}"/></li>
+            <c:if test="${not empty severeConsoleErrorDetails}">
+                <%-- PHI-safe per-error descriptions (script error type + source location only) so the
+                     clinician can judge the errors before approving the override. --%>
+                <li><fmt:message key="eform.renderIssue.severeConsoleErrorDetails"/>:
+                    <ul>
+                        <c:forEach var="severeConsoleErrorDetail" items="${severeConsoleErrorDetails}">
+                            <li><carlos:encode value="${severeConsoleErrorDetail}"/></li>
+                        </c:forEach>
+                        <%-- The detail list is deduplicated and capped (10 mirrors the renderer's
+                             MAX_CONSOLE_DETAILS / packet MAX_PACKET_CONSOLE_DETAILS). Show the
+                             overflow line only when the cap actually truncated the list: below the
+                             cap, a count above the list size means repeats of the shown lines, not
+                             hidden distinct errors. --%>
+                        <c:if test="${fn:length(severeConsoleErrorDetails) ge 10 and severeConsoleErrors > fn:length(severeConsoleErrorDetails)}">
+                            <li><fmt:message key="eform.renderIssue.severeConsoleErrorsMore">
+                                <fmt:param value="${severeConsoleErrors - fn:length(severeConsoleErrorDetails)}"/>
+                            </fmt:message></li>
+                        </c:if>
+                    </ul>
+                </li>
+            </c:if>
+            <li><fmt:message key="eform.renderIssue.containedInteractions"/>: <carlos:encode value="${containedInteractions}"/></li>
+            <li><fmt:message key="eform.renderIssue.decorativeExcludedElements"/>: <carlos:encode value="${decorativeExcludedElements}"/></li>
+            <li><fmt:message key="eform.renderIssue.stabilizationCapped"/>: <carlos:encode value="${stabilizationCapped}"/></li>
+            <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
+        </ul>
+        <div class="d-flex gap-2 mt-3">
+            <form id="approve-incomplete-eform-fax" method="post" action="${pageContext.request.contextPath}/fax/faxAction">
+                <input type="hidden" name="method" value="prepareFax">
+                <input type="hidden" name="transactionType" value="<carlos:encode value="${transactionType}" context="htmlAttribute"/>">
+                <input type="hidden" name="transactionId" value="<carlos:encode value="${transactionId}" context="htmlAttribute"/>">
+                <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
+                <input type="hidden" name="recipient" value="<carlos:encode value="${recipient}" context="htmlAttribute"/>">
+                <input type="hidden" name="recipientFaxNumber" value="<carlos:encode value="${recipientFaxNumber}" context="htmlAttribute"/>">
+                <input type="hidden" name="letterheadFax" value="<carlos:encode value="${letterheadFax}" context="htmlAttribute"/>">
+                <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
+                <fmt:message key="fax.eformMissingContent.btnApproveAndFax" var="approveAndFaxLabel"/>
+                <fmt:message key="fax.eformMissingContent.btnPreparingFax" var="preparingFaxLabel"/>
+                <button type="submit" class="btn btn-warning" data-submitting-label="<carlos:encode value="${preparingFaxLabel}" context="htmlAttribute"/>">
+                    <span class="approval-button-label"><carlos:encode value="${approveAndFaxLabel}" context="htmlContent"/></span>
+                    <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                </button>
+            </form>
+            <output id="approve-incomplete-eform-fax-status" class="visually-hidden" aria-live="polite" form="approve-incomplete-eform-fax"></output>
+            <form id="cancel-incomplete-eform-fax" method="post" action="${pageContext.request.contextPath}/fax/faxAction">
+                <input type="hidden" name="method" value="cancelStagedEFormFax">
+                <input type="hidden" name="transactionId" value="<carlos:encode value="${transactionId}" context="htmlAttribute"/>">
+                <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
+                <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
+                <fmt:message key="fax.eformMissingContent.btnCancel" var="cancelFaxLabel"/>
+                <button type="submit" class="btn btn-secondary"><carlos:encode value="${cancelFaxLabel}" context="htmlContent"/></button>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    (() => {
+        const form = document.getElementById("approve-incomplete-eform-fax");
+        const status = document.getElementById("approve-incomplete-eform-fax-status");
+        if (!form || !status) {
+            return;
+        }
+        form.addEventListener("submit", (event) => {
+            if (form.dataset.submitting === "true") {
+                event.preventDefault();
+                return;
+            }
+            form.dataset.submitting = "true";
+            const submit = form.querySelector("button[type=\"submit\"]");
+            submit.disabled = true;
+            submit.querySelector(".approval-button-label").textContent = submit.dataset.submittingLabel;
+            submit.querySelector(".spinner-border").classList.remove("d-none");
+            status.textContent = submit.dataset.submittingLabel;
+            status.classList.remove("visually-hidden");
+        });
+    })();
+</script>
+</body>
+</html>

@@ -42,6 +42,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanSequenceDAO;
@@ -135,13 +136,12 @@ public class TeleplanSubmission {
         File htmlFile = null;
         File mspFile = null;
         try {
-            File directory = new File(dirToSaveFiles);
-            if (!directory.exists()) {
-                throw new Exception("Directory:  " + dirToSaveFiles + " does not exist");
-            }
+            File directory = PathValidationUtils.validateConfiguredDirectory(dirToSaveFiles, "Teleplan output directory");
+            String safeFileName = PathValidationUtils.validateGeneratedFileName(fileName);
+            fileName = safeFileName;
 
-            htmlFile = new File(directory, fileName + ".html");
-            mspFile = new File(directory, fileName);
+            htmlFile = PathValidationUtils.validateGeneratedChildPath(safeFileName + ".html", directory);
+            mspFile = PathValidationUtils.validateGeneratedChildPath(safeFileName, directory);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             throw new Exception("Could not open file " + dirToSaveFiles + fileName + " does " + dirToSaveFiles + " exist ?", e);
@@ -204,12 +204,12 @@ public class TeleplanSubmission {
 
 
     public void writeFile(String fileName, File home_dir) throws Exception {
-        File file = new File(home_dir, fileName);
+        File file = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(fileName), home_dir);
         write(file, mspFileStr);
     }
 
     public void writeHtml(String fileName, File home_dir) throws Exception {
-        File file = new File(home_dir, fileName);
+        File file = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(fileName), home_dir);
         write(file, mspHtmlStr);
     }
 
@@ -222,11 +222,12 @@ public class TeleplanSubmission {
     }
 
     private void write(File file, String fileValue) throws Exception {
-        FileOutputStream out = new FileOutputStream(file);
-        BufferedOutputStream bufout = new BufferedOutputStream(out);
-        PrintStream p = new PrintStream(bufout);
-        p.println(fileValue); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- MSP billing data stream
-        p.close();
+        File validatedFile = PathValidationUtils.resolveTrustedPath(file);
+        try (FileOutputStream out = new FileOutputStream(validatedFile);
+                BufferedOutputStream bufout = new BufferedOutputStream(out);
+                PrintStream p = new PrintStream(bufout)) {
+            p.println(fileValue); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- MSP billing data stream
+        }
     }
 
 

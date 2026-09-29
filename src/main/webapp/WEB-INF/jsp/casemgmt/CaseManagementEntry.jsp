@@ -199,9 +199,9 @@
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
                 var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
-                var noteId = '<carlos:encode value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' context="javaScriptBlock"/>';
+                var noteId = '<carlos:encode value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 var programId = '${carlos:forJavaScript(case_program_id)}';
-                XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + escape(obj.value));
+                XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + encodeURIComponent(obj.value));
             }
 
             setTimer();
@@ -378,7 +378,7 @@
         } else {
         %>
         <input id="showResolved" type="button" value="Show Resolved Issues"
-               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true'"/>
+               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true'"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         <%
             }
         %>
@@ -405,7 +405,7 @@
             <tr>
                 <td class="fieldValue" colspan="1">
                     <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="hard"
-                              onchange="setChangeFlag(true);">${caseNote.note}
+                              onchange="setChangeFlag(true);">${carlos:forHtmlContent(caseNote.note)}
                             </textarea>
                 </td>
                 <td class="fieldTitle"></td>

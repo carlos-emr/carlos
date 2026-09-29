@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.commn.web;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -38,12 +39,14 @@ import java.util.Locale;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.service.PdfRecordPrinter;
 import io.github.carlos_emr.carlos.managers.BillingONManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -139,6 +142,8 @@ public class BillingInvoice2Action extends ActionSupport {
         return input.replaceAll("[^0-9]", "").trim();
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String getListPrintPDF() throws IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
@@ -155,7 +160,7 @@ public class BillingInvoice2Action extends ActionSupport {
                     Integer invoiceNo = Integer.parseInt(invoiceNoStr);
                     String filename = "BillingInvoice" + invoiceNo + "_" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf";
                     String savePath = CarlosProperties.getInstance().getProperty("INVOICE_DIR") + "/" + filename;
-                    try (OutputStream fos = new FileOutputStream(savePath)) {
+                    try (OutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(savePath)))) {
                         if (renderPrintPDF(invoiceNo, request.getLocale(), fos)) {
                             fileList.add(savePath);
                             renderedInvoiceNos.add(invoiceNo);
@@ -278,10 +283,11 @@ public class BillingInvoice2Action extends ActionSupport {
     }
 
     private String failPdfResponse(String logMessage, Throwable e) throws IOException {
+        String safeLogMessage = LogSafe.sanitize(logMessage);
         if (e == null) {
-            MiscUtils.getLogger().error(logMessage);
+            MiscUtils.getLogger().error(safeLogMessage); // NOSONAR javasecurity:S5145 - wrapper message sanitized at helper boundary
         } else {
-            MiscUtils.getLogger().error(logMessage, e);
+            MiscUtils.getLogger().error(safeLogMessage, e); // NOSONAR javasecurity:S5145 - wrapper message sanitized at helper boundary
         }
         if (!response.isCommitted()) {
             // Dedicated PDF actions own their error response too. Returning a named result here

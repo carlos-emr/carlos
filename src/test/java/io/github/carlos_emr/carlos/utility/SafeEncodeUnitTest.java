@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.owasp.encoder.Encode;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link SafeEncode}.
@@ -340,6 +341,77 @@ class SafeEncodeUnitTest {
                         .as("writer forJavaScript(%s)", input)
                         .isEqualTo(SafeEncode.forJavaScript(input));
             }
+        }
+    }
+
+    /** Context dispatch shared by {@code <carlos:encode>} and {@code <oscar:nameage>}. */
+    @Nested
+    @DisplayName("Context dispatch")
+    class ContextDispatch {
+
+        @Test
+        void shouldEncodeAsHtmlContent_whenContextIsNullOrBlank() throws IOException {
+            for (String context : new String[]{null, "", "   "}) {
+                StringWriter sw = new StringWriter();
+                SafeEncode.forContext(sw, context, "<b>a & b</b>");
+                assertThat(sw)
+                        .as("default context for %s", context)
+                        .hasToString(SafeEncode.forHtmlContent("<b>a & b</b>"));
+            }
+        }
+
+        @Test
+        void shouldDispatchToTheNamedEncoder_forEveryContext() throws IOException {
+            String hostile = "\"><script>alert('x')</script>&";
+
+            assertThat(encode("htmlAttribute", hostile)).isEqualTo(SafeEncode.forHtmlAttribute(hostile));
+            assertThat(encode("htmlUnquotedAttribute", hostile)).isEqualTo(SafeEncode.forHtmlUnquotedAttribute(hostile));
+            assertThat(encode("forHtml", hostile)).isEqualTo(SafeEncode.forHtml(hostile));
+            assertThat(encode("javaScript", hostile)).isEqualTo(SafeEncode.forJavaScript(hostile));
+            assertThat(encode("js", hostile)).isEqualTo(SafeEncode.forJavaScript(hostile));
+            assertThat(encode("javaScriptAttribute", hostile)).isEqualTo(SafeEncode.forJavaScriptAttribute(hostile));
+            assertThat(encode("javaScriptBlock", hostile)).isEqualTo(SafeEncode.forJavaScriptBlock(hostile));
+            assertThat(encode("javaScriptSource", hostile)).isEqualTo(SafeEncode.forJavaScriptSource(hostile));
+            assertThat(encode("uri", hostile)).isEqualTo(SafeEncode.forUri(hostile));
+            assertThat(encode("uriComponent", hostile)).isEqualTo(SafeEncode.forUriComponent(hostile));
+            assertThat(encode("css", hostile)).isEqualTo(SafeEncode.forCssString(hostile));
+            assertThat(encode("cssString", hostile)).isEqualTo(SafeEncode.forCssString(hostile));
+            assertThat(encode("cssUrl", hostile)).isEqualTo(SafeEncode.forCssUrl(hostile));
+            assertThat(encode("xml", hostile)).isEqualTo(SafeEncode.forXml(hostile));
+            assertThat(encode("xmlAttribute", hostile)).isEqualTo(SafeEncode.forXmlAttribute(hostile));
+            assertThat(encode("xmlContent", hostile)).isEqualTo(SafeEncode.forXmlContent(hostile));
+            assertThat(encode("xmlComment", hostile)).isEqualTo(SafeEncode.forXmlComment(hostile));
+            assertThat(encode("cdata", hostile)).isEqualTo(SafeEncode.forCDATA(hostile));
+            assertThat(encode("java", hostile)).isEqualTo(SafeEncode.forJava(hostile));
+        }
+
+        @Test
+        void shouldMatchContextNames_forMixedCase() throws IOException {
+            String hostile = "a\"b";
+
+            assertThat(encode("HTMLATTRIBUTE", hostile)).isEqualTo(SafeEncode.forHtmlAttribute(hostile));
+            assertThat(encode("JavaScript", hostile)).isEqualTo(SafeEncode.forJavaScript(hostile));
+        }
+
+        @Test
+        void shouldWriteNothing_whenValueIsNull() throws IOException {
+            assertThat(encode("javaScript", null)).isEmpty();
+        }
+
+        @Test
+        void shouldReject_whenContextIsUnknown() {
+            StringWriter sw = new StringWriter();
+
+            assertThatThrownBy(() -> SafeEncode.forContext(sw, "bogusContext", "value"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("bogusContext");
+            assertThat(sw.toString()).isEmpty();
+        }
+
+        private String encode(String context, String value) throws IOException {
+            StringWriter sw = new StringWriter();
+            SafeEncode.forContext(sw, context, value);
+            return sw.toString();
         }
     }
 }

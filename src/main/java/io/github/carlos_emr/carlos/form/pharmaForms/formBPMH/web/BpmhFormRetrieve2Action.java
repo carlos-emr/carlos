@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -38,6 +40,7 @@ import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.PDFController;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -118,9 +121,10 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         return NONE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String print() throws IOException {
 
-        FileInputStream input = null;
         OutputStream output = null;
         byte[] pdfContent = null;
         Integer demographicNo = Integer.parseInt(form.getDemographicNo());
@@ -147,9 +151,9 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             bpmhFormHandler.saveFormHistory();
         }
 
-        input = new FileInputStream(pdfController.getOutputPath());
-        pdfContent = new byte[input.available()];
-        input.read(pdfContent, 0, input.available());
+        try (FileInputStream pdfInput = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())))) {
+            pdfContent = pdfInput.readAllBytes();
+        }
 
         response.reset();
         response.setContentType("application/pdf");
@@ -159,10 +163,6 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         if (output != null) {
             output.write(pdfContent);
             output.close();
-        }
-
-        if (input != null) {
-            input.close();
         }
 
         return null;

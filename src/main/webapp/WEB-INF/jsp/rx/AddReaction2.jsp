@@ -1,6 +1,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %><%--
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
+<%@ page import="jakarta.servlet.http.HttpServletResponse" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -37,6 +38,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -71,6 +73,10 @@
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
             RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+            if (patient == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
             String name = (String) request.getAttribute("name");
             String type = (String) request.getAttribute("type");
             String drugrefId = (String) request.getAttribute("drugrefId");
@@ -96,7 +102,7 @@
                     onsetOfReaction = a.getOnsetOfReaction() != null ? a.getOnsetOfReaction() : "";
                     nonDrug = a.isNonDrug();
                 }
-                if (a.getArchived() && nkdaId != null) allergyToArchive = nkdaId;
+                if (a != null && a.getArchived() && nkdaId != null) allergyToArchive = nkdaId;
             } else {
                 if (nkdaId != null) allergyToArchive = nkdaId;
             }
@@ -137,6 +143,9 @@
                     <tr>
                         <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2" method="post"
                                                                name="RxAddAllergyForm" id="RxAddAllergyForm" focus="reactionDescription">
+                            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+                            <input type="hidden" name="formDemographicNo"
+                                   value="<carlos:encode value='<%= String.valueOf(patient.getDemographicNo()) %>' context="htmlAttribute"/>"/>
 
                             <script type="text/javascript">
                                 function checkStartDate() {
@@ -203,7 +212,6 @@
                                         <input type="hidden" name="ID" value="<carlos:encode value='<%= drugrefId %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="name" id="name" value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<carlos:encode value='<%= allergyToArchive %>' context="htmlAttribute"/>"/>
-                                        <%-- CSRF token auto-injected by CSRFGuard (injectIntoForms=true) --%>
                                     </td>
                                 </tr>
 

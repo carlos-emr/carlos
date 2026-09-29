@@ -23,6 +23,7 @@ import jakarta.servlet.http.HttpSession;
 
 import org.apache.struts2.ServletActionContext;
 import org.apache.logging.log4j.Logger;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Gate for the forced-password-reset page, which depends on the staged login
@@ -40,6 +41,8 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
 
     private static final Logger LOGGER = MiscUtils.getLogger();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -90,6 +93,8 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
         }
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String redirectToExpiredSession(HttpServletRequest request) throws IOException {
         HttpServletResponse response = ServletActionContext.getResponse();
         String redirectUrl = Login2Action.loginFailedRedirectUrl(request,

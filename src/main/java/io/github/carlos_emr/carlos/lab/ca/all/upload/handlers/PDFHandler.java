@@ -45,11 +45,13 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Handles uploaded PDF documents by saving them as EDoc records in the CARLOS document
@@ -84,6 +86,8 @@ public class PDFHandler implements MessageHandler {
      * @param ipAddr String the client IP address for audit logging
      * @return String "success" if the document was saved, or {@code null} on error
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
 
@@ -112,8 +116,7 @@ public class PDFHandler implements MessageHandler {
 
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
-            File targetFile = new File(filePath);
-            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+            File targetFile = PathValidationUtils.validateExistingPath(filePath, baseDir);
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {

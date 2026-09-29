@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.billings.OHIP;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
@@ -45,11 +46,13 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ExtractBean extends Object implements Serializable {
 
@@ -147,6 +150,8 @@ public class ExtractBean extends Object implements Serializable {
                 + space(42) + "\r");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String buildHeader1() {
         referralDoc = "000000";
         hcFlag = ""; // for html content
@@ -206,6 +211,8 @@ public class ExtractBean extends Object implements Serializable {
         return ("\n" + patientHeader + "\r" + patientHeader2);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String buildHeader2() {
         spec = "RMB";
         hcFlag = "H";
@@ -559,12 +566,11 @@ public class ExtractBean extends Object implements Serializable {
         try {
             String home_dir;
             home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-            FileOutputStream out = new FileOutputStream(home_dir + ohipFilename);
-            PrintStream p = new PrintStream(out);
-            p.println(value1);
-
-            p.close();
-            out.close();
+            File homeDir = PathValidationUtils.resolveConfiguredDirectory(home_dir, "HOME_DIR");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(ohipFilename), homeDir);
+            try (PrintStream p = new PrintStream(new FileOutputStream(outputFile))) {
+                p.println(value1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -575,24 +581,13 @@ public class ExtractBean extends Object implements Serializable {
     public void writeHtml(String htmlvalue1) {
         try {
             String home_dir1;
-			/*
-			String userHomePath1 = System.getProperty("user.home", "user.dir");
-
-			File pFile1 = new File(userHomePath1, oscar_home);
-			FileInputStream pStream1 = new FileInputStream(pFile1.getPath());
-			Properties ap1 = new Properties();
-			ap1.load(pStream1);
-			pStream1.close();
-			*/
             home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
+            File homeDir1 = PathValidationUtils.resolveConfiguredDirectory(home_dir1, "HOME_DIR");
+            File outputFile1 = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(htmlFilename), homeDir1);
 
-            FileOutputStream out1 = new FileOutputStream(home_dir1
-                    + htmlFilename);
-            PrintStream p1 = new PrintStream(out1);
-            p1.println(htmlvalue1);
-
-            p1.close();
-            out1.close();
+            try (PrintStream p1 = new PrintStream(new FileOutputStream(outputFile1))) {
+                p1.println(htmlvalue1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }

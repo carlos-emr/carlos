@@ -75,7 +75,7 @@ public class ConsultationLookup2Action extends ActionSupport {
             return getAllSpecialists();
         }
 
-        MiscUtils.getLogger().warn("Invalid method parameter: " + method);
+        MiscUtils.getLogger().warn("Invalid method parameter");
         return NONE;
     }
 

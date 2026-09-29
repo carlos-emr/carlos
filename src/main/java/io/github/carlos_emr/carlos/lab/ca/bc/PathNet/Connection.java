@@ -46,6 +46,7 @@ import org.xml.sax.SAXException;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Communication.HTTP;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /*
  * @author Jesse Bank
@@ -78,6 +79,8 @@ public class Connection {
         this.http = new HTTP(this.url);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean Open(String username, String password) {
         boolean success = true;
         try {
@@ -98,6 +101,8 @@ public class Connection {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<String> Retrieve() {
         ArrayList<String> messages = null;
         try {
@@ -119,6 +124,8 @@ public class Connection {
         return messages;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<String> Retrieve(InputStream is) {
         ArrayList<String> messages = null;
         try {

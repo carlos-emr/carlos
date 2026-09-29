@@ -1,10 +1,9 @@
 -- update-2026-05-21-carlosdoc-schedule-group-privilege.sql
 --
--- Keep the default carlosdoc provider in the admin role while separating
--- schedule provider-group creation from the broader `_admin.schedule`
--- privilege. Admin users retain the new group-creation object by default,
--- but provider_no 999998 (carlosdoc) receives a higher-priority explicit
--- no-rights row so the development/demo account cannot create Schedule groups.
+-- Keep schedule provider-group creation separate from the broader
+-- `_admin.schedule` privilege and grant it to administrators. The default
+-- carlosdoc provider inherits this permission through its active admin role;
+-- remove the former provider-specific denial that overrode that role grant.
 --
 -- Idempotent via INSERT IGNORE — safe to re-run on databases that already
 -- have any of these rows.
@@ -16,5 +15,10 @@ VALUES
 INSERT IGNORE INTO `secObjPrivilege`
     (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
 VALUES
-    ('admin', '_admin.schedule.groupCreate', 'x', 0, '999998'),
-    ('999998', '_admin.schedule.groupCreate', 'o', 1, '999998');
+    ('admin', '_admin.schedule.groupCreate', 'x', 0, '999998');
+
+DELETE FROM `secObjPrivilege`
+WHERE `roleUserGroup` = '999998'
+  AND `objectName` = '_admin.schedule.groupCreate'
+  AND `privilege` = 'o'
+  AND `provider_no` = '999998';

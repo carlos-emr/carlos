@@ -38,6 +38,8 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.QueryParam;
 
@@ -76,6 +78,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.NavBarMenuTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PatientListConfigTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ProgramProviderTo1;
 import org.springframework.beans.factory.annotation.Autowired;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 @Path("/persona")
@@ -106,6 +109,16 @@ public class PersonaService extends AbstractServiceImpl {
     private DashboardManager dashboardManager;
 
 
+    /*
+     * Authorization-primitive endpoints (/rights, /hasRight, /hasRights,
+     * /isAllowedAccessToPatientRecord) are intentionally NOT gated by hasPrivilege (#2798):
+     * they are the privilege API the UI calls to decide what to render, and every one resolves
+     * its subject from getLoggedInInfo() — they only ever report the *current* caller's own
+     * roles/privileges, never another provider's. Gating them on a security object would be
+     * circular ("need permission to ask whether you have permission") and would break the UI's
+     * permission rendering, with no IDOR to defend against. They fail closed when unauthenticated
+     * because getLoggedInInfo() throws with no LoggedInInfo.
+     */
     @GET
     @Path("/rights")
     @Produces("application/json")
@@ -253,7 +266,7 @@ public class PersonaService extends AbstractServiceImpl {
 
         MenuTo1 moreMenuList = new MenuTo1()
                 .addWithState(idCounter++, bundle.getString("navbar.menu.reports"), null, "reports")
-                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/ViewDocumentReport?function=providers&functionid=" + provider.getPractitionerNo(), "edocView");
+                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/ViewDocumentReport?function=providers&functionid=" + SafeEncode.forUriComponent(String.valueOf(provider.getPractitionerNo())), "edocView");
 
 
         List<Dashboard> dashboards = dashboardManager.getDashboards(getLoggedInInfo());
@@ -290,6 +303,12 @@ public class PersonaService extends AbstractServiceImpl {
      * Sets the default program for the logged-in provider.
      */
     public RestResponse<String> setDefaultProgram(@FormParam("programId") Integer programId) {
+        // Self-scoped: switches the caller's OWN current program (own providerNo), and
+        // setCurrentProgramInDomain already rejects a programId outside the provider's domain.
+        // No additional security object applies — the program admin secobjs (_pmm_management /
+        // _program* / _programEdit) govern administering programs, not a provider choosing which
+        // of their own assigned programs is active, so gating with one would wrongly block the
+        // navbar program switcher (#2798).
         programManager2.setCurrentProgramInDomain(getLoggedInInfo().getLoggedInProviderNo(), programId);
         return RestResponse.successResponse(null);
     }
@@ -353,6 +372,13 @@ public class PersonaService extends AbstractServiceImpl {
     public PatientListConfigTo1 saveMyPatientListConfig(PatientListConfigTo1 patientListConfigTo1) {
         Provider provider = getCurrentProvider();
 
+        // Persists the caller's own provider preferences (patientListConfig.*), the same
+        // UserProperty mechanism guarded by updatePreference/updatePreferences below — gate it
+        // with the same _pref/u privilege for parity (#2798).
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_pref", "u", null)) {
+            throw new SecurityException("missing required sec object (_pref)");
+        }
+
         UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         Integer numberOfApptsToShow = patientListConfigTo1.getNumberOfApptstoShow();
 
@@ -393,6 +419,8 @@ public class PersonaService extends AbstractServiceImpl {
      * @return PersonaResponse containing dashboard preferences
      * @since 2026-02-10
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @POST
     @Path("/preferences")
     @Produces("application/json")

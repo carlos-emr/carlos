@@ -42,6 +42,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class DemographicArchiveDaoImpl extends AbstractDaoImpl<DemographicArchive> implements DemographicArchiveDao {
@@ -64,6 +65,8 @@ public class DemographicArchiveDaoImpl extends AbstractDaoImpl<DemographicArchiv
         return (results);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<DemographicArchive> findRosterStatusHistoryByDemographicNo(Integer demographicNo) {
 

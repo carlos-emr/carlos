@@ -31,6 +31,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -40,12 +42,15 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -133,6 +138,44 @@ class ResponseSanitizationFilterUnitTest {
     }
 
     @Nested
+    @DisplayName("web-service buffer size parsing")
+    class WebServiceBufferParsing {
+
+        @Test
+        @DisplayName("should use the configured value when a positive integer is provided")
+        void shouldUseConfiguredValue_whenPositiveIntegerProvided() {
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("131072")).isEqualTo(131072);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("  262144 ")).isEqualTo(262144);
+        }
+
+        @Test
+        @DisplayName("should fall back to the default when value is absent or blank")
+        void shouldFallBackToDefault_whenAbsentOrBlank() {
+            int expected = ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
+            assertThat(ResponseSanitizationFilter.parseBufferBytes(null)).isEqualTo(expected);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("")).isEqualTo(expected);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("   ")).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("should warn and fall back to the default when value is non-positive or non-numeric")
+        void shouldWarnAndFallBackToDefault_whenNonPositiveOrNonNumeric() {
+            int expected = ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("0")).isEqualTo(expected);
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("-1")).isEqualTo(expected);
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("abc")).isEqualTo(expected);
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Unrecognized response.sanitization.ws.buffer.bytes value");
+                });
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("containsStackTrace()")
     class ContainsStackTrace {
 
@@ -160,6 +203,37 @@ class ResponseSanitizationFilterUnitTest {
         @DisplayName("should return true for body containing stack frame line")
         void shouldReturnTrue_forStackFrameLine() {
             String body = "Error\n\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @ParameterizedTest
+        @DisplayName("should return true for stack frame line variations")
+        @ValueSource(strings = {
+                "Error\r\nat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)",
+                "Error\r\n\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)"
+        })
+        void shouldReturnTrue_forStackFrameLineVariations(String body) {
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true for body starting with stack frame line")
+        void shouldReturnTrue_forLeadingStackFrameLine() {
+            String body = "at io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true for body starting with whitespace before stack frame line")
+        void shouldReturnTrue_forLeadingWhitespaceStackFrameLine() {
+            String body = "  \tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true for constructor stack frame line")
+        void shouldReturnTrue_forConstructorStackFrameLine() {
+            String body = "Error\n\tat ca.example.SomeClass.<init>(SomeClass.java:42)";
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
         }
 
@@ -225,12 +299,46 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
         }
 
-        @Test
-        @DisplayName("should return false for word 'at' in normal prose text")
-        void shouldReturnFalse_forWordAtInNormalText() {
-            // "at" in plain text (without a preceding newline) should not match the stack frame pattern
-            String body = "An error occurred at line 10 of the configuration file.";
+        @ParameterizedTest
+        @DisplayName("should return false for plain text stack trace near misses")
+        @ValueSource(strings = {
+                "An error occurred at line 10 of the configuration file.",
+                "notjava.lang.Exception is just prose",
+                "notCaused by: this is ordinary text",
+                "foo_java.lang.Exception is part of an identifier",
+                "1java.lang.Exception is part of a token",
+                "foo_Caused by: is embedded in a larger word",
+                "1Caused by: is embedded in a larger token"
+        })
+        void shouldReturnFalse_forPlainTextNearMisses(String body) {
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should complete in time for adversarial stack frame near miss")
+        void shouldCompleteInTime_forAdversarialStackFrameNearMiss() {
+            String body = "\nat "
+                    + "a.".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 4)
+                    + "method("
+                    + "x".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 4);
+
+            boolean result = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> ResponseSanitizationFilter.containsStackTrace(body));
+
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("should complete in time for repeated stack frame prefixes")
+        void shouldCompleteInTime_forRepeatedStackFramePrefixes() {
+            // Exercises the repeated-line path where each candidate exits before an open paren.
+            String body = ("\nat " + "a".repeat(80) + ".method\n")
+                    .repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 90);
+
+            boolean result = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> ResponseSanitizationFilter.containsStackTrace(body));
+
+            assertThat(result).isFalse();
         }
     }
 
@@ -770,8 +878,8 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should throw when captured response cannot reset buffer before replay")
-        void shouldThrow_whenCapturedResponseCannotResetBufferBeforeReplay() {
+        @DisplayName("should append captured body instead of throwing when reset races into a commit")
+        void shouldAppendCapturedBody_whenResetBufferRacesIntoCommit() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page.jsp");
             MockHttpServletResponse response = new ResetBufferFailingResponse();
             String body = "<html><body>ok</body></html>";
@@ -783,9 +891,581 @@ class ResponseSanitizationFilterUnitTest {
                 res.getWriter().write(body);
             };
 
-            assertThatThrownBy(() -> filter.doFilter(request, response, chain))
-                    .isInstanceOf(IOException.class)
-                    .hasMessageContaining("Cannot reset buffer before replaying captured response");
+            // This used to throw IOException("Cannot reset buffer before replaying captured
+            // response"), converting an already-inspected-safe page into a container 500.
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getContentAsString()).isEqualTo(body);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("already committed mid-chain");
+                });
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // doFilter() — forward interactions: replay after a mid-chain commit,
+    // resetBuffer()/reset() capture clearing, passthrough close shielding.
+    // Tomcat 11's suspendWrappedResponseAfterForward default finishes the raw
+    // response when a forward returns (pinned off in the context descriptors);
+    // these pin the filter-side behaviors that keep any such premature commit
+    // from manufacturing a 500 or replaying stale content.
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("forward and replay resilience")
+    class ForwardAndReplayResilience {
+
+        @Test
+        @DisplayName("should append captured writer body when the response was committed before replay")
+        void shouldAppendCapturedBody_whenResponseCommittedBeforeReplay() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>forwarded page</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(body);
+                // Simulate a dispatcher forward finishing the REAL response behind the
+                // wrapper's back before the filter gets to replay.
+                response.setCommitted(true);
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getContentAsString()).isEqualTo(body);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("already committed mid-chain");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should append captured 4xx stream body when the response was committed before replay")
+        void shouldAppendCapturedErrorStreamBody_whenResponseCommittedBeforeReplay() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reject.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "<html><body>rejected: file was empty</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(400);
+                httpRes.setContentType("text/html");
+                res.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+                response.setCommitted(true);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            // The 4xx status AND its body both survive — this exact shape used to
+            // come back as a raw 500 with an empty body.
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo(body);
+        }
+
+        @Test
+        @DisplayName("should discard captured writer output when resetBuffer is called")
+        void shouldDiscardCapturedWriterOutput_whenResetBufferCalled() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/fwd.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String fresh = "<html><body>forward target</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("text/html");
+                res.getWriter().write("STALE pre-forward prefix");
+                // RequestDispatcher.forward() clears uncommitted output before invoking
+                // its target; the capture must be cleared with it.
+                res.resetBuffer();
+                res.getWriter().write(fresh);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).isEqualTo(fresh);
+            assertThat(response.getContentAsString()).doesNotContain("STALE");
+        }
+
+        @Test
+        @DisplayName("should discard captured 4xx stream output when resetBuffer is called")
+        void shouldDiscardCapturedStreamOutput_whenResetBufferCalled() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/fwd400.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String fresh = "<html><body>rejection detail</body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(400);
+                httpRes.setContentType("text/html");
+                res.getOutputStream().write("STALE pre-forward prefix".getBytes(StandardCharsets.UTF_8));
+                res.resetBuffer();
+                res.getOutputStream().write(fresh.getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo(fresh);
+        }
+
+        @Test
+        @DisplayName("should discard a tainted writer body instead of throwing when the response was committed")
+        void shouldDiscardTaintedBody_whenWriterResponseCommittedBeforeReplacement() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/boom.jsp");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTrace = "java.lang.IllegalStateException: boom\n"
+                    + "\tat io.github.carlos_emr.carlos.Boom.render(Boom.java:1)\n";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(stackTrace);
+                // Something outside the wrapper commits the real response.
+                response.setCommitted(true);
+            };
+
+            // Before the guard this escaped doFilter as IOException("Cannot send sanitized error
+            // after response commit") -- a container 500 manufactured after the fact.
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                // The stack trace must NOT reach the client, and no exception may escape.
+                assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+                assertThat(response.getContentAsString()).doesNotContain("Boom.java");
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Tainted response body could not be replaced")
+                            .contains("DISCARDED");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should discard a tainted output-stream body instead of throwing when the response was committed")
+        void shouldDiscardTaintedBody_whenOutputStreamResponseCommittedBeforeReplacement() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/boom");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String stackTrace = "java.lang.IllegalStateException: boom\n"
+                    + "\tat io.github.carlos_emr.carlos.Boom.render(Boom.java:1)\n";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                // Status first, so the wrapper opens the CAPTURING output stream, not passthrough.
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getOutputStream().write(stackTrace.getBytes(StandardCharsets.UTF_8));
+                response.setCommitted(true);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString()).doesNotContain("IllegalStateException");
+            assertThat(response.getContentAsString()).doesNotContain("Boom.java");
+        }
+
+        @Test
+        @DisplayName("should shield the passthrough stream so a mid-chain close cannot seal the response")
+        void shouldShieldPassthroughStream_fromMidChainClose() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/stream.pdf");
+            CloseRecordingResponse response = new CloseRecordingResponse();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("application/pdf");
+                ServletOutputStream os = res.getOutputStream();
+                os.write("BODY-A".getBytes(StandardCharsets.UTF_8));
+                // A dispatcher forward's classic end-of-forward close cascades down the
+                // wrapper chain to this stream. It must degrade to a flush...
+                os.close();
+                // ...so that later writers in the chain still reach the client.
+                os.write("BODY-B".getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.realCloseCount).isZero();
+            assertThat(response.getContentAsString()).isEqualTo("BODY-ABODY-B");
+            // The shield must not FLUSH on close either. In Tomcat, OutputBuffer.flush() is
+            // doFlush(true): it commits the response and never assigns a Content-Length, while
+            // OutputBuffer.close() is what sets Content-Length from the buffered bytes. A
+            // close-degraded-to-flush would therefore commit every forwarded page early,
+            // forfeiting its Content-Length and — the part that matters — permanently disabling
+            // doFilter's late-error branch, which is guarded on !isCommitted() and is what still
+            // replaces a stack trace that escaped capture. MockHttpServletResponse marks itself
+            // committed on flush, so an uncommitted response here is the proof.
+            assertThat(response.isCommitted()).isFalse();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // doFilter() — web-service (/ws) 5xx partial-body leak (issue #2953)
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("web-service (/ws) error responses")
+    class WebServiceErrors {
+
+        private MockHttpServletRequest wsRequest(String method) {
+            MockHttpServletRequest request = new MockHttpServletRequest(method, "/carlos/ws/rs/schedule/getAppointment");
+            request.setRequestURI("/carlos/ws/rs/schedule/getAppointment");
+            request.setServletPath("/ws");
+            request.setPathInfo("/rs/schedule/getAppointment");
+            return request;
+        }
+
+        @Test
+        @DisplayName("should sanitize 500 partial-JSON body without stack trace on /ws route")
+        void shouldSanitizePartialJsonBody_whenStatusIs500OnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // Mid-stream Jackson failure: a clean, well-formed JSON prefix with PHI is already
+            // written, then the status flips to 500. No stack-trace markers are present.
+            String partialPhiJson = "{\"appointmentNo\":1234,\"demographic\":{\"firstName\":\"Jane\","
+                    + "\"lastName\":\"Doe\",\"phone\":\"250-555-0143\",\"patientStatus\":\"AC\"}";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("application/json");
+                res.getWriter().write(partialPhiJson);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized)
+                    .doesNotContain("Jane")
+                    .doesNotContain("Doe")
+                    .doesNotContain("250-555-0143")
+                    .doesNotContain("patientStatus")
+                    .contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should sanitize 500 partial-JSON body written through output stream on /ws route")
+        void shouldSanitizePartialJsonBody_whenWrittenThroughOutputStreamAfterStatus500() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String partialPhiJson = "{\"demographic\":{\"firstName\":\"Jane\",\"hin\":\"9999999999\"}";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("application/json;charset=UTF-8");
+                res.getOutputStream().write(partialPhiJson.getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized)
+                    .doesNotContain("Jane")
+                    .doesNotContain("9999999999")
+                    .contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should pass through 400 JSON error body on /ws route unchanged")
+        void shouldPassThrough_whenStatusIs400OnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // Legitimate REST client-error envelope — must NOT be blanked, callers depend on it.
+            String errorEnvelope = "{\"error\":\"validation_failed\",\"field\":\"appointmentNo\"}";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(400);
+                httpRes.setContentType("application/json");
+                res.getWriter().write(errorEnvelope);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo(errorEnvelope);
+        }
+
+        @Test
+        @DisplayName("should pass through 200 JSON body on /ws route unchanged")
+        void shouldPassThrough_whenStatusIs200OnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("GET");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String okJson = "{\"appointmentNo\":1234,\"status\":\"booked\"}";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("application/json");
+                res.getWriter().write(okJson);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsString()).isEqualTo(okJson);
+        }
+
+        @Test
+        @DisplayName("should pass through 500 body without stack trace on a non-/ws route")
+        void shouldPassThrough_when500WithoutStackTraceOnNonWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            request.setRequestURI("/carlos/provider/providercontrol");
+            request.setServletPath("/provider/providercontrol");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // A normal (non web-service) 500 HTML page with no stack trace keeps its existing
+            // pass-through behaviour — this change is scoped to /ws routes only.
+            String htmlError = "<html><body><h1>An error occurred</h1></body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(htmlError);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).isEqualTo(htmlError);
+        }
+
+        @Test
+        @DisplayName("should sanitize 500 stack-trace body on /ws route through the full filter")
+        void shouldSanitizeStackTraceBody_whenStatusIs500OnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // A /ws 500 carrying an actual stack trace must be sanitized via the stack-trace
+            // trigger, exactly as it would on any other route — verified end-to-end here.
+            String stackTraceBody = "java.lang.NullPointerException\n"
+                    + "\tat io.github.carlos_emr.carlos.ws.rs.ScheduleService.getAppointment(ScheduleService.java:88)";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("application/json");
+                res.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized)
+                    .doesNotContain("NullPointerException")
+                    .doesNotContain("io.github.carlos_emr")
+                    .contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should enlarge the response buffer for a /ws request")
+        void shouldEnlargeResponseBuffer_forWebServiceRequest() throws Exception {
+            MockHttpServletRequest request = wsRequest("GET");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+
+            FilterChain chain = (req, res) -> ((HttpServletResponse) res).setStatus(200);
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getBufferSize())
+                    .isGreaterThanOrEqualTo(ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES)
+                    .isGreaterThan(defaultBuffer);
+        }
+
+        @Test
+        @DisplayName("should not enlarge the response buffer for a non-/ws request")
+        void shouldNotEnlargeResponseBuffer_forNonWebServiceRequest() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            request.setRequestURI("/carlos/provider/providercontrol");
+            request.setServletPath("/provider/providercontrol");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+
+            FilterChain chain = (req, res) -> ((HttpServletResponse) res).setStatus(200);
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getBufferSize()).isEqualTo(defaultBuffer);
+        }
+
+        @Test
+        @DisplayName("should sanitize a /ws 500 partial body that would otherwise exceed the default buffer and commit")
+        void shouldSanitizePartialBody_whenLargerThanDefaultBufferOnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            // MockHttpServletResponse commits once written content exceeds its buffer size, like a
+            // real container: its ResponseServletOutputStream.write(int) calls
+            // setCommittedIfBufferSizeExceeded(), and bulk writes route through that per-byte path.
+            // So without the /ws buffer enlargement this partial body (> default buffer) commits and
+            // becomes unrecoverable (the #2994 leak) and this test fails; with it, the body stays
+            // uncommitted and the existing pass-through sanitization replaces it. (Hence this is a
+            // true regression test, not a false positive.)
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+            StringBuilder sb = new StringBuilder(
+                    "{\"appointmentNo\":1234,\"demographic\":{\"firstName\":\"Jane\",\"phone\":\"250-555-0143\"");
+            while (sb.length() <= defaultBuffer * 2) {
+                sb.append(",\"note\":\"Jane Doe clinical note padding\"");
+            }
+            String partialPhiJson = sb.toString();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                // Stream opened while status is still 200 (pass-through), partial body written,
+                // then a mid-serialization failure flips the status to 500.
+                httpRes.setContentType("application/json");
+                res.getOutputStream().write(partialPhiJson.getBytes(StandardCharsets.UTF_8));
+                httpRes.setStatus(500);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String body = response.getContentAsString();
+            assertThat(body)
+                    .doesNotContain("Jane")
+                    .doesNotContain("250-555-0143")
+                    .contains("Reference ID:");
+        }
+    }
+
+    @Nested
+    @DisplayName("sanitizationReason()")
+    class SanitizationReason {
+
+        @Test
+        @DisplayName("should report stack-trace reason for any error status with markers")
+        void shouldReportStackTraceReason_forAnyErrorWithMarkers() {
+            String body = "java.lang.NullPointerException\n\tat io.github.carlos_emr.carlos.Foo.bar(Foo.java:1)";
+            assertThat(ResponseSanitizationFilter.sanitizationReason(404, body, false))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_STACK_TRACE);
+            assertThat(ResponseSanitizationFilter.sanitizationReason(500, body, true))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_STACK_TRACE);
+        }
+
+        @Test
+        @DisplayName("should report web-service 5xx reason for clean /ws 5xx body")
+        void shouldReportWebService5xxReason_forCleanWebService5xxBody() {
+            assertThat(ResponseSanitizationFilter.sanitizationReason(500, "{\"phi\":\"x\"}", true))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_WEB_SERVICE_5XX);
+            assertThat(ResponseSanitizationFilter.sanitizationReason(503, null, true))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_WEB_SERVICE_5XX);
+        }
+
+        @Test
+        @DisplayName("should return null when the body must not be sanitized")
+        void shouldReturnNull_whenBodyMustNotBeSanitized() {
+            // Successful status, /ws 4xx without stack trace, and non-/ws 5xx without stack trace.
+            assertThat(ResponseSanitizationFilter.sanitizationReason(200, "{\"phi\":\"x\"}", true)).isNull();
+            assertThat(ResponseSanitizationFilter.sanitizationReason(404, "{\"error\":\"x\"}", true)).isNull();
+            assertThat(ResponseSanitizationFilter.sanitizationReason(500, "plain page", false)).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("shouldSanitizeErrorBody()")
+    class ShouldSanitizeErrorBody {
+
+        @Test
+        @DisplayName("should sanitize web-service 5xx regardless of stack-trace content")
+        void shouldSanitize_forWebService5xxWithoutStackTrace() {
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(500, "{\"phi\":\"x\"}", true)).isTrue();
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(503, "clean body", true)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not sanitize web-service 4xx without stack trace")
+        void shouldNotSanitize_forWebService4xxWithoutStackTrace() {
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(400, "{\"error\":\"x\"}", true)).isFalse();
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(404, "not found", true)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not sanitize non-web-service 5xx without stack trace")
+        void shouldNotSanitize_forNonWebService5xxWithoutStackTrace() {
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(500, "plain page", false)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should sanitize any error status with stack-trace markers")
+        void shouldSanitize_forAnyErrorWithStackTrace() {
+            String body = "java.lang.NullPointerException\n\tat io.github.carlos_emr.carlos.Foo.bar(Foo.java:1)";
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(404, body, false)).isTrue();
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(500, body, false)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not sanitize successful responses")
+        void shouldNotSanitize_forSuccessfulResponses() {
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(200, "{\"phi\":\"x\"}", true)).isFalse();
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(302, "", true)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("isWebServiceRequest()")
+    class IsWebServiceRequest {
+
+        @Test
+        @DisplayName("should return true when servlet path is /ws")
+        void shouldReturnTrue_whenServletPathIsWs() {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/ws/rs/schedule/getAppointment");
+            request.setServletPath("/ws");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true when context-relative request URI is under /ws/")
+        void shouldReturnTrue_whenContextRelativeUriIsUnderWs() {
+            // No servlet path populated — exercises the context-relative URI fallback.
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setContextPath("/carlos");
+            request.setServletPath("");
+            request.setRequestURI("/carlos/ws/rs/demographics/1");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return false for a non-web-service route")
+        void shouldReturnFalse_forNonWebServiceRoute() {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            request.setRequestURI("/carlos/provider/providercontrol");
+            request.setServletPath("/provider/providercontrol");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not match an unrelated path that merely contains the letters ws")
+        void shouldReturnFalse_forUnrelatedPathContainingWs() {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/news/list");
+            request.setRequestURI("/carlos/news/list");
+            request.setServletPath("/news/list");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not match a deeper path that merely contains /ws/ as a later segment")
+        void shouldReturnFalse_whenWsAppearsAsLaterPathSegment() {
+            // Fallback path: servlet path empty, URI has /ws/ deep in the path but not at the
+            // context-relative root. A substring match would wrongly classify this as a /ws route.
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/proxy/ws/foo");
+            request.setContextPath("/carlos");
+            request.setServletPath("");
+            request.setRequestURI("/carlos/proxy/ws/foo");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isFalse();
         }
     }
 
@@ -1014,6 +1694,52 @@ class ResponseSanitizationFilterUnitTest {
         @Override
         public void resetBuffer() {
             throw new IllegalStateException("already committed");
+        }
+    }
+
+    /**
+     * Records whether {@code close()} ever reaches the real response stream, so the
+     * close-shield tests can assert that a mid-chain close is degraded to a flush.
+     */
+    private static class CloseRecordingResponse extends MockHttpServletResponse {
+
+        int realCloseCount;
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            ServletOutputStream real = super.getOutputStream();
+            return new ServletOutputStream() {
+                @Override
+                public void write(int b) throws IOException {
+                    real.write(b);
+                }
+
+                @Override
+                public void write(byte[] b, int off, int len) throws IOException {
+                    real.write(b, off, len);
+                }
+
+                @Override
+                public void flush() throws IOException {
+                    real.flush();
+                }
+
+                @Override
+                public void close() throws IOException {
+                    realCloseCount++;
+                    real.close();
+                }
+
+                @Override
+                public boolean isReady() {
+                    return real.isReady();
+                }
+
+                @Override
+                public void setWriteListener(WriteListener writeListener) {
+                    real.setWriteListener(writeListener);
+                }
+            };
         }
     }
 }

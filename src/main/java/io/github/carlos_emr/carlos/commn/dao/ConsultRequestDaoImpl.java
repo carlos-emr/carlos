@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter.SORTMODE;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> implements ConsultRequestDao {
@@ -73,6 +74,24 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         return query.getResultList();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ConsultationRequest findWithAssociations(Integer id) {
+        var query = entityManager.createQuery("""
+                SELECT cr
+                FROM ConsultationRequest cr
+                LEFT JOIN FETCH cr.professionalSpecialist
+                LEFT JOIN FETCH cr.demographicContact
+                LEFT JOIN FETCH cr.lookupListItem
+                WHERE cr.id = :id
+                """, ConsultationRequest.class);
+        query.setParameter("id", id);
+        List<ConsultationRequest> results = query.getResultList();
+        return results.isEmpty() ? null : results.get(0);
+    }
+
     private static class QueryWithParams {
         String sql;
         List<Object> params = new java.util.ArrayList<>();
@@ -90,6 +109,8 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private QueryWithParams buildSearchQuery(ConsultationRequestSearchFilter filter, boolean selectCountOnly) {
         QueryWithParams queryWithParams = new QueryWithParams();
         

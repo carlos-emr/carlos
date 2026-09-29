@@ -72,6 +72,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ProgramManagerView2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -507,6 +508,8 @@ public class ProgramManagerView2Action extends ActionSupport {
         return view();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String batch_discharge() {
         logger.info("do batch discharge");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

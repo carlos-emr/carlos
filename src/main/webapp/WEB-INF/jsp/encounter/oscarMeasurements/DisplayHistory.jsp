@@ -33,6 +33,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -210,10 +211,10 @@
                                     </td>
 
                                     <!-- Data Field -->
-                                    <td title="data">${data.dataField}</td>
+                                    <td title="data">${carlos:forHtmlContent(data.dataField)}</td>
 
                                     <!-- Comments -->
-                                    <td title="comments">${data.comments}</td>
+                                    <td title="comments">${carlos:forHtmlContent(data.comments)}</td>
 
                                     <!-- Observation Date -->
                                     <td title="observed date">
@@ -272,12 +273,13 @@
                                 </c:if>
                             </security:oscarSec>
 
-                            <!-- Plot button (same as before) -->
-                            <c:if test="${not empty data.canPlot}">
+                            <%-- The loop-scoped 'data' variable no longer exists here. All rows
+                                 describe this measurement type; use its first row's plot capability. --%>
+                            <c:if test="${not empty measurementsData.measurementsDataVector and not empty measurementsData.measurementsDataVector[0].canPlot}">
                                 <td>
                                     <input type="button" name="Button" class="btn DoNotPrint"
                                         value="<fmt:message key="encounter.oscarMeasurements.displayHistory.plot"/>"
-                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements?demographic_no=<%=demo%>&type=${type}')">
+                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements?demographic_no=<%=demo%>&type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(type))}')">
                                 </td>
                             </c:if>
                         </tr>

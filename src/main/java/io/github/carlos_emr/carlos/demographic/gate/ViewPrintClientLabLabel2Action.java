@@ -14,6 +14,8 @@ package io.github.carlos_emr.carlos.demographic.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -32,16 +34,27 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewPrintClientLabLabel2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public ViewPrintClientLabLabel2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public ViewPrintClientLabLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
+        String demographicNo = request.getParameter("demographic_no");
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DEMOGRAPHIC,
+                demographicNo, request.getRemoteAddr(), demographicNo);
 
         return SUCCESS;
     }

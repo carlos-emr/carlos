@@ -35,8 +35,6 @@ import java.security.MessageDigest;
 import java.util.Date;
 import java.util.List;
 
-import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
@@ -46,11 +44,12 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Bean that validates user credentials and enforces authentication security policies for CARLOS EMR.
@@ -72,7 +71,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * <ul>
  *   <li>PIN required for WAN (remote) access when bRemotelockset == 1</li>
  *   <li>PIN required for LAN (local) access when bLocallockset == 1</li>
- *   <li>PIN can be encrypted based on CarlosProperties.isPINEncripted()</li>
+ *   <li>PIN supports legacy encrypted values and modern hashes</li>
  *   <li>PIN check disabled for users with MFA enabled</li>
  *   <li>PIN check disabled if global legacy PIN setting is off</li>
  * </ul>
@@ -122,8 +121,12 @@ public final class LoginCheckLoginBean {
      * Pre-computed BCrypt hash of a random decoy password, used only to equalize missing-user
      * authentication timing with the normal password-validation path.
      */
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "BCrypt timing-equalization decoy: a pre-computed hash of a random "
+                    + "throwaway password with no usable plaintext, used only to make "
+                    + "missing-user paths take the same wall-clock time as real password checks")
     private static final String MISSING_USER_DUMMY_PASSWORD_HASH =
-            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C";
+            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C"; // NOSONAR java:S2068,secrets:S8215 -- BCrypt decoy hash for timing equalization; not a usable credential // nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash -- BCrypt decoy hash for missing-user timing equalization; not a credential
 
     /** Security manager for password encoding, validation, and hash migration */
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
@@ -160,6 +163,12 @@ public final class LoginCheckLoginBean {
 
     /** Security object for authenticated user (contains password hash, PIN, expiration, etc.) */
     private Security security = null;
+
+    /** True only after this bean has completed a successful credential check for the current request. */
+    private boolean authenticationSuccessful = false;
+
+    /** True only when the current successful authentication still needs a deferred PIN hash upgrade. */
+    private boolean pinHashUpgradeRequired = false;
 
     /**
      * Initializes the bean with authentication credentials.
@@ -205,7 +214,7 @@ public final class LoginCheckLoginBean {
      *   <li>Remote (WAN) access: PIN required if bRemotelockset == 1</li>
      *   <li>Local (LAN) access: PIN required if bLocallockset == 1</li>
      *   <li>PIN must be at least 3 characters</li>
-     *   <li>PIN encrypted if CarlosProperties.isPINEncripted() returns true</li>
+     *   <li>PIN supports legacy encrypted values and modern hashes</li>
      * </ul>
      *
      * <p>Password validation:
@@ -230,6 +239,8 @@ public final class LoginCheckLoginBean {
      * @see SecurityManager#upgradeSavePasswordHash for legacy password migration
      */
     public String[] authenticate() {
+        authenticationSuccessful = false;
+        pinHashUpgradeRequired = false;
         // Retrieve Security record and populate provider info (firstname, lastname, etc.)
         security = getUserID();
 
@@ -240,16 +251,22 @@ public final class LoginCheckLoginBean {
             return cleanNullObj(LOG_PRE + "No Such User: " + username);
         }
 
-        // Encrypt PIN if encryption is enabled in configuration
-        String sPin = pin;
-        if (sPin != null && CarlosProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(sPin);
-
-        // Validate PIN for remote (WAN) access
-        if (this.isPinCheckEnabled() && isWAN() && security.getBRemotelockset() != null && security.getBRemotelockset().intValue() == 1 && (!sPin.equals(security.getPin()) || pin.length() < 3)) {
-            return cleanNullObj(LOG_PRE + "Pin-remote needed: " + username);
+        boolean isWan = isWAN();
+        boolean isPinCheckEnabled = this.isPinCheckEnabled();
+        boolean isRemotePinRequired = isPinCheckEnabled && isWan && isEnabled(security.getBRemotelockset());
+        boolean isLocalPinRequired = isPinCheckEnabled && !isWan && isEnabled(security.getBLocallockset());
+        boolean isPinRequired = isRemotePinRequired || isLocalPinRequired;
+        boolean isPinValid = true;
+        if (isPinRequired) {
+            isPinValid = this.securityManager.validatePin(pin, security);
+            if (isPinValid) {
+                pinHashUpgradeRequired = requiresDeferredPinHashUpgrade(security);
+            }
         }
-        // Validate PIN for local (LAN) access
-        else if (this.isPinCheckEnabled() && !isWAN() && security.getBLocallockset() != null && security.getBLocallockset().intValue() == 1 && (!sPin.equals(security.getPin()) || pin.length() < 3)) {
+
+        if (isRemotePinRequired && !isPinValid) {
+            return cleanNullObj(LOG_PRE + "Pin-remote needed: " + username);
+        } else if (isLocalPinRequired && !isPinValid) {
             return cleanNullObj(LOG_PRE + "Pin-local needed: " + username);
         }
 
@@ -295,6 +312,7 @@ public final class LoginCheckLoginBean {
 
         // Return provider information array on successful authentication
         if (auth) {
+            authenticationSuccessful = true;
             String[] strAuth = new String[7];
             strAuth[0] = security.getProviderNo();
             strAuth[1] = firstname;
@@ -312,6 +330,32 @@ public final class LoginCheckLoginBean {
     }
 
     /**
+     * Best-effort PIN hash upgrade for the current authenticated login.
+     *
+     * <p>Call this only after the caller has completed all remaining post-authentication gates and
+     * is about to establish the final logged-in session. The upgrade is skipped unless this bean has
+     * already completed a successful credential check for the current request.</p>
+     */
+    void upgradeValidatedPinIfNeeded() {
+        if (!authenticationSuccessful || security == null || !pinHashUpgradeRequired) {
+            return;
+        }
+
+        try {
+            boolean isPinHashUpgraded = this.securityManager.upgradeSavePinHash(pin, security);
+            if (!isPinHashUpgraded) {
+                logger.error("Error while upgrading PIN hash");
+            }
+        } catch (RuntimeException e) {
+            logger.error("Error while upgrading PIN hash", e);
+        }
+    }
+
+    private boolean requiresDeferredPinHashUpgrade(Security security) {
+        return this.securityManager.isPinHashUpgradeNeeded(security);
+    }
+
+    /**
      * Cleans sensitive data and logs failed authentication attempt.
      *
      * <p>This method is called when authentication fails for reasons other than
@@ -320,7 +364,7 @@ public final class LoginCheckLoginBean {
      * <p>Security measures:
      * <ul>
      *   <li>Drops object references to userpassword and password fields after the failed attempt</li>
-     *   <li>Logs failed attempt with OWASP-encoded username for PHI protection</li>
+     *   <li>Logs failed attempt with log-safe username sanitization</li>
      *   <li>Returns null to indicate authentication failure</li>
      * </ul>
      *
@@ -329,9 +373,8 @@ public final class LoginCheckLoginBean {
      * @see #cleanNullObjExpire for expired password cleanup
      */
     private String[] cleanNullObj(String errorMsg) {
-        logger.warn(errorMsg);
-        // SECURITY: OWASP encode username for HTML context to prevent injection in logs
-        LogAction.addLogSynchronous("", "failed", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
+        logger.warn(LogSafe.sanitize(errorMsg));
+        LogAction.addLogSynchronous("", "failed", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip);
         // Drop references after the failed attempt. These are immutable Strings, so this does not
         // wipe already-allocated heap contents.
         userpassword = null;
@@ -344,6 +387,9 @@ public final class LoginCheckLoginBean {
      *
      * @return Security object containing only the precomputed BCrypt dummy password hash
      */
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "Sets the BCrypt timing-equalization decoy hash; see MISSING_USER_DUMMY_PASSWORD_HASH")
+    // BCrypt timing-equalization decoy — sets dummy hash, not a real credential
     private static Security missingUserDummySecurity() {
         Security dummySecurity = new Security();
         dummySecurity.setPassword(MISSING_USER_DUMMY_PASSWORD_HASH);
@@ -364,7 +410,7 @@ public final class LoginCheckLoginBean {
      * <p>Security measures:
      * <ul>
      *   <li>Drops object references to userpassword and password fields after the expired attempt</li>
-     *   <li>Logs expiration event with OWASP-encoded username for PHI protection</li>
+     *   <li>Logs expiration event with log-safe username sanitization</li>
      *   <li>Returns ["expired"] array to indicate account expiration</li>
      * </ul>
      *
@@ -373,9 +419,8 @@ public final class LoginCheckLoginBean {
      * @see #cleanNullObj for general authentication failure cleanup
      */
     private String[] cleanNullObjExpire(String errorMsg) {
-        logger.warn(errorMsg);
-        // SECURITY: OWASP encode username for HTML context to prevent injection in logs
-        LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, Encode.forHtmlContent(username), ip);
+        logger.warn(LogSafe.sanitize(errorMsg));
+        LogAction.addLogSynchronous("", "expired", LogConst.CON_LOGIN, LogSafe.sanitize(username), ip);
         // Drop references after the expired attempt. These are immutable Strings, so this does not
         // wipe already-allocated heap contents.
         userpassword = null;
@@ -431,6 +476,11 @@ public final class LoginCheckLoginBean {
         SecUserRoleDao secUserRoleDao = (SecUserRoleDao) SpringUtils.getBean(SecUserRoleDao.class);
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(security.getProviderNo());
         for (SecUserRole role : roles) {
+            // Only active (activeyn = 1) role assignments belong in the session role string;
+            // an inactive assignment must not grant access. Boolean.TRUE.equals is null-tolerant.
+            if (!Boolean.TRUE.equals(role.getActive())) {
+                continue;
+            }
             if (rolename == null) {
                 rolename = role.getRoleName();
             } else {
@@ -527,5 +577,9 @@ public final class LoginCheckLoginBean {
 	private boolean isPinCheckEnabled() {
 		return MfaManager.isOscarLegacyPinEnabled() && !security.isUsingMfa();
 	}
+
+    private boolean isEnabled(Integer value) {
+        return Integer.valueOf(1).equals(value);
+    }
 
 }

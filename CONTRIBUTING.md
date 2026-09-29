@@ -73,13 +73,17 @@ git push --force-with-lease
 #### Manual DCO Confirmation (Alternate)
 
 If you cannot amend your commits (e.g., force-push is not possible), an authorized user
-can retroactively confirm DCO sign-off by posting a PR comment with the exact phrase:
+with `write` or higher repository permission can retroactively confirm DCO sign-off after
+reviewing the connected history. The comment must contain the exact phrase followed by
+the current full 40-character PR head SHA:
 
-> Confirming DCO sign off for all commits
+```text
+Confirming DCO sign off for all commits at <full-pr-head-sha>
+```
 
-This will re-trigger the DCO check and allow it to pass. Only users with an established
-repository relationship (OWNER, MEMBER, COLLABORATOR, or CONTRIBUTOR) can use this
-alternate confirmation. First-time contributors must use the commit sign-off method.
+This will re-trigger the DCO check and allow it to pass only for that exact revision. Any
+subsequent push changes the PR head SHA and requires a new maintainer confirmation.
+Contributors without `write` access must use the commit sign-off method.
 
 ## Ways to Contribute
 
@@ -263,10 +267,22 @@ make install --run-integration-tests  # Integration tests (requires database)
 
 ### Branch Strategy
 
-CARLOS uses `develop` as the default branch and the focus for all active development.
-Pull requests and merges target `develop`. Releases are promoted from staging branches
-to `main`. **Do not work directly on `develop`** — always create a feature branch for
-your changes.
+CARLOS uses `develop` as the default integration branch for the next release train.
+Normal feature and bug-fix pull requests target `develop`. High-priority fixes for a
+supported release start from and target the oldest affected `release/YYYY.MM`
+maintenance branch. Current-train release preparation and narrowly scoped
+release-infrastructure corrections may target `main`. **Do not work directly on a protected
+branch** — always create a topic branch.
+
+The canonical [release process](docs/release-process.md) defines CalVer versions, supported
+release lines, forward merges, snapshots, tags, and release publication.
+
+After an approved supported-release fix merges, maintainers forward-merge its maintenance
+branch into every newer supported line and then `develop`, preserving the version and SCM
+metadata on the target branch. Do not open duplicate cherry-pick PRs.
+Published Flyway migration
+files are checksum-frozen; any migration-number collision must be resolved by renumbering
+only an unreleased migration on the newer target line.
 
 ### Internal vs. External Contributors
 
@@ -280,11 +296,16 @@ you're there!), then clone your fork to your local machine. You'll make changes 
 branches to *your* fork, then open a pull request back to the CARLOS repository when your
 work is ready for review.
 
-Both workflows end the same way: **all changes go through a pull request** targeting the
-`develop` branch, reviewed and approved before merging. No one pushes directly to
+Both workflows end the same way: **all changes go through a reviewed pull request**.
+Use `develop` for normal work; maintainers will identify the applicable
+`release/YYYY.MM` branch for a supported-release fix. No one pushes directly to
 protected branches.
 
 ### External Contributor Workflow (Fork-Based)
+
+Choose the base branch before starting: use `develop` for normal work, or the
+applicable `release/YYYY.MM` branch for an approved supported-release fix. Use
+the same value as `BASE_BRANCH` in the commands and pull-request target below.
 
 1. **Fork** the CARLOS repository on GitHub and **clone your fork** locally
 2. **Add the upstream remote** so you can keep your fork up to date:
@@ -293,11 +314,12 @@ protected branches.
    ```
 3. **Sync your fork** before starting new work:
    ```bash
-   git checkout develop
-   git pull upstream develop
-   git push origin develop
+   BASE_BRANCH=develop  # or release/YYYY.MM for an approved maintenance fix
+   git checkout "$BASE_BRANCH"
+   git pull upstream "$BASE_BRANCH"
+   git push origin "$BASE_BRANCH"
    ```
-4. **Create a feature branch** from `develop` (never work directly on `develop`):
+4. **Create a topic branch** from the selected base (never work directly on a protected branch):
    ```bash
    git checkout -b your-feature-name
    ```
@@ -311,15 +333,16 @@ protected branches.
    ```bash
    git push origin your-feature-name
    ```
-9. **Open a pull request** on GitHub from your fork's branch to `carlos-emr/carlos:develop`
+9. **Open a pull request** from your fork's branch to the same CARLOS `BASE_BRANCH`
 
 ### Internal Contributor Workflow
 
 1. **Clone** the CARLOS repository directly
-2. **Create a feature branch** from `develop` (never work directly on `develop`):
+2. **Create a topic branch** from the selected base (never work directly on a protected branch):
    ```bash
-   git checkout develop
-   git pull origin develop
+   BASE_BRANCH=develop  # or release/YYYY.MM for an approved maintenance fix
+   git checkout "$BASE_BRANCH"
+   git pull origin "$BASE_BRANCH"
    git checkout -b feature/your-feature-name
    ```
 3. **Make and test your changes** following the [code standards](#code-standards) below
@@ -327,14 +350,20 @@ protected branches.
    ```bash
    git commit -s -m "fix: description of your change"
    ```
-5. **Push your branch** and **open a pull request** targeting `develop`
+5. **Push your branch** and **open a pull request** targeting the same `BASE_BRANCH`
 
 ### Pull Request Guidelines
 
 All changes — from internal and external contributors alike — must go through a pull
 request. Direct pushes to `develop`, `main`, and other protected branches are not allowed.
 
-- **Target `develop`**, never `main`
+- **Target `develop` for normal work**; use `release/YYYY.MM` only for an approved
+  supported-release fix; use `main` only for current-train release preparation or a
+  necessary, narrowly scoped release-infrastructure correction
+- **Keep snapshot metadata on work branches**; release preparation alone changes the
+  project version and SCM tag to the exact release value
+- **Never create, move, delete, or reuse release tags**; maintainers create an annotated
+  tag only after the exact release commit has passed review and checks
 - **Reference related issues** (e.g., `fixes #123`)
 - **Include a clear description** of what changed and why
 - **Add tests** for new functionality

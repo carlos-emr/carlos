@@ -113,7 +113,7 @@
                                                                            name='submit' value=' Save '> <input
                         type="button"
                         name="Button"
-                        value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"
+                        value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                         onClick="onExit();">&nbsp;
                 </div>
             </th>

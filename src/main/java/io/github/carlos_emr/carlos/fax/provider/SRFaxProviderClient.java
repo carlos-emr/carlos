@@ -33,22 +33,24 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import org.apache.cxf.common.util.Base64Utility;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.NameValuePair;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Fax provider client implementation for direct SRFax API integration.
@@ -77,10 +79,46 @@ public class SRFaxProviderClient implements FaxProviderClient {
     private static final String ACTION_GET_INBOX = "Get_Fax_Inbox";
     private static final String ACTION_RETRIEVE_FAX = "Retrieve_Fax";
     private static final String ACTION_GET_STATUS = "Get_FaxStatus";
+    private static final String ACTION_UPDATE_VIEWED = "Update_Viewed_Status";
+    private static final String ACTION_STOP_FAX = "Stop_Fax";
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = buildObjectMapper();
+
+    /**
+     * SRFax returns the inbound document as one base64 String inside JSON.
+     * Jackson caps a single string at 20,000,000 chars by default (~14 MiB
+     * of PDF after base64), which would reject a large fax LONG before the
+     * fax.max_response_mb transport cap — and with a raw StreamConstraints
+     * error, not the actionable FaxProviderException. Lift the parser limit
+     * so the documented ceiling is the one that actually governs; the
+     * BoundedResponseReader cap and the JVM heap remain the real bounds.
+     */
+    private static ObjectMapper buildObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.getFactory().setStreamReadConstraints(
+                com.fasterxml.jackson.core.StreamReadConstraints.builder()
+                        .maxStringLength(Integer.MAX_VALUE)
+                        .build());
+        return mapper;
+    }
+
+    /**
+     * Test-only endpoint override. Production resolution stays in {@link #getSrfaxApiUrl()},
+     * which enforces the srfax.com HTTPS allow-list; this field bypasses that only for
+     * transport tests against a local mock server and is never set in the Spring-managed bean.
+     */
+    private final String apiUrlOverrideForTest;
+
+    public SRFaxProviderClient() {
+        this.apiUrlOverrideForTest = null;
+    }
+
+    /** Package-private test constructor: points the client at a local mock HTTP endpoint. */
+    SRFaxProviderClient(String apiUrlOverrideForTest) {
+        this.apiUrlOverrideForTest = apiUrlOverrideForTest;
+    }
 
     /**
      * Returns the SRFax API endpoint URL. Defaults to {@link #DEFAULT_SRFAX_API_URL} and
@@ -90,7 +128,12 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * with a warning log and the default is used instead. This prevents SSRF or credential
      * theft via admin-configured URLs.</p>
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private String getSrfaxApiUrl() {
+        if (apiUrlOverrideForTest != null) {
+            return apiUrlOverrideForTest;
+        }
         String configured = CarlosProperties.getInstance().getProperty("srfax.api.url");
         if (configured != null && !configured.trim().isEmpty()) {
             String trimmed = configured.trim();
@@ -164,10 +207,12 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
             List<NameValuePair> params = createAuthParams(faxConfig);
             params.add(new BasicNameValuePair("action", ACTION_QUEUE_FAX));
-            params.add(new BasicNameValuePair("sCallerID", faxConfig.getFaxNumber()));
+            // SRFax requires a 10-digit caller ID; destinations are normalized to the documented
+            // 11-digit North American form, with longer international numbers passed through.
+            params.add(new BasicNameValuePair("sCallerID", toCallerId10(faxConfig.getFaxNumber())));
             params.add(new BasicNameValuePair("sSenderEmail", faxConfig.getSenderEmail()));
             params.add(new BasicNameValuePair("sFaxType", "SINGLE"));
-            params.add(new BasicNameValuePair("sToFaxNumber", faxJob.getDestination()));
+            params.add(new BasicNameValuePair("sToFaxNumber", toDialableNumber(faxJob.getDestination())));
             params.add(new BasicNameValuePair("sFileName_1", faxJob.getFile_name()));
             params.add(new BasicNameValuePair("sFileContent_1", faxJob.getDocument()));
 
@@ -182,13 +227,21 @@ public class SRFaxProviderClient implements FaxProviderClient {
             String jobId = textAt(root, "Result");
 
             FaxJob result = new FaxJob();
-            if (jobId != null) {
-                try {
-                    result.setJobId(Long.parseLong(jobId));
-                } catch (NumberFormatException e) {
-                    logger.warn("SRFax returned non-numeric job ID: {} - fax may not be trackable for status updates", jobId);
-                    result.setStatusString("SRFax queued with non-numeric id: " + jobId);
-                }
+            if (jobId == null || jobId.trim().isEmpty()) {
+                throw new FaxProviderException(
+                        "SRFax accepted the fax but returned no job id - job cannot be tracked; marking as error for manual resend");
+            }
+            try {
+                result.setJobId(Long.parseLong(jobId.trim()));
+            } catch (NumberFormatException e) {
+                // Without a numeric FaxDetailsID the job can neither be status-polled
+                // (getInprogressFaxesByJobId requires jobId) nor auto-resent (getReadyToSendFaxes
+                // requires jobId IS NULL with WAITING). Fail non-transient so the sender marks the
+                // job ERROR and it surfaces in Manage Faxes for a deliberate manual resend; an
+                // automatic retry could transmit the same PHI twice if SRFax did queue the fax.
+                throw new FaxProviderException(
+                        "SRFax accepted the fax but returned a non-numeric job id: " + jobId
+                                + " - marking as error for manual resend");
             }
 
             result.setStatus(FaxJob.STATUS.SENT);
@@ -268,6 +321,52 @@ public class SRFaxProviderClient implements FaxProviderClient {
     }
 
     /**
+     * Verifies the SRFax account number / password pair with a read-only inbox probe.
+     *
+     * <p>Issues the same {@code Get_Fax_Inbox} (unread-only) call the scheduler poll uses, which
+     * SRFax rejects with a failed {@code Status} when {@code access_id}/{@code access_pwd} are
+     * wrong. Nothing is downloaded or marked read, so the probe is safe to repeat from the
+     * admin page. Credentials are never logged.</p>
+     */
+    @Override
+    public void verifyConnection(FaxConfig faxConfig) throws FaxProviderException {
+        requireMatchingProviderType(faxConfig);
+        validateCredentials(faxConfig);
+
+        List<NameValuePair> params = createAuthParams(faxConfig);
+        params.add(new BasicNameValuePair("action", ACTION_GET_INBOX));
+        params.add(new BasicNameValuePair("sViewedStatus", "UNREAD"));
+
+        JsonNode root;
+        try {
+            root = postForm(getSrfaxApiUrl(), params);
+        } catch (FaxProviderException e) {
+            // SRFax answers a wrong access_id/access_pwd pair with a bare HTTP 401/403 rather
+            // than a JSON "Failed" body. Branch on the status carried by postForm(), not on the
+            // message text. A 403 is also what an egress proxy, an SRFax-side IP block, or a
+            // wrong API URL produce, so say so rather than sending the admin back to the
+            // credentials alone.
+            if (e.getHttpStatus() == 401) {
+                throw new FaxProviderException(
+                        "SRFax rejected the account number or password (" + e.getMessage()
+                                + "). Check both values in your SRFax portal.", e, 401);
+            }
+            if (e.getHttpStatus() == 403) {
+                throw new FaxProviderException(
+                        "SRFax rejected the account number or password (" + e.getMessage()
+                                + "). Check both values in your SRFax portal; a proxy or firewall blocking"
+                                + " the SRFax API produces the same response.", e, 403);
+            }
+            throw e;
+        }
+        // A JSON "Failed" body carries SRFax's own reason (an invalid access code/password,
+        // but also account-state or request problems), so keep the prefix neutral and let the
+        // provider text say what went wrong. Only the bare 401/403 above is a credential verdict.
+        ensureSuccess(root, "SRFax connection test failed");
+        logger.info("SRFax connection test succeeded");
+    }
+
+    /**
      * Downloads a specific fax document from SRFax without marking it as read.
      *
      * <p>This is the first phase of the three-phase import strategy: download the fax content
@@ -313,9 +412,10 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * method downloads content without marking as read. This method is called only after the
      * fax has been successfully persisted locally, preventing fax loss if import fails.</p>
      *
-     * <p>Uses the {@code Retrieve_Fax} action with {@code sMarkasViewed=Y} to mark the fax
-     * as read. The response content is not needed -- we only care about the side-effect of
-     * marking the fax as viewed.</p>
+     * <p>Uses the dedicated {@code Update_Viewed_Status} action with {@code sMarkasViewed=Y},
+     * which flips the read flag without re-transferring the document (the previous
+     * {@code Retrieve_Fax}-based approach re-downloaded the full base64 PDF just to set
+     * the flag — extra PHI over the wire for no benefit).</p>
      *
      * @param faxConfig SRFax account configuration with authentication credentials
      * @param fax FaxJob fax metadata identifying which fax to mark as read (uses file_name)
@@ -328,7 +428,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
         validateCredentials(faxConfig);
 
         List<NameValuePair> params = createAuthParams(faxConfig);
-        params.add(new BasicNameValuePair("action", ACTION_RETRIEVE_FAX));
+        params.add(new BasicNameValuePair("action", ACTION_UPDATE_VIEWED));
         params.add(new BasicNameValuePair("sFaxFileName", fax.getFile_name()));
         params.add(new BasicNameValuePair("sDirection", "IN"));
         params.add(new BasicNameValuePair("sMarkasViewed", "Y"));
@@ -381,6 +481,129 @@ public class SRFaxProviderClient implements FaxProviderClient {
             logger.debug("SRFax status response providerJobId={} status={}", faxJob.getJobId(), updated.getStatusString());
         }
         return updated;
+    }
+
+    /**
+     * Cancels a queued or in-progress outbound fax via the SRFax {@code Stop_Fax} action.
+     *
+     * <p>Per the SRFax API, {@code Status=Success} covers three distinct outcomes reported in
+     * {@code Result}: "Fax Cancelled", "Fax cancelled but partially sent" (both mapped to
+     * {@link FaxJob.STATUS#CANCELLED}), and "Fax transmission completed" — the fax was already
+     * fully sent and could NOT be cancelled, mapped to {@link FaxJob.STATUS#SENT} so the job is
+     * not falsely recorded as cancelled. {@code Status=Failed} ("Unable to Cancel Fax" — fax mid
+     * conversion, retryable in ~10s per the API doc) raises a {@link FaxProviderException}.
+     * The raw {@code Result} text is carried into statusString so admins can see which case
+     * occurred.</p>
+     *
+     * @param faxConfig SRFax account configuration with authentication credentials
+     * @param faxJob outbound job carrying the provider jobId (FaxDetailsID) to stop
+     * @return FaxJob copy with provider-confirmed status and Result text in statusString
+     * @throws FaxProviderException when the job has no provider id or SRFax rejects the cancel
+     * @since 2026-08-21
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @Override
+    public FaxJob cancelFax(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException {
+        requireMatchingProviderType(faxConfig);
+        validateCredentials(faxConfig);
+
+        if (faxJob.getJobId() == null) {
+            throw new FaxProviderException("Cannot cancel fax: job has no provider job id (never queued with SRFax)");
+        }
+
+        logger.debug("SRFax cancel requested for providerJobId={}", faxJob.getJobId());
+        List<NameValuePair> params = createAuthParams(faxConfig);
+        params.add(new BasicNameValuePair("action", ACTION_STOP_FAX));
+        params.add(new BasicNameValuePair("sFaxDetailsID", String.valueOf(faxJob.getJobId())));
+
+        JsonNode root = postForm(getSrfaxApiUrl(), params);
+        ensureSuccess(root, "Failed to cancel fax with SRFax");
+
+        String resultText = textAt(root, "Result");
+        FaxJob cancelled = new FaxJob(faxJob);
+        // "Fax transmission completed" = already sent, NOT cancelled; both "Fax Cancelled" and
+        // "Fax cancelled but partially sent" contain "cancel".
+        if (resultText != null && resultText.trim().toLowerCase().contains("completed")) {
+            cancelled.setStatus(FaxJob.STATUS.SENT);
+        } else {
+            cancelled.setStatus(FaxJob.STATUS.CANCELLED);
+        }
+        cancelled.setStatusString(resultText == null || resultText.trim().isEmpty()
+                ? "Cancelled with SRFax" : resultText.trim());
+        logger.info("SRFax cancel result providerJobId={} status={}", faxJob.getJobId(), cancelled.getStatus());
+        return cancelled;
+    }
+
+    /**
+     * Normalizes a configured sender fax number to the 10-digit caller ID SRFax requires.
+     * Strips non-digits and drops a leading North American country code from an 11-digit value.
+     *
+     * @throws FaxProviderException when the value cannot be normalized to exactly 10 digits
+     */
+    String toCallerId10(String rawNumber) throws FaxProviderException {
+        String digits = rawNumber == null ? "" : rawNumber.replaceAll("\\D", "");
+        if (digits.length() == 11 && digits.startsWith("1")) {
+            digits = digits.substring(1);
+        }
+        if (digits.length() != 10) {
+            throw new FaxProviderException(
+                    "Sender fax number must normalize to 10 digits for SRFax caller ID (got " + digits.length() + " digits)");
+        }
+        return digits;
+    }
+
+    /**
+     * Normalizes a destination fax number to a dialable digit string for SRFax.
+     *
+     * <p>North American numbers are normalized to the 11-digit form the API documents
+     * (a 10-digit value gets the country code prepended). SRFax expects international
+     * destinations dialed as from a land line: {@code 011} + country code + number —
+     * a bare {@code +CC} E.164 form is not a valid API value. A leading {@code '+'} is
+     * therefore the internationality signal: {@code +1...} is treated as NANP, and any
+     * other {@code +CC} number gets the {@code 011} prefix prepended (stripping the
+     * {@code '+'} alone would silently emit a format the provider rejects). Digit
+     * strings without a {@code '+'} that are 11-15 digits long are passed through
+     * unchanged so destinations already stored in dialed form — which the legacy send
+     * path always forwarded — still reach the provider, where account-level
+     * international enablement decides the outcome. Anything under 10 digits cannot be
+     * a dialable fax number and is rejected before transmission.</p>
+     *
+     * @throws FaxProviderException when the value cannot be normalized to a dialable number
+     */
+    String toDialableNumber(String rawNumber) throws FaxProviderException {
+        return normalizeDestinationNumber(rawNumber);
+    }
+
+    /**
+     * Validates and normalizes a destination using the same rules as transmission.
+     * @param rawNumber formatted domestic or explicit international destination
+     * @return provider-ready dial string
+     * @throws FaxProviderException if the destination cannot be dialed by SRFax
+     */
+    public static String normalizeDestinationNumber(String rawNumber) throws FaxProviderException {
+        String trimmed = rawNumber == null ? "" : rawNumber.trim();
+        boolean explicitInternational = trimmed.startsWith("+");
+        String digits = trimmed.replaceAll("\\D", "");
+        if (explicitInternational) {
+            if (digits.length() == 11 && digits.startsWith("1")) {
+                return digits;
+            }
+            if (digits.length() >= 8 && digits.length() <= 15) {
+                return "011" + digits;
+            }
+            throw new FaxProviderException(
+                    "International destination fax number must contain 8-15 digits after '+' for SRFax (got "
+                            + digits.length() + " digits)");
+        }
+        if (digits.length() == 10) {
+            return "1" + digits;
+        }
+        if (digits.length() >= 11 && digits.length() <= 15) {
+            return digits;
+        }
+        throw new FaxProviderException(
+                "Destination fax number must contain 10-15 digits for SRFax (got " + digits.length() + " digits)");
     }
 
     /**
@@ -446,17 +669,31 @@ public class SRFaxProviderClient implements FaxProviderClient {
      *   <li>Socket timeout: 60 seconds</li>
      *   <li>Connection request timeout: 30 seconds</li>
      * </ul>
+     *
+     * <p>Protected as a test seam so request construction and response parsing can be exercised
+     * without sockets; production callers stay within this class.</p>
      */
-    private JsonNode postForm(String endpoint, List<NameValuePair> params) throws FaxProviderException {
+    protected JsonNode postForm(String endpoint, List<NameValuePair> params) throws FaxProviderException {
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectionRequestTimeout(Timeout.ofSeconds(30))
                 .setResponseTimeout(Timeout.ofSeconds(60))
+                .build();
+
+        // RequestConfig no longer carries the TCP connect timeout (httpclient5 >= 5.2); without
+        // this the connect phase falls back to the 3-minute default, which would pin a scheduler
+        // thread or an admin's connection test on an unreachable host far longer than the
+        // 30s/60s budget above suggests.
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(30))
                 .build();
 
         HttpPost httpPost = new HttpPost(endpoint);
         httpPost.setConfig(requestConfig);
 
         try (CloseableHttpClient client = HttpClients.custom()
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setDefaultConnectionConfig(connectionConfig)
+                        .build())
                 .setDefaultRequestConfig(requestConfig)
                 .build()) {
             httpPost.setEntity(new UrlEncodedFormEntity(params));
@@ -465,7 +702,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 int statusCode = response.getCode();
                 if (statusCode != HttpStatus.SC_OK) {
                     throw new FaxProviderException("SRFax API returned HTTP " + statusCode +
-                            ": " + response.getReasonPhrase());
+                            ": " + response.getReasonPhrase(), statusCode);
                 }
 
                 HttpEntity entity = response.getEntity();
@@ -473,10 +710,10 @@ public class SRFaxProviderClient implements FaxProviderClient {
                     throw new FaxProviderException("SRFax API returned null response entity");
                 }
 
-                String payload = EntityUtils.toString(entity);
+                String payload = BoundedResponseReader.read(entity);
                 return objectMapper.readTree(payload);
             }
-        } catch (IOException | org.apache.hc.core5.http.ParseException e) {
+        } catch (IOException e) {
             throw new FaxProviderException("SRFax API communication failure", e, FaxProviderException.isTransientNetworkCause(e));
         }
     }
@@ -487,7 +724,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
      */
     private void validateCredentials(FaxConfig faxConfig) throws FaxProviderException {
         if (faxConfig.getFaxUser() == null || faxConfig.getFaxUser().trim().isEmpty()) {
-            throw new FaxProviderException("SRFax username (faxUser) is not configured for this fax account");
+            throw new FaxProviderException("SRFax account number (faxUser) is not configured for this fax account");
         }
         if (faxConfig.getFaxPasswd() == null || faxConfig.getFaxPasswd().trim().isEmpty()) {
             throw new FaxProviderException("SRFax password is not configured for this fax account");
@@ -508,6 +745,8 @@ public class SRFaxProviderClient implements FaxProviderClient {
     /**
      * Ensures provider response indicates success.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void ensureSuccess(JsonNode root, String errorMessage) throws FaxProviderException {
         // Per SRFax spec, Status is always at the top level of the JSON response.
         String status = textAt(root, "Status");
@@ -536,9 +775,13 @@ public class SRFaxProviderClient implements FaxProviderClient {
             throw new FaxProviderException(errorMessage + (message == null ? "" : (": " + message)));
         }
 
-        // Warn on unrecognized status to detect SRFax API changes early
-        if (!"success".equalsIgnoreCase(normalized) && !"1".equals(normalized)) {
-            logger.warn("SRFax returned unrecognized status '{}' for operation: {} - treating as success", status, errorMessage);
+        // Fail closed on any status we do not positively recognize as success. Treating an
+        // unknown status as success previously let an API shape change silently corrupt the
+        // pipeline (e.g. importing garbage or recording a send that never happened).
+        if (!"success".equals(normalized) && !"1".equals(normalized)) {
+            throw new FaxProviderException(errorMessage
+                    + ": SRFax returned unrecognized status '" + status
+                    + "' - refusing to treat as success (possible API change)");
         }
     }
 

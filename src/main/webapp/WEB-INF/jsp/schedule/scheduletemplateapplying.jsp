@@ -56,7 +56,6 @@
 <%@ page import="java.net.*" %>
 <%@ page import="java.lang.*" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -79,7 +78,6 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%
@@ -682,7 +680,7 @@
                                         for (RSchedule rs : rss) {
                                     %>
                                     <option value="<%=ConversionUtils.toDateString(rs.getsDate())%>"
-                                            <%=request.getParameter("sdate") != null ? (ConversionUtils.toDateString(rs.getsDate()).equals(request.getParameter("sdate")) ? "selected" : "") : (ConversionUtils.toDateString(rs.getsDate()).equals(scheduleRscheduleBean.sdate) ? "selected" : "")%>>
+                                            <%=request.getParameter("sdate") != null ? (ConversionUtils.toDateString(rs.getsDate()).equals(request.getParameter("sdate")) ? "selected" : "") : (ConversionUtils.toDateString(rs.getsDate()).equals(scheduleRscheduleBean.sdate) ? "selected" : "")%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>>
                                         <%=ConversionUtils.toDateString(rs.getsDate()) + " ~ " + ConversionUtils.toDateString(rs.geteDate())%>
                                     </option>
                                     <%

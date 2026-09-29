@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse> implements ConsultResponseDao {
@@ -165,6 +166,8 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         }
     }
     
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getSafeOrderDirection(Object sortDir) {
         if (sortDir != null) {
             String dir = sortDir.toString().toLowerCase();

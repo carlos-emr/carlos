@@ -117,6 +117,27 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("HTML upload should reject blocked final extension before saving eForm")
+    void shouldRejectHtmlUpload_whenFilenameHasBlockedFinalExtension() throws Exception {
+        Path upload = Files.createTempFile(tempDir, "html-upload", ".html");
+        Files.writeString(upload, "<html></html>");
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getContent()).thenReturn(upload.toFile());
+        when(uploadedFile.getContentType()).thenReturn("text/html");
+        when(uploadedFile.getOriginalName()).thenReturn("report.pdf.jsp");
+
+        HtmlUpload2Action action = new HtmlUpload2Action();
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fail");
+        assertThat(action.getFormHtmlFileName()).isNull();
+        assertThat(request.getAttribute("errorMessage").toString())
+                .contains("Invalid filename");
+    }
+
+    @Test
     @DisplayName("HTML upload should fall back to temp filename when original name is missing")
     void shouldFallbackToTempFilename_whenHtmlOriginalNameIsMissing() throws Exception {
         Path upload = Files.createTempFile(tempDir, "htmlupload", ".html");

@@ -30,6 +30,8 @@ import io.github.carlos_emr.carlos.commn.dao.ServiceClientDao;
 import io.github.carlos_emr.carlos.commn.model.PublicKey;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -52,6 +54,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -202,7 +205,7 @@ class AdminJsonActionsUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return bad request for missing public key id")
     void shouldReturnBadRequest_forMissingPublicKeyId() throws Exception {
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("r"), nullable(String.class)))
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), nullable(String.class)))
                 .thenReturn(true);
 
         String result = new GetPublicKey2Action().execute();
@@ -215,10 +218,25 @@ class AdminJsonActionsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should require write privilege for public key details")
+    void shouldRequireWritePrivilege_forPublicKeyDetails() {
+        request.addParameter("id", "service");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), nullable(String.class)))
+                .thenReturn(false);
+
+        GetPublicKey2Action action = new GetPublicKey2Action();
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin");
+        verifyNoInteractions(publicKeyDao);
+    }
+
+    @Test
     @DisplayName("should return not found for unknown public key id")
     void shouldReturnNotFound_forUnknownPublicKeyId() throws Exception {
         request.addParameter("id", "unknown");
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("r"), nullable(String.class)))
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), nullable(String.class)))
                 .thenReturn(true);
 
         new GetPublicKey2Action().execute();
@@ -238,7 +256,7 @@ class AdminJsonActionsUnitTest extends CarlosUnitTestBase {
         publicKey.setType("type");
         publicKey.setBase64EncodedPrivateKey("private-key");
         publicKey.setMatchingProfessionalSpecialistId(7);
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("r"), nullable(String.class)))
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), nullable(String.class)))
                 .thenReturn(true);
         when(publicKeyDao.find("service")).thenReturn(publicKey);
 
@@ -248,6 +266,15 @@ class AdminJsonActionsUnitTest extends CarlosUnitTestBase {
         assertThat(json.get("success").asBoolean()).isTrue();
         assertThat(json.get("base64EncodedPrivateKey").asText()).isEqualTo("private-key");
         assertThat(json.get("matchingProfessionalSpecialistId").asInt()).isEqualTo(7);
+        assertThat(response.getHeader("Cache-Control")).contains("no-store").contains("no-cache");
+        assertThat(response.getHeader("Pragma")).isEqualTo("no-cache");
+        logActionMock.verify(() -> LogAction.addLog(
+                eq(loggedInInfo),
+                eq(LogConst.READ),
+                eq("PublicKey"),
+                eq("service"),
+                eq(""),
+                eq("private key accessed via API")));
     }
 
     private static ServiceClient client() {

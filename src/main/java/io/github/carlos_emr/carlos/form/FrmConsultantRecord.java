@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 
 
 public class FrmConsultantRecord extends FrmRecord {
@@ -161,13 +162,20 @@ public class FrmConsultantRecord extends FrmRecord {
             return "";
         }
 
+        int firstEnd = familyDoctor.indexOf(endTag);
+        if (firstEnd >= 0 && firstEnd < start) {
+            return "";
+        }
+
         int valueStart = start + startTag.length();
         int end = familyDoctor.indexOf(endTag, valueStart);
         if (end < valueStart) {
             return "";
         }
 
-        return familyDoctor.substring(valueStart, end);
+        // Stored fragments are XML-escaped on write (DemographicXml.familyDoctor),
+        // so the extracted text node has to be decoded exactly once on the way out.
+        return DemographicXml.unescapeXmlTextOrEmpty(familyDoctor.substring(valueStart, end));
     }
 
 

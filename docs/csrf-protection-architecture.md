@@ -141,7 +141,8 @@ default values being rendered silently.
 | `TokenName` | `CSRF-TOKEN` | HTTP parameter name for the token |
 | `SessionKey` | `CSRF-SESSION-KEY` | HttpSession attribute key for token storage |
 | `TokenLength` | `32` | Characters in the generated token |
-| `PRNG` | `SHA1PRNG` | Cryptographic PRNG algorithm |
+| `PRNG` | `DRBG` | Java standard deterministic random bit generator algorithm |
+| `PRNG.Provider` | not set | Avoids pinning token generation to the Sun-specific provider |
 | `TokenPerPage` | `false` | Single session-scoped token (not per-page) |
 | `Rotate` | not set (default: `false`) | Token rotation disabled (see below) |
 

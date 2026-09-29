@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import org.apache.logging.log4j.Logger;
 import org.jdom2.Element;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Stores Conditions for target Colours
@@ -75,6 +76,8 @@ public class TargetCondition {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void getRuleBaseElement(ArrayList<DSCondition> list) {
         log.debug("creating rules for " + type + " List contains " + list.size() + " value " + value);
 

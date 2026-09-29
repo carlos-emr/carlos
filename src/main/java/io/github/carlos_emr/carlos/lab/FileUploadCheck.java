@@ -29,8 +29,6 @@
 
 package io.github.carlos_emr.carlos.lab;
 
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
 import java.util.HashMap;
@@ -59,19 +57,6 @@ public final class FileUploadCheck {
         FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
         List<io.github.carlos_emr.carlos.commn.model.FileUploadCheck> checks = dao.findByMd5Sum(md5sum);
         return !checks.isEmpty();
-    }
-
-    public static boolean hasFileBeenUploadedByFileLocation(String fileLocation) throws IOException {
-        InputStream is = null;
-
-        try {
-            is = new FileInputStream(fileLocation);
-            String md5sum = DigestUtils.md5Hex(IOUtils.toByteArray(is));
-            return hasFileBeenUploaded(md5sum);
-        } finally {
-            IOUtils.closeQuietly(is);
-        }
-
     }
 
     public static Map<String, String> getFileInfo(Integer id) {

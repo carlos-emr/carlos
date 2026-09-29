@@ -42,6 +42,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Legacy BC billing form backing bean.
  *
@@ -341,6 +342,8 @@ public class BillingBillingManager implements Serializable {
             fill(billType, null);
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         public void fill(String billType, Double percentage) {
             BillingServiceDao dao = SpringUtils.getBean(BillingServiceDao.class);
             List<BillingService> bss = null;

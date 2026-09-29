@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.integration.mchcv;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class HCValidationFactory {
 
@@ -46,6 +47,8 @@ public class HCValidationFactory {
         return new SimpleHCValidator();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static HCValidator getValidator() {
         CarlosProperties oscarProperties = CarlosProperties.getInstance();
         String hcvType = oscarProperties.getProperty("hcv.type");

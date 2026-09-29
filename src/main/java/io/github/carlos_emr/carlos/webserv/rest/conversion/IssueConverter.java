@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public class IssueConverter extends AbstractConverter<Issue, IssueTo1> {
@@ -43,6 +44,11 @@ public class IssueConverter extends AbstractConverter<Issue, IssueTo1> {
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public IssueTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Issue d) throws ConversionException {
         IssueTo1 t = new IssueTo1();
         BeanUtils.copyProperties(d, t);
