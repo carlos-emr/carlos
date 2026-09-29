@@ -44,8 +44,10 @@ class RxAllergyCsrfJspRegressionTest {
             .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "rx", "AddReaction2.jsp"));
     private static final Path SHOW_ALLERGIES_JSP = projectRoot()
             .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "rx", "ShowAllergies2.jsp"));
+    // Per-patient Rx state (#3875): the patient comes from the request's Rx bean, not a shared
+    // session attribute.
     private static final String PATIENT_LOOKUP = "RxPatientData.Patient patient = "
-            + "(RxPatientData.Patient) request.getSession().getAttribute(\"Patient\");";
+            + "RxSessionBeanResolver.resolvePatient(request);";
     private static final String MISSING_PATIENT_GUARD = "if (patient == null) { "
             + "response.sendError(HttpServletResponse.SC_FORBIDDEN); return; }";
 
