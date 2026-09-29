@@ -136,12 +136,14 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
     void shouldPreserveRepeatCount_whenAddingLegacyDrugToFavorites(Integer repeats, int expected) {
         Drug drug = new Drug();
         drug.setRepeat(repeats);
+        drug.setDispenseInternal(true);
         drug.setSpecial("Synthetic drug: one tablet daily");
         FavoriteDao dao = mock(FavoriteDao.class);
         registerMock(FavoriteDao.class, dao);
         doAnswer(invocation -> {
             Favorite saved = invocation.getArgument(0);
             assertThat(saved.getRepeat()).isEqualTo(expected);
+            assertThat(saved.isDispenseInternal()).isTrue();
             assertThat(saved.getSpecial()).isEqualTo(drug.getSpecial());
             saved.setId(42);
             return null;

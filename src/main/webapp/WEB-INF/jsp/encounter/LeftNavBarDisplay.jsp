@@ -180,10 +180,10 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
     <div class="nav-menu-title">
 <%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
         if (leftCfg != null) { %>
-        <h3 onclick="<%=trackHeadingPopup(dao, leftCfg)%>popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
+        <h3><a href="javascript:void(0)" onclick="<%=trackHeadingPopup(dao, leftCfg)%>popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%      } else { %>
-        <h3 onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
+        <h3><a href="javascript:void(0)" onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%      } %>
     </div>

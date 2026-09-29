@@ -649,6 +649,84 @@
             });
     }
 
+    // Track the actual module requests, independently of chart-note polling.
+    // Empty successful fragments are legitimate (provider preferences/permissions).
+    function updateNavbarLoadState(state) {
+        if (window.carlosNavbarLoadState !== state) return;
+        var pending = {leftNavBar: 0, rightNavBar: 0};
+        state.failed = [];
+        Object.keys(state.modules).forEach(function (name) {
+            var module = state.modules[name];
+            if (module.status === "loading") pending[module.column]++;
+            if (module.status === "error") state.failed.push(name);
+        });
+        state.pending = pending.leftNavBar + pending.rightNavBar;
+        ["leftNavBar", "rightNavBar"].forEach(function (column) {
+            var busy = !state.scheduled || pending[column] > 0;
+            var element = document.getElementById(column);
+            if (element) element.setAttribute("aria-busy", String(busy));
+            if (!busy) {
+                var loader = document.getElementById(column === "leftNavBar" ? "leftColLoader" : "rightColLoader");
+                if (loader) Element.remove(loader);
+            }
+        });
+    }
+
+    function requestNavbarColumn(url, div, params, column) {
+        var state = window.carlosNavbarLoadState;
+        if (!state) return;
+        var previous = state.modules[div];
+        var module = {column: column || (previous && previous.column), status: "loading"};
+        if (module.column !== "leftNavBar" && module.column !== "rightNavBar") {
+            var element = document.getElementById(div);
+            module.column = element && element.closest("#rightNavBar") ? "rightNavBar" : "leftNavBar";
+        }
+        state.modules[div] = module;
+        updateNavbarLoadState(state);
+        function current() {
+            return window.carlosNavbarLoadState === state && state.modules[div] === module;
+        }
+        function failed(request) {
+            if (!current()) return;
+            module.status = "error";
+            var element = document.getElementById(div);
+            if (element) element.textContent = div + " Error: " + request.status;
+            updateNavbarLoadState(state);
+        }
+        try {
+            var xhr = CarlosAjax.request(url, {
+                method: 'post', postBody: params, evalScripts: true,
+                onSuccess: function (request) {
+                    if (!current()) return;
+                    try {
+                        // Preferences may have intentionally removed the module.
+                        var element = $(div);
+                        if (element) element.update(request.responseText);
+                        module.status = "loaded";
+                        updateNavbarLoadState(state);
+                    } catch (error) {
+                        failed(request);
+                        throw error;
+                    }
+                },
+                onFailure: failed,
+                onComplete: function (request) {
+                    // Keep failures/aborted callback paths from leaving a busy column.
+                    if (current() && module.status === "loading") failed(request);
+                }
+            });
+            if (xhr && typeof xhr.addEventListener === "function") {
+                xhr.addEventListener("abort", function () { failed({status: 0}); });
+                xhr.addEventListener("timeout", function () { failed({status: 0}); });
+            }
+            return xhr;
+        } catch (error) {
+            failed({status: 0});
+            // Continue scheduling the remaining modules after a synchronous send failure.
+            console.error("Navbar request failed:", error);
+        }
+    }
+
     function navBarLoader() {
 
         this.maxRightNumLines = Math.floor($("rightNavBar").getHeight() / 14);
@@ -664,6 +742,14 @@
 
         //init ajax calls for all sections of the navbars and create a div for each ajax request
         this.load = function () {
+
+            var previous = window.carlosNavbarLoadState;
+            var state = {generation: previous ? previous.generation + 1 : 1,
+                scheduled: false, modules: {}, pending: 0, failed: []};
+            window.carlosNavbarLoadState = state;
+            this.arrLeftDivs = [];
+            this.arrRightDivs = [];
+            updateNavbarLoadState(state);
 
             var leftNavBar = [
                 ctx + "/encounter/displayPrevention?hC=" + Colour.prevention,
@@ -698,7 +784,7 @@
 
             var navbar = "leftNavBar";
             for (var idx = 0; idx < leftNavBar.length; ++idx) {
-                var div = document.createElement("div");
+                var div = document.getElementById(leftNavBarTitles[idx]) || document.createElement("div");
                 div.className = "leftBox";
                 // Note: develop had div.style.visiblity (typo) which never took effect.
                 // The display() function that sets visibility:visible is commented out,
@@ -713,7 +799,7 @@
 
             navbar = "rightNavBar";
             for (var idx = 0; idx < rightNavBar.length; ++idx) {
-                var div = document.createElement("div");
+                var div = document.getElementById(rightNavBarTitles[idx]) || document.createElement("div");
                 div.className = "leftBox";
                 <%--div.style.display = "block";--%>
                 div.id = rightNavBarTitles[idx];
@@ -721,6 +807,9 @@
                 this.arrRightDivs.push(div);
                 this.popColumn(rightNavBar[idx], rightNavBarTitles[idx], rightNavBarTitles[idx], navbar, this);
             }
+
+            state.scheduled = true;
+            updateNavbarLoadState(state);
 
         };
 
@@ -732,28 +821,7 @@
             if (match) displayCount = match[1];
             params = "reloadURL=" + url + "&numToDisplay=" + displayCount + "&cmd=" + params;
 
-            CarlosAjax.request(
-                url,
-                {
-                    method: 'post',
-                    postBody: params,
-                    evalScripts: true,
-                    onSuccess: function (request) {
-                        $(div).update(request.responseText);
-
-                        if ($("leftColLoader") != null)
-                            Element.remove("leftColLoader");
-
-                        if ($("rightColLoader") != null)
-                            Element.remove("rightColLoader");
-
-                        // notifyDivLoaded removed — was always a no-op (empty function in renal/westernu cme.js, undefined elsewhere)
-                    },
-                    onFailure: function (request) {
-                        $(div).update("<h3>" + div + "</h3>Error: " + request.status);
-                    }
-                }
-            );
+            return requestNavbarColumn(url, div, params, navBar);
         };
 
         //format display and show divs in navbars

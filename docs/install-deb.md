@@ -76,8 +76,10 @@ Each of these is much easier to fix now than mid-install:
 
 Every CARLOS [GitHub release](https://github.com/carlos-emr/carlos/releases)
 carries the `.deb` files, their `.sha256` checksums, and build-provenance
-attestations (the `carlos-emr` package ships that release's published WAR,
-byte for byte; the `carlos-ctl` package is the release of
+attestations (the `carlos-emr` package deploys the published WAR's application
+payload, with its Debian build identity stamped in `carlos-build.properties`
+and the explicit MariaDB metadata default in `jdbc-defaults.properties`;
+the `carlos-ctl` package is the release of
 [carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl) the CARLOS
 release pins, re-attached as is). Download all four, verify, install:
 
@@ -352,6 +354,52 @@ tool shares its name, language, and overlapping verb set (`check`, `db`,
 `rotate`) with the carlos-podman deployment's `carlos-ctl`, so operators can
 move between the two without relearning.
 
+### Incoming document storage
+
+The filesystems containing `DOCUMENT_DIR`, the incoming queues under
+`INCOMINGDOCUMENT_DIR`, and their `*_deleted` recycle directories must support
+hard links. The CARLOS service account needs permission to create private staging
+directories, publish files and remove the source. Incoming files and the document
+store can be on different filesystems: filing prepares a complete copy on the
+destination filesystem before publishing it. Reserve space for one full copy per
+concurrent filing or recycle operation, in addition to PDF-edit scratch space.
+
+Publication never replaces an existing destination. Filing and recycling choose
+an unused filename; extraction reports an existing output name for the operator
+to resolve. Copy, storage-capacity or unsupported-hard-link failures preserve the
+queued source. If source removal fails after publication, CARLOS attempts to remove
+only its own published copy. Cleanup failures are logged and require inspection;
+they do not justify deleting another document or resubmitting an uncertain filing.
+
+Sessions in one CARLOS JVM wait fairly when editing or filing the same incoming
+file. The server bounds waiting requests so a busy document cannot occupy every
+request thread; additional callers receive an explicitly unaccepted capacity
+response and wait in the browser before retrying the same request. Uncontended
+files remain available even when the waiting queue is full. This source coordination does not span
+multiple application JVMs sharing one incoming queue. Capacity refusals explicitly
+confirmed as unaccepted can retry automatically; an uncertain or partial filing
+requires checking the patient's documents before another submission.
+
+Normal completion removes private `.carlos-publication-*` staging directories.
+An abrupt shutdown can leave staging or a published copy requiring reconciliation.
+Stop incoming work and compare the source, destination and document record before
+removing an artifact or retrying; these directories are not automatically reaped.
+
+### eForm rendering waits
+
+Each application JVM permits two active browser renders and four waiting render
+requests. Additional sessions receive an unaccepted capacity response and wait in
+the browser before retrying. Keeping the server queue small leaves request threads
+available for active renderers to load the form and its resources.
+
+Download and archive continuations retry the already-saved eForm; they do not
+repeat its clinical save. An omission approval keeps its original two-minute
+lifetime while capacity is unavailable. A one-use capacity receipt remains valid
+for two minutes from its own issuance, bound to the same session, provider,
+patient, form and operation. If omission consent expires during the waiting
+page's delay, the continuation renders without that consent and prompts again for
+any missing content. Expired, missing or spent receipts do not restart an archive.
+
 ### Upgrades
 
 An upgrade is `apt install` of the newer packages — same command as the
@@ -504,6 +552,43 @@ compliance decision, and the decisions marked **DECIDE THIS**:
 /usr/share/doc/carlos-emr-drugref/README.Debian
 man carlos-ctl
 ```
+
+## Stored-document page operation recovery
+
+Splitting, rotating, and removing a first page prepare a closed PDF in an
+owner-only `.document-pages-*` directory inside `DOCUMENT_DIR`. This requires
+the document filesystem to support POSIX permissions, hard links, and atomic
+replacement. A split is published as `split-<random UUID>.pdf`; its database
+document number remains the identifier used by the application. Do not infer
+document counts or database identities from filenames.
+
+The application deletes its private staging after a confirmed success or a
+confirmed rollback. Database and filesystem publication are separate commits.
+An uncertain commit or failed rollback retains the private directory and logs
+its location. A `recovery.txt` file, when writable, identifies the destination;
+`original.pdf` preserves pre-edit bytes for replacements and `published.pdf`
+preserves the edited bytes. A split keeps its completed `prepared.pdf`.
+
+**Exclude `.document-pages-*` from generic scratch/age-based cleanup.** A
+retained directory can contain clinical recovery evidence, including after a
+process crash before `recovery.txt` was written. Do not delete it, restore its
+original automatically, or repeat the submission. An operator must preserve
+the directory, confirm the current destination inode/content and corresponding
+document, patient, queue, and provider-routing rows, then reconcile the outcome
+before removing the recovery copy. Perform recovery with affected document
+work paused; never overwrite a file that now belongs to another operation.
+
+Only an explicit pre-acceptance capacity response permits automatic retry.
+All uncertain responses keep the browser's page selection visible and prevent
+duplicate submission. Cache-invalidation failures refuse quick page edits
+before replacing the source; render workers cannot republish old pages while
+the edit owns its source lease.
+
+Page edits carry the SHA-256 revision observed by the viewer. If another user
+changes that document first, the application refuses the old selection before
+changing the file or database. Reload and review the current pages before
+submitting a new selection. Retrying an old selection against a newly fetched
+revision can target different clinical content and must not be automated.
 
 ## Other installation methods
 

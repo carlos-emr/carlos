@@ -40,9 +40,10 @@ measurement type from Yes/No/NA to a Provided/Revised/Reviewed validation (Ontar
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.39`.
-`V1.0.37` and `V1.0.38` are allocated to PR #3996, so the next unallocated version for ANY location is
-`V1.0.40` (see `../README.md`).
+next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.41`.
+The next unallocated version for ANY location is `V1.0.42` (see `../README.md`).
+PR #3996's proposed `V1.0.37` and `V1.0.38` are absent from alpha16 and must be renumbered
+above the then-current high-water mark before that feature merges after this promotion.
 
 Messenger membership coordination (#3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations
@@ -57,5 +58,27 @@ PR #4000 adds nullable `mrpDemographicNo` to `HRMDocumentToProvider` and
 `providerLabRouting`. Existing rows remain independent (`NULL`); new automatic MRP and
 forwarded access can then be revoked safely when a patient match is corrected or removed.
 The two `ADD COLUMN IF NOT EXISTS` statements can be retried after interrupted DDL.
-For the #3985–4000 batch, deploy #3986 (V1.0.36) and #3996 (V1.0.37/V1.0.38) first,
-then V1.0.39, to keep Flyway versions in order across Ontario and British Columbia.
+Deploy the migrations present in the release in version order, ending with V1.0.36,
+V1.0.39 and V1.0.40 on both provinces. V1.0.39 has no dependency on the unmerged attachment migrations
+V1.0.37/V1.0.38 from PR #3996. Its original SQL header describes the planned merge order;
+that comment is retained to preserve the migration checksum. The release ordering here supersedes it.
+
+## V1.0.40 — Complete lab labels
+
+Widen `hl7TextInfo.label` from `VARCHAR(255)` to nullable `TEXT`. PATHL7 panels and
+labels merged from earlier report versions can exceed 255 characters, rejecting the entire
+import under strict SQL mode. Existing labels (including empty and NULL values) are retained.
+The widening can be rerun safely. Apply before deploying the application; shared Ontario/BC
+schema paths both require it. Verify in a disposable database with
+`scripts/lab-label-migration-check.sql` from the repository root.
+
+## V1.0.41 — Rich Text Letter signature-stamp inputs on upgraded installs
+
+Adds the hidden `user_id`, `user_ohip_no` and `doctor_provider_no` inputs to the canonical Rich Text
+Letter's `form_html`, which `editControl2.js` reads to stamp a letter with the signer's
+`consult_sig_<provider_no>.png`. The same edit ships as
+`updates/update-2026-09-20-rtl-provider-stamp-fields.sql`, but that script is only replayed by the
+demo-data load and the OSCAR 19 importer; a package upgrade runs Flyway alone, so a letter seeded by
+an earlier package never received the inputs. The `UPDATE` is identical to the script's (pinned by
+`scripts/rtl-signature-stamp.test.js`), matches nothing on a fresh schema, skips customized or
+already-patched rows, and can be rerun safely.

@@ -246,7 +246,8 @@ jobs:
             printf 'carlos-emr (%s) resolute; urgency=medium\n\n' "$deb_version"
             printf '  * Automated package build of the %s release.\n' "$RELEASE_TAG"
             printf '    The carlos-emr package ships the WAR published (and attested) by\n'
-            printf '    that release, byte for byte; DrugRef is built from the revision\n'
+            printf '    that release, with its Debian build identity stamped; DrugRef\n'
+            printf '    is built from the revision\n'
             printf '    pinned in debian/drugref.pin.\n\n'
             printf ' -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n' "$(date -R)"
           } > debian/changelog.new

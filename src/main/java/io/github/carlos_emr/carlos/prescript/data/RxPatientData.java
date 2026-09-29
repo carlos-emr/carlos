@@ -51,7 +51,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class RxPatientData {
     private static Logger logger = MiscUtils.getLogger();
-    private static final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    // Resolve against the active Spring context for each operation. A cached static bean
+    // can outlive its context and send later requests/tests to a stale manager instance.
+    private static DemographicManager demographicManager() {
+        return SpringUtils.getBean(DemographicManager.class);
+    }
 
     private RxPatientData() {
         // prevent instantiation
@@ -63,7 +67,7 @@ public class RxPatientData {
 
         Patient[] arr = {};
         List<Patient> patients = new ArrayList<Patient>();
-        List<Demographic> demographics = demographicManager.searchDemographic(loggedInInfo, surname + "," + firstName);
+        List<Demographic> demographics = demographicManager().searchDemographic(loggedInInfo, surname + "," + firstName);
         for (Demographic demographic : demographics) {
             Patient p = new Patient(demographic);
             patients.add(p);
@@ -74,12 +78,12 @@ public class RxPatientData {
     /* Patient Information */
 
     public static Patient getPatient(LoggedInInfo loggedInInfo, int demographicNo) {
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicNo);
         return new Patient(demographic);
     }
 
     public static Patient getPatient(LoggedInInfo loggedInInfo, String demographicNo) {
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicNo);
         return new Patient(demographic);
     }
 

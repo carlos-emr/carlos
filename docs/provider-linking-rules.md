@@ -23,6 +23,11 @@ open-osp/Open-O pull request #196 by Deval Italiya.
 | **HRM assign patient** (`hospitalReportManager/Modify`, `method=assignDemographic`) | Patient link and removal of obsolete automatic access | Also routed to the MRP, the MRP's HRM forwarding rules are applied, and the unclaimed (`-1`) rows are removed. The viewer updates its provider list in place |
 | **eDocuments** (scanned or uploaded documents) | Not affected | Not affected |
 
+Upload matching uses each source's provider identifier: MEDITECH and ExcellerisON match
+the college number (`provider.practitionerNo`), IHAPOI matches `provider.hso_no`, and ordinary
+HL7 sources match `provider.ohip_no`. These identifiers are separate; a matching OHIP number
+must not substitute for a source's college or HSO identifier.
+
 Rules shared by every path:
 
 - **The MRP is skipped when it cannot receive results.** That covers a blank MRP, `0` (none),
@@ -31,7 +36,10 @@ Rules shared by every path:
 - **Routing is idempotent.** An MRP who already has the report, including one who ordered the
   test, gets no second row. A result the MRP has already acknowledged or filed is not reopened.
 - **The MRP's forwarding rules apply** as they do for any other delivery. For labs these are
-  `IncomingLabRules` through `ProviderLabRouting`. For HRM, forwarding is one hop only, as the
+  `IncomingLabRules` through `ProviderLabRouting`. The `HL7` forwarding category covers HL7 and
+  legacy MDS/CML/BCP labs; `DOC` and `HRM` remain separate. An HRM-only rule cannot forward or
+  automatically file an HL7 lab. Legacy rules without type metadata continue to cover all categories.
+  For HRM, forwarding is one hop only, as the
   manual assign-provider action does.
 - **Correcting or unlinking a patient revokes obsolete automatic access.** New automatic MRP and
   forwarded rows record their source patient in `mrpDemographicNo`. A correction removes those
@@ -57,9 +65,11 @@ Rules shared by every path:
   `true` or `false`. A missing row, a provider-scoped row, or any value other than `true` means
   off. If duplicate global rows disagree, routing is off regardless of row order. No setting seed
   is needed. Migration `V1.0.39__track_automatic_mrp_routing.sql` adds the nullable provenance
-  columns in both routing tables and is required before this application version starts. In the
-  PR #3985–4000 rollout, deploy #3986's migration 36 and #3996's migrations 37/38 before 39;
-  applying 39 first would put those lower versions out of order for Flyway.
+  columns in both routing tables and is required before this application version starts.
+  Alpha 16 includes migrations 36, 39 and 40; the reserved versions 37/38 belong to the unmerged
+  tickler/consultation attachment feature in PR #3996 and are not prerequisites for 39.
+  That feature must renumber its unpublished migrations above the release high-water mark before
+  a later merge; do not enable Flyway out-of-order execution to install the reserved versions.
   A row inserted by SQL with the column's default
   `provider_no = ''` counts as global, the same as one saved from the page (`NULL`).
 - **Page:** `admin/providerLinkingRules` (`ProviderLinkingRules2Action`) accepts GET and HEAD

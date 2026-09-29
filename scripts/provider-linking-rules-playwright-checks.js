@@ -315,6 +315,7 @@ async function main({ throwIfCancelled } = {}) {
     FROM property WHERE name=${sqlString(PROPERTY)} ORDER BY id`);
   let hrmSnapshot = null;
   let correctionFixture = null;
+  let forwardingFixture = null;
   let browser;
 
   const cleanup = () => {
@@ -341,6 +342,15 @@ async function main({ throwIfCancelled } = {}) {
     run(deleteLabStatements(labUploads));
     if (hrmSnapshot) {
       run(restoreHrmStatements(hrmSnapshot.hrmId, hrmSnapshot.demographics, hrmSnapshot.providers));
+    }
+    if (forwardingFixture) {
+      run([
+        `DELETE t FROM incomingLabRulesType t JOIN incomingLabRules r ON r.id=t.forward_rule_id
+          WHERE r.frwdProvider_no=${sqlString(forwardingFixture.providerNo)}`,
+        `DELETE FROM incomingLabRules WHERE frwdProvider_no=${sqlString(forwardingFixture.providerNo)}`,
+        `DELETE FROM provider WHERE provider_no=${sqlString(forwardingFixture.providerNo)}
+          AND last_name=${sqlString(forwardingFixture.marker)} AND first_name='PLRForward'`,
+      ]);
     }
     run(restorePropertyStatements(propertySnapshot));
     if (correctionFixture) {
@@ -434,6 +444,38 @@ async function main({ throwIfCancelled } = {}) {
     await waitFor('the matched lab to reach the MRP', () => routedProviders(sql, unmatchedLab).includes(patient.mrp));
     assert(!routedProviders(sql, unmatchedLab).includes('0'), 'the unassigned routing row survived the MRP routing');
 
+    // A later forwarding rule must be applied even when the direct MRP row already exists.
+    // Use an owned provider without a login so no existing recipient's preferences are changed.
+    const forwardingProviderNo = String(crypto.randomInt(800000, 999999));
+    assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${sqlString(forwardingProviderNo)}`) === '0',
+      'the synthetic forwarding provider number is already in use');
+    assert(sql.value(`SELECT COUNT(*) FROM incomingLabRules WHERE provider_no=${sqlString(forwardingProviderNo)}
+      OR frwdProvider_no=${sqlString(forwardingProviderNo)}`) === '0',
+      'the synthetic forwarding provider number has existing rules');
+    forwardingFixture = { providerNo: forwardingProviderNo, marker: `PLR${uniqueToken()}` };
+    sql.execute(`INSERT INTO provider (provider_no, last_name, first_name, status, lastUpdateDate)
+      VALUES (${sqlString(forwardingProviderNo)}, ${sqlString(forwardingFixture.marker)}, 'PLRForward', '1', NOW())`);
+    sql.execute(`INSERT INTO incomingLabRules (provider_no, frwdProvider_no, status, archive)
+      VALUES (${sqlString(patient.mrp)}, ${sqlString(forwardingProviderNo)}, 'N', '0')`);
+    sql.execute(`INSERT INTO incomingLabRulesType (forward_rule_id, type)
+      SELECT id, 'HRM' FROM incomingLabRules WHERE frwdProvider_no=${sqlString(forwardingProviderNo)}`);
+    await matchLabToPatient(context, config, sql, recorder, onLab, patient);
+    assert(!routedProviders(sql, onLab).includes(forwardingProviderNo),
+      'an HRM-only forwarding rule exposed an HL7 report to its recipient');
+    sql.execute(`UPDATE incomingLabRulesType t JOIN incomingLabRules r ON r.id=t.forward_rule_id
+      SET t.type='HL7' WHERE r.frwdProvider_no=${sqlString(forwardingProviderNo)}`);
+    sql.execute(`UPDATE providerLabRouting SET status='A' WHERE lab_type='HL7'
+      AND lab_no=${Number(onLab)} AND provider_no=${sqlString(patient.mrp)}`);
+    await matchLabToPatient(context, config, sql, recorder, onLab, patient);
+    assert(routedProviders(sql, onLab).includes(forwardingProviderNo),
+      'an existing MRP assignment prevented delivery to a newly configured forwarding recipient');
+    assert(sql.value(`SELECT status FROM providerLabRouting WHERE lab_type='HL7'
+      AND lab_no=${Number(onLab)} AND provider_no=${sqlString(patient.mrp)}`) === 'A',
+      'reconciling new forwarding reopened the acknowledged MRP assignment');
+    assert(sql.value(`SELECT mrpDemographicNo FROM providerLabRouting WHERE lab_type='HL7'
+      AND lab_no=${Number(onLab)} AND provider_no=${sqlString(forwardingProviderNo)}`) === patient.demographicNo,
+      'new forwarding access lacks the automatic patient provenance');
+
     // Correct a matched report to another patient. The former automatic MRP must lose access;
     // the independent ordering provider (also the corrected patient's MRP) must remain.
     const measurementCount = sql.value(`SELECT COUNT(*) FROM measurements m JOIN measurementsExt e
@@ -441,6 +483,8 @@ async function main({ throwIfCancelled } = {}) {
     assert(Number(measurementCount) > 0, 'the synthetic lab did not import any measurements');
     await matchLabToPatient(context, config, sql, recorder, onLab, correctionFixture);
     assert(!routedProviders(sql, onLab).includes(patient.mrp), 'patient correction retained the former automatic MRP');
+    assert(!routedProviders(sql, onLab).includes(forwardingProviderNo),
+      'patient correction retained the former automatic forwarding recipient');
     assert(routedProviders(sql, onLab).includes(orderer.providerNo), 'patient correction revoked the independent orderer');
     assert(sql.value(`SELECT COUNT(*) FROM measurements m JOIN measurementsExt e ON e.measurement_id=m.id
       WHERE e.keyval='lab_no' AND e.val=${sqlString(onLab)} AND m.demographicNo=${Number(correctionFixture.demographicNo)}`)
@@ -528,7 +572,8 @@ async function main({ throwIfCancelled } = {}) {
       AND (provider_no IS NULL OR provider_no='') LIMIT 1`) === 'true', 'a token-less POST changed the switch');
 
     assertStrictPage(recorder);
-    return { hl7: 3, patientMatch: 3, hrm: 1, hrmUnlink: 1, patientCorrection: 1 };
+    return { hl7: 3, patientMatch: 5, forwardingReconciliation: 1, forwardingTypeBoundary: 1,
+      hrm: 1, hrmUnlink: 1, patientCorrection: 1 };
   } finally {
     try {
       if (browser) {

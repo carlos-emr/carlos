@@ -12911,7 +12911,8 @@
    "signedOff",
    "signedOffTimestamp",
    "viewed",
-   "filed"
+   "filed",
+   "mrpDemographicNo"
   ],
   "HRMProviderConfidentialityStatement": [
    "providerNo",
@@ -22317,7 +22318,8 @@
    "comment",
    "timestamp",
    "lab_type",
-   "id"
+   "id",
+   "mrpDemographicNo"
   ],
   "providerLabRoutingFavorites": [
    "id",
@@ -42922,7 +42924,8 @@
      "signedOff",
      "signedOffTimestamp",
      "viewed",
-     "filed"
+     "filed",
+     "mrpDemographicNo"
     ],
     "HRMProviderConfidentialityStatement": [
      "providerNo",
@@ -56430,7 +56433,8 @@
      "comment",
      "timestamp",
      "lab_type",
-     "id"
+     "id",
+     "mrpDemographicNo"
     ],
     "providerLabRoutingFavorites": [
      "id",
