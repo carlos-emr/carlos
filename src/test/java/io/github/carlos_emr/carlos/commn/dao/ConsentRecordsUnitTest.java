@@ -117,6 +117,18 @@ class ConsentRecordsUnitTest {
     }
 
     @Test
+    @DisplayName("should rank explicit before the edit date among opt-outs too, and an undated explicit record before a dated implied one")
+    void shouldRankExplicitBeforeDate_forOptOutsAndUndatedRecords() {
+        Consent olderExplicitOptOut = explicit(consent(1, true, 1_000L));
+        Consent newerImpliedOptOut = consent(2, true, 2_000L);
+        assertDeciding(olderExplicitOptOut, newerImpliedOptOut, olderExplicitOptOut);
+
+        Consent undatedExplicit = explicit(consent(3, false, null));
+        Consent datedImplied = consent(4, false, 2_000L);
+        assertDeciding(undatedExplicit, datedImplied, undatedExplicit);
+    }
+
+    @Test
     @DisplayName("should choose the most recent explicit record when several are explicit")
     void shouldChooseTheNewestExplicit_whenSeveralAreExplicit() {
         Consent older = explicit(consent(1, false, 1_000L));

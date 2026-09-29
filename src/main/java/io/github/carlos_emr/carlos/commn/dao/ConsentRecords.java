@@ -40,8 +40,9 @@ import java.util.Map;
  * displace consent the patient gave in person. Among records equal on both, the most recently
  * edited wins; undated records count as the oldest, and equal dates fall back to the higher id.
  *
- * <p>The migration that adds the unique key over live records keeps the same record, by the same
- * order: {@code optout DESC, explicit DESC, (edit_date IS NULL), edit_date DESC, id DESC}.
+ * <p>In SQL the order is {@code optout DESC, explicit DESC, (edit_date IS NULL), edit_date DESC,
+ * id DESC}. Anything that repairs stored duplicates, such as a migration or an import, must keep
+ * the record this rule chooses.
  *
  * @since 2026-09-24
  */

@@ -212,6 +212,30 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should keep the older explicit opt-in and retire a newer implied duplicate on a routine save")
+        void shouldKeepExplicitRecord_whenNewerDuplicateIsImplied() {
+            ConsentType ct = createActiveConsentType(1, "email");
+            Consent olderExplicit = consent(11, false, new Date(1_000L));
+            olderExplicit.setExplicit(true);
+            Consent newerImplied = consent(12, false, new Date(2_000L));
+            newerImplied.setExplicit(false);
+            when(mockConsentTypeDao.find(1)).thenReturn(ct);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1))
+                    .thenReturn(List.of(newerImplied, olderExplicit));
+
+            // The chart showed the explicit opt-in, and an unrelated save re-posts it.
+            manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
+
+            assertThat(olderExplicit.isDeleted()).isFalse();
+            assertThat(olderExplicit.isExplicit()).isTrue();
+            assertThat(olderExplicit.getEditDate()).isEqualTo(new Date(1_000L));
+            assertThat(newerImplied.isDeleted()).isTrue();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.retireDuplicateConsent"), eq("consent"), eq("12"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 12 KeptConsentId: 11")));
+        }
+
+        @Test
         @DisplayName("should retire a duplicate without rewriting its author or dates, and audit-log it")
         void shouldKeepAuthorAndDates_whenRetiringDuplicate() {
             ConsentType ct = createActiveConsentType(1, "email");

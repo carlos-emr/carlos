@@ -121,7 +121,9 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
 
     private static List<Consent> mostRecentFirst(TypedQuery<Consent> query) {
         List<Consent> consents = new ArrayList<>(query.getResultList());
-        // The comparator ConsentRecords.effective uses, so this order and its choice cannot drift apart.
+        // Newest first, for display and for callers that walk the list. The deciding record is
+        // chosen by ConsentRecords.effective, which also weighs opt-out and explicit: it is not
+        // necessarily the first element here.
         consents.sort(ConsentRecords.MOST_RECENT_FIRST);
         return consents;
     }
