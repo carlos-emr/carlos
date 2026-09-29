@@ -41,10 +41,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -94,7 +97,7 @@ public class PortalInviteDeliveryService {
     /** How long an attempt must be idle before staff may resolve it, matching stuck-email resolution. */
     public static final Duration RECOVERY_MIN_AGE = Duration.ofMinutes(15);
 
-    /** How many recent attempts the panel shows per patient. */
+    /** How many recent attempts the panel shows per patient, beside every unfinished one. */
     public static final int RECENT_LIMIT = 10;
 
     static final String OPERATION_PREFIX = "inv-";
@@ -292,10 +295,25 @@ public class PortalInviteDeliveryService {
         };
     }
 
-    /** @return the patient's recent attempts, newest first; read from CARLOS, so available offline */
+    /**
+     * The attempts the panel shows: the patient's {@link #RECENT_LIMIT} most recent, and every unfinished
+     * one however old. An unfinished attempt is resolved only from the panel, so one that later attempts
+     * pushed off a recent-only list would keep its code, and its email row, unresolvable.
+     *
+     * @return those attempts, newest first; read from CARLOS, so available offline
+     */
     public List<PatientPortalInviteDelivery> recentFor(int demographicNo) {
-        List<PatientPortalInviteDelivery> rows = deliveries.findRecentByDemographic(demographicNo, RECENT_LIMIT);
-        return rows == null ? Collections.emptyList() : rows;
+        Map<Long, PatientPortalInviteDelivery> rows = new LinkedHashMap<>();
+        List<PatientPortalInviteDelivery> recent = deliveries.findRecentByDemographic(demographicNo, RECENT_LIMIT);
+        if (recent != null) {
+            recent.forEach(row -> rows.put(row.getId(), row));
+        }
+        unfinishedFor(demographicNo).forEach(row -> rows.putIfAbsent(row.getId(), row));
+        List<PatientPortalInviteDelivery> shown = new ArrayList<>(rows.values());
+        shown.sort(Comparator
+                .comparing(PatientPortalInviteDelivery::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(PatientPortalInviteDelivery::getId, Comparator.reverseOrder()));
+        return shown;
     }
 
     /** @return whether staff may resolve the attempt now: unfinished and idle for {@link #RECOVERY_MIN_AGE} */

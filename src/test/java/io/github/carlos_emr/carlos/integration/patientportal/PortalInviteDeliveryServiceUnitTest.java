@@ -1208,6 +1208,43 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @DisplayName("the attempts the panel shows")
+    class ShownAttempts {
+
+        @Test
+        @DisplayName("should keep an old unfinished attempt on the panel behind ten later ones")
+        void shouldShowAnUnfinishedAttempt_howeverOld() {
+            PatientPortalInviteDelivery stuck = storedAt(State.SEND_UNCERTAIN, Duration.ofDays(30));
+            PatientPortalInviteDelivery oldAndDone = storedAt(State.SENT, Duration.ofDays(29));
+            List<PatientPortalInviteDelivery> recent = new ArrayList<>();
+            for (int day = PortalInviteDeliveryService.RECENT_LIMIT; day >= 1; day--) {
+                recent.add(0, storedAt(State.SENT, Duration.ofDays(day)));
+            }
+            PatientPortalInviteDelivery newestUnfinished = storedAt(State.COMMITTED, Duration.ofHours(1));
+            recent.add(0, newestUnfinished);
+            recent.remove(recent.size() - 1);
+            when(deliveries.findRecentByDemographic(PATIENT, PortalInviteDeliveryService.RECENT_LIMIT))
+                    .thenReturn(recent);
+
+            List<PatientPortalInviteDelivery> shown = service.recentFor(PATIENT);
+
+            // The ten most recent, the newer unfinished one among them only once, then the old stuck one.
+            assertThat(shown).hasSize(PortalInviteDeliveryService.RECENT_LIMIT + 1).doesNotHaveDuplicates();
+            assertThat(shown.get(0)).isSameAs(newestUnfinished);
+            assertThat(shown.get(shown.size() - 1)).isSameAs(stuck);
+            assertThat(shown).doesNotContain(oldAndDone);
+            assertThat(shown).extracting(PatientPortalInviteDelivery::getCreatedAt)
+                    .isSortedAccordingTo(java.util.Comparator.reverseOrder());
+        }
+
+        private PatientPortalInviteDelivery storedAt(State state, Duration age) {
+            PatientPortalInviteDelivery row = storedRow(state, age);
+            injectDependency(row, "createdAt", Date.from(NOW.minus(age)));
+            return row;
+        }
+    }
+
+    @Nested
     @DisplayName("a prepare that fails without a portal answer")
     class PrepareFaults {
 
