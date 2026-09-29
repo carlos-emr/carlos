@@ -185,15 +185,9 @@ public class SubmitLabByForm2Action extends ActionSupport {
 
         //generate the HL7 from the Lab object.
         String hl7 = generateHL7(lab);
-        // Log HL7 metadata at INFO (MSH segment contains system metadata, not PHI).
-        // Full HL7 content is NOT logged to avoid PHI exposure from PID/OBX segments.
+        // Request-derived HL7 content, including MSH fields, must not enter logs.
         if (hl7 != null) {
-            int firstSep = hl7.indexOf('\r');
-            if (firstSep <= 0) {
-                firstSep = hl7.indexOf('\n');
-            }
-            String mshSegment = firstSep > 0 ? hl7.substring(0, firstSep) : "[MSH extraction failed]";
-            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSafe.sanitize(mshSegment, 400)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.info("HL7 generated for lab submission");
         } else {
             logger.error("HL7 generation returned null for lab submission");
             addActionError("Failed to generate lab result. Please verify all required fields and try again.");
@@ -214,45 +208,33 @@ public class SubmitLabByForm2Action extends ActionSupport {
         File uploadDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         File file = PathValidationUtils.validateExistingPath(filePath, uploadDir);
 
-        int checkFileUploadedSuccessfully;
-        try (FileInputStream fis = new FileInputStream(file)) {
-            checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
+        MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
+        if (msgHandler == null) {
+            addActionError(getText("oscarMDS.createLab.submitError"));
+            return manage();
         }
-
-        if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            logger.info("Type :{}", LogSafe.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
-            if (msgHandler == null) {
-                logger.warn("outcome=error — no message handler found for lab type {}", LogSafe.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                addActionError(getText("oscarMDS.createLab.submitError"));
-                return manage();
-            }
-            logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
-            String parseResult = msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr);
-            if (parseResult != null) {
-                logger.info("outcome=success");
-                Integer labNo = msgHandler.getLastLabNo();
-                if (labNo == null) {
-                    logger.error("Parsed lab is missing a lab number; skipping provider routing");
-                    addActionError(getText("oscarMDS.createLab.submitError"));
-                    return manage();
-                }
-
-                try {
-                    new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
-                    addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
-                } catch (RuntimeException e) {
-                    logger.error("Provider routing failed for lab {}", labNo, e);
-                    addActionError(getText("oscarMDS.createLab.submitError"));
-                }
+        try {
+            FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeIfNew(file.getName(),
+                    () -> new FileInputStream(file), providerNo, checksumId -> {
+                        String parsed = msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
+                                file.getPath(), checksumId, ipAddr);
+                        Integer labNo = msgHandler.getLastLabNo();
+                        if (parsed == null || labNo == null || labNo <= 0) {
+                            return false;
+                        }
+                        new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
+                        return true;
+                    });
+            if (outcome == FileUploadCheck.StoreOutcome.STORED) {
+                addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
+            } else if (outcome == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
+                addActionError(getText("oscarMDS.createLab.submitDuplicate"));
             } else {
-                logger.warn("outcome=null — lab handler returned null; lab may not have been saved");
                 addActionError(getText("oscarMDS.createLab.submitError"));
             }
-        } else {
-            logger.info("outcome=uploaded previously");
-            addActionError(getText("oscarMDS.createLab.submitDuplicate"));
+        } catch (Exception e) {
+            logger.error("Lab submission failed: {}", LogSafe.exceptionTrace(e));
+            addActionError(getText("oscarMDS.createLab.submitError"));
         }
 
         return manage();

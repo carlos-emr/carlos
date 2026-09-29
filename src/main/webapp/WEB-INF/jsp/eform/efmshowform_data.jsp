@@ -167,6 +167,7 @@
     eForm.addHiddenInputElement("demographicNo", eForm.getDemographicNo());
     eForm.addHiddenInputElement("fdid", fdid);
     eForm.addHiddenInputElement("fid", eForm.getFid());
+    eForm.ensureSubjectInput();
 
     // Add EForm error message
     eForm.addHiddenInputElement("error", request.getParameter("error") != null ? request.getParameter("error") : (String) request.getAttribute("error"));

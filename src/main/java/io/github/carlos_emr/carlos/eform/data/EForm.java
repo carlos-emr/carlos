@@ -1436,7 +1436,7 @@ public class EForm extends EFormBase {
         }
 
         for (String labId : attachedLabIds) {
-            addHiddenInputElement("delegate_labNo" + labId, "labNo", "delegateAttachment", labId, null);
+            addHiddenInputElement("delegate_labNo" + labId.replace(":", ""), "labNo", "delegateAttachment", labId, null);
         }
 
         for (EctFormData.PatientForm form : attachedForms) {
@@ -1445,6 +1445,20 @@ public class EForm extends EFormBase {
             additionalProperties.put("data-formDate", form.getEdited());
             addHiddenInputElement("entry_formNo" + form.getFormId(), null, "delegateOldFormAttachment", null, additionalProperties);
             addHiddenInputElement("delegate_formNo" + form.getFormId(), "formNo", "delegateAttachment", form.getFormId(), null);
+        }
+    }
+
+    /**
+     * Supplies the persisted subject for templates without their own subject control.
+     * The floating toolbar copies this field on load and submits it on save; without it,
+     * reopening a saved template such as Rich Text Letter silently clears the subject.
+     */
+    public void ensureSubjectInput() {
+        Element form = getDocument().selectFirst("form");
+        if (form != null && form.selectFirst("[name=subject]") == null) {
+            // Jsoup escapes attribute values when serializing; keep the original text here.
+            form.appendElement("input").attr("type", "hidden").attr("name", "subject")
+                    .attr("value", getFormSubject());
         }
     }
 

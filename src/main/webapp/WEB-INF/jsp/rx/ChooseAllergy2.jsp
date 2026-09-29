@@ -47,7 +47,9 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <html>
     <head>
@@ -59,12 +61,17 @@
         <title><fmt:message key="ChooseAllergy.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
-        <c:if test="${empty sessionScope.RxSessionBean}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
+        <c:if test="${empty pageScope.RxSessionBean}">
             <c:redirect url="error.html"/>
         </c:if>
 
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
 
             <c:if test="${!bean.valid}">
                 <c:redirect url="error.html"/>
@@ -75,6 +82,8 @@
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
         %>
+        <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"></script>
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
 
@@ -139,6 +148,8 @@
         <input type="hidden" name="ID" value=""/>
         <input type="hidden" name="type" value=""/>
         <input type="hidden" name="name" value=""/>
+        <%-- form.submit() skips the submit listener, so the patient is carried explicitly (#3875). --%>
+        <input type="hidden" name="demographicNo" value="<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"/>
     </form>
 
     <table border="0" cellpadding="0" cellspacing="0"
@@ -154,8 +165,8 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="<%= request.getContextPath() %>/rx/showAllergy"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="ChooseAllergy.title"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
+                                    href="<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<carlos:encode value='<%= String.valueOf(bean.getDemographicNo()) %>' context="uriComponent"/>"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="ChooseAllergy.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -315,7 +326,9 @@
                                         </div>
 
                                         <%
-                                            String sBack = request.getContextPath() + "/rx/showAllergy";
+                                            // The patient is an int, so appending it needs no encoding; showAllergy
+                                            // refuses a request that names no patient (#3908).
+                                            String sBack = request.getContextPath() + "/rx/showAllergy?demographicNo=" + bean.getDemographicNo();
                                         %> <input type=button class="ControlPushButton"
                                                   onclick="javascript:window.location.href='<%=sBack%>';"
                                                   value="Back to View Allergies"/></td>

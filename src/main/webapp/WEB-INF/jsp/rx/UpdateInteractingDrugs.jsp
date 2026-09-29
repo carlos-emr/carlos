@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -53,7 +54,13 @@
 %>
 
 <%
-    RxSessionBean bean2 = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+    RxSessionBean bean2 = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
+    if (bean2 == null) {
+        // No Rx open for the request's patient (or a malformed demographicNo): nothing to render,
+        // and never another patient's (#3908).
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+        return;
+    }
     RxPrescriptionData.Prescription[] allRxInStash = bean2.getStash();
     List allRandomIdInStash = new ArrayList();
     for (RxPrescriptionData.Prescription rx : allRxInStash) {

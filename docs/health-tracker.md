@@ -23,10 +23,17 @@ Both routes are extensionless and both JSPs live under `/WEB-INF`, so the page
 has no public JSP URL.
 
 The entry point is a single item in the encounter **Measurements** left-nav
-module, contributed by `EctDisplayMeasurements2Action`. It appears only when:
+module, contributed by `EctDisplayMeasurements2Action`, and is always the first
+item in that module (above the universal, disease-registry and program
+flowsheets and the individual measurements), matching OSCAR 19. It appears
+only when:
 
-- the `health_tracker` property is on (`false` in the shipped
-  `carlos.properties`, `true` in the devcontainer config), **and**
+- the `health_tracker` property is on (`true` in the shipped
+  `carlos.properties` and the devcontainer config; set it to `false` to hide
+  the entry; packaged installs upgraded from a release that shipped `false`
+  have the old stock line in `/etc/carlos-emr/carlos.properties` flipped to
+  `true` once by the `carlos-emr` postinst, guarded by the
+  `/var/lib/carlos-emr/.health-tracker-default-migrated` sentinel), **and**
 - the provider has read access to the `_flowsheet.tracker` security object.
 
 Query parameters the page honours: `demographic_no` (required), `template`

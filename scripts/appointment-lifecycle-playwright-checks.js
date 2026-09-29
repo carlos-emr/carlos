@@ -290,6 +290,12 @@ async function bookFromSlot(context, daySheet) {
     recorder.dialogs.push({ ...entry, accepted: true });
     await dialog.accept().catch(() => {});
   });
+  // The context's page event can fire while the popup is still about:blank.
+  // Waiting for that document's load state would pass immediately and make a
+  // healthy appointment form look like an empty response.
+  await popup.waitForURL(url => String(url) !== 'about:blank', {
+    timeout: 45000, waitUntil: 'domcontentloaded',
+  });
   await popup.waitForLoadState('domcontentloaded', { timeout: 45000 });
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(popup, 'add-appointment popup');
@@ -372,6 +378,9 @@ async function openEditPopup(context, daySheet, appointmentNo, dialogHandler = n
   await link.click();
   const popup = await popupPromise;
   wirePage(popup, 'edit-appointment', recorder, dialogHandler);
+  await popup.waitForURL(url => String(url) !== 'about:blank', {
+    timeout: 45000, waitUntil: 'domcontentloaded',
+  });
   await popup.waitForLoadState('domcontentloaded', { timeout: 45000 });
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(popup, 'edit-appointment popup');
@@ -396,6 +405,9 @@ async function checkAppointmentLabels(context, daySheet, appointmentNo) {
     edit.locator('a[onclick*="ViewDemographicLabelPrintSetting"]').click(),
   ]);
   wirePage(labels, 'appointment-labels', recorder);
+  await labels.waitForURL(url => String(url) !== 'about:blank', {
+    timeout: 45000, waitUntil: 'domcontentloaded',
+  });
   await labels.waitForLoadState('domcontentloaded');
   await assertNotErrorPage(labels, 'appointment label settings');
   const features = await edit.evaluate(() => window.__labelWindowFeatures);
@@ -587,7 +599,8 @@ async function rotateStatus(daySheet, appointmentNo, statusBefore) {
 async function cancelAppointment(context, daySheet, appointmentNo) {
   const popup = await openEditPopup(context, daySheet, appointmentNo);
   // The status field has two shapes and a deployment property decides which:
-  // editappointment.jsp builds the <select> only when ENABLE_EDIT_APPT_STATUS=yes,
+  // editappointment.jsp builds the <select> unless ENABLE_EDIT_APPT_STATUS is set to a
+  // non-active value such as "no" (absent means enabled),
   // and otherwise presents status as free text that AppointmentUpdateRecord2Action
   // persists verbatim. Both are driven so the check works either way.
   const statusSelect = popup.locator('select[name="status"]');

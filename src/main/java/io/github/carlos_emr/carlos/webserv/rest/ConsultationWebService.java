@@ -28,15 +28,30 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.EnumMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.EnumSet;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDao;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentSelectionAccess;
+
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
@@ -45,6 +60,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -75,6 +91,7 @@ import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
@@ -102,6 +119,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -118,6 +136,21 @@ public class ConsultationWebService extends AbstractServiceImpl {
     Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");
 
     @Autowired
+    private PatientLabRoutingDao patientLabRoutingDao;
+
+    @Autowired
+    private AttachmentSelectionAccess attachmentSelectionAccess;
+
+    @Autowired
+    private ConsultationRequestDao consultationRequestDao;
+
+    @Autowired
+    private ConsultResponseDao consultationResponseDao;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Autowired
     ConsultationManager consultationManager;
 
     @Autowired
@@ -128,6 +161,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     private DocumentManager documentManager;
+
+    @Autowired
+    private AttachmentOwnershipService attachmentOwnershipService;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
     @Autowired
     ProviderDao providerDao;
@@ -181,9 +220,15 @@ public class ConsultationWebService extends AbstractServiceImpl {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
 
         if (requestId > 0) {
-            request = requestConverter.getAsTransferObject(getLoggedInInfo(), consultationManager.getRequest(getLoggedInInfo(), requestId));
+            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            requirePatientConsultRead(stored.getDemographicId());
+            request = requestConverter.getAsTransferObject(getLoggedInInfo(), stored);
             request.setAttachments(getRequestAttachments(requestId, request.getDemographicId(), ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requirePatientConsultRead(demographicId);
             request.setDemographicId(demographicId);
 
             RxInformation rx = new RxInformation();
@@ -223,15 +268,33 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getRequestAttachments(@QueryParam("requestId") Integer requestId, @QueryParam("demographicId") Integer demographicIdInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicId = demographicIdInt.toString();
+        // Issue #3867: for a stored consultation the patient is the stored one, not the parameter,
+        // and attached rows (looked up by consultation id alone) are listed only while they belong
+        // to that patient, so a legacy foreign row is never returned.
+        Integer ownerDemographicNo = demographicIdInt;
+        if (requestId != null && requestId > 0) {
+            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            ownerDemographicNo = stored.getDemographicId();
+        }
+        requirePatientConsultRead(ownerDemographicNo);
+        String demographicId = ownerDemographicNo.toString();
 
         List<EDoc> edocs = EDocUtil.listDocs(getLoggedInInfo(), demographicId, requestId.toString(), attached);
+        if (attached) {
+            edocs = attachmentOwnershipService.retainAttachable(DocumentType.DOC, ownerDemographicNo, edocs, EDoc::getDocId);
+        }
         getDocuments(edocs, attached, attachments);
 
         List<EFormData> eforms = EFormUtil.listPatientEFormsShowLatestOnly(demographicId);
         getEformsForRequest(eforms, attached, attachments, requestId);
 
         List<LabResultData> labs = new CommonLabResultData().populateLabResultsData(getLoggedInInfo(), demographicId, requestId.toString(), attached);
+        if (attached) {
+            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, ownerDemographicNo, labs, LabResultData::getSegmentID);
+        }
         getLabs(labs, demographicId, attached, attachments);
 
         return attachments;
@@ -242,6 +305,18 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response createConsultation(ConsultationRequestTo1 data) {
+        try {
+            return new TransactionTemplate(transactionManager)
+                    .execute(status -> createConsultationInTransaction(data));
+        } catch (SecurityException e) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Consultation attachment access denied").build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid consultation request or attachment selection; reload and try again").build();
+        }
+    }
+
+    private Response createConsultationInTransaction(ConsultationRequestTo1 data) {
+        if (data == null) throw new IllegalArgumentException("Consultation request is required");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
 
         if (data.getId() != null) {
@@ -274,6 +349,18 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response updateConsultation(ConsultationRequestTo1 data) {
+        try {
+            return new TransactionTemplate(transactionManager)
+                    .execute(status -> updateConsultationInTransaction(data));
+        } catch (SecurityException e) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Consultation attachment access denied").build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid consultation request or attachment selection; reload and try again").build();
+        }
+    }
+
+    private Response updateConsultationInTransaction(ConsultationRequestTo1 data) {
+        if (data == null) throw new IllegalArgumentException("Consultation request is required");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
 
         if (data.getId() == null) {
@@ -292,7 +379,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         consultationManager.saveConsultationRequest(loggedInInfo, request);
 
         //save attachments
-        if (!data.getAttachments().isEmpty()) {
+        if (data.hasAttachmentSelection() && data.getAttachments() != null) {
             saveRequestAttachments(data);
         }
 
@@ -310,6 +397,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response saveRequest(ConsultationRequestTo1 data) {
+        if (data == null) throw new jakarta.ws.rs.BadRequestException("Consultation request is required");
         Response response = null;
 
         if (data.getId() == null) { //new consultation request
@@ -350,15 +438,19 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         if (responseId > 0) {
             ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
-            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
-
+            if (responseD == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
             demographicNo = responseD.getDemographicNo();
+            requirePatientConsultRead(demographicNo);
+            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
             ProfessionalSpecialist referringDoctorD = consultationManager.getProfessionalSpecialist(responseD.getReferringDocId());
             response.setReferringDoctor(specialistConverter.getAsTransferObject(getLoggedInInfo(), referringDoctorD));
 
             response.setAttachments(getResponseAttachments(responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requirePatientConsultRead(demographicNo);
             response.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
             RxInformation rx = new RxInformation();
             String info = rx.getAllergies(getLoggedInInfo(), demographicNo.toString());
@@ -383,15 +475,32 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getResponseAttachments(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNoInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicNo = demographicNoInt.toString();
+        // Same rule as getRequestAttachments (issue #3867): the stored response's patient, and
+        // attached rows only while they belong to that patient.
+        Integer ownerDemographicNo = demographicNoInt;
+        if (responseId != null && responseId > 0) {
+            ConsultationResponse stored = consultationManager.getResponse(getLoggedInInfo(), responseId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            ownerDemographicNo = stored.getDemographicNo();
+        }
+        requirePatientConsultRead(ownerDemographicNo);
+        String demographicNo = ownerDemographicNo.toString();
 
         List<EDoc> edocList = EDocUtil.listResponseDocs(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
+        if (attached) {
+            edocList = attachmentOwnershipService.retainAttachable(DocumentType.DOC, ownerDemographicNo, edocList, EDoc::getDocId);
+        }
         getDocuments(edocList, attached, attachments);
 
         List<EFormData> eformList = EFormUtil.listPatientEFormsShowLatestOnly(demographicNo);
         getEformsForResponse(eformList, attached, attachments, responseId);
 
         List<LabResultData> labs = new CommonLabResultData().populateLabResultsDataConsultResponse(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
+        if (attached) {
+            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, ownerDemographicNo, labs, LabResultData::getSegmentID);
+        }
         getLabs(labs, demographicNo, attached, attachments);
 
         return attachments;
@@ -402,6 +511,18 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public ConsultationResponseTo1 saveResponse(ConsultationResponseTo1 data) {
+        try {
+            return new TransactionTemplate(transactionManager)
+                    .execute(status -> saveResponseInTransaction(data));
+        } catch (SecurityException e) {
+            throw new jakarta.ws.rs.ForbiddenException("Consultation attachment access denied");
+        } catch (IllegalArgumentException e) {
+            throw new jakarta.ws.rs.BadRequestException("Invalid consultation response or attachment selection; reload and try again");
+        }
+    }
+
+    private ConsultationResponseTo1 saveResponseInTransaction(ConsultationResponseTo1 data) {
+        if (data == null) throw new IllegalArgumentException("Consultation response is required");
         ConsultationResponse response = null;
 
         if (data.getId() == null) { //new consultation response
@@ -491,6 +612,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
             List<ConsultationAttachment> attachments = consultationManager.getEReferAttachments(getLoggedInInfo(), httpServletRequest, httpServletResponse, demographicNo);
             httpServletResponse.setContentType("application/json");
             response = Response.ok().entity(attachments).build();
+        } catch (SecurityException e) {
+            response = Response.status(Response.Status.FORBIDDEN).build();
         } catch (Exception e) {
             response = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("An error occurred while generating the attachment data: " + e.getMessage()).build();
         }
@@ -674,7 +797,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     private void getLabs(List<LabResultData> labs, String demographicNo, boolean attached, List<ConsultationAttachmentTo1> attachments) {
         for (LabResultData lab : labs) {
-            String displayName = lab.getDiscipline() + " " + lab.getDateTime();
+            String displayName = lab.isAttachmentUnavailable() ? lab.getLabel() : lab.getDiscipline() + " " + lab.getDateTime();
 
             String url = null;
             if (lab.isMDS())
@@ -685,7 +808,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
                 url = "lab/CA/ALL/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
             else url = "lab/CA/BC/ViewLabDisplay?demographicId=" + demographicNo + "&segmentID=" + lab.getSegmentID();
 
-            attachments.add(new ConsultationAttachmentTo1(ConversionUtils.fromIntString(lab.getLabPatientId()), ConsultationAttachmentTo1.TYPE_LAB, attached, displayName, url));
+            ConsultationAttachmentTo1 attachment = new ConsultationAttachmentTo1(
+                    ConversionUtils.fromIntString(lab.getSegmentID()), ConsultationAttachmentTo1.TYPE_LAB,
+                    attached, lab.isAttachmentUnavailable() ? lab.getLabel() : displayName,
+                    lab.isAttachmentUnavailable() ? null : url);
+            attachment.setLabType(lab.getLabType());
+            attachments.add(attachment);
         }
     }
 
@@ -731,6 +859,24 @@ public class ConsultationWebService extends AbstractServiceImpl {
     }
 
     private void saveRequestAttachments(ConsultationRequestTo1 request) {
+        if (request.getAttachments() == null) return;
+        // Authenticate the parent read before acquiring its lock, then use its stored patient.
+        consultationManager.getRequest(getLoggedInInfo(), request.getId());
+        ConsultationRequest owner = consultationRequestDao.lockForAttachmentSync(request.getId());
+        if (owner == null || owner.getDemographicId() == null || owner.getDemographicId() <= 0
+                || !owner.getDemographicId().equals(request.getDemographicId())) {
+            throw new IllegalArgumentException("Consultation request has no matching patient");
+        }
+        List<ConsultDocs> storedDocs = consultationManager.getConsultRequestDocs(getLoggedInInfo(), request.getId());
+        if (storedDocs == null) throw new IllegalArgumentException("Consultation attachments are unavailable");
+        Map<DocumentType, Set<String>> existing = new EnumMap<>(DocumentType.class);
+        for (ConsultDocs row : storedDocs) {
+            addSelection(existing, row.getDocType(), row.getDocumentNo(), row.getLabType());
+        }
+        Set<DocumentType> restricted = validateAttachments(owner.getDemographicId(), request.getAttachments(), existing, true);
+        // Validate every selection before creating even an uploaded document or changing rows.
+        List<ConsultDocs> currentDocs = new ArrayList<>(storedDocs);
+        currentDocs.removeIf(row -> restricted.contains(DocumentType.fromType(row.getDocType())));
         List<ConsultationAttachmentTo1> goodAttachments = new ArrayList<>();
         for (ConsultationAttachmentTo1 attachment : request.getAttachments()) {
 
@@ -768,72 +914,146 @@ public class ConsultationWebService extends AbstractServiceImpl {
         request.setAttachments(goodAttachments);
 
         List<ConsultationAttachmentTo1> newAttachments = request.getAttachments();
-        List<ConsultDocs> currentDocs = consultationManager.getConsultRequestDocs(getLoggedInInfo(), request.getId());
-        if (newAttachments == null || currentDocs == null) return;
-
-        //first assume all current docs detached (set delete)
-        for (ConsultDocs doc : currentDocs) {
-            doc.setDeleted(ConsultDocs.DELETED);
-        }
-
         List<String> uniqueAttachments = new ArrayList<>();
         //compare current & new, remove from current list the unchanged ones - no need to update them
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
-            if (newAtth.getValidationError() != null) {
+            if (newAtth.getValidationError() != null
+                    || restricted.contains(DocumentType.fromType(newAtth.getDocumentType()))) {
                 continue;
             }
-            if (uniqueAttachments.contains(newAtth.getDocumentType() + newAtth.getDocumentNo())) {
+            if (uniqueAttachments.contains(attachmentIdentity(newAtth))) {
                 continue;
             }
-            uniqueAttachments.add(newAtth.getDocumentType() + newAtth.getDocumentNo());
+            uniqueAttachments.add(attachmentIdentity(newAtth));
 
             boolean isNew = true;
             for (ConsultDocs doc : currentDocs) {
-                if (doc.getDocType().equals(newAtth.getDocumentType()) && doc.getDocumentNo() == newAtth.getDocumentNo()) {
+                if (doc.getDocType().equals(newAtth.getDocumentType()) && doc.getDocumentNo() == newAtth.getDocumentNo()
+                        && (!"L".equals(doc.getDocType()) || java.util.Objects.equals(
+                                doc.getLabType() == null ? "UNRESOLVED" : doc.getLabType(), newAtth.getLabType()))) {
                     currentDocs.remove(doc);
                     isNew = false;
                     break;
                 }
             }
             if (isNew) { //save the new attachment
-                consultationManager.saveConsultRequestDoc(getLoggedInInfo(), new ConsultDocs(request.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
+                ConsultDocs row = new ConsultDocs(request.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo());
+                row.setLabType("L".equals(newAtth.getDocumentType()) ? newAtth.getLabType() : null);
+                consultationManager.saveConsultRequestDoc(getLoggedInInfo(), row);
             }
         }
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultDocs doc : currentDocs) {
+            doc.setDeleted(ConsultDocs.DELETED);
             consultationManager.saveConsultRequestDoc(getLoggedInInfo(), doc);
         }
     }
 
     private void saveResponseAttachments(ConsultationResponseTo1 response) {
         List<ConsultationAttachmentTo1> newAttachments = response.getAttachments();
-        List<ConsultResponseDoc> currentDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
-        if (newAttachments == null || currentDocs == null) return;
-
-        //first assume all current docs detached (set delete)
-        for (ConsultResponseDoc doc : currentDocs) {
-            doc.setDeleted(ConsultResponseDoc.DELETED);
+        if (newAttachments == null) return;
+        consultationManager.getResponse(getLoggedInInfo(), response.getId());
+        ConsultationResponse owner = consultationResponseDao.lockForAttachmentSync(response.getId());
+        if (owner == null || owner.getDemographicNo() == null || owner.getDemographicNo() <= 0) {
+            throw new IllegalArgumentException("Consultation response has no patient");
         }
+        List<ConsultResponseDoc> storedDocs = consultationManager.getConsultResponseDocs(getLoggedInInfo(), response.getId());
+        if (storedDocs == null) throw new IllegalArgumentException("Consultation attachments are unavailable");
+        Map<DocumentType, Set<String>> existing = new EnumMap<>(DocumentType.class);
+        for (ConsultResponseDoc row : storedDocs) {
+            addSelection(existing, row.getDocType(), row.getDocumentNo(), row.getLabType());
+        }
+        Set<DocumentType> restricted = validateAttachments(owner.getDemographicNo(), newAttachments, existing, false);
+        List<ConsultResponseDoc> currentDocs = new ArrayList<>(storedDocs);
+        currentDocs.removeIf(row -> restricted.contains(DocumentType.fromType(row.getDocType())));
 
-        //compare current & new, remove from current list the unchanged ones - no need to update them
+        // Compare each source-qualified selection once; duplicate checkboxes must not
+        // create duplicate rows or consume an already-matched existing attachment again.
+        java.util.Set<String> uniqueAttachments = new java.util.HashSet<>();
         for (ConsultationAttachmentTo1 newAtth : newAttachments) {
+            if (restricted.contains(DocumentType.fromType(newAtth.getDocumentType()))) continue;
+            String identity = attachmentIdentity(newAtth);
+            if (!uniqueAttachments.add(identity)) continue;
             boolean isNew = true;
             for (ConsultResponseDoc doc : currentDocs) {
-                if (doc.getDocType().equals(newAtth.getDocumentType()) && doc.getDocumentNo() == newAtth.getDocumentNo()) {
+                if (doc.getDocType().equals(newAtth.getDocumentType()) && doc.getDocumentNo() == newAtth.getDocumentNo()
+                        && (!"L".equals(doc.getDocType()) || java.util.Objects.equals(
+                                doc.getLabType() == null ? "UNRESOLVED" : doc.getLabType(), newAtth.getLabType()))) {
                     currentDocs.remove(doc);
                     isNew = false;
                     break;
                 }
             }
             if (isNew) { //save the new attachment
-                consultationManager.saveConsultResponseDoc(getLoggedInInfo(), new ConsultResponseDoc(response.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo()));
+                ConsultResponseDoc row = new ConsultResponseDoc(response.getId(), newAtth.getDocumentNo(), newAtth.getDocumentType(), getLoggedInInfo().getLoggedInProviderNo());
+                row.setLabType("L".equals(newAtth.getDocumentType()) ? newAtth.getLabType() : null);
+                consultationManager.saveConsultResponseDoc(getLoggedInInfo(), row);
             }
         }
 
         //update what remains in current docs, they are detached (set delete)
         for (ConsultResponseDoc doc : currentDocs) {
+            doc.setDeleted(ConsultResponseDoc.DELETED);
             consultationManager.saveConsultResponseDoc(getLoggedInInfo(), doc);
+        }
+    }
+
+    private static String attachmentIdentity(ConsultationAttachmentTo1 attachment) {
+        return attachment.getDocumentType() + ":"
+                + ("L".equals(attachment.getDocumentType()) ? attachment.getLabType() : "")
+                + ":" + attachment.getDocumentNo();
+    }
+
+    private static void addSelection(Map<DocumentType, Set<String>> selection, String code, int id, String labType) {
+        DocumentType type = DocumentType.fromType(code);
+        if (type == null || id <= 0) throw new IllegalArgumentException("Invalid attachment type or identifier");
+        String value = type == DocumentType.LAB ? LabAttachmentReference.stored(labType, id).key() : Integer.toString(id);
+        selection.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(value);
+    }
+
+    /** Validate the complete replacement, including removals, before any attachment write. */
+    private Set<DocumentType> validateAttachments(int patient, List<ConsultationAttachmentTo1> attachments,
+            Map<DocumentType, Set<String>> existing, boolean allowUploads) {
+        Map<DocumentType, Set<String>> selected = new EnumMap<>(DocumentType.class);
+        for (ConsultationAttachmentTo1 attachment : attachments) {
+            if (attachment == null) throw new IllegalArgumentException("Attachment is required");
+            if (attachment.getDocument() != null && attachment.getDocument().getId() == null) {
+                if (!allowUploads || !"D".equals(attachment.getDocumentType())) {
+                    throw new IllegalArgumentException("Only request documents support uploads");
+                }
+                attachmentSelectionAccess.requireRead(getLoggedInInfo(), DocumentType.DOC, patient);
+                continue;
+            }
+            addSelection(selected, attachment.getDocumentType(), attachment.getDocumentNo(), attachment.getLabType());
+        }
+        Set<DocumentType> restricted = EnumSet.noneOf(DocumentType.class);
+        for (DocumentType type : DocumentType.values()) {
+            if (!attachmentSelectionAccess.validate(getLoggedInInfo(), type, patient,
+                    selected.getOrDefault(type, Set.of()), existing.getOrDefault(type, Set.of()))) {
+                restricted.add(type);
+            }
+        }
+        for (ConsultationAttachmentTo1 attachment : attachments) {
+            if (!"L".equals(attachment.getDocumentType()) || restricted.contains(DocumentType.LAB)) continue;
+            String source = attachment.getLabType();
+            String key = LabAttachmentReference.stored(source, attachment.getDocumentNo()).key();
+            if (LabAttachmentReference.UNRESOLVED.equals(source)
+                    && existing.getOrDefault(DocumentType.LAB, Set.of()).contains(key)) continue;
+            String value = source == null ? Integer.toString(attachment.getDocumentNo()) : key;
+            attachment.setLabType(LabAttachmentReference.resolve(value, patient, patientLabRoutingDao).source());
+        }
+        return restricted;
+    }
+
+    private void requirePatientConsultRead(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
     }
 

@@ -180,6 +180,8 @@
     </td>
     <td align="left">
         <select id="fNationCom" name="fNationCom">
+            <%-- Community is optional; do not silently assign the first lookup item. --%>
+            <option value="">--</option>
             <c:forEach items="${firstNationCommunities.items}" var="firstNationCommunity">
                 <option value="${carlos:forHtmlAttribute(firstNationCommunity.value)}" ${firstNationCommunity.value eq demoExt["fNationCom"] ? 'selected' : '' }>
                     ${carlos:forHtml(firstNationCommunity.label)}
@@ -231,4 +233,3 @@
     <td><!-- padding --></td>
     <td><!-- padding --></td>
 </tr>
-

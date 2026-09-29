@@ -31,6 +31,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import jakarta.persistence.LockModeType;
+
 import java.util.Date;
 import java.util.List;
 
@@ -263,4 +265,9 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         query.setParameter("demoId", demographicId);
         return query.getResultList();
     }
+    @Override
+    public ConsultationRequest lockForAttachmentSync(Integer id) {
+        return entityManager.find(ConsultationRequest.class, id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
 }

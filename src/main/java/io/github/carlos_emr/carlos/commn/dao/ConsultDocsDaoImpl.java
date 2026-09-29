@@ -31,6 +31,12 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.persistence.LockModeType;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -45,6 +51,27 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
 
     public ConsultDocsDaoImpl() {
         super(ConsultDocs.class);
+    }
+
+    @Autowired
+    private PatientLabRoutingDao patientLabRoutingDao;
+
+    @Override
+    public void persist(AbstractModel<?> model) {
+        ConsultDocs attachment = (ConsultDocs) model;
+        if (ConsultDocs.DOCTYPE_LAB.equals(attachment.getDocType())) {
+            var owner = entityManager.find(ConsultationRequest.class,
+                    attachment.getRequestId());
+            if (owner == null || owner.getDemographicId() == null) {
+                throw new IllegalArgumentException("Lab attachment parent is missing");
+            }
+            String selection = attachment.getLabType() == null ? Integer.toString(attachment.getDocumentNo())
+                    : attachment.getLabType() + ":" + attachment.getDocumentNo();
+            var reference = LabAttachmentReference.resolve(
+                    selection, owner.getDemographicId(), patientLabRoutingDao);
+            attachment.setLabType(reference.source());
+        }
+        super.persist(model);
     }
 
     public List<ConsultDocs> findByRequestIdDocNoDocType(Integer requestId, Integer documentNo, String docType) {
@@ -81,9 +108,16 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     }
 
     public List<Object[]> findLabs(Integer consultationId) {
-        Query q = entityManager.createQuery("SELECT cd, plr FROM ConsultDocs cd, PatientLabRouting plr WHERE plr.labNo = cd.documentNo AND cd.requestId = :consultationId AND cd.docType = :docType AND cd.deleted IS NULL ORDER BY cd.documentNo");
+        Query q = entityManager.createQuery("SELECT cd, plr FROM ConsultDocs cd, PatientLabRouting plr WHERE plr.labNo = cd.documentNo AND plr.labType = cd.labType AND EXISTS (select owner.id from ConsultationRequest owner where owner.id = cd.requestId and owner.demographicId = plr.demographicNo) AND cd.requestId = :consultationId AND cd.docType = :docType AND cd.deleted IS NULL ORDER BY cd.documentNo");
         q.setParameter("consultationId", consultationId);
         q.setParameter("docType", ConsultDocs.DOCTYPE_LAB);
         return q.getResultList();
     }
+    @Override
+    public List<ConsultDocs> findByRequestIdDocTypeForUpdate(Integer id, String docType) {
+        return entityManager.createQuery("select x from ConsultDocs x where x.requestId = :id and x.docType = :docType and x.deleted is null", ConsultDocs.class)
+                .setParameter("id", id).setParameter("docType", docType)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
 }

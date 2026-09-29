@@ -515,6 +515,23 @@ function existsTemplate(template) {
 	return exists;	
 }
 
+/** Keep saved/user-entered subjects during automatic template initialization. */
+function setLetterTemplateSubject(template, preserveExisting) {
+    var subject = document.getElementById('subject');
+    if (!subject || (preserveExisting && subject.value !== '')) { return; }
+    subject.value = template === 'blank.rtl' ? '' : template.substring(0, template.lastIndexOf('.'));
+    // The floating toolbar listens for input, including programmatic template changes.
+    // Older engines this asset still declares support for have no Event constructor.
+    var inputEvent;
+    if (typeof Event === 'function') {
+        inputEvent = new Event('input', { bubbles: true });
+    } else {
+        inputEvent = document.createEvent('Event');
+        inputEvent.initEvent('input', true, false);
+    }
+    subject.dispatchEvent(inputEvent);
+}
+
 function loadDefaultTemplate() {
 	// Internal measurement markers must not suppress the configured template.
 	// Loading replaces the document. Report a discarded insertion unless a
@@ -531,7 +548,7 @@ function loadDefaultTemplate() {
 	if (existsTemplate(cfg_template)) {
 		var selected = cfg_template;
 		document.getElementById(cfg_editorname).contentWindow.location = cfg_filesrc + selected;
-		document.getElementById('subject').value = cfg_template == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));		
+		setLetterTemplateSubject(selected, true);
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
@@ -569,7 +586,7 @@ function loadTemplate(selectname){
 		});
 		//document.getElementById(cfg_editorname).src = cfg_filesrc + selected + '.html' ; //FF != IE
 		document.getElementById(cfg_editorname).contentWindow.location = cfg_filesrc + selected;
-		document.getElementById('subject').value = selected == 'blank.rtl' ? "" : selected.substring(0, selected.lastIndexOf("."));		
+		setLetterTemplateSubject(selected, false);
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
@@ -1266,9 +1283,12 @@ function submitFaxButton() {
 	// consult_sig_<provider_no>.png. They normally arrive as hidden inputs on the form, but an
 	// install whose stored Rich Text Letter form_html predates those inputs has none, so they are
 	// listed here too: the lookup that resolves the stamp then also fetches the identity it needs.
+	// Every key listed must exist in apconfig.xml: the lookup reports an unconfigured key as a
+	// "could not be filled in" banner. The legacy "stamp_name" key never did, and was dropped once
+	// that banner made every Stamp click show a false warning.
 	cache.addMapping({
 		name: "stamp", 
-		values: ["stamp_name", "doctor", "current_user",
+		values: ["doctor", "current_user",
 			"current_user_id", "current_user_ohip_no", "doctor_provider_no"], 
 		storeInCacheHandler: function(_key,_val) { 
 				// Re-probe: on a form_html without the hidden inputs the identity only becomes known

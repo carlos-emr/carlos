@@ -397,6 +397,21 @@
       ]
     },
     {
+      "name": "consultation-lab-attachment-rows",
+      "script": "scripts/consultation-lab-attachment-rows-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CONSULT_DEMO_NO"
+      ]
+    },
+    {
       "name": "consultation-signature",
       "script": "scripts/consultation-signature-playwright-checks.js",
       "tiers": [
@@ -545,6 +560,38 @@
         "INCOMINGDOCUMENT_DIR",
         "DOCUMENT_DIR",
         "RX_FAX_DOCUMENT_DIR"
+      ]
+    },
+    {
+      "name": "lab-upload",
+      "script": "scripts/lab-upload-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CML_UPLOAD_KEY",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ]
+    },
+    {
+      "name": "lab-upload-rollback",
+      "script": "scripts/lab-upload-rollback-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 480,
+      "env": [
+        "CML_UPLOAD_KEY",
+        "LAB_UPLOAD_DOCUMENT_STORE"
       ]
     },
     {
@@ -916,7 +963,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -998,6 +1045,26 @@
         "RTL_SCREENSHOT_DIR",
         "RTL_TEMPLATE_NAME"
       ]
+    },
+    {
+      "name": "eform-rtl-signature-stamp",
+      "script": "scripts/eform-rtl-signature-stamp-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RTL_DEMOGRAPHIC_NO",
+        "RTL_FORM_NAME",
+        "RTL_EXPECT_SIGNER",
+        "RTL_STAMP_ALLOW_AP_FALLBACK",
+        "RTL_SCREENSHOT_DIR"
+      ],
+      "fixtures": "Needs consult_sig_<signer>.png in the eForm images directory (deb-install-validation.md fixture b); read-only, never saves the letter."
     },
     {
       "name": "eform-runtime-compat",
@@ -1350,8 +1417,33 @@
       ]
     },
     {
-      "name": "omd-flowsheet-conformance",
-      "script": "scripts/omd-flowsheet-conformance-playwright-checks.js",
+      "name": "rx-stash-patient-isolation",
+      "script": "scripts/rx-stash-patient-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": []
+    },
+    {
+      "name": "rx-stash-deletion",
+      "script": "scripts/rx-stash-deletion-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180
+    },
+    {
+      "name": "rx-favorites-choose-drug",
+      "script": "scripts/rx-favorites-choose-drug-playwright-checks.js",
       "tiers": [
         "core"
       ],
@@ -1363,8 +1455,8 @@
       "env": []
     },
     {
-      "name": "cdm-measurement-report",
-      "script": "scripts/cdm-measurement-report-playwright-checks.js",
+      "name": "consult-attachment-ownership",
+      "script": "scripts/consult-attachment-ownership-playwright-checks.js",
       "tiers": [
         "core"
       ],
@@ -2267,6 +2359,21 @@
       ]
     },
     {
+      "name": "tickler-attachments",
+      "script": "scripts/tickler-attachments-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "TICKLER_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
       "name": "tickler-note-dialog",
       "script": "scripts/tickler-note-dialog-playwright-checks.js",
       "tiers": [
@@ -2959,6 +3066,19 @@
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
     },
     {
+      "name": "consultation-response-attachments",
+      "script": "scripts/consultation-response-attachments-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "deb-login",
       "script": "scripts/deb-login-playwright-checks.js",
       "tiers": [
@@ -2977,6 +3097,87 @@
         "ADMIN_USER",
         "NEW_PASSWORD",
         "STRICT_TLS"
+      ]
+    },
+    {
+      "name": "omd-flowsheet-conformance",
+      "script": "scripts/omd-flowsheet-conformance-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "cdm-measurement-report",
+      "script": "scripts/cdm-measurement-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
+      "name": "consultation-print-preview",
+      "script": "scripts/consultation-print-preview-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD",
+        "CONSULT_PREVIEW_SEARCH",
+        "CONSULT_PREVIEW_DEMOGRAPHIC_NO",
+        "CONSULT_PREVIEW_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "cpp-note-extension-archive",
+      "script": "scripts/cpp-note-extension-archive-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD",
+        "CPP_EXT_SEARCH",
+        "CPP_EXT_DEMOGRAPHIC_NO",
+        "CPP_EXT_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "form-print-pdf",
+      "script": "scripts/form-print-pdf-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD",
+        "FORM_PRINT_SEARCH",
+        "FORM_PRINT_DEMOGRAPHIC_NO",
+        "FORM_PRINT_NAME",
+        "FORM_PRINT_TIMEOUT_MS"
       ]
     }
   ]

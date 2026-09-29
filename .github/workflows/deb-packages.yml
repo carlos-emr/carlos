@@ -2,8 +2,7 @@
 # Copyright (C) 2026 CARLOS Contributors
 #
 # Build the Debian packages (carlos-emr for amd64, which carries the eForm
-# renderer's vendored Chromium; carlos-emr-drugref; and the empty transitional
-# carlos-emr-eform-renderer that upgrades pre-merge installs), attach them to
+# renderer's vendored Chromium, and carlos-emr-drugref), attach them to
 # the release together with the pinned carlos-ctl package (built and attested
 # by carlos-emr/carlos-ctl's own release workflow; debian/carlos-ctl.pin names
 # the release), and PUBLISH the release as the final step.
@@ -142,10 +141,10 @@ jobs:
           #   missing       -> published but a package is absent; fail fast
           #                    (immutable release can never be completed)
           # The expected set is the binary packages in THIS tag's debian/control,
-          # not a hard-coded list: from 2026.08.0-alpha14 it includes the empty
-          # transitional carlos-emr-eform-renderer that pre-merge installs need to
-          # upgrade, and a release missing it must not count as finished, while a
-          # backfill of an older tag is judged by the packages that tag defines.
+          # not a hard-coded list: 2026.08.0-alpha14 through alpha17 also built
+          # an empty transitional carlos-emr-eform-renderer and later tags do
+          # not, so a backfill of any tag is judged by the packages THAT tag
+          # defines.
           # Each asset must also carry THIS tag's version, so a stray .deb of
           # another version under the same package name cannot make a release
           # look finished. The Debian version maps '-' to '~' (the changelog
@@ -273,9 +272,9 @@ jobs:
           # .changes file dpkg-buildpackage wrote, NOT a hard-coded list of file
           # names: package names and architectures change (from 2026.08.0-alpha14
           # carlos-emr is _amd64 because it carries the eForm renderer's x86-64
-          # Chromium, and carlos-emr-eform-renderer is an empty transitional
-          # _all package), and a stale list either failed the release or
-          # silently left a package out. Cross-checked against the tag's own
+          # Chromium; alpha14 through alpha17 also built an empty transitional
+          # carlos-emr-eform-renderer _all package, later tags do not), and a
+          # stale list either failed the release or silently left a package out. Cross-checked against the tag's own
           # debian/control so a package the build did not produce still fails.
           shopt -s nullglob
           changes=(../carlos-emr_"${DEB_VERSION}"_*.changes)

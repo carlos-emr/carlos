@@ -164,7 +164,9 @@
 				var form = document.createElement('form');
 				form.method = 'post';
 				form.action = '${pageContext.request.contextPath}/eform/unRemoveEForm';
-				var fields = {fdid: fdid, demographic_no: demographicNo, parentAjaxId: parentAjaxId};
+				// appointment/orderby: list state the post-restore redirect restores (UnRemEForm2Action#getRedirectTarget).
+				var fields = {fdid: fdid, demographic_no: demographicNo, parentAjaxId: parentAjaxId,
+					appointment: '<carlos:encode value='<%= appointment %>' context="javaScript"/>', orderby: '<carlos:encode value='<%= orderByRequest %>' context="javaScript"/>'};
 				for (var key in fields) {
 					var input = document.createElement('input');
 					input.type = 'hidden';
