@@ -258,6 +258,13 @@ body.availability-page {
         display: table-header-group;
     }
 
+    /* Browsers drop background colours in print unless asked to keep them; the slot colours carry meaning. */
+    #availabilityGrid td,
+    #availabilityGrid th {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
     #availabilityGrid tbody tr {
         break-inside: avoid;
     }

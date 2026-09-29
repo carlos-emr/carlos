@@ -42,15 +42,16 @@
     - Slot colours from the schedule template, checked against a CSS colour allow-list
 
     Parameters:
-    - provider_no      (String, optional) — provider to show; falls back to the session
-                                             preference, then the logged-in provider; 400 if
-                                             none resolves or it has characters outside
-                                             [A-Za-z0-9._-]
+    - provider_no      (String, optional) — provider to show; when absent or blank, falls
+                                             back to the session preference, then the
+                                             logged-in provider; 400 if none resolves or it
+                                             has characters outside [A-Za-z0-9._-]
     - startDate        (String, optional) — first date shown (yyyy-MM-dd), default today;
                                              400 if it is not a valid date
     - originalpage     (String, optional) — "waitingList" returns to the waiting list,
                                              otherwise to the schedule
-    - demographic_no   (String, optional) — patient to carry into a booking
+    - demographic_no   (String, optional) — patient to carry into a booking; kept across
+                                             month and provider navigation
     - demographic_name (String, optional) — that patient's display name
 
     Session: LOGGED_IN_PROVIDER_PREFERENCE (ProviderPreference) supplies the day's start and
@@ -61,6 +62,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleCssColors" %>
+<%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleFlipViewRequest" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
@@ -118,21 +120,18 @@
     ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
     int nStartTime = providerPreference.getStartHour();
     int nEndTime = providerPreference.getEndHour();
-    int nStep = providerPreference.getEveryMin();
+    int nStep = ScheduleFlipViewRequest.slotMinutes(providerPreference.getEveryMin());
     String mygroupno = providerPreference.getMyGroupNo();
 
     // Entry points such as the waiting-list booking popup open this page without provider_no.
     // Login2Action stores a default-constructed ProviderPreference for providers that have no
     // saved preference row, and its providerNo is null, so the session identity is the last resort.
-    String curProvider_no = request.getParameter("provider_no");
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    String curProvider_no = ScheduleFlipViewRequest.resolveProviderNo(
+            request.getParameter("provider_no"),
+            providerPreference.getProviderNo(),
+            loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null).orElse(null);
     if (curProvider_no == null) {
-        curProvider_no = providerPreference.getProviderNo();
-    }
-    if (curProvider_no == null) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        curProvider_no = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
-    }
-    if (curProvider_no == null || !curProvider_no.matches("^[a-zA-Z0-9._-]+$")) {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid provider_no");
         return;
     }
@@ -140,6 +139,8 @@
     String curProviderName = currentProvider != null
             ? currentProvider.getFormattedName()
             : curProvider_no;
+    // The patient being booked (from the waiting list). Month and provider links carry both values on,
+    // so the patient is still attached when a slot is picked after navigating.
     String curDemoNo = request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "";
     String curDemoName = request.getParameter("demographic_name") != null ? request.getParameter("demographic_name") : "";
 
@@ -158,20 +159,12 @@
     String requestedStartDate = request.getParameter("startDate");
 
     // Validate before rendering any response content so the 400 status cannot be lost to a committed buffer.
-    if (requestedStartDate != null && !requestedStartDate.isBlank() && !"today".equals(requestedStartDate)) {
-        // Month and day may be unpadded: older links and bookmarks used 2026-9-5, and the strict parser
-        // below still rejects anything that is not a real date.
-        if (!requestedStartDate.matches("[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}")) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid startDate");
-            return;
-        }
-        ParsePosition parsePosition = new ParsePosition(0);
-        java.util.Date parsedStartDate = inform.parse(requestedStartDate, parsePosition);
-        if (parsedStartDate == null || parsePosition.getIndex() != requestedStartDate.length()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid startDate");
-            return;
-        }
-        now.setTime(parsedStartDate);
+    // Month and day may be unpadded: older links and bookmarks used 2026-9-5.
+    try {
+        now.setTime(ScheduleFlipViewRequest.resolveStartDate(requestedStartDate, now.getTime()));
+    } catch (IllegalArgumentException e) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid startDate");
+        return;
     }
     String startDate = inform.format(now.getTime());
     GregorianCalendar cal = (GregorianCalendar) now.clone();
@@ -221,7 +214,7 @@
 
         <script type="text/javascript">
             function changePro(providerno) {
-                var destination = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                var destination = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) + "&startDate=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(startDate))%><%= curDemoNo.isEmpty() ? "" : "&demographic_no=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo)) + "&demographic_name=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName)) %>";<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 self.location.href = destination;
             }
 
@@ -333,13 +326,13 @@
                 </div>
                 <nav class="btn-group" aria-label="<fmt:message key="schedule.scheduleflipview.monthNavigation"/>">
                     <a class="btn btn-outline-primary"
-                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/>"
+                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
                        title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>">
                         <span class="fa-solid fa-chevron-left" aria-hidden="true"></span>
                         <fmt:message key="schedule.scheduleflipview.btnLastMonth"/>
                     </a>
                     <a class="btn btn-outline-primary"
-                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/>"
+                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
                        title="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>">
                         <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
                         <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
@@ -533,7 +526,7 @@
                 title="<%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%>">
                 <button type="button" class="availability-slot"
                         aria-label="<%=SafeEncode.forHtmlAttribute(outform.format(cal.getTime()))%> <%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%><%= scheduleCode.isEmpty() || "&nbsp;".equals(scheduleCode) ? "" : " " + SafeEncode.forHtmlAttribute(scheduleCode) %>; <fmt:message key="schedule.scheduleflipview.msgbookings"/>: <%=SafeEncode.forHtmlAttribute(strNumOfAppts.isEmpty() ? "0" : strNumOfAppts)%>; <fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>: <carlos:encode value='<%= bookinglimit %>' context="htmlAttribute"/>"
-                        onclick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');">
+                        onclick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("duration"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');">
                     <span class="availability-slot-code">
                         <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : SafeEncode.forHtmlContent(temp.toString()) %>
                     </span>
@@ -559,12 +552,12 @@
          accessible name as the header one is duplicate noise for screen-reader navigation. --%>
     <div class="availability-footer-nav mt-3">
         <a class="btn btn-outline-primary"
-           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/>">
+           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>">
             <span class="fa-solid fa-chevron-left" aria-hidden="true"></span>
             <fmt:message key="schedule.scheduleflipview.btnLastMonth"/>
         </a>
         <a class="btn btn-outline-primary"
-           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/>">
+           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>">
             <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
             <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
         </a>

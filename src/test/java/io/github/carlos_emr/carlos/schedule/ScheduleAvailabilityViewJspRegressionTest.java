@@ -125,8 +125,7 @@ class ScheduleAvailabilityViewJspRegressionTest {
         assertThat(jsp)
                 .contains("SC_BAD_REQUEST, \"Invalid provider_no\"")
                 .contains("SC_BAD_REQUEST, \"Invalid startDate\"")
-                .contains("new SimpleDateFormat(\"yyyy-MM-dd\", Locale.ROOT)")
-                .contains("inform.setLenient(false)");
+                .contains("ScheduleFlipViewRequest.resolveStartDate(requestedStartDate, now.getTime())");
 
         int markupStart = jsp.indexOf("<!DOCTYPE html>");
         assertThat(markupStart).as("page emits a doctype").isPositive();
@@ -150,13 +149,14 @@ class ScheduleAvailabilityViewJspRegressionTest {
 
         assertThat(jsp)
                 .doesNotContain("\"174\"")
+                .contains("ScheduleFlipViewRequest.resolveProviderNo(")
                 .contains("providerPreference.getProviderNo()")
-                .contains("getLoggedInProviderNo()")
-                .contains("curProvider_no == null ||");
+                .contains("loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null");
 
-        assertThat(jsp.indexOf("getLoggedInProviderNo()"))
-                .as("session fallback resolves before the validation guard dereferences it")
-                .isLessThan(jsp.indexOf("curProvider_no == null ||"));
+        // The fallback order and the checks themselves are unit-tested in ScheduleFlipViewRequestUnitTest.
+        assertThat(jsp.indexOf("ScheduleFlipViewRequest.resolveProviderNo("))
+                .as("the provider is resolved before the 400 guard")
+                .isLessThan(jsp.indexOf("SC_BAD_REQUEST, \"Invalid provider_no\""));
     }
 
     /**
