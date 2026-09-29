@@ -1050,6 +1050,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 // wrong thing.
                 String comparableDate = i <= 2 ? partialFullDate(submitted, partialDateFormat(submitted)) : null;
                 String comparableValue = i <= 2 ? partialDateFormat(submitted) : submitted;
+                // A date the write loop below would discard cannot change anything. A null format
+                // is an empty or malformed submission, and writePartialDate() skips exactly that,
+                // so counting it as a change would re-save an otherwise unchanged note.
+                if (i <= 2 && comparableValue == null) continue;
                 for (CaseManagementNoteExt cme : cmeList) {
                     if (!cme.getKeyVal().equals(extKeys[i])) continue;
 

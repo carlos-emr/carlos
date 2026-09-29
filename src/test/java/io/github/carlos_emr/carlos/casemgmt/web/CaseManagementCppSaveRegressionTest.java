@@ -355,6 +355,10 @@ class CaseManagementCppSaveRegressionTest {
                         + "normalised value on a second row would compare the wrong thing")
                 .contains("String comparableDate =")
                 .contains("String comparableValue =");
+        assertThat(block)
+                .as("a date the write loop would discard (empty or malformed, so no partial-date "
+                        + "format) is not counted as a change")
+                .containsPattern("if\\s*\\(\\s*i\\s*<=\\s*2\\s*&&\\s*comparableValue\\s*==\\s*null\\s*\\)\\s*continue\\s*;");
         // partialDateFormat() returns the EMPTY STRING for a full YYYY-MM-DD date, so the
         // "was a value added?" test has to read what was submitted rather than its comparison
         // form -- otherwise a newly typed complete date reads as nothing added and the early
