@@ -2654,7 +2654,11 @@ class TestManifestDrivenGeneration(unittest.TestCase):
             if entry["class"] != "copy":
                 continue
             dst = {c: col() for c in entry["cols"]}
-            sql = o19etl.copy_statement(table, entry, "src", "dst", dst)
+            # With an archive schema, as the ETL always builds the copy: an
+            # entry that reads a helper table (Consent) refuses to build
+            # the writing statement without one.
+            sql = o19etl.copy_statement(table, entry, "src", "dst", dst,
+                                        archive_schema="arch")
             self.assertTrue(sql.startswith(
                 "INSERT INTO `dst`.`{0}`".format(table)))
             # exactly one SELECT keyword (columns like SELECT_OPTION_ID

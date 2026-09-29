@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""
 
-SCHEMA_MAP_VERSION = 'o19map-3+6ea61c42'
+SCHEMA_MAP_VERSION = 'o19map-3+da891c7a'
 O19_PROFILE = 'on'
 O19_SOURCE_COMMIT = 'a7900d569d3faf741993e5e1da8c14021bbefede'
 
@@ -76,7 +76,12 @@ TABLES = {
             'consent_date',
             'optout_date',
             'edit_date',
+            'deleted',
         ],
+        'value_exprs': {
+            'optout': 'IFNULL(s.`optout`, 1)',
+            'deleted': 'IFNULL((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)',
+        },
         'fk_remap': {
             'consent_type_id': 'consentType',
         },
@@ -11617,6 +11622,7 @@ CARLOS_COLUMNS = {
         'optout_date',
         'edit_date',
         'deleted',
+        'live_demographic_no',
     ],
     'Contact': [
         'id',
@@ -21017,8 +21023,8 @@ SEED_ROW_COUNTS = {
     'scheduleholiday': 28,
     'scheduletemplate': 1,
     'scheduletemplatecode': 23,
-    'secObjPrivilege': 514,
-    'secObjectName': 133,
+    'secObjPrivilege': 516,
+    'secObjectName': 134,
     'secRole': 33,
     'secUserRole': 2,
     'security': 1,
@@ -22503,7 +22509,7 @@ PRIMITIVE_COLUMNS = {
 # differs between provinces is repeated here.
 PROFILES = {
     'bc': {
-        'SCHEMA_MAP_VERSION': 'o19map-3+f2e0d233',
+        'SCHEMA_MAP_VERSION': 'o19map-3+41f630aa',
         'O19_PROFILE': 'bc',
         'TABLES': {
             'AppDefinition': {
@@ -22571,7 +22577,12 @@ PROFILES = {
                     'consent_date',
                     'optout_date',
                     'edit_date',
+                    'deleted',
                 ],
+                'value_exprs': {
+                    'optout': 'IFNULL(s.`optout`, 1)',
+                    'deleted': 'IFNULL((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)',
+                },
                 'fk_remap': {
                     'consent_type_id': 'consentType',
                 },
@@ -39311,6 +39322,7 @@ PROFILES = {
                 'optout_date',
                 'edit_date',
                 'deleted',
+                'live_demographic_no',
             ],
             'Contact': [
                 'id',
@@ -52977,8 +52989,8 @@ PROFILES = {
             'scheduleholiday': 28,
             'scheduletemplate': 1,
             'scheduletemplatecode': 23,
-            'secObjPrivilege': 516,
-            'secObjectName': 134,
+            'secObjPrivilege': 518,
+            'secObjectName': 135,
             'secRole': 33,
             'secUserRole': 2,
             'security': 1,
