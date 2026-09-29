@@ -86,6 +86,7 @@
             <input class="form-check-input" type="checkbox" id="enabled" name="enabled" value="true"
                    <c:if test="${smsConfig.enabled}">checked</c:if>/>
             <label class="form-check-label" for="enabled"><fmt:message key="sms.config.enabled"/></label>
+            <div class="form-text" id="enabledHelp"><fmt:message key="sms.config.enabledHelp"/></div>
         </div>
         <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" id="schedulerEnabled" name="schedulerEnabled" value="true"

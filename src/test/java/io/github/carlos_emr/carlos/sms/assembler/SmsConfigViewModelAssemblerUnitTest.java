@@ -161,6 +161,21 @@ class SmsConfigViewModelAssemblerUnitTest {
         assertThat(model.toString()).doesNotContain("new-secret-value").doesNotContain("webhook-value-123");
     }
 
+    @Test
+    @DisplayName("still opens, with a warning, when the stored credentials cannot be read")
+    void shouldWarn_whenStoredCredentialsAreUnreadable() {
+        SmsConfig stored = new SmsConfig();
+        org.springframework.test.util.ReflectionTestUtils.setField(stored, "credentialsJson", "{not json");
+        when(configService.current()).thenReturn(Optional.of(stored));
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("field_one"));
+
+        SmsConfigViewModel model = assembler().assemble(null, List.of());
+
+        assertThat(model.errorKeys()).containsExactly("sms.config.error.credentialsUnreadable");
+        assertThat(model.credentialFields())
+                .containsExactly(new SmsConfigViewModel.CredentialField("field_one", false));
+    }
+
     private SmsConfigViewModelAssembler assembler() {
         when(providerResolver.configuredDefault()).thenReturn(SmsProviderType.STUB);
         return new SmsConfigViewModelAssembler(configService, clients, providerResolver, scheduler, () -> true);

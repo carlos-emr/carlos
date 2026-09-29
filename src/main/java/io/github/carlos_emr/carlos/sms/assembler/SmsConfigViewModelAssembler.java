@@ -98,6 +98,10 @@ public class SmsConfigViewModelAssembler {
                 messageKeys.add("sms.config.error.invalidPropertyProvider");
             }
         }
+        if (stored.isPresent() && !stored.get().credentialsReadable()) {
+            // The page still opens, so the administrator can enter the credentials again and save.
+            messageKeys.add("sms.config.error.credentialsUnreadable");
+        }
         boolean schedulerRunning = scheduler.isRunning();
         List<SmsConfigViewModel.CredentialField> credentialFields = configService.credentialFields(providerType)
                 .stream()

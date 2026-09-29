@@ -104,4 +104,14 @@ class SmsConfigValidatorUnitTest {
         assertThat(validator.validate(new SmsConfigUpdateDto(
                 SmsProviderType.STUB, true, false, "", "", true, Map.of()), INSTALLED)).isEmpty();
     }
+
+    @Test
+    @DisplayName("refuses a provider credential longer than 1024 bytes")
+    void shouldRejectSettings_whenCredentialIsTooLong() {
+        assertThat(validator.validate(new SmsConfigUpdateDto(SmsProviderType.STUB, true, false, "", "", false,
+                Map.of("field_one", "x".repeat(1025))), INSTALLED))
+                .containsExactly("sms.config.error.credentialTooLong");
+        assertThat(validator.validate(new SmsConfigUpdateDto(SmsProviderType.STUB, true, false, "", "", false,
+                Map.of("field_one", "x".repeat(1024))), INSTALLED)).isEmpty();
+    }
 }
