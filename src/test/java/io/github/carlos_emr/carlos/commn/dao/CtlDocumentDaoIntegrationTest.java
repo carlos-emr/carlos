@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -106,6 +107,97 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenDocumentModuleNotFound() {
             List<CtlDocument> results = ctlDocumentDao.findByDocumentNoAndModule(99999, "nonexistent");
             assertThat(results).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("Ownership lookup (issue #3867)")
+    class OwnershipLookup {
+
+        @Autowired
+        private DocumentDao documentDao;
+
+        /** Persists a document row with the given document.status and returns its generated number. */
+        private int document(char status) {
+            Document doc = new Document();
+            doc.setDoctype("consult");
+            doc.setDocdesc("");
+            doc.setDocfilename("");
+            doc.setDoccreator("999998");
+            doc.setResponsible("999998");
+            doc.setContenttype("text/plain");
+            doc.setStatus(status);
+            documentDao.persist(doc);
+            return doc.getDocumentNo();
+        }
+
+        private void link(int documentNo, String module, int moduleId, String status) {
+            CtlDocument doc = new CtlDocument();
+            doc.getId().setDocumentNo(documentNo);
+            doc.getId().setModule(module);
+            doc.getId().setModuleId(moduleId);
+            doc.setStatus(status);
+            ctlDocumentDao.persist(doc);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return only live documents linked to the patient")
+        void shouldReturnOwnedLiveDocuments_forDemographic() {
+            int live = document('A');
+            int ctlDeleted = document('A');
+            int otherPatient = document('A');
+            int nullCtlStatus = document('A');
+            link(live, "demographic", 7001, "A");
+            link(ctlDeleted, "demographic", 7001, "D");
+            link(otherPatient, "demographic", 7002, "A");
+            link(nullCtlStatus, "demographic", 7001, null);
+
+            List<Integer> owned = ctlDocumentDao.findDocumentNosForDemographic(7001,
+                    List.of(live, ctlDeleted, otherPatient, nullCtlStatus, 999_999));
+
+            assertThat(owned).containsExactlyInAnyOrder(live, nullCtlStatus);
+        }
+
+        /**
+         * EDocUtil.deleteDocument only sets document.status to 'D' and keeps the ctl_document row
+         * (with its original status) for undelete, so the lookup must read the document's own status.
+         */
+        @Test
+        @Tag("query")
+        @DisplayName("should exclude a document deleted through document.status even when the ctl row is live")
+        void shouldExcludeDocument_whenDocumentStatusIsDeleted() {
+            int deleted = document('D');
+            link(deleted, "demographic", 7001, "A");
+
+            assertThat(ctlDocumentDao.findDocumentNosForDemographic(7001, List.of(deleted))).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should exclude a ctl row that points at no document")
+        void shouldExcludeCtlRow_withoutDocument() {
+            link(888_888, "demographic", 7001, "A");
+
+            assertThat(ctlDocumentDao.findDocumentNosForDemographic(7001, List.of(888_888))).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should ignore documents linked through another module")
+        void shouldIgnoreNonDemographicModule_forDemographic() {
+            int providerDoc = document('A');
+            link(providerDoc, "provider", 7001, "A");
+
+            assertThat(ctlDocumentDao.findDocumentNosForDemographic(7001, List.of(providerDoc))).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty without querying for an empty id list")
+        void shouldReturnEmpty_forEmptyIdList() {
+            assertThat(ctlDocumentDao.findDocumentNosForDemographic(7001, List.of())).isEmpty();
+            assertThat(ctlDocumentDao.findDocumentNosForDemographic(null, List.of(30001))).isEmpty();
         }
     }
 }
