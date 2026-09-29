@@ -34,7 +34,7 @@ fs.writeFileSync(path.join(webroot, 'fixture-picker.jsp'), `<%@ page contentType
 <link rel="stylesheet" href="/carlos/css/ai-chart-updates-navigation.css"></head><body>
 <h1>Synthetic patient document list</h1><input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
 <a class="chart-update-document-link" href="/carlos/documentManager/AiChartUpdates?documentId=42"
- data-document-title="Synthetic &lt;img src=x onerror=window.titleExecuted=true&gt;" data-original-url="/carlos/original">Review chart updates</a>
+ data-document-title="Synthetic &lt;img src=x onerror=window.titleExecuted=true&gt;" data-original-url="/carlos/fixture/original">Review chart updates</a>
 <%@ include file="/WEB-INF/jspf/chart-update-error-dialog.jspf" %>
 <script src="/carlos/js/ai-chart-updates-navigation.js"></script></body></html>`);
 fs.mkdirSync(path.join(webroot, 'WEB-INF/lib'), { recursive: true });
@@ -166,18 +166,32 @@ async function run() {
     assert.match(await dialog.innerText(), /Document text is unavailable. Reopen the original/);
     assert.match(await dialog.locator('.chart-update-error-document').innerText(), /<img/);
     assert.equal(await page.evaluate(() => window.titleExecuted), undefined);
-    assert.equal(await dialog.getByRole('link', { name: 'Open original' }).getAttribute('href'), `${base}/original`);
+    assert.equal(await dialog.getByRole('link', { name: 'Open original' }).getAttribute('href'), `${base}/fixture/original`);
     assert.equal(await dialog.getByRole('button', { name: 'Close', exact: true }).evaluate(el => el === document.activeElement), true);
+    const opened = page.waitForEvent('popup');
+    await dialog.getByRole('link', { name: 'Open original' }).click();
+    const original = await opened;
+    await original.waitForLoadState('domcontentloaded');
+    assert.match(await original.locator('body').innerText(), /Readable synthetic original/);
+    await original.close();
     await page.setViewportSize({ width: 390, height: 844 });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({ path: path.join(runDir, 'unavailable-document-modal.png'), fullPage: true });
     await page.keyboard.press('Escape');
     assert.equal(await dialog.isVisible(), false);
     assert.equal(await link.evaluate(el => el === document.activeElement), true);
+    await change(page, 'missing-original');
+    await link.click();
+    await dialog.waitFor();
+    assert.match(await dialog.innerText(), /original document file is missing/);
+    assert.equal(await dialog.locator('.chart-update-original').isVisible(), false);
+    assert.equal(await dialog.locator('.chart-update-original').getAttribute('href'), null);
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
     await page.route('**/documentManager/AiChartUpdates?documentId=42', route => route.fulfill({ status: 403, body: 'Forbidden' }));
     await link.click();
     await dialog.waitFor();
     assert.match(await dialog.innerText(), /Could not open this review/);
+    assert.equal(await dialog.locator('.chart-update-original').isVisible(), false);
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();
     await page.unroute('**/documentManager/AiChartUpdates?documentId=42');
     await change(page, 'available');

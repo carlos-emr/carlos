@@ -35,6 +35,8 @@ import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.IOException;
+import java.io.FileNotFoundException;
+import java.nio.file.NoSuchFileException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -49,6 +51,13 @@ import org.springframework.transaction.annotation.Transactional;
 /** Reloads authorized evidence and chart comparison locally. None of the chart is sent to an agent. */
 @Service
 public class ChartUpdateContext {
+    /** The source file is absent and the native viewer has no stored HTML fallback. */
+    public static final class OriginalDocumentMissingException extends IllegalStateException {
+        public OriginalDocumentMissingException() {
+            super("The original document file is missing. Choose another document or ask an administrator to restore it.");
+        }
+    }
+
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
     private final SecurityInfoManager security;
@@ -126,6 +135,10 @@ public class ChartUpdateContext {
         try {
             extract = ClinicalSummaryTextExtractor.document(document.getDocfilename(), document.getContenttype());
         } catch (IOException invalid) {
+            if ((invalid instanceof NoSuchFileException || invalid instanceof FileNotFoundException)
+                    && (document.getDocxml() == null || document.getDocxml().isBlank())) {
+                throw new OriginalDocumentMissingException();
+            }
             throw new IllegalStateException("Document text is unavailable. Reopen the original.");
         }
         if (!extract.complete() || extract.text().isBlank()) {

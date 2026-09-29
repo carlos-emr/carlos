@@ -97,6 +97,7 @@ public final class AiChartUpdates2Action extends ActionSupport {
             } catch (IllegalStateException unavailable) {
                 availability.put("available", false);
                 availability.put("message", unavailable.getMessage());
+                availability.put("originalAvailable", !(unavailable instanceof ChartUpdateContext.OriginalDocumentMissingException));
             }
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");

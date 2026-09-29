@@ -8,14 +8,14 @@
     const close = () => dialog.close();
     dialog.querySelector('[data-close-chart-update-dialog]').addEventListener('click', close);
     dialog.addEventListener('close', () => { if (trigger?.isConnected) trigger.focus(); });
-    const showError = (link, message) => {
+    const showError = (link, message, originalAvailable = false) => {
         trigger = link;
         dialog.querySelector('.chart-update-error-document').textContent = link.dataset.documentTitle || '';
         dialog.querySelector('#chart-update-error-message').textContent = message;
         const original = dialog.querySelector('.chart-update-original');
         original.hidden = true;
         original.removeAttribute('href');
-        if (link.dataset.originalUrl) {
+        if (originalAvailable && link.dataset.originalUrl) {
             const url = new URL(link.dataset.originalUrl, location.href);
             if (url.origin === location.origin && url.protocol === location.protocol) {
                 original.href = url.href;
@@ -48,7 +48,7 @@
             if (result.available === true) {
                 location.assign(url.href);
             } else if (result.available === false && typeof result.message === 'string' && result.message.trim()) {
-                showError(link, result.message);
+                showError(link, result.message, result.originalAvailable === true);
             } else {
                 showError(link, dialog.dataset.fallbackMessage);
             }

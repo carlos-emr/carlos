@@ -28,7 +28,10 @@ ticklers. Review the normal chart when needed.
 
 The document list checks availability through the same authorized read boundary
 before navigating. Missing or unreadable documents show a modal over the list,
-with the document name, an original-document link and a Close button. Escape
+with the document name and a Close button. An Open original link is available
+when extraction fails but the source can still be opened. When the original file
+is missing and there is no stored HTML fallback, the modal explains this and hides
+the link; direct viewer requests return HTTP 404. Escape
 closes the modal and focus returns to the selected review link. Network/access
 failures show a generic message without replacing the list. This check does not
 generate proposals, expose source/chart text or change the session review.

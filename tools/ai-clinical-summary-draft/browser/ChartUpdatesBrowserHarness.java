@@ -53,6 +53,7 @@ public final class ChartUpdatesBrowserHarness {
         String source = SOURCE;
         int revision;
         boolean unavailable;
+        boolean originalMissing;
         int reminders;
         int histories;
         final Map<String, ChartUpdateReceipt> receipts = new HashMap<>();
@@ -113,6 +114,11 @@ public final class ChartUpdatesBrowserHarness {
                 request.getRequestDispatcher("/fixture-picker.jsp").forward(request, response);
                 return;
             }
+            if (request.getPathInfo().equals("/original") && request.getMethod().equals("GET")) {
+                response.setContentType("text/plain");
+                response.getWriter().write("Readable synthetic original");
+                return;
+            }
             if (request.getPathInfo().equals("/stats") && request.getMethod().equals("GET")) {
                 response.setContentType("application/json");
                 response.getWriter().write("{\"reminders\":" + fixture.reminders + ",\"histories\":"
@@ -127,7 +133,8 @@ public final class ChartUpdatesBrowserHarness {
                 }
                 case "/source-change" -> { fixture.source += "\nSynthetic document amendment."; fixture.revision++; }
                 case "/unavailable" -> fixture.unavailable = true;
-                case "/available" -> fixture.unavailable = false;
+                case "/missing-original" -> fixture.originalMissing = true;
+                case "/available" -> { fixture.unavailable = false; fixture.originalMissing = false; }
                 case "/clear-timing" -> { fixture.source = fixture.source.replace(FOLLOWUP, "Plan: review in four weeks."); fixture.revision++; }
                 case "/expire" -> ReflectionTestUtils.setField(session.getAttribute(ChartUpdateReview.SESSION_KEY), "expiresAt", 0L);
                 default -> { response.sendError(404); return; }
@@ -155,6 +162,7 @@ public final class ChartUpdatesBrowserHarness {
                 when(providers.getActiveProviders()).thenReturn(List.of(provider));
                 var chart = mock(ChartUpdateContext.class);
                 when(chart.load(user, 42)).thenAnswer(call -> {
+                    if (fixture.originalMissing) throw new ChartUpdateContext.OriginalDocumentMissingException();
                     if (fixture.unavailable) throw new IllegalStateException("Document text is unavailable. Reopen the original.");
                     return fixture.snapshot();
                 });

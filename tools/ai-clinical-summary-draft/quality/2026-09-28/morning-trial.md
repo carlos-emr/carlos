@@ -16,7 +16,8 @@ from another machine.
    document list that opens, click **Review chart updates** beside the desired
    document. This keeps the chart open while you review the document. If the
    document is unavailable, a modal explains the problem and leaves the document
-   list in place. Close it to choose another document, or open the original.
+   list in place. Close it to choose another document. Open original is offered
+   when the source is available; a missing file needs an administrator to restore it.
 
    Direct links are also available in the same browser session:
 

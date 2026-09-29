@@ -103,3 +103,9 @@ unspecified date, the active clinician assignee, suggested chart sections, unche
 approvals and mobile layout. Dates are calculated from each document observation
 date. It verifies unchanged receipt counts and releases the browser's editing
 locks. Avoid running it while another browser is editing these test charts.
+
+The suggested-field check also opens each source document and compares its text
+with the fixture file. If an older missing document is present, it checks that the
+modal hides Open original and that a direct viewer request returns HTTP 404. The
+isolated browser harness clicks Open original for an existing source whose text
+cannot be used for proposals, and verifies the opened document.

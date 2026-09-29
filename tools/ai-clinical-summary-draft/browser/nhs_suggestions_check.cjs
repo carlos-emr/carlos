@@ -62,14 +62,20 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
           if ((await candidate.getAttribute('href')).endsWith(`documentId=${doc}`)) continue;
           const availability = await page.request.get(new URL(await candidate.getAttribute('href'), page.url()).href, { headers: { Accept: 'application/json' } });
           if (!availability.ok() || !availability.headers()['content-type']?.includes('application/json')) continue;
-          if ((await availability.json()).available !== false) continue;
+          const state = await availability.json();
+          if (state.available !== false) continue;
           const listUrl = page.url();
           await candidate.click();
           const modal = page.getByRole('dialog', { name: 'Document review unavailable' });
           await modal.waitFor();
           assert.equal(page.url(), listUrl);
           assert.equal(await modal.locator('.chart-update-error-document').innerText(), await candidate.getAttribute('data-document-title'));
-          assert(await modal.getByRole('link', { name: 'Open original' }).isVisible());
+          assert.equal(await modal.locator('.chart-update-original').isVisible(), state.originalAvailable === true);
+          if (state.originalAvailable === false) {
+            assert.match(await modal.innerText(), /original document file is missing/);
+            const original = await page.request.get(new URL(await candidate.getAttribute('data-original-url'), page.url()).href);
+            assert.equal(original.status(), 404);
+          }
           await page.screenshot({ path: path.join(output, 'unavailable-document-modal.png'), fullPage: true });
           await modal.getByRole('button', { name: 'Close', exact: true }).click();
           assert.equal(await candidate.evaluate(el => el === document.activeElement), true);
@@ -80,6 +86,10 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       }
       const reviewLink = page.locator(`a.chart-update-document-link[href$="documentId=${doc}"]`);
       assert.equal(await reviewLink.count(), 1);
+      const original = await page.request.get(new URL(await reviewLink.getAttribute('data-original-url'), page.url()).href);
+      assert.equal(original.status(), 200);
+      assert.equal(await original.text(), fs.readFileSync(fixture.sourceFile, 'utf8'));
+      assert.equal(original.headers()['content-type'].split(';')[0], 'text/plain');
       await page.screenshot({ path: path.join(output, `${fixture.fixture}-document-picker.png`), fullPage: true });
       const [reviewResponse] = await Promise.all([
         page.waitForNavigation({ waitUntil: 'domcontentloaded' }), reviewLink.click(),

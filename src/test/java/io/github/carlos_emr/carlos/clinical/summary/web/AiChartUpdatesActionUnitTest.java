@@ -103,10 +103,20 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         request.addHeader("Accept", "application/json");
         when(context.load(user, 42)).thenThrow(new IllegalStateException("Document text is unavailable. Reopen the original."));
         assertThat(action.execute()).isEqualTo("none");
-        assertThat(response.getContentAsString()).contains("\"available\":false", "Document text is unavailable");
+        assertThat(response.getContentAsString()).contains("\"available\":false", "Document text is unavailable", "\"originalAvailable\":true");
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
         assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
         verify(context, times(1)).load(user, 42);
+        verifyNoInteractions(generator, writer);
+    }
+
+    @Test void shouldHideOriginal_whenTheSourceFileIsMissing() throws Exception {
+        request.setMethod("GET");
+        request.addHeader("Accept", "application/json");
+        when(context.load(user, 42)).thenThrow(new ChartUpdateContext.OriginalDocumentMissingException());
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(response.getContentAsString()).contains("\"available\":false", "\"originalAvailable\":false",
+                "original document file is missing");
         verifyNoInteractions(generator, writer);
     }
 

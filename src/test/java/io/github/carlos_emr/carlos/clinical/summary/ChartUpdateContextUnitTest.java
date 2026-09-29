@@ -100,6 +100,24 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
     }
     @AfterEach void tearDown() { reader.close(); visibility.close(); settings.close(); }
 
+    @Test void shouldIdentifyMissingOriginal_withoutStoredHtmlFallback() throws Exception {
+        reader.when(() -> ClinicalSummaryTextExtractor.document("synthetic.txt", "text/plain"))
+                .thenThrow(new java.nio.file.NoSuchFileException("synthetic.txt"));
+        assertThatThrownBy(() -> context.load(user, 42))
+                .isInstanceOf(ChartUpdateContext.OriginalDocumentMissingException.class)
+                .hasMessageContaining("original document file is missing");
+        document.setDocxml("<p>Stored original</p>");
+        assertThatThrownBy(() -> context.load(user, 42))
+                .isExactlyInstanceOf(IllegalStateException.class).hasMessageContaining("Reopen the original");
+    }
+
+    @Test void shouldPreserveOriginalOption_whenExtractionFails() throws Exception {
+        reader.when(() -> ClinicalSummaryTextExtractor.document("synthetic.txt", "text/plain"))
+                .thenThrow(new java.io.IOException("Unreadable text"));
+        assertThatThrownBy(() -> context.load(user, 42))
+                .isExactlyInstanceOf(IllegalStateException.class).hasMessageContaining("Reopen the original");
+    }
+
     @Test void shouldLoadSourceAndComparison_withoutGrantingWriteAccess() {
         var snapshot = context.load(user, 42);
         assertThat(snapshot.patientId()).isEqualTo(3001);
