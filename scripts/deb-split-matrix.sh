@@ -106,8 +106,14 @@ apt_install_upgrade() {
     if [ "${ALLOW_RENDERER_REMOVAL:-0}" != 1 ]; then
         apt_install "$log" "$@"; return $?
     fi
-    local others
-    others="$(apt-get install -s "$@" 2>/dev/null | sed -n 's/^Remv \([^ ]*\).*/\1/p' | grep -vx carlos-emr-eform-renderer)"
+    # A failed simulation must not fall through to an unguarded install: log
+    # apt's own refusal (case 2 relies on it naming carlos-ctl) and stop.
+    local others sim
+    if ! sim="$(apt-get install -s "$@" 2>&1)"; then
+        { echo "apt simulation failed:"; printf '%s\n' "$sim"; echo "UPGRADE_RC=99"; } > "$log"
+        return 99
+    fi
+    others="$(printf '%s\n' "$sim" | sed -n 's/^Remv \([^ ]*\).*/\1/p' | grep -vx carlos-emr-eform-renderer || true)"
     if [ -n "$others" ]; then
         { echo "apt would also remove: $others"; echo "UPGRADE_RC=99"; } > "$log"
         return 99
