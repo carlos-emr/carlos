@@ -117,6 +117,14 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       await page.setViewportSize({ width: 390, height: 844 });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       const csrf = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+      const [backResponse] = await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+        page.getByRole('link', { name: 'Back', exact: true }).click(),
+      ]);
+      assert.equal(backResponse.status(), 200);
+      assert.equal(new URL(page.url()).searchParams.get('functionid'), String(patient));
+      await page.locator('#chart-update-picker-title').waitFor();
+      assert.equal(await page.locator(`a.chart-update-document-link[href$="documentId=${doc}"]`).count(), 1);
       const noteId = sql.value(`SELECT note_id FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998' ORDER BY id DESC LIMIT 1`);
       assert.match(noteId, /^\d+$/);
       const release = await page.request.post(`${config.baseUrl}/CaseManagementEntry`, {
@@ -125,7 +133,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(release.status(), 200);
       assert.equal(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998'`), '0');
       results.push({ fixture: fixture.fixture, documentDate: date, suggestedDate: expected, approvalsUnchanged: true, unavailableModalChecked });
-      console.log(`${fixture.fixture}: eChart navigation, document selection, suggested fields, explicit approval and mobile layout passed`);
+      console.log(`${fixture.fixture}: eChart navigation, document selection, suggested fields, explicit approval, mobile layout and Back navigation passed`);
       for (const candidate of context.pages()) if (candidate !== schedule) await candidate.close();
     }
     fs.writeFileSync(path.join(output, 'suggestions-result.json'), JSON.stringify(results, null, 2) + '\n');

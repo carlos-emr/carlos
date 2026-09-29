@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 (() => {
     'use strict';
+    document.querySelector('[data-review-back]')?.addEventListener('click', () => window.history.back());
     const fields = ['entryText', 'dueDate', 'assignee', 'destination'];
     const proposals = Array.from(document.querySelectorAll('.proposal-form'));
     let submitting = false;

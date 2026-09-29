@@ -11,17 +11,32 @@
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title><fmt:message key="chartUpdates.title"/> | CARLOS</title>
     <%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/global.css">
     <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/ai-chart-updates.css">
 </head>
-<body class="container-fluid py-4">
-<header class="review-header">
-    <h1 class="h3"><fmt:message key="chartUpdates.title"/></h1>
+<body>
+<header class="page-header-bar page-header-bar--flex review-header">
+    <h1 class="page-header-title"><fmt:message key="chartUpdates.title"/></h1>
+    <c:choose>
+        <c:when test="${not empty chartUpdatePatient}">
+            <c:url var="chartUpdateBackUrl" value="/documentManager/ViewDocumentReport">
+                <c:param name="function" value="demographic"/>
+                <c:param name="functionid" value="${chartUpdatePatient}"/>
+                <c:param name="chartUpdates" value="1"/>
+            </c:url>
+            <a class="btn btn-secondary btn-sm" href="${carlos:forHtmlAttribute(chartUpdateBackUrl)}"><fmt:message key="global.btnBack"/></a>
+        </c:when>
+        <c:otherwise><button class="btn btn-secondary btn-sm" type="button" data-review-back><fmt:message key="global.btnBack"/></button></c:otherwise>
+    </c:choose>
+</header>
+<div class="review-content">
+    <div class="review-context">
     <c:if test="${chartUpdateReady}">
     <p><fmt:message key="chartUpdates.patient"/>: <carlos:encode value="${chartUpdatePatientLabel}"/> (#<carlos:encode value="${chartUpdatePatient}"/>)</p>
     <p><carlos:encode value="${chartUpdateTitle}"/> · <carlos:encode value="${chartUpdateDate}"/></p>
     <p class="review-guidance"><fmt:message key="chartUpdates.warning"/></p>
     </c:if>
-</header>
+</div>
 <c:if test="${not empty chartUpdateError}"><p class="alert alert-danger" role="alert"><carlos:encode value="${chartUpdateError}"/></p></c:if>
 <c:if test="${chartUpdateReady}">
 <div class="chart-update-layout">
@@ -36,9 +51,9 @@
         <p><a href="#chart-reference"><fmt:message key="chartUpdates.current"/></a></p>
         <p class="suggestions-help"><fmt:message key="chartUpdates.suggestionsHelp"/></p>
         <c:forEach items="${chartUpdateRows}" var="proposal" varStatus="position">
-        <article class="card mb-4 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}">
+        <article class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}">
             <div class="card-body">
-                <div class="proposal-heading"><span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/></span><h3 class="h5"><c:choose><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3></div>
+                <div class="proposal-heading"><span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/>.</span><h3 class="h5"><c:choose><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3></div>
                 <details class="proposal-evidence" open><summary><fmt:message key="chartUpdates.evidence"/></summary><blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote></details>
                 <c:choose>
                 <c:when test="${not empty proposal.outcome}"><p class="alert alert-success mt-2" role="status"><carlos:encode value="${proposal.outcome}"/></p></c:when>
@@ -82,8 +97,8 @@
                         <p class="small mt-2"><fmt:message key="chartUpdates.signing"/></p>
                     </c:otherwise></c:choose>
                     <label class="approval-confirmation"><input type="checkbox" name="confirmed" value="true" required> <fmt:message key="chartUpdates.confirm"/></label>
-                    <div class="proposal-actions"><button class="btn btn-primary" type="submit"><fmt:message key="chartUpdates.accept"/></button>
-                    <button class="btn btn-outline-secondary" type="submit" formnovalidate formaction="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/DismissAiChartUpdate"><fmt:message key="chartUpdates.dismiss"/></button></div>
+                    <div class="proposal-actions"><button class="btn btn-primary btn-sm" type="submit"><fmt:message key="chartUpdates.accept"/></button>
+                    <button class="btn btn-secondary btn-sm" type="submit" formnovalidate formaction="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/DismissAiChartUpdate"><fmt:message key="chartUpdates.dismiss"/></button></div>
                 </form>
                 </c:otherwise></c:choose>
             </div>
@@ -97,7 +112,7 @@
     <form class="generation-form" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/GenerateAiChartUpdates" data-busy-label="${carlos:forHtmlAttribute(generatingLabel)}">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(chartUpdateDocumentId)}">
-        <button class="btn btn-outline-primary" type="submit"><fmt:message key="chartUpdates.generate"/></button>
+        <button class="btn btn-primary btn-sm" type="submit"><fmt:message key="chartUpdates.generate"/></button>
     </form>
     <c:if test="${not empty chartUpdateReview}"></details></c:if>
 </main>
@@ -113,6 +128,7 @@
 </aside>
 </div>
 </c:if>
+</div>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates.js"></script>
 </body>
 </html>

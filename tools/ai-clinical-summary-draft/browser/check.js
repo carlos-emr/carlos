@@ -25,7 +25,7 @@ function copy(relative) {
   fs.copyFileSync(path.join(root, 'src/main/webapp', relative), dest);
 }
 for (const file of ['WEB-INF/jsp/documentManager/aiChartUpdates.jsp', 'WEB-INF/jspf/bootstrap-css.jspf',
-  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'js/ai-chart-updates.js', 'js/ai-chart-updates-navigation.js', 'css/ai-chart-updates-navigation.css', 'WEB-INF/jspf/chart-update-error-dialog.jspf', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
+  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'share/css/global.css', 'js/ai-chart-updates.js', 'js/ai-chart-updates-navigation.js', 'css/ai-chart-updates-navigation.css', 'WEB-INF/jspf/chart-update-error-dialog.jspf', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
 fs.writeFileSync(path.join(webroot, 'fixture-picker.jsp'), `<%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>

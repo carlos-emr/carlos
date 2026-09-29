@@ -5,6 +5,10 @@ prose. The eChart header opens the patient document list, with review links for 
 text and HTML documents. The document summary also links to the review page. It is off by default
 and has not been deployed or clinically validated.
 
+The review page uses CARLOS's shared grey header, white background and standard
+buttons. **Back** returns to the same patient's document list after generation or
+approval. The existing unsaved-edit warning also applies when leaving with Back.
+
 ## Scope
 
 - Extract up to 20 exact source passages as optional follow-up reminders or
