@@ -563,6 +563,38 @@
       ]
     },
     {
+      "name": "lab-upload",
+      "script": "scripts/lab-upload-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CML_UPLOAD_KEY",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ]
+    },
+    {
+      "name": "lab-upload-rollback",
+      "script": "scripts/lab-upload-rollback-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 480,
+      "env": [
+        "CML_UPLOAD_KEY",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ]
+    },
+    {
       "name": "document-add-link",
       "script": "scripts/document-add-link-playwright-checks.js",
       "tiers": [
