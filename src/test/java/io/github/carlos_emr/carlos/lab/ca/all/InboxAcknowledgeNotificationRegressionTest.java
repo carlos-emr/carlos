@@ -57,7 +57,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         }
         assertThat(read(OSCAR_MDS_INDEX_JS)).contains("labDocumentRows(fileId, file.split(\":\")[1])",
                 "labDocumentRows(num, 'DOC').slideUp()", "labDocumentRows(doclabid, data.labType).slideUp()",
-                "labDocumentRows(docId, type).slideUp()");
+                "labDocumentRows(docId, 'DOC').slideUp()");
     }
 
     private static final Path LAB_DISPLAY_JSP = Path.of(
@@ -250,7 +250,9 @@ class InboxAcknowledgeNotificationRegressionTest {
         // edit here is silently undone by the refresh that follows an acknowledgement.
         String listMode = read(INBOXHUB_LIST_MODE_JSP);
 
-        assertThat(listMode).contains("countAcknowledgedInboxhubItem(reportId, resolvedType);");
+        assertThat(listMode)
+                .as("removeReport reaches the stored totals through the shared contract, which counts")
+                .contains("dropAcknowledgedInboxhubItem(reportId, resolvedType);");
         assertThat(listMode)
                 .as("removeReport must not hand-edit the rendered badge")
                 .doesNotContain("totalLabsCountStat');");
@@ -289,10 +291,16 @@ class InboxAcknowledgeNotificationRegressionTest {
         // a row being present dropped the older versions from the badge, because the inbox
         // collapses a chain and only the newest version ever has a row.
         assertThat(read(INBOXHUB_LIST_MODE_JSP))
-                .as("removeReport counts its call, whether or not a row was on screen")
-                .contains("removeInboxhubRow(reportId, resolvedType);")
-                .contains("countAcknowledgedInboxhubItem(reportId, resolvedType);")
+                .as("removeReport counts its call, whether or not a row was on screen, through the "
+                        + "shared contract; an unsaid cleared count is one routing row")
+                .contains("dropAcknowledgedInboxhubItem(reportId, resolvedType);")
                 .doesNotContain("if (rowEl.length === 0) { return; }");
+        assertThat(read(INBOXHUB_FORM_JSP))
+                .as("the shared contract counts before it asks whether a row was on screen")
+                .containsSubsequence(
+                        "removeInboxhubRow(segmentId, resolvedType);",
+                        "countAcknowledgedInboxhubItem(segmentId, resolvedType, clearedCount);",
+                        "if (!isInboxhubItemHandled(segmentId, resolvedType)) { return false; }");
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .as("the opener loop must walk the same versions the server files")
                 .contains("return at < 0 ? [target] : chain.slice(0, at + 1);")
@@ -339,7 +347,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(read(REPORT_STATUS_UPDATE_ACTION))
                 .as("the AJAX acknowledge response must carry the cleared count")
                 .contains("json.put(\"clearedCount\", clearedCount);")
-                .contains("writeClearedCount(clearedCount);");
+                .contains("writeClearedCount(update.cleared());");
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .as("the browser must ask for that response and use it")
                 .contains("data.ajaxcall = 'yes';")
@@ -477,7 +485,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         // lab's row and decrement the Labs total when a document was acknowledged.
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .contains("self.opener.removeReport(num, 'DOC');")
-                .contains("self.opener.removeReport(docId, type);")
+                .contains("self.opener.removeReport(docId, 'DOC');")
                 .as("no acknowledge path may reach removeReport without a type")
                 .doesNotContain("self.opener.removeReport(num);")
                 .doesNotContain("self.opener.removeReport(docId);");
@@ -531,8 +539,8 @@ class InboxAcknowledgeNotificationRegressionTest {
         // the page, and preview mode removes its own card instead of being skipped.
         assertThat(read(INBOXHUB_FORM_JSP))
                 .as("the DataTable API is only ever touched once the table is known to be there")
-                .contains("if (jQuery('#inbox_table').length > 0) {\n"
-                        + "            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);")
+                .containsSubsequence("if (jQuery('#inbox_table').length > 0) {",
+                        "jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);")
                 .as("and preview mode removes its card rather than bailing out and leaving it")
                 .contains("if (jQuery('#inboxViewItems').length > 0) {")
                 .as("with nothing at all done when neither mode is on screen")

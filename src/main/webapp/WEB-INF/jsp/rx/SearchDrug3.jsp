@@ -257,10 +257,12 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
+        <fmt:message key="SearchDrug.js.favoriteLoadFailed" var="msg_favoriteLoadFailed"/>
         <script type="text/javascript">
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
             var jsMsg = {
+                favoriteLoadFailed: '${carlos:forJavaScript(msg_favoriteLoadFailed)}',
                 handlerNotRemoved: '${carlos:forJavaScript(msg_handlerNotRemoved)}',
                 confirmMedRecComplete: '${carlos:forJavaScript(msg_confirmMedRecComplete)}',
                 medRecCompleted: '${carlos:forJavaScript(msg_medRecCompleted)}',
@@ -1576,10 +1578,15 @@ function renderRxStage() {
         var data="favoriteId="+favoriteId+"&randomId="+randomId;
         var url= ctx + "/rx/useFavorite";
         data += "&parameterValue=useFav2";
-        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,evalScripts:true,insertion: 'bottom',
-            onSuccess: function(transport) {
-                skipParseInstr = true;
-                renderRxStage();
+        CarlosAjax.updater({success: 'rxText'},url, {method:'post',parameters:data,evalScripts:true,insertion: 'bottom',
+            onComplete: function(transport) {
+                if (transport.status >= 200 && transport.status < 300) {
+                    skipParseInstr = true;
+                    renderRxStage();
+                }
+            },
+            onFailure: function() {
+                alert(jsMsg.favoriteLoadFailed);
             }
         });
     }

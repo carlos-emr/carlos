@@ -56,6 +56,7 @@
  * the page's own cancel path (a fresh note).
  */
 
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const fs = require('fs');
 const { chromium } = require('playwright');
 
@@ -578,7 +579,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
       + `(${NOTE_BODIES.length} note bodies, then ${PRINT_SELECTIONS.length} print selections `
       + `on the worst-case body); ${cleanupOutcome}`);
   } finally {
-    await browser.close();
+    await closeBrowserWithChartCleanup(browser, baseUrl);
   }
 })().catch((error) => {
   console.error('FAIL eChart print Playwright check');

@@ -53,11 +53,7 @@ public interface ProviderInboxRoutingDao extends AbstractDao<ProviderInboxItem> 
 
     public void addToProviderInbox(String providerNo, Integer labNo, String labType);
 
-    /**
-     * Routes a document to a provider's inbox like {@link #addToProviderInbox}, but lets a failure
-     * propagate. For a caller inside a transaction that must roll back when the routing row cannot
-     * be written, so a document is never committed unrouted.
-     */
-    void routeToProviderInbox(String providerNo, Integer labNo, String labType);
+    /** Routes every forwarding recipient once and propagates failure to the caller's filing transaction. */
+    void addToProviderInboxStrict(String providerNo, Integer labNo, String labType);
 
 }

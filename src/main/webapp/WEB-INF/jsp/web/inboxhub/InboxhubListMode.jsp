@@ -253,14 +253,29 @@
      * also keeps the count to once per item, since a popup calls this directly AND
      * broadcasts, and the row may already be gone by the time the broadcast lands.
      *
+     * It goes through dropAcknowledgedInboxhubItem, the same contract the BroadcastChannel
+     * listener and the no-BroadcastChannel fallback use, so a popup that can reach the inbox
+     * only this way still gets the preview boundary re-sync and the Rapid Review advance. The
+     * cleared count is left unsaid: one call is one routing row, which is what the helper
+     * assumes when the sender does not say. When the helper answers that a full re-sync is
+     * still required -- list mode still paging its results in -- the re-fetch is made here,
+     * as the listener would make it, but ONLY for the id whose row was on screen: an older
+     * version in the chain has no row of its own, and re-fetching once per version would
+     * throw the list away as many times as the chain is long.
+     *
      * @param {string} reportId segment id of the item to drop
      * @param {string} labType its report type; segment ids are not unique across types, so
      *                 without one this can only fall back to whatever row carries the id
      */
     function removeReport(reportId, labType) {
         const resolvedType = labType || inboxhubItemElement(reportId, labType).data('labType');
-        removeInboxhubRow(reportId, resolvedType);
-        countAcknowledgedInboxhubItem(reportId, resolvedType);
+        const settled = dropAcknowledgedInboxhubItem(reportId, resolvedType);
+        if (!settled && isInboxhubItemHandled(reportId, resolvedType)) {
+            fetchInboxhubData();
+            if (rapidReviewState) {
+                armPendingRapidReview(inboxhubResultSetGeneration);
+            }
+        }
     }
 </script>
 </c:if>

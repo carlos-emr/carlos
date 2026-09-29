@@ -54,6 +54,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>{@code html} / {@code htmlContent} → {@link SafeEncode#forHtmlContent(String)}</li>
  *   <li>{@code htmlAttribute} → {@link SafeEncode#forHtmlAttribute(String)}</li>
  *   <li>{@code htmlUnquotedAttribute} → {@link SafeEncode#forHtmlUnquotedAttribute(String)}</li>
+ *   <li>{@code htmlWithBreakMarkers} → {@link SafeEncode#forHtmlContentWithBreakMarkers(String)}
+ *       (HL7 lab text whose {@code <br />} markers and newlines must render as line breaks)</li>
  *   <li>{@code forHtml} (legacy alias) → {@link SafeEncode#forHtml(String)}</li>
  *   <li>{@code javaScript} / {@code js} → {@link SafeEncode#forJavaScript(String)}</li>
  *   <li>{@code javaScriptAttribute} → {@link SafeEncode#forJavaScriptAttribute(String)}</li>
@@ -121,6 +123,9 @@ public class CarlosEncodeTag extends TagSupport {
             case "htmlcontent":
                 SafeEncode.forHtmlContent(out, val);
                 return;
+            case "htmlwithbreakmarkers":
+                SafeEncode.forHtmlContentWithBreakMarkers(out, val);
+                return;
             case "forhtml":
                 SafeEncode.forHtml(out, val);
                 return;
@@ -177,7 +182,7 @@ public class CarlosEncodeTag extends TagSupport {
             default:
                 throw new JspException(
                         "carlos:encode: unknown context '" + ctx + "'. "
-                                + "Valid contexts: html, htmlAttribute, htmlUnquotedAttribute, "
+                                + "Valid contexts: html, htmlWithBreakMarkers, htmlAttribute, htmlUnquotedAttribute, "
                                 + "javaScript, javaScriptAttribute, javaScriptBlock, javaScriptSource, "
                                 + "uri, uriComponent, cssString, cssUrl, "
                                 + "xml, xmlAttribute, xmlContent, xmlComment, cdata, java.");

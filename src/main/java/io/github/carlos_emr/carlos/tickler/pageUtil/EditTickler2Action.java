@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.util.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -71,6 +71,10 @@ public class EditTickler2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_tickler)");
         }
 
+        if (!requirePost()) {
+            return NONE;
+        }
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         String ticklerNoStr = request.getParameter("ticklerNo");
@@ -82,7 +86,7 @@ public class EditTickler2Action extends ActionSupport {
         try {
             ticklerNo = Integer.parseInt(ticklerNoStr.trim());
         } catch (NumberFormatException e) {
-            logger.error("Invalid ticklerNo parameter: '{}'", ticklerNoStr);
+            logger.warn("Tickler edit rejected: invalid identifier");
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
@@ -101,18 +105,50 @@ public class EditTickler2Action extends ActionSupport {
             return "failure";
         }
 
+        Date parsedServiceDate;
+        Tickler.STATUS parsedStatus;
+        Tickler.PRIORITY parsedPriority;
+        try {
+            parsedServiceDate = TicklerFormDate.parse(serviceDate);
+            parsedStatus = Tickler.STATUS.valueOf(status);
+            parsedPriority = Tickler.PRIORITY.valueOf(priority);
+            if (assignedTo.isBlank()) {
+                throw new IllegalArgumentException("Missing assignee");
+            }
+        } catch (IllegalArgumentException e) {
+            addActionError(getText("tickler.ticklerEdit.arg.error"));
+            return "failure";
+        }
+
         Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
 
-        if (t == null) {
+        if (t == null || t.getCreator() == null || t.getCreator().isBlank()
+                || t.getDemographicNo() == null || t.getDemographicNo() <= 0) {
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
 
         Date now = new Date();
 
-        boolean emailFailed = false;
         boolean isComment = false;
         String newMessage = request.getParameter("newMessage");
+
+        /*
+         * Create a new TicklerUpdate
+         */
+        //back fill the original state of the tickler so we don't lose it  
+        TicklerUpdate tuOriginal = new TicklerUpdate();
+
+        if (t.getUpdates().isEmpty()) {
+            tuOriginal.setTicklerNo(t.getId());
+            tuOriginal.setProviderNo(t.getCreator());
+            tuOriginal.setUpdateDate(t.getUpdateDate());
+
+            tuOriginal.setStatus(t.getStatus());
+            tuOriginal.setPriority(t.getPriority().toString());
+            tuOriginal.setAssignedTo(t.getTaskAssignedTo());
+            tuOriginal.setServiceDate(t.getServiceDate());
+        }
 
         /*
          * Create a new TicklerComment
@@ -130,25 +166,6 @@ public class EditTickler2Action extends ActionSupport {
             isComment = true;
         }
 
-        /*
-         * Create a new TicklerUpdate
-         */
-        //back fill the original state of the tickler so we don't lose it  
-        TicklerUpdate tuOriginal = new TicklerUpdate();
-
-        if (t.getUpdates().isEmpty()) {
-            tuOriginal.setTicklerNo(t.getId());
-            tuOriginal.setProviderNo(t.getCreator());
-            tuOriginal.setUpdateDate(t.getUpdateDate());
-
-            tuOriginal.setStatus(t.getStatus());
-            tuOriginal.setPriority(t.getPriority().toString());
-            tuOriginal.setAssignedTo(t.getTaskAssignedTo());
-            tuOriginal.setServiceDate(t.getServiceDate());
-
-            t.getUpdates().add(tuOriginal);
-        }
-
         TicklerUpdate tu = new TicklerUpdate();
         tu.setTicklerNo(t.getId());
         tu.setUpdateDate(now);
@@ -156,15 +173,15 @@ public class EditTickler2Action extends ActionSupport {
 
         boolean isUpdate = false;
 
-        if (!status.equals(String.valueOf(t.getStatus()))) {
-            tu.setStatusAsChar(status.charAt(0));
-            t.setStatusAsChar(status.charAt(0));
+        if (parsedStatus != t.getStatus()) {
+            tu.setStatusAsChar(parsedStatus.name().charAt(0));
+            t.setStatus(parsedStatus);
             isUpdate = true;
         }
 
-        if (!priority.equals(t.getPriority())) {
-            tu.setPriority(priority);
-            t.setPriorityAsString(priority);
+        if (parsedPriority != t.getPriority()) {
+            tu.setPriority(parsedPriority.name());
+            t.setPriority(parsedPriority);
             isUpdate = true;
         }
 
@@ -175,17 +192,14 @@ public class EditTickler2Action extends ActionSupport {
             isUpdate = true;
         }
 
-        if (!serviceDate.equals(t.getServiceDate())) {
-            try {
-                Date serviceDateAsDate = DateUtils.parseDate(serviceDate, request.getLocale());
-                tu.setServiceDate(serviceDateAsDate);
-                t.setServiceDate(serviceDateAsDate);
-                isUpdate = true;
-            } catch (java.text.ParseException e) {
-                logger.error("Service Date cannot be parsed:", e);
-                addActionError(getText("tickler.ticklerEdit.arg.error"));
-                return "error";
-            }
+        if (t.getServiceDate() == null || !DateUtils.isSameDay(parsedServiceDate, t.getServiceDate())) {
+            tu.setServiceDate(parsedServiceDate);
+            t.setServiceDate(parsedServiceDate);
+            isUpdate = true;
+        }
+
+        if ((isComment || isUpdate) && t.getUpdates().isEmpty()) {
+            t.getUpdates().add(tuOriginal);
         }
 
         if (isUpdate) {
@@ -194,17 +208,15 @@ public class EditTickler2Action extends ActionSupport {
 
         if (isComment || isUpdate) {
             try {
-                ticklerManager.updateTickler(loggedInInfo, t);
+                if (!ticklerManager.updateTickler(loggedInInfo, t)) {
+                    addActionError(getText("tickler.ticklerEdit.arg.error"));
+                    return "error";
+                }
             } catch (Exception e) {
-                logger.error("Failed to update tickler: ticklerNo={}, providerNo={}", ticklerNo, providerNo, e);
+                logger.error("Tickler update failed: {}", e.getClass().getSimpleName());
                 addActionError(getText("tickler.ticklerEdit.arg.error"));
                 return "error";
             }
-        }
-
-        if (emailFailed) {
-            addActionError(getText("tickler.ticklerEdit.emailFailed.error"));
-            return "failure";
         }
 
         if (parentAjaxId != null) {
@@ -221,6 +233,10 @@ public class EditTickler2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
             throw new RuntimeException("missing required sec object (_tickler)");
+        }
+
+        if (!requirePost()) {
+            return NONE;
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -244,8 +260,8 @@ public class EditTickler2Action extends ActionSupport {
             try {
                 textSuggestId = Integer.parseInt(activeTextStr);
             } catch (NumberFormatException e) {
-                //probably a new text suggestion then
-                logger.error("textSuggestId in activeText cannot be parsed as an int. Value: '{}'", activeTextStr, e);
+                // A nonnumeric value is a new suggestion, not a parsing failure.
+                // Do not log entered text or the exception: both may contain clinical details.
             }
 
             TicklerTextSuggest ts = null;
@@ -271,8 +287,8 @@ public class EditTickler2Action extends ActionSupport {
             try {
                 textSuggestId = Integer.parseInt(inactiveTextStr);
             } catch (NumberFormatException e) {
-                //probably a new text suggestion then
-                logger.error("textSuggestId in inactiveText cannot be parsed as an int. Value: '{}'", inactiveTextStr, e);
+                // A nonnumeric value is a new suggestion, not a parsing failure.
+                // Do not log entered text or the exception: both may contain clinical details.
             }
 
             TicklerTextSuggest ts = null;
@@ -294,6 +310,16 @@ public class EditTickler2Action extends ActionSupport {
         }
 
         return "close";
+    }
+
+    /** Reject safe-method requests before changing ticklers or suggested text. */
+    private boolean requirePost() {
+        if ("POST".equals(request.getMethod())) {
+            return true;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     private String[] activeText;

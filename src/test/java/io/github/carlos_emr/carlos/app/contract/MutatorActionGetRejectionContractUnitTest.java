@@ -21,11 +21,13 @@
  */
 package io.github.carlos_emr.carlos.app.contract;
 
+import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
+import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
@@ -134,6 +136,8 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            Arguments.of("io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerCreateGroup2Action",
+                    "_admin", "w"),
             // --- login ---
             // Logout2Action is in io.github.carlos_emr.carlos.login, which is not yet in
             // IN_SCOPE_PACKAGE_PREFIXES, so the discovery scan won't auto-find it.
@@ -169,6 +173,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "_admin", "w"),
+            // Provider Linking Rules (issue #3971): the save flips a clinic-wide switch that widens
+            // who receives lab and HRM results, so it is POST-only; the view gate never writes.
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
+                    "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
                     "_admin.eform", "w"),
             // Every forward value (add/delete/up/down) reorders encounter forms; the
@@ -193,11 +201,22 @@ class MutatorActionGetRejectionContractUnitTest {
             // to write measurements from a link or an image tag.
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.HealthTrackerUpdate2Action",
                     "_measurement", "w"),
+            // Measurement delete endpoint (DisplayHistory, newHistoryIndex, AddMeasurementData
+            // and the Health Tracker's fetch all POST to it). Unconditional: it 405s any
+            // non-POST before the privilege check and before any DAO lookup.
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action",
+                    "_measurement", "d"),
             Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
                     "_flowsheet", "w"),
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),
+            // Letter generation files a document per patient and marks follow-ups; template upload
+            // persists a report_letters row. Both are _report r, POST-only (issue #3963).
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action",
+                    "_report", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action",
+                    "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
@@ -213,6 +232,9 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action",
                     "_msg", "w"),
             // --- tickler ---
+            // Both editTickler and suggested-text dispatches are POST-only.
+            Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
+                    "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action",
                     "_tickler", "w"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerMain2Action",
@@ -234,6 +256,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // token at all until the gate was added. The gate runs before authorization.
             Arguments.of("io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action",
                     "_hrm", "w"),
+            // --- lab ---
+            // Rewrites a lab's patient routing and, with Provider Linking Rules on, routes it to the
+            // patient's MRP. Its only caller posts; the mds package is not in
+            // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+            Arguments.of("io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
+                    "_lab", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
@@ -274,6 +302,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Empty GET opens the editor; selected-favorite and AJAX edits require POST.
+        // Covered by RxFavoriteFailureUnitTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // BC supplementary billing: view permits GET; edit/delete require POST.
         // Covered by SupServiceCodeAssoc2ActionUnitTest.
@@ -404,6 +435,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
@@ -413,6 +445,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
+        "io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
+        "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
@@ -424,6 +458,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.HealthTrackerUpdate2Action",
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
@@ -485,6 +520,15 @@ class MutatorActionGetRejectionContractUnitTest {
                 "w",
                 httpMethod,
                 Map.of("method", "addIncomingDocument"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("EditTickler2Action should reject unsafe methods for the edit dispatch")
+    void shouldRejectUnsafeMethod_forTicklerEditDispatch(String httpMethod) throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
+                "_tickler", "u", httpMethod, Map.of("method", "editTickler"));
     }
 
     private static void assertRejectsUnsafeMethod(
@@ -610,6 +654,11 @@ class MutatorActionGetRejectionContractUnitTest {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
             return new SecurityAddSecurity2Action(methodSecurity);
+        }
+        if (actionClass.equals(SaveProviderLinkingRules2Action.class)) {
+            ProviderLinkingRulesService rules = (ProviderLinkingRulesService)
+                    autoMocks.computeIfAbsent(ProviderLinkingRulesService.class, Mockito::mock);
+            return new SaveProviderLinkingRules2Action(mock(SecurityInfoManager.class), rules);
         }
         if (actionClass.equals(SecurityUpdate2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);

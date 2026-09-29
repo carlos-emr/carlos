@@ -109,11 +109,20 @@ async function clickOpensPopup(page, locator, options = {}) {
     await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     // Some menus close their own window in the click handler. Their callers
     // can skip waiting on that opener; the popup is still awaited below.
-    // position: a point inside the control to click instead of its centre, for a control whose
-    // centre is covered by a sibling (Playwright refuses that click as intercepted).
+    // options.position lets a caller click a specific point of the target, for links whose
+    // centre sits under a sibling overlay (the eChart navbar's "...date" suffix). Omitted, the
+    // key stays absent so Playwright clicks the centre.
     const click = { timeout, noWaitAfter: options.closesOpener === true };
     if (options.position) click.position = options.position;
-    await target.click(click);
+    try {
+      await target.click(click);
+    } catch (error) {
+      // Chromium can acknowledge the menu's window.close() before acknowledging
+      // the click, even with noWaitAfter. Accept only this explicit opt-in and
+      // actual opener closure; a real, healthy popup is still required below.
+      if (options.closesOpener !== true || !page.isClosed()
+        || !/Target page, context or browser has been closed/.test(error.message)) throw error;
+    }
     popup = await pending.promise;
   } catch (error) {
     await pending.abandon();
@@ -128,6 +137,8 @@ async function clickOpensPopup(page, locator, options = {}) {
   // Playwright page each and kept going, which is how a long run exhausts the
   // browser for a reason unrelated to anything it is testing.
   try {
+    // Named-window helpers can open about:blank before assigning the destination.
+    await popup.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'domcontentloaded' });
     await popup.waitForLoadState('domcontentloaded', { timeout });
     await popup.waitForLoadState('networkidle', { timeout }).catch(() => {});
     await assertNotErrorPage(popup, label);
@@ -192,6 +203,7 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
     }
   }
   try {
+    await outcome.page.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'domcontentloaded' });
     await outcome.page.waitForLoadState('domcontentloaded', { timeout });
     await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
     await assertNotErrorPage(outcome.page, label, options);

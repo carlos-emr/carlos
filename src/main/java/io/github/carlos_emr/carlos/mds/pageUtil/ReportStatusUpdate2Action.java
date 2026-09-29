@@ -99,6 +99,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         if (!requirePost()) {
             return NONE;
         }
+        if (!requireCanonicalReportType()) return NONE;
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
@@ -118,9 +119,10 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         String ajaxcall = request.getParameter("ajaxcall");
 
         try {
-            // Resolve audit metadata before any mutation, but do not record an ACK until
-            // the routing transaction has completed successfully.
-            String demographicID = status == 'A' ? getDemographicIdFromLab(lab_type, labNo) : null;
+            if ("DOC".equals(lab_type)) {
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(
+                        securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request), String.valueOf(labNo));
+            }
             // A real acknowledgement failure throws (handled below); updateReportStatus otherwise
             // persists the status. Its boolean is not an ack-success signal — do not gate the
             // response on it.
@@ -128,12 +130,18 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             // is what actually clears the collapsed inbox row, and it is what this endpoint has
             // always done. Shared with the macro path so the two ways of acknowledging a lab
             // cannot drift apart again.
-            int clearedCount = CommonLabResultData.updateReportStatusWithOlderVersions(
-                    labNo, providerNo, status, comment, lab_type, false, multiID);
+            ReportUpdate update = withDocumentWriteLock(labNo, lab_type, () -> {
+                // Resolve the audit patient after waiting and reauthorizing the actual document.
+                // A simultaneous reassignment must not leave this ACK referencing the old chart.
+                String demographic = status == 'A' ? getDemographicIdFromLab(lab_type, labNo) : null;
+                int cleared = CommonLabResultData.updateReportStatusWithOlderVersions(
+                        labNo, providerNo, status, comment, lab_type, false, multiID);
+                return new ReportUpdate(cleared, demographic);
+            });
             if (status == 'A') {
                 try {
                     LogAction.addLog(providerNo, LogConst.ACK, LogConst.CON_HL7_LAB,
-                            "" + labNo, request.getRemoteAddr(), demographicID);
+                            "" + labNo, request.getRemoteAddr(), update.demographic());
                 } catch (RuntimeException auditFailure) {
                     // Routing has committed. Do not advertise a retryable mutation failure
                     // if the separate legacy audit writer is unavailable.
@@ -147,11 +155,12 @@ public class ReportStatusUpdate2Action extends ActionSupport {
                 // from the accession number, and which says nothing about which of those
                 // versions were still NEW. Reporting it is what keeps the inbox badge in step
                 // with the figure the next page load computes.
-                writeClearedCount(clearedCount);
+                writeClearedCount(update.cleared());
                 return NONE;
             }
             return SUCCESS;
         } catch (Exception e) {
+            if ("DOC".equals(lab_type)) response.setStatus(e instanceof SecurityException ? 403 : 500);
             logger.error("exception in ReportStatusUpdate2Action ({})", e.getClass().getSimpleName());
             return "failure";
         }
@@ -169,6 +178,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         if (!requirePost()) {
             return NONE;
         }
+        if (!requireCanonicalReportType()) return NONE;
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
@@ -182,9 +192,10 @@ public class ReportStatusUpdate2Action extends ActionSupport {
 
         try {
 
-            CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
+            withDocumentWriteLock(labNo, lab_type, () -> CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type));
 
         } catch (Exception e) {
+            if ("DOC".equals(lab_type)) response.setStatus(e instanceof SecurityException ? 403 : 500);
             logger.error("exception in setting comment ({})", e.getClass().getSimpleName());
             return "failure";
         }
@@ -202,6 +213,39 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         }
 
         return NONE;
+    }
+
+    /** Keep document authorization and routing together while other sessions wait on its row. */
+    private <T> T withDocumentWriteLock(int document, String type, java.util.function.Supplier<T> mutation) {
+        if (!"DOC".equals(type)) return mutation.get();
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String id = String.valueOf(document);
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(
+                securityInfoManager, info, id);
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return java.util.Objects.requireNonNull(transaction.execute(status -> {
+            if (SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class).findForPageMutation(document) == null) {
+                throw new SecurityException("Document is not available");
+            }
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(
+                    securityInfoManager, info, id);
+            return mutation.get();
+        }), "Document status update did not return a result");
+    }
+
+    private record ReportUpdate(int cleared, String demographic) { }
+
+    private boolean requireCanonicalReportType() {
+        String[] types = request.getParameterValues("labType");
+        // SQL routing columns may use case/accent-insensitive, space-padding collations.
+        // Only canonical protocol values may select a source-specific authorization boundary.
+        if (types != null && types.length == 1 && types[0] != null && java.util.Set.of(
+                "MDS", "CML", "BCP", "HL7", "DOC", "Epsilon", "HRM", "Spire", "ALPHA", "TRUENORTH").contains(types[0])) return true;
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        return false;
     }
 
     private boolean requirePost() {

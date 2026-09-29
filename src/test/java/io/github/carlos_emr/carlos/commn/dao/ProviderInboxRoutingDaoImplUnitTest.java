@@ -42,7 +42,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * Pins the difference between the two inbox-routing entry points: addToProviderInbox swallows a
- * failure, routeToProviderInbox lets it reach a caller whose transaction must then roll back.
+ * failure, addToProviderInboxStrict lets it reach a caller whose transaction must then roll back.
  *
  * @since 2026-09-25
  */
@@ -65,7 +65,7 @@ class ProviderInboxRoutingDaoImplUnitTest {
         when(entityManager.createQuery(anyString())).thenThrow(new PersistenceException("database unavailable"));
 
         // A handler running inside FileUploadCheck.storeIfNew turns this into a rollback.
-        assertThatThrownBy(() -> dao.routeToProviderInbox("999998", 7, "DOC"))
+        assertThatThrownBy(() -> dao.addToProviderInboxStrict("999998", 7, "DOC"))
                 .isInstanceOf(PersistenceException.class);
     }
 
@@ -84,7 +84,7 @@ class ProviderInboxRoutingDaoImplUnitTest {
         when(query.setParameter(any(Integer.class), any())).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
 
-        dao.routeToProviderInbox("999998", 7, "DOC");
+        dao.addToProviderInboxStrict("999998", 7, "DOC");
 
         ArgumentCaptor<ProviderInboxItem> item = ArgumentCaptor.forClass(ProviderInboxItem.class);
         verify(entityManager).persist(item.capture());

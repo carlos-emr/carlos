@@ -586,3 +586,96 @@ test('revocation reloads a cached older inbox even when broadcasting succeeds', 
   assert.equal(reloads, 1);
   assert.equal(closed.length, 0);
 });
+
+/*
+ * Provider Linking Rules (issue #3971): a patient match that also routed the report to the
+ * patient's MRP leaves the server-rendered provider list stale. A report on its own page reloads;
+ * one embedded in the inbox must not reload the clinician's whole inbox.
+ */
+function demoAssignSetup(cardAttrs, windowShape = {}) {
+  const appended = [];
+  const reloads = [];
+  const elements = {
+    demofind7hrm: element({value: '42'}),
+    autocompletedemo7hrm: element({value: 'FAKE-DOE, JANE (1980-01-31)'}),
+    demostatus7: element({appendChild(node) { appended.push(node); }}),
+    hrmdoc_7: element({attrs: cardAttrs}),
+  };
+  const env = setup({
+    elements,
+    windowShape: Object.assign({location: {reload: () => reloads.push(true)}}, windowShape),
+  });
+  env.context.addDemoToHrm('7');
+  return {...env, appended, reloads};
+}
+
+test('a match that reached the MRP reloads a report open on its own page', () => {
+  const {requests, reloads} = demoAssignSetup({'data-inbox-inline': 'false', 'data-inbox-window': 'false'});
+  assert.deepEqual(plain(requests[0].data), {method: 'assignDemographic', reportId: '7', demographicNo: '42'});
+  requests[0].success({success: true, message: 'Success', mrpRouted: true});
+  assert.deepEqual(reloads, [true]);
+});
+
+test('a match that reached the MRP does not reload an inbox that embeds the report', () => {
+  const inline = demoAssignSetup({'data-inbox-inline': 'true'});
+  inline.requests[0].success({success: true, message: 'Success', mrpRouted: true});
+  assert.deepEqual(inline.reloads, []);
+  assert.ok(inline.appended.some((node) => /MRP/.test(node.nodeText || '')), 'the inline report says it went to the MRP');
+
+  const framed = demoAssignSetup({'data-inbox-inline': 'false'}, {frameElement: {}});
+  framed.requests[0].success({success: true, message: 'Success', mrpRouted: true});
+  assert.deepEqual(framed.reloads, []);
+});
+
+test('a match without MRP routing, or a failed one, never reloads', () => {
+  const off = demoAssignSetup({'data-inbox-inline': 'false'});
+  off.requests[0].success({success: true, message: 'Success', mrpRouted: false});
+  assert.deepEqual(off.reloads, []);
+
+  const older = demoAssignSetup({'data-inbox-inline': 'false'});
+  older.requests[0].success({success: true, message: 'Success'});
+  assert.deepEqual(older.reloads, [], 'a reply from a server without the field is not a routing');
+
+  const failed = demoAssignSetup({'data-inbox-inline': 'false'});
+  failed.requests[0].success({success: false, message: 'Error encountered', mrpRouted: true});
+  assert.deepEqual(failed.reloads, []);
+});
+
+test('committed provider assignments replace revoked access using text nodes, preserving sign-off', () => {
+  const children = [];
+  const container = element({textContent: 'OLD PROVIDER', appendChild(node) { children.push(node); }});
+  const {context} = setup({elements: {assignedProviders7: container}});
+  context.updateHrmProviderAssignments('7', [{id: 15, name: '<img src=x onerror=alert(1)>',
+    signedOff: true, signedOffTimestamp: '2026-09-27 12:00:00'}]);
+  assert.equal(container.textContent, '');
+  assert.equal(children[0].nodeText, '<img src=x onerror=alert(1)>');
+  assert.equal(children[1].tag, 'abbr');
+  assert.equal(children[1].title, '2026-09-27 12:00:00');
+  assert.equal(children[2].tag, 'a');
+});
+
+test('unlink with no remaining providers clears the old assignment list', () => {
+  const children = [];
+  const container = element({textContent: 'OLD MRP', appendChild(node) { children.push(node); }});
+  const {context} = setup({elements: {assignedProviders7: container}});
+  context.updateHrmProviderAssignments('7', []);
+  assert.equal(container.textContent, '');
+  assert.equal(children[0].textContent, 'No providers currently assigned');
+});
+
+test('assignment and unlink carry committed providers through the AJAX response normalizer', () => {
+  const env = demoAssignSetup({'data-inbox-inline': 'false'});
+  const children = [];
+  const container = element({textContent: 'OLD MRP', appendChild(node) { children.push(node); }});
+  env.elements.assignedProviders7 = container;
+  env.requests[0].success({success: true, message: 'Success', mrpRouted: true,
+    providers: [{id: 15, name: 'NEW MRP', signedOff: false, signedOffTimestamp: ''}]});
+  assert.equal(container.textContent, '');
+  assert.equal(children[0].nodeText, 'NEW MRP');
+  assert.deepEqual(env.reloads, [], 'the committed list is applied without reloading');
+
+  children.length = 0;
+  env.context.removeDemoFromHrm('7');
+  env.requests[1].success({success: true, message: 'Success', providers: []});
+  assert.equal(children[0].textContent, 'No providers currently assigned');
+});

@@ -41,15 +41,9 @@
  *     GET is as likely to be normal paging as a reload.
  *   - THE SCROLL POSITION HOLDS: the symptom a clinician actually reports.
  *
- * NOT READ-ONLY, AND IT MUST RUN AFTER inboxhub-filters. This check
- * ACKNOWLEDGES one result -- that is the action under test, and there is no
- * read-only way to observe it. It acknowledges exactly one and leaves the rest
- * alone, but acknowledging a lab also FILES the older versions in its chain,
- * and inboxhub-filters asserts that the review-status filters partition a set
- * in which nothing has been acknowledged. Its manifest entry therefore sits
- * immediately after that check's, because scripts/playwright-suite.json order
- * is run order. Moving it earlier turns inboxhub-filters red for a reason that
- * is not a defect. Run both against a disposable database.
+ * This check acknowledges one result and restores the exact original routing
+ * fields for it and every older version in finally. Any routes inserted for the
+ * test are removed by their exact recorded IDs. Use a disposable database.
  *
  * IT SCROLLS TO THE END FIRST, and that is part of the contract rather than setup noise.
  * While pages remain unloaded the Inbox deliberately re-syncs instead of dropping the item in
@@ -65,6 +59,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext,
   readConfig, runCheck, withExpectedDialogs,
 } = require('./lib/playwright-harness');
+const {createInboxAcknowledgementFixture} = require('./lib/inbox-acknowledgement-fixture');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 
 /* The Inboxhub AJAX endpoints. A hit on either between the click and the card
@@ -242,7 +237,7 @@ async function findAcknowledgeable(page, identities, timeout, limit = 12) {
     await frame.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
     const control = await acknowledgeControl(frame);
     if (control) {
-      return { index, identity: identities[index], control };
+      return { index, identity: identities[index], control, frame };
     }
   }
   return null;
@@ -308,12 +303,13 @@ async function readStamps(page, identities) {
   return lost;
 }
 
-async function main() {
+async function main({throwIfCancelled = () => {}} = {}) {
   const config = readConfig();
   const timeout = Number(process.env.INBOX_TIMEOUT_MS || '60000');
 
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
+  const routingFixture = createInboxAcknowledgementFixture(config);
   try {
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
@@ -353,6 +349,9 @@ async function main() {
     // clinicians report and cannot be observed from a list that was never
     // scrolled; and the control has to stay in view, because a click that has
     // to scroll the container to reach it moves the very number being asserted.
+    throwIfCancelled();
+    await routingFixture.prepare(target.frame, target.identity);
+
     const scrollBefore = await inbox.evaluate((index) => {
       const container = document.getElementById('inboxViewItems');
       const card = container.querySelectorAll('.document-card')[index];
@@ -445,7 +444,8 @@ async function main() {
     console.log(`  ${before.length} card(s) -> ${after.length}; no inbox re-fetch, ${stamped.length} surviving document(s) kept, scrollTop held at ${scrollAfter}`);
     return { acknowledged: target.identity, before: before.length, after: after.length, kept: stamped.length, scrollTop: scrollAfter };
   } finally {
-    await browser.close().catch(() => {});
+    try { await browser.close(); }
+    finally { routingFixture.cleanup(); }
   }
 }
 
@@ -453,4 +453,4 @@ if (require.main === module) {
   runCheck({ name: 'inbox-preview-acknowledge', run: main });
 }
 
-module.exports = { cardFrame, enterPreviewMode, loadEveryPreviewPage, main, readStamps, settleList, shownCards, stampSurvivors, widenToAnyProvider };
+module.exports = { acknowledgeControl, cardFrame, enterPreviewMode, findAcknowledgeable, loadEveryPreviewPage, main, readStamps, settleList, shownCards, stampSurvivors, widenToAnyProvider };

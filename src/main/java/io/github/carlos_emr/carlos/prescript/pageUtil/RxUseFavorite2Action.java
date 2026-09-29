@@ -66,7 +66,8 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return null;
         }
 
 
@@ -74,18 +75,18 @@ public final class RxUseFavorite2Action extends ActionSupport {
         RxSessionBean bean =
                 (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         if (bean == null) {
-            response.sendRedirect("error.html");
+            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription session is unavailable");
             return null;
         }
 
         try {
-            int favoriteId = Integer.parseInt(this.getFavoriteId());
             RxPrescriptionData rxData =
                     new RxPrescriptionData();
 
             // get favorite
             RxPrescriptionData.Favorite fav =
-                    rxData.getFavorite(favoriteId);
+                    findFavorite(rxData, this.getFavoriteId());
+            if (fav == null) return null;
 
             // create Prescription
             RxPrescriptionData.Prescription rx =
@@ -94,7 +95,9 @@ public final class RxUseFavorite2Action extends ActionSupport {
             bean.setStashIndex(bean.addStashItem(loggedInInfo, rx));
             request.setAttribute("BoxNoFillFirstLoad", "true");
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Could not stage prescription favorite ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Prescription favorite could not be loaded");
+            return null;
         }
 
         return SUCCESS;
@@ -105,20 +108,27 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return null;
         }
 
         // Setup variables
         RxSessionBean bean =
                 (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         if (bean == null) {
-            response.sendRedirect("error.html");
+            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription session is unavailable");
             return null;
         }
 
         try {
-            int favoriteId = Integer.parseInt(request.getParameter("favoriteId"));
-            String randomId = request.getParameter("randomId");
+            long randomId;
+            try {
+                randomId = Long.parseLong(request.getParameter("randomId"));
+                if (randomId < 0 || randomId > Integer.MAX_VALUE) throw new NumberFormatException();
+            } catch (NumberFormatException invalidId) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid staged prescription identifier");
+                return null;
+            }
 
 
             RxPrescriptionData rxData =
@@ -126,12 +136,13 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
             // get favorite
             RxPrescriptionData.Favorite fav =
-                    rxData.getFavorite(favoriteId);
+                    findFavorite(rxData, request.getParameter("favoriteId"));
+            if (fav == null) return null;
 
             // create Prescription
             RxPrescriptionData.Prescription rx =
                     rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), fav);
-            rx.setRandomId(Long.parseLong(randomId));
+            rx.setRandomId(randomId);
 
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
@@ -147,12 +158,27 @@ public final class RxUseFavorite2Action extends ActionSupport {
             request.setAttribute("listRxDrugs", listRxDrugs);
             request.setAttribute("BoxNoFillFirstLoad", "true");
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Could not stage prescription favorite ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Prescription favorite could not be loaded");
+            return null;
         }
 
-        RxUtil.printStashContent(bean);
-
         return "useFav2";
+    }
+
+    /** Resolve a positive favorite identity before changing the prescription stash. */
+    private RxPrescriptionData.Favorite findFavorite(RxPrescriptionData data, String rawId) throws IOException {
+        int id;
+        try {
+            id = Integer.parseInt(rawId);
+            if (id <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException invalidId) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid prescription favorite identifier");
+            return null;
+        }
+        RxPrescriptionData.Favorite favorite = data.getFavorite(id);
+        if (favorite == null) response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription favorite is unavailable");
+        return favorite;
     }
 
     private String favoriteId = null;

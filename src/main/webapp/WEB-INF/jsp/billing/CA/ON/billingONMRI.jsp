@@ -33,6 +33,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="dms.documentReport.msgCsrfTokenMissing" var="billingCsrfMissing"/>
 
 <html>
 <head>
@@ -62,8 +63,13 @@
         function recreate(si) {
             var ret = confirm("Are you sure you want to regenerate the file? \n\nWARNING: This should only be performed in very specific circumstances. If you are unsure, consult your OSCAR administrator before using this feature.");
             if (!ret) return;
-            // ViewOnregenreport is a mutation gate (POST-only). Build a form on
-            // the fly so CSRFGuard auto-injects the token alongside our params.
+            // Native submit() does not wait for CSRFGuard to observe a new form.
+            // Copy the current session token before submitting this POST.
+            var token = document.querySelector("form[name='form1'] input[name='CSRF-TOKEN']");
+            if (!token || !token.value) {
+                alert('<carlos:encode value="${billingCsrfMissing}" context="javaScriptBlock"/>');
+                return;
+            }
             var ss = document.forms[0].billcenter[document.forms[0].billcenter.selectedIndex].value;
             var su = document.forms[0].useProviderMOH.checked;
             var f = document.createElement("form");
@@ -76,6 +82,11 @@
                 input.value = (n === "diskId" ? si : (n === "billcenter" ? ss : su));
                 f.appendChild(input);
             });
+            var csrf = document.createElement("input");
+            csrf.type = "hidden";
+            csrf.name = "CSRF-TOKEN";
+            csrf.value = token.value;
+            f.appendChild(csrf);
             document.body.appendChild(f);
             f.submit();
         }
