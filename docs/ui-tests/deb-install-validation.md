@@ -1964,3 +1964,20 @@ as PID 1, using the section 3 preseed (with `install-demo-data=false`) and
 
 The pinned carlos-ctl 1.1.0 suite ran against this tree (`CARLOS_SRC`): 1468
 tests OK. `debian/assets/tests` and `scripts/migration/o19/tests` also passed.
+
+`scripts/deb-split-matrix.sh` was also run against the same build, with
+`CTL_A=carlos-ctl_1.1.0` and a `CTL_B` repacked as `1.1.1~test1`:
+
+- **From 2026.08.0-alpha15 (with its transitional package):** all 102
+  assertions pass across cases 0-7, with `EXPECT_NEW="1.0.36 1.0.39 1.0.40"`.
+  Cases 6 and 7 remove and purge the leftover transitional package through the
+  new `installed_renderer` helper.
+- **From 2026.08.0-alpha13 (real `_amd64` renderer, no `TRANSITIONAL_SPLIT`):**
+  the matrix detects the old renderer and runs cases 2 and 1 without
+  `--no-remove`. Case 2 is still refused for the missing `carlos-ctl`, and in
+  case 1 apt removes only the renderer. The verify step then passes 44 checks
+  and fails one: `cfg.carlos.properties.sha` changed beyond the one-time
+  `health_tracker` rewrite that `deb-upgrade-verify.sh` allows. The alpha13 base
+  predates keys that later releases add on upgrade. The same check fails on this
+  line without this change, and it stops the matrix before cases 3-7, which
+  the alpha15 run covers.
