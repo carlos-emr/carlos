@@ -1351,5 +1351,18 @@ class TestAManifestFromBeforeTheConsentRuling(ConsentDriverBase):
                           self.refusal(self.db()))
 
 
+class TestAConsentEntryThatIsNotACopy(ConsentDriverBase):
+
+    """A merge never builds the helper, so even an entry carrying the
+    expressions is refused rather than failing on a missing table
+    half-way through the run."""
+
+    ENTRY = dict(CONSENT_RANKED, **{"class": "merge", "merge_keys": ["id"]})
+
+    def test_the_run_is_refused(self):
+        self.assertIn("does not carry the one-live-record rule",
+                      self.refusal(self.db()))
+
+
 if __name__ == "__main__":
     unittest.main()

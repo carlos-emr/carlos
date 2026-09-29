@@ -595,8 +595,9 @@ class TestTheWholeImport(ConsentReplayBase):
             .fetchall(), [(1, 0)])
 
     def test_without_the_ranking_the_copy_violates_the_key(self):
-        # the negative control: the same rows through the shipped
-        # manifest's shape, where every row arrives live
+        # the negative control: the same rows through an entry without
+        # the rule (which run_etl refuses up front), where every row
+        # arrives live
         self.stage(*MIXED)
         unranked, _notes = o19etl.effective_entry(
             "Consent", dict(o19map_schema.TABLES["Consent"],

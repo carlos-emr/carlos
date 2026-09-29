@@ -2734,17 +2734,20 @@ def etl_precheck_problems(ctx, plain, query, src_schema: str,
     src, arch = src_schema, arch_schema
     problems = []
     problems.extend(unknown_manifest_classes(o19map_schema.TABLES))
+    # only a ranked COPY applies the rule: a merge never builds the
+    # helper, so a Consent entry of any other shape is refused too
     consent = effective.get(CONSENT_TABLE)
-    if (consent and consent["class"] == "copy"
-            and not consent_live_ranked(consent)):
+    if consent and not (consent["class"] == "copy"
+                        and consent_live_ranked(consent)):
         problems.append(
             "{0}: the manifest's entry does not carry the one-live-record "
-            "rule (it reads no `deleted` from {1}.{2}). Copied without "
-            "it, a consent deleted in OSCAR 19 would arrive live and one "
-            "with no recorded decision as an opt-in. The manifest this "
-            "package ships carries the rule, so this one was replaced or "
-            "regenerated from an older overlay: put back the shipped "
-            "manifest".format(CONSENT_TABLE, arch, consent_live_table()))
+            "rule (a copy reading `deleted` from {1}.{2}). Imported "
+            "without it, a consent deleted in OSCAR 19 would arrive live "
+            "and one with no recorded decision as an opt-in. The manifest "
+            "this package ships carries the rule, so this one was "
+            "replaced or regenerated from an older overlay: put back the "
+            "shipped manifest".format(
+                CONSENT_TABLE, arch, consent_live_table()))
     if admin_user == o19map_schema.SEED_USER_NAME:
         problems.append("--admin-user must not be the seeded login '{0}'"
                         .format(admin_user))

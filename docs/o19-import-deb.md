@@ -838,8 +838,9 @@ clinic's sign-off.
   clinic's data is at fault: restore the pre-import snapshot and report
   it. *"Consent: the manifest's entry does not carry the one-live-record
   rule"*, among the ETL pre-checks, means the manifest was replaced or
-  regenerated from an older overlay; nothing was written. Put back the
-  manifest this package ships and run the import again.
+  regenerated from an older overlay; the ETL wrote nothing (the message
+  says so). Put back the manifest this package ships and run the import
+  again, with `--resume` if it had already started.
   *"the helper table o19_archive.Consent__live does not hold exactly
   one row for every staged row"* means the staged dump changed during
   the import; nothing was copied for that table. Restore the snapshot

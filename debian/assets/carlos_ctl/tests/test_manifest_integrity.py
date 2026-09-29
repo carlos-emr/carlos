@@ -905,6 +905,8 @@ class TestTheShippedManifestRanksConsent(unittest.TestCase):
     def test_every_profile_ranks_consent(self):
         for name, entry in self.entries():
             with self.subTest(profile=name):
+                # a copy: a merge never builds the helper
+                self.assertEqual(entry["class"], "copy")
                 self.assertTrue(o19etl.consent_live_ranked(entry))
 
     @unittest.skipUnless(OVERRIDES.is_file(), "overlay not in this checkout")
