@@ -296,11 +296,15 @@ async function assertNotesPaginationSettles(page) {
   assert(geometry.scrollHeight > geometry.clientHeight,
     `notes wrapper did not overflow, so the pagination poll was never armed: ${JSON.stringify(geometry)}`);
 
-  // Park at the top and remember the note now showing there, and where. Held on window
-  // because the element reference cannot cross into Node.
+  // Park at the top and remember the note now showing there, and where: the first one
+  // with a layout box, since notes hidden by the encounter.hide_* settings render as
+  // display:none. Held on window because the element cannot cross into Node.
   const parkAtTop = () => wrapper.evaluate((element) => {
     element.scrollTop = 0;
-    const top = document.getElementById('encMainDiv')?.firstElementChild || null;
+    const notes = document.getElementById('encMainDiv');
+    const top = notes
+      ? Array.from(notes.children).find((note) => note.getClientRects().length > 0) || null
+      : null;
     window.__carlosScrollRestoreCheck = top
       ? { note: top, top: top.getBoundingClientRect().top - element.getBoundingClientRect().top }
       : null;

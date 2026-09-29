@@ -53,7 +53,8 @@ const CODE = sliceFunctions('notesCaptureScrollAnchor', 'notesIncrementAndLoadMo
 /**
  * A notes pane: a scrolling wrapper whose single content child is #encMainDiv, holding
  * notes stacked top to bottom. Each note's bounding-box top is its offset in the content
- * minus the wrapper's scrollTop, exactly what a browser reports.
+ * minus the wrapper's scrollTop, exactly what a browser reports. A height of 0 stands for
+ * a display:none note: it takes no space and, like a browser, reports no client rects.
  */
 function makePane(noteHeights, viewportHeight = 100) {
   const wrapper = {
@@ -62,12 +63,13 @@ function makePane(noteHeights, viewportHeight = 100) {
     clientHeight: viewportHeight,
     get scrollHeight() { return Math.max(container.height(), viewportHeight); },
     getBoundingClientRect() { return { top: 40 }; },
-    contains(node) { return node === container || container.children.includes(node); },
+    contains(node) { return node === container || container.contains(node); },
   };
   const container = {
     id: 'encMainDiv',
     children: [],
     get firstElementChild() { return this.children[0] || null; },
+    contains(node) { return this.children.includes(node); },
     height() { return this.children.reduce((sum, note) => sum + note.height, 0); },
     offsetOf(note) {
       let offset = 0;
@@ -83,8 +85,16 @@ function makePane(noteHeights, viewportHeight = 100) {
     const element = {
       id: `nc${serial++}`,
       height,
+      get nextElementSibling() {
+        return container.children[container.children.indexOf(element) + 1] || null;
+      },
+      getClientRects() { return height > 0 ? [element.getBoundingClientRect()] : []; },
       getBoundingClientRect() {
-        return { top: wrapper.getBoundingClientRect().top + container.offsetOf(element) - wrapper.scrollTop };
+        if (height === 0) {
+          return { top: 0, bottom: 0 };
+        }
+        const top = wrapper.getBoundingClientRect().top + container.offsetOf(element) - wrapper.scrollTop;
+        return { top, bottom: top + height };
       },
     };
     return element;
@@ -193,6 +203,44 @@ test('when the browser already anchored the scroll, the restore adds nothing on 
   assert.equal(visibleTop(pane, readerNote), -30);
 });
 
+test('a hidden note on top is skipped, so the first rendered note is the one held in place', () => {
+  // ChartNotesAjax.jsp renders notes hidden by encounter.hide_* as display:none; such a note
+  // has no box and never moves, so anchoring to it would leave the visible note jumping.
+  const pane = makePane([0, 60, 60]);
+  const { context, requests, respond } = setup(pane);
+  const readerNote = pane.container.children[1];
+
+  context.notesLoader(20, 20, 1);
+  respond(requests[0], { heights: [0, 150] });
+
+  assert.equal(pane.wrapper.scrollTop, 150);
+  assert.equal(visibleTop(pane, readerNote), 0);
+});
+
+test('the anchor is the first note still in view, not one already scrolled past', () => {
+  const pane = makePane([60, 60, 60]);
+  const { context, requests, respond } = setup(pane);
+  const readerNote = pane.container.children[1];
+
+  context.notesLoader(20, 20, 1);
+  // Scrolled during the fetch so the first note is wholly above the pane.
+  pane.wrapper.scrollTop = 70;
+  respond(requests[0], { heights: [40] });
+
+  assert.equal(visibleTop(pane, readerNote), -10, 'the note the reader is looking at stays put');
+  assert.equal(pane.wrapper.scrollTop, 110);
+});
+
+test('a chart whose notes are all hidden has nothing to anchor to and does not scroll', () => {
+  const pane = makePane([0, 0]);
+  const { context, requests, respond } = setup(pane);
+
+  context.notesLoader(20, 20, 1);
+  respond(requests[0], { heights: [60] });
+
+  assert.equal(pane.wrapper.scrollTop, 0);
+});
+
 test('the initial load still scrolls to the newest notes at the bottom', () => {
   const pane = makePane([]);
   const { context, requests, respond } = setup(pane);
@@ -256,7 +304,7 @@ test('a batch that lands in a container the chart has since replaced is not foll
   // The container this request targets is detached; the pane now holds a new one.
   const replaced = makePane([60]).container;
   const stale = requests[0].container;
-  pane.wrapper.contains = (node) => node === replaced || replaced.children.includes(node);
+  pane.wrapper.contains = (node) => node === replaced || replaced.contains(node);
   respond({ ...requests[0], container: stale }, { heights: [100] });
 
   assert.equal(pane.wrapper.scrollTop, 0);
