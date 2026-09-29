@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 CARLOS Contributors
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -9,14 +9,14 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * CARLOS EMR
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.app;
@@ -35,8 +35,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins {@code suspendWrappedResponseAfterForward="false"} on every context descriptor CARLOS
- * ships (#3434, #3440).
+ * Pins {@code suspendWrappedResponseAfterForward="false"} on every context descriptor shipped for
+ * the CARLOS webapp (#3434, #3440). The drugref2 descriptor belongs to a separate webapp without the
+ * CARLOS filters and is not covered.
  *
  * <p>Tomcat 11 changed the default to {@code true}. With it, a forward that returns through the
  * response-wrapping filters while the page is still buffered has its real response suspended, so
