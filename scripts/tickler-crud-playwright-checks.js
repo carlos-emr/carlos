@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
 /*
  * Browser CRUD checks for the CARLOS Tickler interface.
  *

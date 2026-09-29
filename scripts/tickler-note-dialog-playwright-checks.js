@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
