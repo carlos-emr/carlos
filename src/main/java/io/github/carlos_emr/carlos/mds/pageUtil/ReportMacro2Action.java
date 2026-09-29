@@ -255,8 +255,7 @@ public class ReportMacro2Action extends ActionSupport {
                 logger.error("Cannot acknowledge lab: invalid segment identifier ({})", e.getClass().getSimpleName());
                 return MacroOutcome.failed();
             }
-            logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType),
-                    LogSafe.sanitize(String.valueOf(segmentInt)));
+            logger.info("Acknowledging lab from reviewed macro");
             // Acknowledge the reviewed version AND file the older versions of the same lab.
             // Filing the older versions is what removes the collapsed row from the inbox: the
             // inbox shows one row per accession chain, so a macro that only stamped the newest

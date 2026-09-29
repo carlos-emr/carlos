@@ -321,7 +321,9 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     const panelText = (await saved.locator('#tdAttachedDocs').innerText().catch(() => '')).trim();
     // Plain string matching (no RegExp built from page values): "Doc #3" must not match "Doc #31".
     // The panel prints "<Type> #<id>" lines only, so counting those lines is a safe detail to log.
-    const panelEntries = (text) => (text || '').split(/\r?\n/).map((line) => line.trim()).filter((line) => /^[A-Za-z]+ #\d+$/.test(line));
+    // Lab attachment IDs include their source (for example HL7:162), while
+    // other attachment families use numeric IDs.
+    const panelEntries = (text) => (text || '').split(/\r?\n/).map((line) => line.trim()).filter((line) => /^[A-Za-z]+ #[A-Za-z0-9:]+$/.test(line));
     const panelEntry = { test: (text) => panelEntries(text).includes(`${family.panelPrefix} #${value}`) };
     record(family.key, 'Attached Files panel lists it', panelEntry.test(panelText), `entries=${panelEntries(panelText).length}`);
     const hidden = await saved.locator(`input[name="${family.inputName}"]`).evaluateAll((els) => els.map((e) => e.value));
