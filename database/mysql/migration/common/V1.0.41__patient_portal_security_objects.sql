@@ -21,7 +21,7 @@ INSERT IGNORE INTO secObjectName (objectName, description, orgapplicable) VALUES
     ('_portal.secret', 'Manage passphrases for encrypted patient messages', '0'),
     ('_portal.contact.review', 'Review patient portal contact changes', '0');
 
--- Granted to admin only. Whether front-desk staff issue invitations is a clinic's workflow
+-- Everything is granted to admin. Whether front-desk staff issue invitations is a clinic's workflow
 -- decision, not this migration's, so other roles are added per deployment.
 INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no) VALUES
     ('admin', '_portal.invite', 'x', 0, '999998'),
@@ -29,3 +29,26 @@ INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priori
     ('admin', '_portal.account.unlock', 'x', 0, '999998'),
     ('admin', '_portal.secret', 'x', 0, '999998'),
     ('admin', '_portal.contact.review', 'x', 0, '999998');
+
+-- Portal email passwords work for clinicians without an administrator granting rights by hand.
+-- Sending an encrypted email through the portal needs _portal.account read (is the account usable?)
+-- and _portal.secret read and write (request, publish or withdraw the password). These are the
+-- doctor and nursing roles the baseline data ships in every province. Account access is read-only:
+-- enabling, disabling and unlocking a portal account stay with admin. Sending still needs _email
+-- write, which the baseline grants only to doctor and admin, so the other roles can send once a
+-- clinic grants them _email.
+INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no) VALUES
+    ('doctor', '_portal.account', 'r', 0, '999998'),
+    ('doctor', '_portal.secret', 'x', 0, '999998'),
+    ('locum', '_portal.account', 'r', 0, '999998'),
+    ('locum', '_portal.secret', 'x', 0, '999998'),
+    ('psychiatrist', '_portal.account', 'r', 0, '999998'),
+    ('psychiatrist', '_portal.secret', 'x', 0, '999998'),
+    ('nurse', '_portal.account', 'r', 0, '999998'),
+    ('nurse', '_portal.secret', 'x', 0, '999998'),
+    ('Nurse Manager', '_portal.account', 'r', 0, '999998'),
+    ('Nurse Manager', '_portal.secret', 'x', 0, '999998'),
+    ('RN', '_portal.account', 'r', 0, '999998'),
+    ('RN', '_portal.secret', 'x', 0, '999998'),
+    ('RPN', '_portal.account', 'r', 0, '999998'),
+    ('RPN', '_portal.secret', 'x', 0, '999998');
