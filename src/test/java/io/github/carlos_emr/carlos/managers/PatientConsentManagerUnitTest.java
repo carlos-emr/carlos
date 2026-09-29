@@ -192,6 +192,10 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(newerOptIn.isDeleted()).isTrue();
             verify(mockConsentDao).merge(olderOptOut);
             verify(mockConsentDao).merge(newerOptIn);
+            // The reversed decision is audited against the patient and the record, with both values.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.changeConsent"), eq("consent"), eq("12"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 12 Choice: opt-out->opt-in")));
         }
 
         @Test
@@ -211,6 +215,9 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(newerOptIn.isDeleted()).isTrue();
             assertThat(newerOptIn.getLastEnteredBy()).isEqualTo("clerk2");
             assertThat(newerOptIn.getEditDate()).isSameAs(enteredAt);
+            // The shown choice was re-posted unchanged, so no change of decision is audited.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class),
+                    eq("PatientConsentManager.changeConsent"), anyString(), anyString(), anyInt(), anyString()), never());
             logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
                     eq("PatientConsentManager.retireDuplicateConsent"), eq("consent"), eq("11"), eq(100),
                     eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 11 KeptConsentId: 12")));
@@ -296,9 +303,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should set optout flag and merge when consent exists")
         void shouldSetOptoutFlagAndMerge_whenConsentExists() {
-            Consent consent = new Consent();
-            setConsentId(consent, 10);
-            consent.setOptout(false);
+            Consent consent = consent(10, false, new Date(1_000L));
             when(mockConsentDao.find(10)).thenReturn(consent);
 
             manager.optoutConsent(loggedInInfo, 10);
@@ -321,11 +326,12 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             order.verify(mockConsentDao).lockPatientForConsentChange(100);
             order.verify(mockConsentDao).refresh(consent);
             order.verify(mockConsentDao).merge(consent);
-            // Audited once, as an opt-out, after the outcome is known.
+            // Audited once, as an opt-out filed under the patient, after the outcome is known.
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
-                    "PatientConsentManager.optoutConsent[consentID]", " ConsentId: 10"));
+                    "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100, " ConsentId: 10"));
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
-                    "PatientConsentManager.optoutConsent[consentID]", " ConsentId: 10 skipped: no live record"), never());
+                    "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,
+                    " ConsentId: 10 skipped: no live record"), never());
         }
 
         @Test
@@ -344,6 +350,24 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(consent.isOptout()).isFalse();
             verify(mockConsentDao, never()).merge(any());
             // The audit says nothing was opted out.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+                    "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,
+                    " ConsentId: 10 skipped: no live record"));
+        }
+
+        @Test
+        @DisplayName("should leave a record with no patient alone, since it cannot be checked or locked")
+        void shouldSkipRecord_whenItHasNoPatient() {
+            Consent consent = new Consent();
+            setConsentId(consent, 10);
+            consent.setOptout(false);
+            when(mockConsentDao.find(10)).thenReturn(consent);
+
+            manager.optoutConsent(loggedInInfo, 10);
+
+            assertThat(consent.isOptout()).isFalse();
+            verify(mockConsentDao, never()).lockPatientForConsentChange(anyInt());
+            verify(mockConsentDao, never()).merge(any());
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                     "PatientConsentManager.optoutConsent[consentID]", " ConsentId: 10 skipped: no live record"));
         }
