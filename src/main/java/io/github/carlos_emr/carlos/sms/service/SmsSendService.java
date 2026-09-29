@@ -46,7 +46,9 @@ public class SmsSendService {
      * Sends directly through the SMS provider. If the SMS-provider rate limiter denies the attempt, the
      * row is left {@code QUEUED} (due now) and returned as queued; draining it then depends on the queue
      * scheduler ({@code sms.queue.scheduler.enabled}) or an explicit worker run, so that scheduler must
-     * be enabled wherever this path is used.
+     * be enabled wherever this path is used. If the row cannot be handed back to the queue after a
+     * denial, that failure is thrown: the row stays {@code SENDING} for stale recovery, and the caller
+     * must not treat the message as queued.
      */
     public SmsSendResultDto send(SmsSendCommand command) {
         SmsSendValidator.Result validation = validator.validate(command);
@@ -79,9 +81,9 @@ public class SmsSendService {
             throw e;
         }
         if (!permitted) {
-            // If the claim cannot be handed back, the failure reaches the caller: the row stays SENDING and
-            // stale recovery will fail it for review, so answering "queued" would promise a send that
-            // does not happen.
+            // If the claim cannot be handed back, the failure reaches the caller: the row stays SENDING
+            // until stale recovery retries it or fails it for review, so answering "queued" now would
+            // promise more than is known.
             transactionRecorder.releaseClaim(transaction, new Date());
             return SmsSendResultDto.queued();
         }
