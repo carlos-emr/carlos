@@ -91,9 +91,10 @@ deployment secret manager, and never reuse staging values in production.
 
 Set these in the deployment's override properties, not in the committed `carlos.properties`:
 
-- [ ] The override properties file holds the service token and the staff-assertion private key. It
-      is owned by, and readable only by, the account CARLOS runs as (mode `600`), and is kept out
-      of backups and tickets that others can read.
+- [ ] The override properties file holds the service token and the staff-assertion private key. No
+      other account can read it: on the Debian package leave it as installed (`root:carlos`, mode
+      `640`); elsewhere it is owned by the account CARLOS runs as, mode `600`. It is kept out of
+      backups and tickets that others can read.
 - [ ] If the build includes #3934: `patient_portal.enabled=true`, the master switch, which is off
       by default. The portal stays off, whatever else is set, until this is `true` (in any case);
       any other value except `false` or blank is a configuration error, including a `#` comment on
@@ -170,7 +171,7 @@ private key: redact the code in screenshots.
 - [ ] Temporarily set a wrong but well-formed pin, generated without a key
       (`printf 'sha256/'; openssl rand -base64 32`), and restart CARLOS: the page reports a portal
       failure, the CARLOS log shows `portal transport failed: TLS handshake`, and the portal
-      receives nothing. Restore the pin.
+      receives nothing. Restore the pins.
 - [ ] If the build includes #3934, set `patient_portal.enabled=false` and restart CARLOS: the
       **Patient portal** entry disappears from the record, and the rest of CARLOS works as before
       (not so if `patient_portal.email.enabled` was set to `true`: encrypted email is then refused).
@@ -217,12 +218,15 @@ private key: redact the code in screenshots.
 - [ ] Stop the CARLOS mail relay and invite: the delivery shows the mail server refused the email,
       or that it may not have been sent, with what to do next. After the relay returns, a resend
       works and the patient receives only the new code.
-- [ ] Leave an attempt unfinished: have the CARLOS mail relay accept the connection and then drop
-      it without answering, and invite. The delivery shows *The email may not have been sent*.
-      After 15 minutes, the Invitation deliveries panel offers **It arrived** and **It did not
-      arrive; revoke it**, and resolving it behaves as described in
-      `patient-portal-client-security.md`. Stopping the portal during an invitation does not leave
-      an attempt unfinished: CARLOS stops it itself.
+- [ ] Leave an attempt unfinished: have the CARLOS mail relay complete the greeting, STARTTLS and
+      login normally, then drop the connection during the message itself (after `DATA`) without
+      answering, and invite. A relay that drops the connection any earlier gives *The mail server
+      refused the email* instead, which offers no decision. The delivery shows *The email may not
+      have been sent*. After 15 minutes, the Invitation deliveries panel offers **It arrived** and
+      **It did not arrive; revoke it**, and resolving it behaves as described in
+      `patient-portal-client-security.md`. Stopping the portal is not a way to reach this state:
+      stopped before the invitation, no attempt is recorded; stopped between prepare and send,
+      CARLOS stops the attempt itself.
 - [ ] Rotate the staff-assertion key with old and new keys overlapping, as in `carlos.properties`,
       and confirm no call fails during the change.
 
