@@ -255,7 +255,7 @@ public class EmailManager {
             String credentialRefusal = credentialKeyRefusal(emailLog.getEmailConfig());
             if (credentialRefusal != null) {
                 updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, credentialRefusal);
-                String reason = CREDENTIAL_KEY_MISMATCH_ERROR.equals(credentialRefusal) ? "keyMismatch" : "keyRequired";
+                String reason = credentialRefusalReason(credentialRefusal);
                 LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.refusedCredentialKey", EMAIL_AUDIT_CONTENT,
                         "emailLogId=" + emailLog.getId() + "&senderConfigId=" + emailLog.getEmailConfig().getId()
                                 + "&reason=" + reason,
@@ -697,6 +697,16 @@ public class EmailManager {
             if (keyConfigured && EmailConfigSecrets.encryptedSecretsDecrypt(emailConfig.getConfigDetailsJson())) {
                 return null;
             }
+            // Only the credential this transport reads can stop its mail. A leftover it never reads,
+            // such as an old password on an API account, is reported and the send proceeds.
+            if (keyConfigured && EmailConfigSecrets.encryptedSecretDecrypts(emailConfig.getConfigDetailsJson(),
+                    transportCredentialField(emailConfig))) {
+                if (firstReport(id)) {
+                    logger.warn("Sender config id={} holds a credential its transport never uses that cannot be "
+                            + "decrypted with the current {}; remove it.", id, EncryptionUtils.SECRET_KEY_ENV_VAR);
+                }
+                return null;
+            }
             if (keyConfigured) {
                 logger.error("Email send refused: sender config id={} holds credentials that cannot be decrypted with "
                         + "the current {}: they were encrypted under a different key, or the stored value is damaged. "
@@ -725,6 +735,23 @@ public class EmailManager {
                     id, EncryptionUtils.SECRET_KEY_ENV_VAR, REQUIRE_CREDENTIAL_KEY_PROPERTY);
         }
         return null;
+    }
+
+    /**
+     * The audit reason for a refusal: encrypted credentials with no key at all ({@code keyMissing})
+     * are told apart from ones the current key cannot read ({@code keyMismatch}); plaintext
+     * credentials refused under enforcement are {@code keyRequired}.
+     */
+    private static String credentialRefusalReason(String refusal) {
+        if (!CREDENTIAL_KEY_MISMATCH_ERROR.equals(refusal)) {
+            return "keyRequired";
+        }
+        return EncryptionUtils.isKeyConfigured() ? "keyMismatch" : "keyMissing";
+    }
+
+    /** The credential field the account's transport reads: the API key for an API account, else the password. */
+    private static String transportCredentialField(EmailConfig emailConfig) {
+        return emailConfig.getEmailType() == EmailConfig.EmailType.API ? "api_key" : "password"; // NOSONAR java:S2068 - JSON field names, not credentials
     }
 
     /** True the first time an account is reported in this server run; ids are never null in practice. */

@@ -177,6 +177,24 @@ public final class EmailConfigSecrets {
      * @since 2026-09-24
      */
     public static boolean encryptedSecretsDecrypt(String configDetailsJson) {
+        return encryptedSecretsDecrypt(configDetailsJson, SECRET_FIELDS);
+    }
+
+    /**
+     * As {@link #encryptedSecretsDecrypt(String)}, for the one credential a transport reads: an SMTP
+     * transport reads {@code password} and an API transport reads {@code api_key}. A credential the
+     * transport never reads cannot stop its mail, so it is not tested here.
+     *
+     * @param configDetailsJson the raw {@code configDetails} value, may be null/blank
+     * @param field the credential field the transport reads
+     * @return false only when that field holds an {@code {ENC}} value that cannot be decrypted
+     * @since 2026-09-28
+     */
+    public static boolean encryptedSecretDecrypts(String configDetailsJson, String field) {
+        return encryptedSecretsDecrypt(configDetailsJson, List.of(field));
+    }
+
+    private static boolean encryptedSecretsDecrypt(String configDetailsJson, List<String> fields) {
         if (configDetailsJson == null || configDetailsJson.isBlank()) {
             return true;
         }
@@ -190,7 +208,7 @@ public final class EmailConfigSecrets {
             return true;
         }
         try {
-            for (String field : SECRET_FIELDS) {
+            for (String field : fields) {
                 JsonNode value = root.get(field);
                 if (value != null && value.isValueNode() && !value.asText().isEmpty()
                         && EncryptionUtils.isEncrypted(value.asText())) {

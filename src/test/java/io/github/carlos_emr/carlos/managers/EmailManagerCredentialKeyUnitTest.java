@@ -213,6 +213,46 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should not refuse an API account over a leftover password it never reads, and should report it")
+        void shouldAllowApiAccount_whenUnusedPasswordWasEncryptedUnderOldKey() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String stale = EmailConfigSecrets.encryptSecrets("{\"password\":\"stale-secret\"}");
+            EncryptionKeyTestSupport.seedFreshKey();
+            String current = EmailConfigSecrets.encryptSecrets("{\"api_key\":\"live-key\"}");
+            requireKey(true);
+            // The API key was re-entered under the new key; the old password was left in the row.
+            String details = current.substring(0, current.lastIndexOf('}')) + ","
+                    + stale.substring(stale.indexOf('{') + 1);
+            EmailConfig sendGrid = config(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID, details);
+            injectDependency(sendGrid, "id", 17);
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                assertThat(emailManager.credentialKeyRefusal(sendGrid)).isNull();
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("config id=17").contains("never uses"));
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
+                        .containsAnyOf("stale-secret", "live-key", "{ENC}", "{\""));
+            }
+        }
+
+        @Test
+        @DisplayName("should refuse an API account whose API key was encrypted under an old key, whatever its password holds")
+        void shouldRefuseApiAccount_whenApiKeyWasEncryptedUnderOldKey() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String stale = EmailConfigSecrets.encryptSecrets("{\"api_key\":\"old-key\"}");
+            EncryptionKeyTestSupport.seedFreshKey();
+            String current = EmailConfigSecrets.encryptSecrets("{\"password\":\"fresh-secret\"}");
+            requireKey(false);
+            String details = current.substring(0, current.lastIndexOf('}')) + ","
+                    + stale.substring(stale.indexOf('{') + 1);
+            EmailConfig sendGrid = config(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID, details);
+            injectDependency(sendGrid, "id", 18);
+
+            assertThat(emailManager.credentialKeyRefusal(sendGrid)).isEqualTo(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR);
+        }
+
+        @Test
         @DisplayName("should refuse encrypted credentials when no key is available")
         void shouldRefuseEncryptedCredentials_whenKeyMissing() throws Exception {
             EncryptionKeyTestSupport.seedFreshKey();
