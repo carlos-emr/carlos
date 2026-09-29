@@ -26,6 +26,16 @@
         <h1 class="h4"><fmt:message key="consultation.fax.uncertain.title"/></h1>
         <p><fmt:message key="consultation.fax.uncertain.message"/></p>
     </div>
+    <c:if test="${ not empty attachmentWarnings }">
+        <div id="consult-attachment-warnings" class="alert alert-warning" role="alert">
+            <fmt:message key="encounter.oscarConsultationRequest.msgAttachmentsUnavailable"/>
+            <ul class="mb-0">
+                <c:forEach items="${ attachmentWarnings }" var="attachmentWarning">
+                    <li><carlos:encode value="${ attachmentWarning }"/></li>
+                </c:forEach>
+            </ul>
+        </div>
+    </c:if>
     <%-- No automatic close, history-back navigation, fax form or retry control. --%>
     <a class="btn btn-outline-secondary" href="<carlos:encode value='${consultationListUrl}' context="htmlAttribute"/>"><fmt:message key="consultation.fax.uncertain.return"/></a>
 </main>

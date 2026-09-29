@@ -1094,6 +1094,15 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         throw new PDFGenerationException("Consultation request could not be loaded for PDF generation.");
     }
 
+    @Override
+    public List<String> getUnavailableConsultAttachmentWarnings(Integer requestId) {
+        List<String> attachmentWarnings = new ArrayList<>();
+        if (requestId != null) {
+            recordUnavailableConsultAttachmentWarnings(String.valueOf(requestId), attachmentWarnings);
+        }
+        return attachmentWarnings;
+    }
+
     private void recordUnavailableConsultAttachmentWarnings(String requestId, List<String> attachmentWarnings) {
         Integer consultRequestId;
         try {

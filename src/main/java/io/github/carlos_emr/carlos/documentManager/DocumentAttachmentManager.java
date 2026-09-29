@@ -279,6 +279,16 @@ public interface DocumentAttachmentManager {
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
 
     /**
+     * Lists, without rendering anything, the warnings for attachments a consultation lists whose
+     * target no longer exists or now belongs to another patient. These are the attachments a
+     * render leaves out, so a screen shown before the render (the fax cover page) can name them.
+     *
+     * @param requestId the consultation request id
+     * @return one warning per unavailable attachment, naming its type and id; empty when there are none
+     */
+    public java.util.List<String> getUnavailableConsultAttachmentWarnings(Integer requestId);
+
+    /**
      * Renders an electronic form (eForm) along with all its associated attachments as a single PDF.
      *
      * <p>This method generates a comprehensive PDF document that includes the eForm data and all

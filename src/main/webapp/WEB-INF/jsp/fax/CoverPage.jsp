@@ -396,6 +396,17 @@
                     </div>
                 </div>
 
+                <c:if test="${ not empty attachmentWarnings and transactionType eq 'CONSULTATION' }">
+                    <div id="consult-attachment-warnings" class="alert alert-warning" role="alert">
+                        <fmt:message key="encounter.oscarConsultationRequest.msgAttachmentsUnavailable"/>
+                        <ul class="mb-0">
+                            <c:forEach items="${ attachmentWarnings }" var="attachmentWarning">
+                                <li><carlos:encode value="${ attachmentWarning }"/></li>
+                            </c:forEach>
+                        </ul>
+                    </div>
+                </c:if>
+
                 <c:if test="${ not empty documents and transactionType eq 'CONSULTATION' }">
                     <div class="card">
                         <div class="card-header">

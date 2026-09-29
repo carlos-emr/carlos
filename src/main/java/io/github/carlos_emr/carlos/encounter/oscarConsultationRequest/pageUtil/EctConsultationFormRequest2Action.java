@@ -116,6 +116,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
+
+    /** The warnings for a consult's unavailable attachments; none for an id that is not a number. */
+    private List<String> unavailableAttachmentWarnings(String requestId) {
+        try {
+            return documentAttachmentManager.getUnavailableConsultAttachmentWarnings(Integer.valueOf(requestId));
+        } catch (NumberFormatException e) {
+            return List.of();
+        }
+    }
     private FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
@@ -906,6 +915,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 			// fax account that will be used to send the fax
 			request.setAttribute("faxAccount", this.getFaxAccount());
 		  	request.setAttribute("documents", documents);			
+			// Attachments the consult lists that no longer exist are already missing from the
+			// list above. Name them on the cover page, before staff send the fax without them.
+			request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+					unavailableAttachmentWarnings(requestId));
 			request.setAttribute("copyToRecipients", copytoRecipients);
 			request.setAttribute("reqId", requestId);
 			request.setAttribute("accounts", accounts);

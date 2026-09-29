@@ -31,6 +31,7 @@ import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
@@ -265,6 +266,20 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
                     .hasCauseInstanceOf(NumberFormatException.class);
             verify(labManager, never()).renderLab(any(LoggedInInfo.class), any());
         }
+    }
+
+    @Test
+    @DisplayName("lists unavailable attachment warnings without rendering anything")
+    void shouldListUnavailableWarnings_withoutRendering() {
+        when(consultDocsDao.findUnavailableActiveConsultAttachments(9))
+                .thenReturn(List.of(consultDoc(80, "D"), consultDoc(20, "L")));
+
+        assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(
+                "Document attachment 80 is unavailable and was not included.",
+                "Lab attachment 20 is unavailable and was not included.");
+        assertThat(manager.getUnavailableConsultAttachmentWarnings(null)).isEmpty();
+        assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)).isNull();
+        verifyNoInteractions(consultationManager);
     }
 
     @Test
