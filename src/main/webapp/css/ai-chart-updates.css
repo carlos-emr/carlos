@@ -1,9 +1,35 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
-body { max-width: 1400px; }
-.chart-update-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 2rem; }
+body { max-width: 1440px; margin: auto; background: #f7f9fc; color: #203047; }
+.review-header { margin-bottom: 1.75rem; }
+.review-header h1 { font-weight: 700; }
+.review-header p { margin-bottom: .5rem; }
+.review-guidance { border-left: 3px solid #38748a; padding: .7rem 1rem; background: #edf4f7; border-radius: .25rem; }
+.chart-update-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 2rem; align-items: start; }
 .chart-update-layout > * { min-width: 0; }
+.review-progress { display: inline-block; padding: .3rem .7rem; border-radius: 1rem; background: #e1edf7; color: #214c70; font-weight: 600; }
+.suggestions-help, .field-help { color: #4c6075; font-size: .875rem; }
+.field-help { margin: .5rem 0 0; }
+.past-date { color: #84431a; font-weight: 600; margin: .4rem 0 0; }
+.proposal { border: 1px solid #d5dfe9; border-radius: .8rem; box-shadow: 0 2px 6px #20304708; }
+.proposal .card-body { padding: 1.5rem; }
+.proposal-heading { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.proposal-heading h3 { margin: 0; font-weight: 650; }
+.proposal-number { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: #e9eff8; color: #274d78; flex-shrink: 0; font-weight: 700; }
+.proposal-evidence { background: #f3f6fa; padding: .85rem 1rem; border-radius: .45rem; margin-bottom: .75rem; }
 .source-text { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; margin-top: .75rem; }
-blockquote { border-left: 3px solid #708d99; padding-left: 1rem; }
-aside { padding: 1rem; background: #f3f6f8; border-radius: .4rem; align-self: start; }
+blockquote { border-left: 3px solid #839db5; padding-left: 1rem; margin-bottom: 0; }
+.proposal-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; margin-top: .5rem; }
+.form-label { font-weight: 600; }
+.approval-confirmation { display: flex; align-items: start; gap: .65rem; margin: 1.25rem 0; padding: 1rem; border: 1px solid #d5dfe9; border-radius: .45rem; }
+.approval-confirmation input { flex-shrink: 0; margin-top: .3rem; width: 1rem; height: 1rem; }
+.proposal-actions { display: flex; gap: .65rem; flex-wrap: wrap; }
+.proposal-actions .btn { min-height: 44px; }
+.proposal-complete { border-color: #a8c7b7; }
+.chart-reference { padding: 1.25rem; background: white; border: 1px solid #d5dfe9; border-radius: .8rem; position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }
 summary { cursor: pointer; }
-@media (max-width: 800px) { .chart-update-layout { grid-template-columns: 1fr; } aside { order: -1; } }
+summary:focus-visible { outline: 2px solid #245f9d; outline-offset: 3px; }
+@media (max-width: 800px) {
+    .chart-update-layout, .proposal-fields { grid-template-columns: 1fr; }
+    .chart-reference { position: static; max-height: none; }
+    .proposal .card-body { padding: 1rem; }
+}

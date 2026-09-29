@@ -108,8 +108,8 @@ async function run() {
     await generate(page);
     assert.equal(await page.locator('article').count(), 2);
     assert.equal(await card(page, 'Follow-up reminder').locator('[name="dueDate"]').inputValue(), '');
-    assert.equal(await card(page, 'Follow-up reminder').locator('[name="assignee"]').inputValue(), '');
-    assert.equal(await card(page, 'History entry').locator('[name="destination"]').inputValue(), '');
+    assert.equal(await card(page, 'Follow-up reminder').locator('[name="assignee"]').inputValue(), '101');
+    assert.equal(await card(page, 'History entry').locator('[name="destination"]').inputValue(), 'Concerns');
     assert(await token(page), 'CSRF token must be present');
     await card(page, 'Follow-up reminder').getByRole('button', { name: 'Accept and save', exact: true }).click();
     assert(await card(page, 'Follow-up reminder').locator('[name="dueDate"]').evaluate(input => !input.validity.valid),
@@ -121,6 +121,27 @@ async function run() {
     await page.setViewportSize({ width: 390, height: 844 });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Mobile horizontal overflow');
     await page.screenshot({ path: path.join(runDir, 'mobile-review.png'), fullPage: true });
+  });
+  await scenario('prefill dates and destination while retaining explicit approval and edits', async page => {
+    await change(page, 'clear-timing');
+    await generate(page);
+    const reminder = card(page, 'Follow-up reminder');
+    assert.equal(await reminder.locator('[name="dueDate"]').inputValue(), '2026-10-26');
+    assert.equal(await reminder.locator('[name="assignee"]').inputValue(), '101');
+    assert.match(await reminder.innerText(), /document date, 2026-09-28/);
+    assert.equal(await reminder.locator('[name="confirmed"]').isChecked(), false);
+    await reminder.getByRole('button', { name: 'Accept and save', exact: true }).click();
+    assert.equal(await reminder.locator('[name="confirmed"]').evaluate(input => input.validity.valid), false);
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
+    await page.screenshot({ path: path.join(runDir, 'suggested-fields-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    await page.screenshot({ path: path.join(runDir, 'suggested-fields-mobile.png'), fullPage: true });
+    await reminder.locator('[name="dueDate"]').fill('2026-11-02');
+    await click(page, card(page, 'History entry').getByRole('button', { name: 'Dismiss', exact: true }));
+    await page.reload();
+    assert.equal(await card(page, 'Follow-up reminder').locator('[name="dueDate"]').inputValue(), '2026-11-02');
+    assert.equal(await card(page, 'Follow-up reminder').locator('[name="confirmed"]').isChecked(), false);
   });
   await scenario('dismiss bypasses required fields and creates no chart entry', async page => {
     await generate(page);

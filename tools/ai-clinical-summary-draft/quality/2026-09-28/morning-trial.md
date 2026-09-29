@@ -22,7 +22,11 @@ from another machine.
 
    The same page is available through **Review chart updates** on the document
    summary preview. Generating a document summary first is optional.
-4. Generate proposals. Compare each source passage with the chart, edit as
+4. Generate proposals. The updated form suggests reminder dates from clear source
+   timing, assigns reminders to you initially, and suggests a chart section.
+   Relative dates use the document date shown beside the field. Past suggested
+   dates are flagged; ambiguous timing stays blank. All suggestions are editable.
+   Compare each source passage with the chart, edit as
    needed, choose the reminder date/assignee or history destination, and approve
    that item. **Dismiss** makes no chart entry.
 

@@ -121,6 +121,7 @@ public final class ChartUpdatesBrowserHarness {
                     fixture.entries.add(new ChartUpdateContext.Entry("note-external", "history", "Synthetic concurrent chart edit."));
                 }
                 case "/source-change" -> { fixture.source += "\nSynthetic document amendment."; fixture.revision++; }
+                case "/clear-timing" -> { fixture.source = fixture.source.replace(FOLLOWUP, "Plan: review in four weeks."); fixture.revision++; }
                 case "/expire" -> ReflectionTestUtils.setField(session.getAttribute(ChartUpdateReview.SESSION_KEY), "expiresAt", 0L);
                 default -> { response.sendError(404); return; }
             }
@@ -180,7 +181,7 @@ public final class ChartUpdatesBrowserHarness {
                 });
                 var generator = mock(ChartUpdateProposals.class);
                 when(generator.generate(anyString())).thenReturn(List.of(
-                        new ChartUpdateProposals.Proposal("tickler", FOLLOWUP), new ChartUpdateProposals.Proposal("history", HISTORY)));
+                        new ChartUpdateProposals.Proposal("tickler", fixture.source.contains(FOLLOWUP) ? FOLLOWUP : "Plan: review in four weeks."), new ChartUpdateProposals.Proposal("history", HISTORY)));
                 var action = new AiChartUpdates2Action(chart,
                         new ReviewedChartUpdateService(chart, receipts, ticklers, notes, providers), providers, generator);
                 ActionContext.of().withServletRequest(request).withServletResponse(response).bind();

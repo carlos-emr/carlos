@@ -119,6 +119,20 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(writer);
     }
 
+    @Test void shouldSuggestAssignee_onlyWhenClinicianIsActive() throws Exception {
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo("101");
+        when(providers.getActiveProviders()).thenReturn(List.of(provider));
+        action.generate();
+        var active = (ChartUpdateReview) request.getSession().getAttribute(ChartUpdateReview.SESSION_KEY);
+        assertThat(active.draft(proposal.key()).assignee()).isEqualTo("101");
+        when(providers.getActiveProviders()).thenReturn(List.of());
+        action.generate();
+        var inactive = (ChartUpdateReview) request.getSession().getAttribute(ChartUpdateReview.SESSION_KEY);
+        assertThat(inactive.draft(proposal.key()).assignee()).isEmpty();
+        verifyNoInteractions(writer);
+    }
+
     @Test void shouldKeepOtherDraftsWithoutApproval_whenSavingOneProposal() throws Exception {
         var other = new ChartUpdateProposals.Proposal("history", "Suspected asthma.");
         review = new ChartUpdateReview("101", snapshot, List.of(proposal, other));

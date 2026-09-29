@@ -11,8 +11,8 @@ and has not been deployed or clinically validated.
   follow-up is required. The model can misclassify or omit relevant passages.
 - Display accessible Medical history/Ongoing concerns entries and active
   ticklers beside the proposals, with the full source available for comparison.
-- Edit text and accept or dismiss **one item at a time**. Ticklers require an
-  explicit due date and active assignee. History requires Medical history or
+- Edit text and accept or dismiss **one item at a time**. Ticklers require a
+  confirmed due date and active assignee. History requires Medical history or
   Ongoing concerns as the destination and is appended as a signed note under the
   clinician's account, using the existing eChart editing lock.
 - Preserve the exact source passage and document reference in each saved entry,
@@ -24,6 +24,26 @@ Chart comparison is clinician-led; duplicate matching is only normalized text
 containment plus durable replay protection, not semantic equivalence detection.
 The comparison excludes restricted notes, other chart sections and inactive
 ticklers. Review the normal chart when needed.
+
+## Suggested form values
+
+The review form pre-fills exact source text and makes editable suggestions without
+another model call. Reminders initially select the signed-in clinician if that
+account is in the active assignee list. History passages explicitly describing
+past history or a resolved condition suggest Medical history; other clinical
+findings suggest Ongoing concerns. The clinician can change either selection.
+
+Clear intervals such as "in four weeks" and "tomorrow" calculate from the source
+document observation date, which is shown beside the suggested date. An explicit
+ISO date following "on", "by", "due", "review" or "recheck" can be copied directly.
+Calendar months and years use calendar arithmetic. Past dates are flagged and
+retained. Missing dates, ranges, multiple intervals, conditions and timing tied to
+another event stay blank. These English phrase rules are deliberately limited;
+clinicians must confirm the intended date and document-date anchor.
+
+Suggestions are created once per review. Refreshes and saves on other cards keep
+clinician edits, including deliberately cleared fields. Approval stays unchecked.
+The source passage, suggested date and its basis remain visible for comparison.
 
 ## Enable only in an approved test environment
 

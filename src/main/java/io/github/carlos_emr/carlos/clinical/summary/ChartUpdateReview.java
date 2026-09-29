@@ -40,6 +40,7 @@ public final class ChartUpdateReview implements Serializable {
     private final long expiresAt = Instant.now().plusSeconds(900).getEpochSecond();
     private final Map<String, ChartUpdateProposals.Proposal> proposals = new LinkedHashMap<>();
     private final Map<String, String> outcomes = new LinkedHashMap<>();
+    private final Map<String, ChartUpdateSuggestions.Suggestion> suggestions = new LinkedHashMap<>();
     private final Map<String, Draft> drafts = new LinkedHashMap<>();
     private String fingerprint;
 
@@ -59,13 +60,21 @@ public final class ChartUpdateReview implements Serializable {
 
     public ChartUpdateReview(String provider, ChartUpdateContext.Snapshot snapshot,
             List<ChartUpdateProposals.Proposal> candidates, String agentName) {
+        this(provider, snapshot, candidates, agentName, "");
+    }
+
+    public ChartUpdateReview(String provider, ChartUpdateContext.Snapshot snapshot,
+            List<ChartUpdateProposals.Proposal> candidates, String agentName, String suggestedAssignee) {
         this.provider = provider;
         this.agentName = agentName;
         document = snapshot.documentId();
         patient = snapshot.patientId();
         sourceHash = snapshot.sourceHash();
         fingerprint = snapshot.fingerprint();
-        candidates.forEach(candidate -> proposals.put(candidate.key(), candidate));
+        candidates.forEach(candidate -> {
+            proposals.put(candidate.key(), candidate);
+            suggestions.put(candidate.key(), ChartUpdateSuggestions.suggest(candidate, snapshot.date(), suggestedAssignee));
+        });
     }
 
     public void authorize(String actor, String suppliedToken) {
@@ -88,7 +97,8 @@ public final class ChartUpdateReview implements Serializable {
         return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(proposals));
     }
     public Map<String, String> getOutcomes() { return Map.copyOf(outcomes); }
-    public Draft draft(String key) { return drafts.getOrDefault(key, new Draft(proposal(key).evidence(), "", "", "")); }
+    public ChartUpdateSuggestions.Suggestion suggestion(String key) { proposal(key); return suggestions.get(key); }
+    public Draft draft(String key) { return drafts.getOrDefault(key, suggestion(key).draft()); }
     public void remember(String key, Draft draft) {
         proposal(key);
         if (!outcomes.containsKey(key)) drafts.put(key, draft);

@@ -98,7 +98,10 @@ public final class AiChartUpdates2Action extends ActionSupport {
                 }
                 synchronized (session) {
                     session.setAttribute(ChartUpdateReview.SESSION_KEY,
-                            new ChartUpdateReview(user.getLoggedInProviderNo(), after, proposals, engine.displayName()));
+                            new ChartUpdateReview(user.getLoggedInProviderNo(), after, proposals, engine.displayName(),
+                                    providers.getActiveProviders().stream().anyMatch(provider ->
+                                            user.getLoggedInProviderNo().equals(provider.getProviderNo()))
+                                            ? user.getLoggedInProviderNo() : ""));
                 }
             }
             synchronized (session) {
@@ -178,6 +181,14 @@ public final class AiChartUpdates2Action extends ActionSupport {
             row.put("dueDate", draft.dueDate());
             row.put("assignee", draft.assignee());
             row.put("destination", draft.destination());
+            var suggestion = review.suggestion(key);
+            row.put("suggestedDate", suggestion.draft().dueDate());
+            row.put("dateBasis", suggestion.dateBasis());
+            row.put("dateAnchor", suggestion.anchor());
+            row.put("suggestedDestination", suggestion.draft().destination());
+            row.put("suggestedAssignee", suggestion.draft().assignee());
+            row.put("pastDue", !suggestion.draft().dueDate().isEmpty()
+                    && java.time.LocalDate.parse(suggestion.draft().dueDate()).isBefore(java.time.LocalDate.now()));
             rows.add(row);
         });
         request.setAttribute("chartUpdateReview", review);

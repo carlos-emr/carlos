@@ -87,3 +87,18 @@ forged review tokens, retention of edits on other cards, fresh approval after a
 response, and refresh-safe redirects. Each of the three patients passed 21 checks.
 See [the prepared morning trial](../quality/2026-09-28/morning-trial.md) for the
 separate fresh workspace instance; the fixture gateway still makes no model calls.
+
+## Suggested-field check
+
+With the fixed gateway, the same isolated environment and fixture variables can
+verify pre-filled values without approving any chart entries:
+
+```sh
+node tools/ai-clinical-summary-draft/browser/nhs_suggestions_check.cjs
+```
+
+This checks NHSSYN001's four-week date, NHSSYN002's next-day date, NHSSYN003's blank
+unspecified date, the active clinician assignee, suggested chart sections, unchecked
+approvals and mobile layout. Dates are calculated from each document observation
+date. It verifies unchanged receipt counts and releases the browser's editing
+locks. Avoid running it while another browser is editing these test charts.
