@@ -650,6 +650,41 @@ class JpaSmsTransactionServiceUnitTest {
     }
 
     @Test
+    @DisplayName("recordDeliveryEvent applies a sent report to a failure CARLOS recorded itself")
+    void shouldApplySent_whenFailureDidNotComeFromTheCarrier() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction failedByCarlos = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        failedByCarlos.markSending(new Date());
+        failedByCarlos.markProviderResult(
+                SmsProviderSendResultDto.failed("QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE", "outcome unknown"));
+        when(smsTransactionDao.findByClientReferenceId(SmsProviderType.STUB, "sms-transaction-7"))
+                .thenReturn(Optional.of(failedByCarlos));
+
+        recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-1", SmsStatus.SENT, null, null, null, "sms-transaction-7", null));
+
+        assertThat(failedByCarlos.getStatus()).isEqualTo(SmsStatus.SENT);
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent ignores a sent report with no time after a carrier-reported failure")
+    void shouldIgnoreUndatedSent_afterCarrierReportedFailure() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction sent = acceptedOutboundRow();
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(sent));
+        recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
+
+        recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-1", SmsStatus.SENT, null, null, null, null));
+
+        assertThat(sent.getStatus()).isEqualTo(SmsStatus.FAILED);
+    }
+
+    @Test
     @DisplayName("recordDeliveryEvent publishes when the failure report arrives while the send is still in progress")
     void shouldPublishFailedEvent_whenCallbackArrivesWhileSending() {
         JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);

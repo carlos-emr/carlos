@@ -506,11 +506,13 @@ public class SmsTransaction extends AbstractModel<Long> {
         if (status == SmsStatus.DELIVERED && webhookStatus != SmsStatus.DELIVERED) {
             return true;
         }
-        if (status == SmsStatus.FAILED && webhookStatus == SmsStatus.SENT
-                && (webhookEventAt == null || providerEventAt == null || !webhookEventAt.after(providerEventAt))) {
-            // A "sent" report that is not newer than the failure says nothing new. Accepting it would
-            // reopen the row, so the same two callbacks replayed in turn would fail it again and again.
-            // A newer one is applied: the message did go out after the failure was recorded.
+        if (status == SmsStatus.FAILED && webhookStatus == SmsStatus.SENT && providerEventAt != null
+                && (webhookEventAt == null || !webhookEventAt.after(providerEventAt))) {
+            // The failure came from a carrier report, and this "sent" report is not newer than it, so it
+            // says nothing new. Accepting it would reopen the row, and the same two callbacks replayed in
+            // turn would fail it again and again. A newer one is applied. So is any "sent" report for a
+            // failure CARLOS recorded itself (no carrier report yet), such as an unknown outcome: the
+            // message did go out.
             return true;
         }
         return status == SmsStatus.DELIVERED
