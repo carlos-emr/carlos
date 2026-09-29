@@ -31,12 +31,11 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
+import jakarta.persistence.Version;
 
 import java.util.Date;
 import java.util.Map;
@@ -46,7 +45,9 @@ import java.util.TreeMap;
 /**
  * The clinic's SMS settings, saved from Administration &gt; SMS ({@code sms_config}, V1.0.34).
  * <p>
- * One row is used (the lowest id); when there is none, the {@code sms.*} properties still apply. The
+ * There is at most one row, {@link #SINGLETON_ID}; when there is none, the {@code sms.*} properties still
+ * apply. A save that races another fails instead of adding a second row or overwriting the other: a
+ * second first save hits the fixed id, and a second update fails the {@link Version} check. The
  * webhook secret and every provider credential value are encrypted at rest with {@link EncryptionUtils}
  * (key {@code encryption.util.secret.key}, kept outside the database), the same way {@code FaxConfig}
  * stores its passwords. Getters decrypt; nothing here is ever logged or rendered, and the admin page
@@ -61,9 +62,16 @@ public class SmsConfig extends AbstractModel<Integer> {
     private static final TypeReference<TreeMap<String, String>> CREDENTIAL_MAP = new TypeReference<>() {
     };
 
+    /** The only row's id; V1.0.34 refuses any other. */
+    public static final int SINGLETON_ID = 1;
+
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer id = SINGLETON_ID;
+
+    /** Null until first saved, which tells Hibernate a new row from a stored one. */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "provider_type", nullable = false, length = 16)

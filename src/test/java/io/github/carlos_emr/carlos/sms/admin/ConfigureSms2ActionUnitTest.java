@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.sms.assembler.SmsConfigViewModelAssembler;
 import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
+import io.github.carlos_emr.carlos.sms.service.SmsConfigConflictException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
 import io.github.carlos_emr.carlos.sms.service.SmsSendService;
 import io.github.carlos_emr.carlos.sms.validator.SmsConfigValidator;
@@ -54,6 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -209,6 +211,26 @@ class ConfigureSms2ActionUnitTest {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(request.getAttribute("smsConfig")).isSameAs(model);
         verify(configService, never()).save(any(), any());
+    }
+
+    @Test
+    @DisplayName("saving that races another admin's save re-displays the page (200) with a conflict message")
+    void shouldShowConflict_whenAnotherSaveWonTheRace() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "STUB");
+        when(validator.validate(any(), any())).thenReturn(List.of());
+        doThrow(new SmsConfigConflictException(new IllegalStateException("stale")))
+                .when(configService).save(any(), any());
+        SmsConfigViewModel model = mock(SmsConfigViewModel.class);
+        when(assembler.assemble(null, List.of("sms.config.error.concurrentSave"))).thenReturn(model);
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(request.getAttribute("smsConfig")).isSameAs(model);
     }
 
     @Test

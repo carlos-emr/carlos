@@ -2,9 +2,12 @@
 -- the provider, whether sending is on, whether the queue scheduler runs, the sender number, the
 -- webhook secret, and the provider's credentials.
 --
--- One row is used (the lowest id). No row is seeded: until an administrator saves the form, CARLOS
--- keeps using sms.provider.default, sms.queue.scheduler.enabled and sends as before, so upgrading
--- changes nothing.
+-- The table holds at most one row, id 1: the fixed primary key and the CHECK constraint make a
+-- second row impossible, so two administrators saving for the first time at once cannot leave a
+-- second copy of the credentials behind. version lets the application refuse a save that raced
+-- another instead of silently overwriting it. No row is seeded: until an administrator saves the
+-- form, CARLOS keeps using sms.provider.default, sms.queue.scheduler.enabled and sends as before,
+-- so upgrading changes nothing.
 --
 -- webhook_secret and each value in the credentials JSON are encrypted by the application with
 -- EncryptionUtils (the {ENC} prefix), using encryption.util.secret.key, which is kept outside the
@@ -17,7 +20,8 @@
 -- database/mysql/migration/common/README.md. Renumber above the high-water mark at merge if needed.
 
 CREATE TABLE IF NOT EXISTS sms_config (
-  id INT NOT NULL AUTO_INCREMENT,
+  id INT NOT NULL,
+  version INT NOT NULL DEFAULT 0,
   provider_type VARCHAR(16) NOT NULL,
   enabled TINYINT(1) NOT NULL DEFAULT 0,
   scheduler_enabled TINYINT(1) NOT NULL DEFAULT 0,
@@ -26,5 +30,6 @@ CREATE TABLE IF NOT EXISTS sms_config (
   credentials TEXT NULL,
   updated_at DATETIME NOT NULL,
   updated_by VARCHAR(16) NULL,
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  CONSTRAINT sms_config_single_row CHECK (id = 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

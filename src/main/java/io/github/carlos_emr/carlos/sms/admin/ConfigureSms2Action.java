@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.assembler.SmsConfigViewModelAssembler;
 import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
+import io.github.carlos_emr.carlos.sms.service.SmsConfigConflictException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
 import io.github.carlos_emr.carlos.sms.service.SmsSendService;
 import io.github.carlos_emr.carlos.sms.support.SmsPhoneNumbers;
@@ -61,6 +62,7 @@ public class ConfigureSms2Action extends ActionSupport {
     static final String METHOD_SEND_SYSTEM_TEST = "sendSystemTest";
     private static final String SECURITY_OBJECT = "_admin.sms";
     private static final String CREDENTIAL_PARAMETER_PREFIX = "credential.";
+    static final String CONCURRENT_SAVE_ERROR = "sms.config.error.concurrentSave";
 
     private final SecurityInfoManager securityInfoManager;
     private final SmsConfigService configService;
@@ -125,7 +127,13 @@ public class ConfigureSms2Action extends ActionSupport {
             request.setAttribute("smsConfig", assembler.assembleRejected(update, errors));
             return SUCCESS;
         }
-        configService.save(update, loggedInInfo.getLoggedInProviderNo());
+        try {
+            configService.save(update, loggedInInfo.getLoggedInProviderNo());
+        } catch (SmsConfigConflictException e) {
+            // Re-displayed with 200 for the same reason as the validation errors above.
+            request.setAttribute("smsConfig", assembler.assemble(null, List.of(CONCURRENT_SAVE_ERROR)));
+            return SUCCESS;
+        }
         return redirect(request, response, "saved");
     }
 

@@ -27,7 +27,13 @@ import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.event.SmsConfigChangedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
 import io.github.carlos_emr.carlos.sms.support.SmsPhoneNumbers;
+import jakarta.persistence.EntityExistsException;
+import jakarta.persistence.OptimisticLockException;
+import org.hibernate.StaleStateException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -123,6 +129,7 @@ public class SmsConfigService {
      * @param update              the submitted settings
      * @param updatedByProviderNo the admin saving them, recorded on the row
      * @return the saved settings
+     * @throws SmsConfigConflictException when another save raced this one; nothing from this one is stored
      */
     @Transactional
     public SmsConfig save(SmsConfigUpdateDto update, String updatedByProviderNo) {
@@ -146,9 +153,27 @@ public class SmsConfigService {
         } else {
             smsConfigDao.persist(config);
         }
+        // Flushed first, so a save that lost a race is neither audited nor announced.
+        flushOrReportConflict();
         auditRecorder.recordSaved(config, updatedByProviderNo, before.changedFields(Snapshot.of(config, true)));
         eventPublisher.publishEvent(new SmsConfigChangedEvent(config.isSchedulerEnabled()));
         return config;
+    }
+
+    /**
+     * Writes the row now, inside this transaction, so a save that raced another administrator's fails
+     * here: a second first save hits the fixed id, and a second update fails the version check. The
+     * exception rolls the transaction back. The JPA and Hibernate types are what the flush throws; the
+     * Spring types cover a DAO whose exceptions are translated.
+     */
+    private void flushOrReportConflict() {
+        try {
+            smsConfigDao.flush();
+        } catch (OptimisticLockException | StaleStateException | EntityExistsException
+                 | ConstraintViolationException | OptimisticLockingFailureException
+                 | DataIntegrityViolationException e) {
+            throw new SmsConfigConflictException(e);
+        }
     }
 
     private void applyCredentials(SmsConfig config, SmsConfigUpdateDto update) {

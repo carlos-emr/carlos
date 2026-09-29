@@ -19,17 +19,19 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.sms.dao;
+package io.github.carlos_emr.carlos.sms.service;
 
-import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
-import io.github.carlos_emr.carlos.sms.model.SmsConfig;
+/**
+ * Thrown by {@link SmsConfigService#save} when the save raced another administrator's: both tried to
+ * create the settings row, or both changed the same version of it. Nothing from this save is stored,
+ * and the other save stands.
+ *
+ * @since 2026-09-28
+ */
+public class SmsConfigConflictException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
 
-import java.util.Optional;
-
-/** Access to the SMS settings row ({@code sms_config}). */
-public interface SmsConfigDao extends AbstractDao<SmsConfig> {
-    /**
-     * @return the settings row ({@link SmsConfig#SINGLETON_ID}), or empty while nothing has been saved
-     */
-    Optional<SmsConfig> findCurrent();
+    public SmsConfigConflictException(Throwable cause) {
+        super("SMS settings were changed by another save at the same time.", cause);
+    }
 }

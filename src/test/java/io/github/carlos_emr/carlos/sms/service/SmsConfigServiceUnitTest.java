@@ -27,6 +27,8 @@ import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.event.SmsConfigChangedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
 import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
+import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,13 +36,16 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -168,6 +173,44 @@ class SmsConfigServiceUnitTest {
 
         assertThat(saved.credentialsReadable()).isTrue();
         assertThat(saved.credentialNames()).containsExactly("field_one");
+    }
+
+    @Test
+    @DisplayName("save reports a conflict and announces nothing when another save changed the row first")
+    void shouldReportConflict_whenVersionCheckFails() {
+        SmsConfig stored = new SmsConfig();
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+        OptimisticLockException stale = new OptimisticLockException("row was updated");
+        doThrow(stale).when(smsConfigDao).flush();
+
+        assertThatThrownBy(() -> service().save(update(SmsProviderType.STUB, true, "", "", false, Map.of()), "999998"))
+                .isInstanceOf(SmsConfigConflictException.class)
+                .hasCause(stale);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+        verify(auditRecorder, never()).recordSaved(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("save reports a conflict when another first save created the row first")
+    void shouldReportConflict_whenRowWasCreatedConcurrently() {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
+        doThrow(new DataIntegrityViolationException("duplicate key")).when(smsConfigDao).flush();
+
+        assertThatThrownBy(() -> service().save(update(SmsProviderType.STUB, true, "", "", false, Map.of()), "999998"))
+                .isInstanceOf(SmsConfigConflictException.class);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("save passes other database failures through unchanged rather than calling them conflicts")
+    void shouldNotReportConflict_forOtherDatabaseFailures() {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
+        PersistenceException unavailable = new PersistenceException("sms_config is missing");
+        doThrow(unavailable).when(smsConfigDao).flush();
+
+        assertThatThrownBy(() -> service().save(update(SmsProviderType.STUB, true, "", "", false, Map.of()), "999998"))
+                .isSameAs(unavailable);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 
     @Test
