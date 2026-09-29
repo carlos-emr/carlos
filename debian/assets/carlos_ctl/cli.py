@@ -221,7 +221,8 @@ def _cmd_backup(argv) -> int:
             util.warn("the restore drill FAILED — journalctl -u carlos-emr-backup-verify -n 50")
         return rc
     # No shell is involved: runuser drops to the backup account and runs the
-    # packaged helper with an argv list.
+    # packaged helper, with the operator's own arguments passed through as an
+    # argv list.
     os.execvp("runuser", ["runuser", "-u", "carlos-backup", "--",  # nosec B606
                           os.path.join(LIB, "carlos-emr-backup")] + sub)
     raise AssertionError("unreachable: execvp replaces the process")
