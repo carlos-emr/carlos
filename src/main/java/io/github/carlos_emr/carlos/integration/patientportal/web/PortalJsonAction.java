@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalServic
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -119,6 +120,25 @@ public abstract class PortalJsonAction extends ActionSupport {
 
     protected abstract String handleRequest() throws IOException;
 
+    /** Zero-width non-joiner, zero-width joiner and soft hyphen: the formatting characters the portal allows. */
+    private static final Set<Integer> ALLOWED_FORMAT_CHARACTERS = Set.of(0x200C, 0x200D, 0x00AD);
+
+    /**
+     * Whether text has no control character, line or paragraph separator, or hidden formatting character.
+     * Mirrors the portal's {@code StaffText} rule ({@code is_hidden_character} in its {@code identity.py}),
+     * which keeps three formatting characters ordinary text needs: the zero-width non-joiner and joiner,
+     * which shape Persian, Indic and other scripts and build emoji sequences, and the soft hyphen.
+     */
+    static boolean isPlainText(String text) {
+        return text.codePoints().noneMatch(codePoint -> {
+            int type = Character.getType(codePoint);
+            return Character.isISOControl(codePoint)
+                    || (type == Character.FORMAT && !ALLOWED_FORMAT_CHARACTERS.contains(codePoint))
+                    || type == Character.LINE_SEPARATOR
+                    || type == Character.PARAGRAPH_SEPARATOR;
+        });
+    }
+
     private String configurationFailure(HttpServletResponse response, Exception exception)
             throws IOException {
         // BeanCreationException may carry configured values in its own message or a nested cause,
@@ -158,6 +178,33 @@ public abstract class PortalJsonAction extends ActionSupport {
             cause = cause.getCause();
         }
         return NO_DETAIL;
+    }
+
+    /**
+     * Records a portal change that the portal has confirmed. Best effort: the change is already
+     * made, so a failed audit write must not report it as failed. Never pass staff free text.
+     */
+    void audit(LoggedInInfo session, String action, long portalRecordId, int patient, String data) {
+        try {
+            LogAction.addLog(session, action, "PatientPortal", String.valueOf(portalRecordId),
+                    String.valueOf(patient), data);
+        } catch (RuntimeException auditFailure) {
+            logger.warn("patient portal audit entry was not written: action={}, causeType={}",
+                    action, auditFailure.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Records a portal change whose outcome is unknown: the portal may have applied it although
+     * CARLOS could not read the answer. A definite refusal changed nothing and is not recorded.
+     */
+    void auditIfUnconfirmed(LoggedInInfo session, String action, int patient, PatientPortalException failure) {
+        boolean unread = failure.kind() == PatientPortalException.Kind.MALFORMED_RESPONSE;
+        boolean interrupted = failure.kind() == PatientPortalException.Kind.TRANSPORT_FAILURE
+                && !failure.isRequestNotSent();
+        if (unread || interrupted) {
+            audit(session, action + ".unconfirmed", 0, patient, "outcome=unconfirmed");
+        }
     }
 
     static void requirePatientAccess(SecurityInfoManager security, LoggedInInfo session, int patient) {

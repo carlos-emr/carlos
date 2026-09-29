@@ -51,7 +51,26 @@ test('never builds a selector from a portal value: an odd status is looked up, n
   assert.equal(page.text('invites.status."] , *'), 'invites.status."] , *');
 });
 
-test('calls only a delivered invitation good news', () => {
+test('calls what staff asked for good news, unless the code could not be withdrawn', () => {
+  const page = logic({});
+  assert.equal(page.isGoodNews({state: 'abandoned', outcome: 'abandoned_by_staff', revokeFailed: false}), true);
+  assert.equal(page.isGoodNews({state: 'revoked', outcome: 'confirmed_not_sent', revokeFailed: false}), true);
+  assert.equal(page.isGoodNews({state: 'abandoned', outcome: 'abandoned_by_staff', revokeFailed: true}), false);
+  assert.equal(page.isGoodNews({state: 'abandoned', outcome: 'commit_unconfirmed', revokeFailed: false}), false);
+  assert.equal(page.isGoodNews({state: 'revoking', outcome: 'send_unconfirmed', revokeFailed: false}), false);
+});
+
+test('shows no replacement question for a press made while a request is running', () => {
+  const page = logic({});
+  const pending = [{status: 'accepted'}, {status: 'pending'}];
+  assert.equal(page.inviteStep(true, pending), 'ignore');
+  assert.equal(page.inviteStep(true, []), 'ignore');
+  assert.equal(page.inviteStep(false, pending), 'confirm');
+  assert.equal(page.inviteStep(false, [{status: 'revoked'}]), 'send');
+  assert.equal(page.inviteStep(false, undefined), 'send');
+});
+
+test('calls a delivered invitation good news unless its chart note failed', () => {
   const page = logic({});
   assert.equal(page.isGoodNews({state: 'sent', outcome: null}), true);
   assert.equal(page.isGoodNews({state: 'sent', outcome: 'confirmed_sent'}), true);

@@ -18,8 +18,10 @@ is explained in [`patient-portal-client-security.md`](patient-portal-client-secu
 settings are documented in `src/main/resources/carlos.properties` under *Patient Portal
 integration*.
 
-**Test data only.** Staging uses test patients with test email addresses and phone numbers that
-the team controls. Nothing here authorises real patient data; that is the readiness record's job.
+**Synthetic data only.** The staging CARLOS database must not be a copy of production. Every test
+patient is invented: name, date of birth and health card number are never a real person's,
+including a team member's, and the email address and phone number are ones the team controls.
+Nothing here authorises real patient data; that is the readiness record's job.
 
 ## 0. Decide first
 
@@ -48,7 +50,7 @@ before configuring anything, because the TLS pin and both public URLs depend on 
 Follow the portal's `deploy/README.md`. For CARLOS to work with it, check in particular:
 
 - [ ] `PATIENT_PORTAL_ENVIRONMENT=production`, even on staging, so its production checks apply.
-      `staging` and `development` relax them.
+      `development` relaxes most of them and `staging` some.
 - [ ] PostgreSQL 16 with `sslmode=verify-full`; SQLite is refused in production.
 - [ ] `PATIENT_PORTAL_CLINIC_ID` matches the value decided above.
 - [ ] `PATIENT_PORTAL_PUBLIC_BASE_URL` is the patient-facing `https://` address.
@@ -93,6 +95,10 @@ deployment secret manager, and never reuse staging values in production.
 
 Set these in the deployment's override properties, not in the committed `carlos.properties`:
 
+- [ ] The override properties file holds the service token and the staff-assertion private key. No
+      other account can read it: on the Debian package leave it as installed (`root:carlos`, mode
+      `640`); elsewhere it is owned by the account CARLOS runs as, mode `600`. It is kept out of
+      backups and tickets that others can read.
 - [ ] If the build includes #3934: `patient_portal.enabled=true`, the master switch, which is off
       by default. The portal stays off, whatever else is set, until this is `true` (in any case);
       any other value except `false` or blank is a configuration error, including a `#` comment on
@@ -125,9 +131,9 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 - [ ] Flyway applied `V1.0.41` (portal security objects), `V1.0.42` (portal email delivery
       columns on `emailLog`) and `V1.0.43` (invitation delivery table and default grants).
-- [ ] The staging database is treated as disposable. It is at `V1.0.43` without `release/2026.08`'s
-      `V1.0.29` to `V1.0.40`, and CARLOS runs Flyway without `outOfOrder`, so it cannot be upgraded
-      once those migrations reach `develop`: rebuild it instead.
+- [ ] The staging database is treated as disposable. It is at `V1.0.43` without the migrations
+      `release/2026.08` holds below that number, and CARLOS runs Flyway without `outOfOrder`, so it
+      cannot be upgraded once those migrations reach `develop`: rebuild it instead.
 
 ### Email
 
@@ -147,14 +153,17 @@ Set these in the deployment's override properties, not in the committed `carlos.
 - [ ] A staging user whose only role is `doctor` exists, to prove the default grants are enough.
 - [ ] Decide whether front-desk roles get `_portal.invite`. Without `_email` they can see and revoke
       invitations but not send one. Record the decision.
-- [ ] A user with `_portal.account` write and `_portal.account.unlock` exists for the account tests
-      (`admin` has both by default; `doctor` can only read account status).
+- [ ] A user with `_demographic` read, `_portal.account` write and `_portal.account.unlock` exists
+      for the account tests, for example a user holding both `admin` and `doctor`. The `admin` role
+      has the portal rights but no `_demographic` right, which the page requires; `doctor` alone
+      can only read account status.
 
 ## 4. Verify end to end
 
-Run this with a test patient whose chart has an email address you can read, a complete date of
-birth, a health card number, and email consent recorded as opt-in. For each step, record the time
-and the result.
+Run this with a synthetic test patient whose chart has an email address you can read, a complete
+date of birth, a health card number, and email consent recorded as opt-in. For each step, record
+the time and the result. Evidence must not contain the activation code, the service token or any
+private key: redact the code in screenshots.
 
 **Connection**
 
@@ -163,9 +172,10 @@ and the result.
       configured).
 - [ ] Open it: it loads in the same window with the patient header, left navigation and panels, and
       shows no portal error.
-- [ ] Temporarily set a wrong but well-formed pin (the pin of a throwaway key) and restart CARLOS:
-      the page reports a portal failure, the CARLOS log shows `portal transport failed: TLS
-      handshake`, and the portal receives nothing. Restore the pin.
+- [ ] Temporarily set a wrong but well-formed pin, generated without a key
+      (`printf 'sha256/'; openssl rand -base64 32`), and restart CARLOS: the page reports a portal
+      failure, the CARLOS log shows `portal transport failed: TLS handshake`, and the portal
+      receives nothing. Restore the pins.
 - [ ] If the build includes #3934, set `patient_portal.enabled=false` and restart CARLOS: the
       **Patient portal** entry disappears from the record, and the rest of CARLOS works as before
       (not so if `patient_portal.email.enabled` was set to `true`: encrypted email is then refused).
@@ -192,8 +202,8 @@ and the result.
 
 **Account controls**
 
-- [ ] As the account user, disable with a reason: the patient is signed out and cannot sign in. Enable: they can again,
-      after resetting their password.
+- [ ] As the account user, disable with a reason: the patient is signed out and cannot sign in.
+      Enable: they can again, after resetting their password.
 - [ ] Lock the account with repeated wrong passwords, then **Unlock** as the unlock user: the
       patient must reset their password at next sign-in.
 
@@ -212,9 +222,15 @@ and the result.
 - [ ] Stop the CARLOS mail relay and invite: the delivery shows the mail server refused the email,
       or that it may not have been sent, with what to do next. After the relay returns, a resend
       works and the patient receives only the new code.
-- [ ] Leave an attempt unfinished (for example, stop the portal between prepare and send). After 15
-      minutes, the Invitation deliveries panel offers the matching decision, and resolving it
-      behaves as described in `patient-portal-client-security.md`.
+- [ ] Leave an attempt unfinished: have the CARLOS mail relay complete the greeting, STARTTLS and
+      login normally, then drop the connection during the message itself (after `DATA`) without
+      answering, and invite. A relay that drops the connection any earlier gives *The mail server
+      refused the email* instead, which offers no decision. The delivery shows *The email may not
+      have been sent*. After 15 minutes, the Invitation deliveries panel offers **It arrived** and
+      **It did not arrive; revoke it**, and resolving it behaves as described in
+      `patient-portal-client-security.md`. Stopping the portal is not a way to reach this state:
+      stopped before the invitation, no attempt is recorded; stopped between prepare and send,
+      CARLOS stops the attempt itself.
 - [ ] Rotate the staff-assertion key with old and new keys overlapping, as in `carlos.properties`,
       and confirm no call fails during the change.
 - [ ] Rotate the portal's TLS key with the five steps in section 5 of
@@ -228,7 +244,12 @@ and the result.
 
 - [ ] Sections 0 to 5 complete, with the CARLOS commit, the portal image digest, and the evidence
       for each step recorded.
-- [ ] Every staging secret listed for destruction; production gets fresh ones.
+- [ ] Every staging secret destroyed or revoked, or given a recorded destruction date and owner if
+      staging stays up: the service token, the staff-assertion key pair, the TLS keys (with their
+      certificates revoked), and the portal's SMTP and SMS webhook credentials. Production gets
+      fresh ones.
+- [ ] Staging test users and the test patient's portal account disabled or deleted at teardown, and
+      any pin or setting changed for a drill restored.
 - [ ] Production verification in section 6 of the TLS runbook done and recorded in the clinic's
       deployment record.
 - [ ] The portal's `REAL_DATA_READINESS.md` record started for the clinic. Real patients are

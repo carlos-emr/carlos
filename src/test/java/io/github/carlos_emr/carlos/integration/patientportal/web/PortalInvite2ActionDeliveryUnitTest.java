@@ -60,6 +60,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -234,7 +236,7 @@ class PortalInvite2ActionDeliveryUnitTest {
     void shouldRefuseSending_withoutDocumentWrite() throws Exception {
         // Every sent email is archived as a patient document; the archive would refuse the send only
         // after a code had been prepared for it.
-        when(security.hasPrivilege(any(), eq("_edoc"), anyString(), isNull())).thenReturn(false);
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(false);
         request.setParameter("method", "create");
 
         execute();
@@ -246,7 +248,7 @@ class PortalInvite2ActionDeliveryUnitTest {
     @Test
     @DisplayName("should let a delivery be resolved without document write, which only sending needs")
     void shouldAllowRecovery_withoutDocumentWrite() throws Exception {
-        when(security.hasPrivilege(any(), eq("_edoc"), anyString(), isNull())).thenReturn(false);
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(false);
         request.setParameter("method", "recover");
         request.setParameter("deliveryId", "9");
         request.setParameter("decision", "abandon");
@@ -260,7 +262,7 @@ class PortalInvite2ActionDeliveryUnitTest {
     @Test
     @DisplayName("should require email write to resolve a delivery, which closes an outbox row")
     void shouldRefuseRecovery_withoutEmailWrite() throws Exception {
-        when(security.hasPrivilege(any(), eq("_email"), anyString(), isNull())).thenReturn(false);
+        when(security.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(false);
         request.setParameter("method", "recover");
         request.setParameter("deliveryId", "9");
         request.setParameter("decision", "abandon");
@@ -282,6 +284,9 @@ class PortalInvite2ActionDeliveryUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(payload().get("reason").asText()).isEqualTo("channel_unavailable");
+        ArgumentCaptor<InviteRequest> invite = ArgumentCaptor.forClass(InviteRequest.class);
+        verify(invites).invite(any(), any(), any(), invite.capture());
+        assertThat(invite.getValue().channel()).isEqualTo(Channel.SMS);
     }
 
     @Test
@@ -340,6 +345,22 @@ class PortalInvite2ActionDeliveryUnitTest {
     }
 
     @Test
+    @DisplayName("should offer no decisions yet for a delivery on this connection that changed too recently")
+    void shouldListNoDecisions_whenTooEarly() throws Exception {
+        request.setParameter("method", "create");
+        PatientPortalInviteDelivery uncertain = delivery(State.SEND_UNCERTAIN);
+        when(invites.invite(any(), any(), any(), any())).thenReturn(uncertain);
+        when(invites.isRecoverable(uncertain)).thenReturn(false);
+        when(invites.isOnCurrentConnection(uncertain)).thenReturn(true);
+
+        execute();
+
+        assertThat(payload().get("delivery").get("finished").booleanValue()).isFalse();
+        assertThat(payload().get("delivery").get("decisions").size()).isZero();
+        assertThat(payload().get("delivery").get("onCurrentConnection").booleanValue()).isTrue();
+    }
+
+    @Test
     @DisplayName("should offer no decisions for a delivery made on another portal connection")
     void shouldListNoDecisions_whenMadeOnAnotherConnection() throws Exception {
         // The server refuses them there, so the page must not offer them.
@@ -367,6 +388,46 @@ class PortalInvite2ActionDeliveryUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(200);
         verify(invites).invite(any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   ", "\u200B\u200B", "\u00A0\u00A0", "...", "verbal consent\u202Etnesnoc"})
+    @DisplayName("should refuse a consent override whose reason nobody could read back")
+    void shouldRefuseOverride_whenTheReasonIsNotReadableText(String reason) throws Exception {
+        // Blank, zero-width spaces, no-break spaces, punctuation only, and a right-to-left override.
+        request.setParameter("method", "create");
+        request.setParameter("consentOverride", "true");
+        request.setParameter("consentOverrideReason", reason);
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(payload().get("message").asText()).contains("written reason");
+        verifyNoInteractions(invites);
+    }
+
+    @Test
+    @DisplayName("should refuse a consent override sent with no reason at all")
+    void shouldRefuseOverride_whenNoReasonIsSent() throws Exception {
+        request.setParameter("method", "create");
+        request.setParameter("consentOverride", "true");
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(invites);
+    }
+
+    @Test
+    @DisplayName("should not ask for a reason when no override is claimed")
+    void shouldIgnoreTheReason_withoutAnOverride() throws Exception {
+        request.setParameter("method", "create");
+        request.setParameter("consentOverrideReason", "\u200B");
+        when(invites.invite(any(), any(), any(), any())).thenReturn(delivery(State.SENT));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(200);
     }
 
     @Test

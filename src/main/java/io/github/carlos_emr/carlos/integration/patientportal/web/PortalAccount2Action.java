@@ -81,8 +81,6 @@ public class PortalAccount2Action extends PortalJsonAction {
             "the reason must be at most " + MAX_REASON_LENGTH + " characters";
     private static final String REASON_UNSAFE =
             "the reason must not contain line breaks, control or formatting characters";
-    /** Zero-width non-joiner, zero-width joiner and soft hyphen: the formatting characters the portal allows. */
-    private static final Set<Integer> ALLOWED_FORMAT_CHARACTERS = Set.of(0x200C, 0x200D, 0x00AD);
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient PortalStaffContextResolver staffContextResolver;
@@ -147,20 +145,22 @@ public class PortalAccount2Action extends PortalJsonAction {
                 staffContextResolver.resolveForPatient(loggedInInfo, Set.of(securityObject), demographicNo);
         try {
             if (METHOD_UNLOCK.equals(method)) {
-                return unlock(portal, response, demographicNo, staff);
+                return unlock(portal, response, loggedInInfo, demographicNo, staff);
             }
-            return access(portal, request, response, demographicNo, staff);
+            return access(portal, request, response, loggedInInfo, demographicNo, staff);
         } catch (PatientPortalException exception) {
+            auditIfUnconfirmed(loggedInInfo, "PortalAccount2Action." + method, demographicNo, exception);
             return portalFailure(response, exception);
         }
     }
 
     private String unlock(
-            PatientPortalService portal, HttpServletResponse response, int demographicNo,
-            PatientPortalStaffContext staff)
+            PatientPortalService portal, HttpServletResponse response, LoggedInInfo loggedInInfo,
+            int demographicNo, PatientPortalStaffContext staff)
             throws IOException {
         PatientPortalAccountAcknowledgementDto account =
                 portal.unlockAccount(demographicNo, staff);
+        audit(loggedInInfo, "PortalAccount2Action.unlock", account.id(), demographicNo, "");
         ObjectNode payload = newPayload();
         payload.put("ok", true);
         payload.put("accountId", account.id());
@@ -194,6 +194,7 @@ public class PortalAccount2Action extends PortalJsonAction {
             PatientPortalService portal,
             HttpServletRequest request,
             HttpServletResponse response,
+            LoggedInInfo loggedInInfo,
             int demographicNo,
             PatientPortalStaffContext staff)
             throws IOException {
@@ -225,6 +226,9 @@ public class PortalAccount2Action extends PortalJsonAction {
                         enabledValue,
                         reasonMissing ? "staff_action" : reason.strip(),
                         staff);
+        // The reason is staff free text and stays with the portal.
+        audit(loggedInInfo, "PortalAccount2Action.access", account.id(), demographicNo,
+                "enabled=" + enabledValue);
         ObjectNode payload = newPayload();
         payload.put("ok", true);
         payload.put("accountId", account.id());
@@ -232,21 +236,5 @@ public class PortalAccount2Action extends PortalJsonAction {
         payload.put("enabled", enabledValue);
         payload.put("forcePasswordReset", account.forcePasswordReset());
         return write(response, HttpServletResponse.SC_OK, payload);
-    }
-
-    /**
-     * Whether text has no control character, line or paragraph separator, or hidden formatting character.
-     * Mirrors the portal's {@code StaffText} rule ({@code is_hidden_character} in its {@code identity.py}),
-     * which keeps three formatting characters ordinary text needs: the zero-width non-joiner and joiner,
-     * which shape Persian, Indic and other scripts and build emoji sequences, and the soft hyphen.
-     */
-    static boolean isPlainText(String text) {
-        return text.codePoints().noneMatch(codePoint -> {
-            int type = Character.getType(codePoint);
-            return Character.isISOControl(codePoint)
-                    || (type == Character.FORMAT && !ALLOWED_FORMAT_CHARACTERS.contains(codePoint))
-                    || type == Character.LINE_SEPARATOR
-                    || type == Character.PARAGRAPH_SEPARATOR;
-        });
     }
 }
