@@ -1,0 +1,115 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+
+    Ported from the openo-beta/Open-O tickler attachment component
+    (PR #2491, Sebastian Ibanez) and adapted for CARLOS.
+--%>
+<%--
+    ticklerAttachmentsPanel.jspf - the "Attachments" block of the Add/Edit Tickler forms (#3984)
+
+    Static include; place it INSIDE the tickler <form name="serviceform">. The parent page
+    declares, before including:
+      java.util.List<TicklerAttachmentData> ticklerAttachments   stored attachments (empty on Add)
+      String ticklerAttachmentDemographicNo                       patient, or null when the Add
+                                                                  form's own demographic_no input
+                                                                  is authoritative at click time
+
+    Renders the Manage Attachments button, the count badge, the per-type name lists and the
+    hidden ".delegateAttachment" inputs that carry the current selection back to the action.
+    Items of a type the reader may not open are listed as restricted and marked so the dialog
+    never drops them from the submission. ticklerAttachmentsDialog.jspf (placed AFTER the form)
+    holds the picker dialog and its script.
+
+    @since 2026-09-26
+--%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<%
+    java.util.LinkedHashMap<io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType, String> ticklerAttachmentGroups =
+            new java.util.LinkedHashMap<>();
+    ticklerAttachmentGroups.put(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.EFORM, "tickler.attachments.group.eForms");
+    ticklerAttachmentGroups.put(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC, "tickler.attachments.group.documents");
+    ticklerAttachmentGroups.put(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB, "tickler.attachments.group.labs");
+    ticklerAttachmentGroups.put(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.HRM, "tickler.attachments.group.hrm");
+    ticklerAttachmentGroups.put(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.FORM, "tickler.attachments.group.forms");
+%>
+<div class="tickler-attachments">
+    <span class="attachments-cell">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="manageAttachmentsBtn"
+                title="<fmt:message key="tickler.attachments.manage"/>"
+                data-demographic-no="<carlos:encode value='<%= ticklerAttachmentDemographicNo == null ? "" : ticklerAttachmentDemographicNo %>' context="htmlAttribute"/>">
+            <i class="fas fa-paperclip"></i> <fmt:message key="tickler.attachments.manage"/>
+        </button>
+        <span id="attachmentCount" class="badge bg-secondary"><%= ticklerAttachments.size() %></span>
+    </span>
+    <div id="attachmentNames">
+        <%
+            for (java.util.Map.Entry<io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType, String> ticklerAttachmentGroup : ticklerAttachmentGroups.entrySet()) {
+                String ticklerAttachmentParam = io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters.parameterName(ticklerAttachmentGroup.getKey());
+                int ticklerAttachmentGroupSize = 0;
+                for (io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData ticklerAttachment : ticklerAttachments) {
+                    if (ticklerAttachment.getDocumentType() == ticklerAttachmentGroup.getKey()) {
+                        ticklerAttachmentGroupSize++;
+                    }
+                }
+        %>
+        <div class="attachment-group" id="attachmentGroup_<%= ticklerAttachmentParam %>"<%= ticklerAttachmentGroupSize == 0 ? " style=\"display:none;\"" : "" %>>
+            <div class="attachment-group-heading"><fmt:message key="<%= ticklerAttachmentGroup.getValue() %>"/></div>
+            <ul id="attachmentNames_<%= ticklerAttachmentParam %>">
+                <%
+                    for (io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData ticklerAttachment : ticklerAttachments) {
+                        if (ticklerAttachment.getDocumentType() != ticklerAttachmentGroup.getKey()) {
+                            continue;
+                        }
+                        if (ticklerAttachment.isViewable()) {
+                %>
+                <%-- data-delegate-id ties the name to its hidden delegate so the dialog can mark
+                     both when the picker does not offer the item. --%>
+                <li data-delegate-id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"><carlos:encode value='<%= ticklerAttachment.getDisplayName() %>'/></li>
+                <%
+                        } else {
+                %>
+                <li class="restricted text-muted" data-delegate-id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"><fmt:message key="tickler.attachments.restricted"/></li>
+                <%
+                        }
+                    }
+                %>
+            </ul>
+        </div>
+        <% } %>
+    </div>
+    <%-- Hidden delegates mirror the picker's checkbox names so the dialog can pre-check them and
+         the action can read the same parameters whether or not the dialog was opened. The value
+         is what the action reads (labs carry their source: "HL7:123"); data-picker-id is the
+         picker checkbox id the dialog pre-checks (labNoHL7123: lab ids are only unique per
+         source, so the source is part of the DOM key). --%>
+    <%
+        for (io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData ticklerAttachment : ticklerAttachments) {
+            String ticklerAttachmentParam = ticklerAttachment.getParameterName();
+    %>
+    <input type="hidden" class="delegateAttachment" name="<%= ticklerAttachmentParam %>"
+           value="<carlos:encode value='<%= ticklerAttachment.getSubmissionValue() %>' context="htmlAttribute"/>"
+           data-picker-id="<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"
+           id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"<%= ticklerAttachment.isViewable() ? "" : " data-restricted=\"1\"" %>>
+    <% } %>
+    <%-- Set to 1 by the dialog's Save and Close; without it the action leaves the stored set alone. --%>
+    <input type="hidden" name="<%= io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters.SUBMITTED_MARKER %>" id="attachmentsSubmitted" value="">
+</div>

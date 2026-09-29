@@ -302,6 +302,32 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return null;
     }
 
+    /** Saves the consultation fields, extras and every attachment family in one transaction. */
+    private int saveConsultationWithAttachments(LoggedInInfo loggedInInfo, ConsultationRequest consult, boolean create) {
+        return new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class)).execute(tx -> {
+            ConsultationRequestDao requests = SpringUtils.getBean(ConsultationRequestDao.class);
+            ConsultationRequestExtDao extras = SpringUtils.getBean(ConsultationRequestExtDao.class);
+            if (create) requests.persist(consult);
+            else requests.merge(consult);
+            int id = consult.getId();
+            if (!create) extras.clear(id);
+            Enumeration<String> names = request.getParameterNames();
+            while (names.hasMoreElements()) {
+                String name = names.nextElement();
+                if (name.startsWith("ext_")) extras.persist(createExtEntry(id, name.substring(4), request.getParameter(name)));
+            }
+            int patient = consult.getDemographicId();
+            String provider = consult.getProviderNo();
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, getDocNo(), provider, id, patient);
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, getLabNo(), provider, id, patient);
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, getFormNo(), provider, id, patient);
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, geteFormNo(), provider, id, patient);
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, getHrmNo(), provider, id, patient);
+            return id;
+        });
+    }
+
     /**
      * Processes the consultation request form submission.
      *
@@ -345,11 +371,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         String appointmentHour = this.getAppointmentHour();
         String appointmentPm = this.getAppointmentPm();
-        String[] attachedDocuments = this.getDocNo();
-        String[] attachedLabs = this.getLabNo();
-        String[] attachedForms = this.getFormNo();
-        String[] attachedEForms = this.geteFormNo();
-        String[] attachedHRMDocuments = this.getHrmNo();
         List<String> documents = new ArrayList<String>();
 
         if (appointmentPm.equals("PM") && Integer.parseInt(appointmentHour) < 12) {
@@ -377,7 +398,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 request.getParameter("signatureProviderNo"), providerNo, loggedInInfo.getLoggedInProviderNo());
 
         ConsultationRequestDao consultationRequestDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
-        ConsultationRequestExtDao consultationRequestExtDao = (ConsultationRequestExtDao) SpringUtils.getBean(ConsultationRequestExtDao.class);
         ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
@@ -537,30 +557,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     consult.setProfessionalSpecialist(professionalSpecialist);
                 }
 
-                consultationRequestDao.persist(consult);
-
-                int consultationRequestId = consult.getId();
+                int consultationRequestId = saveConsultationWithAttachments(loggedInInfo, consult, true);
                 requestId = String.valueOf(consultationRequestId);
                 consultTargetWriteVerified = true;
-                MiscUtils.getLogger().debug("saved new consult id " + requestId);
-
-                Enumeration e = request.getParameterNames();
-                while (e.hasMoreElements()) {
-                    String name = (String) e.nextElement();
-                    if (name.startsWith("ext_")) {
-                        String value = request.getParameter(name);
-                        consultationRequestExtDao.persist(createExtEntry(consultationRequestId, name.substring(name.indexOf("_") + 1), value));
-                    }
-                }
-
-                // now that we have consultation id we can save any attached docs as well
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, consultationRequestId, demographicId);
-            } catch (ParseException e) {
-                MiscUtils.getLogger().error("Invalid Date ({})", e.getClass().getSimpleName());
+            } catch (ParseException | IllegalArgumentException e) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid consultation date or attachment selection");
+                return NONE;
             }
             request.setAttribute("reqId", requestId);
             request.setAttribute("transType", "2");
@@ -721,26 +723,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     date = DateUtils.parseDate(this.getFollowUpDate(), format);
                     consult.setFollowUpDate(date);
                 }
-                consultationRequestDao.merge(consult);
-
-                consultationRequestExtDao.clear(consultationRequestId);
-                Enumeration e = request.getParameterNames();
-                while (e.hasMoreElements()) {
-                    String name = (String) e.nextElement();
-                    if (name.startsWith("ext_")) {
-                        String value = request.getParameter(name);
-                        consultationRequestExtDao.persist(createExtEntry(consultationRequestId, name.substring(name.indexOf("_") + 1), value));
-                    }
-                }
-
-                // save any additional attachments added on the update
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, consultationRequestId, demographicId);
-            } catch (ParseException e) {
-                MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+                saveConsultationWithAttachments(loggedInInfo, consult, false);
+            } catch (ParseException | IllegalArgumentException e) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid consultation date or attachment selection");
+                return NONE;
             }
 
             request.setAttribute("transType", "1");
@@ -760,6 +746,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                                 request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
                             }
                         }
+                        // THIS branch is the one Print uses, and Print never saves: the form was
+                        // POSTed by AJAX precisely so the clinician keeps their edits. Ask the PDF
+                        // to render those edits rather than the stored record (issue #3721).
+                        request.setAttribute(ConsultationPreviewOverlay.PREVIEW_USES_UNSAVED_VALUES_ATTRIBUTE, Boolean.TRUE);
                         renderConsultationFormWithAttachments(request, response, requestId, previewDemographicNo);
                     }
                 } catch (RuntimeException e) {

@@ -243,3 +243,13 @@ test('core runs exclude incoming PDF fixtures while explicit selection retains t
   const explicit = selectChecks(checks, parseArguments(['--only', 'incoming-pdf-extraction']));
   assert.deepEqual(explicit.map((check) => check.name), ['incoming-pdf-extraction']);
 });
+
+// Parsing does not open browsers or require a deployment. Catch duplicate imports
+// and other syntax errors even when a live workflow is not scheduled in CI.
+test('every registered browser check parses before it can be scheduled', () => {
+  const { execFileSync } = require('node:child_process');
+  for (const check of checks) {
+    execFileSync(process.execPath, ['--check', path.join(__dirname, '..', check.script)],
+      { stdio: 'pipe', timeout: 10000 });
+  }
+});

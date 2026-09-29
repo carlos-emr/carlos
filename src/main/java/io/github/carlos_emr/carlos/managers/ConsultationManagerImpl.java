@@ -239,7 +239,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         ConsultationRequest request = consultationRequestDao.find(id);
-        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getRequest", "id=" + request.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getRequest", "id=" + id);
 
         return request;
     }
@@ -249,7 +249,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         ConsultationResponse response = consultationResponseDao.find(id);
-        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getResponse", "id=" + response.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getResponse", "id=" + id);
 
         return response;
     }

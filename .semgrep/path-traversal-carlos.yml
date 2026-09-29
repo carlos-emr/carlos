@@ -19,7 +19,7 @@ rules:
       proper validation via PathValidationUtils. This could allow path
       traversal attacks. Use a containment-enforcing helper such as
       PathValidationUtils.validatePath(), validateUserFilePath(),
-      validateExistingPath(), validateChildPath(), validateGeneratedChildPath(),
+      validateExistingPath(), validateExistingDocumentPath(), validateChildPath(), validateGeneratedChildPath(),
       validatePathComponent(), validateGeneratedFileName(), validateZipEntryPath(),
       validateZipEntryName(), validateApplicationTempPath(), or the three-argument
       validateUpload(source, name, destDir) before the value reaches the
@@ -75,6 +75,7 @@ rules:
       #   validatePath              basename-strip + validateWithinDirectory
       #   validateUserFilePath      legacy-normalize (validateFileName) + validateWithinDirectory
       #   validateExistingPath      validateWithinDirectory
+      #   validateExistingDocumentPath  validateExistingPath against required DOCUMENT_DIR
       #   validateChildPath         delegates to validateExistingPath
       #   validateGeneratedChildPath  rejects / \ . .. NUL, then validateWithinDirectory
       #   validatePathComponent     rejects separators, prefixes, hidden and traversal
@@ -113,6 +114,7 @@ rules:
           - pattern: PathValidationUtils.validatePath(...)
           - pattern: PathValidationUtils.validateUserFilePath(...)
           - pattern: PathValidationUtils.validateExistingPath(...)
+          - pattern: PathValidationUtils.validateExistingDocumentPath(...)
           - pattern: PathValidationUtils.validateChildPath(...)
           - pattern: PathValidationUtils.validateGeneratedChildPath(...)
           - pattern: PathValidationUtils.validatePathComponent(...)
@@ -130,6 +132,7 @@ rules:
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateUserFilePath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(...)
+          - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingDocumentPath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateChildPath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validateGeneratedChildPath(...)
           - pattern: io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePathComponent(...)
@@ -149,6 +152,7 @@ rules:
               - pattern: validatePath(...)
               - pattern: validateUserFilePath(...)
               - pattern: validateExistingPath(...)
+              - pattern: validateExistingDocumentPath(...)
               - pattern: validateChildPath(...)
               - pattern: validateGeneratedChildPath(...)
               - pattern: validatePathComponent(...)
@@ -175,6 +179,11 @@ rules:
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath;
               ...
           - pattern: validateExistingPath(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingDocumentPath;
+              ...
+          - pattern: validateExistingDocumentPath(...)
       - patterns:
           - pattern-inside: |
               import static io.github.carlos_emr.carlos.utility.PathValidationUtils.validateChildPath;

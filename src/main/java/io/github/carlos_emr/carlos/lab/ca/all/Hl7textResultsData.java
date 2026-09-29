@@ -460,6 +460,7 @@ public class Hl7textResultsData {
     public static ArrayList<LabResultData> populateHL7ResultsData(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"HL7".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             ConsultDocs c = (ConsultDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labPatientId = ConversionUtils.toIntString(c.getDocumentNo());
@@ -472,6 +473,7 @@ public class Hl7textResultsData {
     public static ArrayList<LabResultData> populateHL7ResultsDataEForm(String demographicNo, String fdid, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
+            if (!"HL7".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             EFormDocs c = (EFormDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labPatientId = ConversionUtils.toIntString(c.getDocumentNo());
@@ -485,6 +487,7 @@ public class Hl7textResultsData {
     public static ArrayList<LabResultData> populateHL7ResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"HL7".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             ConsultResponseDoc c = (ConsultResponseDoc) o[0];
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labPatientId = ConversionUtils.toIntString(c.getDocumentNo());

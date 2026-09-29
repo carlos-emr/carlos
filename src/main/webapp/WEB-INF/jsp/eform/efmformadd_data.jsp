@@ -178,6 +178,7 @@
     thisEForm.addHiddenInputElement("context", request.getContextPath());
     thisEForm.addHiddenInputElement("demographicNo", demographic_no);
     thisEForm.addHiddenInputElement("fid", fid);
+    thisEForm.ensureSubjectInput();
     thisEForm.addHiddenInputElement("fdid", request.getParameter("fdid"));
     thisEForm.addHiddenInputElement("newForm", "true");
 
