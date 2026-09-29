@@ -543,20 +543,38 @@
      * not when the request is sent: the reader may scroll while the fetch is in flight,
      * and restoring a position measured back then would yank the pane away from them.
      *
+     * The anchor is the first note that is rendered and reaches into the visible pane, not
+     * simply the first child: ChartNotesAjax.jsp emits notes hidden by the
+     * encounter.hide_* properties and hidden issues as display:none, and a note with no
+     * layout box never moves, so anchoring to one would leave the pane jumping as before.
+     *
      * @param {HTMLElement} notesContainer - The #encMainDiv the batch is about to go into
      * @return {?{element: HTMLElement, top: number}} the anchor note and its distance from
-     *     the top of the visible pane, or null when there is nothing to anchor to (the list
-     *     is empty, or a filter/save reload replaced the container this load targets)
+     *     the top of the visible pane, or null when there is nothing to anchor to (no note
+     *     is rendered, or a filter/save reload replaced the container this load targets)
      */
     function notesCaptureScrollAnchor(notesContainer) {
         var wrapper = $("encMainDivWrapper");
-        var anchor = notesContainer && notesContainer.firstElementChild;
-        if (!wrapper || !anchor || !wrapper.contains(anchor)) {
+        if (!wrapper || !notesContainer || !wrapper.contains(notesContainer)) {
+            return null;
+        }
+        var paneTop = wrapper.getBoundingClientRect().top;
+        var anchor = null;
+        for (var child = notesContainer.firstElementChild; child; child = child.nextElementSibling) {
+            if (child.getClientRects().length === 0) {
+                continue; // display:none — no box to follow
+            }
+            anchor = child;
+            if (child.getBoundingClientRect().bottom > paneTop) {
+                break; // first rendered note still (at least partly) in view
+            }
+        }
+        if (!anchor) {
             return null;
         }
         return {
             element: anchor,
-            top: anchor.getBoundingClientRect().top - wrapper.getBoundingClientRect().top
+            top: anchor.getBoundingClientRect().top - paneTop
         };
     }
 
