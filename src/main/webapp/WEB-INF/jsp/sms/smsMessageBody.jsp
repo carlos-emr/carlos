@@ -71,7 +71,7 @@
             </p>
         </c:otherwise>
     </c:choose>
-    <a href="${ctx}/sms/ViewSmsHistory?demographic_no=${carlos:forUriComponent(smsHistoryDemographicNo)}">
+    <a href="${ctx}/sms/ViewSmsHistory?demographic_no=${carlos:forUriComponent(smsHistoryDemographicNo)}&amp;page=${carlos:forUriComponent(smsHistoryPage)}">
         <fmt:message key="sms.message.back"/></a>
 </div>
 </body>

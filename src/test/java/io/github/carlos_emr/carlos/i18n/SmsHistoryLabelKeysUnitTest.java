@@ -68,6 +68,7 @@ class SmsHistoryLabelKeysUnitTest {
         keys.add("sms.history.reasonPlaceholder");
         keys.add("sms.history.reasonLabel");
         keys.add("sms.history.paging");
+        keys.add("sms.history.repliesNotShown");
 
         for (String locale : LOCALES) {
             Properties bundle = new Properties();

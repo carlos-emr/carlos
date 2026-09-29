@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.sms.web;
 
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.assembler.SmsHistoryViewModelAssembler;
@@ -207,6 +209,58 @@ class ViewSmsHistory2ActionUnitTest {
         assertThat(result).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
         verifyNoInteractions(bodyReadService);
+    }
+
+    @Test
+    @DisplayName("showMessage refuses a message that has no patient, without reading it")
+    void shouldRefuseBody_whenMessageHasNoPatient() {
+        request.setMethod("POST");
+        showMessageRequest("11", "CARE_REVIEW");
+        allowPatientAccess();
+        SmsTransaction unlinked = SmsTransaction.outboundAttempt(
+                new SmsSendCommand(null, "416-555-1212", SmsRecipientPhoneType.CELL, "synthetic system test",
+                        SmsMessagePurpose.SYSTEM_TEST, "999998", 1001, null),
+                SmsProviderType.STUB);
+        when(smsTransactionDao.find(11L)).thenReturn(unlinked);
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+        verifyNoInteractions(bodyReadService);
+    }
+
+    @Test
+    @DisplayName("showMessage shows no text when the audited read fails, and lets the failure through")
+    void shouldShowNoText_whenAuditedReadFails() {
+        request.setMethod("POST");
+        showMessageRequest("11", "CARE_REVIEW");
+        allowPatientAccess();
+        SmsTransaction transaction = outboundFor(DEMOGRAPHIC_NO);
+        when(smsTransactionDao.find(11L)).thenReturn(transaction);
+        when(bodyReadService.readFullMessageBody(transaction, loggedInInfo, "CARE_REVIEW"))
+                .thenThrow(new IllegalStateException("audit write failed"));
+        ViewSmsHistory2Action action = action();
+
+        assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
+        assertThat(request.getAttribute("smsMessageBody")).isNull();
+    }
+
+    @Test
+    @DisplayName("showMessage remembers the history page, so Back returns to it")
+    void shouldRememberHistoryPage_whenShowingMessage() {
+        request.setMethod("POST");
+        showMessageRequest("11", "CARE_REVIEW");
+        request.setParameter("page", "4");
+        allowPatientAccess();
+        SmsTransaction transaction = outboundFor(DEMOGRAPHIC_NO);
+        when(smsTransactionDao.find(11L)).thenReturn(transaction);
+        when(bodyReadService.readFullMessageBody(transaction, loggedInInfo, "CARE_REVIEW"))
+                .thenReturn(Optional.of("Appointment reminder"));
+
+        action().execute();
+
+        assertThat(request.getAttribute("smsHistoryPage")).isEqualTo(4);
     }
 
     @Test

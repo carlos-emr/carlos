@@ -63,8 +63,9 @@
 </nav>
 
 <div class="container-fluid mt-3">
+    <p class="text-muted small" id="smsHistoryRepliesNotShown"><fmt:message key="sms.history.repliesNotShown"/></p>
     <c:choose>
-        <c:when test="${empty smsHistory.rows}">
+        <c:when test="${smsHistory.totalCount == 0}">
             <p class="text-muted" id="smsHistoryEmpty"><fmt:message key="sms.history.empty"/></p>
         </c:when>
         <c:otherwise>
@@ -110,6 +111,8 @@
                                         <input type="hidden" name="method" value="showMessage"/>
                                         <input type="hidden" name="demographic_no"
                                                value="<carlos:encode value='${smsHistory.demographicNo}' context='htmlAttribute'/>"/>
+                                        <input type="hidden" name="page"
+                                               value="<carlos:encode value='${smsHistory.page}' context='htmlAttribute'/>"/>
                                         <input type="hidden" name="smsTransactionId"
                                                value="<carlos:encode value='${row.id}' context='htmlAttribute'/>"/>
                                         <label class="visually-hidden"

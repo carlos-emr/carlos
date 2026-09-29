@@ -124,6 +124,8 @@ public class ViewSmsHistory2Action extends ActionSupport {
         }
 
         request.setAttribute("smsHistoryDemographicNo", String.valueOf(demographicNo));
+        // The history page the user came from, so "Back" returns there instead of to page 1.
+        request.setAttribute("smsHistoryPage", parsePositiveInt(request.getParameter("page")).orElse(1));
         request.setAttribute("smsMessageReason", reason.get().name());
         if (!transaction.hasStoredMessageBody()) {
             request.setAttribute("smsMessageNotStored", Boolean.TRUE);
