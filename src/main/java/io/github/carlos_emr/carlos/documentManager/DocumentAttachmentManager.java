@@ -55,6 +55,9 @@ public interface DocumentAttachmentManager {
      *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param requestId Integer the unique identifier of the consultation request
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve
      * @param demographicNo Integer the patient's unique demographic identifier
      * @return List&lt;String&gt; list of document identifiers attached to the consultation
@@ -71,6 +74,9 @@ public interface DocumentAttachmentManager {
      *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param fdid Integer the unique identifier of the eForm (form data ID)
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve
      * @param demographicNo Integer the patient's unique demographic identifier
      * @return List&lt;String&gt; list of document identifiers attached to the eForm
@@ -86,6 +92,9 @@ public interface DocumentAttachmentManager {
      *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param fdid Integer the unique identifier of the eForm (form data ID)
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve
      * @param demographicNo Integer the patient's unique demographic identifier
      * @return List&lt;EctFormData.PatientForm&gt; list of patient encounter forms attached to the eForm

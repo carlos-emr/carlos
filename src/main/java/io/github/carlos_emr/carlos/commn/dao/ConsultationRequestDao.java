@@ -74,4 +74,6 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
      * @since 2026-04-11
      */
     List<ConsultationRequestListItemDTO> findConsultationDTOsByDemographicId(Integer demographicId);
+    ConsultationRequest lockForAttachmentSync(Integer id);
+
 }

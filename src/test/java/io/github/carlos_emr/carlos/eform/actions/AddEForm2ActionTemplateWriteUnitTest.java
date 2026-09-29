@@ -121,6 +121,8 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
+        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         // AddEForm2Action's constructor resolves this via SpringUtils regardless of the path taken.
         registerMock(EmailManager.class, mockEmailManager);

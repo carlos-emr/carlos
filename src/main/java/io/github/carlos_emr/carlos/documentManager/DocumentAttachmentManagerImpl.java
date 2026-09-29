@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+
 import io.github.carlos_emr.carlos.managers.*;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.metrics.LongCounter;
@@ -42,6 +44,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.util.*;
+import java.util.function.UnaryOperator;
 
 /**
  * Implementation of the DocumentAttachmentManager interface providing comprehensive document attachment
@@ -117,6 +120,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *
      * @param loggedInInfo LoggedInInfo the current user's session information
      * @param requestId Integer the unique identifier of the consultation request
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve (e.g., DOC, LAB, EFORM, HRM, FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;String&gt; a list of document IDs as strings attached to the consultation request
@@ -130,7 +136,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> consultAttachments = new ArrayList<>();
         List<ConsultDocs> consultDocs = consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
         for (ConsultDocs consultDocs1 : consultDocs) {
-            consultAttachments.add(String.valueOf(consultDocs1.getDocumentNo()));
+            consultAttachments.add(documentType == DocumentType.LAB
+                    ? LabAttachmentReference
+                        .stored(consultDocs1.getLabType(), consultDocs1.getDocumentNo()).key()
+                    : String.valueOf(consultDocs1.getDocumentNo()));
         }
         return consultAttachments;
     }
@@ -144,6 +153,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *
      * @param loggedInInfo LoggedInInfo the current user's session information
      * @param fdid Integer the unique form data identifier of the eForm
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve (e.g., DOC, LAB, EFORM, HRM, FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;String&gt; a list of document IDs as strings attached to the eForm
@@ -157,7 +169,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> eFormAttachments = new ArrayList<>();
         List<EFormDocs> eFormDocs = eFormDocsDao.findByFdidIdDocType(fdid, documentType.getType());
         for (EFormDocs eFormDocs1 : eFormDocs) {
-            eFormAttachments.add(String.valueOf(eFormDocs1.getDocumentNo()));
+            eFormAttachments.add(documentType == DocumentType.LAB
+                    ? LabAttachmentReference
+                        .stored(eFormDocs1.getLabType(), eFormDocs1.getDocumentNo()).key()
+                    : String.valueOf(eFormDocs1.getDocumentNo()));
         }
         return eFormAttachments;
     }
@@ -171,6 +186,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *
      * @param loggedInInfo LoggedInInfo the current user's session information
      * @param fdid Integer the unique form data identifier of the eForm
+     * <p>LAB identifiers are source-qualified (for example {@code HL7:123}); legacy rows
+     * whose source cannot be inferred use {@code UNRESOLVED:123}. Other types use numeric IDs.</p>
+     *
      * @param documentType DocumentType the type of documents to retrieve (typically FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;EctFormData.PatientForm&gt; a list of PatientForm objects attached to the eForm
@@ -219,14 +237,30 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public List<AttachmentLabResultData> getAllLabsSortedByVersions(LoggedInInfo loggedInInfo, String demographicNo) {
         CommonLabResultData commonLabResultData = new CommonLabResultData();
         List<LabResultData> allLabs = commonLabResultData.populateLabResultsData(loggedInInfo, "", demographicNo, "", "", "", "U");
+        return groupLabsByVersion(allLabs, Hl7textResultsData::getMatchingLabs);
+    }
+
+    /**
+     * Groups labs for the picker: one entry per newest lab, with its older versions attached.
+     *
+     * @param allLabs List&lt;LabResultData&gt; the patient's labs from every configured source
+     * @param hl7VersionChain UnaryOperator&lt;String&gt; resolves an HL7 segment id to its
+     *        comma-separated version chain, oldest first, newest last
+     *        ({@code Hl7textResultsData.getMatchingLabs} in production)
+     * @return List&lt;AttachmentLabResultData&gt; newest labs with their version ids
+     */
+    List<AttachmentLabResultData> groupLabsByVersion(List<LabResultData> allLabs, UnaryOperator<String> hl7VersionChain) {
         Collections.sort(allLabs);
 
+        // Segment ids are only unique within a lab source (HL7, MDS, CML and BCP each number
+        // their own tables), so every lookup below is keyed by source and id together; an HL7
+        // and an MDS lab that share an id are two labs, not one.
         List<String> allLabVersionIds = new ArrayList<>();
         List<AttachmentLabResultData> allLabsSortedByVersions = new ArrayList<>();
 
         Map<String, LabResultData> labMap = new HashMap<>();
         for (LabResultData lab : allLabs) {
-            labMap.put(lab.getSegmentID(), lab);
+            labMap.put(labKey(lab.getLabType(), lab.getSegmentID()), lab);
         }
 
         /*
@@ -239,38 +273,47 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
          * First, I iterate through the 'allLabs' using a for loop.
          */
         for (LabResultData lab : allLabs) {
-            if (allLabVersionIds.contains(lab.getSegmentID())) {
+            if (allLabVersionIds.contains(labKey(lab.getLabType(), lab.getSegmentID()))) {
                 continue;
             }
 
-            AttachmentLabResultData attachmentLabResultData = new AttachmentLabResultData(lab.getSegmentID(), getDisplayLabName(lab), lab.getDateObj());
+            AttachmentLabResultData attachmentLabResultData = new AttachmentLabResultData(lab.getSegmentID(), getDisplayLabName(lab), lab.getDateObj(), lab.getLabType());
 
-            /*
-             * Then, if, for example, I pass lab ID 1, it will give all its related labs in the correct version order.
-             * By 'correct order,' I mean it will return this array [7, 9, 8, 1, 6].
-             * This array will be in version order, where the first is the oldest and the last is the latest.
-             */
-            String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-
-
-            /*
-             * Here, I add the latest lab (6) to 'allLabsSortedByVersions' after attaching its versions (7, 9, 8, and 1) to the latest lab.
-             */
-            for (int i = matchingLabIds.length - 2; i >= 0; i--) {
-                LabResultData versionLab = labMap.get(matchingLabIds[i]);
-                if (versionLab != null) {
-                    attachmentLabResultData.getLabVersionIds().put(versionLab.getSegmentID(), DateUtils.formatDate(versionLab.getDateObj(), null));
-                }
+            // Version chains exist for HL7 labs only; the matching walks hl7TextInfo, so an
+            // MDS/CML/BCP id must never be looked up there (it would pull an unrelated HL7 lab
+            // with the same number in as a "version").
+            if (LabResultData.HL7TEXT.equals(lab.getLabType())) {
+                /*
+                 * Then, if, for example, I pass lab ID 1, it will give all its related labs in the correct version order.
+                 * By 'correct order,' I mean it will return this array [7, 9, 8, 1, 6].
+                 * This array will be in version order, where the first is the oldest and the last is the latest.
+                 */
+                String[] matchingLabIds = hl7VersionChain.apply(lab.getSegmentID()).split(",");
 
                 /*
-                 * Then, I add those version labs (7, 9, and 8) into the 'allLabVersionIds' array so that they can be skipped.
-                 * At the start of the for loop, I use `if (allLabVersionIds.contains(lab.getSegmentID())) { continue; }` to ensure that labs already included in 'allLabVersionIds' are skipped during the iteration.
+                 * Here, I add the latest lab (6) to 'allLabsSortedByVersions' after attaching its versions (7, 9, 8, and 1) to the latest lab.
                  */
-                allLabVersionIds.add(matchingLabIds[i]);
+                for (int i = matchingLabIds.length - 2; i >= 0; i--) {
+                    LabResultData versionLab = labMap.get(labKey(LabResultData.HL7TEXT, matchingLabIds[i]));
+                    if (versionLab != null) {
+                        attachmentLabResultData.getLabVersionIds().put(versionLab.getSegmentID(), DateUtils.formatDate(versionLab.getDateObj(), null));
+                    }
+
+                    /*
+                     * Then, I add those version labs (7, 9, and 8) into the 'allLabVersionIds' array so that they can be skipped.
+                     * At the start of the for loop, `allLabVersionIds.contains(...)` ensures that labs already included as versions are skipped during the iteration.
+                     */
+                    allLabVersionIds.add(labKey(LabResultData.HL7TEXT, matchingLabIds[i]));
+                }
             }
             allLabsSortedByVersions.add(attachmentLabResultData);
         }
         return allLabsSortedByVersions;
+    }
+
+    /** Source-qualified lab key; a null source (legacy rows) groups with HL7, the only unnamed source. */
+    private static String labKey(String labType, String segmentId) {
+        return (labType == null || labType.isEmpty() ? LabResultData.HL7TEXT : labType) + ":" + segmentId;
     }
 
     /**
@@ -327,7 +370,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
-        DocumentAttach documentAttach = new DocumentAttach();
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, false);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
 
@@ -355,7 +398,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
-        DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, editOnOcean);
         documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
     }
 
@@ -379,7 +422,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             throw new RuntimeException("missing required sec object (_eform)");
         }
 
-        DocumentAttach documentAttach = new DocumentAttach();
+        DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, false);
         documentAttach.attachToEForm(attachments, documentType, providerNo, fdid);
     }
 
@@ -898,8 +941,14 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
     }
 
-    private void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
         for (LabResultData lab : attachedLabs) {
+            if (lab.isAttachmentUnavailable()) {
+                throw new PDFGenerationException("A lab attachment is unavailable or has an unresolved source. Select it again before printing.");
+            }
+            if (!LabResultData.HL7TEXT.equals(lab.getLabType())) {
+                throw new PDFGenerationException("This lab source cannot be included in a PDF packet. Print it from its source-specific lab viewer.");
+            }
             Path path = renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(lab.getSegmentID()));
             pdfDocumentList.add(path.toString());
         }

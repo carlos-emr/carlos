@@ -587,7 +587,8 @@ async function rotateStatus(daySheet, appointmentNo, statusBefore) {
 async function cancelAppointment(context, daySheet, appointmentNo) {
   const popup = await openEditPopup(context, daySheet, appointmentNo);
   // The status field has two shapes and a deployment property decides which:
-  // editappointment.jsp builds the <select> only when ENABLE_EDIT_APPT_STATUS=yes,
+  // editappointment.jsp builds the <select> unless ENABLE_EDIT_APPT_STATUS is set to a
+  // non-active value such as "no" (absent means enabled),
   // and otherwise presents status as free text that AppointmentUpdateRecord2Action
   // persists verbatim. Both are driven so the check works either way.
   const statusSelect = popup.locator('select[name="status"]');

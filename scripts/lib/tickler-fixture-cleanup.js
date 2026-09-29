@@ -33,6 +33,7 @@ function cleanupTicklerFixture({ sql, patient, stamp, noteTexts = [] }) {
     sql(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${noteIds})`);
     sql(`DELETE FROM casemgmt_note WHERE note_id IN (${noteIds})`);
   }
+  sql(`DELETE FROM ticklerdocs WHERE tickler_id IN (${ticklerIds})`);
   sql(`DELETE FROM tickler_comments WHERE tickler_no IN (${ticklerIds})`);
   sql(`DELETE FROM tickler_update WHERE tickler_no IN (${ticklerIds})`);
   sql(`DELETE FROM tickler WHERE ${owned} AND tickler_no IN (${ticklerIds})`);

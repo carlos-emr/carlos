@@ -14,10 +14,15 @@
 
 /*
  * Local-only browser regression check for Rich Text Letter attachment behavior.
+ * Requires MYSQL_HOST/USER/PASSWORD/DATABASE for source assertions and owned fixture cleanup.
  */
 
 const fs = require('fs');
 const { chromium } = require('playwright');
+const { createSqlRunner, readConfig, sqlString } = require('./lib/playwright-harness');
+const databaseConfig = readConfig({ require: ['MYSQL_PASSWORD'] });
+const db = createSqlRunner(databaseConfig.mysql);
+const stamp = `RTL_SOURCE_${Date.now()}_${process.pid} & "follow-up" <test>`;
 const {
   assert,
   buildArtifactPath,
@@ -50,6 +55,7 @@ const config = {
 };
 
 (async () => {
+  assert(/^[1-9][0-9]*$/.test(config.demographicNo), 'RTL_DEMOGRAPHIC_NO must be a positive ID');
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
@@ -62,7 +68,7 @@ const config = {
     await managerPage.close();
 
     const addPage = await openAddEform(context, config, recorder, fid, config.demographicNo, 'rtl-behavior-add');
-    const fdid = await saveCurrentEform(addPage, `RTL behavior ${Date.now()}`);
+    const fdid = await saveCurrentEform(addPage, stamp);
 
     const popup = await openAttachPopup(addPage, context);
     await waitForPopupReady(popup, recorder, 'rtl-behavior-popup');
@@ -77,6 +83,11 @@ const config = {
     const selectedDocValue = await firstDoc.getAttribute('value');
     assert(selectedDocValue, 'RTL attachment popup did not expose a document checkbox value');
     await firstDoc.check();
+    const lab = popup.locator('input[name="labNo"][value^="HL7:"]').first();
+    await lab.waitFor({state:'attached', timeout:15000});
+    const selectedLabValue = await lab.inputValue();
+    assert(/^HL7:[1-9][0-9]*$/.test(selectedLabValue), 'lab selection lost its source');
+    await lab.check();
 
     await Promise.all([
       popup.waitForLoadState('domcontentloaded').catch(() => {}),
@@ -89,12 +100,15 @@ const config = {
     assert(normalizedPopupBodyText === 'ok', `Attachment submit did not complete cleanly: ${normalizedPopupBodyText}`);
     await screenshot(popup, config.screenshotDir, 'rtl-attachment-behavior-popup-after-submit');
     await popup.close();
+    assert(db.value(`SELECT COUNT(*) FROM EFormDocs WHERE fdid=${Number(fdid)} AND doctype='L' AND lab_type='HL7' AND document_no=${Number(selectedLabValue.split(':')[1])} AND deleted IS NULL`) === '1',
+      'saved eForm attachment did not preserve the selected lab source');
 
     const reopenedPopup = await openAttachPopup(addPage, context);
     await waitForPopupReady(reopenedPopup, recorder, 'rtl-behavior-popup-reopen');
     const reopenedDoc = reopenedPopup.locator(`input[name="docNo"][value="${selectedDocValue}"]`);
     await reopenedDoc.waitFor({ state: 'attached', timeout: 15000 });
     assert(await reopenedDoc.isChecked(), `Reopened attach popup should keep document ${selectedDocValue} checked`);
+    assert(await reopenedPopup.locator(`input[name="labNo"][value="${selectedLabValue}"]`).isChecked(), 'reopened eForm lost its source-qualified lab');
     await screenshot(reopenedPopup, config.screenshotDir, 'rtl-attachment-behavior-popup-reopen');
     await reopenedPopup.close();
 
@@ -115,6 +129,18 @@ const config = {
     wirePage(viewPage, 'rtl-behavior-saved-view', recorder);
     await gotoApp(viewPage, config.baseUrl, `/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}`);
     await viewPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const reopenedSubject = await viewPage.locator('#remote_eform_subject').inputValue();
+    if (reopenedSubject !== stamp) {
+      console.error('Synthetic subject diagnostics', JSON.stringify({
+        storedMatches: db.value(`SELECT COUNT(*) FROM eform_data WHERE fdid=${Number(fdid)} AND subject=${sqlString(stamp)}`),
+        controls: await viewPage.locator('[name=subject]').evaluateAll(fields => fields.map(field => ({
+          value: field.value, type: field.type, id: field.id,
+          formIndex: Array.from(document.forms).indexOf(field.form),
+        }))),
+      }));
+    }
+    assert(reopenedSubject === stamp,
+      `reopening the saved eForm changed its synthetic subject: ${JSON.stringify(reopenedSubject)}`);
     // Let the Rich Text Letter editor finish initializing (the toolbar guard refuses to save while
     // the legacy " loading... " template placeholder is still present).
     await viewPage.waitForFunction(
@@ -123,9 +149,20 @@ const config = {
     ).catch(() => {});
     const mergedPdfPath = buildArtifactPath(config.screenshotDir, `rtl-attachment-merged-${Date.now()}`, '.pdf');
     const downloadPromise = viewPage.waitForEvent('download', { timeout: 90000 });
+    // Independent ownership marker lets cleanup find the PDF revision even if subject
+    // preservation regresses. Never infer ownership from an ID range or creation time.
+    await viewPage.evaluate(owner => {
+      const marker = document.createElement('input');
+      marker.type = 'hidden';
+      marker.name = 'prValidationOwner';
+      marker.value = owner;
+      document.forms[0].appendChild(marker);
+    }, stamp);
     await viewPage.locator('#remoteDownloadButton').click();
     const download = await downloadPromise;
     await download.saveAs(mergedPdfPath);
+    assert(db.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${Number(config.demographicNo)} AND subject=${sqlString(stamp)}`) === '2',
+      'PDF export must preserve the subject on its saved revision');
     const mergedBytes = fs.readFileSync(mergedPdfPath);
     assert(mergedBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Merged eForm+attachment payload was not a PDF');
     const mergedRaw = mergedBytes.toString('latin1');
@@ -150,6 +187,18 @@ const config = {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await browser.close();
+    try {
+      await browser.close();
+    } finally {
+      try {
+        const ids = db.rows(`SELECT fdid FROM eform_data d WHERE demographic_no=${Number(config.demographicNo)} AND (subject=${sqlString(stamp)} OR EXISTS (SELECT 1 FROM eform_values v WHERE v.fdid=d.fdid AND v.var_name='prValidationOwner' AND v.var_value=${sqlString(stamp)}))`).map(([id]) => Number(id));
+        if (ids.length) {
+          db.execute(`START TRANSACTION; DELETE FROM EFormDocs WHERE fdid IN (${ids.join(',')}); DELETE FROM eform_values WHERE fdid IN (${ids.join(',')}); DELETE FROM eform_data WHERE fdid IN (${ids.join(',')}) AND demographic_no=${Number(config.demographicNo)}; COMMIT`);
+        }
+        assert(db.value(`SELECT COUNT(*) FROM eform_data WHERE subject=${sqlString(stamp)}`) === '0', 'owned eForm fixture remains');
+      } finally {
+        db.dispose();
+      }
+    }
   }
-})();
+})().catch(error => { console.error(error.message); process.exitCode = 1; });

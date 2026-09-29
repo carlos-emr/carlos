@@ -306,11 +306,28 @@ public class AddEForm2Action extends ActionSupport {
                 logger.error("Unable to process eForm image placeholders ({})", e.getClass().getSimpleName());
             }
 
-            String fdid = eformDataManager.saveEformData(loggedInInfo, curForm) + "";
-
-            EFormUtil.addEFormValues(paramNames, paramValues, Integer.valueOf(fdid), Integer.valueOf(fid), Integer.valueOf(demographic_no)); //adds parsed values
-
-            attachToEForm(loggedInInfo, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments, attachedForms, fdid, demographic_no, providerNo);
+            String fdid;
+            try {
+                fdid = new org.springframework.transaction.support.TransactionTemplate(
+                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class)).execute(tx -> {
+                    String savedId = Integer.toString(eformDataManager.saveEformData(loggedInInfo, curForm));
+                    EFormUtil.addEFormValues(paramNames, paramValues, Integer.valueOf(savedId), Integer.valueOf(fid), Integer.valueOf(demographic_no));
+                    attachToEForm(loggedInInfo, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments,
+                            attachedForms, savedId, demographic_no, providerNo);
+                    return savedId;
+                });
+            } catch (IllegalArgumentException e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                request.setAttribute(ERROR_ATTRIBUTE, "true");
+                request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, "The eForm was not saved. Reload and confirm the attachment selections.");
+                return ERROR;
+            } catch (SecurityException e) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                request.setAttribute(ERROR_ATTRIBUTE, "true");
+                request.setAttribute(ERROR_MESSAGE_ATTRIBUTE,
+                        "The eForm was not saved because you do not have permission to use one or more selected attachments.");
+                return ERROR;
+            }
 
             //post fdid to {eform_link} attribute
             if (eform_link != null) {
@@ -803,11 +820,14 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     private void attachToEForm(LoggedInInfo loggedInInfo, String[] attachedEForms, String[] attachedDocuments, String[] attachedLabs, String[] attachedHRMDocuments, String[] attachedForms, String fdid, String demographic_no, String providerNo) {
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
+        new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+            documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
+            documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
+            documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
+            documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
+            documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, Integer.valueOf(fdid), Integer.valueOf(demographic_no));
+        });
     }
 
 }
