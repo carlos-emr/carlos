@@ -10,14 +10,18 @@ run in CARLOS before signing.
 The portal is optional and off by default. It is used only when
 `patient_portal.enabled=true`; a clinic that does not use it sets nothing, and
 setting it back to `false` switches the portal off without removing its
-credentials. With the portal off, no portal call is made. The portal's JSON
-actions answer 503 `portal_not_configured`, saying the portal is not switched on,
-and the email recovery page reports the portal as switched off or not set up
-correctly. The rest of CARLOS is unaffected, with two exceptions while
-`patient_portal.email.enabled=true`: every encrypted email is refused, and an
-email whose portal password still needs recovery cannot be recovered until the
-portal is switched on again. Setting `patient_portal.email.enabled=false` puts
-encrypted email back on staff-entered passwords. Case does not matter for
+credentials. With the portal off, no portal call is made. A portal JSON action
+that would call the portal (the panel read, invitation revoke, account unlock
+and access) answers 503 `portal_not_configured`, saying the portal is not
+switched on. Requests refused for their method, parameters or privileges are
+refused as before, and invitation create and resend answer 503
+`portal_invitation_unavailable` whether the portal is on or off. The email
+recovery page reports the portal as switched off or not set up correctly when a
+recovery is attempted. The rest of CARLOS is unaffected, with two exceptions.
+While `patient_portal.email.enabled=true`, every encrypted email is refused;
+setting it to `false` puts encrypted email back on staff-entered passwords. And
+whatever that setting, an email whose portal password still needs recovery
+cannot be recovered until the portal is switched on again. Case does not matter for
 `patient_portal.enabled` and a blank value counts as off, whereas
 `patient_portal.email.enabled` must be exactly `true` or `false` in lower case;
 for the switch, any value other than `true` or `false`, including one

@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -138,7 +139,7 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test void shouldReportUnavailable_whenSpringFailsForAnotherReason() throws Exception {
         when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(
-                new org.springframework.beans.factory.BeanCreationException("patientPortalService",
+                new BeanCreationException("patientPortalService",
                         "creation failed", new IllegalStateException("secret=x")));
         execute("POST", "45");
         assertThat(response.getStatus()).isEqualTo(503);
@@ -149,7 +150,7 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
     /** How a failure to build the portal client arrives: Spring wraps the configuration error. */
     @Test void shouldReportNotConfigured_whenSpringWrapsTheConfigurationFailure() throws Exception {
         when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(
-                new org.springframework.beans.factory.BeanCreationException("patientPortalService",
+                new BeanCreationException("patientPortalService",
                         "creation failed", new PatientPortalConfigurationException("bad pin")));
         try (var settings = mockStatic(PatientPortalSettings.class)) {
             settings.when(PatientPortalSettings::isConfigured).thenReturn(true);
