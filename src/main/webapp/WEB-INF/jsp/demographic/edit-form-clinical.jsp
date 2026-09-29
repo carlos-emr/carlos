@@ -1035,7 +1035,20 @@
                                                                                            id="consentPreset_${carlos:forHtmlAttribute(consentType.type)}"
                                                                                            value="${ not empty patientConsent }"/>
 
-                                                                                        <%-- This consent will be labeled for delete when the clear button is clicked. --%>
+                                                                                        <%-- The consent record this page shows for the type: its id and
+                                                                                     its choice (0 opt-in, 1 opt-out), both empty when there is none.
+                                                                                     Every save re-posts the shown choice, so the save applies it only
+                                                                                     while this is still the record that decides the patient's consent. --%>
+                                                                            <input type="hidden"
+                                                                                   name="consentShownId_${carlos:forHtmlAttribute(consentType.type)}"
+                                                                                   id="consentShownId_${carlos:forHtmlAttribute(consentType.type)}"
+                                                                                   value="${carlos:forHtmlAttribute(empty patientConsent ? '' : patientConsent.id)}"/>
+                                                                            <input type="hidden"
+                                                                                   name="consentShownChoice_${carlos:forHtmlAttribute(consentType.type)}"
+                                                                                   id="consentShownChoice_${carlos:forHtmlAttribute(consentType.type)}"
+                                                                                   value="${carlos:forHtmlAttribute(empty patientConsent ? '' : (patientConsent.optout ? '1' : '0'))}"/>
+
+                                                                                <%-- This consent will be labeled for delete when the clear button is clicked. --%>
                                                                                     <input type="hidden"
                                                                                            name="deleteConsent_${carlos:forHtmlAttribute(consentType.type)}"
                                                                                            id="deleteConsent_${carlos:forHtmlAttribute(consentType.type)}"

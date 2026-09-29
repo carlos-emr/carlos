@@ -510,6 +510,80 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         return true;
     }
 
+    public ChartConsentOutcome saveChartConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId,
+                                                ChartConsentRequest request) {
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (request == null || request.choice() == null || request.choice() == ChartConsentRequest.Choice.NONE) {
+            return ChartConsentOutcome.NO_CHANGE;
+        }
+
+        if (request.shownSent()) {
+            // The lock is held until commit and is re-entrant within this transaction, so the
+            // record checked here is the one the calls below then edit.
+            consentDao.lockPatientForConsentChange(demographic_no);
+            Consent current = ConsentRecords.effective(
+                    consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographic_no, consentTypeId));
+            if (!isRecordShown(current, request)) {
+                // The page re-posted a choice made against a record that has since changed, for
+                // instance a colleague's opt-out. Applying it would silently reverse that change.
+                LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.saveChartConsent", CONSENT_LOG_CONTENT,
+                        current == null ? null : String.valueOf(current.getId()), demographic_no,
+                        " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentTypeId
+                                + " refused: the consent record changed since the chart page was loaded."
+                                + " Requested: " + describeRequest(request)
+                                + " Shown:" + describeRecord(request.shownId(), request.shownOptOut())
+                                + " Current:" + (current == null ? describeRecord(null, null)
+                                : describeRecord(current.getId(), current.isOptout())));
+                return ChartConsentOutcome.STALE;
+            }
+        }
+
+        switch (request.choice()) {
+            case CLEAR:
+                deleteConsent(loggedinInfo, demographic_no, consentTypeId);
+                return ChartConsentOutcome.APPLIED;
+            case OPT_OUT:
+                addEditConsentRecord(loggedinInfo, demographic_no, consentTypeId, true, true);
+                return ChartConsentOutcome.APPLIED;
+            default:
+                // Order matters: an implied opt-out switched to opt-in is flipped first, because
+                // the confirmation refuses an opt-out.
+                addEditConsentRecord(loggedinInfo, demographic_no, consentTypeId, true, false);
+                if (request.explicitRequested() && !recordExplicitConsent(loggedinInfo, demographic_no, consentTypeId)) {
+                    return ChartConsentOutcome.EXPLICIT_NOT_RECORDED;
+                }
+                return ChartConsentOutcome.APPLIED;
+        }
+    }
+
+    /** Whether the current deciding record is the one the chart page showed: same id, same choice. */
+    private static boolean isRecordShown(Consent current, ChartConsentRequest request) {
+        if (current == null) {
+            return request.shownId() == null && request.shownOptOut() == null;
+        }
+        return request.shownId() != null && request.shownOptOut() != null
+                && request.shownId().equals(current.getId())
+                && request.shownOptOut() == current.isOptout();
+    }
+
+    private static String describeRecord(Integer consentId, Boolean optOut) {
+        if (consentId == null && optOut == null) {
+            return " none";
+        }
+        return LOG_CONSENT_ID + consentId + " Choice: " + (optOut == null ? "unknown" : describeChoice(optOut));
+    }
+
+    private static String describeRequest(ChartConsentRequest request) {
+        return switch (request.choice()) {
+            case OPT_IN -> request.explicitRequested() ? "opt-in, confirmed directly" : "opt-in";
+            case OPT_OUT -> "opt-out";
+            case CLEAR -> "clear";
+            case NONE -> "none";
+        };
+    }
+
     /**
      * A boolean determination for if the patient has consented to the given ConsentType/program.
      * A consent is when the consent object exists AND if the patient has not Opted out.

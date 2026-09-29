@@ -1050,6 +1050,22 @@
         pageContext.setAttribute("demographic", demographic, PageContext.PAGE_SCOPE);
     %>
     <div id="editDemographicWrapper" style="margin: 0 auto;">
+        <%-- The save that led here kept the chart but refused a consent change made against a
+             consent record that someone else had changed since the page was opened. The names are
+             looked up by DemographicEdit2Action from validated consent type ids; the request
+             parameter itself is never written to the page. --%>
+        <c:if test="${ not empty requestScope.consentNotSavedNames }">
+            <div id="consentNotSavedWarning" role="alert"
+                 style="margin:8px;padding:10px 14px;border:2px solid #b35900;background-color:#fff4e5;color:#000;font-weight:bold;">
+                <fmt:message key="demographic.demographiceditdemographic.msgConsentNotSaved"/>
+                <ul style="margin:6px 0;">
+                    <c:forEach items="${ requestScope.consentNotSavedNames }" var="consentNotSavedName">
+                        <li><carlos:encode value="${ consentNotSavedName }"/></li>
+                    </c:forEach>
+                </ul>
+                <fmt:message key="demographic.demographiceditdemographic.msgConsentNotSavedReview"/>
+            </div>
+        </c:if>
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn" colspan="2">

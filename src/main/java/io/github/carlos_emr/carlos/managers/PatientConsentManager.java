@@ -196,6 +196,28 @@ public interface PatientConsentManager {
     boolean recordExplicitConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId);
 
     /**
+     * Applies a chart save's consent choice for one consent type, in one transaction under the
+     * patient's consent lock.
+     *
+     * <p>Every chart save re-posts the choice the page showed. When the request carries the record
+     * the page showed ({@link ChartConsentRequest#shownSent()}), the patient's current deciding
+     * record ({@link io.github.carlos_emr.carlos.commn.dao.ConsentRecords#effective}) must still be
+     * that record: both absent, or the same id with the same opt-out value. If it is not, nothing
+     * is changed (no opt-in or opt-out, no explicit confirmation, no clear), the refusal is
+     * audit-logged against the patient, and {@link ChartConsentOutcome#STALE} is returned.</p>
+     *
+     * <p>Otherwise the choice is applied as {@link #addEditConsentRecord}, then
+     * {@link #recordExplicitConsent} when an opt-in was posted with the confirmation ticked, or
+     * {@link #deleteConsent} for a clear. A request that does not carry the shown record is
+     * applied without the check.</p>
+     *
+     * @return what was done with the choice
+     * @throws SecurityException when the caller lacks {@code _demographic} write privilege on the patient
+     */
+    ChartConsentOutcome saveChartConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId,
+                                         ChartConsentRequest request);
+
+    /**
      * A boolean determination for if the patient has consented to the given ConsentType/program.
      * A consent is when the consent object exists AND if the patient has not Opted out.
      */
