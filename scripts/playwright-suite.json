@@ -1455,6 +1455,19 @@
       "env": []
     },
     {
+      "name": "consult-attachment-ownership",
+      "script": "scripts/consult-attachment-ownership-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "echart-consult-specialist",
       "script": "scripts/echart-consult-specialist-playwright-checks.js",
       "tiers": [
@@ -3146,6 +3159,25 @@
         "CPP_EXT_SEARCH",
         "CPP_EXT_DEMOGRAPHIC_NO",
         "CPP_EXT_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "form-print-pdf",
+      "script": "scripts/form-print-pdf-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD",
+        "FORM_PRINT_SEARCH",
+        "FORM_PRINT_DEMOGRAPHIC_NO",
+        "FORM_PRINT_NAME",
+        "FORM_PRINT_TIMEOUT_MS"
       ]
     }
   ]

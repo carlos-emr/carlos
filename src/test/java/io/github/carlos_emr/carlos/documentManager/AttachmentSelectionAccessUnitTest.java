@@ -49,7 +49,7 @@ class AttachmentSelectionAccessUnitTest {
                 key.setModuleId(patient);
                 CtlDocument link = new CtlDocument();
                 link.setId(key);
-                when(documents.findCtlDocsAndDocsByDocNo(7)).thenReturn(java.util.Collections.singletonList(new Object[]{null, link}));
+                when(documents.findCtlDocsAndDocsByDocNo(7)).thenReturn(java.util.Collections.singletonList(new Object[]{new io.github.carlos_emr.carlos.commn.model.Document(), link}));
             }
             case EFORM -> {
                 EFormData form = new EFormData();
@@ -65,6 +65,20 @@ class AttachmentSelectionAccessUnitTest {
                     .thenReturn(List.of(new EctFormData.PatientForm("formAnnual", "Annual", 7, patient)));
             default -> throw new AssertionError(type);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldRejectDeletedDocumentOrPatientLink_whenPreviouslyAttached(boolean documentDeleted) {
+        var document = new io.github.carlos_emr.carlos.commn.model.Document();
+        document.setStatus(documentDeleted ? 'D' : 'A');
+        var link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 42, 7));
+        link.setStatus(documentDeleted ? "A" : "D");
+        when(documents.findCtlDocsAndDocsByDocNo(7))
+                .thenReturn(java.util.Collections.singletonList(new Object[]{document, link}));
+        assertThatThrownBy(() -> access.validate(info, DocumentType.DOC, 42, List.of("7"), List.of("7")))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @ParameterizedTest

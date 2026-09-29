@@ -4,6 +4,7 @@ package io.github.carlos_emr.carlos.documentManager;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.managers.FormsManager;
@@ -50,7 +51,8 @@ public class AttachmentSelectionAccess {
             int id = Integer.parseInt(value);
             boolean owned = switch (type) {
                 case DOC -> documents.findCtlDocsAndDocsByDocNo(id).stream().anyMatch(row ->
-                        row.length > 1 && row[1] instanceof CtlDocument link && link.getId() != null
+                        row.length > 1 && row[0] instanceof Document document && document.getStatus() != 'D'
+                                && row[1] instanceof CtlDocument link && !"D".equals(link.getStatus()) && link.getId() != null
                                 && "demographic".equals(link.getId().getModule())
                                 && Integer.valueOf(patient).equals(link.getId().getModuleId()));
                 case EFORM -> {

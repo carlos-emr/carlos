@@ -684,4 +684,28 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
             assertThat(result).contains(DEMO_NO);
         }
     }
+
+    @Nested
+    @DisplayName("Ownership lookup (issue #3867)")
+    class OwnershipLookup {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return only fdids belonging to the patient")
+        void shouldReturnOwnedFdids_forDemographic() {
+            EFormData own = createAndPersist(DEMO_NO, FORM_ID, true, today);
+            EFormData foreign = createAndPersist(DEMO_NO + 1, FORM_ID, true, today);
+
+            List<Integer> owned = eFormDataDao.findFdidsForDemographic(DEMO_NO, List.of(own.getId(), foreign.getId(), 987654));
+
+            assertThat(owned).containsExactly(own.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty without querying for an empty id list")
+        void shouldReturnEmpty_forEmptyIdList() {
+            assertThat(eFormDataDao.findFdidsForDemographic(DEMO_NO, List.of())).isEmpty();
+        }
+    }
 }

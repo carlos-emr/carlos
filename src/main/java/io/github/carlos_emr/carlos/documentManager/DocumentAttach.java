@@ -82,6 +82,40 @@ public class DocumentAttach {
         });
     }
 
+    /**
+     * Validates all selections before the consultation save starts. The writer repeats these
+     * checks under the parent lock, so this preflight never replaces transactional validation.
+     *
+     * @param attachments selected IDs, including source-qualified lab IDs
+     * @param documentType type being replaced
+     * @param requestId stored consultation ID, or null for a new consultation
+     * @throws SecurityException when attachment read access is denied
+     * @throws IllegalArgumentException when the parent or selection is invalid
+     */
+    public void verifyConsultAttachments(String[] attachments, DocumentType documentType, Integer requestId) {
+        if (demographicNo == null) throw new IllegalArgumentException("Consultation patient is required");
+        if (requestId != null) {
+            var parent = SpringUtils.getBean(ConsultationRequestDao.class).find(requestId);
+            if (parent == null || !demographicNo.equals(parent.getDemographicId())) {
+                throw new IllegalArgumentException("Attachment parent does not belong to this patient");
+            }
+        }
+        List<ConsultDocs> rows = requestId == null ? List.of()
+                : consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
+        List<String> selected = attachments == null ? List.of() : Arrays.asList(attachments);
+        if (documentType == DocumentType.LAB) {
+            Set<LabAttachmentReference> existing = new LinkedHashSet<>();
+            for (ConsultDocs row : rows) existing.add(LabAttachmentReference.stored(row.getLabType(), row.getDocumentNo()));
+            if (validateSelection(documentType, demographicNo, selected,
+                    existing.stream().map(LabAttachmentReference::key).toList())) {
+                selectedLabs(selected.toArray(String[]::new), demographicNo, existing);
+            }
+        } else {
+            List<String> existing = rows.stream().map(row -> Integer.toString(row.getDocumentNo())).toList();
+            validateSelection(documentType, demographicNo, selected, existing);
+        }
+    }
+
     private void syncConsultDocuments(String[] attachments, DocumentType documentType, String providerNo, Integer requestId, int patient) {
         List<String> currentList = new ArrayList<>(new LinkedHashSet<>(Arrays.asList(attachments)));
         List<ConsultDocs> consultDocsList = consultDocsDao.findByRequestIdDocTypeForUpdate(requestId, documentType.getType());
@@ -120,7 +154,7 @@ public class DocumentAttach {
             }
 
             if (Boolean.TRUE.equals(editOnOcean)) {
-                OceanEReferralAttachmentUtil.detachOceanEReferralConsult(docId, documentType.getType());
+                OceanEReferralAttachmentUtil.detachOceanEReferralConsult(docId, demographicNo, documentType.getType());
             }
         }
     }
@@ -212,7 +246,7 @@ public class DocumentAttach {
                 row.setDeleted(ConsultDocs.DELETED);
                 consultDocsDao.merge(row);
                 if (Boolean.TRUE.equals(editOnOcean) && "HL7".equals(ref.source())) {
-                    OceanEReferralAttachmentUtil.detachOceanEReferralConsult("" + ref.id(), DocumentType.LAB.getType());
+                    OceanEReferralAttachmentUtil.detachOceanEReferralConsult("" + ref.id(), patient, DocumentType.LAB.getType());
                 }
             }
         }
