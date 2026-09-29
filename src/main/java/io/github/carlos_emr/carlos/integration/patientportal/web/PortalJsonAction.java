@@ -132,8 +132,10 @@ public abstract class PortalJsonAction extends ActionSupport {
     }
 
     /**
-     * The {@code patient_portal.*} keys a configuration failure names, or "no detail". Only key
-     * names are kept, so a message that ever quoted a configured value still cannot log it.
+     * The {@code patient_portal.*} keys a configuration failure names. When it names none, "no
+     * detail", followed by the class of its cause if it has one (a class name carries no configured
+     * value), so a platform or crypto failure is not mistaken for a setting. Only key names are
+     * kept, so a message that ever quoted a configured value still cannot log it.
      */
     static String settingsNamedBy(Throwable exception) {
         // Spring wraps the settings failure two or three levels deep. The bound stops a cause
@@ -146,7 +148,12 @@ public abstract class PortalJsonAction extends ActionSupport {
                 while (matcher.find()) {
                     keys.add(matcher.group());
                 }
-                return keys.isEmpty() ? NO_DETAIL : String.join(", ", keys);
+                if (!keys.isEmpty()) {
+                    return String.join(", ", keys);
+                }
+                return cause.getCause() == null
+                        ? NO_DETAIL
+                        : NO_DETAIL + " (" + cause.getCause().getClass().getSimpleName() + ")";
             }
             cause = cause.getCause();
         }

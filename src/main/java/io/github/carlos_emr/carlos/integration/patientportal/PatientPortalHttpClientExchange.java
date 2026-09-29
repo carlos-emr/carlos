@@ -244,13 +244,20 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                 releaseSlot.run();
             }
         }, releaseSlot);
+        boolean handedOff = false;
         try {
             workers.execute(task);
+            handedOff = true;
             pending = task;
         } catch (RejectedExecutionException exception) {
-            // Closed, or no thread could be started: the task never ran, so return its slot here.
-            releaseSlot.run();
             throw new PortalRequestNotSentException(BUSY);
+        } finally {
+            if (!handedOff) {
+                // Rejected, closed, or execute() failed another way (a thread that could not be
+                // started throws an Error): the task will never run, so neither its own finally nor
+                // afterExecute can return its slot. Return it here, or it is lost for good.
+                releaseSlot.run();
+            }
         }
         try {
             long remaining = TimeUnit.MILLISECONDS.toNanos(requestTimeout.toMillis())
