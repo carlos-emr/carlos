@@ -46,6 +46,15 @@ not the one in `src/main/resources`, is where real values go.
 | `integration.cortico.demographic.search.phn_field` | Demographic search field carrying the PHN/HIN for `searchDemographicsByAttributes` (the native field is `hin`). | Optional. | Empty (adapter decides explicitly). |
 | `integration.cortico.document.default_type` | Default document type for adapter document-upload workflows. | Optional. | Empty (no default assumed). |
 
+### Notes for whoever builds the adapter
+
+- `ScheduleService` and `DemographicService` above are the **SOAP** endpoints, implemented by
+  `webserv/ScheduleWs` and `webserv/DemographicWs`. The REST classes with the same names under
+  `webserv/rest` have different contracts.
+- `default_provider` and `default_location` are fallbacks, not safe defaults. While one is blank, an
+  adapter should refuse a request that omits the value rather than book under a guessed provider or
+  location.
+
 ## Related documentation
 
 The placeholder-to-contract mapping is inlined in the table above, so this
