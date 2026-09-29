@@ -64,18 +64,21 @@ Fetching them from a shell (a server has no browser; from WSL this is far
 easier than copying files across): on the release page, right-click each
 asset and copy its link address, or build the URLs from the tag. <tag> is the
 release tag as GitHub shows it (2026.08.0-alpha14); <version> is that tag as
-it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha14):
+it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha14);
+<ctl-version> is the carlos-ctl release the CARLOS release re-attaches (1.1.0):
 
   R=https://github.com/carlos-emr/carlos/releases/download/<tag>
   wget $R/carlos-emr_<version>_amd64.deb $R/carlos-emr_<version>_amd64.deb.sha256 \
-       $R/carlos-emr-drugref_<version>_all.deb $R/carlos-emr-drugref_<version>_all.deb.sha256
+       $R/carlos-emr-drugref_<version>_all.deb $R/carlos-emr-drugref_<version>_all.deb.sha256 \
+       $R/carlos-ctl_<ctl-version>_all.deb $R/carlos-ctl_<ctl-version>_all.deb.sha256
 
 Verify, then install:
 
   sha256sum -c carlos-emr_<version>_amd64.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
+  sha256sum -c carlos-ctl_<ctl-version>_all.deb.sha256
   sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
-      ./carlos-emr-drugref_<version>_all.deb
+      ./carlos-emr-drugref_<version>_all.deb ./carlos-ctl_<ctl-version>_all.deb
 
 Releases up to and including 2026.08.0-alpha13 publish carlos-emr as _all.deb
 and the renderer as a real carlos-emr-eform-renderer_<version>_amd64.deb; adjust
