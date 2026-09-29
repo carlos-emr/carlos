@@ -26,6 +26,8 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.lang.reflect.Field;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -583,7 +585,88 @@ class JpaSmsTransactionServiceUnitTest {
 
         recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
 
+        // No carrier has the message, so the callback is ignored and the message still goes out.
+        assertThat(queued.getStatus()).isEqualTo(SmsStatus.QUEUED);
         verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent leaves a consent-blocked message as it is")
+    void shouldKeepConsentBlock_whenCallbackNamesBlockedMessage() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction blocked = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        blocked.markConsentBlocked(SmsConsentDecisionDto.blocked(
+                SmsStatus.CONSENT_BLOCKED, "SMS_CONSENT_UNKNOWN", "No SMS consent is recorded for this patient."));
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(blocked));
+
+        recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
+
+        assertThat(blocked.getStatus()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
+        assertThat(blocked.getConsentReasonCode()).isEqualTo("SMS_CONSENT_UNKNOWN");
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent keeps a scheduled retry when a late failure report arrives, but stops it on delivery")
+    void shouldKeepRetry_whenLateFailureArrives_andStopIt_whenDelivered() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction retrying = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        ReflectionTestUtils.setField(retrying, "attemptCount", 1);
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(retrying));
+
+        recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
+        assertThat(retrying.getStatus()).isEqualTo(SmsStatus.QUEUED);
+
+        recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-1", SmsStatus.DELIVERED,
+                Instant.parse("2026-09-22T10:01:00Z"), null, null, null));
+        assertThat(retrying.getStatus()).isEqualTo(SmsStatus.DELIVERED);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent applies a sent report that is newer than the recorded failure")
+    void shouldApplySent_whenItIsNewerThanTheFailure() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction sent = acceptedOutboundRow();
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
+                .thenReturn(Optional.of(sent));
+        recorder.recordDeliveryEvent(failedDelivery(Instant.parse("2026-09-22T10:00:00Z")));
+
+        recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, "provider-1", SmsStatus.SENT,
+                Instant.parse("2026-09-22T10:05:00Z"), null, null, null));
+
+        assertThat(sent.getStatus()).isEqualTo(SmsStatus.SENT);
+        verify(eventPublisher, times(1)).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent publishes when the failure report arrives while the send is still in progress")
+    void shouldPublishFailedEvent_whenCallbackArrivesWhileSending() {
+        JpaSmsTransactionService recorder = new JpaSmsTransactionService(smsTransactionDao, eventPublisher);
+        SmsTransaction sending = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        sending.markSending(new Date());
+        when(smsTransactionDao.findByClientReferenceId(SmsProviderType.STUB, "sms-transaction-7"))
+                .thenReturn(Optional.of(sending));
+
+        recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB, null, SmsStatus.FAILED, Instant.parse("2026-09-22T10:00:00Z"),
+                "CARRIER_REJECTED", null, "sms-transaction-7", null));
+
+        assertThat(sending.getStatus()).isEqualTo(SmsStatus.FAILED);
+        verify(eventPublisher, times(1)).publishEvent(any(Object.class));
     }
 
     private static SmsTransaction acceptedOutboundRow() {

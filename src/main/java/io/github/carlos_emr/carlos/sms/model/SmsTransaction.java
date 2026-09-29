@@ -411,6 +411,18 @@ public class SmsTransaction extends AbstractModel<Long> {
         return !isBlank(toPhoneNumber) && (status == SmsStatus.SENDING || status == SmsStatus.SENT);
     }
 
+    private boolean isBlockedByConsent() {
+        return status == SmsStatus.CONSENT_BLOCKED || status == SmsStatus.OPTOUT_BLOCKED;
+    }
+
+    /**
+     * A real message waiting in the queue, for its first attempt or for a retry. A placeholder row
+     * created from an unmatched callback has no recipient and only ever records callbacks.
+     */
+    private boolean isWaitingInQueue() {
+        return !isBlank(toPhoneNumber) && status == SmsStatus.QUEUED;
+    }
+
     public void markDeliveryEvent(SmsDeliveryWebhookDto webhook) {
         Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
         SmsStatus webhookStatus = webhook.status() == null ? SmsStatus.FAILED : webhook.status();
@@ -480,12 +492,25 @@ public class SmsTransaction extends AbstractModel<Long> {
         if (webhookEventAt != null && providerEventAt != null && webhookEventAt.before(providerEventAt)) {
             return true;
         }
+        if (isBlockedByConsent()) {
+            // The message was never sent, so no callback can be about it, and the record of the consent
+            // block must stay as it is.
+            return true;
+        }
+        if (isWaitingInQueue() && webhookStatus == SmsStatus.FAILED) {
+            // Either the message has not gone out yet, or this is a late failure report for an earlier
+            // attempt and a retry is already scheduled. Failing it here would cancel a send that is still
+            // due. A report that it was sent or delivered is still applied, which stops the retry.
+            return true;
+        }
         if (status == SmsStatus.DELIVERED && webhookStatus != SmsStatus.DELIVERED) {
             return true;
         }
-        if (status == SmsStatus.FAILED && webhookStatus == SmsStatus.SENT) {
-            // A failed message can still turn out delivered, but "sent" says nothing new. Accepting it
-            // would reopen the row, so the same two callbacks replayed in turn would fail it again and again.
+        if (status == SmsStatus.FAILED && webhookStatus == SmsStatus.SENT
+                && (webhookEventAt == null || providerEventAt == null || !webhookEventAt.after(providerEventAt))) {
+            // A "sent" report that is not newer than the failure says nothing new. Accepting it would
+            // reopen the row, so the same two callbacks replayed in turn would fail it again and again.
+            // A newer one is applied: the message did go out after the failure was recorded.
             return true;
         }
         return status == SmsStatus.DELIVERED
