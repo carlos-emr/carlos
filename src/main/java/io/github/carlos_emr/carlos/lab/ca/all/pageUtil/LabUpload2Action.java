@@ -131,7 +131,10 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // receiver fault takes that path through respond().
             ArrayList<Object> clientInfo = getClientInfo(service);
             if (clientInfo.size() < 2) {
-                logger.warn("Rejected lab upload: unknown or missing service={}", LogSafe.sanitize(service));
+                // The service name is sender-supplied, so it stays out of the log. Missing versus
+                // unknown is enough to tell an incomplete request from a misconfigured sender.
+                logger.warn("Rejected lab upload: {} service",
+                        service == null || service.isBlank() ? "missing" : "unknown");
                 return respond(OUTCOME_REJECTED, "", HttpServletResponse.SC_BAD_REQUEST);
             }
             PublicKey clientKey = (PublicKey) clientInfo.get(0);

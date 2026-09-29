@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -217,10 +218,15 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         SecretKey messageKey = newMessageKey();
         byte[] ciphertext = encrypt(messageKey, MESSAGE);
 
-        // Unknown service.
+        // Unknown service. The sender-supplied name stays out of the log.
         upload(ciphertext, wrap(messageKey), sign(senderKeys, MESSAGE));
         request.setParameter("service", "NO_SUCH_SERVICE");
-        executeUpload();
+        try (LogCapture capture = LogCapture.forLogger(LabUpload2Action.class)) {
+            executeUpload();
+            assertThat(capture.messages())
+                    .contains("Rejected lab upload: unknown service")
+                    .noneMatch(message -> message.contains("NO_SUCH_SERVICE"));
+        }
         assertRejected();
 
         // Wrapped key that was not produced for this receiver.
@@ -297,7 +303,10 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         upload(encrypt(messageKey, MESSAGE), wrap(messageKey), sign(senderKeys, MESSAGE));
         request.setParameter("service", " ");
 
-        executeUpload();
+        try (LogCapture capture = LogCapture.forLogger(LabUpload2Action.class)) {
+            executeUpload();
+            assertThat(capture.messages()).contains("Rejected lab upload: missing service");
+        }
 
         assertRejected();
 
