@@ -78,10 +78,35 @@
 
         /**
          * Whether a handled request is good news. An attempt that stopped short still answers 200, and a
-         * sent invitation whose chart note failed still needs staff to act.
+         * sent invitation whose chart note failed still needs staff to act. A delivery staff stopped, or
+         * revoked because its email never arrived, did what they asked, unless its code could not be withdrawn.
          */
         function isGoodNews(delivery) {
-            return !delivery || (delivery.state === 'sent' && delivery.outcome !== 'chart_note_failed');
+            if (!delivery) {
+                return true;
+            }
+            if (delivery.state === 'sent') {
+                return delivery.outcome !== 'chart_note_failed';
+            }
+            if (delivery.revokeFailed) {
+                return false;
+            }
+            return (delivery.state === 'abandoned' && delivery.outcome === 'abandoned_by_staff')
+                || (delivery.state === 'revoked' && delivery.outcome === 'confirmed_not_sent');
+        }
+
+        /**
+         * What pressing Invite does: 'ignore' while a request is running, so no confirmation is shown for a
+         * press that will do nothing; 'confirm' when a pending invitation would be replaced; else 'send'.
+         */
+        function inviteStep(busy, invites) {
+            if (busy) {
+                return 'ignore';
+            }
+            var pending = (invites || []).some(function (invite) {
+                return invite.status === 'pending';
+            });
+            return pending ? 'confirm' : 'send';
         }
 
         /**
@@ -99,7 +124,7 @@
         }
 
         return {message: message, text: text, describe: describe, refusal: refusal, isGoodNews: isGoodNews,
-            offersWithdrawal: offersWithdrawal, waitingFor: waitingFor};
+            offersWithdrawal: offersWithdrawal, waitingFor: waitingFor, inviteStep: inviteStep};
     }
 
     if (typeof module !== 'undefined' && module.exports) {
@@ -521,10 +546,9 @@
         }
         form.addEventListener('submit', function (event) {
             event.preventDefault();
-            var pending = lastInvites.some(function (invite) {
-                return invite.status === 'pending';
-            });
-            if (pending && !window.confirm(text('invites.confirmReplace'))) {
+            var step = logic.inviteStep(busy, lastInvites);
+            var pending = step === 'confirm';
+            if (step === 'ignore' || (pending && !window.confirm(text('invites.confirmReplace')))) {
                 return;
             }
             act('/demographic/portalInvite', inviteParams({method: 'create', confirmReplace: pending ? 'true' : 'false'}),
