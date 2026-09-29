@@ -1447,7 +1447,8 @@ def consent_live_count_sql(src_schema: str, archive_schema: str,
                            ) -> List[Tuple[str, str]]:
     """(what, COUNT-sql) for everything the import stores differently
     from the clinic's row, and for the rows that stay deleted. Counts
-    only -- a consent row names a patient.
+    only -- a consent row names a patient. "changed" is every row the
+    helper records a reason for, whichever flag it was.
 
     The three that read `deleted` are absent for a dump that has no
     such column: there is nothing they could count."""
@@ -1463,6 +1464,10 @@ def consent_live_count_sql(src_schema: str, archive_schema: str,
          "AND {1}".format(
              table, consent_source_live(src_cols, decided=False))),
     ]
+    out.append(
+        ("changed",
+         "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `reason` IS NOT "
+         "NULL".format(archive_schema, consent_live_table())))
     deleted = consent_source_col(src_cols, "deleted")
     if deleted:
         out += [
@@ -3357,11 +3362,12 @@ def etl_consent_live(run: 'EtlRun', entry: dict, tstate: dict,
          "NULL) retired (deleted = 1) and stored as opt-outs"),
         ("null_deleted",
          "{0}: {1} row(s) with no deleted flag (deleted NULL) stored "
-         "as deleted; OSCAR 19 did not show them as live either"),
+         "as deleted, as CARLOS's own migration stores them: CARLOS "
+         "reads only deleted = 0 as live"),
         ("not_live_undecided",
          "{0}: {1} row(s) that were not live and had no recorded "
-         "decision (optout NULL) have optout stored as 1; they stay "
-         "deleted"),
+         "decision (optout NULL) have optout stored as 1; they are "
+         "stored as deleted"),
         ("legacy_deleted",
          "{0}: {1} row(s) deleted in OSCAR 19 stay deleted. This is a "
          "change: earlier versions of this import brought them in "
@@ -3373,7 +3379,9 @@ def etl_consent_live(run: 'EtlRun', entry: dict, tstate: dict,
         if counted.get(what):
             run.consent_lines.append(
                 line.format(CONSENT_TABLE, counted[what]))
-    if run.consent_lines:
+    # "changed" has no line of its own: a NULL `explicit` filled as
+    # implied is recorded in the helper and counted by nothing above
+    if run.consent_lines or counted.get("changed"):
         run.consent_lines.append(
             "{0}: what each changed row held before, and why it was "
             "changed, is kept in {1}.{2} (prior_explicit, prior_optout, "
@@ -3382,19 +3390,30 @@ def etl_consent_live(run: 'EtlRun', entry: dict, tstate: dict,
     save_progress(run.state_dir, run.progress)
 
 
-def etl_consent_check(run: 'EtlRun') -> None:
+def etl_consent_check(run: 'EtlRun', ranked: bool) -> None:
     """Refuse to go on if the target holds two live Consent rows for
-    one patient and consent type (consent_live_duplicates_sql)."""
+    one patient and consent type (consent_live_duplicates_sql).
+
+    Asked after every Consent copy, `ranked` (consent_live_ranked) or
+    not: the target's key exists whatever the manifest says, and a
+    manifest without the rule copies the clinic's duplicates live."""
     from .util import die
     n = int(run.query(consent_live_duplicates_sql(run.dst))[0][0])
-    if n:
-        die("{0}: {1} patient/consent-type pair(s) hold more than one "
-            "live row after the copy. CARLOS allows one "
-            "(uq_consent_live_type), and reads an arbitrary one where "
-            "there are more. Nothing was repaired: this is a defect in "
-            "the import, not in the clinic's data -- restore the "
-            "pre-import snapshot and report it."
-            .format(CONSENT_TABLE, n))
+    if not n:
+        return
+    found = ("{0}: {1} patient/consent-type pair(s) hold more than one "
+             "live row after the copy. CARLOS allows one "
+             "(uq_consent_live_type), and reads an arbitrary one where "
+             "there are more. Nothing was repaired: ".format(
+                 CONSENT_TABLE, n))
+    if ranked:
+        die(found + "this is a defect in the import, not in the "
+            "clinic's data -- restore the pre-import snapshot and report "
+            "it.")
+    die(found + "the manifest in use does not carry the one-live-record "
+        "rule, which the manifest this package ships does, so it was "
+        "replaced or regenerated from an older overlay -- restore the "
+        "pre-import snapshot and report it.")
 
 
 def etl_post_copy(run: 'EtlRun', table: str, entry: dict, base_entry: dict,
@@ -3670,7 +3689,8 @@ def report_etl_findings(run: 'EtlRun') -> None:
     if run.consent_lines:
         report("consent records: each patient holds one live record "
                "per consent type (no row is dropped; a retired row "
-               "keeps every other value):\n  "
+               "keeps its values except `deleted`, and a flag the dump "
+               "left NULL is filled):\n  "
                + "\n  ".join(run.consent_lines))
     token_tables = [t for t in getattr(o19map_schema, "CREDENTIAL_TABLES",
                                        ()) if t in src_info]
@@ -3892,8 +3912,8 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             if ranked:
                 etl_consent_live(run, entry, tstate, dcols)
             etl_copy_table(run, table, entry, tstate, dcols, repaired)
-            if ranked:
-                etl_consent_check(run)
+            if table == CONSENT_TABLE:
+                etl_consent_check(run, ranked)
         etl_post_copy(run, table, entry, base_entry, tstate, dcols)
     # persisted for the validation report, which is written by a later
     # phase and cannot re-derive them: the ledger's marks make the second

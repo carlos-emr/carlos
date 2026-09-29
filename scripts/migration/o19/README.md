@@ -100,9 +100,13 @@ before the copy, `o19_archive.Consent__live`, which also records what
 each row held before and why it was changed. `{archive}` in an
 expression stands for the archive schema; the ETL fills it in.
 
-The ETL applies the rule only when the manifest's `Consent` entry
-carries these expressions. A manifest generated before the ruling is
-copied exactly as before, so **regenerate after pulling this change**.
+The shipped manifest carries these expressions, and
+`test_manifest_integrity.TestTheShippedManifestRanksConsent` fails if a
+regeneration or a merge drops them. Keep them in the overlay: the ETL
+applies the rule only when the manifest's `Consent` entry carries them.
+An entry without them is copied unranked, and the duplicate check the
+ETL runs after every `Consent` copy then refuses any patient left with
+two live records.
 What the operator sees (report lines, failure messages) is in
 `docs/o19-import-deb.md`.
 

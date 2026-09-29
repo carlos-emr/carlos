@@ -3064,9 +3064,18 @@ class TestConsentLiveHelper(unittest.TestCase):
         counts = o19etl.consent_live_count_sql(
             "src", "arch", {"id": {}, "optout": {}})
         self.assertEqual([what for what, _sql in counts],
-                         ["duplicate", "undecided"])
+                         ["duplicate", "undecided", "changed"])
         for _what, count in counts:
             self.assertNotIn("s.`deleted`", count)
+
+    def test_changed_counts_every_row_the_helper_gave_a_reason(self):
+        # the pointer to the helper hangs on it, NULL `explicit` included
+        counts = dict(o19etl.consent_live_count_sql(
+            "src", "arch", {"id": {}, "optout": {}}))
+        self.assertEqual(
+            counts["changed"],
+            "SELECT COUNT(*) FROM `arch`.`Consent__live` WHERE `reason` "
+            "IS NOT NULL")
 
     def test_the_counts_read_the_dumps_deleted_column_when_it_has_one(
             self):

@@ -837,10 +837,11 @@ class TestOverlayRulingsReachTheManifest(unittest.TestCase):
 class TestTheConsentRulingIsInTheOverlay(unittest.TestCase):
     """One live Consent row per patient and consent type (#3845).
 
-    Asserted on the OVERLAY, not on the shipped manifest: regeneration
-    needs an OSCAR 19 checkout, so the ruling lands here first and takes
-    effect in the import once the manifest is regenerated from it. The
-    ETL tolerates both (o19etl.consent_live_ranked)."""
+    Asserted on the OVERLAY, which the generator reads;
+    TestTheShippedManifestRanksConsent asserts that the manifest
+    generated from it carries the ruling. The ETL still copies an entry
+    without it (o19etl.consent_live_ranked), unranked, so that test is
+    what stands between a stale manifest and the import."""
 
     @classmethod
     def setUpClass(cls):
@@ -878,6 +879,42 @@ class TestTheConsentRulingIsInTheOverlay(unittest.TestCase):
         # P7 rebuilds them inside a WHERE
         for column, expr in self.exprs.items():
             self.assertNotIn("OVER", expr.upper().split(), column)
+
+
+class TestTheShippedManifestRanksConsent(unittest.TestCase):
+
+    """The ruling as the import runs it (#3845), in every profile.
+
+    A manifest without it still imports: o19etl.consent_live_ranked
+    turns the helper off and the copy stores the dump's flags as they
+    are, deleted rows live and a NULL optout unfilled. A merge that
+    took an older o19map_schema.py would pass every other test, so this
+    one reads what shipped."""
+
+    #: the module-level default (Ontario) and every other profile
+    PROFILE_NAMES = sorted({o19map_schema._DEFAULT_PROFILE["O19_PROFILE"]}
+                           | set(o19map_schema.PROFILES))
+
+    def entries(self):
+        for province in self.PROFILE_NAMES:
+            yield province, profile_data(province)["TABLES"]["Consent"]
+
+    def test_both_provinces_are_covered(self):
+        self.assertEqual(self.PROFILE_NAMES, ["bc", "on"])
+
+    def test_every_profile_ranks_consent(self):
+        for name, entry in self.entries():
+            with self.subTest(profile=name):
+                self.assertTrue(o19etl.consent_live_ranked(entry))
+
+    @unittest.skipUnless(OVERRIDES.is_file(), "overlay not in this checkout")
+    def test_every_profile_carries_the_overlays_expressions(self):
+        exprs = load_overrides().VALUE_EXPRS["Consent"]
+        for name, entry in self.entries():
+            with self.subTest(profile=name):
+                self.assertEqual(entry.get("value_exprs"), exprs)
+                for column in exprs:
+                    self.assertIn(column, entry["cols"])
 
 
 class TestTheOntarioProfile(unittest.TestCase):

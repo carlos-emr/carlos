@@ -14,9 +14,11 @@ statements are translated token-for-token where the dialects differ, and
 the target carries a partial unique index equivalent to the generated
 column + unique key the migration adds.
 
-The manifest entry is built HERE, the way the generator would build it
-from the overlay (overrides_schema.VALUE_EXPRS): the shipped manifest is
-regenerated from an OSCAR 19 checkout and may predate the ruling.
+The manifest entry is built HERE from the overlay
+(overrides_schema.VALUE_EXPRS), the way the generator builds it, so the
+cases test the rule as the overlay states it;
+test_manifest_integrity.TestTheShippedManifestRanksConsent checks that
+the shipped manifest carries the same expressions.
 
 Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
@@ -34,6 +36,8 @@ SRC, DST, ARCH = "src", "dst", "arch"
 
 OVERRIDES = Path(__file__).resolve().parents[4] / "scripts" / "migration" / \
     "o19" / "overrides_schema.py"
+MIGRATION = Path(__file__).resolve().parents[4] / "database" / "mysql" / \
+    "migration" / "common" / "V1.0.33__one_live_consent_per_type.sql"
 
 COLLATED = re.compile(
     r"CONVERT\(([ds]\.`\w+`) USING utf8mb4\) COLLATE utf8mb4_bin")
@@ -62,8 +66,8 @@ def load_overrides():
 
 
 def ranked_entry():
-    """The Consent entry a regenerated manifest carries: the shipped
-    one, plus the overlay's expressions, plus every expression's target
+    """The Consent entry the generator emits: the shipped one with the
+    overlay's expressions laid over it, and every expression's target
     in `cols` (generate_manifests._shared_table_columns)."""
     entry = dict(o19map_schema.TABLES["Consent"])
     exprs = dict(load_overrides().VALUE_EXPRS["Consent"])
@@ -211,10 +215,14 @@ class ConsentReplayBase(unittest.TestCase):
                 SRC, ARCH, self.src_cols))
 
     def assertCounts(self, **expected):
-        """The counts named, every other one being 0."""
+        """The counts named, every other one being 0. "changed" is not
+        named: it must equal the rows the helper gave a reason."""
         counted = self.counts()
+        changed = counted.pop("changed")
         self.assertEqual(
             counted, dict(dict.fromkeys(counted, 0), **expected))
+        self.assertEqual(
+            changed, len([r for r in self.record().values() if r[3]]))
 
     def record(self):
         """What the helper recorded, as {id: (prior_explicit,
@@ -502,7 +510,8 @@ class TestADumpWithoutDeletedKeepsNoPriorFlag(ConsentReplayBase):
         self.assertEqual(self.record(), {
             1: (0, 0, None, None), 2: (0, None, None, "null_flag")})
         self.assertEqual(
-            sorted(self.counts()), ["duplicate", "undecided"])
+            sorted(self.counts()), ["changed", "duplicate", "undecided"])
+        self.assertCounts(undecided=1)
 
 
 class TestTheKeyIsTheMappedOne(ConsentReplayBase):
@@ -671,6 +680,29 @@ class TestTheShippedManifest(unittest.TestCase):
             "NULLIF(s.`optout_date`, '0000-00-00 00:00:00'), "
             "NULLIF(s.`edit_date`, '0000-00-00 00:00:00') "
             "FROM `src`.`Consent` s")
+
+
+
+@unittest.skipUnless(MIGRATION.is_file(), "migrations not in this checkout")
+class TestTheImportRanksAsTheMigrationDoes(unittest.TestCase):
+
+    """o19etl.CONSENT_LIVE_ORDER and V1.0.33's ORDER BY are one rule
+    written twice: a database that is migrated and one that is imported
+    must keep the same record live. The migration spells out what the
+    import has already done where it selects the columns (a zero
+    edit_date as NULL, and in the audit step a NULL explicit as 0), so
+    those wrappings are taken off before comparing."""
+
+    UNWRAP = (("NULLIF(`edit_date`, '0000-00-00 00:00:00')", "`edit_date`"),
+              ("IFNULL(`explicit`, 0)", "`explicit`"))
+
+    def test_every_order_in_the_migration_is_the_imports(self):
+        orders = re.findall(r"ORDER BY (.+)$", MIGRATION.read_text(), re.M)
+        self.assertEqual(len(orders), 2, orders)
+        for order in orders:
+            for wrapped, bare in self.UNWRAP:
+                order = order.replace(wrapped, bare)
+            self.assertEqual(order.strip(), o19etl.CONSENT_LIVE_ORDER)
 
 
 if __name__ == "__main__":

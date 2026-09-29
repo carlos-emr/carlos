@@ -725,10 +725,10 @@ NULL. The import does not drop any row; it decides which one stays live.
 
 - **Which one stays live.** An opt-out first; then a consent the patient
   confirmed directly (explicit) over an implied one, even a newer one;
-  then the most recently edited, a row with no edit date counting as the
-  oldest; then the higher id. This is the rule CARLOS itself uses. The
-  other live rows for that patient and type are stored with
-  `deleted = 1`.
+  then the most recently edited, a row with no edit date (or a zero one)
+  counting as the oldest; then the higher id. This is the rule CARLOS
+  itself uses. The other live rows for that patient and type are stored
+  with `deleted = 1`.
 - **Consents deleted in OSCAR 19 stay deleted.** Earlier versions of the
   import brought them in live.
 - **A consent with no recorded decision** (`optout` NULL) is retired and
@@ -736,7 +736,8 @@ NULL. The import does not drop any row; it decides which one stays live.
   hand. A NULL `deleted` is stored as deleted, and a NULL `explicit` as
   implied.
 - Rows with no patient, or whose consent type does not exist on either
-  side, are left as they are.
+  side (the type is stored as NULL), are never retired as duplicates;
+  their NULL flags are still filled as above.
 
 **Where the record is kept.** `o19_archive.Consent__live` has one row for
 every OSCAR 19 consent row: the `deleted` value the import stored, the
@@ -750,10 +751,15 @@ CSV export as `Consent__live.csv`.
 rows retired as duplicates; live rows with no recorded decision retired;
 rows with a NULL `deleted` stored as deleted; rows that were not live
 whose NULL `optout` is stored as 1; rows deleted in OSCAR 19 that stay
-deleted.
+deleted. A last line names `o19_archive.Consent__live` whenever the
+import changed any row, including one whose only change was a NULL
+`explicit` stored as implied.
 
-This applies once the shipped manifest has been regenerated from the
-overlay that carries the rule (`scripts/migration/o19/README.md`).
+The manifest this package ships carries the rule. After every `Consent`
+copy the import also counts the patients holding more than one live
+record of a type, and refuses to go on if there are any (see
+[Troubleshooting](#troubleshooting)); that check runs whatever manifest
+is in use.
 
 ### What this means for Flyway
 
@@ -829,7 +835,10 @@ clinic's sign-off.
   after the copy"* — the import checks this itself because the copy runs
   with unique checks off. It means the import chose wrongly, not that the
   clinic's data is at fault: restore the pre-import snapshot and report
-  it. *"the helper table o19_archive.Consent__live does not hold exactly
+  it. The same message ending *"the manifest in use does not carry the
+  one-live-record rule"* means the import ran with a manifest other than
+  the one this package ships; restore the snapshot and report that too.
+  *"the helper table o19_archive.Consent__live does not hold exactly
   one row for every staged row"* means the staged dump changed during
   the import; nothing was copied for that table. Restore the snapshot
   and start over.

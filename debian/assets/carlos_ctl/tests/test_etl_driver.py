@@ -23,6 +23,8 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import contextlib
+import io
 import os
 import re
 import shutil
@@ -1119,11 +1121,11 @@ CONSENT_COLUMNS = ["id", "demographic_no", "consent_type_id", "explicit",
 CONSENT_TYPE = {"class": "merge", "merge_keys": ["type"],
                 "surrogate_pk": "id", "cols": ["id", "type"]}
 #: the entry as a manifest generated before the ruling carries it ...
-CONSENT_SHIPPED = {"class": "copy", "cols": list(CONSENT_COLUMNS),
-                   "fk_remap": {"consent_type_id": "consentType"}}
-#: ... and as one regenerated from the overlay does
+CONSENT_UNRANKED = {"class": "copy", "cols": list(CONSENT_COLUMNS),
+                    "fk_remap": {"consent_type_id": "consentType"}}
+#: ... and as the shipped one, generated from the overlay, does
 CONSENT_RANKED = dict(
-    CONSENT_SHIPPED, cols=CONSENT_COLUMNS + ["deleted"],
+    CONSENT_UNRANKED, cols=CONSENT_COLUMNS + ["deleted"],
     value_exprs={"optout": "IFNULL(s.`optout`, 1)",
                  "deleted": CONSENT_LOOKUP})
 
@@ -1154,6 +1156,14 @@ class ConsentDriverBase(EtlDriverBase):
 
     def first(self, db, prefix):
         return next(i for i, w in enumerate(db.log) if w.startswith(prefix))
+
+    def refusal(self, db):
+        """The message the run died with."""
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), \
+                self.assertRaises(SystemExit):
+            self.run_etl(db=db)
+        return err.getvalue()
 
 
 class TestOneLiveConsentPerType(ConsentDriverBase):
@@ -1187,8 +1197,10 @@ class TestOneLiveConsentPerType(ConsentDriverBase):
         self.assertIn("FROM `carlos`.`Consent`", db.log[checks[0]])
 
     def test_a_target_holding_duplicates_fails_the_import(self):
-        with self.assertRaises(SystemExit):
-            self.run_etl(db=self.db(scalars={self.CHECK: 2}))
+        message = self.refusal(self.db(scalars={self.CHECK: 2}))
+        self.assertIn("2 patient/consent-type pair(s) hold more than one "
+                      "live row", message)
+        self.assertIn("a defect in the import", message)
 
     def test_a_resumed_run_rebuilds_the_helper(self):
         with self.assertRaises(o19etl.QueryError):
@@ -1269,6 +1281,16 @@ class TestOneLiveConsentPerType(ConsentDriverBase):
         self.assertEqual(
             self.report_text(lines).count("Consent: 3 live row(s)"), 1)
 
+    def test_a_row_changed_only_in_explicit_still_names_the_record(self):
+        # a NULL `explicit` filled as implied has no count of its own;
+        # the helper still records it, and the report must say where
+        _db, lines, _counts = self.run_etl(db=self.db(scalars={
+            "WHERE `reason` IS NOT NULL": 2}))
+        text = self.report_text(lines)
+        self.assertIn("consent records:", text)
+        self.assertIn("is kept in o19_archive.Consent__live", text)
+        self.assertNotIn("row(s)", text.split("consent records:")[1])
+
     def test_nothing_retired_is_nothing_reported(self):
         _db, lines, _counts = self.run_etl(db=self.db())
         self.assertNotIn("consent records:", self.report_text(lines))
@@ -1284,16 +1306,32 @@ class TestOneLiveConsentPerType(ConsentDriverBase):
 
 class TestAManifestFromBeforeTheConsentRuling(ConsentDriverBase):
 
-    """The shipped manifest until it is regenerated: no `deleted` in
-    cols, no expressions. The run must be the one it was."""
+    """A manifest without the rule: no `deleted` in cols, no
+    expressions. The shipped one carries it
+    (test_manifest_integrity.TestTheShippedManifestRanksConsent); this
+    is a manifest generated from an older overlay, or put in its place.
+    The copy is the one it was, and the target is still checked."""
 
-    ENTRY = CONSENT_SHIPPED
+    ENTRY = CONSENT_UNRANKED
 
-    def test_no_helper_is_built_and_nothing_is_checked(self):
+    def test_no_helper_is_built(self):
         db, lines, _counts = self.run_etl(db=self.db())
         self.assertEqual([w for w in db.log if "Consent__live" in w], [])
-        self.assertEqual([w for w in db.log if self.CHECK in w], [])
         self.assertNotIn("consent records:", self.report_text(lines))
+
+    def test_the_target_is_still_checked_after_the_copy(self):
+        # the key exists whatever the manifest says, and this copy
+        # brings the clinic's duplicates in live
+        db, _lines, _counts = self.run_etl(db=self.db())
+        checks = [i for i, w in enumerate(db.log) if self.CHECK in w]
+        self.assertEqual(len(checks), 1, db.log)
+        self.assertLess(self.first(db, self.COPY), checks[0])
+
+    def test_duplicates_fail_the_import_and_name_the_manifest(self):
+        message = self.refusal(self.db(scalars={self.CHECK: 3}))
+        self.assertIn("3 patient/consent-type pair(s)", message)
+        self.assertIn("does not carry the one-live-record rule", message)
+        self.assertNotIn("a defect in the import", message)
 
     def test_the_copy_is_the_one_it_was(self):
         db, _lines, _counts = self.run_etl(db=self.db())
