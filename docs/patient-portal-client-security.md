@@ -20,16 +20,19 @@ its key is not pinned. Appending the genuine portal certificate to an impostor's
 chain does not satisfy the pin. Redirects are disabled so credentials are not
 forwarded to a different endpoint.
 
-Obtain the leaf certificate from the portal's authenticated administration
-channel. If a proxy or load balancer terminates TLS, pin the key it presents to
-CARLOS. Compute `sha256/<base64 digest>` from that verified certificate using the
-recipe in `src/main/resources/carlos.properties`. Do not establish the initial
-pin by reading an unverified network connection or blindly copying a mismatch
-error. TLS pins are separate from the Ed25519 staff assertion keys described below.
+Pin the key of whatever terminates TLS for CARLOS, such as nginx on the portal
+host. The recommended first pin comes from a key the clinic generates itself: compute
+`sha256/<base64 digest>` from that key before any certificate is issued, so nothing is
+read off the network, and make and pin a standby key the same way. For a portal already
+serving a key the clinic did not generate, copy its certificate file from the server over
+an authenticated channel and compute the pin from that file. Both recipes are in
+`src/main/resources/carlos.properties`. Do not establish the initial pin by reading an
+unverified network connection or blindly copying a mismatch error. TLS pins are separate
+from the Ed25519 staff assertion keys described below.
 
-For rotation, verify the new key through that same trusted channel, configure
-both old and new pins, and restart CARLOS before changing the TLS terminator's
-key. Confirm connectivity, then remove the old pin and restart CARLOS again.
+For rotation, obtain the new key's pin the same way, configure both old and new pins, and
+restart CARLOS before changing the TLS terminator's key. Confirm connectivity, then remove the
+old pin and restart CARLOS again.
 Certificate renewal with the same public key preserves the pin. Operators must
 coordinate automated key rotation with this process; failures stop portal calls.
 
