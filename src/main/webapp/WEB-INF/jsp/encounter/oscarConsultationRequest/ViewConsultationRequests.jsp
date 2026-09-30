@@ -523,10 +523,13 @@
                     // Any edit invalidates the previous pick until a suggestion is chosen again.
                     hiddenId.value = '';
                     clearTimeout(timer);
+                    // Invalidate any in-flight lookup now, not when the debounced one starts:
+                    // otherwise an answer for the previous text could still render (and be
+                    // picked) during the debounce window.
+                    requestSeq++;
+                    closeList();
                     var term = search.value.trim();
                     if (term.length < MIN_CHARS) {
-                        requestSeq++;
-                        closeList();
                         return;
                     }
                     timer = setTimeout(function () { lookup(term); }, DEBOUNCE_MS);
