@@ -1959,6 +1959,12 @@ function startNextMeasureBatch() {
         batch.requests.forEach(function(request, index) { request.resolve(histories[index]); });
         startNextMeasureBatch();
         finishPendingSourceView();
+    }).catch(function(error) {
+        // The block above only touches the DOM and settles callers; if it throws, surface it
+        // rather than leaving an unhandled rejection the clinician never sees.
+        if (typeof console !== 'undefined' && console.error) {
+            console.error('editControl: completing a measurement batch failed', error);
+        }
     });
 }
 
