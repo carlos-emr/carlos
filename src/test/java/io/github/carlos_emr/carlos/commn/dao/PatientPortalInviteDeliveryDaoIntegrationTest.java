@@ -186,7 +186,7 @@ class PatientPortalInviteDeliveryDaoIntegrationTest extends CarlosTestBase {
     }
 
     private static PatientPortalInviteDelivery attempt(int demographicNo) {
-        return new PatientPortalInviteDelivery("inv-" + UUID.randomUUID(), demographicNo, "maplecreek",
+        return new PatientPortalInviteDelivery("inv-" + UUID.randomUUID(), demographicNo, "clinic-a",
                 "https://portal.example", Channel.EMAIL, null, "999998");
     }
 }

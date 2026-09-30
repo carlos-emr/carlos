@@ -856,7 +856,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should leave alone a stuck attempt made against a different portal connection")
         void shouldIgnoreAnAttempt_onAnotherConnection() {
             PatientPortalInviteDelivery elsewhere = deliveries.claim(new PatientPortalInviteDelivery("inv-other",
-                    PATIENT, "maplecreek", "https://other-portal.clinic.example", Channel.EMAIL, null, "999998"));
+                    PATIENT, "clinic-a", "https://other-portal.clinic.example", Channel.EMAIL, null, "999998"));
             elsewhere.setState(State.PREPARED);
             injectDependency(elsewhere, "updatedAt", Date.from(NOW.minus(Duration.ofMinutes(16))));
 
@@ -955,7 +955,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         void shouldSend_whenTheCommitRetrySucceeds() {
             when(portal.commitInviteDelivery(anyLong(), anyString(), anyString(), any()))
                     .thenThrow(PatientPortalException.ofTransportFailure("/commit", null))
-                    .thenAnswer(invocation -> new PatientPortalInviteDto(INVITE, "maplecreek", PATIENT, "pending",
+                    .thenAnswer(invocation -> new PatientPortalInviteDto(INVITE, "clinic-a", PATIENT, "pending",
                             "999998", "Dr Example", 1, NOW, "Dr Example", PATIENT_EXPIRY, null, null));
 
             PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
@@ -1645,7 +1645,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
     private PatientPortalInviteDelivery storedRow(State state, Duration idle) {
         PatientPortalInviteDelivery row = deliveries.claim(new PatientPortalInviteDelivery("inv-stored", PATIENT,
-                "maplecreek", "https://portal-api.clinic.example", Channel.EMAIL, null, "999998"));
+                "clinic-a", "https://portal-api.clinic.example", Channel.EMAIL, null, "999998"));
         row.setState(state);
         row.setPortalInviteId(INVITE);
         row.setEmailLogId(EMAIL_LOG);
@@ -1705,7 +1705,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         });
         when(portal.commitInviteDelivery(anyLong(), anyString(), anyString(), any())).thenAnswer(invocation -> {
             events.add("commit");
-            return new PatientPortalInviteDto(INVITE, "maplecreek", PATIENT, "pending", "999998", "Dr Example", 1,
+            return new PatientPortalInviteDto(INVITE, "clinic-a", PATIENT, "pending", "999998", "Dr Example", 1,
                     NOW, "Dr Example", PATIENT_EXPIRY, null, null);
         });
     }
@@ -1737,21 +1737,21 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     private PatientPortalPreparedInviteDto prepared(String operationId, Long supersedes) {
-        PatientPortalInviteDto invite = new PatientPortalInviteDto(INVITE, "maplecreek", PATIENT, "prepared",
+        PatientPortalInviteDto invite = new PatientPortalInviteDto(INVITE, "clinic-a", PATIENT, "prepared",
                 "999998", "Dr Example", 1, NOW, "Dr Example", NOW.plus(Duration.ofDays(7)), null, supersedes);
         return new PatientPortalPreparedInviteDto(
                 new PatientPortalIssuedInviteDto(invite, PortalSecret.of(CODE)), operationId);
     }
 
     private PatientPortalPreparedInviteDto preparedWithCode(String operationId, String code) {
-        PatientPortalInviteDto invite = new PatientPortalInviteDto(INVITE, "maplecreek", PATIENT, "prepared",
+        PatientPortalInviteDto invite = new PatientPortalInviteDto(INVITE, "clinic-a", PATIENT, "prepared",
                 "999998", "Dr Example", 1, NOW, "Dr Example", NOW.plus(Duration.ofDays(7)), null, null);
         return new PatientPortalPreparedInviteDto(
                 new PatientPortalIssuedInviteDto(invite, PortalSecret.of(code)), operationId);
     }
 
     private PatientPortalInviteDto invite(long id, String status) {
-        return new PatientPortalInviteDto(id, "maplecreek", PATIENT, status, "999998", "Dr Example", 1, NOW,
+        return new PatientPortalInviteDto(id, "clinic-a", PATIENT, status, "999998", "Dr Example", 1, NOW,
                 "Dr Example", PATIENT_EXPIRY, null, null);
     }
 
@@ -1794,7 +1794,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     private static PatientPortalSettings portalSettings(String baseUrl) {
         return PatientPortalSettings.fromProperties(Map.of(
                 PatientPortalSettings.BASE_URL_KEY, baseUrl,
-                PatientPortalSettings.CLINIC_ID_KEY, "maplecreek",
+                PatientPortalSettings.CLINIC_ID_KEY, "clinic-a",
                 PatientPortalSettings.SERVICE_TOKEN_KEY, "t".repeat(32),
                 PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY,
                 PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
