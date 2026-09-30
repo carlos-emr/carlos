@@ -1,0 +1,2109 @@
+{
+  "date": "2026-09-30",
+  "extractor_sha256": "56a1d5d29697d832d919783193a1028d950c548038627e1b16894ed38130d0c4",
+  "method": "Source range selection, exact host quotations, full-source candidate review. Final writer responses reused from development attempt 4; final review calls are new. Browser replays validated results without model calls. All sources are verified NHS synthetic text.",
+  "development_attempts": [
+    {
+      "model": "qwen/qwen3.5-35b-a3b",
+      "provider": "parasail",
+      "operation": "chart-update-proposals",
+      "synthetic_compilation": "Only exact NHSSYN005 compilation rebuilt by existing allowed_notes() from verified corpus added to trial allow-list",
+      "runs": [
+        {
+          "document_id": 43,
+          "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 13841,
+                "completion_tokens": 155,
+                "total_tokens": 13996,
+                "cost": 0.00223115,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.00223115,
+                  "upstream_inference_prompt_cost": 0.00207615,
+                  "upstream_inference_completions_cost": 0.000155
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_line": 43,
+                  "end_line": 45
+                },
+                {
+                  "kind": "history",
+                  "start_line": 119,
+                  "end_line": 121
+                },
+                {
+                  "kind": "tickler",
+                  "start_line": 729,
+                  "end_line": 729
+                },
+                {
+                  "kind": "tickler",
+                  "start_line": 739,
+                  "end_line": 739
+                }
+              ]
+            }
+          ],
+          "accepted": false,
+          "error": "Invalid proposal evidence",
+          "seconds": 2.64
+        },
+        {
+          "document_id": 44,
+          "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 1881,
+                "completion_tokens": 29,
+                "total_tokens": 1910,
+                "cost": 0.00031115,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.00031115,
+                  "upstream_inference_prompt_cost": 0.00028215,
+                  "upstream_inference_completions_cost": 2.9e-05
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            },
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 2018,
+                "completion_tokens": 10,
+                "total_tokens": 2028,
+                "cost": 0.0003127,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.0003127,
+                  "upstream_inference_prompt_cost": 0.0003027,
+                  "upstream_inference_completions_cost": 1e-05
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_line": 26,
+                  "end_line": 27
+                }
+              ]
+            },
+            {
+              "keep": [
+                "1"
+              ]
+            }
+          ],
+          "response": {
+            "contract_version": 1,
+            "request_id": "64bfbd84-4a70-46c3-bb4a-9edaacf94349",
+            "status": "completed",
+            "output": {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "evidence": "- HTN\n- Mild osteoarthritis"
+                }
+              ]
+            }
+          },
+          "accepted": true,
+          "seconds": 1.572
+        }
+      ]
+    },
+    {
+      "model": "qwen/qwen3.5-35b-a3b",
+      "provider": "parasail",
+      "operation": "chart-update-proposals",
+      "synthetic_compilation": "Only exact NHSSYN005 compilation rebuilt by existing allowed_notes() from verified corpus added to trial allow-list",
+      "runs": [
+        {
+          "document_id": 43,
+          "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 13879,
+                "completion_tokens": 573,
+                "total_tokens": 14452,
+                "cost": 0.00265485,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.00265485,
+                  "upstream_inference_prompt_cost": 0.00208185,
+                  "upstream_inference_completions_cost": 0.000573
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            },
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 14812,
+                "completion_tokens": 23,
+                "total_tokens": 14835,
+                "cost": 0.0022448,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.0022448,
+                  "upstream_inference_prompt_cost": 0.0022218,
+                  "upstream_inference_completions_cost": 2.3e-05
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_line": 43,
+                  "end_line": 45
+                },
+                {
+                  "kind": "history",
+                  "start_line": 78,
+                  "end_line": 79
+                },
+                {
+                  "kind": "history",
+                  "start_line": 119,
+                  "end_line": 121
+                },
+                {
+                  "kind": "history",
+                  "start_line": 179,
+                  "end_line": 180
+                },
+                {
+                  "kind": "history",
+                  "start_line": 206,
+                  "end_line": 210
+                },
+                {
+                  "kind": "history",
+                  "start_line": 250,
+                  "end_line": 254
+                },
+                {
+                  "kind": "history",
+                  "start_line": 306,
+                  "end_line": 311
+                },
+                {
+                  "kind": "history",
+                  "start_line": 362,
+                  "end_line": 368
+                },
+                {
+                  "kind": "history",
+                  "start_line": 414,
+                  "end_line": 422
+                },
+                {
+                  "kind": "history",
+                  "start_line": 472,
+                  "end_line": 475
+                },
+                {
+                  "kind": "history",
+                  "start_line": 530,
+                  "end_line": 535
+                },
+                {
+                  "kind": "history",
+                  "start_line": 582,
+                  "end_line": 588
+                },
+                {
+                  "kind": "history",
+                  "start_line": 639,
+                  "end_line": 643
+                },
+                {
+                  "kind": "history",
+                  "start_line": 694,
+                  "end_line": 698
+                },
+                {
+                  "kind": "tickler",
+                  "start_line": 729,
+                  "end_line": 729
+                },
+                {
+                  "kind": "tickler",
+                  "start_line": 739,
+                  "end_line": 739
+                }
+              ]
+            },
+            {
+              "keep": [
+                "1",
+                "2",
+                "14"
+              ]
+            }
+          ],
+          "response": {
+            "contract_version": 1,
+            "request_id": "eb3ab644-6c5d-42e4-add0-649f59821436",
+            "status": "completed",
+            "output": {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "evidence": "Past Medical History\n- HTN\n- Mild osteoarthritis"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Impression\nSubdural hygroma causing acute confusion, likely secondary to minor fall."
+                },
+                {
+                  "kind": "tickler",
+                  "evidence": "- Arrange follow-up appointment in neurology OPD in 2 weeks"
+                }
+              ]
+            }
+          },
+          "accepted": true,
+          "seconds": 6.127
+        },
+        {
+          "document_id": 44,
+          "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 1919,
+                "completion_tokens": 52,
+                "total_tokens": 1971,
+                "cost": 0.00033985,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.00033985,
+                  "upstream_inference_prompt_cost": 0.00028785,
+                  "upstream_inference_completions_cost": 5.2e-05
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            },
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 2090,
+                "completion_tokens": 10,
+                "total_tokens": 2100,
+                "cost": 0.0003235,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.0003235,
+                  "upstream_inference_prompt_cost": 0.0003135,
+                  "upstream_inference_completions_cost": 1e-05
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_line": 26,
+                  "end_line": 27
+                },
+                {
+                  "kind": "tickler",
+                  "start_line": 92,
+                  "end_line": 92
+                }
+              ]
+            },
+            {
+              "keep": []
+            }
+          ],
+          "response": {
+            "contract_version": 1,
+            "request_id": "e7e590d0-03c8-44ee-8bbe-6f12286a7e90",
+            "status": "completed",
+            "output": {
+              "proposals": []
+            }
+          },
+          "accepted": true,
+          "seconds": 1.999
+        }
+      ]
+    },
+    {
+      "model": "qwen/qwen3.5-35b-a3b",
+      "provider": "parasail",
+      "operation": "chart-update-proposals",
+      "synthetic_compilation": "Only exact NHSSYN005 compilation rebuilt by existing allowed_notes() from verified corpus added to trial allow-list",
+      "runs": [
+        {
+          "document_id": 43,
+          "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 15319,
+                "completion_tokens": 571,
+                "total_tokens": 15890,
+                "cost": 0.00286885,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.00286885,
+                  "upstream_inference_prompt_cost": 0.00229785,
+                  "upstream_inference_completions_cost": 0.000571
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_id": 5,
+                  "end_id": 6
+                },
+                {
+                  "kind": "history",
+                  "start_id": 69,
+                  "end_id": 70
+                },
+                {
+                  "kind": "history",
+                  "start_id": 168,
+                  "end_id": 169
+                },
+                {
+                  "kind": "history",
+                  "start_id": 228,
+                  "end_id": 228
+                },
+                {
+                  "kind": "history",
+                  "start_id": 259,
+                  "end_id": 262
+                },
+                {
+                  "kind": "history",
+                  "start_id": 331,
+                  "end_id": 334
+                },
+                {
+                  "kind": "history",
+                  "start_id": 402,
+                  "end_id": 407
+                },
+                {
+                  "kind": "history",
+                  "start_id": 480,
+                  "end_id": 486
+                },
+                {
+                  "kind": "history",
+                  "start_id": 547,
+                  "end_id": 555
+                },
+                {
+                  "kind": "history",
+                  "start_id": 623,
+                  "end_id": 625
+                },
+                {
+                  "kind": "history",
+                  "start_id": 702,
+                  "end_id": 707
+                },
+                {
+                  "kind": "history",
+                  "start_id": 767,
+                  "end_id": 773
+                },
+                {
+                  "kind": "history",
+                  "start_id": 840,
+                  "end_id": 843
+                },
+                {
+                  "kind": "history",
+                  "start_id": 922,
+                  "end_id": 925
+                },
+                {
+                  "kind": "tickler",
+                  "start_id": 958,
+                  "end_id": 958
+                },
+                {
+                  "kind": "tickler",
+                  "start_id": 974,
+                  "end_id": 974
+                }
+              ]
+            }
+          ],
+          "accepted": false,
+          "error": "Document completion request exceeds configured budget",
+          "seconds": 4.732
+        },
+        {
+          "document_id": 44,
+          "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 1938,
+                "completion_tokens": 51,
+                "total_tokens": 1989,
+                "cost": 0.0003417,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.0003417,
+                  "upstream_inference_prompt_cost": 0.0002907,
+                  "upstream_inference_completions_cost": 5.1e-05
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            },
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 1905,
+                "completion_tokens": 120,
+                "total_tokens": 2025,
+                "cost": 0.00040575,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.00040575,
+                  "upstream_inference_prompt_cost": 0.00028575,
+                  "upstream_inference_completions_cost": 0.00012
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_id": 27,
+                  "end_id": 28
+                },
+                {
+                  "kind": "history",
+                  "start_id": 86,
+                  "end_id": 87
+                }
+              ]
+            },
+            {
+              "decisions": [
+                {
+                  "id": "1",
+                  "keep": true,
+                  "reason": "Explicitly lists past medical history diagnoses (HTN, Mild osteoarthritis) found in the source text."
+                },
+                {
+                  "id": "2",
+                  "keep": true,
+                  "reason": "Explicitly captures the current Impression/Assessment diagnoses (Acute confusion, subdural hygroma, mild hypoNa) and their context."
+                }
+              ]
+            }
+          ],
+          "response": {
+            "contract_version": 1,
+            "request_id": "64c70f23-d69b-4097-866d-dca6b1e0d216",
+            "status": "completed",
+            "output": {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "evidence": "- HTN\n- Mild osteoarthritis"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+                }
+              ]
+            }
+          },
+          "accepted": true,
+          "seconds": 3.603
+        }
+      ]
+    },
+    {
+      "model": "qwen/qwen3.5-35b-a3b",
+      "provider": "parasail",
+      "operation": "chart-update-proposals",
+      "synthetic_compilation": "Only exact NHSSYN005 compilation rebuilt by existing allowed_notes() from verified corpus added to trial allow-list",
+      "runs": [
+        {
+          "document_id": 43,
+          "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 15319,
+                "completion_tokens": 606,
+                "total_tokens": 15925,
+                "cost": 0.00290385,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.00290385,
+                  "upstream_inference_prompt_cost": 0.00229785,
+                  "upstream_inference_completions_cost": 0.000606
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            },
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 15678,
+                "completion_tokens": 835,
+                "total_tokens": 16513,
+                "cost": 0.0031867,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.0031867,
+                  "upstream_inference_prompt_cost": 0.0023517,
+                  "upstream_inference_completions_cost": 0.000835
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_id": 5,
+                  "end_id": 6
+                },
+                {
+                  "kind": "history",
+                  "start_id": 69,
+                  "end_id": 70
+                },
+                {
+                  "kind": "history",
+                  "start_id": 168,
+                  "end_id": 169
+                },
+                {
+                  "kind": "history",
+                  "start_id": 121,
+                  "end_id": 123
+                },
+                {
+                  "kind": "history",
+                  "start_id": 227,
+                  "end_id": 229
+                },
+                {
+                  "kind": "history",
+                  "start_id": 257,
+                  "end_id": 263
+                },
+                {
+                  "kind": "history",
+                  "start_id": 330,
+                  "end_id": 335
+                },
+                {
+                  "kind": "history",
+                  "start_id": 400,
+                  "end_id": 408
+                },
+                {
+                  "kind": "history",
+                  "start_id": 478,
+                  "end_id": 487
+                },
+                {
+                  "kind": "history",
+                  "start_id": 545,
+                  "end_id": 556
+                },
+                {
+                  "kind": "history",
+                  "start_id": 621,
+                  "end_id": 626
+                },
+                {
+                  "kind": "history",
+                  "start_id": 700,
+                  "end_id": 708
+                },
+                {
+                  "kind": "history",
+                  "start_id": 765,
+                  "end_id": 774
+                },
+                {
+                  "kind": "history",
+                  "start_id": 838,
+                  "end_id": 844
+                },
+                {
+                  "kind": "history",
+                  "start_id": 920,
+                  "end_id": 926
+                },
+                {
+                  "kind": "tickler",
+                  "start_id": 958,
+                  "end_id": 958
+                },
+                {
+                  "kind": "tickler",
+                  "start_id": 974,
+                  "end_id": 974
+                }
+              ]
+            },
+            {
+              "decisions": [
+                {
+                  "id": "1",
+                  "keep": false,
+                  "reason": "Contains 'No allergies reported' (excluded medication/allergy action) and is a partial overlap of the more complete history in candidate 2."
+                },
+                {
+                  "id": "2",
+                  "keep": true,
+                  "reason": "Explicit past medical history (HTN, mild osteoarthritis) matching the criteria for keeping history."
+                },
+                {
+                  "id": "3",
+                  "keep": true,
+                  "reason": "Explicit Impression/Assessment diagnosis (Subdural hygroma causing acute confusion) with context."
+                },
+                {
+                  "id": "4",
+                  "keep": true,
+                  "reason": "Explicit Impression/Assessment diagnosis (Acute confusion secondary to subdural hygroma and mild hypoNa) with context."
+                },
+                {
+                  "id": "5",
+                  "keep": false,
+                  "reason": "Contains investigation results (CT head confirmed) and routine monitoring notes mixed with the diagnosis; candidate 3 or 4 is more appropriate for the diagnosis itself."
+                },
+                {
+                  "id": "6",
+                  "keep": false,
+                  "reason": "Contains routine monitoring notes ('Neurological status stable') and patient-reported fatigue mixed with the diagnosis; candidate 3 or 4 is more appropriate."
+                },
+                {
+                  "id": "7",
+                  "keep": false,
+                  "reason": "Contains medication actions ('Decision to start sodium chloride supplementation') mixed with the diagnosis; candidate 3 or 4 is more appropriate."
+                },
+                {
+                  "id": "8",
+                  "keep": false,
+                  "reason": "Contains medication actions ('Prescribe paracetamol') mixed with the diagnosis; candidate 3 or 4 is more appropriate."
+                },
+                {
+                  "id": "9",
+                  "keep": false,
+                  "reason": "Contains medication actions ('Fluid restriction initiated') mixed with the diagnosis; candidate 3 or 4 is more appropriate."
+                },
+                {
+                  "id": "10",
+                  "keep": false,
+                  "reason": "Contains medication actions ('Initiate d/c planning') mixed with the diagnosis; candidate 3 or 4 is more appropriate."
+                },
+                {
+                  "id": "11",
+                  "keep": false,
+                  "reason": "Contains medication actions ('Adjust fluid intake') mixed with the diagnosis; candidate 3 or 4 is more appropriate."
+                },
+                {
+                  "id": "12",
+                  "keep": false,
+                  "reason": "Contains medication actions ('Oral sodium supplementation initiated') mixed with the diagnosis; candidate 3 or 4 is more appropriate."
+                },
+                {
+                  "id": "13",
+                  "keep": false,
+                  "reason": "Contains routine monitoring notes ('Improved mobility') mixed with the diagnosis; candidate 3 or 4 is more appropriate."
+                },
+                {
+                  "id": "14",
+                  "keep": false,
+                  "reason": "Contains medication actions ('addressed with oral sodium supplementation') mixed with the diagnosis; candidate 3 or 4 is more appropriate."
+                },
+                {
+                  "id": "15",
+                  "keep": true,
+                  "reason": "Explicit outstanding outpatient follow-up (Neurology OPD appointment in 2 weeks)."
+                },
+                {
+                  "id": "16",
+                  "keep": true,
+                  "reason": "Explicit outstanding outpatient follow-up (GP review in 7 days)."
+                }
+              ]
+            }
+          ],
+          "response": {
+            "contract_version": 1,
+            "request_id": "6a4e76e3-7724-49dd-ba65-25ceb2422a82",
+            "status": "completed",
+            "output": {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "evidence": "- HTN\n- Mild osteoarthritis"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Impression\nSubdural hygroma causing acute confusion, likely secondary to minor fall."
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+                },
+                {
+                  "kind": "tickler",
+                  "evidence": "- Arrange follow-up appointment in neurology OPD in 2 weeks"
+                },
+                {
+                  "kind": "tickler",
+                  "evidence": "Advised to follow up with GP in 7 days to assess recovery and monitor sx."
+                }
+              ]
+            }
+          },
+          "accepted": true,
+          "seconds": 11.021
+        },
+        {
+          "document_id": 44,
+          "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 1938,
+                "completion_tokens": 51,
+                "total_tokens": 1989,
+                "cost": 0.0003417,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.0003417,
+                  "upstream_inference_prompt_cost": 0.0002907,
+                  "upstream_inference_completions_cost": 5.1e-05
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            },
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 1912,
+                "completion_tokens": 118,
+                "total_tokens": 2030,
+                "cost": 0.0004048,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.0004048,
+                  "upstream_inference_prompt_cost": 0.0002868,
+                  "upstream_inference_completions_cost": 0.000118
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_id": 27,
+                  "end_id": 28
+                },
+                {
+                  "kind": "history",
+                  "start_id": 86,
+                  "end_id": 87
+                }
+              ]
+            },
+            {
+              "decisions": [
+                {
+                  "id": "1",
+                  "keep": true,
+                  "reason": "Contains explicit Past Medical History diagnoses (HTN, Mild osteoarthritis) which must be preserved."
+                },
+                {
+                  "id": "2",
+                  "keep": true,
+                  "reason": "Contains the explicit Impression/Assessment diagnosis (Acute confusion secondary to subdural hygroma and mild hypoNa) which must be preserved."
+                }
+              ]
+            }
+          ],
+          "response": {
+            "contract_version": 1,
+            "request_id": "6e63cae6-4d8a-4e08-89a6-3c27d0fa599e",
+            "status": "completed",
+            "output": {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "evidence": "- HTN\n- Mild osteoarthritis"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+                }
+              ]
+            }
+          },
+          "accepted": true,
+          "seconds": 2.395
+        }
+      ]
+    },
+    {
+      "model": "qwen/qwen3.5-35b-a3b",
+      "provider": "parasail",
+      "operation": "chart-update-proposals",
+      "synthetic_compilation": "Only exact NHSSYN005 compilation rebuilt by existing allowed_notes() from verified corpus added to trial allow-list",
+      "runs": [
+        {
+          "document_id": 43,
+          "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 15678,
+                "completion_tokens": 767,
+                "total_tokens": 16445,
+                "cost": 0.0031187,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.0031187,
+                  "upstream_inference_prompt_cost": 0.0023517,
+                  "upstream_inference_completions_cost": 0.000767
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "writer_reused_from": "hosted-proposals-references-attempt4.json",
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_id": 5,
+                  "end_id": 6
+                },
+                {
+                  "kind": "history",
+                  "start_id": 69,
+                  "end_id": 70
+                },
+                {
+                  "kind": "history",
+                  "start_id": 168,
+                  "end_id": 169
+                },
+                {
+                  "kind": "history",
+                  "start_id": 121,
+                  "end_id": 123
+                },
+                {
+                  "kind": "history",
+                  "start_id": 227,
+                  "end_id": 229
+                },
+                {
+                  "kind": "history",
+                  "start_id": 257,
+                  "end_id": 263
+                },
+                {
+                  "kind": "history",
+                  "start_id": 330,
+                  "end_id": 335
+                },
+                {
+                  "kind": "history",
+                  "start_id": 400,
+                  "end_id": 408
+                },
+                {
+                  "kind": "history",
+                  "start_id": 478,
+                  "end_id": 487
+                },
+                {
+                  "kind": "history",
+                  "start_id": 545,
+                  "end_id": 556
+                },
+                {
+                  "kind": "history",
+                  "start_id": 621,
+                  "end_id": 626
+                },
+                {
+                  "kind": "history",
+                  "start_id": 700,
+                  "end_id": 708
+                },
+                {
+                  "kind": "history",
+                  "start_id": 765,
+                  "end_id": 774
+                },
+                {
+                  "kind": "history",
+                  "start_id": 838,
+                  "end_id": 844
+                },
+                {
+                  "kind": "history",
+                  "start_id": 920,
+                  "end_id": 926
+                },
+                {
+                  "kind": "tickler",
+                  "start_id": 958,
+                  "end_id": 958
+                },
+                {
+                  "kind": "tickler",
+                  "start_id": 974,
+                  "end_id": 974
+                }
+              ]
+            },
+            {
+              "decisions": [
+                {
+                  "id": "1",
+                  "keep": false,
+                  "reason": "Contains 'No allergies reported' (negated diagnosis) and excludes the explicit PMH (HTN, OA) found in later segments."
+                },
+                {
+                  "id": "2",
+                  "keep": true,
+                  "reason": "Explicit Past Medical History (HTN, mild osteoarthritis) with no negations or exclusions."
+                },
+                {
+                  "id": "3",
+                  "keep": true,
+                  "reason": "Explicit Impression/Assessment diagnosis: Subdural hygroma causing acute confusion."
+                },
+                {
+                  "id": "4",
+                  "keep": true,
+                  "reason": "Explicit Impression/Assessment diagnosis: Acute confusion secondary to subdural hygroma and mild hypoNa."
+                },
+                {
+                  "id": "5",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma with CT confirmation."
+                },
+                {
+                  "id": "6",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma with confirmation."
+                },
+                {
+                  "id": "7",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma and Mild Hyponatremia."
+                },
+                {
+                  "id": "8",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma and Mild Hyponatremia."
+                },
+                {
+                  "id": "9",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma and Hyponatremia."
+                },
+                {
+                  "id": "10",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma and Mild hyponatremia."
+                },
+                {
+                  "id": "11",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma and Mild Hyponatremia."
+                },
+                {
+                  "id": "12",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma and Mild Hyponatremia."
+                },
+                {
+                  "id": "13",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma (stable)."
+                },
+                {
+                  "id": "14",
+                  "keep": true,
+                  "reason": "Explicit diagnosis listed as an issue: Subdural Hygroma and Mild hyponatremia."
+                },
+                {
+                  "id": "15",
+                  "keep": true,
+                  "reason": "Explicit outstanding outpatient follow-up: Neurology OPD appointment in 2 weeks."
+                },
+                {
+                  "id": "16",
+                  "keep": true,
+                  "reason": "Explicit outstanding outpatient follow-up: GP review in 7 days."
+                }
+              ]
+            }
+          ],
+          "response": {
+            "contract_version": 1,
+            "request_id": "4104c920-5b6b-4a02-9eb4-d385a12ed158",
+            "status": "completed",
+            "output": {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "evidence": "Past Medical History\n- HTN\n- Mild osteoarthritis"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Impression\nSubdural hygroma causing acute confusion, likely secondary to minor fall."
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Issues\n1. Subdural Hygroma\n-CT head confirmed subdural hygroma\n-No midline shift\n-Mild gait instability likely related to fall"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "1. Subdural Hygroma\n-Confirmed on CT scan with no midline shift\n-Neurological status stable with no tfocal deficits\n-Mild fatigue reported by the patient"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Issues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Sodium 132 mmol/L\n-Decision to start sodium chloride supplementation"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Issues\n1. Subdural Hygroma\n-No midline shift on CT scan\n-Stable neurological status\n2. Mild Hyponatremia\n-Serum sodium 133 mmol/L\n-Previosly noted as 132 mmol/L"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Issues\n1. Subdural Hygroma\n-Confirmed on CT scan\n-No midline shift\n-Mild evening headaches reported\n2. Hyponatremia\n-Serum sodium 133 mmol/L\n-Mild imbalance likely due to overhydration\n-Fluid restriction initiated"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Issues\n1. Subdural Hygroma\n-Confirmed on CT scan without midline shift\n-Mild hyponatremia (serum sodium 132 mmol/L)"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Issues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Serum sodium: 132 mmol/L\n-Likely related to fluid management"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Issues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Serum sodium 132 mmol/L\n-Likely related to fludi balance management\n-Oral sodium supplementation initiated"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Issues\n1. Subdural Hygroma\n-Stable neurological status\n-No symptoms of headache, dizziness, or confusion\n-Improved mobility with physiotherapy"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Issues\n1. Subdural Hygroma\n-Neurological status stable with no new symptoms\n-Significant improvement in mobility with walking aid\n-Mild hyponatremia (serum sodium: 132-133 mmol/L) addressed with oral sodium supplementation"
+                },
+                {
+                  "kind": "tickler",
+                  "evidence": "- Arrange follow-up appointment in neurology OPD in 2 weeks"
+                },
+                {
+                  "kind": "tickler",
+                  "evidence": "Advised to follow up with GP in 7 days to assess recovery and monitor sx."
+                }
+              ]
+            }
+          },
+          "accepted": true,
+          "seconds": 6.688
+        },
+        {
+          "document_id": 44,
+          "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+          "calls": [
+            {
+              "model": "qwen/qwen3.5-35b-a3b",
+              "provider": "Parasail",
+              "usage": {
+                "prompt_tokens": 1912,
+                "completion_tokens": 128,
+                "total_tokens": 2040,
+                "cost": 0.0004148,
+                "is_byok": false,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "cost_details": {
+                  "upstream_inference_cost": 0.0004148,
+                  "upstream_inference_prompt_cost": 0.0002868,
+                  "upstream_inference_completions_cost": 0.000128
+                },
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                }
+              }
+            }
+          ],
+          "writer_reused_from": "hosted-proposals-references-attempt4.json",
+          "model_outputs": [
+            {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "start_id": 27,
+                  "end_id": 28
+                },
+                {
+                  "kind": "history",
+                  "start_id": 86,
+                  "end_id": 87
+                }
+              ]
+            },
+            {
+              "decisions": [
+                {
+                  "id": "1",
+                  "keep": true,
+                  "reason": "Explicit past medical history (HTN, mild osteoarthritis) found in the source; matches criteria to keep PMH."
+                },
+                {
+                  "id": "2",
+                  "keep": true,
+                  "reason": "Explicit current Impression/Assessment (Acute confusion secondary to subdural hygroma and mild hypoNa) found in the source; matches criteria to keep current diagnoses."
+                }
+              ]
+            }
+          ],
+          "response": {
+            "contract_version": 1,
+            "request_id": "37a17db7-f675-4529-812b-b673afb5960c",
+            "status": "completed",
+            "output": {
+              "proposals": [
+                {
+                  "kind": "history",
+                  "evidence": "Past Medical History\n- HTN\n- Mild osteoarthritis"
+                },
+                {
+                  "kind": "history",
+                  "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+                }
+              ]
+            }
+          },
+          "accepted": true,
+          "seconds": 1.561
+        }
+      ]
+    }
+  ],
+  "final_empty_chart": {
+    "model": "qwen/qwen3.5-35b-a3b",
+    "provider": "parasail",
+    "operation": "chart-update-proposals",
+    "synthetic_compilation": "Only exact NHSSYN005 compilation rebuilt by existing allowed_notes() from verified corpus added to trial allow-list",
+    "runs": [
+      {
+        "document_id": 43,
+        "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 9641,
+              "completion_tokens": 692,
+              "total_tokens": 10333,
+              "cost": 0.00213815,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00213815,
+                "upstream_inference_prompt_cost": 0.00144615,
+                "upstream_inference_completions_cost": 0.000692
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "writer_reused_from": "hosted-proposals-references-attempt4.json",
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 5,
+                "end_id": 6
+              },
+              {
+                "kind": "history",
+                "start_id": 69,
+                "end_id": 70
+              },
+              {
+                "kind": "history",
+                "start_id": 168,
+                "end_id": 169
+              },
+              {
+                "kind": "history",
+                "start_id": 121,
+                "end_id": 123
+              },
+              {
+                "kind": "history",
+                "start_id": 227,
+                "end_id": 229
+              },
+              {
+                "kind": "history",
+                "start_id": 257,
+                "end_id": 263
+              },
+              {
+                "kind": "history",
+                "start_id": 330,
+                "end_id": 335
+              },
+              {
+                "kind": "history",
+                "start_id": 400,
+                "end_id": 408
+              },
+              {
+                "kind": "history",
+                "start_id": 478,
+                "end_id": 487
+              },
+              {
+                "kind": "history",
+                "start_id": 545,
+                "end_id": 556
+              },
+              {
+                "kind": "history",
+                "start_id": 621,
+                "end_id": 626
+              },
+              {
+                "kind": "history",
+                "start_id": 700,
+                "end_id": 708
+              },
+              {
+                "kind": "history",
+                "start_id": 765,
+                "end_id": 774
+              },
+              {
+                "kind": "history",
+                "start_id": 838,
+                "end_id": 844
+              },
+              {
+                "kind": "history",
+                "start_id": 920,
+                "end_id": 926
+              },
+              {
+                "kind": "tickler",
+                "start_id": 958,
+                "end_id": 958
+              },
+              {
+                "kind": "tickler",
+                "start_id": 974,
+                "end_id": 974
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": false,
+                "reason": "Duplicate of candidate 2; candidate 2 is more structured and explicit."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit past medical history (HTN, mild osteoarthritis) required by instructions."
+              },
+              {
+                "id": "3",
+                "keep": true,
+                "reason": "Explicit diagnosis (Subdural hygroma) from the initial Impression section."
+              },
+              {
+                "id": "4",
+                "keep": true,
+                "reason": "Explicit diagnosis (Subdural hygroma and mild hyponatremia) from the admitting Impression; more comprehensive than candidate 3."
+              },
+              {
+                "id": "5",
+                "keep": false,
+                "reason": "Duplicate diagnosis of Subdural Hygroma; candidate 4 provides the full diagnostic impression including hyponatremia."
+              },
+              {
+                "id": "6",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic impression."
+              },
+              {
+                "id": "7",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic impression."
+              },
+              {
+                "id": "8",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic impression."
+              },
+              {
+                "id": "9",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic impression."
+              },
+              {
+                "id": "10",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic impression."
+              },
+              {
+                "id": "11",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic impression."
+              },
+              {
+                "id": "12",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic impression."
+              },
+              {
+                "id": "13",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic impression."
+              },
+              {
+                "id": "14",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic impression."
+              },
+              {
+                "id": "15",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (Neurology OPD) required by instructions."
+              },
+              {
+                "id": "16",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (GP review) required by instructions."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "fd3d0144-2442-4b39-9701-3ab25f49df37",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "Past Medical History\n- HTN\n- Mild osteoarthritis"
+              },
+              {
+                "kind": "history",
+                "evidence": "Impression\nSubdural hygroma causing acute confusion, likely secondary to minor fall."
+              },
+              {
+                "kind": "history",
+                "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "- Arrange follow-up appointment in neurology OPD in 2 weeks"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "Advised to follow up with GP in 7 days to assess recovery and monitor sx."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 13.225
+      },
+      {
+        "document_id": 44,
+        "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 1328,
+              "completion_tokens": 119,
+              "total_tokens": 1447,
+              "cost": 0.0003182,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0003182,
+                "upstream_inference_prompt_cost": 0.0001992,
+                "upstream_inference_completions_cost": 0.000119
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "writer_reused_from": "hosted-proposals-references-attempt4.json",
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 27,
+                "end_id": 28
+              },
+              {
+                "kind": "history",
+                "start_id": 86,
+                "end_id": 87
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit past medical history items (HTN, Mild osteoarthritis) are retained as per instructions to keep history."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit current diagnoses from the Impression section (Acute confusion, subdural hygroma, mild hypoNa, dehydration) are retained."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "2210ba43-7b08-4328-ba96-7918e4c115dd",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "Past Medical History\n- HTN\n- Mild osteoarthritis"
+              },
+              {
+                "kind": "history",
+                "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 1.548
+      }
+    ]
+  },
+  "other_three_patients": {
+    "model": "qwen/qwen3.5-35b-a3b",
+    "provider": "parasail",
+    "runs": [
+      {
+        "fixture": "NHSSYN001",
+        "document_id": 40,
+        "source_sha256": "0cac494dc22d152317479c21ae5414cdfc800b3b0c7dbe7e54b716a94307cd92",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 1074,
+              "completion_tokens": 51,
+              "total_tokens": 1125,
+              "cost": 0.0002121,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002121,
+                "upstream_inference_prompt_cost": 0.0001611,
+                "upstream_inference_completions_cost": 5.1e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 816,
+              "completion_tokens": 128,
+              "total_tokens": 944,
+              "cost": 0.0002504,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002504,
+                "upstream_inference_prompt_cost": 0.0001224,
+                "upstream_inference_completions_cost": 0.000128
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 9,
+                "end_id": 14
+              },
+              {
+                "kind": "tickler",
+                "start_id": 45,
+                "end_id": 45
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit diagnosis of Reversible Cerebral Vasoconstriction Syndrome (RCVS) confirmed in the source text; retained as a current/past medical history item despite resolution."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (neurology OP) scheduled for 4 weeks; not cancelled or completed in the text."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "b32de6da-3868-4930-81ac-db6c4a4e9f03",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Reversible Cerebral Vasoconstriction Syndrome (RCVS)\n-Confirmed diagnosis via MRI/MRA on 08/01/26\n-Repeat MRA on 11/01/26 showed resolution of vasoconstriction\n-CRP mildly elevated at 12 mg/L during admission (reactive)\n-Stable blood prwssure throughout admission"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "- Referral for neurology OP follow-up in 4 weeks"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 4.267
+      },
+      {
+        "fixture": "NHSSYN002",
+        "document_id": 41,
+        "source_sha256": "b074b2a00e06d9dcf3694c2ea57610cf47195e4476c6480d972a3ef0e2f118c4",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 987,
+              "completion_tokens": 72,
+              "total_tokens": 1059,
+              "cost": 0.00022005,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00022005,
+                "upstream_inference_prompt_cost": 0.00014805,
+                "upstream_inference_completions_cost": 7.2e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 724,
+              "completion_tokens": 184,
+              "total_tokens": 908,
+              "cost": 0.0002926,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002926,
+                "upstream_inference_prompt_cost": 0.0001086,
+                "upstream_inference_completions_cost": 0.000184
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 6,
+                "end_id": 6
+              },
+              {
+                "kind": "history",
+                "start_id": 10,
+                "end_id": 12
+              },
+              {
+                "kind": "tickler",
+                "start_id": 42,
+                "end_id": 42
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": false,
+                "reason": "Incomplete candidate; candidate 2 provides the same diagnosis with necessary context (post-operative status and anemia) and is more informative."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Contains explicit patient diagnoses including current presentation (End stage OA), post-operative status, and resolved/ongoing condition (mild post-operative anemia) as per history rules."
+              },
+              {
+                "id": "3",
+                "keep": false,
+                "reason": "Drops follow-up that is conditional ('potential discharge') and represents an inpatient review rather than an explicit outstanding outpatient follow-up (GP or specialist)."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "ad42f526-105f-418b-9a8b-c1902e475d51",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "End stage osteoarthritis of left knee\n-Post-operative period following total knee replacement\n-Mild post-operative anemia with Hb 108 g/L"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 3.524
+      },
+      {
+        "fixture": "NHSSYN003",
+        "document_id": 42,
+        "source_sha256": "48bb604a1eff0edebcd031f0b7f81bdd73c1a98d8ff1ad8e523c9f7e36e9f846",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 906,
+              "completion_tokens": 51,
+              "total_tokens": 957,
+              "cost": 0.0001869,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0001869,
+                "upstream_inference_prompt_cost": 0.0001359,
+                "upstream_inference_completions_cost": 5.1e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 606,
+              "completion_tokens": 118,
+              "total_tokens": 724,
+              "cost": 0.0002089,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002089,
+                "upstream_inference_prompt_cost": 9.09e-05,
+                "upstream_inference_completions_cost": 0.000118
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 9,
+                "end_id": 13
+              },
+              {
+                "kind": "tickler",
+                "start_id": 43,
+                "end_id": 43
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit diagnosis of Spontaneous Pneumomediastinum with current status (stable, continued improvement) found in the Issues section."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (Resp clinic) identified in the Plan section; discharge planning does not cancel this appointment."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "d373d3a8-c3fa-4372-b2aa-7638cad56bf6",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Spontaneous Pneumomediastinum\n-Stable con dition\n-CXR: No complications\n-Continued improvement"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "Arrange routine OP follow-up in Resp clinic. 4."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 2.535
+      }
+    ]
+  },
+  "completed_model_calls": 24,
+  "reported_cost_usd": 0.02623215
+}

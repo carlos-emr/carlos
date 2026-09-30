@@ -80,6 +80,12 @@ class ChartUpdatesTest(unittest.TestCase):
         self.assertEqual([{'kind': 'history', 'evidence': 'Past Medical History\n- Asthma'}],
                          result['proposals'])
 
+    def test_selected_history_bullets_keep_the_adjacent_historical_heading(self):
+        source = 'Past Medical History\n- HTN\n- Mild osteoarthritis'
+        raw = {'proposals': [{'kind': 'history', 'start_id': 2, 'end_id': 3}]}
+        output = updates.resolve_ranges(raw, updates.source_segments(source), source)
+        self.assertEqual(source, output['proposals'][0]['evidence'])
+
     def test_repeated_history_is_deduplicated_without_rewriting_first_quote(self):
         source = 'History: suspected asthma.\n\nHistory:  suspected asthma.'
         raw = {'proposals': [{'kind': 'history', 'start_id': 1, 'end_id': 1},

@@ -125,6 +125,9 @@ bounded checks, not semantic deduplication or clinical verification; unfamiliar
 headings, lost qualifications, omissions and model classification errors remain
 possible. The Java evidence validator, chart comparison and per-entry approval
 remain authoritative. The public 20-proposal limit is unchanged.
+If the first selected history bullet immediately follows a recognized past-history
+heading, the host retains that heading in the exact quotation. This preserves the
+context used by the form's Medical History destination suggestion.
 
 For the isolated empty-chart trial, `browser/hosted_chart_gateway.py` adds only the
 exact NHSSYN005 compilation rebuilt from the verified corpus to the proposal

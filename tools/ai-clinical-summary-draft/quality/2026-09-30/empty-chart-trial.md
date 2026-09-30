@@ -1,5 +1,10 @@
 # Empty-chart trial — September 30, 2026
 
+**Latest:** the [updated hosted extractor](extraction-references-trial.md) now
+produces five validated suggestions for the large document and two for the
+smaller one. The isolated CARLOS trial is connected to that gateway. The local
+Qwen 2B results below describe the earlier experiment.
+
 ## Live result
 
 A real **Qwen 3.5 2B** model is now connected through local Ollama in the isolated

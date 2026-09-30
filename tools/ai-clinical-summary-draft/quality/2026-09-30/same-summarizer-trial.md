@@ -1,5 +1,8 @@
 # Reusing the single-document summarizer — September 30, 2026
 
+The subsequent [extraction update](extraction-references-trial.md) fixes the
+quote-copying failure recorded below and is connected to the isolated CARLOS trial.
+
 The requested tool is PR [#3860](https://github.com/carlos-emr/carlos/pull/3860)'s
 `balanced-reviewed` workflow: `Gateway.run_document` calls
 `document_distill.run(..., protect=True)`, using Qwen3.5-35B-A3B on Parasail for
