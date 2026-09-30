@@ -155,7 +155,7 @@ class PatientPortalSpringWiringUnitTest {
     void shouldThrow_whenConfiguredWithAPlaintextUrl() {
         Map<String, String> properties = new HashMap<>();
         properties.put(PatientPortalSettings.BASE_URL_KEY, "http://portal.clinic.example");
-        properties.put(PatientPortalSettings.CLINIC_ID_KEY, "maplecreek");
+        properties.put(PatientPortalSettings.CLINIC_ID_KEY, "clinic-a");
         properties.put(
                 PatientPortalSettings.SERVICE_TOKEN_KEY,
                 "synthetic-service-token-0000000001");
@@ -184,7 +184,7 @@ class PatientPortalSpringWiringUnitTest {
     void shouldReportConfigured_whenSwitchedOnWithEveryRequiredKey() {
         Map<String, String> present = new HashMap<>();
         present.put(PatientPortalSettings.BASE_URL_KEY, "http://not-https.example");
-        present.put(PatientPortalSettings.CLINIC_ID_KEY, "maplecreek");
+        present.put(PatientPortalSettings.CLINIC_ID_KEY, "clinic-a");
         present.put(
                 PatientPortalSettings.SERVICE_TOKEN_KEY,
                 "synthetic-service-token-0000000001");

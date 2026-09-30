@@ -365,13 +365,13 @@ class PortalAccountAndPanelActionUnitTest {
 
         private PatientPortalInviteDto invite() {
             return new PatientPortalInviteDto(
-                    7L, "maplecreek", DEMOGRAPHIC_NO, "pending", "999998", "Dr Example", 1,
+                    7L, "clinic-a", DEMOGRAPHIC_NO, "pending", "999998", "Dr Example", 1,
                     Instant.now(), "Dr Example", Instant.now(), null, null);
         }
 
         private PatientPortalAccountDto account() {
             return new PatientPortalAccountDto(
-                    5L, "maplecreek", DEMOGRAPHIC_NO, "active", false, false, null, null);
+                    5L, "clinic-a", DEMOGRAPHIC_NO, "active", false, false, null, null);
         }
 
         @Test
@@ -520,7 +520,7 @@ class PortalAccountAndPanelActionUnitTest {
 
         private PatientPortalAccountDto account() {
             return new PatientPortalAccountDto(
-                    5L, "maplecreek", DEMOGRAPHIC_NO, "active", false, false, null, null);
+                    5L, "clinic-a", DEMOGRAPHIC_NO, "active", false, false, null, null);
         }
 
         /**
