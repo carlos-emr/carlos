@@ -165,6 +165,9 @@ public class DownloadEFormPdf2Action extends ActionSupport {
         request.setAttribute("fdid", fdid);
         request.setAttribute("demographicId", storedDemographicNo);
 
+        if ("print".equals(request.getParameter("eformPdfOutput"))) {
+            request.setAttribute("eformPdfOutput", "print");
+        }
         EformDataManager.EformPdfRender rendered = null;
         try {
             rendered = documentAttachmentManager

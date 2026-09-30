@@ -170,6 +170,7 @@ class DownloadEFormPdf2ActionUnitTest {
     @Test
     @DisplayName("should consume the download approval and render the already-saved form with it")
     void shouldConsumeDownloadApproval_andRenderSavedFormWithIt() throws Exception {
+        request.setParameter("eformPdfOutput", "print");
         request.setParameter("fdid", "42");
         request.setParameter("demographicNo", "123");
         request.setParameter("renderApproval", "ticket");
@@ -186,6 +187,7 @@ class DownloadEFormPdf2ActionUnitTest {
 
         assertThat(result).isEqualTo("download");
         assertThat(request.getAttribute("eFormPDF")).isEqualTo("QUJD");
+        assertThat(request.getAttribute("eformPdfOutput")).isEqualTo("print");
         // No "Submit & PDF" intent on the approval form: the window stays open.
         assertThat(request.getAttribute("isSuccess_Autoclose")).isNull();
         // The ticket is scoped to DOWNLOAD: a PREVIEW or FAX ticket must not unlock a download.

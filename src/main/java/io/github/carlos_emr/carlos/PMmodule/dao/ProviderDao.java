@@ -92,6 +92,9 @@ public interface ProviderDao {
 
     public List<Provider> search(String name);
 
+    /** Active providers with a configured fax number, limited to usable directory matches. */
+    public List<Object[]> searchFaxRecipients(String term, int limit);
+
     public List<Provider> getProvidersByTypeWithNonEmptyOhipNo(String type);
 
     public List<Provider> getProvidersByType(String type);

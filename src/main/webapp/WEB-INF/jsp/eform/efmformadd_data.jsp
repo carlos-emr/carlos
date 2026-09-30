@@ -171,6 +171,11 @@
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     thisEForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
 
+    // Load fax compatibility before template ready/onload handlers and before the asynchronous toolbar.
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/eforms/faxControl.js");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/js/faxRecipientAutocomplete.js");
+    thisEForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css", "all");
+
     thisEForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     thisEForm.addCSS(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.css", "all");
     thisEForm.addBodyJavascript(request.getContextPath()+"/eform/eformFloatingToolbar/eform_floating_toolbar.js");

@@ -27,6 +27,10 @@ public final class EFormSavedRenderResponse {
         fields.put("demographicNo", patient);
         fields.put("renderApproval", token);
         if (autoClose) fields.put("autoClose", "true");
+        if (operation == EFormRenderApprovalService.Operation.DOWNLOAD
+                && "print".equals(request.getAttribute("eformPdfOutput"))) {
+            fields.put("eformPdfOutput", "print");
+        }
         return EFormRenderCapacityResponse.offer(request, response, operation, fields);
     }
 

@@ -143,6 +143,7 @@
      * For Javascript: First is last.
      */
 
+    eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
     eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/js/jquery.are-you-sure.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
@@ -154,8 +155,14 @@
     eForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
 
     eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
+    eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
     eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
+
+    // Load fax compatibility before template ready/onload handlers and before the asynchronous toolbar.
+    eForm.addHeadJavascript(request.getContextPath()+"/library/eforms/faxControl.js");
+    eForm.addHeadJavascript(request.getContextPath()+"/js/faxRecipientAutocomplete.js");
+    eForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css", "all");
 
     eForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     eForm.addBodyJavascript(request.getContextPath()+"/js/oscar-alert.js");
@@ -177,6 +184,7 @@
     // Add EForm properties for handling download operation
     eForm.addHiddenInputElement("eFormPDFName", (String) request.getAttribute("eFormPDFName"));
     eForm.addHiddenInputElement("eFormPDF", (String) request.getAttribute("eFormPDF"));
+    eForm.addHiddenInputElement("eformPdfOutput", (String) request.getAttribute("eformPdfOutput"));
     eForm.addHiddenInputElement("isDownloadEForm", (String) request.getAttribute("isDownload"));
     // Advisory conditions (suppressed dialogs and failed legacy timers) deliver the PDF rather than
     // blocking it, so the reader is told here instead of silently losing that context. A count only:

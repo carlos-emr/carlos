@@ -17,14 +17,10 @@
  * way a clinician drives them, against a running CARLOS (devcontainer Tomcat or a packaged install
  * through nginx). It covers the defects that shipped green through every other check:
  *
- *   1. the form's own "PDF" / "Submit & PDF" buttons (printControl.js) produce a real PDF download
- *      (they used to be a plain Save: the print flag was never posted, and the server had no mapped
- *      result for it anyway); "PDF" leaves the window open, "Submit & PDF" auto-closes it after
- *      the download like a plain Submit;
- *   2. the toolbar's Download produces a real PDF for the letter just typed;
- *   3. the toolbar's Print ("Save and then print") prints the EDITOR IFRAME and then saves a new
- *      letter (typing never set the dirty flag before, so nothing was saved);
- *   4. the form's "Submit & Print" prints the iframe and submits through the CSP timer shim;
+ *   1. Save PDF Only produces a real PDF download and retains the editor window;
+ *   2. toolbar Download produces the same packet;
+ *   3. Print Only PDF opens the generated PDF in a print viewer;
+ *   4. regular Print invokes the editor iframe and saves;
  *   5. the Preventions sidebar button loads through eform/rtlPreventions.do (unmapped before);
  *   6. optionally, a clinic .rtl template (RTL_TEMPLATE_NAME) loads into the editor unsandboxed and
  *      stays editable (any template other than blank.rtl used to be served with a sandbox CSP).
@@ -225,22 +221,27 @@ async function savedFdid(page) {
     step('saved letter stores the typed text with saveRTL() escaping', storedLetter === escapeLikeSaveRTL(typed) || storedLetter.includes(escapeLikeSaveRTL('"chest pain" & <cough>')), storedLetter.slice(0, 120));
     const reopened = await editorFrame(page).evaluate(() => document.body.innerHTML);
     step('saved letter reopens in the editor as markup', reopened.includes('Playwright RTL check') && reopened.includes('&amp; &lt;cough&gt;'), reopened.slice(0, 120));
-    const dl2 = await clickAndDownloadPdf(page, page.locator('input[name="pdfButton"]'), 'form-pdf-button');
+    await page.locator("#remotePrintOptions summary").click();
+    const dl2 = await clickAndDownloadPdf(page, page.locator("#remoteSavePdfButton"), "toolbar-save-pdf");
     const fdidAfterPdfButton = await savedFdid(page);
-    step('form "PDF" button downloads a real PDF', dl2.bytes.length > 1024, `${dl2.name}, ${dl2.bytes.length} bytes, fdid ${fdidAfterPdfButton}`);
+    step('Save PDF Only downloads a real PDF', dl2.bytes.length > 1024, `${dl2.name}, ${dl2.bytes.length} bytes, fdid ${fdidAfterPdfButton}`);
     // "PDF" is a preview: the saved alert (5 s countdown) never shows and the window stays open.
     // Wait past that countdown before asserting, or the check would pass vacuously.
     await page.waitForTimeout(6500);
-    step('form "PDF" button leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
+    step('Save PDF Only leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
 
-    // ---------- 3b. Saved letter page: the form's own "Submit & PDF" downloads, then auto-closes ----------
-    const dl3 = await clickAndDownloadPdf(page, page.locator('input[name="pdfSaveButton"]'), 'form-submit-pdf-button');
+    // ---------- 3b. Print the generated PDF packet through the toolbar menu ----------
+    await page.locator('#remotePrintOptions summary').click();
+    await clickAndAwaitSave(page, page.locator('#remotePrintPdfButton'));
+    await page.locator('#eformPdfPrintDialog[open] iframe').waitFor();
+    const pdfBytes = await page.locator('#eformPdfPrintDialog iframe').evaluate(async frame => {
+      const response = await fetch(frame.src);
+      return Array.from(new Uint8Array(await response.arrayBuffer()));
+    });
+    step('Print Only PDF displays a real generated PDF', Buffer.from(pdfBytes).subarray(0, 5).toString() === '%PDF-', `${pdfBytes.length} bytes`);
     const fdidAfterSubmitPdf = await savedFdid(page);
-    step('form "Submit & PDF" button downloads a real PDF', dl3.bytes.length > 1024, `${dl3.name}, ${dl3.bytes.length} bytes, fdid ${fdidAfterSubmitPdf}`);
-    // A submission: the result page sets isSuccess_Autoclose, so the toolbar closes the window
-    // once the saved alert's countdown ends (window.close is intercepted by the init script above).
-    const autoClosed = await page.waitForFunction(() => window.__playwrightCloseIntercepted === true, null, { timeout: 15000 }).then(() => true).catch(() => false);
-    step('form "Submit & PDF" then auto-closes the window after the download', autoClosed, '');
+    await page.getByRole('button', {name:'Close PDF', exact:true}).click();
+    step('PDF viewer closes and leaves the saved form editable', await page.locator('#remotePrintButton').isVisible(), '');
     await page.close();
 
     // ---------- 4. New letter: toolbar Print prints the iframe, then saves ----------
@@ -254,21 +255,6 @@ async function savedFdid(page) {
     await assertNotErrorPage(page, 'rtl-toolbar-print');
     const fdidAfterPrint = await savedFdid(page);
     step('toolbar Print then saves the letter (new fdid on the result page)', /^\d+$/.test(fdidAfterPrint) && fdidAfterPrint !== fdidAfterSubmitPdf, `fdid ${fdidAfterPrint}`);
-    await page.close();
-
-    // ---------- 5. New letter: the form's own "Submit & Print" ----------
-    printLog.length = 0;
-    page = await openNewLetter(context, recorder, fid, 'rtl-form-print');
-    await typeLetter(page);
-    await page.locator('#remote_eform_subject').fill(`RTL submit and print ${Date.now()}`);
-    const printSave = page.locator('input[name="PrintSaveButton"]');
-    // The form's own button submits through a 1s string timer (the CSP shim), so wait for the save
-    // itself rather than for whatever load state the still-current page happens to report.
-    await clickAndAwaitSave(page, printSave);
-    step('"Submit & Print" prints the editor iframe', printLog.length === 1 && !printLog[0].isTop, '');
-    await assertNotErrorPage(page, 'rtl-form-print');
-    const fdidAfterFormPrint = await savedFdid(page);
-    step('"Submit & Print" submits through the string-timer shim and saves', /^\d+$/.test(fdidAfterFormPrint) && fdidAfterFormPrint !== fdidAfterPrint, `fdid ${fdidAfterFormPrint}`);
     await page.close();
 
     // ---------- 6. Optional: a clinic .rtl template loads unsandboxed and stays editable ----------

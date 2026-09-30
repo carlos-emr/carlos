@@ -1,1 +1,67 @@
-// Dumb file
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/* Legacy eForms set otherFaxInput from ready/onload handlers, often before the toolbar arrives. */
+(function () {
+    'use strict';
+    if (window.carlosEformFax) return;
+
+    function ensureInput() {
+        var input = document.getElementById('otherFaxInput');
+        var form = document.forms[0];
+        if (!form) return input;
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'hidden';
+            input.id = 'otherFaxInput';
+            form.appendChild(input);
+        }
+        if (!document.getElementById('otherFaxSelect')) {
+            var select = document.createElement('select');
+            select.id = 'otherFaxSelect';
+            select.hidden = true;
+            form.appendChild(select);
+        }
+        return input;
+    }
+
+    function recipient() {
+        var input = ensureInput();
+        for (var id of ['faxnumList', 'otherFaxSelect']) {
+            var select = document.getElementById(id);
+            var option = select && select.options && select.options[select.selectedIndex];
+            if (option && option.value.trim()) {
+                return {name: option.getAttribute('name') || option.textContent.trim(), fax: option.value.trim()};
+            }
+        }
+        if (input && input.value.trim()) return {name: '', fax: input.value.trim()};
+        var fax = document.querySelector('[name="recipientFaxNumber"]:not([data-carlos-workflow-flag])');
+        var name = document.querySelector('[name="recipient"]:not([data-carlos-workflow-flag])');
+        return {name: name ? name.value : '', fax: fax ? fax.value.trim() : ''};
+    }
+
+    window.carlosEformFax = {ensureInput: ensureInput, recipient: recipient};
+    // Capture runs before ordinary DOMContentLoaded listeners (including jQuery ready), even when
+    // a form registered those listeners before loading this library. Never duplicate an authored id.
+    document.addEventListener('DOMContentLoaded', ensureInput, {capture: true, once: true});
+    ensureInput();
+
+    window.AddOtherFax = function () {
+        var input = ensureInput();
+        var select = document.getElementById('otherFaxSelect');
+        if (input && select && input.value.trim()) {
+            var option = Array.from(select.options).find(item => item.value === input.value.trim());
+            if (!option) {
+                option = new Option(input.value.trim(), input.value.trim());
+                select.add(option);
+            }
+            select.value = option.value;
+            select.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        if (input) input.dispatchEvent(new Event('change', {bubbles: true}));
+        return false;
+    };
+    window.AddOtherFaxProvider = window.AddOtherFax;
+    window.submitFaxButtonAjax = function () {
+        if (typeof window.remoteFax === 'function') window.remoteFax();
+        return false;
+    };
+}());
