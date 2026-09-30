@@ -982,10 +982,15 @@ function positionToolbarAfterForm(wrapper) {
         details.addEventListener('toggle', () => {
             if (!details.open) return;
             const menu = details.querySelector('.eform-options');
-            const left = details.getBoundingClientRect().left;
+            const anchor = details.getBoundingClientRect();
+            const left = anchor.left;
             menu.style.right = 'auto';
             menu.style.left = Math.max(8 - left,
                 Math.min(0, document.documentElement.clientWidth - left - menu.offsetWidth - 8)) + 'px';
+            const above = window.innerHeight - anchor.bottom < menu.offsetHeight
+                && anchor.top >= menu.offsetHeight;
+            menu.style.top = above ? 'auto' : '100%';
+            menu.style.bottom = above ? '100%' : 'auto';
         });
     });
     let queued = false;

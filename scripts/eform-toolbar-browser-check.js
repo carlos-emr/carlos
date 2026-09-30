@@ -195,7 +195,8 @@ const server = http.createServer((req, res) => {
       await page.locator('#'+id+' summary').click();
       await page.waitForFunction(id => {
         const rect = document.querySelector('#'+id+' .eform-options').getBoundingClientRect();
-        return rect.left >= 0 && rect.right <= document.documentElement.clientWidth;
+        return rect.left >= 0 && rect.right <= document.documentElement.clientWidth
+          && rect.top >= 0 && rect.bottom <= window.innerHeight;
       }, id);
       await page.locator('#'+id+' summary').click();
     }
