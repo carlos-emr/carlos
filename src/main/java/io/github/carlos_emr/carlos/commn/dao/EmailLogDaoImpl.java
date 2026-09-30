@@ -219,11 +219,25 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     public int replaceBody(Integer id, String replacement) {
         // Written through the entity so the body is encoded exactly as a send would encode it.
         EmailLog emailLog = entityManager.find(EmailLog.class, id);
-        if (emailLog == null) {
+        if (emailLog == null || emailLog.getBody().equals(replacement)) {
             return 0;
         }
         emailLog.setBody(replacement);
         entityManager.flush();
         return 1;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+    public List<Integer> findIdsByTransactionTypeChangedBetween(EmailLog.TransactionType type, Date changedSince,
+            Date changedBefore) {
+        return entityManager
+                .createQuery("SELECT e.id FROM EmailLog e WHERE e.transactionType = :type "
+                        + "AND e.timestamp >= :changedSince AND e.timestamp < :changedBefore ORDER BY e.id",
+                        Integer.class)
+                .setParameter("type", type)
+                .setParameter("changedSince", changedSince)
+                .setParameter("changedBefore", changedBefore)
+                .getResultList();
     }
 }

@@ -27,6 +27,7 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteCodeSweeper;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.CarlosProperties;
@@ -100,9 +102,23 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
             } catch (Exception e) {
                 logger.error("Error running HRM fixer", e);
             }
+
+            forgetLeftoverPortalInviteCodes();
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
             throw (new RuntimeException(e));
+        }
+    }
+
+    /**
+     * A crash while a patient portal invitation was being sent can leave its code in the saved email; a
+     * crash always ends in this restart, so the leftovers are cleared here. Never stops startup.
+     */
+    private void forgetLeftoverPortalInviteCodes() {
+        try {
+            new PortalInviteCodeSweeper(SpringUtils.getBean(EmailLogDao.class)).forgetLeftoverCodes();
+        } catch (RuntimeException e) {
+            logger.warn("patient portal invitation code sweep failed at startup: {}", e.getClass().getSimpleName());
         }
     }
 

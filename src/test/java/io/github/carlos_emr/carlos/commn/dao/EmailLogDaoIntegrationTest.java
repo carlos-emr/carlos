@@ -98,4 +98,36 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         assertThat(updated.getErrorMessage()).isEmpty();
         assertThat(updated.getTimestamp().getTime()).isEqualTo(completedAt.getTime());
     }
+
+    @Test
+    @DisplayName("should list emails of one transaction type by when they last changed")
+    void shouldFindIds_byTransactionTypeAndLastChange() {
+        long now = System.currentTimeMillis();
+        Date since = new Date(now - 8L * 24 * 60 * 60 * 1000);
+        Date before = new Date(now - 15L * 60 * 1000);
+        Integer idleInvite = persisted(EmailLog.TransactionType.PORTAL_INVITE, new Date(now - 60L * 60 * 1000));
+        Integer busyInvite = persisted(EmailLog.TransactionType.PORTAL_INVITE, new Date(now));
+        Integer expiredInvite = persisted(EmailLog.TransactionType.PORTAL_INVITE,
+                new Date(now - 9L * 24 * 60 * 60 * 1000));
+        Integer otherType = persisted(EmailLog.TransactionType.DIRECT, new Date(now - 60L * 60 * 1000));
+
+        List<Integer> ids = emailLogDao.findIdsByTransactionTypeChangedBetween(
+                EmailLog.TransactionType.PORTAL_INVITE, since, before);
+
+        assertThat(ids).contains(idleInvite).doesNotContain(busyInvite, expiredInvite, otherType);
+    }
+
+    private Integer persisted(EmailLog.TransactionType type, Date timestamp) {
+        EmailLog log = new EmailLog();
+        log.setFromEmail("sweep.sender@example.org");
+        log.setToEmail(new String[] {"sweep.recipient@example.org"});
+        log.setSubject("Sweep window");
+        log.setBody("Body");
+        log.setStatus(EmailLog.EmailStatus.PENDING);
+        log.setTransactionType(type);
+        log.setTimestamp(timestamp);
+        entityManager.persist(log);
+        entityManager.flush();
+        return log.getId();
+    }
 }

@@ -912,6 +912,32 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             verify(emailLogs, org.mockito.Mockito.times(3)).replaceBody(EMAIL_LOG,
                     PortalInviteEmailComposer.CODE_FORGOTTEN);
         }
+
+        @Test
+        @DisplayName("should clear codes earlier attempts left behind before starting a new invitation")
+        void shouldForgetLeftoverCodes_beforeANewInvitation() {
+            int leftover = 88;
+            when(emailLogs.findIdsByTransactionTypeChangedBetween(TransactionType.PORTAL_INVITE,
+                    Date.from(NOW.minus(PortalInviteCodeSweeper.WINDOW)),
+                    Date.from(NOW.minus(PortalInviteDeliveryService.RECOVERY_MIN_AGE)))).thenReturn(List.of(leftover));
+
+            service.invite(user, patient(), staff, emailRequest());
+
+            org.mockito.InOrder order = inOrder(emailLogs, deliveries);
+            order.verify(emailLogs).replaceBody(leftover, PortalInviteEmailComposer.CODE_FORGOTTEN);
+            order.verify(deliveries).claim(any());
+        }
+
+        @Test
+        @DisplayName("should still send the invitation when clearing leftover codes fails")
+        void shouldStillInvite_whenTheSweepFails() {
+            when(emailLogs.findIdsByTransactionTypeChangedBetween(any(), any(Date.class), any(Date.class)))
+                    .thenThrow(new IllegalStateException("database unavailable"));
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.SENT);
+        }
     }
 
     @Nested

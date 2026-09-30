@@ -183,6 +183,7 @@ public class PortalInviteDeliveryService {
     private final PatientPortalInviteDeliveryDao deliveries;
     private final EmailLogDao emailLogs;
     private final Clock clock;
+    private final PortalInviteCodeSweeper codeSweeper;
 
     public PortalInviteDeliveryService(
             PatientPortalService portal,
@@ -212,6 +213,7 @@ public class PortalInviteDeliveryService {
         this.deliveries = deliveries;
         this.emailLogs = emailLogs;
         this.clock = clock;
+        this.codeSweeper = new PortalInviteCodeSweeper(emailLogs, clock);
     }
 
     /**
@@ -344,6 +346,7 @@ public class PortalInviteDeliveryService {
 
     private PatientPortalInviteDelivery deliver(LoggedInInfo user, int demographicNo,
             PortalInviteContact contact, PatientPortalStaffContext staff, EmailData email, Long supersededInviteId) {
+        forgetLeftoverCodes();
         String operationId = OPERATION_PREFIX + UUID.randomUUID();
         PatientPortalInviteDelivery row = deliveries.claim(new PatientPortalInviteDelivery(
                 operationId, demographicNo, portalSettings.clinicId(), portalSettings.baseUrl(),
@@ -913,6 +916,18 @@ public class PortalInviteDeliveryService {
             logger.warn("patient portal invitation could not be withdrawn: kind={}, cause={}", exception.kind(),
                     exception.getCause() == null ? "none" : exception.getCause().getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Clears codes an earlier attempt left in its saved email; see {@link PortalInviteCodeSweeper}. Best
+     * effort: a failed sweep must not stop a new invitation.
+     */
+    private void forgetLeftoverCodes() {
+        try {
+            codeSweeper.forgetLeftoverCodes();
+        } catch (RuntimeException exception) {
+            logger.warn("patient portal invitation code sweep failed: {}", exception.getClass().getSimpleName());
         }
     }
 
