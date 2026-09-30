@@ -48,6 +48,7 @@ import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.EnumSet;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDao;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.AttachmentSelectionAccess;
@@ -158,6 +159,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     DemographicManager demographicManager;
+
+    @Autowired
+    private DemographicDao demographicDao;
 
     @Autowired
     private DocumentManager documentManager;
@@ -556,7 +560,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
         }
         if (patient == null || patient <= 0) throw new IllegalArgumentException("Invalid consultation response patient");
         requirePatientConsultWrite(loggedInInfo, patient, stored == null ? SecurityInfoManager.WRITE : SecurityInfoManager.UPDATE);
-        if (demographicManager.getDemographic(loggedInInfo, patient) == null) {
+        // Existence only: DemographicManager.getDemographic would add its own _demographic read
+        // check and fail with a plain RuntimeException (HTTP 500) after the checks above passed.
+        if (demographicDao.getDemographicById(patient) == null) {
             throw new IllegalArgumentException("Unknown consultation response patient");
         }
 

@@ -114,6 +114,9 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
     private SecurityInfoManager securityInfoManager;
 
     @Mock
+    private io.github.carlos_emr.carlos.commn.dao.DemographicDao demographicDao;
+
+    @Mock
     private io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao routing;
 
     @Mock
@@ -154,6 +157,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         ReflectionTestUtils.setField(service, "consultationManager", consultationManager);
         ReflectionTestUtils.setField(service, "attachmentOwnershipService", attachmentOwnershipService);
         ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+        ReflectionTestUtils.setField(service, "demographicDao", demographicDao);
         ReflectionTestUtils.setField(service, "securityInfoManager", securityInfoManager);
         createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class);
         registerMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class, routing);
@@ -169,6 +173,8 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
         // REST saves verify the owning patient exists before any conversion or write.
         lenient().when(demographicManager.getDemographic(loggedInInfo, DEMOGRAPHIC_NO))
+                .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+        lenient().when(demographicDao.getDemographicById(DEMOGRAPHIC_NO))
                 .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
     }
 
@@ -256,7 +262,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         existing.setDemographicNo(555);
         when(consultationManager.getResponse(loggedInInfo, 789)).thenReturn(existing);
         // The stored patient exists and is accessible, so only the patient change is refused.
-        when(demographicManager.getDemographic(loggedInInfo, 555)).thenReturn(new Demographic());
+        when(demographicDao.getDemographicById(555)).thenReturn(new Demographic());
         ConsultationResponseTo1 data = new ConsultationResponseTo1();
         data.setId(789);
         DemographicTo1 demographic = new DemographicTo1();
@@ -971,7 +977,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         assertThatThrownBy(() -> service.saveResponse(submitted))
                 .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
 
-        verify(demographicManager).getDemographic(loggedInInfo, 4046);
+        verify(demographicDao).getDemographicById(4046);
         verify(consultationManager, never()).saveConsultationResponse(any(), any());
         verify(consultationManager, never()).saveConsultResponseDoc(any(), any());
         org.mockito.Mockito.verifyNoInteractions(routing);
@@ -1000,7 +1006,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
                 .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
 
         assertThat(stored.getPlan()).isEqualTo("original plan");
-        verify(demographicManager, never()).getDemographic(any(), org.mockito.ArgumentMatchers.<Integer>any());
+        verify(demographicDao, never()).getDemographicById(any());
         verify(consultationManager, never()).saveConsultationResponse(any(), any());
         verify(consultationManager, never()).saveConsultResponseDoc(any(), any());
         verify(transaction).rollback(any());
@@ -1043,6 +1049,8 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         verify(consultationManager).saveConsultationResponse(eq(loggedInInfo), saved.capture());
         assertThat(saved.getValue().getDemographicNo()).isEqualTo(DEMOGRAPHIC_NO);
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "w", DEMOGRAPHIC_NO.intValue());
+        // Existence is checked without DemographicManager's extra _demographic read gate.
+        verify(demographicManager, never()).getDemographic(any(), org.mockito.ArgumentMatchers.<Integer>any());
         verify(consultationManager, never()).saveConsultResponseDoc(any(), any());
         verify(transaction).commit(any());
     }
