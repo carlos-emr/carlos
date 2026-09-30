@@ -70,7 +70,7 @@ class PatientPortalServiceUnitTest {
                                 PatientPortalSettings.BASE_URL_KEY,
                                 "https://portal.clinic.example",
                                 PatientPortalSettings.CLINIC_ID_KEY,
-                                "maplecreek",
+                                "clinic-a",
                                 PatientPortalSettings.SERVICE_TOKEN_KEY,
                                 TOKEN,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY,
@@ -116,7 +116,7 @@ class PatientPortalServiceUnitTest {
             JsonNode assertion = assertionPayload(request);
             assertThat(assertion.get("provider_id").asText()).isEqualTo("999998");
             assertThat(assertion.get("provider_name").asText()).isEqualTo("Dr Example");
-            assertThat(assertion.get("clinic_id").asText()).isEqualTo("maplecreek");
+            assertThat(assertion.get("clinic_id").asText()).isEqualTo("clinic-a");
             assertThat(assertion.get("permissions").get(0).asText())
                     .isEqualTo("portal.invite.manage");
             assertThat(header(request, "X-CARLOS-Provider-ID")).isNull();
@@ -150,7 +150,7 @@ class PatientPortalServiceUnitTest {
                     service().buildRequest("GET", INVITE_PATH, null, staff());
 
             assertThat(assertionPayload(request).get("clinic_id").asText())
-                    .isEqualTo("maplecreek");
+                    .isEqualTo("clinic-a");
         }
 
         @Test

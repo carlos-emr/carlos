@@ -89,7 +89,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                 PatientPortalSettings.fromProperties(
                         Map.of(
                                 PatientPortalSettings.BASE_URL_KEY, "https://portal.clinic.example",
-                                PatientPortalSettings.CLINIC_ID_KEY, "maplecreek",
+                                PatientPortalSettings.CLINIC_ID_KEY, "clinic-a",
                                 PatientPortalSettings.SERVICE_TOKEN_KEY, TOKEN,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY,
                                 PortalTestKeys.PRIVATE_KEY,
@@ -120,7 +120,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                     new ScriptedExchange()
                             .reply(
                                     200,
-                                    "{\"id\":5,\"clinic_id\":\"maplecreek\",\"demographic_no\":123,\"locked_at\":null,\"force_password_reset\":true}");
+                                    "{\"id\":5,\"clinic_id\":\"clinic-a\",\"demographic_no\":123,\"locked_at\":null,\"force_password_reset\":true}");
 
             PatientPortalAccountAcknowledgementDto account =
                     service(exchange)
@@ -141,7 +141,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                     new ScriptedExchange()
                             .reply(
                                     200,
-                                    "{\"id\":5,\"clinic_id\":\"maplecreek\",\"demographic_no\":123,"
+                                    "{\"id\":5,\"clinic_id\":\"clinic-a\",\"demographic_no\":123,"
                                             + "\"status\":\"disabled\",\"locked\":true,"
                                             + "\"force_password_reset\":false,"
                                             + "\"disabled_at\":\"2026-08-19T12:00:00Z\","
@@ -315,7 +315,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
     class ContactReviews {
 
         private static final String REVIEW_ITEM =
-                "{\"id\":3,\"clinic_id\":\"maplecreek\",\"demographic_no\":123,"
+                "{\"id\":3,\"clinic_id\":\"clinic-a\",\"demographic_no\":123,"
                         + "\"email_before\":\"old@example.com\",\"email_after\":"
                         + "\"patient@example.com\",\"phone_number_before\":null,"
                         + "\"phone_number_after\":null,\"requested_at\":\"2026-08-19T12:00:00Z\","
