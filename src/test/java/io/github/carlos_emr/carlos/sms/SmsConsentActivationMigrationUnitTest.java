@@ -31,7 +31,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,6 +43,8 @@ import org.h2.tools.RunScript;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,8 +52,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * The migration that turns the SMS consent type on with its approved wording (#3848). It runs the real
  * migration file on H2 against the rows a clinic could have, and checks that its guard names exactly the
  * draft the seeding migration wrote: a guard that differed by one character would silently change nothing.
- * H2 compares text exactly, while MariaDB's collation ignores letter case and spaces at the end, so this
- * checks the stricter case.
+ * H2 compares text exactly, while MariaDB's collation ignores letter case and spaces at the end. That makes
+ * the switch-on cases stricter here than on MariaDB; the stay-off values used (a missing, NULL, blank or
+ * other value) behave the same under either comparison.
  *
  * @since 2026-09-30
  */
@@ -58,6 +63,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SmsConsentActivationMigrationUnitTest {
     private static final Path COMMON_MIGRATIONS = Path.of("database", "mysql", "migration", "common");
     private static final String TYPE = "sms_communication_consent";
+    // Gives each parameterized case a database of its own.
+    private static final AtomicInteger NEXT_DATABASE = new AtomicInteger();
     /** The seeding migration's description: the third value of its consentType insert. */
     private static final Pattern SEEDED_DESCRIPTION = Pattern.compile(
             "SELECT\\s+'sms_communication_consent'\\s*,\\s*'[^']*'\\s*,\\s*'([^']*)'", Pattern.CASE_INSENSITIVE);
@@ -129,35 +136,51 @@ class SmsConsentActivationMigrationUnitTest {
         }
     }
 
-    @Test
-    @DisplayName("keeps SMS consent off where the clinic cleared, blanked or repointed the sms_communication setting")
-    void shouldStayOff_whenClinicTurnedSmsConsentOffThroughTheProperty() throws Exception {
-        // Each case is one clinic: its sms_communication rows, in the order they are inserted.
-        List<List<String>> clinics = List.of(
+    /** Each is one clinic's sms_communication rows, in the order they are inserted. */
+    static List<List<String>> clinicsThatTurnedSmsConsentOff() {
+        return List.of(
                 List.of(),                                   // row deleted
-                java.util.Arrays.asList((String) null),      // value cleared to NULL
+                Arrays.asList((String) null),                // value cleared to NULL
                 List.of(""),                                 // value blank
                 List.of("electronic_communication_consent"), // repointed to another type
-                List.of(TYPE, ""));                          // one row still points, another was cleared
-        int clinic = 0;
-        for (List<String> values : clinics) {
-            try (Connection connection = database("sms_consent_off_" + clinic++);
-                 Statement statement = connection.createStatement()) {
-                insert(statement, TYPE, seededDraft(), 0);
-                for (String value : values) {
-                    property(statement, value);
-                }
+                List.of(TYPE, ""),                           // one row still points, another was blanked
+                Arrays.asList(TYPE, null));                  // one row still points, another was cleared to NULL
+    }
 
-                applyActivation(connection);
-
-                assertThat(row(statement, TYPE)).as("sms_communication rows %s", values)
-                        .containsExactly(seededDraft(), "0");
+    @ParameterizedTest(name = "sms_communication rows {0}")
+    @MethodSource("clinicsThatTurnedSmsConsentOff")
+    @DisplayName("keeps SMS consent off, with the approved wording, where the clinic turned it off through the setting")
+    void shouldStayOff_whenClinicTurnedSmsConsentOffThroughTheProperty(List<String> values) throws Exception {
+        try (Connection connection = database("sms_consent_off_" + NEXT_DATABASE.incrementAndGet());
+             Statement statement = connection.createStatement()) {
+            insert(statement, TYPE, seededDraft(), 0);
+            for (String value : values) {
+                property(statement, value);
             }
+
+            applyActivation(connection);
+
+            // The draft is replaced, since it is never the clinic's own wording; the type stays off.
+            assertThat(row(statement, TYPE)).containsExactly(approvedWording(), "0");
         }
     }
 
     @Test
-    @DisplayName("reads the sms_communication setting the way the app does, ignoring spaces around the value")
+    @DisplayName("replaces the draft but leaves the type on where a clinic switched it on by hand and later cleared the setting")
+    void shouldKeepTypeOn_whenSwitchedOnByHandAndSettingCleared() throws Exception {
+        try (Connection connection = database("sms_consent_on_cleared");
+             Statement statement = connection.createStatement()) {
+            insert(statement, TYPE, seededDraft(), 1);
+            property(statement, "");
+
+            applyActivation(connection);
+
+            assertThat(row(statement, TYPE)).containsExactly(approvedWording(), "1");
+        }
+    }
+
+    @Test
+    @DisplayName("switches the type on when the sms_communication value has spaces around it")
     void shouldActivate_whenPropertyValueHasSurroundingSpaces() throws Exception {
         try (Connection connection = database("sms_consent_spaces"); Statement statement = connection.createStatement()) {
             insert(statement, TYPE, seededDraft(), 0);

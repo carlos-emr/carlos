@@ -141,8 +141,9 @@ for pattern in add_sms_consent activate_sms_consent; do
     $SQL carlos < "$f"
   done
 done
-# The activation only applies while the description is the seeded draft. If the demo data
-# ever brings its own wording, say so loudly rather than leave developers with SMS blocked.
+# The activation switches the type on only while the description is the seeded draft and
+# sms_communication points at the type. If the demo data ever changes either, say so loudly
+# rather than leave developers with SMS blocked.
 SMS_CONSENT_ACTIVE=$($SQL -N carlos -e "SELECT COUNT(*) FROM consentType WHERE type = 'sms_communication_consent' AND active = 1;")
 if [ "${SMS_CONSENT_ACTIVE}" != "1" ]; then
   echo "WARNING: the SMS consent type is not active after the reload; every patient SMS will be blocked as SMS_CONSENT_NOT_CONFIGURED" >&2
