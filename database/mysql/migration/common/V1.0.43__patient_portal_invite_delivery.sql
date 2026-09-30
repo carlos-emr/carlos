@@ -17,6 +17,9 @@
 -- outcome is a code (PatientPortalInviteDelivery.Outcome), not prose, so the staff page can explain
 -- it in the reader's language. revoke_failed records that an unused code could not be withdrawn on
 -- the portal and will expire on its own.
+--
+-- email_log_id is indexed because Manage Emails asks, per invitation email, whether its delivery is
+-- still open: only then does the invitation workflow, not manual resolution, own the outbox row.
 CREATE TABLE IF NOT EXISTS patient_portal_invite_delivery (
   id BIGINT NOT NULL AUTO_INCREMENT,
   delivery_operation_id VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
@@ -38,8 +41,9 @@ CREATE TABLE IF NOT EXISTS patient_portal_invite_delivery (
   PRIMARY KEY (id),
   UNIQUE KEY ppid_operation_uidx (delivery_operation_id),
   KEY ppid_demographic_created_idx (demographic_no, created_at),
-  KEY ppid_portal_invite_idx (portal_invite_id)
-);
+  KEY ppid_portal_invite_idx (portal_invite_id),
+  KEY ppid_email_log_idx (email_log_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Let the `doctor` role invite patients.
 --
