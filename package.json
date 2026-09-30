@@ -78,6 +78,7 @@
     "test:eform-apcache-renderer-playwright": "node scripts/eform-apcache-renderer-playwright-checks.js",
     "test:eform-rtl-attachment-routes-playwright": "node scripts/eform-rtl-attachment-routes-playwright-checks.js",
     "test:eform-rtl-attachment-behavior-playwright": "node scripts/eform-rtl-attachment-behavior-playwright-checks.js",
+    "test:eform-subject-preservation-playwright": "node scripts/eform-subject-preservation-playwright-checks.js",
     "test:eform-rtl-attachment-types-playwright": "node scripts/eform-rtl-attachment-types-playwright-checks.js",
     "test:eform-rtl-attachment-pdf-playwright": "node scripts/eform-rtl-attachment-pdf-playwright-checks.js",
     "test:eform-rtl-print-pdf-playwright": "node scripts/eform-rtl-print-pdf-playwright-checks.js",

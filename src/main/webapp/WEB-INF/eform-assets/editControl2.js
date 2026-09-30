@@ -519,7 +519,15 @@ function existsTemplate(template) {
 function setLetterTemplateSubject(template, preserveExisting) {
     var subject = document.getElementById('subject');
     if (!subject || (preserveExisting && subject.value !== '')) { return; }
-    subject.value = template === 'blank.rtl' ? '' : template.substring(0, template.lastIndexOf('.'));
+    var templateSubject = template === 'blank.rtl' ? '' : template.substring(0, template.lastIndexOf('.'));
+    if (preserveExisting) {
+        // The default template loads only after the template catalog request completes, so a
+        // subject may already have been typed into the floating toolbar, which is copied into
+        // this field only at save time. Neither overwrite it nor echo an unchanged value back.
+        var toolbarSubject = document.getElementById('remote_eform_subject');
+        if ((toolbarSubject && toolbarSubject.value !== '') || templateSubject === subject.value) { return; }
+    }
+    subject.value = templateSubject;
     // The floating toolbar listens for input, including programmatic template changes.
     // Older engines this asset still declares support for have no Event constructor.
     var inputEvent;

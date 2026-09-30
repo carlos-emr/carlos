@@ -812,15 +812,15 @@ function remoteClose() {
  */
 function moveSubject() {
     let remoteSubject = document.getElementById("remote_eform_subject");
-    let remoteSubjectValue;
-
-    if (remoteSubject) {
-        remoteSubjectValue = remoteSubject.value;
+    // No toolbar input (its fragment failed to load, or a save ran before it arrived) means there
+    // is no toolbar value to copy: keep the form's own subject rather than writing "undefined".
+    if (!remoteSubject) {
+        return;
     }
 
     let localSubject = document.forms[0].elements["subject"];
     if (localSubject) {
-        localSubject.value = remoteSubjectValue;
+        localSubject.value = remoteSubject.value;
     }
 }
 

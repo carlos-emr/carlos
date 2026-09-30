@@ -167,7 +167,9 @@
     eForm.addHiddenInputElement("demographicNo", eForm.getDemographicNo());
     eForm.addHiddenInputElement("fdid", fdid);
     eForm.addHiddenInputElement("fid", eForm.getFid());
-    eForm.ensureSubjectInput();
+    // Saved instance: supply its persisted subject. Admin preview (fid branch): the form was loaded
+    // from the catalog, whose subject is the template's description rather than a letter subject.
+    eForm.ensureSubjectInput(fid == null ? eForm.getFormSubject() : "");
 
     // Add EForm error message
     eForm.addHiddenInputElement("error", request.getParameter("error") != null ? request.getParameter("error") : (String) request.getAttribute("error"));

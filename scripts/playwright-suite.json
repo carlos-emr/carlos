@@ -975,6 +975,21 @@
       ]
     },
     {
+      "name": "eform-subject-preservation",
+      "script": "scripts/eform-subject-preservation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SUBJECT_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
       "name": "eform-rtl-attachment-pdf",
       "script": "scripts/eform-rtl-attachment-pdf-playwright-checks.js",
       "tiers": [
