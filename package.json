@@ -194,6 +194,7 @@
     "test:health-care-team-playwright": "node scripts/health-care-team-playwright-checks.js",
     "test:hrm-window-browser": "node scripts/hrm-window-playwright-checks.js",
     "test:lab-upload-rollback-playwright": "node scripts/lab-upload-rollback-playwright-checks.js",
+    "test:lab-upload-signed-feed-playwright": "node scripts/lab-upload-signed-feed-playwright-checks.js",
     "test:demographic-label-content-playwright": "node scripts/demographic-label-content-playwright-checks.js",
     "test:demographic-gates-playwright": "node scripts/demographic-gates-playwright-checks.js",
     "test:echart-lock-lifecycle-playwright": "node scripts/echart-lock-lifecycle-playwright-checks.js",

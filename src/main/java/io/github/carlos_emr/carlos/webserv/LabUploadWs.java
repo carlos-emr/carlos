@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.cxf.annotations.GZIP;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.enumerator.LabType;
@@ -51,11 +50,15 @@ import jakarta.jws.WebService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Date;
+import java.util.concurrent.atomic.AtomicBoolean;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -265,18 +268,38 @@ public class LabUploadWs extends AbstractWs {
      * Commits document metadata and routing together for the SOAP document endpoints. A rejected
      * parse rolls everything back and activates the FHIR handler's generated-PDF cleanup.
      * Preserves the existing document endpoints' response and duplicate-delivery semantics.
+     *
+     * <p>The file the endpoint saved is removed whenever no committed row can reference it: an
+     * unknown handler, a transaction that never ran the parse, or a confirmed rollback. A commit,
+     * or a commit whose outcome is unknown, keeps it.</p>
      */
-    private String parseDocument(LoggedInInfo info, String type, String provider, String filePath, String ipAddr) {
+    private String parseDocument(LoggedInInfo info, String type, String provider, String filePath, String ipAddr)
+            throws IOException {
+        File documentDir = PathValidationUtils.getRequiredDocumentDirectory();
+        File saved = PathValidationUtils.validateExistingPath(filePath, documentDir);
         MessageHandler handler = HandlerClassFactory.getHandler(type);
-        if (handler == null) return null;
+        if (handler == null) {
+            FileUploadCheck.discardUnreferenced(saved, documentDir);
+            return null;
+        }
         TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        return transaction.execute(status -> {
-            String parsed = handler.parse(info, provider, filePath, 0, ipAddr);
-            if (parsed == null) status.setRollbackOnly();
-            return parsed;
-        });
+        AtomicBoolean parseRan = new AtomicBoolean();
+        try {
+            return transaction.execute(status -> {
+                parseRan.set(true);
+                FileUploadCheck.discardOnRollback(saved, documentDir);
+                String parsed = handler.parse(info, provider, filePath, 0, ipAddr);
+                if (parsed == null) status.setRollbackOnly();
+                return parsed;
+            });
+        } catch (RuntimeException | Error failure) {
+            if (!parseRan.get()) {
+                FileUploadCheck.discardUnreferenced(saved, documentDir);
+            }
+            throw failure;
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: request filename is validated for directory containment via PathValidationUtils before use
@@ -326,17 +349,34 @@ public class LabUploadWs extends AbstractWs {
         }
 
         // Save a copy of the lab locally. This is done to mimic the manual lab
-        // upload process.
-        FileUtils.writeStringToFile(labFile, labContent);
+        // upload process. CREATE_NEW, like the other lab savers: the name is only millisecond-unique,
+        // and this upload may later delete the file, so it must never be another upload's.
+        // Default charset, as FileUtils.writeStringToFile(File, String) wrote it before.
+        if (labContent == null) {
+            throw new IllegalArgumentException("Lab content cannot be null");
+        }
+        try {
+            Files.writeString(labFile.toPath(), labContent, Charset.defaultCharset(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        } catch (FileAlreadyExistsException nameCollision) {
+            // The file belongs to a concurrent upload; leave it untouched.
+            throw new IOException("Generated lab upload name is already in use");
+        } catch (IOException | RuntimeException writeFailure) {
+            FileUploadCheck.discardUnreferenced(labFile, labFolder);
+            throw writeFailure;
+        }
 
         // The checksum must commit with all parser writes, including document routing.
         MessageHandler msgHandler = HandlerClassFactory.getHandler(labType.name());
         if (msgHandler == null) {
+            FileUploadCheck.discardUnreferenced(labFile, labFolder);
             throw new ParseException("Unsupported lab type", 0);
         }
+        // The saved copy is removed for a duplicate, a failed lookup or a rolled-back store, so a
+        // sender's retries do not each leave an orphan in the labs folder.
         java.util.concurrent.atomic.AtomicReference<String> audit = new java.util.concurrent.atomic.AtomicReference<>();
-        FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeIfNew(sanitizedFileName,
-                () -> new FileInputStream(labFile), oscarProviderNo, checksumId -> {
+        FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeSavedFileIfNew(labFile, labFolder,
+                sanitizedFileName, oscarProviderNo, checksumId -> {
                     audit.set(msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
                             labFile.getPath(), checksumId, ipAddr));
                     if (audit.get() == null) {

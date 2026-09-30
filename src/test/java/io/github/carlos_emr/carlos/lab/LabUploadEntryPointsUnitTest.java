@@ -93,27 +93,85 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRollBackAndReportFailure_whenSignedFeedParserRejects() throws Exception {
-        runSignedFeed();
+        Path saved = runSignedFeed(true);
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(request.getAttribute("outcome")).isEqualTo("upload failed");
         assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(saved).doesNotExist();
     }
 
     @Test
     void shouldReportServerFailureInsteadOfDuplicate_whenSignedFeedLookupFails() throws Exception {
         when(dao.findByMd5Sum(anyString())).thenThrow(new IllegalStateException("synthetic failure"));
-        runSignedFeed();
+        Path saved = runSignedFeed(true);
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(request.getAttribute("outcome")).isEqualTo("exception");
         verifyNoInteractions(handler);
+        assertThat(saved).doesNotExist();
     }
 
     @Test
     void shouldReportConflictWithoutParsing_whenSignedFeedIsDuplicate() throws Exception {
         when(dao.findByMd5Sum(anyString())).thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()));
-        runSignedFeed();
+        Path saved = runSignedFeed(true);
         assertThat(response.getStatus()).isEqualTo(409);
         verifyNoInteractions(handler);
+        // The duplicate's decrypted copy is not left in DOCUMENT_DIR.
+        assertThat(saved).doesNotExist();
+    }
+
+    @Test
+    void shouldAcceptRetry_whenFirstSignedFeedUploadFailedReadingTheLab() throws Exception {
+        // #4086: the first attempt fails after its checksum was recorded (e.g. DOCUMENT_DIR briefly
+        // unavailable). The checksum must roll back so the sender's retry is stored, not answered 409.
+        java.util.Set<String> committed = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        java.util.Set<String> pending = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        doAnswer(invocation -> {
+            io.github.carlos_emr.carlos.commn.model.FileUploadCheck row = invocation.getArgument(0);
+            row.setId(1);
+            pending.add(row.getMd5sum());
+            return null;
+        }).when(dao).persist(any());
+        when(dao.findByMd5Sum(anyString())).thenAnswer(invocation ->
+                committed.contains(invocation.<String>getArgument(0))
+                        ? List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()) : List.of());
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString()))
+                .thenThrow(new IllegalStateException("document folder unavailable"))
+                .thenAnswer(invocation -> {
+                    committed.addAll(pending);
+                    return "synthetic audit";
+                });
+
+        Path first = runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(first).doesNotExist();
+
+        response = new MockHttpServletResponse();
+        pending.clear();
+        Path retry = runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute("outcome")).isEqualTo("uploaded");
+        assertThat(retry).exists();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isEqualTo(1);
+    }
+
+    @Test
+    void shouldKeepSavedFile_whenSignedFeedIsStored() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenReturn(List.of());
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("synthetic audit");
+        Path saved = runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute("audit")).isEqualTo("synthetic audit");
+        assertThat(saved).exists();
+    }
+
+    @Test
+    void shouldRemoveDecryptedCopy_whenSignedFeedSignatureFails() throws Exception {
+        Path saved = runSignedFeed(false);
+        assertThat(response.getStatus()).isEqualTo(406);
+        verifyNoInteractions(handler, dao);
+        assertThat(saved).doesNotExist();
     }
 
     @Test
@@ -137,7 +195,8 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
         assertThat(transactions.commits).isZero();
     }
 
-    private void runSignedFeed() throws Exception {
+    /** Runs the signed feed on a saved copy in {@code root} (standing in for DOCUMENT_DIR) and returns that copy. */
+    private Path runSignedFeed(boolean signatureValid) throws Exception {
         Path file = Files.writeString(root.resolve("synthetic.hl7"), "SYNTHETIC");
         request.setParameter("service", "synthetic");
         request.setParameter("key", "test");
@@ -155,18 +214,21 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
             InputStream encrypted = spy(new java.io.ByteArrayInputStream("SYNTHETIC".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(file.toFile())).thenReturn(encrypted);
             paths.when(() -> PathValidationUtils.validateExistingDocumentPath(file.toString())).thenReturn(file.toFile());
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(root.toFile());
+            paths.when(() -> PathValidationUtils.validateExistingPath(file.toFile(), root.toFile())).thenReturn(file.toFile());
             utilities.when(() -> Utilities.saveFile(any(InputStream.class), anyString())).thenReturn(file.toString());
             handlers.when(() -> HandlerClassFactory.getHandler("CML")).thenReturn(handler);
             feed.when(() -> LabUpload2Action.getClientInfo("synthetic")).thenReturn(new ArrayList<>(List.of(key, "CML")));
             feed.when(() -> LabUpload2Action.decryptMessage(any(InputStream.class), eq("test"), eq(key)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
-            feed.when(() -> LabUpload2Action.validateSignature(key, "test", file.toFile())).thenReturn(true);
+            feed.when(() -> LabUpload2Action.validateSignature(key, "test", file.toFile())).thenReturn(signatureValid);
             LabUpload2Action action = new LabUpload2Action();
             action.setImportFile(file.toFile());
             action.execute();
             paths.verify(() -> PathValidationUtils.openValidatedUploadInputStream(file.toFile()));
             verify(encrypted, atLeastOnce()).close();
         }
+        return file;
     }
 
     private SubmitLabByForm2Action runManualForm(boolean failRouting) throws Exception {

@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.lab.ca.all.web;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.text.SimpleDateFormat;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -216,12 +215,14 @@ public class SubmitLabByForm2Action extends ActionSupport {
 
         MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
         if (msgHandler == null) {
+            FileUploadCheck.discardUnreferenced(file, uploadDir);
             addActionError(getText("oscarMDS.createLab.submitError"));
             return manage();
         }
         try {
-            FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeIfNew(file.getName(),
-                    () -> new FileInputStream(file), providerNo, checksumId -> {
+            // The generated HL7 file is removed unless the stored lab may reference it.
+            FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeSavedFileIfNew(file, uploadDir,
+                    file.getName(), providerNo, checksumId -> {
                         String parsed = msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
                                 file.getPath(), checksumId, ipAddr);
                         Integer labNo = msgHandler.getLastLabNo();

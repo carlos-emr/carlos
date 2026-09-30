@@ -150,7 +150,6 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(parsers.constructed()).hasSize(1);
             verify(parsers.constructed().get(0)).save(database);
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")));
-            checksums.verify(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), anyString()), never());
             assertThat(transactions.commits).isEqualTo(1);
             assertThat(transactions.rollbacks).isZero();
             // The parser's reader over the archived lab must not leak a file handle.
@@ -189,6 +188,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(transactions.begun).isEqualTo(1);
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), anyString()), never());
             jdbc.verifyNoInteractions();
+            // #4086: the duplicate's archived copy is not left behind.
+            assertArchiveEmpty(documentDir);
         }
     }
 
@@ -212,6 +213,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(parsers.constructed()).isEmpty();
             assertThat(transactions.begun).isEqualTo(1);
             jdbc.verifyNoInteractions();
+            assertArchiveEmpty(documentDir);
         }
     }
 
@@ -238,6 +240,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(transactions.commits).isZero();
             verify(parsers.constructed().get(0), never()).save(any());
             jdbc.verifyNoInteractions();
+            assertArchiveEmpty(documentDir);
         }
     }
 
@@ -270,6 +273,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(transactions.rollbacks).isEqualTo(1);
             assertThat(transactions.commits).isZero();
             verify(database).close();
+            assertArchiveEmpty(documentDir);
         }
     }
 
@@ -292,6 +296,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), anyString()), never());
             assertThat(parsers.constructed()).isEmpty();
             jdbc.verifyNoInteractions();
+            assertArchiveEmpty(documentDir);
         }
     }
 
@@ -318,6 +323,16 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("outcome")).isEqualTo("exception");
             verify(parsers.constructed().get(0)).save(database);
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")));
+            // The lab may have committed and reference its archive, so the archive is kept.
+            try (var children = Files.list(documentDir)) {
+                assertThat(children.toList()).hasSize(1);
+            }
+        }
+    }
+
+    private static void assertArchiveEmpty(Path documentDir) throws IOException {
+        try (var children = Files.list(documentDir)) {
+            assertThat(children.toList()).isEmpty();
         }
     }
 
