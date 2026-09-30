@@ -32,6 +32,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -47,6 +48,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * The migration that turns the SMS consent type on with its approved wording (#3848). It runs the real
  * migration file on H2 against the rows a clinic could have, and checks that its guard names exactly the
  * draft the seeding migration wrote: a guard that differed by one character would silently change nothing.
+ * H2 compares text exactly, while MariaDB's collation ignores letter case and spaces at the end, so this
+ * checks the stricter case.
+ *
+ * @since 2026-09-30
  */
 @DisplayName("SMS consent activation migration")
 @Tag("unit")
@@ -63,7 +68,7 @@ class SmsConsentActivationMigrationUnitTest {
     private static final String CLINIC_WORDING = "This patient agreed to appointment texts. Wording set by the clinic.";
 
     @Test
-    @DisplayName("guards on exactly the draft the seeding migration wrote, and replaces it with shorter-than-column wording")
+    @DisplayName("guards on exactly the draft the seeding migration wrote, and replaces it with wording that fits the column")
     void shouldGuardOnSeededDraft_andFitTheColumn() throws IOException {
         String seeded = only(SEEDED_DESCRIPTION, sql(migration("add_sms_consent")));
         String activation = sql(migration("activate_sms_consent"));
@@ -72,7 +77,7 @@ class SmsConsentActivationMigrationUnitTest {
         String approved = only(APPROVED_DESCRIPTION, activation);
         assertThat(approved).isNotEqualTo(seeded).hasSizeLessThanOrEqualTo(500);
         // Consent is recorded for the patient, not for one number, until #2674, so the wording must not claim one.
-        assertThat(approved.toLowerCase()).doesNotContain("number", "mobile");
+        assertThat(approved.toLowerCase(Locale.ROOT)).doesNotContain("number", "mobile");
     }
 
     @Test

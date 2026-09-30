@@ -141,10 +141,17 @@ for pattern in add_sms_consent activate_sms_consent; do
     $SQL carlos < "$f"
   done
 done
+# The activation only applies while the description is the seeded draft. If the demo data
+# ever brings its own wording, say so loudly rather than leave developers with SMS blocked.
+SMS_CONSENT_ACTIVE=$($SQL -N carlos -e "SELECT COUNT(*) FROM consentType WHERE type = 'sms_communication_consent' AND active = 1;")
+if [ "${SMS_CONSENT_ACTIVE}" != "1" ]; then
+  echo "WARNING: the SMS consent type is not active after the reload; every patient SMS will be blocked as SMS_CONSENT_NOT_CONFIGURED" >&2
+fi
 # The consent section on the patient add, edit and view pages only renders with both
 # privateConsentEnabled=true and USE_NEW_PATIENT_CONSENT_MODULE=true (the module's
 # block is nested inside the privateConsentEnabled one). The devcontainer's
 # carlos.properties turns both off; flip both there to record or see the consent.
+
 # Administration fixtures for the data-backed Administration screens the demo
 # snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
 # (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only

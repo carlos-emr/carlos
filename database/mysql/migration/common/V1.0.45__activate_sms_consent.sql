@@ -2,9 +2,10 @@
 --
 -- The SMS consent migration (add_sms_consent) seeded sms_communication_consent inactive, with a
 -- draft description awaiting compliance review. This sets the approved description and
--- active = 1 in one statement, so no clinic records SMS consent against the draft.
+-- active = 1 in one statement, so the type is never switched on with the draft wording.
 --
--- It only changes the row while its description is still exactly the seeded draft. A clinic
+-- It only changes the row while its description is still the seeded draft (compared the way
+-- the column's collation compares text: ignoring letter case and spaces at the end). A clinic
 -- that has already written its own wording keeps it, and keeps its own active setting. Running
 -- it again changes nothing.
 --
