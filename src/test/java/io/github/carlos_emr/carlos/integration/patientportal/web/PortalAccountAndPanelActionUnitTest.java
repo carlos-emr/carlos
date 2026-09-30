@@ -581,7 +581,7 @@ class PortalAccountAndPanelActionUnitTest {
 
         private PatientPortalAccountDto account() {
             return new PatientPortalAccountDto(
-                    5L, "maplecreek", DEMOGRAPHIC_NO, "active", false, false, null, null);
+                    5L, "clinic-a", DEMOGRAPHIC_NO, "active", false, false, null, null);
         }
 
         private PortalPanel2Action panelWithDeliveries() {
