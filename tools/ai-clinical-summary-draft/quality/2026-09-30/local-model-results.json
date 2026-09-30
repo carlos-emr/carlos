@@ -1,11 +1,47 @@
 {
-  "status": "partial",
+  "status": "completed",
   "identity": {
     "model": "qwen3.5:2b",
     "digest": "324d162be6ca5629ae4517c8710434d0bd2d665bc94dbad46e9af8fbf8a2f0df",
     "version": "0.35.0"
   },
+  "engine": "llama.cpp b11081; CPU build with AVX2/FMA/F16C/SSE4.2",
+  "options": {
+    "temperature": 0,
+    "num_ctx": 16384,
+    "num_predict": 4096,
+    "num_thread": 4
+  },
+  "thinkingEnabled": false,
+  "promptSha256": "b59db391a58725dd93a44b81b93966072b02816048487631adac4dfb9fad4b5a",
+  "completedModelCalls": 2,
+  "interruptedGenericCpuAttempt": 1,
+  "paidApiCalls": 0,
   "results": [
+    {
+      "documentId": 43,
+      "words": 4537,
+      "sourceSha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+      "returnedProposals": 1,
+      "exactSourceQuotations": 1,
+      "batchAccepted": true,
+      "reviewableProposals": 1,
+      "validationError": null,
+      "history": 1,
+      "reminders": 0,
+      "inputTokens": 8834,
+      "outputTokens": 185,
+      "modelSeconds": 1499.469,
+      "finishReason": "stop",
+      "output": {
+        "proposals": [
+          {
+            "kind": "history",
+            "evidence": "=== Source note 1 | 2026-01-02 ===\nPatient Philip Paul Cook, a 49-year-old male, arrived via A&E at 21: 15 on 02/01/26 with a chief complaint of acute confusion after a minor fall. Assessed by Nurse Dawn Yvonne Gibbs. GCS scored at 14/15, with mild disorientation noted. Past medical history includes HTN and mild osteoarthritis. No allergies reported. Triage category assigned as Category 2 - Emergency (requires rapid assessment and treatment within 10 minutes). Decision made to proceed with initialtriage and neurological observation.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z"
+          }
+        ]
+      }
+    },
     {
       "documentId": 44,
       "words": 561,
@@ -30,9 +66,5 @@
         ]
       }
     }
-  ],
-  "pendingDocumentIds": [
-    43
-  ],
-  "paidApiCalls": 0
+  ]
 }

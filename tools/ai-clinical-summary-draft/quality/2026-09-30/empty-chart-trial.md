@@ -1,9 +1,53 @@
 # Empty-chart trial — September 30, 2026
 
-The test chart and documents are ready in the isolated morning CARLOS instance at
-<http://localhost:8082/carlos/>. **The model suggestion count is not available.**
-Both generation attempts were rejected by the currently configured fixed gateway;
-this is not a valid result of zero suggestions.
+## Live result
+
+A real **Qwen 3.5 2B** model is now connected through local Ollama in the isolated
+morning trial at <http://localhost:8082/carlos/>. The live run completed with these
+results; the chart remained empty and nothing was approved:
+
+| Document | Words | Returned by model | Passed source validation | Types returned | Model time |
+| --- | ---: | ---: | ---: | --- | --- |
+| 43: all 37 notes | 4,537 | 1 | 1 | 1 history, 0 reminders | 1,499.5 seconds |
+| 44: longest note | 561 | 1 | 0 | 1 history, 0 reminders | 73.4 seconds |
+
+The large-file suggestion is an exact quotation of the entire first triage note,
+including its separator and staff details. It does not separate individual facts
+or cover later notes. For example, the document explicitly records a subdural
+hygroma and requests neurology follow-up in two weeks and GP follow-up in seven
+days, but the model proposed none of these. The 20-proposal ceiling was not reached.
+Passing quotation checks does not establish useful categorization or completeness.
+
+The smaller-file suggestion rewrote and joined source lines, including changing
+`pprogressive` to `progressive`, so the whole proposal failed exact-source
+validation and never appeared as an approvable card. These are extraction-quality
+failures, not missing connectivity. This local model has not passed the intended
+workflow's quality bar. The hosted model configuration is still absent; this is
+not a test of the earlier hosted Qwen 27B configuration.
+
+See the [complete model outputs and metadata](local-model-results.json),
+[real browser result](local-model-browser-result.json), and
+[large-file modal screenshot](local-model-large-modal.png).
+The browser verified original/extracted text, the empty comparison panel, source
+highlighting, unchecked approvals, unchanged record counts, Back/Close navigation
+and released editing locks. It exits 2 because the smaller document's generation
+was rejected. No paid API calls were made. Two model calls completed; an earlier
+large-file attempt was stopped while correcting a generic CPU build to use AVX2.
+The reported times are observations on a busy shared CPU, not controlled benchmarks.
+
+The [cached browser rerun](local-model-cached-browser-result.json) displayed the
+large-file result in about 1.0 seconds without another model call.
+Both outputs are cached, including the rejected output. Reopening the same source
+uses that response without another inference call. No application validation or
+approval guard was relaxed. Twelve focused gateway/contract tests and CI on the
+connection/test checkpoint passed; these do not imply that the model's clinical
+extraction quality passed.
+
+## Initial fixed-gateway attempt
+
+The chart and attachments were prepared before the live model was available.
+At that stage both generation attempts were rejected by the fixed gateway; their
+unavailable counts below are historical and are not valid zero-suggestion results.
 
 Search for **FAKE-EMPTY-CHART**, chart **AIFACT005**, patient **3051**. Open eChart,
 choose **Review chart updates**, then choose a document:
@@ -26,9 +70,9 @@ Close retained the parent eChart and tab count. The editing lock was released.
 The [machine-readable result](empty-chart-result.json) records both failures and
 baseline/final counts. Screenshots are in the local ignored trial browser folder.
 
-## What prevents the count
+## What prevented the initial count
 
-The live gateway configuration at the Git common directory's
+The hosted gateway configuration at the Git common directory's
 `ai-summary-runtime/openrouter/config.json` is absent. No model was listening on
 local ports 11434, 11436 or 11437. Port 11438 is the fixed NHS integration gateway;
 it recognizes only the three earlier documents and always returns three manually
@@ -63,8 +107,8 @@ CHART_EMPTY_FIXTURE=target/nhs-chart-update-morning/empty-chart-fixture.json \
 The runner records a generation failure as `proposals: null` and exits 2 when the
 model cannot generate. It never approves changes; it requires an empty chart.
 When generation succeeds, it counts history/reminder cards and checks source
-highlighting through every modal step. That success path has not been exercised
-in this trial.
+highlighting through every modal step. The large-document live run exercised this path; the smaller document exercised
+rejection.
 
 `browser/prepare_empty_chart.py` (relative to the prototype directory) recreates
 these two documents and the empty patient in a fresh morning database copy. Run
@@ -106,6 +150,20 @@ The isolated trial uses HTTP port 11439, request budget 50,000 bytes, timeout
 1,800 seconds and agent label `Qwen 3.5 2B - local model (cached)`. Only its private
 configuration and Tomcat are changed. The earlier fixed gateway remains available
 on 11438. The local model uses 16,384 context tokens, 4,096 output tokens,
-temperature zero, thinking disabled and four CPU threads. Twelve focused gateway
-and proposal-contract tests pass. Live generation results will be recorded after
-the model download and browser trial complete.
+temperature zero, thinking disabled and four CPU threads. Ollama is version 0.35.0;
+its CPU engine was built from the matching release's llama.cpp b11081 with
+AVX2/FMA/F16C/SSE4.2 enabled. No production application code changed for this trial.
+
+The prepared runtime is local to the trial directory, rather than installed on
+PATH. To restart it after stopping its existing process:
+
+```sh
+TRIAL_MODEL="$PWD/target/nhs-chart-update-morning/local-model"
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 \
+  OLLAMA_MODELS="$TRIAL_MODEL/models" OLLAMA_NUM_PARALLEL=1 \
+  OLLAMA_MAX_LOADED_MODELS=1 OLLAMA_MAX_QUEUE=1 \
+  "$TRIAL_MODEL/bin/ollama" serve
+```
+
+Model weights, compiled binaries, private configuration and cache stay outside Git.
+The synthetic model outputs and trial evidence are committed for review.
