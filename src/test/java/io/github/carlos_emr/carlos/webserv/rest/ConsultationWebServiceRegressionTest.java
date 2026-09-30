@@ -172,8 +172,6 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_con"), org.mockito.ArgumentMatchers.anyString(), anyInt())).thenReturn(true);
         lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
         // REST saves verify the owning patient exists before any conversion or write.
-        lenient().when(demographicManager.getDemographic(loggedInInfo, DEMOGRAPHIC_NO))
-                .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
         lenient().when(demographicDao.getDemographicById(DEMOGRAPHIC_NO))
                 .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
     }
@@ -234,7 +232,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         existing.setDemographicId(555);
         ReflectionTestUtils.setField(existing, "id", 456);
         when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(existing);
-        when(demographicManager.getDemographic(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(new Demographic());
+        when(demographicDao.getDemographicById(DEMOGRAPHIC_NO)).thenReturn(new Demographic());
         ConsultationRequestTo1 data = new ConsultationRequestTo1();
         data.setId(456);
         data.setDemographicId(DEMOGRAPHIC_NO);
@@ -297,7 +295,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
     @Test
     @DisplayName("should reject without saving when updating an unknown consultation")
     void shouldRejectSave_whenUpdatingUnknownConsultation() {
-        when(demographicManager.getDemographic(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(new Demographic());
+        when(demographicDao.getDemographicById(DEMOGRAPHIC_NO)).thenReturn(new Demographic());
         ConsultationRequestTo1 data = new ConsultationRequestTo1();
         data.setId(457);
         data.setDemographicId(DEMOGRAPHIC_NO);
@@ -726,9 +724,7 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         var submitted = requestSubmission();
         var stored = storedRequest();
         if (!missing) submitted.setDemographicId(999);
-        var demographicManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
-        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
-        when(demographicManager.getDemographic(loggedInInfo, submitted.getDemographicId()))
+        lenient().when(demographicDao.getDemographicById(submitted.getDemographicId()))
                 .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
         when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(missing ? null : stored);
         var transaction = responseTransaction();
@@ -756,10 +752,6 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         assertThat(mapper.valueToTree(submitted).has("attachmentSelectionProvided")).isFalse();
         assertThat(mapper.valueToTree(submitted).has("attachmentSelection")).isFalse();
         var stored = storedRequest();
-        var demographicManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
-        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
-        when(demographicManager.getDemographic(loggedInInfo, DEMOGRAPHIC_NO))
-                .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
         when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(stored);
         var existing = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(456, 77, "L", PROVIDER_NO);
         existing.setId(900);
@@ -940,10 +932,6 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         } else {
             var request = requestSubmission();
             request.setAttachments(List.of());
-            var demographics = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
-            ReflectionTestUtils.setField(service, "demographicManager", demographics);
-            when(demographics.getDemographic(loggedInInfo, DEMOGRAPHIC_NO))
-                    .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
             when(consultationManager.getRequest(loggedInInfo, 456)).thenReturn(storedRequest());
             when(consultationManager.getConsultRequestDocs(loggedInInfo, 456)).thenReturn(List.of(
                     new io.github.carlos_emr.carlos.commn.model.ConsultDocs(456, 77, "D", PROVIDER_NO)));
@@ -1024,11 +1012,30 @@ class ConsultationWebServiceRegressionTest extends io.github.carlos_emr.carlos.t
         Response response = create ? service.createConsultation(submitted) : service.updateConsultation(submitted);
 
         assertThat(response.getStatus()).isEqualTo(403);
-        verify(demographicManager, never()).getDemographic(any(), org.mockito.ArgumentMatchers.<Integer>any());
+        verify(demographicDao, never()).getDemographicById(any());
         verify(consultationManager, never()).getRequest(any(), any());
         verify(consultationManager, never()).saveConsultationRequest(any(), any());
         verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
         verify(transaction).rollback(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    @DisplayName("should reject a REST request save for an unknown patient without a demographic read gate")
+    void shouldRejectRequestSave_whenPatientDoesNotExist(boolean create) {
+        var submitted = requestSubmission();
+        submitted.setDemographicId(4046);
+        if (create) submitted.setId(null);
+        responseTransaction();
+
+        Response response = create ? service.createConsultation(submitted) : service.updateConsultation(submitted);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(demographicDao).getDemographicById(4046);
+        // DemographicManager.getDemographic would add a _demographic read check that fails as HTTP 500.
+        org.mockito.Mockito.verifyNoInteractions(demographicManager);
+        verify(consultationManager, never()).saveConsultationRequest(any(), any());
+        verify(consultationManager, never()).saveConsultRequestDoc(any(), any());
     }
 
     @Test

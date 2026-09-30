@@ -336,7 +336,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
         }
         requirePatientConsultWrite(loggedInInfo, data.getDemographicId(), SecurityInfoManager.WRITE);
-        if (demographicManager.getDemographic(loggedInInfo, data.getDemographicId()) == null) {
+        // Existence only; DemographicManager would add a _demographic read gate (HTTP 500 on denial).
+        if (demographicDao.getDemographicById(data.getDemographicId()) == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
         }
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
@@ -384,7 +385,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
         }
         requirePatientConsultWrite(loggedInInfo, data.getDemographicId(), SecurityInfoManager.UPDATE);
-        if (demographicManager.getDemographic(loggedInInfo, data.getDemographicId()) == null) {
+        // Existence only; DemographicManager would add a _demographic read gate (HTTP 500 on denial).
+        if (demographicDao.getDemographicById(data.getDemographicId()) == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
         }
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
