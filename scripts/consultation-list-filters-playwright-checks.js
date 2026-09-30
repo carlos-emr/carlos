@@ -60,10 +60,6 @@ const TIMEOUT = 30000;
 const PROVIDER_COLUMN = 4;
 const CONSULTANT_COLUMN = 6;
 
-function exactText(text) {
-  return new RegExp(`^\\s*${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`);
-}
-
 async function columnTexts(page, column) {
   return page.locator('table.consult-table tbody tr').evaluateAll((rows, index) => rows.map((row) => {
     const cell = row.querySelectorAll('td')[index];
@@ -144,9 +140,12 @@ async function main() {
       const items = await typeAndWaitForSuggestions(list, candidateLast.slice(0, Math.min(candidateLast.length, 4)));
       assert(Array.isArray(items) && items.length <= 20,
         `type-ahead returned ${Array.isArray(items) ? items.length : 'non-array'} suggestions`);
-      const offered = list.locator('#consultantSuggestions li[role="option"]').filter({ hasText: exactText(candidate) });
-      if (await offered.count() > 0) {
-        await offered.first().click();
+      // Exact label match (not a substring: "Smith, A" must not pick "Smith, Anna").
+      const optionsLocator = list.locator('#consultantSuggestions li[role="option"]');
+      const offeredIndex = await optionsLocator.evaluateAll((lis, wanted) => lis
+        .findIndex((li) => li.textContent.replace(/\s+/g, ' ').trim() === wanted), candidate);
+      if (offeredIndex >= 0) {
+        await optionsLocator.nth(offeredIndex).click();
         consultantLabel = candidate;
         lastName = candidateLast;
         break;
