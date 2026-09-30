@@ -1,0 +1,38 @@
+{
+  "status": "partial",
+  "identity": {
+    "model": "qwen3.5:2b",
+    "digest": "324d162be6ca5629ae4517c8710434d0bd2d665bc94dbad46e9af8fbf8a2f0df",
+    "version": "0.35.0"
+  },
+  "results": [
+    {
+      "documentId": 44,
+      "words": 561,
+      "sourceSha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "returnedProposals": 1,
+      "exactSourceQuotations": 0,
+      "batchAccepted": false,
+      "reviewableProposals": 0,
+      "validationError": "Invalid proposal evidence",
+      "history": 1,
+      "reminders": 0,
+      "inputTokens": 1263,
+      "outputTokens": 89,
+      "modelSeconds": 73.441,
+      "finishReason": "stop",
+      "output": {
+        "proposals": [
+          {
+            "kind": "history",
+            "evidence": "History of Presenting Complaint: Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26); No LOC reported but recalls feeling dazed afterward; Developed progressive confusion over the following hours; Unable to remember recent events clearly. Denies headache, visual changes, N&V, or limb weakness."
+          }
+        ]
+      }
+    }
+  ],
+  "pendingDocumentIds": [
+    43
+  ],
+  "paidApiCalls": 0
+}

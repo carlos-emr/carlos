@@ -55,7 +55,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       csrf = await frame.locator('input[name="CSRF-TOKEN"]').first().inputValue();
       const started = Date.now();
       await Promise.all([frame.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 1800000 }),
-        frame.getByRole('button', { name: 'Generate new proposals', exact: true }).click()]);
+        frame.getByRole('button', { name: 'Generate new proposals', exact: true }).click({ timeout: 1800000 })]);
       const error = await frame.locator('.alert-danger').count()
         ? await frame.locator('.alert-danger').innerText() : null;
       const cards = frame.locator('article.proposal');
