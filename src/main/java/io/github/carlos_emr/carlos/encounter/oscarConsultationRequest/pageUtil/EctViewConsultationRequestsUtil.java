@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -94,7 +95,22 @@ public class EctViewConsultationRequestsUtil {
       return estConsultationVecByTeam(loggedInInfo, team, showCompleted, null, null, null, null, null, null, null);
    }  
             
-   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit) {       
+   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit) {
+      return estConsultationVecByTeam(loggedInInfo, new ConsultationListFilterDto(team, showCompleted, startDate, endDate,
+              orderby, desc, searchDate, offset, limit, null, null));
+   }
+
+   /**
+    * Loads one page of the Consultations list into the parallel row lists of this object.
+    *
+    * @param loggedInInfo LoggedInInfo the current user, used for the per-row demographic lookup
+    * @param filter ConsultationListFilterDto every list filter, including the optional consultant
+    *               and MRP filters (issue #3976)
+    * @return true when the page loaded; false when a lookup failed (the lists then hold the rows
+    *         loaded before the failure)
+    * @since 2026-09-30
+    */
+   public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, ConsultationListFilterDto filter) {
       ids = new ArrayList<>();
       status = new ArrayList<>();
       patient = new ArrayList<>();
@@ -129,7 +145,7 @@ public class EctViewConsultationRequestsUtil {
           Calendar cal = Calendar.getInstance();
           Date date1, date2;
           String providerId, providerName, specialistName;
-          List<ConsultationRequest> consultList = consultReqDao.getConsults(team, showCompleted, startDate, endDate, orderby, desc, searchDate, offset, limit);
+          List<ConsultationRequest> consultList = consultReqDao.getConsults(filter);
 
           for ( int idx = 0; idx < consultList.size(); ++idx ) {
               consult = (ConsultationRequest) consultList.get(idx);

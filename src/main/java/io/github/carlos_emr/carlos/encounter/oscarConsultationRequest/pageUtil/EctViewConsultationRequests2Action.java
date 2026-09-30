@@ -35,7 +35,6 @@ import java.text.SimpleDateFormat;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoImpl;
@@ -48,12 +47,20 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Gate action for the Consultations list page ({@code encounter/ViewConsultation}).
+ *
+ * <p>Checks {@code _con r}, parses the date filters, and resolves the optional Consultant
+ * ({@code consultantId}, a specialist specId) and Provider ({@code filterProviderNo}, the
+ * patient's MRP) filters added for issue #3976 through {@link ConsultationListFilterResolver}
+ * before forwarding to {@code ViewConsultationRequests.jsp}.</p>
+ */
 public class EctViewConsultationRequests2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
-    private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private static final Logger logger = MiscUtils.getLogger();
+
+    private final SecurityInfoManager securityInfoManager;
+    private final ConsultationListFilterResolver filterResolver;
 
     private String sendTo;
     private String currentTeam;
@@ -66,9 +73,31 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
     private String searchDate = null;
     private Integer offset;
     private Integer limit = ConsultationRequestDaoImpl.DEFAULT_CONSULT_REQUEST_RESULTS_LIMIT;
+    // Bound as text and parsed here: an Integer property would turn "abc" into a Struts
+    // conversion error and an unmapped "input" result instead of simply ignoring the filter.
+    private String consultantId;
+    private String filterProviderNo;
+
+    /**
+     * Struts/Spring entry point: resolves the collaborators from the Spring context.
+     */
+    public EctViewConsultationRequests2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), ConsultationListFilterResolver.fromSpringContext());
+    }
+
+    /**
+     * Test constructor.
+     */
+    EctViewConsultationRequests2Action(SecurityInfoManager securityInfoManager,
+                                       ConsultationListFilterResolver filterResolver) {
+        this.securityInfoManager = securityInfoManager;
+        this.filterResolver = filterResolver;
+    }
 
     public String execute() throws ServletException, IOException {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "r", null)) {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)) {
             throw new SecurityException("missing required sec object (_con)");
         }
 
@@ -103,6 +132,8 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
         request.setAttribute("orderby", orderby);
         request.setAttribute("desc", desc);
         request.setAttribute("searchDate", searchDate);
+
+        filterResolver.publish(request, loggedInInfo, consultantId, filterProviderNo);
         return SUCCESS;
     }
 
@@ -259,5 +290,23 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
     @StrutsParameter
     public void setLimit(Integer limit) {
         this.limit = limit;
+    }
+
+    public String getConsultantId() {
+        return consultantId;
+    }
+
+    @StrutsParameter
+    public void setConsultantId(String consultantId) {
+        this.consultantId = consultantId;
+    }
+
+    public String getFilterProviderNo() {
+        return filterProviderNo;
+    }
+
+    @StrutsParameter
+    public void setFilterProviderNo(String filterProviderNo) {
+        this.filterProviderNo = filterProviderNo;
     }
 }
