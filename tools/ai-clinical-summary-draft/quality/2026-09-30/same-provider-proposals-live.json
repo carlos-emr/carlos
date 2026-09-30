@@ -1,0 +1,198 @@
+{
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "operation": "chart-update-proposals",
+  "synthetic_compilation": "Only exact NHSSYN005 compilation rebuilt by existing allowed_notes() from verified corpus added to trial allow-list",
+  "runs": [
+    {
+      "document_id": 43,
+      "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+      "calls": [
+        {
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 8834,
+            "completion_tokens": 781,
+            "total_tokens": 9615,
+            "cost": 0.0021061,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0021061,
+              "upstream_inference_prompt_cost": 0.0013251,
+              "upstream_inference_completions_cost": 0.000781
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      ],
+      "raw_output": {
+        "proposals": [
+          {
+            "kind": "history",
+            "evidence": "Past medical history includes HTN and mild osteoarthritis. No allergies reported."
+          },
+          {
+            "kind": "history",
+            "evidence": "Past Medical History - HTN - Mild osteoarthritis"
+          },
+          {
+            "kind": "history",
+            "evidence": "Family History - Father: Deceased, history of MI at age 67 - Motherr: Deceased, history of HTN and stroke - No known family history of neurodegenerative or psychiatric disorders"
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Repeat U&E in 24 hours to assess resposne to fluid resuscitation"
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Repeat U&Es in 48 hours."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Repeat blood Na levels in 24 hours to monitor progress"
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Repeat serum Na levels in 24 hours."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Repeat serum Na+ levels in 24 hours to assess response to treatment"
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Arrange follow-up appointment in neurology OPD in 2 weeks"
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Advised to follow up with GP in 7 days to assess recovery and monitor sx."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan: daily physio sessions focusing on balance and gait training."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan: cont 2x daily physio sessions to improve balance + mobility."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan: progress to dynamic balance ex next session to further enhance mobility."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan: Next session to include more advanced balance tasks, such as single-leg stance exercises, to further improve stability."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan: Continue physio sessions twice daily with a focus on independent ambulation to prepare fo r discharge."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan: continue daily physio sessions pre-discharge to enhance mobility and balance."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan: d/c physio, arrange OP f/u sessions."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan: progressively increase task complexity to enhance cognitive function."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan to reassess progress in 48 hours."
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Next: progress review in next OT session. Assess need forhome adaptations post-discharge."
+          }
+        ]
+      },
+      "accepted": false,
+      "error": "Invalid proposal evidence",
+      "seconds": 4.25,
+      "candidate_count": 20,
+      "approvable_count": 0,
+      "non_verbatim_candidate_indices": [
+        2,
+        3,
+        5
+      ]
+    },
+    {
+      "document_id": 44,
+      "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "calls": [
+        {
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 1263,
+            "completion_tokens": 143,
+            "total_tokens": 1406,
+            "cost": 0.00033245,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00033245,
+              "upstream_inference_prompt_cost": 0.00018945,
+              "upstream_inference_completions_cost": 0.000143
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      ],
+      "raw_output": {
+        "proposals": [
+          {
+            "kind": "history",
+            "evidence": "Past Medical History - HTN - Mild osteoarthritis"
+          },
+          {
+            "kind": "history",
+            "evidence": "Family History - Father: Deceased, history of MI at age 67 - Motherr: Deceased, history of HTN and stroke"
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Plan - Repeat U&E in 24 hours to assess resposne to fluid resuscitation"
+          }
+        ]
+      },
+      "accepted": false,
+      "error": "Invalid proposal evidence",
+      "seconds": 1.371,
+      "candidate_count": 3,
+      "approvable_count": 0,
+      "non_verbatim_candidate_indices": [
+        1,
+        2,
+        3
+      ]
+    }
+  ],
+  "date": "2026-09-30",
+  "prompt_sha256": "b59db391a58725dd93a44b81b93966072b02816048487631adac4dfb9fad4b5a",
+  "chart_writes": 0,
+  "browser_test": false
+}
