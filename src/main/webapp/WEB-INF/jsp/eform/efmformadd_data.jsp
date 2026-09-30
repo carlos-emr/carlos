@@ -187,9 +187,7 @@
     thisEForm.addHiddenInputElement("fdid", request.getParameter("fdid"));
     // Preserve the template's value and name: Galaxy forms commonly test for the exact "True"
     // spelling before initializing signatures and fax numbers, then submit "False" on save.
-    if (thisEForm.getDocument().getElementById("newForm") == null) {
-        thisEForm.addHiddenInputElement("newForm", "true");
-    }
+    thisEForm.ensureNewFormInput();
 
     // Add email consent properties
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
