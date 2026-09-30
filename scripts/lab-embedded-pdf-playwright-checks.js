@@ -61,7 +61,7 @@ const { randomBytes } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
-const { settle } = require('./inboxhub-filters-playwright-checks');
+const { settle, shownRows } = require('./inboxhub-filters-playwright-checks');
 
 const TIMEOUT = 60000;
 
@@ -102,6 +102,20 @@ function buildMessage(accession, marker) {
     obr(3, 'ATT^Attachment', 'PATH'),
     `OBX|1|ED|ATT^Attachment||^TEXT^HTML^Base64^${HTML_PAYLOAD.toString('base64')}||||||F|||20260930100000`,
   ].join('\r') + '\r';
+}
+
+/**
+ * Response headers by lower-case name, repeated headers joined by a newline. Playwright's
+ * headers() keeps one value per name, and through the packaged front door a response carries
+ * two Content-Security-Policy headers (the application's and nginx's baseline, both enforced).
+ */
+function headerMap(headersArray) {
+  const map = {};
+  for (const { name, value } of headersArray) {
+    const key = name.toLowerCase();
+    map[key] = key in map ? `${map[key]}\n${value}` : value;
+  }
+  return map;
 }
 
 function documentQuery(labNo, { segment, group }) {
@@ -197,7 +211,7 @@ async function fetchRoute(s, path, options = {}) {
     method: options.method || 'GET', maxRedirects: 0, failOnStatusCode: false,
     ...(options.headers ? { headers: options.headers } : {}),
   });
-  return { status: response.status(), headers: response.headers(), body: await response.body() };
+  return { status: response.status(), headers: headerMap(response.headersArray()), body: await response.body() };
 }
 
 /** Opens the owned lab from the Inbox's list the way a clinician does; returns the report window. */
@@ -209,18 +223,26 @@ async function openLabFromInbox(s, labNo, label) {
   if (await inbox.locator('#btnViewMode2').isChecked()) await inbox.locator('#btnViewModeLabel').click();
   await settle(inbox, TIMEOUT);
   if (!await inbox.locator('#inbox-sidebar').isVisible()) await inbox.locator('#inbox-sidebar-toggle').click();
+  // The same filters inbox-document-dates uses to find one owned result.
+  await inbox.locator('#anyProvider').check();
+  await inbox.locator('#statusNew').check();
   await inbox.locator('#specificPatients').check();
   await inbox.locator('#inputLastName').fill(s.marker);
   await inbox.locator('#inboxhubFormSearchBtn').click();
   await settle(inbox, TIMEOUT);
+  const rows = await shownRows(inbox);
+  h.assert(rows.includes(`HL7:${labNo}`),
+    `the Inbox filtered to the owned patient does not list the seeded lab HL7:${labNo} (shown: ${rows.join(', ') || 'none'})`);
   const row = inbox.locator(`tr[data-lab-type="HL7"][data-segment-id="${labNo}"]`);
-  await row.first().waitFor({ state: 'attached', timeout: TIMEOUT });
   const report = await s.popup(inbox, row.locator('a[onclick*="reportWindow"]').first(), `${label}-report`);
   await report.waitForLoadState('domcontentloaded');
   return { inbox, report };
 }
 
 async function workflow(s) {
+  // The Inbox patient search matches a routed lab through d.hin LIKE '%...%', which a NULL HIN
+  // never satisfies; the owned fixture patient has none, so give it an empty one.
+  s.sql.execute(`UPDATE demographic SET hin='' WHERE demographic_no=${s.patient} AND hin IS NULL`);
   const labNo = seedLab(s);
   const preferences = ownPreferences(s);
   // Start from the shipped defaults whatever this database holds.
@@ -235,6 +257,8 @@ async function workflow(s) {
     const framed = s.context.waitForEvent('response', {
       predicate: response => response.url().includes('/lab/ViewEmbeddedDocumentFromLab?'), timeout: TIMEOUT,
     });
+    // Awaited below; a failure before that point must surface as itself, not as this timeout.
+    framed.catch(() => {});
     ({ inbox, report } = await openLabFromInbox(s, labNo, 'lab-pdf'));
     await report.getByText('Glucose Random').first().waitFor({ timeout: TIMEOUT });
     h.assert(await report.getByText('5.2', { exact: true }).count() > 0, 'the discrete result beside the PDF was not rendered');
@@ -248,13 +272,14 @@ async function workflow(s) {
     h.assert(await report.locator('details.lab-embedded-pdf[open]').count() === 1, 'the first PDF preview is not expanded');
     h.assert(await report.locator('em.lab-embedded-document-unsupported').count() === 1,
       'the non-PDF ED payload does not show the not-a-PDF note');
-    h.assert(!(await report.content()).includes(HTML_PAYLOAD.toString('base64')),
+    // Visible text only: the page also keeps the raw HL7 in a hidden <pre id="rawhl7...">.
+    h.assert(!(await report.locator('body').innerText()).includes(HTML_PAYLOAD.toString('base64')),
       'the non-PDF ED payload was printed as encoded bytes');
     frameResponse = await framed;
   });
 
   await s.step('the frame is answered with the PDF, inline, with nosniff, no-store and a restrictive CSP', async () => {
-    assertInlinePdfResponse(frameResponse.status(), frameResponse.headers(), null);
+    assertInlinePdfResponse(frameResponse.status(), headerMap(await frameResponse.headersArray()), null);
     const direct = await fetchRoute(s, viewPath);
     assertInlinePdfResponse(direct.status, direct.headers, direct.body);
     h.assert(direct.body.equals(PDF), 'the inline route did not serve the embedded PDF bytes');
@@ -364,5 +389,5 @@ async function workflow(s) {
 
 if (require.main === module) runWorkflow('lab-embedded-pdf', workflow, { openMaster: false });
 module.exports = {
-  workflow, buildMessage, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD, PDF_SEGMENT, HTML_SEGMENT,
+  workflow, buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD, PDF_SEGMENT, HTML_SEGMENT,
 };

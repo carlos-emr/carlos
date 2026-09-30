@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  buildMessage, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD,
+  buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD,
 } = require('./lab-embedded-pdf-playwright-checks');
 
 const GOOD_HEADERS = {
@@ -52,4 +52,15 @@ test('the seeded lab mixes a text result, the PDF and a non-PDF ED payload', () 
   assert.ok(message.includes(`^TEXT^PDF^Base64^${PDF.toString('base64')}`));
   assert.ok(message.includes(`^TEXT^HTML^Base64^${HTML_PAYLOAD.toString('base64')}`));
   assert.equal(PDF.subarray(0, 5).toString('ascii'), '%PDF-');
+});
+
+test('keeps both CSP headers the front door sends', () => {
+  const headers = headerMap([
+    { name: 'Content-Type', value: 'application/pdf' },
+    { name: 'Content-Security-Policy', value: "default-src 'none'; frame-ancestors 'self'; sandbox" },
+    { name: 'content-security-policy', value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'" },
+  ]);
+  assert.match(headers['content-security-policy'], /sandbox/);
+  assert.match(headers['content-security-policy'], /object-src 'none'/);
+  assertInlinePdfResponse(200, { ...GOOD_HEADERS, 'content-security-policy': headers['content-security-policy'] }, PDF);
 });
