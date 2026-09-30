@@ -175,6 +175,46 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should classify a lenient payload over the limit as a PDF, not by a raw prefix")
+    void shouldClassifyTooLarge_whenLenientPayloadExceedsLimit() {
+        // A stray character inside the first eight Base64 characters: a raw prefix decode would
+        // miss the signature, the lenient decode of the whole value does not.
+        MessageHandler handler = handlerReturning(PDF_BASE64.substring(0, 3) + "*" + PDF_BASE64.substring(3), null);
+
+        EmbeddedLabDocumentLoader.Inspection inspection = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10);
+
+        assertThat(inspection.status()).isEqualTo(Status.TOO_LARGE);
+        assertThat(inspection.sizeBytes()).isEqualTo(PDF.length);
+        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).bytes()).isEqualTo(PDF);
+    }
+
+    @Test
+    @DisplayName("should agree between inspect and load for every classification")
+    void shouldAgree_betweenInspectAndLoad() {
+        String hexPdf = HexFormat.of().formatHex(PDF);
+        MessageHandler[] handlers = {
+                handlerReturning(PDF_BASE64, "Base64"),
+                handlerReturning(hexPdf, "Hex"),
+                handlerReturning(hexPdf + "a", "Hex"),
+                handlerReturning(hexPdf.replace('0', 'z'), "Hex"),
+                handlerReturning("not base64 at all %%%", null),
+                handlerReturning("%PDF-1.4 text", "A"),
+                handlerReturning("", null),
+        };
+        for (MessageHandler handler : handlers) {
+            for (long limit : new long[] {0, 10, PDF.length}) {
+                Document document = EmbeddedLabDocumentLoader.load(handler, 0, 0, limit);
+                EmbeddedLabDocumentLoader.Inspection inspection = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, limit);
+                assertThat(inspection.status()).isEqualTo(document.status());
+                assertThat(inspection.sizeBytes()).isEqualTo(document.sizeBytes());
+            }
+        }
+        assertThat(EmbeddedLabDocumentLoader.load(handlerReturning(hexPdf + "a", "Hex"), 0, 0, 0).bytes()).isEqualTo(PDF);
+        assertThat(EmbeddedLabDocumentLoader.inspect(handlerReturning(hexPdf.replace('0', 'z'), "Hex"), 0, 0, 0).status())
+                .isEqualTo(Status.NOT_PDF);
+    }
+
+    @Test
     @DisplayName("should read the legacy PATHL7 PDF from ED.1")
     void shouldLoadPdf_fromLegacyPathL7Shape() throws Exception {
         PATHL7Handler handler = pathL7(withEdValue(PDF_BASE64));

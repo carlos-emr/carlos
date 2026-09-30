@@ -25,9 +25,15 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
-import java.util.HexFormat;
+
+import org.apache.commons.codec.binary.Base64InputStream;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
@@ -63,9 +69,6 @@ public final class EmbeddedLabDocumentLoader {
 
     /** The PDF file signature every served document must start with. */
     private static final byte[] PDF_SIGNATURE = "%PDF-".getBytes(StandardCharsets.US_ASCII);
-
-    /** Base64 characters needed to decode at least {@link #PDF_SIGNATURE}'s five bytes. */
-    private static final int BASE64_SIGNATURE_CHARS = 8;
 
     /** Classification of an embedded document. */
     public enum Status {
@@ -119,9 +122,10 @@ public final class EmbeddedLabDocumentLoader {
     }
 
     /**
-     * Classifies the document in the given OBX for the lab display page. A document within the
-     * limit is decoded in full, so the page offers exactly what {@link #load} would serve; one over
-     * the limit only has its first bytes decoded to check the signature.
+     * Classifies the document in the given OBX for the lab display page, without keeping it: the
+     * payload is decoded as a stream into a byte counter, and only the first five bytes (the PDF
+     * signature) are retained. {@link #load} runs the same classification first, so the page never
+     * offers a preview or download the endpoints would refuse.
      *
      * @param handler the parsed lab
      * @param obr the OBR group index
@@ -130,8 +134,8 @@ public final class EmbeddedLabDocumentLoader {
      * @return the inspection; never {@code null}
      */
     public static Inspection inspect(MessageHandler handler, int obr, int obx, long maxBytes) {
-        Document document = load(handler, obr, obx, maxBytes);
-        return new Inspection(document.status(), document.sizeBytes());
+        Classified classified = classify(handler, obr, obx, maxBytes);
+        return new Inspection(classified.status(), classified.sizeBytes());
     }
 
     /**
@@ -142,35 +146,44 @@ public final class EmbeddedLabDocumentLoader {
      * @param obx the OBX index within the group
      * @param maxBytes the largest size returned as {@link Status#PDF}; {@code 0} or less for no
      *                 limit (the download path, where the whole message is already in memory)
-     * @return the document; never {@code null}
+     * @return the document, with bytes only for {@link Status#PDF}; never {@code null}
      */
     public static Document load(MessageHandler handler, int obr, int obx, long maxBytes) {
+        Classified classified = classify(handler, obr, obx, maxBytes);
+        if (classified.status() != Status.PDF) {
+            return new Document(classified.status(), null, classified.sizeBytes());
+        }
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream((int) Math.min(classified.sizeBytes(), Integer.MAX_VALUE - 8));
+        decode(classified.compact(), classified.hex(), new byte[PDF_SIGNATURE.length], bytes);
+        return new Document(Status.PDF, bytes.toByteArray(), classified.sizeBytes());
+    }
+
+    /** A classification, carrying the normalised payload so {@link #load} decodes it only once more. */
+    private record Classified(Status status, long sizeBytes, String compact, boolean hex) {
+    }
+
+    private static Classified classify(MessageHandler handler, int obr, int obx, long maxBytes) {
         String payload = payload(handler, obr, obx);
         if (payload == null || payload.isBlank()) {
-            return new Document(Status.EMPTY, null, 0);
+            return new Classified(Status.EMPTY, 0, null, false);
         }
         String encoding = handler.getOBXDocumentEncoding(obr, obx);
         if ("A".equals(encoding)) {
             // Declared as text (for example PATHL7 CELLPATHR RTF in ED.1): never a PDF, but
             // unlike an undecodable binary it is readable as the result value.
-            return new Document(Status.TEXT, null, payload.length());
+            return new Classified(Status.TEXT, payload.length(), null, false);
         }
         String compact = payload.replaceAll("\\s+", "");
         boolean hex = "Hex".equals(encoding);
-        long estimatedSize = hex ? compact.length() / 2L : base64DecodedLength(compact);
-        if (maxBytes > 0 && estimatedSize > maxBytes) {
-            byte[] head = hex ? decodeHex(compact.substring(0, Math.min(compact.length(), PDF_SIGNATURE.length * 2)))
-                    : decodeBase64(compact.substring(0, Math.min(compact.length(), BASE64_SIGNATURE_CHARS)));
-            return new Document(isPdf(head) ? Status.TOO_LARGE : Status.NOT_PDF, null, estimatedSize);
+        byte[] head = new byte[PDF_SIGNATURE.length];
+        long size = decode(compact, hex, head, null);
+        if (size < PDF_SIGNATURE.length || !isPdf(head)) {
+            return new Classified(Status.NOT_PDF, Math.max(size, 0), null, false);
         }
-        byte[] bytes = hex ? decodeHex(compact) : decodeBase64(compact);
-        if (!isPdf(bytes)) {
-            return new Document(Status.NOT_PDF, null, bytes == null ? 0 : bytes.length);
+        if (maxBytes > 0 && size > maxBytes) {
+            return new Classified(Status.TOO_LARGE, size, null, false);
         }
-        if (maxBytes > 0 && bytes.length > maxBytes) {
-            return new Document(Status.TOO_LARGE, null, bytes.length);
-        }
-        return new Document(Status.PDF, bytes, bytes.length);
+        return new Classified(Status.PDF, size, compact, hex);
     }
 
     /** Whether the bytes start with the PDF signature {@code %PDF-}. */
@@ -193,29 +206,71 @@ public final class EmbeddedLabDocumentLoader {
         return handler.getOBXEmbeddedDocumentData(obr, obx);
     }
 
-    private static long base64DecodedLength(String compact) {
-        int padding = compact.endsWith("==") ? 2 : compact.endsWith("=") ? 1 : 0;
-        return Math.max(0L, compact.length() / 4L * 3L - padding);
-    }
-
     /**
-     * Strict base64 first; the lenient commons-codec decoder (which skips any non-alphabet byte)
-     * only as the fallback the former download action relied on. The caller still requires the
-     * PDF signature, so the fallback cannot turn text into something served as a PDF.
+     * Decodes {@code compact} as a stream, copying the first bytes into {@code head} and, when
+     * {@code sink} is not {@code null}, every byte into it.
+     *
+     * <p>Base64 is decoded strictly (RFC 4648; the caller has already dropped the line breaks
+     * senders wrap at 76 or 80 columns). If that fails, the lenient commons-codec decoder, which
+     * skips any non-alphabet byte, is tried: it is what the former download action used, so a
+     * payload that downloaded before still does. The caller still requires the PDF signature, so
+     * the fallback cannot turn text into something served as a PDF. Hex drops an unmatched final
+     * character.</p>
+     *
+     * @return the decoded size in bytes, or {@code -1} when the payload cannot be decoded
      */
-    private static byte[] decodeBase64(String compact) {
-        try {
-            return Base64.getDecoder().decode(compact);
-        } catch (IllegalArgumentException notStrictBase64) {
-            return org.apache.commons.codec.binary.Base64.decodeBase64(compact);
+    private static long decode(String compact, boolean hex, byte[] head, ByteArrayOutputStream sink) {
+        if (hex) {
+            return decodeHex(compact, head, sink);
+        }
+        byte[] ascii = compact.getBytes(StandardCharsets.ISO_8859_1);
+        try (InputStream in = Base64.getDecoder().wrap(new ByteArrayInputStream(ascii))) {
+            return drain(in, head, sink);
+        } catch (IOException | IllegalArgumentException notStrictBase64) {
+            Arrays.fill(head, (byte) 0);
+            if (sink != null) {
+                sink.reset();
+            }
+            try (InputStream in = new Base64InputStream(new ByteArrayInputStream(ascii))) {
+                return drain(in, head, sink);
+            } catch (IOException | IllegalArgumentException notBase64) {
+                return -1;
+            }
         }
     }
 
-    private static byte[] decodeHex(String compact) {
-        try {
-            return HexFormat.of().parseHex(compact.length() % 2 == 0 ? compact : compact.substring(0, compact.length() - 1));
-        } catch (IllegalArgumentException notHex) {
-            return null;
+    private static long drain(InputStream in, byte[] head, ByteArrayOutputStream sink) throws IOException {
+        byte[] buffer = new byte[8192];
+        long size = 0;
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            if (size < head.length) {
+                System.arraycopy(buffer, 0, head, (int) size, (int) Math.min(read, head.length - size));
+            }
+            if (sink != null) {
+                sink.write(buffer, 0, read);
+            }
+            size += read;
         }
+        return size;
+    }
+
+    private static long decodeHex(String compact, byte[] head, ByteArrayOutputStream sink) {
+        int pairs = compact.length() / 2;
+        for (int i = 0; i < pairs; i++) {
+            int high = Character.digit(compact.charAt(2 * i), 16);
+            int low = Character.digit(compact.charAt(2 * i + 1), 16);
+            if (high < 0 || low < 0) {
+                return -1;
+            }
+            byte value = (byte) ((high << 4) | low);
+            if (i < head.length) {
+                head[i] = value;
+            }
+            if (sink != null) {
+                sink.write(value);
+            }
+        }
+        return pairs;
     }
 }
