@@ -131,26 +131,8 @@ async function workflow(session) {
   h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownChecksum}`) === '0',
     'A fileUploadCheck row already carries this run\'s content');
 
-  const sender = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
-  let serverPrivate = sql.value(`SELECT privKey FROM oscarKeys WHERE name='oscar'`);
-  if (!serverPrivate) {
-    const server = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
-    installedServerKey = {
-      pub: server.publicKey.export({ type: 'spki', format: 'der' }).toString('base64'),
-      priv: server.privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64'),
-    };
-    sql.execute(`INSERT INTO oscarKeys (name, pubKey, privKey)
-      VALUES ('oscar', ${h.sqlString(installedServerKey.pub)}, ${h.sqlString(installedServerKey.priv)})`);
-    serverPrivate = installedServerKey.priv;
-  }
-  const serverPublicKey = crypto.createPublicKey(crypto.createPrivateKey({
-    key: Buffer.from(serverPrivate, 'base64'), format: 'der', type: 'pkcs8',
-  }));
-  serverPrivate = null;
-  sql.execute(`INSERT INTO publicKeys (service, type, pubKey, privateKey)
-    VALUES (${h.sqlString(service)}, 'CML',
-      ${h.sqlString(sender.publicKey.export({ type: 'spki', format: 'der' }).toString('base64'))}, '')`);
-
+  // Cleanup is registered before the first key or lab write, so a setup step that fails part-way
+  // still removes whatever this run installed. Each removal is conditional on this run's own values.
   cleanup(async () => {
     if (triggerMayExist) sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
     sql.execute(`DELETE FROM publicKeys WHERE service=${h.sqlString(service)}`);
@@ -189,6 +171,27 @@ async function workflow(session) {
       + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
     'The synthetic signed-feed rows were not all removed');
   });
+
+  const sender = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  let serverPrivate = sql.value(`SELECT privKey FROM oscarKeys WHERE name='oscar'`);
+  if (!serverPrivate) {
+    const server = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+    // Recorded before the INSERT: the cleanup registered above removes it only while it is still ours.
+    installedServerKey = {
+      pub: server.publicKey.export({ type: 'spki', format: 'der' }).toString('base64'),
+      priv: server.privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64'),
+    };
+    sql.execute(`INSERT INTO oscarKeys (name, pubKey, privKey)
+      VALUES ('oscar', ${h.sqlString(installedServerKey.pub)}, ${h.sqlString(installedServerKey.priv)})`);
+    serverPrivate = installedServerKey.priv;
+  }
+  const serverPublicKey = crypto.createPublicKey(crypto.createPrivateKey({
+    key: Buffer.from(serverPrivate, 'base64'), format: 'der', type: 'pkcs8',
+  }));
+  serverPrivate = null;
+  sql.execute(`INSERT INTO publicKeys (service, type, pubKey, privateKey)
+    VALUES (${h.sqlString(service)}, 'CML',
+      ${h.sqlString(sender.publicKey.export({ type: 'spki', format: 'der' }).toString('base64'))}, '')`);
 
   const { inbox, popup } = await openUploader(session);
   cleanup(async () => {
