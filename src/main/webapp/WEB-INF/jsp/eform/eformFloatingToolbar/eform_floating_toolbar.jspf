@@ -129,14 +129,14 @@
 		</form>
 		
   		<div>
-		  		<button type="button" class="btn btn-link" id="closeToolbarButton" name="closeToolbarButton" title="Close this toolbar" onclick="closeToolbar()">
-		   			<span class="btn-label"><i class="fa-solid fa-chevron-right"></i></span>
+					<button type="button" class="btn btn-link" id="closeToolbarButton" name="closeToolbarButton" title="Hide toolbar" aria-label="Hide toolbar" onclick="closeToolbar()">
+						<span aria-hidden="true">&#9652;</span>
 		   		</button>
 		</div>
 	</nav>
 	<div class="no-print DoNotPrint d-print-none" style="border-top: #e7e7e7 thin solid;background-color: #eee;">
 			<button type="button" style="display:none;" class="btn btn-link" id="openToolbarButton" name="openToolbarButton" title="Open toolbar" onclick="openToolbar()">
-				<span class="btn-label"><i class="fa-solid fa-chevron-left"></i></span>
+				Show toolbar
 			</button>
 	</div>
 	<div id="attachDocumentDisplay" style="display:none;"></div>

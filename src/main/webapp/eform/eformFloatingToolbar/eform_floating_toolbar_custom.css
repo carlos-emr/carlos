@@ -74,6 +74,18 @@ input[name="pdfButton"], input[name="pdfSaveButton"],
 #toolbarWrapper .eform-options input { width: 100%; }
 #toolbarWrapper .eform-options label { display: block; margin-top: 6px; }
 #toolbarWrapper .fax-search { position: relative; }
+/* The standalone toolbar owns its spinner; eForms do not include spinner.jspf's styles. */
+#toolbarWrapper #oscar-spinner-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 1050;
+    align-items: center;
+    justify-content: center;
+}
+#toolbarWrapper #oscar-spinner-screen.active-oscar-spinner { display: flex; }
+#toolbarWrapper #img-oscar-spinner { width: 100px; height: 77px; }
 @media print {
     #toolbarWrapper { display: none !important; }
 }

@@ -81,6 +81,7 @@ const server = http.createServer((req, res) => {
       assert.equal((await page.locator('#nativeSubjectRow').innerText()).trim(), '');
       assert.equal(await page.locator('#remote_eform_subject').inputValue(),'Designer subject');
       assert.equal(await page.locator('input[name=pdfButton]').isVisible(),false);
+      assert.equal(await page.locator('#oscar-spinner-screen').isVisible(),false);
       await page.waitForFunction(() => document.getElementById('toolbarWrapper').getBoundingClientRect().top >= document.getElementById('lastPage').getBoundingClientRect().bottom);
     }
     for (const owned of [false,true]) {
@@ -119,6 +120,10 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#openToolbarButton').isVisible(),true);
     await page.locator('#openToolbarButton').click();
     await page.locator('#remoteFaxButton').waitFor();
+    await page.evaluate(() => ShowSpin(true));
+    assert.equal(await page.locator('#oscar-spinner-screen').isVisible(),true);
+    await page.evaluate(() => HideSpin());
+    assert.equal(await page.locator('#oscar-spinner-screen').isVisible(),false);
     // A legacy AddOtherFax choice must win over an older nonempty faxnumList.
     await open(false, true);
     await page.locator('#designerAddFax').click();
