@@ -63,6 +63,7 @@ test('the asynchronously loaded toolbar receives the current subject after its i
   let remote;
   const subject = {value: 'Saved & "quoted" subject'};
   const context = vm.createContext({
+    Node: {TEXT_NODE: 3},
     document: {
       forms: [{elements: {subject}}],
       getElementById: () => remote,

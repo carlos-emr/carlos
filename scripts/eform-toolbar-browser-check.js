@@ -27,7 +27,7 @@ const fixture = (owned = false, withList = false) => `<!doctype html><html><head
 </head><body><form name="saveEForm" action="/eform/addEForm" method="post">
 <input id="context" value="" type="hidden"><input id="fid" value="1" type="hidden">
 <input id="demographicNo" value="1" type="hidden"><label for="subject">Subject</label>
-<input id="subject" name="subject" value="Designer subject" required>
+<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required></span>
 ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : ''}
 ${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
@@ -78,6 +78,7 @@ const server = http.createServer((req, res) => {
       assert.equal(await page.locator('#otherFaxInput').inputValue(),'416-555-0123');
       assert.equal(await page.locator('#subject').isVisible(),false);
       assert.equal(await page.locator('label[for=subject]').isVisible(),false);
+      assert.equal((await page.locator('#nativeSubjectRow').innerText()).trim(), '');
       assert.equal(await page.locator('#remote_eform_subject').inputValue(),'Designer subject');
       assert.equal(await page.locator('input[name=pdfButton]').isVisible(),false);
       await page.waitForFunction(() => document.getElementById('toolbarWrapper').getBoundingClientRect().top >= document.getElementById('lastPage').getBoundingClientRect().bottom);
@@ -170,6 +171,16 @@ const server = http.createServer((req, res) => {
     await page.locator('#remoteSavePdfButton').click();
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests[0].get('saveAndDownloadEForm'),'true');
+    await open();
+    await page.setViewportSize({width:320,height:700});
+    for (const id of ['remotePrintOptions', 'remoteFaxOptions']) {
+      await page.locator('#'+id+' summary').click();
+      await page.waitForFunction(id => {
+        const rect = document.querySelector('#'+id+' .eform-options').getBoundingClientRect();
+        return rect.left >= 0 && rect.right <= document.documentElement.clientWidth;
+      }, id);
+      await page.locator('#'+id+' summary').click();
+    }
     await open();
     await page.emulateMedia({media:'print'});
     assert.equal(await page.locator('#toolbarWrapper').isVisible(),false);

@@ -847,6 +847,11 @@ function moveSubjectReverse() {
     if (subjectElement.labels) {
         Array.from(subjectElement.labels).forEach(label => { label.hidden = true; });
     }
+    // Many Galaxy forms use a bare text node instead of a label element.
+    const caption = subjectElement.previousSibling;
+    if (caption?.nodeType === Node.TEXT_NODE) {
+        caption.textContent = caption.textContent.replace(/\bSubject:\s*$/i, '');
+    }
     if (subjectElement.tagName === "INPUT") subjectElement.type = "hidden";
     subjectElement.hidden = true;
     let localSubject = document.getElementById("remote_eform_subject");
@@ -972,6 +977,17 @@ function addNavElement() {
 
 /** Place the toolbar after even absolutely positioned legacy eForm pages. */
 function positionToolbarAfterForm(wrapper) {
+    // Keep open menus inside the viewport when the toolbar wraps on a narrow screen.
+    wrapper.querySelectorAll('details').forEach(details => {
+        details.addEventListener('toggle', () => {
+            if (!details.open) return;
+            const menu = details.querySelector('.eform-options');
+            const left = details.getBoundingClientRect().left;
+            menu.style.right = 'auto';
+            menu.style.left = Math.max(8 - left,
+                Math.min(0, document.documentElement.clientWidth - left - menu.offsetWidth - 8)) + 'px';
+        });
+    });
     let queued = false;
     function place() {
         queued = false;
