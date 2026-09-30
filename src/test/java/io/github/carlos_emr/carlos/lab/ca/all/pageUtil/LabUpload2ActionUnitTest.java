@@ -237,6 +237,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         // Wrapped key that was not produced for this receiver.
         resetResponse();
         request.setParameter("service", SERVICE);
+        // codeql[java/rsa-without-oaep] Test plays the sending lab: the legacy lab-upload wire format requires RSA/ECB/PKCS1Padding (LabUpload2Action unwraps with it). Replaced by the v2 envelope, see docs/security/lab-upload-authenticated-encryption-migration.md.
         Cipher foreignWrap = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         foreignWrap.init(Cipher.ENCRYPT_MODE, strangerKeys.getPublic());
         upload(ciphertext, Base64.getEncoder().encodeToString(foreignWrap.doFinal(messageKey.getEncoded())),
@@ -476,6 +477,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     private static String wrap(SecretKey messageKey) throws Exception {
+        // codeql[java/rsa-without-oaep] Test plays the sending lab: the legacy lab-upload wire format requires RSA/ECB/PKCS1Padding (LabUpload2Action unwraps with it). Replaced by the v2 envelope, see docs/security/lab-upload-authenticated-encryption-migration.md.
         Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         cipher.init(Cipher.ENCRYPT_MODE, receiverKeys.getPublic());
         return Base64.getEncoder().encodeToString(cipher.doFinal(messageKey.getEncoded()));
