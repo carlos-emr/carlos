@@ -66,22 +66,23 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
      * Replaces the stored body of one email, in its own transaction.
      *
      * <p>Used to drop a one-time credential from the outbox once it can no longer be needed: the row
-     * stays as the record that the email existed, without keeping what it carried. A body that already
-     * equals {@code replacement} is left as it is.
+     * stays as the record that the email existed, without keeping what it carried. Only the body column
+     * is written, so a status change made at the same time by another request is never overwritten.
      *
-     * @return the number of rows changed: 0 when the row is missing or already holds {@code replacement}
+     * @return the number of rows matched: 0 when the row is missing
      */
     public int replaceBody(Integer id, String replacement);
 
     /**
-     * Lists emails of one transaction type by when they last changed: their {@code timestamp}, which is
-     * set when the row is created and again when its status changes.
+     * Lists emails of one transaction type, by their {@code timestamp}, whose body is not {@code body}.
+     * The timestamp is set when the row is created and again by most status changes; a manual resolution
+     * keeps it. Bodies are compared here, without loading the emails as entities.
      *
-     * @return the ids of emails of {@code type} last changed at or after {@code changedSince} and before
-     *         {@code changedBefore}, oldest id first
+     * @return the ids of emails of {@code type} with a {@code timestamp} at or after {@code changedSince}
+     *         and before {@code changedBefore} whose body differs from {@code body}, oldest id first
      */
-    public List<Integer> findIdsByTransactionTypeChangedBetween(EmailLog.TransactionType type, Date changedSince,
-            Date changedBefore);
+    public List<Integer> findIdsByTransactionTypeChangedBetweenWithOtherBody(EmailLog.TransactionType type,
+            Date changedSince, Date changedBefore, String body);
 
     /**
      * Atomically changes an email status only when the persisted row is still in the expected

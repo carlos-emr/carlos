@@ -135,11 +135,14 @@ The code is a credential that activates a patient's account, so CARLOS keeps it 
 It lives in the outbox row only between the store and the send, which is the window the portal's
 contract requires; once the send resolves either way, or staff resolve an unfinished delivery, the
 stored body is replaced with a note saying the code is not kept. When that step does not happen (CARLOS
-stops mid-send, the send fails before the attempt learns which email it saved, or the replacement
-itself fails), CARLOS clears the leftover code when it next starts and before each new invitation: every
-portal invitation email unchanged for 15 minutes and changed within the last 8 days (the code's 7-day
-lifetime plus a day) has its body replaced the same way, and the log reports how many were cleared. An
-older code has already expired on the portal. The outbound email archive, a permanent patient
+stops mid-send, the send fails after the email is saved but before the attempt learns which email it
+saved, or the replacement itself fails), CARLOS clears the leftover code in two places. When CARLOS
+starts, before it serves any request, every portal invitation email changed within the last 8 days (the
+code's 7-day lifetime plus a day) still holding a code has its body replaced the same way; nothing can be
+mid-send then, so a crash is cleared on the restart that follows it. Before a new invitation, at most
+once every 15 minutes, the same happens to such emails unchanged for 15 minutes, which catches a
+replacement that failed while CARLOS kept running. Only the body is written, and the log reports how
+many were cleared. An older code has already expired on the portal. The outbound email archive, a permanent patient
 document, never holds it: the service names the code in
 `EmailData.setArchiveRedactions`, and `EmailManager` archives the message with it replaced by
 `[redacted]` and the artifact type suffixed `_REDACTED` (`SMTP_RFC822_REDACTED` or

@@ -74,39 +74,33 @@ class EmailLogDaoImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should rewrite a stored body and report one changed row")
-    void shouldReplaceTheBody_whenItDiffers() {
+    @DisplayName("should write only the body column, encoded as the entity stores it")
+    void shouldUpdateOnlyTheBody_whenReplacingIt() {
         EntityManager entityManager = mock(EntityManager.class);
-        EmailLog log = new EmailLog();
-        log.setBody("invitation code: abc");
-        when(entityManager.find(EmailLog.class, 42)).thenReturn(log);
+        Query query = mock(Query.class);
+        when(entityManager.createQuery(anyString())).thenReturn(query);
+        when(query.setParameter(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(query);
+        when(query.executeUpdate()).thenReturn(1);
         ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+        EmailLog stored = new EmailLog();
+        stored.setBody("code removed");
 
         assertThat(dao.replaceBody(42, "code removed")).isOne();
-        assertThat(log.getBody()).isEqualTo("code removed");
-        verify(entityManager).flush();
+        verify(entityManager).createQuery("UPDATE EmailLog e SET e.body = :body WHERE e.id = :id");
+        org.mockito.ArgumentCaptor<Object> body = org.mockito.ArgumentCaptor.forClass(Object.class);
+        verify(query).setParameter(org.mockito.ArgumentMatchers.eq("body"), body.capture());
+        assertThat((byte[]) body.getValue()).isEqualTo(ReflectionTestUtils.getField(stored, "body"));
+        verify(query).setParameter("id", 42);
+        verify(entityManager, org.mockito.Mockito.never()).find(EmailLog.class, 42);
     }
 
     @Test
-    @DisplayName("should leave a body that already matches, and report no changed row")
-    void shouldChangeNothing_whenTheBodyAlreadyMatches() {
-        EntityManager entityManager = mock(EntityManager.class);
-        EmailLog log = new EmailLog();
-        log.setBody("code removed");
-        when(entityManager.find(EmailLog.class, 42)).thenReturn(log);
-        ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+    @DisplayName("should refuse a null replacement body")
+    void shouldRefuse_whenTheReplacementIsNull() {
+        ReflectionTestUtils.setField(dao, "entityManager", mock(EntityManager.class));
 
-        assertThat(dao.replaceBody(42, "code removed")).isZero();
-        verify(entityManager, org.mockito.Mockito.never()).flush();
-    }
-
-    @Test
-    @DisplayName("should report no changed row when the email does not exist")
-    void shouldChangeNothing_whenTheEmailIsMissing() {
-        EntityManager entityManager = mock(EntityManager.class);
-        ReflectionTestUtils.setField(dao, "entityManager", entityManager);
-
-        assertThat(dao.replaceBody(42, "code removed")).isZero();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.replaceBody(42, null))
+                .isInstanceOf(NullPointerException.class);
     }
 
     private Query wireQueryMock() {

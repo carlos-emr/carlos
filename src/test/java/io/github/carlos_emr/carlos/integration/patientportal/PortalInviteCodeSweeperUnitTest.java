@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 class PortalInviteCodeSweeperUnitTest extends CarlosUnitTestBase {
 
     private static final Instant NOW = Instant.parse("2026-09-30T12:00:00Z");
+    private static final Duration IDLE = Duration.ofMinutes(15);
 
     private EmailLogDao emailLogs;
     private PortalInviteCodeSweeper sweeper;
@@ -58,44 +59,54 @@ class PortalInviteCodeSweeperUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should look only at portal invitation emails from the code's lifetime, idle 15 minutes")
+    @DisplayName("should look only at uncleared invitation emails from the code's lifetime, idle as asked")
     void shouldAskForRecentIdleInvitationEmails_whenSweeping() {
-        sweeper.forgetLeftoverCodes();
+        sweeper.forgetLeftoverCodes(IDLE);
 
-        verify(emailLogs).findIdsByTransactionTypeChangedBetween(TransactionType.PORTAL_INVITE,
-                Date.from(NOW.minus(Duration.ofDays(8))), Date.from(NOW.minus(Duration.ofMinutes(15))));
+        verify(emailLogs).findIdsByTransactionTypeChangedBetweenWithOtherBody(TransactionType.PORTAL_INVITE,
+                Date.from(NOW.minus(Duration.ofDays(8))), Date.from(NOW.minus(Duration.ofMinutes(15))),
+                PortalInviteEmailComposer.CODE_FORGOTTEN);
+    }
+
+    @Test
+    @DisplayName("should include emails changed up to now when no idle time is asked, as at startup")
+    void shouldLookUpToNow_whenNoIdleTimeIsAsked() {
+        sweeper.forgetLeftoverCodes(Duration.ZERO);
+
+        verify(emailLogs).findIdsByTransactionTypeChangedBetweenWithOtherBody(TransactionType.PORTAL_INVITE,
+                Date.from(NOW.minus(Duration.ofDays(8))), Date.from(NOW), PortalInviteEmailComposer.CODE_FORGOTTEN);
     }
 
     @Test
     @DisplayName("should replace the body of every leftover email and count the ones that changed")
     void shouldForgetEachCode_andCountChangedRows() {
-        when(emailLogs.findIdsByTransactionTypeChangedBetween(any(), any(Date.class), any(Date.class))).thenReturn(List.of(1, 2, 3));
+        when(emailLogs.findIdsByTransactionTypeChangedBetweenWithOtherBody(any(), any(Date.class), any(Date.class), any())).thenReturn(List.of(1, 2, 3));
         when(emailLogs.replaceBody(1, PortalInviteEmailComposer.CODE_FORGOTTEN)).thenReturn(1);
         when(emailLogs.replaceBody(2, PortalInviteEmailComposer.CODE_FORGOTTEN)).thenReturn(0);
         when(emailLogs.replaceBody(3, PortalInviteEmailComposer.CODE_FORGOTTEN)).thenReturn(1);
 
-        assertThat(sweeper.forgetLeftoverCodes()).isEqualTo(2);
+        assertThat(sweeper.forgetLeftoverCodes(IDLE)).isEqualTo(2);
         verify(emailLogs).replaceBody(2, PortalInviteEmailComposer.CODE_FORGOTTEN);
     }
 
     @Test
     @DisplayName("should keep going past an email it cannot rewrite, leaving it for the next sweep")
     void shouldSkipAFailedRow_whenReplacingThrows() {
-        when(emailLogs.findIdsByTransactionTypeChangedBetween(any(), any(Date.class), any(Date.class))).thenReturn(List.of(1, 2));
+        when(emailLogs.findIdsByTransactionTypeChangedBetweenWithOtherBody(any(), any(Date.class), any(Date.class), any())).thenReturn(List.of(1, 2));
         when(emailLogs.replaceBody(1, PortalInviteEmailComposer.CODE_FORGOTTEN))
                 .thenThrow(new IllegalStateException("lock wait timeout"));
         when(emailLogs.replaceBody(2, PortalInviteEmailComposer.CODE_FORGOTTEN)).thenReturn(1);
 
-        assertThat(sweeper.forgetLeftoverCodes()).isEqualTo(1);
+        assertThat(sweeper.forgetLeftoverCodes(IDLE)).isEqualTo(1);
         verify(emailLogs).replaceBody(2, PortalInviteEmailComposer.CODE_FORGOTTEN);
     }
 
     @Test
     @DisplayName("should touch no email when none qualifies")
     void shouldChangeNothing_whenNoEmailQualifies() {
-        when(emailLogs.findIdsByTransactionTypeChangedBetween(any(), any(Date.class), any(Date.class))).thenReturn(List.of());
+        when(emailLogs.findIdsByTransactionTypeChangedBetweenWithOtherBody(any(), any(Date.class), any(Date.class), any())).thenReturn(List.of());
 
-        assertThat(sweeper.forgetLeftoverCodes()).isZero();
+        assertThat(sweeper.forgetLeftoverCodes(IDLE)).isZero();
         verify(emailLogs, never()).replaceBody(any(), any());
     }
 }

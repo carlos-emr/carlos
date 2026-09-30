@@ -100,21 +100,29 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should list emails of one transaction type by when they last changed")
-    void shouldFindIds_byTransactionTypeAndLastChange() {
-        long now = System.currentTimeMillis();
+    @DisplayName("should list uncleared emails of one transaction type by when they last changed")
+    void shouldFindIds_byTransactionTypeLastChangeAndBody() {
+        // Whole seconds: the column keeps no fraction, so the boundaries compare exactly.
+        long now = System.currentTimeMillis() / 1000 * 1000;
         Date since = new Date(now - 8L * 24 * 60 * 60 * 1000);
         Date before = new Date(now - 15L * 60 * 1000);
         Integer idleInvite = persisted(EmailLog.TransactionType.PORTAL_INVITE, new Date(now - 60L * 60 * 1000));
+        Integer atSince = persisted(EmailLog.TransactionType.PORTAL_INVITE, since);
+        Integer atBefore = persisted(EmailLog.TransactionType.PORTAL_INVITE, before);
         Integer busyInvite = persisted(EmailLog.TransactionType.PORTAL_INVITE, new Date(now));
         Integer expiredInvite = persisted(EmailLog.TransactionType.PORTAL_INVITE,
                 new Date(now - 9L * 24 * 60 * 60 * 1000));
         Integer otherType = persisted(EmailLog.TransactionType.DIRECT, new Date(now - 60L * 60 * 1000));
+        Integer cleared = persisted(EmailLog.TransactionType.PORTAL_INVITE, new Date(now - 60L * 60 * 1000));
+        EmailLog clearedRow = entityManager.find(EmailLog.class, cleared);
+        clearedRow.setBody("code removed");
+        entityManager.flush();
 
-        List<Integer> ids = emailLogDao.findIdsByTransactionTypeChangedBetween(
-                EmailLog.TransactionType.PORTAL_INVITE, since, before);
+        List<Integer> ids = emailLogDao.findIdsByTransactionTypeChangedBetweenWithOtherBody(
+                EmailLog.TransactionType.PORTAL_INVITE, since, before, "code removed");
 
-        assertThat(ids).contains(idleInvite).doesNotContain(busyInvite, expiredInvite, otherType);
+        assertThat(ids).contains(idleInvite, atSince)
+                .doesNotContain(atBefore, busyInvite, expiredInvite, otherType, cleared);
     }
 
     private Integer persisted(EmailLog.TransactionType type, Date timestamp) {

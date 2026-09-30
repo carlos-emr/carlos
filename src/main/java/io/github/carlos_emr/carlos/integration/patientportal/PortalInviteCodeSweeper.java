@@ -37,19 +37,22 @@ import org.apache.logging.log4j.Logger;
  *
  * <p>The email carrying a code is saved before the portal activates the code, and the code is removed
  * from it once the send resolves. The code stays when CARLOS stops between those two steps (a crash, a
- * restart, a lost database connection), when the send fails before the attempt learns which email it
- * saved (an archive or permission refusal), or when the removal itself fails. Database backups then keep
- * it too. CARLOS never sends a saved invitation email again, so nothing needs the code once the sending
- * request has finished.
+ * restart, a lost database connection), when the send fails after the email is saved but before the
+ * attempt learns which email it saved (a permission refusal, or another failure in preparing the
+ * message), or when the removal itself fails. Database backups then keep it too. CARLOS never sends a
+ * saved invitation email again, so nothing needs the code once the sending request has finished.
  *
- * <p>Every portal invitation email that has not changed for
- * {@link PortalInviteDeliveryService#RECOVERY_MIN_AGE} is treated as finished with its request, as staff
- * recovery does. Only emails that changed within {@link #WINDOW} are checked: an older code has expired
- * on the portal, and bounding the window keeps each sweep small. A body already cleared is left alone.
- *
- * <p>Runs once when CARLOS starts, because a crash always ends in a restart, and before each new
- * invitation, which catches a removal that failed while CARLOS kept running. It changes no delivery
- * attempt and calls nothing on the portal.
+ * <p>Two callers, with different idle times:
+ * <ul>
+ *   <li>At startup, with no idle time: no request is running yet, so no invitation can be mid-send in
+ *       this CARLOS, and a crash is cleared on the restart that follows it however soon that is.</li>
+ *   <li>Before a new invitation, with {@link PortalInviteDeliveryService#RECOVERY_MIN_AGE}: another
+ *       request may be sending an invitation right now, and staff recovery treats the same idle time as
+ *       the end of a send. This catches a removal that failed while CARLOS kept running.</li>
+ * </ul>
+ * Only emails that changed within {@link #WINDOW} are checked: an older code has expired on the portal.
+ * A body already cleared is skipped by the query. The sweep changes no delivery attempt and calls
+ * nothing on the portal.
  *
  * @since 2026-09-30
  */
@@ -73,17 +76,19 @@ public class PortalInviteCodeSweeper {
     }
 
     /**
-     * Clears the code from every recent portal invitation email that has gone idle.
+     * Clears the code from every recent portal invitation email unchanged for at least {@code minIdle}.
      *
      * <p>Best effort: an email that cannot be rewritten is logged by its failure's class and skipped, and
      * the next sweep tries it again.
      *
+     * @param minIdle how long an email must be unchanged; zero only when nothing can be sending
      * @return how many saved emails were changed
      */
-    public int forgetLeftoverCodes() {
+    public int forgetLeftoverCodes(Duration minIdle) {
         Instant now = clock.instant();
-        List<Integer> emailLogIds = emailLogs.findIdsByTransactionTypeChangedBetween(TransactionType.PORTAL_INVITE,
-                Date.from(now.minus(WINDOW)), Date.from(now.minus(PortalInviteDeliveryService.RECOVERY_MIN_AGE)));
+        List<Integer> emailLogIds = emailLogs.findIdsByTransactionTypeChangedBetweenWithOtherBody(
+                TransactionType.PORTAL_INVITE, Date.from(now.minus(WINDOW)), Date.from(now.minus(minIdle)),
+                PortalInviteEmailComposer.CODE_FORGOTTEN);
         int cleared = 0;
         int failed = 0;
         for (Integer emailLogId : emailLogIds) {
@@ -91,7 +96,7 @@ public class PortalInviteCodeSweeper {
                 cleared += emailLogs.replaceBody(emailLogId, PortalInviteEmailComposer.CODE_FORGOTTEN);
             } catch (RuntimeException exception) {
                 failed++;
-                logger.warn("patient portal invitation code could not be cleared from the outbox: {}",
+                logger.warn("patient portal invitation code sweep: an email could not be cleared: {}",
                         exception.getClass().getSimpleName());
             }
         }

@@ -27,6 +27,8 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import java.time.Duration;
+
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
@@ -112,11 +114,12 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
 
     /**
      * A crash while a patient portal invitation was being sent can leave its code in the saved email; a
-     * crash always ends in this restart, so the leftovers are cleared here. Never stops startup.
+     * crash always ends in this restart, so the leftovers are cleared here. No request has run yet, so
+     * no invitation can be mid-send and nothing needs to have been idle. Never stops startup.
      */
     private void forgetLeftoverPortalInviteCodes() {
         try {
-            new PortalInviteCodeSweeper(SpringUtils.getBean(EmailLogDao.class)).forgetLeftoverCodes();
+            new PortalInviteCodeSweeper(SpringUtils.getBean(EmailLogDao.class)).forgetLeftoverCodes(Duration.ZERO);
         } catch (RuntimeException e) {
             logger.warn("patient portal invitation code sweep failed at startup: {}", e.getClass().getSimpleName());
         }

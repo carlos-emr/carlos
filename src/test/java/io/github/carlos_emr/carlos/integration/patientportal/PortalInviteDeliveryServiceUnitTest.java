@@ -917,9 +917,10 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should clear codes earlier attempts left behind before starting a new invitation")
         void shouldForgetLeftoverCodes_beforeANewInvitation() {
             int leftover = 88;
-            when(emailLogs.findIdsByTransactionTypeChangedBetween(TransactionType.PORTAL_INVITE,
+            when(emailLogs.findIdsByTransactionTypeChangedBetweenWithOtherBody(TransactionType.PORTAL_INVITE,
                     Date.from(NOW.minus(PortalInviteCodeSweeper.WINDOW)),
-                    Date.from(NOW.minus(PortalInviteDeliveryService.RECOVERY_MIN_AGE)))).thenReturn(List.of(leftover));
+                    Date.from(NOW.minus(PortalInviteDeliveryService.RECOVERY_MIN_AGE)),
+                    PortalInviteEmailComposer.CODE_FORGOTTEN)).thenReturn(List.of(leftover));
 
             service.invite(user, patient(), staff, emailRequest());
 
@@ -931,12 +932,53 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should still send the invitation when clearing leftover codes fails")
         void shouldStillInvite_whenTheSweepFails() {
-            when(emailLogs.findIdsByTransactionTypeChangedBetween(any(), any(Date.class), any(Date.class)))
-                    .thenThrow(new IllegalStateException("database unavailable"));
+            when(emailLogs.findIdsByTransactionTypeChangedBetweenWithOtherBody(any(), any(Date.class),
+                    any(Date.class), any())).thenThrow(new IllegalStateException("database unavailable"));
 
             PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
 
             assertThat(row.getState()).isEqualTo(State.SENT);
+        }
+
+        @Test
+        @DisplayName("should sweep at most once per recovery interval, however many invitations are sent")
+        void shouldSweepOncePerInterval_whenInvitationsFollowQuickly() throws Exception {
+            EmailConfigDao emailConfigs = mock(EmailConfigDao.class);
+            EmailConfig sender = new EmailConfig(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL,
+                    "clinic@example.invalid");
+            injectDependency(sender, "id", 5);
+            when(emailConfigs.findActiveEmailConfig("clinic@example.invalid")).thenReturn(sender);
+            Instant[] now = {NOW};
+            Clock moving = new Clock() {
+                @Override
+                public ZoneOffset getZone() {
+                    return ZoneOffset.UTC;
+                }
+
+                @Override
+                public Clock withZone(java.time.ZoneId zone) {
+                    return this;
+                }
+
+                @Override
+                public Instant instant() {
+                    return now[0];
+                }
+            };
+            service = new PortalInviteDeliveryService(portal, portalSettings("https://portal-api.clinic.example"),
+                    new PortalInviteSettings("https://portal.clinic.example", "clinic@example.invalid"),
+                    emailManager, deliveries, emailConfigs, emailLogs, moving);
+
+            service.invite(user, patient(), staff, emailRequest());
+            now[0] = NOW.plus(Duration.ofMinutes(14));
+            service.invite(user, patient(), staff, emailRequest());
+            verify(emailLogs, org.mockito.Mockito.times(1))
+                    .findIdsByTransactionTypeChangedBetweenWithOtherBody(any(), any(Date.class), any(Date.class), any());
+
+            now[0] = NOW.plus(PortalInviteDeliveryService.RECOVERY_MIN_AGE);
+            service.invite(user, patient(), staff, emailRequest());
+            verify(emailLogs, org.mockito.Mockito.times(2))
+                    .findIdsByTransactionTypeChangedBetweenWithOtherBody(any(), any(Date.class), any(Date.class), any());
         }
     }
 

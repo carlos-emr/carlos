@@ -4,7 +4,10 @@ import java.nio.charset.StandardCharsets;
 import org.apache.commons.codec.binary.Base64;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import jakarta.persistence.Query;
 
@@ -217,27 +220,38 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int replaceBody(Integer id, String replacement) {
-        // Written through the entity so the body is encoded exactly as a send would encode it.
-        EmailLog emailLog = entityManager.find(EmailLog.class, id);
-        if (emailLog == null || emailLog.getBody().equals(replacement)) {
-            return 0;
-        }
-        emailLog.setBody(replacement);
-        entityManager.flush();
-        return 1;
+        // Only the body column: an entity write would also write back the status and timestamp it had
+        // read, undoing a status change another request made in between.
+        return entityManager.createQuery("UPDATE EmailLog e SET e.body = :body WHERE e.id = :id")
+                .setParameter("body", encodeBody(Objects.requireNonNull(replacement, "replacement")))
+                .setParameter("id", id)
+                .executeUpdate();
     }
 
     @Override
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
-    public List<Integer> findIdsByTransactionTypeChangedBetween(EmailLog.TransactionType type, Date changedSince,
-            Date changedBefore) {
-        return entityManager
-                .createQuery("SELECT e.id FROM EmailLog e WHERE e.transactionType = :type "
+    public List<Integer> findIdsByTransactionTypeChangedBetweenWithOtherBody(EmailLog.TransactionType type,
+            Date changedSince, Date changedBefore, String body) {
+        byte[] encoded = encodeBody(Objects.requireNonNull(body, "body"));
+        List<Object[]> rows = entityManager
+                .createQuery("SELECT e.id, e.body FROM EmailLog e WHERE e.transactionType = :type "
                         + "AND e.timestamp >= :changedSince AND e.timestamp < :changedBefore ORDER BY e.id",
-                        Integer.class)
+                        Object[].class)
                 .setParameter("type", type)
                 .setParameter("changedSince", changedSince)
                 .setParameter("changedBefore", changedBefore)
                 .getResultList();
+        List<Integer> ids = new ArrayList<>();
+        for (Object[] row : rows) {
+            if (!Arrays.equals((byte[]) row[1], encoded)) {
+                ids.add((Integer) row[0]);
+            }
+        }
+        return ids;
+    }
+
+    /** The stored form of a body, as {@link EmailLog#setBody(String)} writes it. */
+    private static byte[] encodeBody(String body) {
+        return Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
     }
 }
