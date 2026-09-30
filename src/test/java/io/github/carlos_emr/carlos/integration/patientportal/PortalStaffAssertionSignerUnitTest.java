@@ -67,7 +67,7 @@ class PortalStaffAssertionSignerUnitTest {
                                 PatientPortalStaffContext.PERMISSION_INVITE_MANAGE,
                                 PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK));
 
-        String assertion = signer.sign(staff, "maplecreek", "primary", "GET",
+        String assertion = signer.sign(staff, "clinic-a", "primary", "GET",
                 URI.create("https://portal.example/internal/carlos/patients/123/invites"), new byte[0]);
         JsonNode payload = payload(assertion);
 
@@ -93,7 +93,7 @@ class PortalStaffAssertionSignerUnitTest {
         assertThat(payload.get("jti").asText()).isEqualTo(ASSERTION_ID.toString());
         assertThat(payload.get("provider_id").asText()).isEqualTo("999998");
         assertThat(payload.get("provider_name").asText()).isEqualTo("Dr Łukasz 李");
-        assertThat(payload.get("clinic_id").asText()).isEqualTo("maplecreek");
+        assertThat(payload.get("clinic_id").asText()).isEqualTo("clinic-a");
         assertThat(payload.get("kid").asText()).isEqualTo("primary");
         assertThat(payload.get("request_hash").asText()).hasSize(64);
         assertThat(payload.get("permissions").toString())
@@ -111,7 +111,7 @@ class PortalStaffAssertionSignerUnitTest {
                                         "Dr Example",
                                         Set.of(
                                                 PatientPortalStaffContext.PERMISSION_INVITE_MANAGE)),
-                                "maplecreek", "primary", "GET",
+                                "clinic-a", "primary", "GET",
                                 URI.create("https://portal.example/internal/carlos/patients/123/invites"), new byte[0]);
         String[] parts = assertion.split("\\.", -1);
 
@@ -141,7 +141,7 @@ class PortalStaffAssertionSignerUnitTest {
                     Set.of(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE,
                             PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK));
             for (JsonNode vector : fixture.get("vectors")) {
-                String signed = signer().sign(staff, "maplecreek", "primary",
+                String signed = signer().sign(staff, "clinic-a", "primary",
                         vector.get("method").asText(), URI.create(vector.get("uri").asText()),
                         vector.get("body").asText().getBytes(StandardCharsets.UTF_8));
                 assertThat(signed).isEqualTo(vector.get("assertion").asText());
@@ -157,8 +157,8 @@ class PortalStaffAssertionSignerUnitTest {
         var staff = new PatientPortalStaffContext("999998", "Dr Example",
                 Set.of(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE));
         URI uri = URI.create("https://portal.example/internal/carlos/patients/123/invites");
-        JsonNode first = payload(signer.sign(staff, "maplecreek", "rotation-2026", "GET", uri, new byte[0]));
-        JsonNode second = payload(signer.sign(staff, "maplecreek", "rotation-2026", "GET", uri, new byte[0]));
+        JsonNode first = payload(signer.sign(staff, "clinic-a", "rotation-2026", "GET", uri, new byte[0]));
+        JsonNode second = payload(signer.sign(staff, "clinic-a", "rotation-2026", "GET", uri, new byte[0]));
         assertThat(first.get("kid").asText()).isEqualTo("rotation-2026");
         assertThat(first.get("jti").asText()).isNotEqualTo(second.get("jti").asText());
     }

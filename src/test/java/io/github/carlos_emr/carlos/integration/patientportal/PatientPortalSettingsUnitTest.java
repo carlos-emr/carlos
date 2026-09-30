@@ -63,7 +63,7 @@ class PatientPortalSettingsUnitTest {
     /** Valid constructor arguments; a test changes only the one it exercises. */
     private static final class ConstructorArgs {
         String baseUrl = "https://portal.clinic.example";
-        String clinicId = "maplecreek";
+        String clinicId = "clinic-a";
         PortalSecret serviceToken = PortalSecret.of(TOKEN);
         PortalSecret assertionKey = PortalSecret.of(ASSERTION_PRIVATE_KEY);
         String keyId = "primary";
@@ -84,7 +84,7 @@ class PatientPortalSettingsUnitTest {
     private Map<String, String> validProperties() {
         Map<String, String> properties = new HashMap<>();
         properties.put(BASE_URL_KEY, "https://portal.clinic.example");
-        properties.put(CLINIC_ID_KEY, "maplecreek");
+        properties.put(CLINIC_ID_KEY, "clinic-a");
         properties.put(SERVICE_TOKEN_KEY, TOKEN);
         properties.put(STAFF_ASSERTION_KEY, ASSERTION_PRIVATE_KEY);
         properties.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary");
@@ -132,7 +132,7 @@ class PatientPortalSettingsUnitTest {
             PatientPortalSettings settings = PatientPortalSettings.fromProperties(validProperties());
 
             assertThat(settings.baseUrl()).isEqualTo("https://portal.clinic.example");
-            assertThat(settings.clinicId()).isEqualTo("maplecreek");
+            assertThat(settings.clinicId()).isEqualTo("clinic-a");
             assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
             assertThat(settings.staffAssertionPrivateKey().expose())
                     .isEqualTo(ASSERTION_PRIVATE_KEY);
@@ -189,13 +189,13 @@ class PatientPortalSettingsUnitTest {
         void shouldTrimValues_whenPropertiesCarryWhitespace() {
             Map<String, String> properties = validProperties();
             properties.put(BASE_URL_KEY, "  https://portal.clinic.example  ");
-            properties.put(CLINIC_ID_KEY, "  maplecreek  ");
+            properties.put(CLINIC_ID_KEY, "  clinic-a  ");
             properties.put(SERVICE_TOKEN_KEY, "  " + TOKEN + "  ");
 
             PatientPortalSettings settings = PatientPortalSettings.fromProperties(properties);
 
             assertThat(settings.baseUrl()).isEqualTo("https://portal.clinic.example");
-            assertThat(settings.clinicId()).isEqualTo("maplecreek");
+            assertThat(settings.clinicId()).isEqualTo("clinic-a");
             assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
         }
 
@@ -592,7 +592,7 @@ class PatientPortalSettingsUnitTest {
             PatientPortalSettings settings = PatientPortalSettings.fromProperties(validProperties());
 
             assertThat(settings.toString()).contains("portal.clinic.example");
-            assertThat(settings.toString()).contains("maplecreek");
+            assertThat(settings.toString()).contains("clinic-a");
         }
 
         @Test
