@@ -51,9 +51,21 @@ qualifications. This is a suggestion filter, not clinical verification.
 """
 
 def source_segments(source):
-    # Keep line terminators, blank lines and source spelling. No normalization can alter evidence.
-    segments = [part for line in source.splitlines(keepends=True)
-                for part in re.split(r'(?<=[.!?])(?=[ \t]+[A-Z])', line) if part]
+    # Keep every character. A numbered list marker belongs to the following item,
+    # and titles/initials are not sentence ends. These are bounded text boundaries,
+    # not a clinical parser; the selector/reviewer still see the complete source.
+    segments = []
+    for line in source.splitlines(keepends=True):
+        start = 0
+        for match in re.finditer(r'(?<=[.!?])(?=[ \t]+(?:[A-Z]|\d{1,2}[.)][ \t]+[A-Za-z]))', line):
+            prefix = line[:match.start()]
+            token = re.search(r'\S+$', prefix).group()
+            if (re.fullmatch(r'\d+[.)]|(?:Dr|Mr|Mrs|Ms|Prof|St)\.', token)
+                    or re.search(r'\b(?:Dr|Mr|Mrs|Ms|Prof)\.(?:[ \t]+[A-Z]\.)+$', prefix)):
+                continue
+            segments.append(line[start:match.start()])
+            start = match.start()
+        segments.append(line[start:])
     return dict(enumerate(segments, 1))
 
 
@@ -75,6 +87,28 @@ def contextual_range(row, lines):
             r'\s*Past (?:Medical |Surgical )?History\s*:?\s*', lines[start - 1], re.I):
         start -= 1
     return dict(row, start_id=start), ''.join(lines[n] for n in range(start, end + 1)).strip()
+
+
+def followup_items(evidence):
+    """Split only plain independent list items; never publish an entire mixed plan as a reminder."""
+    bullets = list(re.finditer(
+        r'(?m)(?:^[ \t]*[-*][ \t]+|(?:^[ \t]*|(?<=[.!?])[ \t]+)\d+[.)][ \t]+)', evidence))
+    if len(bullets) < 2:
+        return [evidence]
+    heading = evidence[:bullets[0].start()].strip()
+    # A qualified heading or a dependency between items needs clinical interpretation.
+    # Omitting this candidate is safer than silently removing that shared qualification.
+    if (heading and not re.fullmatch(r'(?:Plan|Recommendations|Follow[- ]?up)\s*:?', heading, re.I)) or re.search(
+            r'\b(?:if|unless|when|once|until|pending|provided|otherwise|then|above|below|respectively)\b',
+            evidence, re.I):
+        return []
+    items = []
+    for index, bullet in enumerate(bullets):
+        end = bullets[index + 1].start() if index + 1 < len(bullets) else len(evidence)
+        item = evidence[bullet.start():end].strip()
+        if re.search(r'\b(?:follow[- ]?up|outpatient|OPD|clinic|review|recheck|appointment)\b', item, re.I):
+            items.append(item)
+    return items
 
 
 def resolve_ranges(raw, lines, source):
@@ -103,11 +137,13 @@ def resolve_ranges(raw, lines, source):
         if row['kind'] == 'history' and (family_lines.intersection(range(start, end + 1))
                 or re.search(r'\b(?:family history|mother|father|sister|brother)\b', evidence, re.I)):
             continue
-        key = (row['kind'], ' '.join(evidence.split()))
-        if key in seen:
-            continue
-        seen.add(key)
-        proposals.append({'kind': row['kind'], 'evidence': evidence})
+        excerpts = followup_items(evidence) if row['kind'] == 'tickler' else [evidence]
+        for excerpt in excerpts:
+            key = (row['kind'], ' '.join(excerpt.split()))
+            if key in seen:
+                continue
+            seen.add(key)
+            proposals.append({'kind': row['kind'], 'evidence': excerpt})
     output = {'proposals': proposals}
     validate_output(output, source)
     return output

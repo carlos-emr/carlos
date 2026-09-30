@@ -1,0 +1,1650 @@
+{
+  "date": "2026-09-30",
+  "selection_fixed_before_generation": [
+    {
+      "fixture": "NHSSYN006",
+      "corpus_index": 135,
+      "source_sha256": "8e941c70e6dbc424fabb36e82c25dd52abae994aaf53d046f292dd2e8b0eae4e"
+    },
+    {
+      "fixture": "NHSSYN007",
+      "corpus_index": 159,
+      "source_sha256": "84ba7f47a4c54c7f70d6b3bb962d2506898608cf7f9dfd1c094e3a1e42125112"
+    },
+    {
+      "fixture": "NHSSYN008",
+      "corpus_index": 198,
+      "source_sha256": "4695e2027d53d9fce5ee94a40ae06648cc54eafaac53215b9fbbf554a1e75d22"
+    },
+    {
+      "fixture": "NHSSYN009",
+      "corpus_index": 224,
+      "source_sha256": "551c04d79982b7f25004aef75a780107910ee8aa13eef12ba7b18ee0817d2c74"
+    },
+    {
+      "fixture": "NHSSYN010",
+      "corpus_index": 233,
+      "source_sha256": "2e66654a2412bf0c8ce467a971dd8a148f9d3943aa58d5e49af3c698d0b7c151"
+    }
+  ],
+  "initial": {
+    "model": "qwen/qwen3.5-35b-a3b",
+    "provider": "parasail",
+    "extractor_sha256": "5b58c5dcb88de1077c122b3a4cdbdcb5146f112c7963faae97c8e5e67847af2e",
+    "selection": "Two empty-chart attachments, original three NHS trial documents, then longest complete follow-up-containing note per NHSSYN006\u2013010; source cases fixed before generation.",
+    "runs": [
+      {
+        "label": "document-43",
+        "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+        "source": "=== Source note 1 | 2026-01-02 ===\nPatient Philip Paul Cook, a 49-year-old male, arrived via A&E at 21: 15 on 02/01/26 with a chief complaint of acute confusion after a minor fall. Assessed by Nurse Dawn Yvonne Gibbs. GCS scored at 14/15, with mild disorientation noted. Past medical history includes HTN and mild osteoarthritis. No allergies reported. Triage category assigned as Category 2 - Emergency (requires rapid assessment and treatment within 10 minutes). Decision made to proceed with initialtriage and neurological observation.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 2 | 2026-01-02 ===\nPerformed a briefneuro assessment at 21:30. Paftient remains disoriented with GCS score of 14/15, which was initially recorded upon arrival in the ED. No other focal neuro deficits noted. Assessment conducted by Nurse Dawn Yvonne Gibbs. Chief complaint is acute confusion after minor fall. Escalated for CT head scan to rule out intracranial injury.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 3 | 2026-01-02 ===\nNeurologicakl observations conducted by Nurse Dawn Yvonne Gibbs at 22 :00 for a 49-year-old male patient, Philip Paul Cook, presenting with acute confusion after a minor fall. GCS recorded as 14/15 with mild decrease noted and disorientation documented. Findings documented by Nurse Gibbs. Decision made to expedite CT head scan to confirm the cause of acute confusion and assess for intracranial pathology.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 4 | 2026-01-02 ===\nPatient reviewed on 2026-01-02 at 23:15 by Nurse Dawn Yvone Gibbs. Routine neurological observations were completed, with GCS score recorded as 14/15. Mild disorientation was noted, and pupillary response to light was slightly delayed bilaterally. No acute deterioration observed. Patient to be handed over to the medical team for admission and further neurologicaal monitoring.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 5 | 2026-01-02 ===\nPatient\nPhilip Paul Cook\n\nAge\n49\n\nSex\nMale\n\nNHS No.\n457031170\n\nDate/Time\n02/01/26 23:45\n\nSeen By\nDr. Kareem Ahmed\n\nPresenting Complaint\nAcuteconfusion post minor fall Pt reports confusion following an unwitnessed minor afll earlier today. No LOC. No c/o of headache, nausea, or limb weakness. States he felt unsteady but denies vertigo. Unable to recall details of fall. No prior confusion or similar events. The fall occurred earlier on the same day as the ED presentation.\n\nPast Medical History\n- HTN\n- Mild osteoarthritis\n\nMedications\nNil\n\nAllergies\nNil known\n\nSocial History\nLives alone. Independent with ADLs. No carers.\n\nFamily History\nNil significant.\n\nSystems Review\nCNS: Noh/o seizures, severe headache, or focal deficits. No recent visual changes. CVS: No CP or palpitations. Resp: No SOB or cough. GI: No N/V or abdo pain. GU: No dysuria or haematuria. MSK: Reports joint stiffness secondary to OA but no acute issues.\n\nOn Examination\nAlert but disoriented to time/place. GCS 14/15 (E4V4M6). Pupils equal, reactive bilaterally, with slightly delayed reaction to light. No focal neuro deficits. Normal ton e/power/sensation bilaterally. Gait unassessed in ED due to confusion. No signs of trauma to head. No papilledema. No neck stiffness. CVS/Resp/Abdo exam unremarkable.\n\nObservations\nBP 132/84\nHR 78\nRR 16\nTemp 36.8\u00c2\u00b0C\nSPO2 97% onn RA\n\nInvestigations\nCThead: Subdural hygroma, no MLS. No acute bleed.\n\nTest Results\nFBC, U&Es, LFTs, CRP all WNL.\n\nImpression\nSubdural hygroma causing acute confusion, likely secondary to minor fall.\n\nReferral\nAccepted by Neuro Ward (Bed A01). Detailed handover provided to Dr. Kenneth Brian Lamb from the neuro team, sumarizing ED findings, including mechanism of injury, CT results, and initial management.\n\nPlan\n- IV paracetamol 1g QID for pain control.\n- Monitor neuro obs closely for any signs of deterioration.\n- No ABx. No surg intervention required.\n- Transfer to Neuro Ward for further care and obs.\n\n\nDr. Kareem Ahmed (ED Consultant) \nGMC number: 1695439\n\n=== Source note 6 | 2026-01-03 ===\nClerking Doctor\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion following minor fall\n\nHistory of Presenting Complaint\n- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)\n- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours\n- Unable to remember recent events clearly\n- Denies headache, visual changes, N&V, or limb weakness\n- No reported CP, palpitations, or SOB\n\nReview of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall\n- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes\n\nPast Medical History\n- HTN\n- Mild osteoarthritis\n\nMedications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort\n\nAllergies\nNone\n\nSocial History\n- Lives alone in a ground-floor flat\n- Independent with activities of daily living\n- Retired accountant\n- Non-smoker\n- Drinks alcohol occasionally, approximately 6 units per week\n- No recreational drug use\n\nFamily History\n- Father: Deceased, history of MI at age 67\n- Motherr: Deceased, history of HTN and stroke\n- No known family history of neurodegenerative or psychiatric disorders\n\nOn Examination\n- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- No meningeal signs\n\nObservations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air\n\nInvestigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned\n\nTest Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None\n\nImpression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration\n\nPlan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patient\u00e2\u20ac\u2122s stay\n\nAdmitting Consultant\nDr. Ismel Siddique (Neurology Consultant)\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 7 | 2026-01-03 ===\nClinician Leading Ward Round\nDr. Ismel Siddique (Consultant)\n\nPresenting Complaint\nAcute confusion after minor fall Hx noted thank you\n\nIssues\n1. Subdural Hygroma\n-CT head confirmed subdural hygroma\n-No midline shift\n-Mild gait instability likely related to fall\n\nOn Review\nPatient reports feeling confused but denies headache or significant pain.\n\nInvestigations\nCT head confirmedsubdural hygroma without midline shift. Mild hyponatraemia (Na 132 mmol/L). Patient noted to be slightly dehydrated. Sodium correction plan initiated with IV 0.9% NaCl.\n\nObservations\nHR 84\nBP 132/78\nRR 16\nTemp 36.8\nSpO2 98% on air\n\nOn Examination\nPPatient alert but mildly disoriented. General appearance unremarkable. A: Patent airway, no stridor or obstruction. B: Resp effort normal, equal air entry, no added sounds. C: Warm peripheries, cap refill <2s, reg pulse. D: GCS 14/15 (E4, V4, M6); CNs intact; mild gait instability. E: No skin changes, no oedema noted.\n\nPlan\n1. Start ceftriaxone 2g IV OD for 5 days (prophylactic). 2. Refer to physio for mobility and balance assesment. 3. Continue IV 0.9% sodium chloride to manage mild hyponatraemia and dehydration. 4. Monitor hydration status and repeat U&Es in 48 hours.\n\n\nDr. Ismel Siddique (Consultant) \nGMC number: 1430645\n\n=== Source note 8 | 2026-01-03 ===\n10:00 03/01/2026. Physio assessment conducted by Judith Ada Wells for Philip Cook. Focus: post-fall mobility and balance. Guided exercises included sit-to-stand transitions, tandem walking, and balance drills. Mild unsteadiness on tandem walking was noted. Tasks were comlpleted with minimal assistance. No acute neuro signs were observed. Plan: daily physio sessions focusing on balance and gait training. Goal: improve stability and reduce fall risk.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 9 | 2026-01-03 ===\nAssessed by OT Sylvia Gwendoline Field at 11:30. Mild difficulty noted with fine motor tasks (e.g., fastening buttons). Patient managed ADLs with verbal prompts. Button hook tool recommended. Follow-up OT session scheduled to monitor progress.\nTherapist Sylvia Gwendoline Field (Occupational Therapist) \n\n=== Source note 10 | 2026-01-03 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Confirmed on CT scan with no midline shift\n-Neurological status stable with no tfocal deficits\n-Mild fatigue reported by the patient\n\nToday\n\nOn Review\nPatient reports mild fatigue but denies new or worsening symptoms. No headache, nausea, or vision changes.\n\nInvestigations\nNone\n\nObservations\nHR: 82\nBP: 128/78\nRR: 16\nTemp: 36.7\nSpO2: 98% on air\n\nOn Examination\n- Alert, mildly fatigued but engaging well during review\n- CN II-XII grossly intact\n- No focal neurological deficits identified\n-Limb power 5/5 bilaterally with normal tone and reflexes\n- Gait not formally assessed during WR but no obvious instability noted\n\nPlan\n- Encourage oral fluid intake to address mild hyponatremia\n- Repeat U&Es in 24 hours to monitor Na levels\n- Continue prophylactic ceftriaxone 2g IV OD (day 2 of 5)\n- Daily physio to focus on balance and gait training\n- OT follow-upp to assess progress with fine motor tasks\n- Provide button hook tool to assist with dressing as recommended by OT\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 11 | 2026-01-03 ===\n16:30 03/01/26. Pt seen for 2nd physio session post-adm. Focus: gait stability. Exercises: slow walking w/ Zimmer frame; emphasis on wt distribution + step coordination. Req mod assist but showed slight improvement vs 1st session. No acute neuro sx observed. Plan: cont 2x daily physio sessions to improve balance + mobility. No new meds. Therapist: Judith Ada Wels.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 12 | 2026-01-03 ===\nProvided education on fall prevention. Discussed home safety, safe use of assistive devices, and identifying environmental hazards. No changes to treatment or meds. Theerapy sessions to continue as planned.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 13 | 2026-01-04 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Sodium 132 mmol/L\n-Decision to start sodium chloride supplementation\n\nToday\n\nOn Review\nPatient reports feling well and denies new symptoms. No confusion or new complaints noted.\n\nInvestigations\nSodium remains slightly low at 132 mmol/L. Other blood tests within normal limits.\n\nObservations\nHR: 78\nBP: 128/82\nRR: 16\nTemp: 36.8\nSpO2: 98% on air\n\nOn Examination\n- Pt alert, oriented, and cooperative\n- No focal neurological deficits observed\n- Gait remains mildly unsteady; no acute worsening\n- CVS , resp, and abdo examinations unremarkable\n\nPlan\n- Initiate oral sodium supplementation with NaCl 1 g tablets TID\n- Encourage increased oral fluid intake\n- Repeat blood Na levels in 24 hours to monitor progress\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 14 | 2026-01-04 ===\nPt seen 10:30 for physio. Focus: lower limb strength. Ex: seated leg raides, resistance band work. Guidance given on posture to prevent strain. Pt tolerated ex well. No acute distress or neuro Sx. Goal: improve mobility in preparation for independnet mobility. Plan: progress to dynamic balance ex next session to further enhance mobility. Judith Ada Wells (PT).\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 15 | 2026-01-04 ===\nSocial worker Sylvia Gwendoline Field met with the patient to discuss discharge planning. Assessed home safety and identified potential support needs. Next step: Social worker to coordinate with OT for a bhome safety visit prior to discharge.\nSocial Worker Sylvia Gwendoline Field \n\n=== Source note 16 | 2026-01-04 ===\nPatient Philip Paul Cook was seen on 2026-01-04 at 15:00 for an OT session. The focus of the session was on adaptations for ADLs. The patient practiced bed-to-chair transfers and the use of utensils to address reduced dexterity. Energy conservation techniques were demonstrated and practiced. The patient was engaged and able to follow instructions, though mild difficulty with fine mootr tasks was noted. To support independence, a long-handled reacher and adaptive cutlery will be proivded. The next session will build on the skills practiced and assess the need for home adaptations. - Sylvia Gwendoline Field (OT)\nTherapist Sylvia Gwendoline Field \n\n=== Source note 17 | 2026-01-04 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-No midline shift on CT scan\n-Stable neurological status\n2. Mild Hyponatremia\n-Serum sodium 133 mmol/L\n-Previosly noted as 132 mmol/L\n\nToday\n\nOn Review\nPatient reports mild evening headaches. No other concerns. Feeling otherwise stable.\n\nInvestigations\nNone\n\nObservations\nHR: 74\nBP: 126/78\nRR: 16\nTemp: 36.7\nSpO2: 97% (room air)\n\nOn Examination\n- Alert and oriented. Appears comfortable at rest.\n- Neurological examination: Cranial nerves II-XII intact. No motor or sensory deficits. Normal coordination and reflexes. Gait unassessed during this encounter.\n- Cardiovascular examination: Dual heart sounds, no murmurs.\n- Respiratory examination: Clearr breath sounds bilaterally, no added sounds.\n- Abdominal examination: Soft, non-tender, no organomegaly.\n\nPlan\n- Restrict fluid intake to 1.5L per day to address hyponatremia.\n- Prescribe paracetamol 1g PO PRN (maximum 4 doses per day) for headache management.\n- Start oralsodium supplementation with NaCl 1g tablets TID.\n- Repeat serum Na levels in 24 hours.\n- Review progress in the next WR.\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 18 | 2026-01-05 ===\n05/01/26, 09:30. Physio session with Judith Ada Wells. Focus: balance training using balance boards and parallel bars. Session included guided weight-shifting exercises aimed at improving stability and reducing fall risk. The patient, Philip Cook, required minimal assistance and demonstratedsteady progress in maintaining postureduring dynamic movements. Plan: Next session to include more advanced balance tasks, such as single-leg stance exercises, to further improve stability.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 19 | 2026-01-05 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Confirmed on CT scan\n-No midline shift\n-Mild evening headaches reported\n2. Hyponatremia\n-Serum sodium 133 mmol/L\n-Mild imbalance likely due to overhydration\n-Fluid restriction initiated\n\nToday\n\nOn Review\nPatient reports feeling more confident in mobility after physio. No new complaints.\n\nInvestigations\nNo new imaging or ECG conducted during thhis ward round. Serum Na 133 mmol/L\n\nObservations\nHR: 78\nBP: 132/84\nRR: 16\nTemp: 36.8\nSpO2: 97%\n\nOn Examination\n- Alert and oriented\n- No focal neurological deficits\n- Gait slightly unsteadg but improving with physio\n- Mild residual balance issues noted during tandem walking\n\nPlan\n- Implement fluid restriction to 1.5L/day to address mild hyponatremia\n- Prescribe sodium chloride tablets 600 mg TID for electrolyte cprrection\n- Continue physio to improve mobility and balance\n- Recheck serum Na levels in 24 hours\n- PRN paracetamol 1g PO (up to 4 doses/day) for mild headaches\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 20 | 2026-01-05 ===\n05/01/26, 13:30. OT session with Sylvia Gwendoline Field. Focus: cognitive rehabilitation post-SDH. Philip Cook engaged in memory exercises, problem-solving tasks, and attention training. Mild cognitive difficulties noted; no significant fatigue or distress. Strategies introduced for daily planning and organisatuon. Next steps: continue daily cognitive rehab sessions. Plan: progressively increase task complexity to enhance cognitive function.\nTherapist Sylvia Gwendoline Field \n\n=== Source note 21 | 2026-01-05 ===\n16:00 - Dr. Hasan met pt's spouse (Maria Cook). Updated on pt's cond, tx progress, and therapy outcomes. Discussed d/c options incl home care + f/u plans. Tentative d/c: 09/01/26, dep on stable neuro status + completion of therapy.\nDr. Lynn Beverley Hassan (Consultant) \nGMC number: 1229817\n\n=== Source note 22 | 2026-01-06 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Confirmed on CT scan without midline shift\n-Mild hyponatremia (serum sodium 132 mmol/L)\n\nToday\n\nOn Review\nPatkent reports no new symptoms. Feeling well and engaging with therapy. Confident in mobility progress.\n\nInvestigations\nNo new imaging or ECG performed during this ward round. Serum sodium remains slightly low at 132 mmol/L (from bloods conducted previously).\n\nObservations\nHR: 7\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 9 8%\n\nOn Examination\n- Alert, oriented, and cooperative\n- No focal neurological deficits\n- Gait steady with minimal assistance\n- No signs of distress or acute discomfort\n\nPlan\n- Continue oral sodium suplpementation (sodium chloride tablets 1 g TID)\n- Initiate d/c planning with arrangements for home safety assessments and therapy continuation\n- Repeat serum Na+ levels in 24 hours to assess response to treatment\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 23 | 2026-01-06 ===\n06/01/26, 10:30. Physio session with Therapist Judith Ada Wells. The patient mobilized with a rollator frame under guidance. Structured exercises included gait drills, balance training, and posture correction. The patient demonstrated moderate improvement in mobility and confidence with the rollator frame but required occasional verbal cues to maintain proper posture and pacing. Plan: Continue physio sessions twice daily with a focus on independent ambulation to prepare fo r discharge.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 24 | 2026-01-06 ===\n- Speech and language therapist (Julie Irene Hayes) assessed cognitive-communication skills.\n- Focused on memory recall, attention, and word-finding abilities.\n- Mild short-term memory (STM) recall difficulties identified, potentially impacting effective comunication in complex scenarios.\n- Recommended ongoing cognitive rehabilitation exercises targeting STM andattention.\n- Plan to reassess progress in 48 hours.\nTherapist Julie Irene Hayes (Speech and Language) \n\n=== Source note 25 | 2026-01-06 ===\n06/01/26, 14:30. Session with OT Sylvia Gwendoline Field. Focused on ADLs: dressing, bed-chair transfers. Pt guided through tasks using adaptive techniques/tools, including the use of a button hook tool and long-handled reacher. Techniques for energy conservation during daily tasks were also demonstrated. Sim: enhance independence and safety, considering mild cognitive difficulties that may impact task execution. Pt engaged, followed instructions, and demonstrated good compliance. No difficulties noted with compliance, although occasional verbal prompts were required for task completion. Next: progress review in next OT session. Assess need forhome adaptations post-discharge. No changes to meds or treatment plan.\nTherapist Sylvia Gwendoline Field \n\n=== Source note 26 | 2026-01-06 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Serum sodium: 132 mmol/L\n-Likely related to fluid management\n\nToday\n\nOn Review\nPatient reports no new symptoms. Feels stable and notes improved mobility with assistive device.\n\nInvestigations\nN new imaging studies performed. Recent blood tests showed serum Na: 132 mmol/L (reference range 135-145 mmol/L). No other significant abnormalities noted.\n\nObservations\nHR: 78\nBP: 128/75\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\n- Alert and comfortable at rest\n- No focal neurological deficits\n- Gait improving with assistive device\n- CVS: Heart sounds dual, no murmurs\n- Resp: Cheest clear to auscultation, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- Extremities: No oedema, no tenderness\n\nPlan\n- Adjust fluid intake to 1.5L/day to address mild hyponatremia\n- Sodium chloride tablets (600 mg TDS) for next 48 hours\n- Continue active physiotherapy (PT) sessions focusing on independent mobility\n- Discharge planning to proceed as schedulled for 09/01/26\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 27 | 2026-01-07 ===\nPt attended AM physio session (09:30) with Judith Ada Wells. Focus: gait training. Exercises included balance drills, step training, and walking with a rollator to improve stability and confidence in mobility. Mild improvement in gait symmetry was noted. Pt was able to complete short distances with minimal asist. Plan: continue daily physio sessions pre-discharge to enhance mobility and balance. No meds were initiated or adjusted during this session.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 28 | 2026-01-07 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Serum sodium 132 mmol/L\n-Likely related to fludi balance management\n-Oral sodium supplementation initiated\n\nToday\n\nOn Review\nPatient reports feeling well. Mobilizing with assistance, no new concerns.\n\nInvestigations\nNo new investigations. Serum Na remains at 132 mmol/L.\n\nObservations\nHR: 78\nBP: 135/85\nRR: 16\nTemp: 36.8\nSpO2: 97% on room air\n\nOn Examination\n- Alert, comfortable at rest, no signs o distress\n- No focal neurological deficits (FND)\n- Normal tone, power 5/5 in all four limbs\n- Gait assessment reveals mild unsteadiness, mobilizing with assistance\n- Cranial nerve examination unremarkable\n\nPlan\n- Increase oral sodium intake to address persistent mild hyponatremia (Na+)\n- Encourage consumption of electrolyte-rich fluids\n- Finalise discharge paperwork\n- Confirm follow-up physio and community care arrangements\n- Review for discharge tomorrow ifstable\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 29 | 2026-01-07 ===\n07/01/26, 14:00. OT: Sylvia Gwendoline Field. Focus: Home nav post-d/c. Pt assessed for safe use of grab rails, stairs, basic ADLs (e.g., meal prep). Practical demo: adaptive toolz (grabber, non-slip mats). Pt practiced under supervision. Outcome: Safe w/ walking aid, recommended grabber + non-slip mats for home use. To be provided 08/01/26 final OT session.\nTherapist Sylvia Gwendoline Field \n\n=== Source note 30 | 2026-01-07 ===\nDischarge instructions given to the patient. Medication use explained: paracetamol 500mg, 1-2 tablets every 4-6 hours PRN pain, max 8 tablets/24 hours. Advised to follow up with GP post-discharge for routine review. Instructed o contact hospital for worsening symptoms such as severe headache or confusion.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 31 | 2026-01-08 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Stable neurological status\n-No symptoms of headache, dizziness, or confusion\n-Improved mobility with physiotherapy\n\nToday\n\nOn Review\nPatient reports feeling well. No sgmptoms of headache, dizziness, or confusion. Mobility significantly improved with physio.\n\nInvestigations\nNo new imaging or ECG findings. Recent blood tests show no abnormalities.\n\nObservations\nHR: 76\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\n- Patient appears alert and well, engaging appropriately with no signs of distress\n- Neuro exam normal with no focal deficits\n-Gait assessed to be stable; patient mobilising independently with confidence\n\nPlan\n- Prescribe paracetamol 500 mg PRN for mild MSK discomfort during recovery at home (7-day course)\n- Continue with discharge planning; anticipate discharge on 09/01/26 if neurological status remains stable\n- Arrange follow-up in the cmomunity for physio and GP review post-discharge\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 32 | 2026-01-08 ===\n08/01/26, 10:30. Physio session w/ Judith Ada Wells. Focus: sairs + safe transfers. Aim: simulate home env. Pt assessed for ind mobility and ability to perform tasks idnependently. Able to navigate stairs + transfers w/o assist. Verbal guidance provided re: fall prev + optimal techniques. Pt safe for d/c w/ independent mobility. No further IP physio req. Advised to attend OP physio for ongoing rehab for continued progress. No acute issues noted. Plan: d/c physio, arrange OP f/u sessions.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 33 | 2026-01-08 ===\nSocial worker liaised with me to confirm home care arrangements. Daily visits by the community care team (CCT) are finalised. Arrangements agreed with the patient and NOK. Patient cleared for dishcarge.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 34 | 2026-01-08 ===\nSession conducted on 2026-01-08 at 14:00 by Therapist Sylvia Gwendoline Field (OT). Adaptive tools provided to enhance safety and independence at home. Items included a long-handled reacher, non-slip mat for meal preparation, and a shower chair. Demonstrations were given for effective use of each tool, and the patient practiced under supervision, performing tasks successfuly. These tools were specifically recommended for discharge and home use to support independence. No new meds prescribed. Patient cleared for discharge prep. Home safety adaptations deemed sufficient.\nTherapist Sylvia Gwendoline Field (Occupational Therapist) \n\n=== Source note 35 | 2026-01-09 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Neurological status stable with no new symptoms\n-Significant improvement in mobility with walking aid\n-Mild hyponatremia (serum sodium: 132-133 mmol/L) addressed with oral sodium supplementation\n\nToday\n\nOn Review\nPatient feels well and reports no headaches, confusion, or dizziness. Confirms confidence in mobility with walking stick.\n\nInvestigations\nRecent blood tests showed mild hyponatremia (serum sodium: 132-133 mmol/L). Sodium levels have improved but remain slightly below normal range.\n\nObservations\nHR: 78\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 98% on air\n\nOn Examination\n- Alert and oriented to time, place, and person\n- General appearance: Comfortable, no signs of distress\n- Neurological : Cranial nerves II-XII intact, no focal neuro deficits\n- Gait: Amulating safely with walking stick, mild unsteadiness noted but no risk of falls\n- Cardiovascular: Heart sounds dual, no murmurs\n- Respiratory: Chest clear to auscultation\n- Abdomen: Soft, non-tender, no organomegaly\n- Mobility: Able to navigate stairs and perform transfers independently with assistive tools\n- No signs of dehydration or fluid overload\n\nPlan\n- Discharge today with advice on fall prevention and avoidance of anticoagulants unless prescribed by a healthcare provider\n- Prescribe paracetamol 500mg, 1-2 tablets PO QDS PRN for mild headaches for 14 days\n- Arrange follow-up appointment in neurology OPD in 2 weeks\n- Provide adaptive tools, including a long-handled reacher, non-slip mat, and shower chair, for home safety\n- Finalize discharge summary and ensure community care team visits are arranged\n- Advise patient to seek medical attention if experiencing severe headache, confusion, or neurological symptoms\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 36 | 2026-01-09 ===\nDischarge summary completed by Dr. Siddique and provided to Mr. Cook. Included diagn osis, hospital stay summary, follow-up care instructions. Paracetamol 1g QDS prescribed for pain. Advised to follow up with GP in 7 days to assess recovery and monitor sx.\nDr. Ismel Siddique (Consultant) \nGMC number: 1430645\n\n=== Source note 37 | 2026-01-09 ===\nContacted GP, Dr. Elsi Llewelyn, o update on d/c and ensure continuity of care. Informed of f/u appointment and advised to review progress at next GP visit.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 15032,
+              "completion_tokens": 606,
+              "total_tokens": 15638,
+              "cost": 0.0028608,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0028608,
+                "upstream_inference_prompt_cost": 0.0022548,
+                "upstream_inference_completions_cost": 0.000606
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 9617,
+              "completion_tokens": 713,
+              "total_tokens": 10330,
+              "cost": 0.00215555,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00215555,
+                "upstream_inference_prompt_cost": 0.00144255,
+                "upstream_inference_completions_cost": 0.000713
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 5,
+                "end_id": 6
+              },
+              {
+                "kind": "history",
+                "start_id": 68,
+                "end_id": 69
+              },
+              {
+                "kind": "history",
+                "start_id": 164,
+                "end_id": 165
+              },
+              {
+                "kind": "history",
+                "start_id": 121,
+                "end_id": 121
+              },
+              {
+                "kind": "history",
+                "start_id": 224,
+                "end_id": 224
+              },
+              {
+                "kind": "history",
+                "start_id": 251,
+                "end_id": 254
+              },
+              {
+                "kind": "history",
+                "start_id": 319,
+                "end_id": 322
+              },
+              {
+                "kind": "history",
+                "start_id": 387,
+                "end_id": 391
+              },
+              {
+                "kind": "history",
+                "start_id": 461,
+                "end_id": 466
+              },
+              {
+                "kind": "history",
+                "start_id": 524,
+                "end_id": 531
+              },
+              {
+                "kind": "history",
+                "start_id": 594,
+                "end_id": 596
+              },
+              {
+                "kind": "history",
+                "start_id": 670,
+                "end_id": 674
+              },
+              {
+                "kind": "history",
+                "start_id": 731,
+                "end_id": 736
+              },
+              {
+                "kind": "history",
+                "start_id": 800,
+                "end_id": 803
+              },
+              {
+                "kind": "history",
+                "start_id": 879,
+                "end_id": 882
+              },
+              {
+                "kind": "tickler",
+                "start_id": 915,
+                "end_id": 915
+              },
+              {
+                "kind": "tickler",
+                "start_id": 928,
+                "end_id": 928
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": false,
+                "reason": "Duplicate of candidate 2; candidate 2 is more structured and explicit."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit past medical history (HTN, mild osteoarthritis) confirmed in multiple source notes."
+              },
+              {
+                "id": "3",
+                "keep": true,
+                "reason": "Explicit diagnosis (Subdural hygroma) from the initial Impression/Assessment section."
+              },
+              {
+                "id": "4",
+                "keep": true,
+                "reason": "Explicit diagnosis (Subdural hygroma and mild hyponatremia) from the admitting Impression/Assessment."
+              },
+              {
+                "id": "5",
+                "keep": false,
+                "reason": "Duplicate diagnosis of Subdural Hygroma; candidate 3 or 4 provides the explicit diagnostic statement required."
+              },
+              {
+                "id": "6",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 3 or 4 is the primary diagnostic statement."
+              },
+              {
+                "id": "7",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 provides the full diagnostic impression including hyponatremia."
+              },
+              {
+                "id": "8",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the most informative initial assessment."
+              },
+              {
+                "id": "9",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic statement."
+              },
+              {
+                "id": "10",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic statement."
+              },
+              {
+                "id": "11",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic statement."
+              },
+              {
+                "id": "12",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic statement."
+              },
+              {
+                "id": "13",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic statement."
+              },
+              {
+                "id": "14",
+                "keep": false,
+                "reason": "Duplicate diagnosis; candidate 4 is the primary diagnostic statement."
+              },
+              {
+                "id": "15",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (Neurology OPD in 2 weeks) from the discharge plan."
+              },
+              {
+                "id": "16",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (GP review in 7 days) from the discharge instructions."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "e9b3aae0-a3cd-4f28-81d8-825efcc094c4",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "Past Medical History\n- HTN\n- Mild osteoarthritis"
+              },
+              {
+                "kind": "history",
+                "evidence": "Subdural hygroma causing acute confusion, likely secondary to minor fall."
+              },
+              {
+                "kind": "history",
+                "evidence": "Acute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "- Arrange follow-up appointment in neurology OPD in 2 weeks"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "Advised to follow up with GP in 7 days to assess recovery and monitor sx."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 8.947
+      },
+      {
+        "label": "document-44",
+        "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+        "source": "Clerking Doctor\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion following minor fall\n\nHistory of Presenting Complaint\n- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)\n- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours\n- Unable to remember recent events clearly\n- Denies headache, visual changes, N&V, or limb weakness\n- No reported CP, palpitations, or SOB\n\nReview of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall\n- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes\n\nPast Medical History\n- HTN\n- Mild osteoarthritis\n\nMedications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort\n\nAllergies\nNone\n\nSocial History\n- Lives alone in a ground-floor flat\n- Independent with activities of daily living\n- Retired accountant\n- Non-smoker\n- Drinks alcohol occasionally, approximately 6 units per week\n- No recreational drug use\n\nFamily History\n- Father: Deceased, history of MI at age 67\n- Motherr: Deceased, history of HTN and stroke\n- No known family history of neurodegenerative or psychiatric disorders\n\nOn Examination\n- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- No meningeal signs\n\nObservations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air\n\nInvestigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned\n\nTest Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None\n\nImpression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration\n\nPlan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patient\u00e2\u20ac\u2122s stay\n\nAdmitting Consultant\nDr. Ismel Siddique (Neurology Consultant)\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 1920,
+              "completion_tokens": 51,
+              "total_tokens": 1971,
+              "cost": 0.000339,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.000339,
+                "upstream_inference_prompt_cost": 0.000288,
+                "upstream_inference_completions_cost": 5.1e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 1325,
+              "completion_tokens": 108,
+              "total_tokens": 1433,
+              "cost": 0.00030675,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00030675,
+                "upstream_inference_prompt_cost": 0.00019875,
+                "upstream_inference_completions_cost": 0.000108
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 26,
+                "end_id": 27
+              },
+              {
+                "kind": "history",
+                "start_id": 86,
+                "end_id": 86
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit past medical history (HTN, Mild osteoarthritis) as requested."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit current diagnosis from the Impression section (Acute confusion secondary to subdural hygroma and mild hypoNa)."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "81a2681c-b148-4e0f-8b4e-4d9ba1536648",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "Past Medical History\n- HTN\n- Mild osteoarthritis"
+              },
+              {
+                "kind": "history",
+                "evidence": "Acute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 2.155
+      },
+      {
+        "label": "NHSSYN001",
+        "source_sha256": "0cac494dc22d152317479c21ae5414cdfc800b3b0c7dbe7e54b716a94307cd92",
+        "source": "Clinician Leading Ward Round\nDr. Barbara Beatrice Williamson (SpR)\n\nPresenting Complaint\nSevere headache after exertion\n\nIssues\n1. Reversible Cerebral Vasoconstriction Syndrome (RCVS)\n-Confirmed diagnosis via MRI/MRA on 08/01/26\n-Repeat MRA on 11/01/26 showed resolution of vasoconstriction\n-CRP mildly elevated at 12 mg/L during admission (reactive)\n-Stable blood prwssure throughout admission\n\nToday\n\nOn Review\nPatient reports no further headaches. Feling well and keen for discharge.\n\nInvestigations\nRepeat MRA on 11/01/26 showed resolution of vasoconstriction.\n\nTest Results\nMild hyponatremia (Na 132 mmol/L).\n\nObservations\nHR: 84\nBP: 130/80\nRR: 16\nTemp: 36.8\nSpO2: 98% pon air\n\nOn Examination\n- Alert, oriented, and comfortable at rest\n- CVS: Heart sounds dual, no murmurs\n- Resp: Chest clear to auscultation, no added sounds\n- Neuro: Cranial nerves I-XII intact; no focal deficits in motor, sensory, or coordination systems\n- Gait: Normal without assistance\n\nPlan\n- Discharge today as fit tfor home\n- Nimodipine 30 mg PO QDS, to be tapered over 2 weeks\n- Referral for neurology OP follow-up in 4 weeks\n- Advise patient to avoid known triggers (e.g., intense physical exertion, stress) and educate regarding symptoms of recurrence\n- Documented resolution of VC on 11 /01/26\n\n\nDr. Barbara Beatrice Williamson (Specialty Registrar) \nGMC number: 1884805",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 1059,
+              "completion_tokens": 51,
+              "total_tokens": 1110,
+              "cost": 0.00020985,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00020985,
+                "upstream_inference_prompt_cost": 0.00015885,
+                "upstream_inference_completions_cost": 5.1e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 816,
+              "completion_tokens": 128,
+              "total_tokens": 944,
+              "cost": 0.0002504,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002504,
+                "upstream_inference_prompt_cost": 0.0001224,
+                "upstream_inference_completions_cost": 0.000128
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 8,
+                "end_id": 12
+              },
+              {
+                "kind": "tickler",
+                "start_id": 43,
+                "end_id": 43
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit diagnosis of Reversible Cerebral Vasoconstriction Syndrome (RCVS) confirmed in the source text; retained as a current/past medical history item despite resolution."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (neurology OP) scheduled for 4 weeks; not cancelled or completed in the text."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "ca8234ed-6357-4352-811e-2326ec1ae7af",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Reversible Cerebral Vasoconstriction Syndrome (RCVS)\n-Confirmed diagnosis via MRI/MRA on 08/01/26\n-Repeat MRA on 11/01/26 showed resolution of vasoconstriction\n-CRP mildly elevated at 12 mg/L during admission (reactive)\n-Stable blood prwssure throughout admission"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "- Referral for neurology OP follow-up in 4 weeks"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 1.965
+      },
+      {
+        "label": "NHSSYN002",
+        "source_sha256": "b074b2a00e06d9dcf3694c2ea57610cf47195e4476c6480d972a3ef0e2f118c4",
+        "source": "Clinician Leading Ward Round\nDr. Saoirse Keogh (SpR)\n\nPresenting Complaint\nEnd stage OA of left knee\n\nIssues\n1. End stage osteoarthritis of left knee\n-Post-operative period following total knee replacement\n-Mild post-operative anemia with Hb 108 g/L\n\nToday\n\nOn Review\n- Patient reports satisfactory pain control with current analgesia\n- Mobilising wel with ZF and no new concerns\n\nInvestigations\n- No new imaging or ECGs performed\n- Hb 108 g/L (mild post-operative anaemia), no evidence of infection or further blood loss\n\nObservations\nHR: 72\nBP: 118/76\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\n- Patient appears comfortable and alert\n- Left knee surgical wound inspected: clean, dry, no erythema, no excessive swelling\n- No calf tenderness or signs of DVT\n- Mobilising effectively with Zimmer frame, no antalgic gaiit noted\n\nPlan\n- Switch regular paracetamol to PRN dosing for pain management\n- Discharge planning initiated: prescribe oral co-amoxiclav 500/125 mg TDS for 7 days for wound infection prophylaxis\n- Prescribe errous sulfate 200 mg BD to address mild post-operative sanemia\n- Continue physiotherapy with focus on transitioning to crutches\n- Review tomorrow for potential discharge\n\n\nDr. Saoirse Keogh (Specialty Registrar) \nGMC number: 1824737",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 972,
+              "completion_tokens": 71,
+              "total_tokens": 1043,
+              "cost": 0.0002168,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002168,
+                "upstream_inference_prompt_cost": 0.0001458,
+                "upstream_inference_completions_cost": 7.1e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 726,
+              "completion_tokens": 167,
+              "total_tokens": 893,
+              "cost": 0.0002759,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002759,
+                "upstream_inference_prompt_cost": 0.0001089,
+                "upstream_inference_completions_cost": 0.000167
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 5,
+                "end_id": 5
+              },
+              {
+                "kind": "history",
+                "start_id": 8,
+                "end_id": 10
+              },
+              {
+                "kind": "tickler",
+                "start_id": 40,
+                "end_id": 40
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": false,
+                "reason": "Incomplete candidate; candidate 2 provides the same diagnosis with necessary context (post-operative status and anemia) and is more informative."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Contains explicit patient diagnoses: end stage osteoarthritis, post-operative status, and mild post-operative anemia."
+              },
+              {
+                "id": "3",
+                "keep": false,
+                "reason": "Drops follow-up that is conditional ('potential discharge') and likely represents an inpatient review rather than an explicit outstanding outpatient appointment."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "4f736bf2-ddb4-408a-9b19-b68d859fde19",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. End stage osteoarthritis of left knee\n-Post-operative period following total knee replacement\n-Mild post-operative anemia with Hb 108 g/L"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 2.172
+      },
+      {
+        "label": "NHSSYN003",
+        "source_sha256": "48bb604a1eff0edebcd031f0b7f81bdd73c1a98d8ff1ad8e523c9f7e36e9f846",
+        "source": "Clinician Leading Ward Round\nDr. Osian Pritchard (SpR)\n\nPresenting Complaint\nChest pain\n\nIssues\n1. Spontaneous Pneumomediastinum\n-Stable con dition\n-CXR: No complications\n-Continued improvement\n\nToday\n\nOn Review\nNo pain, no OB.\n\nInvestigations\nCXR: No complications, stable pneumomediastinum.\n\nTest Results\nNone pending.\n\nObservations\nHR: 82\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 97% on air\n\nOn Examination\nComfortable, NAD. No subcutaneous crepitus. Chest clear, no accessory muscle use. CVS: HS I+II, no murmurs. Abd soft, non-tender.\n\nPlan\n1. ischarge planning initiated. 2. No new meds or changes made. 3. Arrange routine OP follow-up in Resp clinic. 4. Patient advised on monitoring for recurrence of symptoms.\n\n\nDr. Osian Pritchard (Specialty Registrar) \nGMC number: 1068006",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 891,
+              "completion_tokens": 51,
+              "total_tokens": 942,
+              "cost": 0.00018465,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00018465,
+                "upstream_inference_prompt_cost": 0.00013365,
+                "upstream_inference_completions_cost": 5.1e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 605,
+              "completion_tokens": 110,
+              "total_tokens": 715,
+              "cost": 0.00020075,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00020075,
+                "upstream_inference_prompt_cost": 9.075e-05,
+                "upstream_inference_completions_cost": 0.00011
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 8,
+                "end_id": 11
+              },
+              {
+                "kind": "tickler",
+                "start_id": 41,
+                "end_id": 41
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit diagnosis of Spontaneous Pneumomediastinum with current status (stable, continued improvement) found in the Issues section."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (Resp clinic) identified in the Plan section."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "ac700882-18f3-4760-ad40-e9fba8ab3bb6",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Spontaneous Pneumomediastinum\n-Stable con dition\n-CXR: No complications\n-Continued improvement"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "3. Arrange routine OP follow-up in Resp clinic."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 3.59
+      },
+      {
+        "label": "NHSSYN006",
+        "source_sha256": "8e941c70e6dbc424fabb36e82c25dd52abae994aaf53d046f292dd2e8b0eae4e",
+        "source": "Clinician Leading Ward Round\nDr. Ishika Sahu (SpR)\n\nPresenting Complaint\nEnd-stage left hip OA\n\nIssues\n1. Post-operative recovery (left total hip replacement)\n-Surgical wound clean, dry, and healing well\n-Pain well-controlled with current analgesia\n-Mobilising effectively with crutches\n\nToday\n\nOn Review\nPatient reports feeling well. Pain described as well-controlled. No new concerns raised. Jobilising effectively with crutches.\n\nInvestigations\nNone.\n\nObservations\nHR: 76\nBP: 118/76\nRR: 16\nTemp: 36.8\nSpO2: 98% on air\n\nOn Examination\nPatient appears well. A: Patent, no stridor or obstruction. B: Breathing unlaboured. Clear air entry bilaterally. C: No signs of haemodynamic instability. Capillary rrfill <2s. D: Alert and oriented. No neurological deficits noted. E: Surgical wound clean, dry, and healing well. No erythema, swelling, or dc.\n\nPlan\n1. Discharge today. 2. Start Apixaban 2.5 mg BD fo 2 weeks for thromboprophylaxis. 3. Provide discharge summary and arrange outpatient physio follow-up. 4. Advise routine GP follow-up 6 weeks post-surgery.\n\n\nDr. Ishika Sahu (Specialty Registrar) \nGMC number: 1324560",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 984,
+              "completion_tokens": 93,
+              "total_tokens": 1077,
+              "cost": 0.0002406,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002406,
+                "upstream_inference_prompt_cost": 0.0001476,
+                "upstream_inference_completions_cost": 9.3e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 712,
+              "completion_tokens": 192,
+              "total_tokens": 904,
+              "cost": 0.0002988,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002988,
+                "upstream_inference_prompt_cost": 0.0001068,
+                "upstream_inference_completions_cost": 0.000192
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 5,
+                "end_id": 5
+              },
+              {
+                "kind": "history",
+                "start_id": 8,
+                "end_id": 8
+              },
+              {
+                "kind": "tickler",
+                "start_id": 46,
+                "end_id": 46
+              },
+              {
+                "kind": "tickler",
+                "start_id": 47,
+                "end_id": 47
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit patient diagnosis (End-stage left hip OA) listed in Presenting Complaint."
+              },
+              {
+                "id": "2",
+                "keep": false,
+                "reason": "Describes a current clinical issue/recovery status rather than a distinct past medical history diagnosis; excluded as a 'history' item."
+              },
+              {
+                "id": "3",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (physio) arranged in the Plan."
+              },
+              {
+                "id": "4",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (GP review) arranged in the Plan."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "df2ffd77-0dcd-4fd0-995b-78c942223a1c",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "End-stage left hip OA"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "3. Provide discharge summary and arrange outpatient physio follow-up."
+              },
+              {
+                "kind": "tickler",
+                "evidence": "4. Advise routine GP follow-up 6 weeks post-surgery."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 3.606
+      },
+      {
+        "label": "NHSSYN007",
+        "source_sha256": "84ba7f47a4c54c7f70d6b3bb962d2506898608cf7f9dfd1c094e3a1e42125112",
+        "source": "Clinician Leading Ward Round\nDr. Yang Mi (SpR)\n\nPresenting Complaint\nFatigue\n\nIssues\n1. Pneumonia with Sepsis\n-CRP 30 mg/L (down from 40 mg/L on 07/01/26)\n-WBC 8.4 x10^9/L \n-Afebrile for 48 hours\n-No oxygen support required\n\nToday\n\nOn Review\nPatient feels significantly better. Reportsimproved appetite and no SOB. Fatigue improving but still present.\n\nInvestigations\nNo new imaging. Previous CXR showed resolving right lower lobe consolidatoin. CRP 30 mg/L (down from 40 mg/L on 07/01/26). WCC 8.4 x10^9/L. Lactate normal.\n\nObservations\nHR: 76\nBP: 128/82\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\nA: Patent airway. No stridor or obstrcution.\nB: Good air entry bilaterally. Minimal residual cracklees in RLL. No wheeze.\nC: Peripheral perfusion normal. No oedema. Heart sounds dual, no murmurs.\nD: Alert andorientated. No focal neurological deficits.\nE: Afebrile. No skin changes orr rashes.\n\nPlan\n1. Stop IV antibiotics; continue oral amoxicillin 500mg TID for 5 days. 2. Physio to continue mobilization and breathing exercises. 3. Plan for discharge tomorrow if clinically stable. 4. Provide discharge summary and TTOs for GP follow-up.\n\n\nDr. Yang Mi (Specialty Registrar) \nGMC number: 1260195",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 1103,
+              "completion_tokens": 27,
+              "total_tokens": 1130,
+              "cost": 0.00019245,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00019245,
+                "upstream_inference_prompt_cost": 0.00016545,
+                "upstream_inference_completions_cost": 2.7e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 712,
+              "completion_tokens": 64,
+              "total_tokens": 776,
+              "cost": 0.0001708,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0001708,
+                "upstream_inference_prompt_cost": 0.0001068,
+                "upstream_inference_completions_cost": 6.4e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 8,
+                "end_id": 8
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit diagnosis of 'Pneumonia with Sepsis' listed under Issues; current active condition requiring retention."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "7e889f00-6bfc-4f32-9d39-e87156cee485",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Pneumonia with Sepsis"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 2.217
+      },
+      {
+        "label": "NHSSYN008",
+        "source_sha256": "4695e2027d53d9fce5ee94a40ae06648cc54eafaac53215b9fbbf554a1e75d22",
+        "source": "Clinician Leading Ward Round\nDr. Bruce Leslie Griffiths (SpR)\n\nPresenting Complaint\nProgressive breathlessness\n\nIssues\n1. Chronic Thromboembolic Pulmonary Hypertension (CTEPH)\n-Confirmed via CT pulmonary angiogram showing segmental perfusion defects\n-Ongoing oxygen dependency to maintain SpO2 > 94%\n-Stable renal function (eGFR 65 mL/min/1.73m\u00c2\u00b2)\n-INR 1.2, within acceptable range for anticoagulation\n-Improved mobility and reduceed breathlessness\n\nToday\n\nOn Review\nPatient reports feeling well, no SOB at rest, and improved mobility.\n\nInvestigations\nNo new imaging or ECG performed. Renal function stable (eGFR 65 mL/min/1.73m\u00c2\u00b2). Coagulation profile within acceptable range, INR 1.2. NT-proBNP level reduced to 450 pg/mL, indicating improvement in cardiac strain.\n\nObservations\nHR: 78\nBP: 128/82\nRR: 16\nTemp: 36.7\nSpO2: 96% on room air\n\nOn Examination\nPatient appears comfortable and in no distress. No peripheral oedema, JVP not raised, heart s ounds dual with no added sounds. Good air entry bilaterally, no crackles or wheeze heard. No focal neurological deficits.\n\nPlan\n1. Discharge home today with rivaroxaban 20 mg OD for anticoagulation. 2. Prescribe paracetamol 1 g QDS PRN for musculoskeletal discomfort. 3. Arrange outpatient follow-up at the pulmonary HTN clinic in 2 weeks. 4. Initiate warfarin 5 mg OD with a bridging course of LMWH (enoxaparin 40 mg SC OD) until INR is therapeutic. 5. Provide written discharge summary and contact details for anticoagulatoin advice if required.\n\n\nDr. Bruce Leslie Griffiths (Specialty Registrar) \nGMC number: 1811956",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 1119,
+              "completion_tokens": 51,
+              "total_tokens": 1170,
+              "cost": 0.00021885,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00021885,
+                "upstream_inference_prompt_cost": 0.00016785,
+                "upstream_inference_completions_cost": 5.1e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 904,
+              "completion_tokens": 114,
+              "total_tokens": 1018,
+              "cost": 0.0002496,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002496,
+                "upstream_inference_prompt_cost": 0.0001356,
+                "upstream_inference_completions_cost": 0.000114
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 8,
+                "end_id": 13
+              },
+              {
+                "kind": "tickler",
+                "start_id": 42,
+                "end_id": 42
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit diagnosis (CTEPH) with relevant clinical context and confirmation details; matches criteria to keep patient diagnoses."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (pulmonary HTN clinic in 2 weeks) with no indication of cancellation or completion."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "4ddf21de-a872-4914-935e-5bf85a049355",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Chronic Thromboembolic Pulmonary Hypertension (CTEPH)\n-Confirmed via CT pulmonary angiogram showing segmental perfusion defects\n-Ongoing oxygen dependency to maintain SpO2 > 94%\n-Stable renal function (eGFR 65 mL/min/1.73m\u00c2\u00b2)\n-INR 1.2, within acceptable range for anticoagulation\n-Improved mobility and reduceed breathlessness"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "3. Arrange outpatient follow-up at the pulmonary HTN clinic in 2 weeks."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 2.04
+      },
+      {
+        "label": "NHSSYN009",
+        "source_sha256": "551c04d79982b7f25004aef75a780107910ee8aa13eef12ba7b18ee0817d2c74",
+        "source": "Patient: Brian William Morris, 76-year-old male. NHS No: 695592370. \n\n- Final physio review conducted on 09/01/26 at 09:30 by Therapist Georgina Sophie Holmes (Physical).\n- Patient assessed for ability to independently perform prescribed post-op shoulder exercises, including pendulum swings, passive arm raises, and isometric exercises.\n- Demonstrated accurate technique for all exercises with no major corrections required. \n- Pain levels discussed.Patient reported mild discomfort but no significant pain. Provided advice on managing discomfort during exercise sessions using prescribed analgesia (paracetamol, co-codamol 30/500 mg) and non-pharmacological methods (e.g., pacin g, proper positioning). Patient was also advised to continue omeprazole to minimize gastric irritation risk.\n- Reviewed correct use of the shoulder sling, including guidannce on when to wear it, how to avoid unnecessary strain on the affected arm, and its use during ambulation and rest.\n- Addressed patient\u00e2\u20ac\u2122s remaining questions regarding exercise progression and sling use.\n\nNext steps:\n- Patient discharged with a comprehensive home exercise plan to improve R shoulder mobility and prevent stiffness.\n- Advised to perform home exercises three times daily, including pendulum swings, passive arm raises, and isometric exercises, ensuring proper technique.\n- Instructed to avoid lifting heavy objects with the operated arm for six weeks.\n- Advised to continue using paracetamol or co-codamol as needed for pain management and to continue omeprazole to prevent gastric irritation from painkillers.\n- Prescribed a 7-day course of dalteparin injections for thromboprophylaxis.\n- Follow-up OPD physio appointment scheduled for 16/01/26.\n- Patient demonstrated understanding of all instructions proided and expressed confidence in managing post-op shoulder rehab independently.\nTherapist Georgina Sophie Holmes (Physical) ",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 910,
+              "completion_tokens": 30,
+              "total_tokens": 940,
+              "cost": 0.0001665,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0001665,
+                "upstream_inference_prompt_cost": 0.0001365,
+                "upstream_inference_completions_cost": 3e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 745,
+              "completion_tokens": 65,
+              "total_tokens": 810,
+              "cost": 0.00017675,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00017675,
+                "upstream_inference_prompt_cost": 0.00011175,
+                "upstream_inference_completions_cost": 6.5e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "tickler",
+                "start_id": 19,
+                "end_id": 19
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (OPD physio) scheduled for a future date, which meets the criteria to keep."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "56c423a3-dd0b-4d01-9ce1-af00c5250a32",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "tickler",
+                "evidence": "- Follow-up OPD physio appointment scheduled for 16/01/26."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 3.218
+      },
+      {
+        "label": "NHSSYN010",
+        "source_sha256": "2e66654a2412bf0c8ce467a971dd8a148f9d3943aa58d5e49af3c698d0b7c151",
+        "source": "Surgeon\nDr. Idris Dad\n\nAssistant\nDr. Mabel Grace Turner, Nurse Alexandra Danielle Parkinson\n\nAnaesthetist\nDr. Mabel Grace Turner\n\nAnaesthesia Type\nSpinal anaesthesia with sedation\n\nProcedure\nTotal left hip replacement\n\nIncision\nPosterolateral approach to the left hip\n\nDiagnosis\nEnd-stage OA of the left hip\n\nFindings\n- Advanced degeneration of the left hip joint with severe cartilage erosion\n- No evidence of surrounding tissue infection or abnormal pathology\n\nTissue Removed\nDegenerated left femoral head and acetabular cartilage\n\nProstheses or Implants\n- Cemented femoral stem prosthesis\n- Cemented acetabular cup prosthesis\n\nClosure Technique\n- Wound closed in layers using absorbable sutures for deep layers\n- Skin closed with absorbable sutures\n- Sterile dressing applied over the surgical site\n\nEstimated Blood Loss\n300 mL\n\nComplications\nNone noted\n\nPost-Operative Care\n- Initiate enoxaparin 40 mg SC once daily for VTE prophylaxis\n- Paracetamol 1 g every 6 hrs for pain control\n- Tramadol 50 mg PRN for breakthrough pain\n- Monitor surgical site for signs of infection or wound complications\n- Antibiotics ont prescribed due to the patient\u00e2\u20ac\u2122s penicillin allergy\n\nPlan\n- Encourage early mobilisation with physio starting on postop day 1\n- Regular assessment of pain control and functional progress\n- Schedule follow-up in ortho outpatient clinic in six weeks\n- Send tissue specimens to histology for further analysis\n\n\nDr. Idris Dad (Surgeon) \nGMC number: 1290020",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 1094,
+              "completion_tokens": 52,
+              "total_tokens": 1146,
+              "cost": 0.0002161,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002161,
+                "upstream_inference_prompt_cost": 0.0001641,
+                "upstream_inference_completions_cost": 5.2e-05
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          },
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 762,
+              "completion_tokens": 114,
+              "total_tokens": 876,
+              "cost": 0.0002283,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.0002283,
+                "upstream_inference_prompt_cost": 0.0001143,
+                "upstream_inference_completions_cost": 0.000114
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 19,
+                "end_id": 20
+              },
+              {
+                "kind": "tickler",
+                "start_id": 51,
+                "end_id": 55
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit patient diagnosis (End-stage OA of the left hip) found in the source text."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Contains explicit outstanding outpatient follow-up (ortho outpatient clinic in six weeks) and other plan items; the follow-up is not cancelled or completed."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "0040fba5-7280-427c-b2e4-b0620613401e",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "Diagnosis\nEnd-stage OA of the left hip"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "Plan\n- Encourage early mobilisation with physio starting on postop day 1\n- Regular assessment of pain control and functional progress\n- Schedule follow-up in ortho outpatient clinic in six weeks\n- Send tissue specimens to histology for further analysis"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 1.985
+      }
+    ]
+  },
+  "final": {
+    "model": "qwen/qwen3.5-35b-a3b",
+    "provider": "parasail",
+    "extractor_sha256": "a55275a9b57eacb95f65c1e81e068eeff94047b298d36e0a65bc6c9eb581912b",
+    "initial_results": "acceptance-extraction.json",
+    "runs": [
+      {
+        "label": "document-43",
+        "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+        "source": "=== Source note 1 | 2026-01-02 ===\nPatient Philip Paul Cook, a 49-year-old male, arrived via A&E at 21: 15 on 02/01/26 with a chief complaint of acute confusion after a minor fall. Assessed by Nurse Dawn Yvonne Gibbs. GCS scored at 14/15, with mild disorientation noted. Past medical history includes HTN and mild osteoarthritis. No allergies reported. Triage category assigned as Category 2 - Emergency (requires rapid assessment and treatment within 10 minutes). Decision made to proceed with initialtriage and neurological observation.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 2 | 2026-01-02 ===\nPerformed a briefneuro assessment at 21:30. Paftient remains disoriented with GCS score of 14/15, which was initially recorded upon arrival in the ED. No other focal neuro deficits noted. Assessment conducted by Nurse Dawn Yvonne Gibbs. Chief complaint is acute confusion after minor fall. Escalated for CT head scan to rule out intracranial injury.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 3 | 2026-01-02 ===\nNeurologicakl observations conducted by Nurse Dawn Yvonne Gibbs at 22 :00 for a 49-year-old male patient, Philip Paul Cook, presenting with acute confusion after a minor fall. GCS recorded as 14/15 with mild decrease noted and disorientation documented. Findings documented by Nurse Gibbs. Decision made to expedite CT head scan to confirm the cause of acute confusion and assess for intracranial pathology.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 4 | 2026-01-02 ===\nPatient reviewed on 2026-01-02 at 23:15 by Nurse Dawn Yvone Gibbs. Routine neurological observations were completed, with GCS score recorded as 14/15. Mild disorientation was noted, and pupillary response to light was slightly delayed bilaterally. No acute deterioration observed. Patient to be handed over to the medical team for admission and further neurologicaal monitoring.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 5 | 2026-01-02 ===\nPatient\nPhilip Paul Cook\n\nAge\n49\n\nSex\nMale\n\nNHS No.\n457031170\n\nDate/Time\n02/01/26 23:45\n\nSeen By\nDr. Kareem Ahmed\n\nPresenting Complaint\nAcuteconfusion post minor fall Pt reports confusion following an unwitnessed minor afll earlier today. No LOC. No c/o of headache, nausea, or limb weakness. States he felt unsteady but denies vertigo. Unable to recall details of fall. No prior confusion or similar events. The fall occurred earlier on the same day as the ED presentation.\n\nPast Medical History\n- HTN\n- Mild osteoarthritis\n\nMedications\nNil\n\nAllergies\nNil known\n\nSocial History\nLives alone. Independent with ADLs. No carers.\n\nFamily History\nNil significant.\n\nSystems Review\nCNS: Noh/o seizures, severe headache, or focal deficits. No recent visual changes. CVS: No CP or palpitations. Resp: No SOB or cough. GI: No N/V or abdo pain. GU: No dysuria or haematuria. MSK: Reports joint stiffness secondary to OA but no acute issues.\n\nOn Examination\nAlert but disoriented to time/place. GCS 14/15 (E4V4M6). Pupils equal, reactive bilaterally, with slightly delayed reaction to light. No focal neuro deficits. Normal ton e/power/sensation bilaterally. Gait unassessed in ED due to confusion. No signs of trauma to head. No papilledema. No neck stiffness. CVS/Resp/Abdo exam unremarkable.\n\nObservations\nBP 132/84\nHR 78\nRR 16\nTemp 36.8\u00c2\u00b0C\nSPO2 97% onn RA\n\nInvestigations\nCThead: Subdural hygroma, no MLS. No acute bleed.\n\nTest Results\nFBC, U&Es, LFTs, CRP all WNL.\n\nImpression\nSubdural hygroma causing acute confusion, likely secondary to minor fall.\n\nReferral\nAccepted by Neuro Ward (Bed A01). Detailed handover provided to Dr. Kenneth Brian Lamb from the neuro team, sumarizing ED findings, including mechanism of injury, CT results, and initial management.\n\nPlan\n- IV paracetamol 1g QID for pain control.\n- Monitor neuro obs closely for any signs of deterioration.\n- No ABx. No surg intervention required.\n- Transfer to Neuro Ward for further care and obs.\n\n\nDr. Kareem Ahmed (ED Consultant) \nGMC number: 1695439\n\n=== Source note 6 | 2026-01-03 ===\nClerking Doctor\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion following minor fall\n\nHistory of Presenting Complaint\n- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)\n- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours\n- Unable to remember recent events clearly\n- Denies headache, visual changes, N&V, or limb weakness\n- No reported CP, palpitations, or SOB\n\nReview of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall\n- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes\n\nPast Medical History\n- HTN\n- Mild osteoarthritis\n\nMedications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort\n\nAllergies\nNone\n\nSocial History\n- Lives alone in a ground-floor flat\n- Independent with activities of daily living\n- Retired accountant\n- Non-smoker\n- Drinks alcohol occasionally, approximately 6 units per week\n- No recreational drug use\n\nFamily History\n- Father: Deceased, history of MI at age 67\n- Motherr: Deceased, history of HTN and stroke\n- No known family history of neurodegenerative or psychiatric disorders\n\nOn Examination\n- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- No meningeal signs\n\nObservations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air\n\nInvestigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned\n\nTest Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None\n\nImpression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration\n\nPlan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patient\u00e2\u20ac\u2122s stay\n\nAdmitting Consultant\nDr. Ismel Siddique (Neurology Consultant)\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 7 | 2026-01-03 ===\nClinician Leading Ward Round\nDr. Ismel Siddique (Consultant)\n\nPresenting Complaint\nAcute confusion after minor fall Hx noted thank you\n\nIssues\n1. Subdural Hygroma\n-CT head confirmed subdural hygroma\n-No midline shift\n-Mild gait instability likely related to fall\n\nOn Review\nPatient reports feeling confused but denies headache or significant pain.\n\nInvestigations\nCT head confirmedsubdural hygroma without midline shift. Mild hyponatraemia (Na 132 mmol/L). Patient noted to be slightly dehydrated. Sodium correction plan initiated with IV 0.9% NaCl.\n\nObservations\nHR 84\nBP 132/78\nRR 16\nTemp 36.8\nSpO2 98% on air\n\nOn Examination\nPPatient alert but mildly disoriented. General appearance unremarkable. A: Patent airway, no stridor or obstruction. B: Resp effort normal, equal air entry, no added sounds. C: Warm peripheries, cap refill <2s, reg pulse. D: GCS 14/15 (E4, V4, M6); CNs intact; mild gait instability. E: No skin changes, no oedema noted.\n\nPlan\n1. Start ceftriaxone 2g IV OD for 5 days (prophylactic). 2. Refer to physio for mobility and balance assesment. 3. Continue IV 0.9% sodium chloride to manage mild hyponatraemia and dehydration. 4. Monitor hydration status and repeat U&Es in 48 hours.\n\n\nDr. Ismel Siddique (Consultant) \nGMC number: 1430645\n\n=== Source note 8 | 2026-01-03 ===\n10:00 03/01/2026. Physio assessment conducted by Judith Ada Wells for Philip Cook. Focus: post-fall mobility and balance. Guided exercises included sit-to-stand transitions, tandem walking, and balance drills. Mild unsteadiness on tandem walking was noted. Tasks were comlpleted with minimal assistance. No acute neuro signs were observed. Plan: daily physio sessions focusing on balance and gait training. Goal: improve stability and reduce fall risk.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 9 | 2026-01-03 ===\nAssessed by OT Sylvia Gwendoline Field at 11:30. Mild difficulty noted with fine motor tasks (e.g., fastening buttons). Patient managed ADLs with verbal prompts. Button hook tool recommended. Follow-up OT session scheduled to monitor progress.\nTherapist Sylvia Gwendoline Field (Occupational Therapist) \n\n=== Source note 10 | 2026-01-03 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Confirmed on CT scan with no midline shift\n-Neurological status stable with no tfocal deficits\n-Mild fatigue reported by the patient\n\nToday\n\nOn Review\nPatient reports mild fatigue but denies new or worsening symptoms. No headache, nausea, or vision changes.\n\nInvestigations\nNone\n\nObservations\nHR: 82\nBP: 128/78\nRR: 16\nTemp: 36.7\nSpO2: 98% on air\n\nOn Examination\n- Alert, mildly fatigued but engaging well during review\n- CN II-XII grossly intact\n- No focal neurological deficits identified\n-Limb power 5/5 bilaterally with normal tone and reflexes\n- Gait not formally assessed during WR but no obvious instability noted\n\nPlan\n- Encourage oral fluid intake to address mild hyponatremia\n- Repeat U&Es in 24 hours to monitor Na levels\n- Continue prophylactic ceftriaxone 2g IV OD (day 2 of 5)\n- Daily physio to focus on balance and gait training\n- OT follow-upp to assess progress with fine motor tasks\n- Provide button hook tool to assist with dressing as recommended by OT\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 11 | 2026-01-03 ===\n16:30 03/01/26. Pt seen for 2nd physio session post-adm. Focus: gait stability. Exercises: slow walking w/ Zimmer frame; emphasis on wt distribution + step coordination. Req mod assist but showed slight improvement vs 1st session. No acute neuro sx observed. Plan: cont 2x daily physio sessions to improve balance + mobility. No new meds. Therapist: Judith Ada Wels.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 12 | 2026-01-03 ===\nProvided education on fall prevention. Discussed home safety, safe use of assistive devices, and identifying environmental hazards. No changes to treatment or meds. Theerapy sessions to continue as planned.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 13 | 2026-01-04 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Sodium 132 mmol/L\n-Decision to start sodium chloride supplementation\n\nToday\n\nOn Review\nPatient reports feling well and denies new symptoms. No confusion or new complaints noted.\n\nInvestigations\nSodium remains slightly low at 132 mmol/L. Other blood tests within normal limits.\n\nObservations\nHR: 78\nBP: 128/82\nRR: 16\nTemp: 36.8\nSpO2: 98% on air\n\nOn Examination\n- Pt alert, oriented, and cooperative\n- No focal neurological deficits observed\n- Gait remains mildly unsteady; no acute worsening\n- CVS , resp, and abdo examinations unremarkable\n\nPlan\n- Initiate oral sodium supplementation with NaCl 1 g tablets TID\n- Encourage increased oral fluid intake\n- Repeat blood Na levels in 24 hours to monitor progress\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 14 | 2026-01-04 ===\nPt seen 10:30 for physio. Focus: lower limb strength. Ex: seated leg raides, resistance band work. Guidance given on posture to prevent strain. Pt tolerated ex well. No acute distress or neuro Sx. Goal: improve mobility in preparation for independnet mobility. Plan: progress to dynamic balance ex next session to further enhance mobility. Judith Ada Wells (PT).\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 15 | 2026-01-04 ===\nSocial worker Sylvia Gwendoline Field met with the patient to discuss discharge planning. Assessed home safety and identified potential support needs. Next step: Social worker to coordinate with OT for a bhome safety visit prior to discharge.\nSocial Worker Sylvia Gwendoline Field \n\n=== Source note 16 | 2026-01-04 ===\nPatient Philip Paul Cook was seen on 2026-01-04 at 15:00 for an OT session. The focus of the session was on adaptations for ADLs. The patient practiced bed-to-chair transfers and the use of utensils to address reduced dexterity. Energy conservation techniques were demonstrated and practiced. The patient was engaged and able to follow instructions, though mild difficulty with fine mootr tasks was noted. To support independence, a long-handled reacher and adaptive cutlery will be proivded. The next session will build on the skills practiced and assess the need for home adaptations. - Sylvia Gwendoline Field (OT)\nTherapist Sylvia Gwendoline Field \n\n=== Source note 17 | 2026-01-04 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-No midline shift on CT scan\n-Stable neurological status\n2. Mild Hyponatremia\n-Serum sodium 133 mmol/L\n-Previosly noted as 132 mmol/L\n\nToday\n\nOn Review\nPatient reports mild evening headaches. No other concerns. Feeling otherwise stable.\n\nInvestigations\nNone\n\nObservations\nHR: 74\nBP: 126/78\nRR: 16\nTemp: 36.7\nSpO2: 97% (room air)\n\nOn Examination\n- Alert and oriented. Appears comfortable at rest.\n- Neurological examination: Cranial nerves II-XII intact. No motor or sensory deficits. Normal coordination and reflexes. Gait unassessed during this encounter.\n- Cardiovascular examination: Dual heart sounds, no murmurs.\n- Respiratory examination: Clearr breath sounds bilaterally, no added sounds.\n- Abdominal examination: Soft, non-tender, no organomegaly.\n\nPlan\n- Restrict fluid intake to 1.5L per day to address hyponatremia.\n- Prescribe paracetamol 1g PO PRN (maximum 4 doses per day) for headache management.\n- Start oralsodium supplementation with NaCl 1g tablets TID.\n- Repeat serum Na levels in 24 hours.\n- Review progress in the next WR.\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 18 | 2026-01-05 ===\n05/01/26, 09:30. Physio session with Judith Ada Wells. Focus: balance training using balance boards and parallel bars. Session included guided weight-shifting exercises aimed at improving stability and reducing fall risk. The patient, Philip Cook, required minimal assistance and demonstratedsteady progress in maintaining postureduring dynamic movements. Plan: Next session to include more advanced balance tasks, such as single-leg stance exercises, to further improve stability.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 19 | 2026-01-05 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Confirmed on CT scan\n-No midline shift\n-Mild evening headaches reported\n2. Hyponatremia\n-Serum sodium 133 mmol/L\n-Mild imbalance likely due to overhydration\n-Fluid restriction initiated\n\nToday\n\nOn Review\nPatient reports feeling more confident in mobility after physio. No new complaints.\n\nInvestigations\nNo new imaging or ECG conducted during thhis ward round. Serum Na 133 mmol/L\n\nObservations\nHR: 78\nBP: 132/84\nRR: 16\nTemp: 36.8\nSpO2: 97%\n\nOn Examination\n- Alert and oriented\n- No focal neurological deficits\n- Gait slightly unsteadg but improving with physio\n- Mild residual balance issues noted during tandem walking\n\nPlan\n- Implement fluid restriction to 1.5L/day to address mild hyponatremia\n- Prescribe sodium chloride tablets 600 mg TID for electrolyte cprrection\n- Continue physio to improve mobility and balance\n- Recheck serum Na levels in 24 hours\n- PRN paracetamol 1g PO (up to 4 doses/day) for mild headaches\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 20 | 2026-01-05 ===\n05/01/26, 13:30. OT session with Sylvia Gwendoline Field. Focus: cognitive rehabilitation post-SDH. Philip Cook engaged in memory exercises, problem-solving tasks, and attention training. Mild cognitive difficulties noted; no significant fatigue or distress. Strategies introduced for daily planning and organisatuon. Next steps: continue daily cognitive rehab sessions. Plan: progressively increase task complexity to enhance cognitive function.\nTherapist Sylvia Gwendoline Field \n\n=== Source note 21 | 2026-01-05 ===\n16:00 - Dr. Hasan met pt's spouse (Maria Cook). Updated on pt's cond, tx progress, and therapy outcomes. Discussed d/c options incl home care + f/u plans. Tentative d/c: 09/01/26, dep on stable neuro status + completion of therapy.\nDr. Lynn Beverley Hassan (Consultant) \nGMC number: 1229817\n\n=== Source note 22 | 2026-01-06 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Confirmed on CT scan without midline shift\n-Mild hyponatremia (serum sodium 132 mmol/L)\n\nToday\n\nOn Review\nPatkent reports no new symptoms. Feeling well and engaging with therapy. Confident in mobility progress.\n\nInvestigations\nNo new imaging or ECG performed during this ward round. Serum sodium remains slightly low at 132 mmol/L (from bloods conducted previously).\n\nObservations\nHR: 7\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 9 8%\n\nOn Examination\n- Alert, oriented, and cooperative\n- No focal neurological deficits\n- Gait steady with minimal assistance\n- No signs of distress or acute discomfort\n\nPlan\n- Continue oral sodium suplpementation (sodium chloride tablets 1 g TID)\n- Initiate d/c planning with arrangements for home safety assessments and therapy continuation\n- Repeat serum Na+ levels in 24 hours to assess response to treatment\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 23 | 2026-01-06 ===\n06/01/26, 10:30. Physio session with Therapist Judith Ada Wells. The patient mobilized with a rollator frame under guidance. Structured exercises included gait drills, balance training, and posture correction. The patient demonstrated moderate improvement in mobility and confidence with the rollator frame but required occasional verbal cues to maintain proper posture and pacing. Plan: Continue physio sessions twice daily with a focus on independent ambulation to prepare fo r discharge.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 24 | 2026-01-06 ===\n- Speech and language therapist (Julie Irene Hayes) assessed cognitive-communication skills.\n- Focused on memory recall, attention, and word-finding abilities.\n- Mild short-term memory (STM) recall difficulties identified, potentially impacting effective comunication in complex scenarios.\n- Recommended ongoing cognitive rehabilitation exercises targeting STM andattention.\n- Plan to reassess progress in 48 hours.\nTherapist Julie Irene Hayes (Speech and Language) \n\n=== Source note 25 | 2026-01-06 ===\n06/01/26, 14:30. Session with OT Sylvia Gwendoline Field. Focused on ADLs: dressing, bed-chair transfers. Pt guided through tasks using adaptive techniques/tools, including the use of a button hook tool and long-handled reacher. Techniques for energy conservation during daily tasks were also demonstrated. Sim: enhance independence and safety, considering mild cognitive difficulties that may impact task execution. Pt engaged, followed instructions, and demonstrated good compliance. No difficulties noted with compliance, although occasional verbal prompts were required for task completion. Next: progress review in next OT session. Assess need forhome adaptations post-discharge. No changes to meds or treatment plan.\nTherapist Sylvia Gwendoline Field \n\n=== Source note 26 | 2026-01-06 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Serum sodium: 132 mmol/L\n-Likely related to fluid management\n\nToday\n\nOn Review\nPatient reports no new symptoms. Feels stable and notes improved mobility with assistive device.\n\nInvestigations\nN new imaging studies performed. Recent blood tests showed serum Na: 132 mmol/L (reference range 135-145 mmol/L). No other significant abnormalities noted.\n\nObservations\nHR: 78\nBP: 128/75\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\n- Alert and comfortable at rest\n- No focal neurological deficits\n- Gait improving with assistive device\n- CVS: Heart sounds dual, no murmurs\n- Resp: Cheest clear to auscultation, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- Extremities: No oedema, no tenderness\n\nPlan\n- Adjust fluid intake to 1.5L/day to address mild hyponatremia\n- Sodium chloride tablets (600 mg TDS) for next 48 hours\n- Continue active physiotherapy (PT) sessions focusing on independent mobility\n- Discharge planning to proceed as schedulled for 09/01/26\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 27 | 2026-01-07 ===\nPt attended AM physio session (09:30) with Judith Ada Wells. Focus: gait training. Exercises included balance drills, step training, and walking with a rollator to improve stability and confidence in mobility. Mild improvement in gait symmetry was noted. Pt was able to complete short distances with minimal asist. Plan: continue daily physio sessions pre-discharge to enhance mobility and balance. No meds were initiated or adjusted during this session.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 28 | 2026-01-07 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Serum sodium 132 mmol/L\n-Likely related to fludi balance management\n-Oral sodium supplementation initiated\n\nToday\n\nOn Review\nPatient reports feeling well. Mobilizing with assistance, no new concerns.\n\nInvestigations\nNo new investigations. Serum Na remains at 132 mmol/L.\n\nObservations\nHR: 78\nBP: 135/85\nRR: 16\nTemp: 36.8\nSpO2: 97% on room air\n\nOn Examination\n- Alert, comfortable at rest, no signs o distress\n- No focal neurological deficits (FND)\n- Normal tone, power 5/5 in all four limbs\n- Gait assessment reveals mild unsteadiness, mobilizing with assistance\n- Cranial nerve examination unremarkable\n\nPlan\n- Increase oral sodium intake to address persistent mild hyponatremia (Na+)\n- Encourage consumption of electrolyte-rich fluids\n- Finalise discharge paperwork\n- Confirm follow-up physio and community care arrangements\n- Review for discharge tomorrow ifstable\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 29 | 2026-01-07 ===\n07/01/26, 14:00. OT: Sylvia Gwendoline Field. Focus: Home nav post-d/c. Pt assessed for safe use of grab rails, stairs, basic ADLs (e.g., meal prep). Practical demo: adaptive toolz (grabber, non-slip mats). Pt practiced under supervision. Outcome: Safe w/ walking aid, recommended grabber + non-slip mats for home use. To be provided 08/01/26 final OT session.\nTherapist Sylvia Gwendoline Field \n\n=== Source note 30 | 2026-01-07 ===\nDischarge instructions given to the patient. Medication use explained: paracetamol 500mg, 1-2 tablets every 4-6 hours PRN pain, max 8 tablets/24 hours. Advised to follow up with GP post-discharge for routine review. Instructed o contact hospital for worsening symptoms such as severe headache or confusion.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 31 | 2026-01-08 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Stable neurological status\n-No symptoms of headache, dizziness, or confusion\n-Improved mobility with physiotherapy\n\nToday\n\nOn Review\nPatient reports feeling well. No sgmptoms of headache, dizziness, or confusion. Mobility significantly improved with physio.\n\nInvestigations\nNo new imaging or ECG findings. Recent blood tests show no abnormalities.\n\nObservations\nHR: 76\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\n- Patient appears alert and well, engaging appropriately with no signs of distress\n- Neuro exam normal with no focal deficits\n-Gait assessed to be stable; patient mobilising independently with confidence\n\nPlan\n- Prescribe paracetamol 500 mg PRN for mild MSK discomfort during recovery at home (7-day course)\n- Continue with discharge planning; anticipate discharge on 09/01/26 if neurological status remains stable\n- Arrange follow-up in the cmomunity for physio and GP review post-discharge\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 32 | 2026-01-08 ===\n08/01/26, 10:30. Physio session w/ Judith Ada Wells. Focus: sairs + safe transfers. Aim: simulate home env. Pt assessed for ind mobility and ability to perform tasks idnependently. Able to navigate stairs + transfers w/o assist. Verbal guidance provided re: fall prev + optimal techniques. Pt safe for d/c w/ independent mobility. No further IP physio req. Advised to attend OP physio for ongoing rehab for continued progress. No acute issues noted. Plan: d/c physio, arrange OP f/u sessions.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 33 | 2026-01-08 ===\nSocial worker liaised with me to confirm home care arrangements. Daily visits by the community care team (CCT) are finalised. Arrangements agreed with the patient and NOK. Patient cleared for dishcarge.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 34 | 2026-01-08 ===\nSession conducted on 2026-01-08 at 14:00 by Therapist Sylvia Gwendoline Field (OT). Adaptive tools provided to enhance safety and independence at home. Items included a long-handled reacher, non-slip mat for meal preparation, and a shower chair. Demonstrations were given for effective use of each tool, and the patient practiced under supervision, performing tasks successfuly. These tools were specifically recommended for discharge and home use to support independence. No new meds prescribed. Patient cleared for discharge prep. Home safety adaptations deemed sufficient.\nTherapist Sylvia Gwendoline Field (Occupational Therapist) \n\n=== Source note 35 | 2026-01-09 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Neurological status stable with no new symptoms\n-Significant improvement in mobility with walking aid\n-Mild hyponatremia (serum sodium: 132-133 mmol/L) addressed with oral sodium supplementation\n\nToday\n\nOn Review\nPatient feels well and reports no headaches, confusion, or dizziness. Confirms confidence in mobility with walking stick.\n\nInvestigations\nRecent blood tests showed mild hyponatremia (serum sodium: 132-133 mmol/L). Sodium levels have improved but remain slightly below normal range.\n\nObservations\nHR: 78\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 98% on air\n\nOn Examination\n- Alert and oriented to time, place, and person\n- General appearance: Comfortable, no signs of distress\n- Neurological : Cranial nerves II-XII intact, no focal neuro deficits\n- Gait: Amulating safely with walking stick, mild unsteadiness noted but no risk of falls\n- Cardiovascular: Heart sounds dual, no murmurs\n- Respiratory: Chest clear to auscultation\n- Abdomen: Soft, non-tender, no organomegaly\n- Mobility: Able to navigate stairs and perform transfers independently with assistive tools\n- No signs of dehydration or fluid overload\n\nPlan\n- Discharge today with advice on fall prevention and avoidance of anticoagulants unless prescribed by a healthcare provider\n- Prescribe paracetamol 500mg, 1-2 tablets PO QDS PRN for mild headaches for 14 days\n- Arrange follow-up appointment in neurology OPD in 2 weeks\n- Provide adaptive tools, including a long-handled reacher, non-slip mat, and shower chair, for home safety\n- Finalize discharge summary and ensure community care team visits are arranged\n- Advise patient to seek medical attention if experiencing severe headache, confusion, or neurological symptoms\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 36 | 2026-01-09 ===\nDischarge summary completed by Dr. Siddique and provided to Mr. Cook. Included diagn osis, hospital stay summary, follow-up care instructions. Paracetamol 1g QDS prescribed for pain. Advised to follow up with GP in 7 days to assess recovery and monitor sx.\nDr. Ismel Siddique (Consultant) \nGMC number: 1430645\n\n=== Source note 37 | 2026-01-09 ===\nContacted GP, Dr. Elsi Llewelyn, o update on d/c and ensure continuity of care. Informed of f/u appointment and advised to review progress at next GP visit.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z",
+        "calls": [],
+        "writer_reused": true,
+        "review_reused": true,
+        "response": {
+          "contract_version": 1,
+          "request_id": "8d8e8323-712c-4236-9497-f3e37bcbacc1",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "Past Medical History\n- HTN\n- Mild osteoarthritis"
+              },
+              {
+                "kind": "history",
+                "evidence": "Subdural hygroma causing acute confusion, likely secondary to minor fall."
+              },
+              {
+                "kind": "history",
+                "evidence": "Acute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "- Arrange follow-up appointment in neurology OPD in 2 weeks"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "Advised to follow up with GP in 7 days to assess recovery and monitor sx."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 0.005
+      },
+      {
+        "label": "document-44",
+        "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+        "source": "Clerking Doctor\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion following minor fall\n\nHistory of Presenting Complaint\n- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)\n- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours\n- Unable to remember recent events clearly\n- Denies headache, visual changes, N&V, or limb weakness\n- No reported CP, palpitations, or SOB\n\nReview of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall\n- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes\n\nPast Medical History\n- HTN\n- Mild osteoarthritis\n\nMedications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort\n\nAllergies\nNone\n\nSocial History\n- Lives alone in a ground-floor flat\n- Independent with activities of daily living\n- Retired accountant\n- Non-smoker\n- Drinks alcohol occasionally, approximately 6 units per week\n- No recreational drug use\n\nFamily History\n- Father: Deceased, history of MI at age 67\n- Motherr: Deceased, history of HTN and stroke\n- No known family history of neurodegenerative or psychiatric disorders\n\nOn Examination\n- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- No meningeal signs\n\nObservations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air\n\nInvestigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned\n\nTest Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None\n\nImpression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration\n\nPlan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patient\u00e2\u20ac\u2122s stay\n\nAdmitting Consultant\nDr. Ismel Siddique (Neurology Consultant)\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274",
+        "calls": [],
+        "writer_reused": true,
+        "review_reused": true,
+        "response": {
+          "contract_version": 1,
+          "request_id": "d5ca5a00-6171-46bf-be47-cc86ca4d856b",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "Past Medical History\n- HTN\n- Mild osteoarthritis"
+              },
+              {
+                "kind": "history",
+                "evidence": "Acute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 0.001
+      },
+      {
+        "label": "NHSSYN001",
+        "source_sha256": "0cac494dc22d152317479c21ae5414cdfc800b3b0c7dbe7e54b716a94307cd92",
+        "source": "Clinician Leading Ward Round\nDr. Barbara Beatrice Williamson (SpR)\n\nPresenting Complaint\nSevere headache after exertion\n\nIssues\n1. Reversible Cerebral Vasoconstriction Syndrome (RCVS)\n-Confirmed diagnosis via MRI/MRA on 08/01/26\n-Repeat MRA on 11/01/26 showed resolution of vasoconstriction\n-CRP mildly elevated at 12 mg/L during admission (reactive)\n-Stable blood prwssure throughout admission\n\nToday\n\nOn Review\nPatient reports no further headaches. Feling well and keen for discharge.\n\nInvestigations\nRepeat MRA on 11/01/26 showed resolution of vasoconstriction.\n\nTest Results\nMild hyponatremia (Na 132 mmol/L).\n\nObservations\nHR: 84\nBP: 130/80\nRR: 16\nTemp: 36.8\nSpO2: 98% pon air\n\nOn Examination\n- Alert, oriented, and comfortable at rest\n- CVS: Heart sounds dual, no murmurs\n- Resp: Chest clear to auscultation, no added sounds\n- Neuro: Cranial nerves I-XII intact; no focal deficits in motor, sensory, or coordination systems\n- Gait: Normal without assistance\n\nPlan\n- Discharge today as fit tfor home\n- Nimodipine 30 mg PO QDS, to be tapered over 2 weeks\n- Referral for neurology OP follow-up in 4 weeks\n- Advise patient to avoid known triggers (e.g., intense physical exertion, stress) and educate regarding symptoms of recurrence\n- Documented resolution of VC on 11 /01/26\n\n\nDr. Barbara Beatrice Williamson (Specialty Registrar) \nGMC number: 1884805",
+        "calls": [],
+        "writer_reused": true,
+        "review_reused": true,
+        "response": {
+          "contract_version": 1,
+          "request_id": "536d3691-85de-404b-a83f-713066051082",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Reversible Cerebral Vasoconstriction Syndrome (RCVS)\n-Confirmed diagnosis via MRI/MRA on 08/01/26\n-Repeat MRA on 11/01/26 showed resolution of vasoconstriction\n-CRP mildly elevated at 12 mg/L during admission (reactive)\n-Stable blood prwssure throughout admission"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "- Referral for neurology OP follow-up in 4 weeks"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 0.001
+      },
+      {
+        "label": "NHSSYN002",
+        "source_sha256": "b074b2a00e06d9dcf3694c2ea57610cf47195e4476c6480d972a3ef0e2f118c4",
+        "source": "Clinician Leading Ward Round\nDr. Saoirse Keogh (SpR)\n\nPresenting Complaint\nEnd stage OA of left knee\n\nIssues\n1. End stage osteoarthritis of left knee\n-Post-operative period following total knee replacement\n-Mild post-operative anemia with Hb 108 g/L\n\nToday\n\nOn Review\n- Patient reports satisfactory pain control with current analgesia\n- Mobilising wel with ZF and no new concerns\n\nInvestigations\n- No new imaging or ECGs performed\n- Hb 108 g/L (mild post-operative anaemia), no evidence of infection or further blood loss\n\nObservations\nHR: 72\nBP: 118/76\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\n- Patient appears comfortable and alert\n- Left knee surgical wound inspected: clean, dry, no erythema, no excessive swelling\n- No calf tenderness or signs of DVT\n- Mobilising effectively with Zimmer frame, no antalgic gaiit noted\n\nPlan\n- Switch regular paracetamol to PRN dosing for pain management\n- Discharge planning initiated: prescribe oral co-amoxiclav 500/125 mg TDS for 7 days for wound infection prophylaxis\n- Prescribe errous sulfate 200 mg BD to address mild post-operative sanemia\n- Continue physiotherapy with focus on transitioning to crutches\n- Review tomorrow for potential discharge\n\n\nDr. Saoirse Keogh (Specialty Registrar) \nGMC number: 1824737",
+        "calls": [],
+        "writer_reused": true,
+        "review_reused": true,
+        "response": {
+          "contract_version": 1,
+          "request_id": "d426661f-96bc-44b4-a9e0-6c5ab994a204",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. End stage osteoarthritis of left knee\n-Post-operative period following total knee replacement\n-Mild post-operative anemia with Hb 108 g/L"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 0.001
+      },
+      {
+        "label": "NHSSYN003",
+        "source_sha256": "48bb604a1eff0edebcd031f0b7f81bdd73c1a98d8ff1ad8e523c9f7e36e9f846",
+        "source": "Clinician Leading Ward Round\nDr. Osian Pritchard (SpR)\n\nPresenting Complaint\nChest pain\n\nIssues\n1. Spontaneous Pneumomediastinum\n-Stable con dition\n-CXR: No complications\n-Continued improvement\n\nToday\n\nOn Review\nNo pain, no OB.\n\nInvestigations\nCXR: No complications, stable pneumomediastinum.\n\nTest Results\nNone pending.\n\nObservations\nHR: 82\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 97% on air\n\nOn Examination\nComfortable, NAD. No subcutaneous crepitus. Chest clear, no accessory muscle use. CVS: HS I+II, no murmurs. Abd soft, non-tender.\n\nPlan\n1. ischarge planning initiated. 2. No new meds or changes made. 3. Arrange routine OP follow-up in Resp clinic. 4. Patient advised on monitoring for recurrence of symptoms.\n\n\nDr. Osian Pritchard (Specialty Registrar) \nGMC number: 1068006",
+        "calls": [],
+        "writer_reused": true,
+        "review_reused": true,
+        "response": {
+          "contract_version": 1,
+          "request_id": "e971f512-4095-4b49-b64d-85d380083268",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Spontaneous Pneumomediastinum\n-Stable con dition\n-CXR: No complications\n-Continued improvement"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "3. Arrange routine OP follow-up in Resp clinic."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 0.001
+      },
+      {
+        "label": "NHSSYN006",
+        "source_sha256": "8e941c70e6dbc424fabb36e82c25dd52abae994aaf53d046f292dd2e8b0eae4e",
+        "source": "Clinician Leading Ward Round\nDr. Ishika Sahu (SpR)\n\nPresenting Complaint\nEnd-stage left hip OA\n\nIssues\n1. Post-operative recovery (left total hip replacement)\n-Surgical wound clean, dry, and healing well\n-Pain well-controlled with current analgesia\n-Mobilising effectively with crutches\n\nToday\n\nOn Review\nPatient reports feeling well. Pain described as well-controlled. No new concerns raised. Jobilising effectively with crutches.\n\nInvestigations\nNone.\n\nObservations\nHR: 76\nBP: 118/76\nRR: 16\nTemp: 36.8\nSpO2: 98% on air\n\nOn Examination\nPatient appears well. A: Patent, no stridor or obstruction. B: Breathing unlaboured. Clear air entry bilaterally. C: No signs of haemodynamic instability. Capillary rrfill <2s. D: Alert and oriented. No neurological deficits noted. E: Surgical wound clean, dry, and healing well. No erythema, swelling, or dc.\n\nPlan\n1. Discharge today. 2. Start Apixaban 2.5 mg BD fo 2 weeks for thromboprophylaxis. 3. Provide discharge summary and arrange outpatient physio follow-up. 4. Advise routine GP follow-up 6 weeks post-surgery.\n\n\nDr. Ishika Sahu (Specialty Registrar) \nGMC number: 1324560",
+        "calls": [],
+        "writer_reused": true,
+        "review_reused": true,
+        "response": {
+          "contract_version": 1,
+          "request_id": "3cb2e824-a04f-4e89-9719-d9bc750db897",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "End-stage left hip OA"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "3. Provide discharge summary and arrange outpatient physio follow-up."
+              },
+              {
+                "kind": "tickler",
+                "evidence": "4. Advise routine GP follow-up 6 weeks post-surgery."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 0.001
+      },
+      {
+        "label": "NHSSYN007",
+        "source_sha256": "84ba7f47a4c54c7f70d6b3bb962d2506898608cf7f9dfd1c094e3a1e42125112",
+        "source": "Clinician Leading Ward Round\nDr. Yang Mi (SpR)\n\nPresenting Complaint\nFatigue\n\nIssues\n1. Pneumonia with Sepsis\n-CRP 30 mg/L (down from 40 mg/L on 07/01/26)\n-WBC 8.4 x10^9/L \n-Afebrile for 48 hours\n-No oxygen support required\n\nToday\n\nOn Review\nPatient feels significantly better. Reportsimproved appetite and no SOB. Fatigue improving but still present.\n\nInvestigations\nNo new imaging. Previous CXR showed resolving right lower lobe consolidatoin. CRP 30 mg/L (down from 40 mg/L on 07/01/26). WCC 8.4 x10^9/L. Lactate normal.\n\nObservations\nHR: 76\nBP: 128/82\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\nA: Patent airway. No stridor or obstrcution.\nB: Good air entry bilaterally. Minimal residual cracklees in RLL. No wheeze.\nC: Peripheral perfusion normal. No oedema. Heart sounds dual, no murmurs.\nD: Alert andorientated. No focal neurological deficits.\nE: Afebrile. No skin changes orr rashes.\n\nPlan\n1. Stop IV antibiotics; continue oral amoxicillin 500mg TID for 5 days. 2. Physio to continue mobilization and breathing exercises. 3. Plan for discharge tomorrow if clinically stable. 4. Provide discharge summary and TTOs for GP follow-up.\n\n\nDr. Yang Mi (Specialty Registrar) \nGMC number: 1260195",
+        "calls": [],
+        "writer_reused": true,
+        "review_reused": true,
+        "response": {
+          "contract_version": 1,
+          "request_id": "33bc8ef2-e225-4390-8206-d30c37471e14",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Pneumonia with Sepsis"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 0.001
+      },
+      {
+        "label": "NHSSYN008",
+        "source_sha256": "4695e2027d53d9fce5ee94a40ae06648cc54eafaac53215b9fbbf554a1e75d22",
+        "source": "Clinician Leading Ward Round\nDr. Bruce Leslie Griffiths (SpR)\n\nPresenting Complaint\nProgressive breathlessness\n\nIssues\n1. Chronic Thromboembolic Pulmonary Hypertension (CTEPH)\n-Confirmed via CT pulmonary angiogram showing segmental perfusion defects\n-Ongoing oxygen dependency to maintain SpO2 > 94%\n-Stable renal function (eGFR 65 mL/min/1.73m\u00c2\u00b2)\n-INR 1.2, within acceptable range for anticoagulation\n-Improved mobility and reduceed breathlessness\n\nToday\n\nOn Review\nPatient reports feeling well, no SOB at rest, and improved mobility.\n\nInvestigations\nNo new imaging or ECG performed. Renal function stable (eGFR 65 mL/min/1.73m\u00c2\u00b2). Coagulation profile within acceptable range, INR 1.2. NT-proBNP level reduced to 450 pg/mL, indicating improvement in cardiac strain.\n\nObservations\nHR: 78\nBP: 128/82\nRR: 16\nTemp: 36.7\nSpO2: 96% on room air\n\nOn Examination\nPatient appears comfortable and in no distress. No peripheral oedema, JVP not raised, heart s ounds dual with no added sounds. Good air entry bilaterally, no crackles or wheeze heard. No focal neurological deficits.\n\nPlan\n1. Discharge home today with rivaroxaban 20 mg OD for anticoagulation. 2. Prescribe paracetamol 1 g QDS PRN for musculoskeletal discomfort. 3. Arrange outpatient follow-up at the pulmonary HTN clinic in 2 weeks. 4. Initiate warfarin 5 mg OD with a bridging course of LMWH (enoxaparin 40 mg SC OD) until INR is therapeutic. 5. Provide written discharge summary and contact details for anticoagulatoin advice if required.\n\n\nDr. Bruce Leslie Griffiths (Specialty Registrar) \nGMC number: 1811956",
+        "calls": [],
+        "writer_reused": true,
+        "review_reused": true,
+        "response": {
+          "contract_version": 1,
+          "request_id": "3e6f9402-4f90-46b4-a025-639c935579f7",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "1. Chronic Thromboembolic Pulmonary Hypertension (CTEPH)\n-Confirmed via CT pulmonary angiogram showing segmental perfusion defects\n-Ongoing oxygen dependency to maintain SpO2 > 94%\n-Stable renal function (eGFR 65 mL/min/1.73m\u00c2\u00b2)\n-INR 1.2, within acceptable range for anticoagulation\n-Improved mobility and reduceed breathlessness"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "3. Arrange outpatient follow-up at the pulmonary HTN clinic in 2 weeks."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 0.001
+      },
+      {
+        "label": "NHSSYN009",
+        "source_sha256": "551c04d79982b7f25004aef75a780107910ee8aa13eef12ba7b18ee0817d2c74",
+        "source": "Patient: Brian William Morris, 76-year-old male. NHS No: 695592370. \n\n- Final physio review conducted on 09/01/26 at 09:30 by Therapist Georgina Sophie Holmes (Physical).\n- Patient assessed for ability to independently perform prescribed post-op shoulder exercises, including pendulum swings, passive arm raises, and isometric exercises.\n- Demonstrated accurate technique for all exercises with no major corrections required. \n- Pain levels discussed.Patient reported mild discomfort but no significant pain. Provided advice on managing discomfort during exercise sessions using prescribed analgesia (paracetamol, co-codamol 30/500 mg) and non-pharmacological methods (e.g., pacin g, proper positioning). Patient was also advised to continue omeprazole to minimize gastric irritation risk.\n- Reviewed correct use of the shoulder sling, including guidannce on when to wear it, how to avoid unnecessary strain on the affected arm, and its use during ambulation and rest.\n- Addressed patient\u00e2\u20ac\u2122s remaining questions regarding exercise progression and sling use.\n\nNext steps:\n- Patient discharged with a comprehensive home exercise plan to improve R shoulder mobility and prevent stiffness.\n- Advised to perform home exercises three times daily, including pendulum swings, passive arm raises, and isometric exercises, ensuring proper technique.\n- Instructed to avoid lifting heavy objects with the operated arm for six weeks.\n- Advised to continue using paracetamol or co-codamol as needed for pain management and to continue omeprazole to prevent gastric irritation from painkillers.\n- Prescribed a 7-day course of dalteparin injections for thromboprophylaxis.\n- Follow-up OPD physio appointment scheduled for 16/01/26.\n- Patient demonstrated understanding of all instructions proided and expressed confidence in managing post-op shoulder rehab independently.\nTherapist Georgina Sophie Holmes (Physical) ",
+        "calls": [],
+        "writer_reused": true,
+        "review_reused": true,
+        "response": {
+          "contract_version": 1,
+          "request_id": "033ef185-3b7b-4978-b5bb-0c854323665b",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "tickler",
+                "evidence": "- Follow-up OPD physio appointment scheduled for 16/01/26."
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 0.001
+      },
+      {
+        "label": "NHSSYN010",
+        "source_sha256": "2e66654a2412bf0c8ce467a971dd8a148f9d3943aa58d5e49af3c698d0b7c151",
+        "source": "Surgeon\nDr. Idris Dad\n\nAssistant\nDr. Mabel Grace Turner, Nurse Alexandra Danielle Parkinson\n\nAnaesthetist\nDr. Mabel Grace Turner\n\nAnaesthesia Type\nSpinal anaesthesia with sedation\n\nProcedure\nTotal left hip replacement\n\nIncision\nPosterolateral approach to the left hip\n\nDiagnosis\nEnd-stage OA of the left hip\n\nFindings\n- Advanced degeneration of the left hip joint with severe cartilage erosion\n- No evidence of surrounding tissue infection or abnormal pathology\n\nTissue Removed\nDegenerated left femoral head and acetabular cartilage\n\nProstheses or Implants\n- Cemented femoral stem prosthesis\n- Cemented acetabular cup prosthesis\n\nClosure Technique\n- Wound closed in layers using absorbable sutures for deep layers\n- Skin closed with absorbable sutures\n- Sterile dressing applied over the surgical site\n\nEstimated Blood Loss\n300 mL\n\nComplications\nNone noted\n\nPost-Operative Care\n- Initiate enoxaparin 40 mg SC once daily for VTE prophylaxis\n- Paracetamol 1 g every 6 hrs for pain control\n- Tramadol 50 mg PRN for breakthrough pain\n- Monitor surgical site for signs of infection or wound complications\n- Antibiotics ont prescribed due to the patient\u00e2\u20ac\u2122s penicillin allergy\n\nPlan\n- Encourage early mobilisation with physio starting on postop day 1\n- Regular assessment of pain control and functional progress\n- Schedule follow-up in ortho outpatient clinic in six weeks\n- Send tissue specimens to histology for further analysis\n\n\nDr. Idris Dad (Surgeon) \nGMC number: 1290020",
+        "calls": [
+          {
+            "model": "qwen/qwen3.5-35b-a3b",
+            "provider": "Parasail",
+            "usage": {
+              "prompt_tokens": 721,
+              "completion_tokens": 107,
+              "total_tokens": 828,
+              "cost": 0.00021515,
+              "is_byok": false,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+                "audio_tokens": 0,
+                "video_tokens": 0
+              },
+              "cost_details": {
+                "upstream_inference_cost": 0.00021515,
+                "upstream_inference_prompt_cost": 0.00010815,
+                "upstream_inference_completions_cost": 0.000107
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "image_tokens": 0,
+                "audio_tokens": 0
+              }
+            }
+          }
+        ],
+        "writer_reused": true,
+        "model_outputs": [
+          {
+            "proposals": [
+              {
+                "kind": "history",
+                "start_id": 19,
+                "end_id": 20
+              },
+              {
+                "kind": "tickler",
+                "start_id": 51,
+                "end_id": 55
+              }
+            ]
+          },
+          {
+            "decisions": [
+              {
+                "id": "1",
+                "keep": true,
+                "reason": "Explicit patient diagnosis (End-stage OA of the left hip) found in the source under Diagnosis."
+              },
+              {
+                "id": "2",
+                "keep": true,
+                "reason": "Explicit outstanding outpatient follow-up (ortho outpatient clinic in six weeks) found in the source under Plan."
+              }
+            ]
+          }
+        ],
+        "response": {
+          "contract_version": 1,
+          "request_id": "8448ebef-c033-4920-8192-0e3230e8a439",
+          "status": "completed",
+          "output": {
+            "proposals": [
+              {
+                "kind": "history",
+                "evidence": "Diagnosis\nEnd-stage OA of the left hip"
+              },
+              {
+                "kind": "tickler",
+                "evidence": "- Schedule follow-up in ortho outpatient clinic in six weeks"
+              }
+            ]
+          }
+        },
+        "accepted": true,
+        "seconds": 1.178
+      }
+    ]
+  },
+  "completed_model_calls": 21,
+  "reported_cost_usd": 0.00937435,
+  "manual_review": {
+    "all_final_quotes_checked_against_source": true,
+    "initial_failure": "NHSSYN010 reminder bundled inpatient therapy/monitoring and a histology order. Model review kept it.",
+    "fix": "Host separates independent list follow-up items before model review. Qualified or dependent multi-item plans are omitted. Final NHSSYN010 reminder contains only the outpatient orthopedic follow-up.",
+    "other_findings": [
+      "Original NHSSYN003 reminder no longer includes the next list number.",
+      "NHSSYN006 GP timing is post-surgery; unknown surgery date must leave the due date blank.",
+      "NHSSYN007 discharge paperwork for GP follow-up was not treated as an explicit appointment request.",
+      "Large-document impressions share a diagnosis but carry different causal qualifications; related wording is flagged locally for clinician comparison."
+    ],
+    "scope": "Small synthetic development trial, not a claim of complete clinical extraction or semantic deduplication."
+  }
+}

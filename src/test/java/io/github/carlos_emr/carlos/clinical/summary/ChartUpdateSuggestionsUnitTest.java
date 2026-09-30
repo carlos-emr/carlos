@@ -59,7 +59,9 @@ class ChartUpdateSuggestionsUnitTest extends CarlosUnitTestBase {
         "Review in two or four weeks", "Review 4 weeks after discharge", "Review in 2 weeks and 3 days",
         "Symptoms for 4 weeks; arrange review", "Review last done 4 weeks ago", "Routine OP follow-up",
         "Review in 0 days", "0.5 weeks follow-up", "Two to four weeks follow-up", "Review in four weeks as needed", "No review in four weeks", "Review in 4 weeks from surgery",
-        "Review on 2026-02-30", "Review on 2026-10-01 or 2026-10-02", "Surgery 2026-10-01; review later"})
+        "Review on 2026-02-30", "Review on 2026-10-01 or 2026-10-02", "Surgery 2026-10-01; review later",
+        "Advise routine GP follow-up 6 weeks post-surgery", "Review in six weeks postoperatively",
+        "Review in 6 weeks following surgery", "Review in 2 weeks postop", "Review in 6 weeks since discharge"})
     void shouldLeaveDateEmpty_withAmbiguousOrConditionalTiming(String passage) {
         assertThat(reminder(passage, "2026-09-28").draft().dueDate()).isEmpty();
     }

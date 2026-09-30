@@ -50,6 +50,12 @@ not automatically dismiss a suggestion. The server independently reloads the
 chart and blocks matching edited text within the same entry kind before saving;
 receipt checks prevent replaying an already accepted proposal.
 
+Suggestions sharing at least three significant words and 60% of the smaller
+word set show an advisory comparison of the other drafts. This updates while
+editing, displays text safely, and identifies completed suggestions by their
+outcome. Shared wording is not clinical equivalence; nothing is removed or approved
+automatically. Different qualifications in related diagnoses remain available.
+
 Highlighting and comparison run locally without model calls. Source text is built
 from text nodes, including markup-like content. Repeated source passages show up
 to 100 highlights; the warning lists up to 10 matching entry links to keep long,
@@ -119,6 +125,12 @@ model pass reviews each candidate against the full source for eligibility, repea
 facts and completed/superseded follow-up. Every candidate needs a valid decision
 before any output is released. Empty candidate lists need only one call.
 
+Numbered list markers remain attached to their own item. If a proposed reminder
+spans an unqualified multi-item plan, the host separates independent follow-up
+items before review. It omits plans with shared conditions or dependencies that
+would make this separation ambiguous. This prevents a whole treatment/order list
+from appearing as a single reminder; it can also omit potentially useful items.
+
 The host also removes whitespace-equivalent duplicate selections of the same kind
 and excludes recognized family-history sections from patient history. These are
 bounded checks, not semantic deduplication or clinical verification; unfamiliar
@@ -128,6 +140,9 @@ remain authoritative. The public 20-proposal limit is unchanged.
 If the first selected history bullet immediately follows a recognized past-history
 heading, the host retains that heading in the exact quotation. This preserves the
 context used by the form's Medical History destination suggestion.
+
+Event-relative timing such as “six weeks post-surgery” is left blank when the event
+date is unknown. The document date is not substituted for a surgery date.
 
 For the isolated empty-chart trial, `browser/hosted_chart_gateway.py` adds only the
 exact NHSSYN005 compilation rebuilt from the verified corpus to the proposal

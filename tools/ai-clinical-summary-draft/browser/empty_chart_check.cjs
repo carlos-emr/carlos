@@ -73,14 +73,23 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
         row.defaults = [];
         assert.equal(row.history + row.reminders, count);
         for (let index = 0; index < count; index++) {
-          const quote = await frame.locator('article.proposal:visible blockquote').textContent();
+          const quote = await frame.locator('article.proposal:visible .proposal-evidence blockquote').textContent();
           assert(source.includes(quote));
           assert((await frame.locator('.source-highlight').allTextContents()).includes(quote));
           assert.equal(await frame.locator('#chart-update-source').textContent(), source);
           const card = frame.locator('article.proposal:visible');
+          const related = card.locator('.related-proposal-notice');
+          const hasRelated = await related.count() ? await related.isVisible() : false;
+          if (/subdural hygroma/i.test(quote) && /confusion/i.test(quote) && document.documentId === 43) {
+            assert.equal(hasRelated, true, 'Overlapping impressions should be available for comparison');
+            assert(await related.locator('blockquote').count() > 0);
+            await related.locator('summary').first().click();
+            assert.match(await related.locator('blockquote').first().innerText(), /subdural hygroma/i);
+            await chart.screenshot({ path: path.join(output, 'empty-chart-related.png') });
+          }
           if (await card.locator('[name="dueDate"]').count()) {
             const dueDate = await card.locator('[name="dueDate"]').inputValue();
-            row.defaults.push({ kind: 'tickler', dueDate,
+            row.defaults.push({ kind: 'tickler', dueDate, relatedSuggestion: hasRelated,
               assignee: await card.locator('[name="assignee"]').inputValue() });
             const days = /in 2 weeks/i.test(quote) ? 14 : /in 7 days/i.test(quote) ? 7 : null;
             if (days !== null) {
@@ -89,7 +98,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
               assert.equal(dueDate, expected.toISOString().slice(0, 10));
             }
           } else {
-            row.defaults.push({ kind: 'history',
+            row.defaults.push({ kind: 'history', relatedSuggestion: hasRelated,
               destination: await card.locator('[name="destination"]').inputValue() });
           }
           if (index + 1 < count) await frame.getByRole('button', { name: 'Next', exact: true }).click();

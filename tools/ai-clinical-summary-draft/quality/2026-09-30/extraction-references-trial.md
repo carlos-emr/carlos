@@ -1,5 +1,10 @@
 # Chart extraction with source references — September 30, 2026
 
+The subsequent [acceptance check](extraction-acceptance.md) adds ten-document
+verification, cleaner numbered plans, mixed-plan filtering, related-suggestion
+comparisons and safer surgery-relative dates. It supersedes the limitations fixed
+there; the measurements below remain the earlier development results.
+
 The isolated CARLOS trial at <http://localhost:8082/carlos/> now uses
 **Qwen3.5-35B-A3B on Parasail through OpenRouter** for chart proposals. Search for
 **FAKE-EMPTY-CHART**, chart **AIFACT005**, open eChart and choose **Review chart updates**.

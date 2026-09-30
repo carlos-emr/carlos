@@ -64,6 +64,39 @@ class ChartUpdatesTest(unittest.TestCase):
         for _, _, source in agent.committed_notes()[0]:
             self.assertEqual(source, ''.join(updates.source_segments(source).values()))
 
+    def test_numbered_plan_does_not_attach_next_marker_to_followup(self):
+        source = '1. Discharge today. 2. No new meds. 3. Arrange respiratory OP follow-up. 4. Monitor symptoms.\r\n'
+        parts = updates.source_segments(source)
+        self.assertEqual(source, ''.join(parts.values()))
+        self.assertEqual('3. Arrange respiratory OP follow-up.', parts[3].strip())
+        self.assertEqual('4. Monitor symptoms.', parts[4].strip())
+
+    def test_mixed_plan_yields_only_independent_followup_bullets(self):
+        source = 'Plan\n- Start inpatient physio\n- Schedule ortho outpatient follow-up in six weeks\n- Send tissue to histology'
+        parts = updates.source_segments(source)
+        output = updates.resolve_ranges({'proposals': [
+            {'kind': 'tickler', 'start_id': 1, 'end_id': len(parts)}]}, parts, source)
+        self.assertEqual([{'kind': 'tickler', 'evidence': '- Schedule ortho outpatient follow-up in six weeks'}],
+                         output['proposals'])
+
+    def test_qualified_or_dependent_plan_is_not_split_without_context(self):
+        for source in ('Plan only if symptoms resolve\n- Stop medication\n- Arrange clinic follow-up',
+                       'Plan\n- Await results\n- Then arrange GP review',
+                       'Plan\n- If symptoms persist, continue treatment\n- Arrange clinic follow-up'):
+            self.assertEqual([], updates.followup_items(source))
+        conditional = '- Arrange GP review\n  if symptoms persist'
+        self.assertEqual([conditional], updates.followup_items(conditional))
+
+    def test_inline_numbered_plan_does_not_bundle_medication_with_followup(self):
+        source = 'Plan\n1. Start drug X 2.5 mg. 2. Arrange outpatient physio follow-up. 3. Advise GP follow-up 6 weeks post-surgery.'
+        self.assertEqual(['2. Arrange outpatient physio follow-up.',
+                          '3. Advise GP follow-up 6 weeks post-surgery.'], updates.followup_items(source))
+
+    def test_segmentation_keeps_titles_initials_and_decimal_measurements(self):
+        source = 'Dr. A. Smith recorded sodium 132.5 mmol/L. Arrange GP review.\n'
+        self.assertEqual([ 'Dr. A. Smith recorded sodium 132.5 mmol/L.', ' Arrange GP review.\n'],
+                         list(updates.source_segments(source).values()))
+
     def test_rejects_unknown_reversed_noninteger_and_extra_reference_fields(self):
         for change in ({'start_id': 0}, {'end_id': 99}, {'start_id': 2, 'end_id': 1},
                        {'start_id': True}, {'end_id': '2'}, {'evidence': 'invented'}):

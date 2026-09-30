@@ -66,6 +66,10 @@
                     <p><fmt:message key="chartUpdates.matchingChartText"/></p>
                     <ul class="chart-match-links"></ul>
                 </div>
+                <div class="related-proposal-notice" role="status" hidden>
+                    <p><fmt:message key="chartUpdates.relatedProposals"/></p>
+                    <div class="related-proposal-quotes"></div>
+                </div>
                 <c:choose>
                 <c:when test="${not empty proposal.outcome}"><p class="alert alert-success mt-2" role="status"><carlos:encode value="${proposal.outcome}"/></p></c:when>
                 <c:otherwise>

@@ -89,7 +89,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       details.existingReceipts = receiptsBefore;
       const source = fs.readFileSync(fixture.sourceFile, 'utf8');
       assert.equal(createHash('sha256').update(source).digest('hex'), fixture.sourceSha256);
-      for (const evidence of await proposals.locator('blockquote').allTextContents()) assert(source.includes(evidence));
+      for (const evidence of await proposals.locator('.proposal-evidence blockquote').allTextContents()) assert(source.includes(evidence));
       details.checks.push('generation without writes', 'exact source evidence');
       const csrf = page.locator('input[name="CSRF-TOKEN"]').first();
       const firstKey = await proposals.locator('input[name="proposalKey"]').first().inputValue();

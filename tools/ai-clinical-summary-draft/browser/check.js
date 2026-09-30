@@ -342,6 +342,25 @@ async function run() {
     await history.getByRole('link', { name: 'Show passage in document' }).click();
     await page.screenshot({ path: path.join(runDir, 'source-highlight-chart-match.png'), fullPage: true });
   });
+  await scenario('related suggestions stay editable and comparisons display text safely', async page => {
+    await generate(page);
+    const history = card(page, 'History entry');
+    const reminder = card(page, 'Follow-up reminder');
+    await history.locator('[name="entryText"]').fill('Subdural hygroma causing acute confusion.');
+    const text = 'Acute confusion secondary to subdural hygroma. <img src=x onerror=window.relatedExecuted=true>';
+    await reminder.locator('[name="entryText"]').fill(text);
+    assert.equal(await history.locator('.related-proposal-notice').isVisible(), true);
+    await history.locator('.related-proposal-notice summary').click();
+    assert.equal(await history.locator('.related-proposal-quotes blockquote').textContent(), text);
+    assert.equal(await history.locator('.related-proposal-quotes img').count(), 0);
+    assert.equal(await page.evaluate(() => window.relatedExecuted), undefined);
+    assert.equal(await page.locator('[name="confirmed"]:checked').count(), 0);
+    assert.equal(await page.locator('article.proposal').count(), 2);
+    await reminder.locator('[name="entryText"]').fill('Arrange an unrelated appointment.');
+    assert.equal(await history.locator('.related-proposal-notice').isVisible(), false);
+    assert.equal(await reminder.locator('.related-proposal-notice').isVisible(), false);
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
+  });
   await scenario('dismiss bypasses required fields and creates no chart entry', async page => {
     await generate(page);
     await click(page, card(page, 'Follow-up reminder').getByRole('button', { name: 'Dismiss', exact: true }));

@@ -15,6 +15,42 @@
     const matches = new Map();
     let active;
     const evidence = card => card.querySelector('.proposal-evidence blockquote')?.textContent || '';
+    // Shared wording is an advisory signal, not proof that diagnoses are equivalent.
+    // Never remove a proposal or change its approval state based on this comparison.
+    const terms = text => new Set((text.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])
+        .filter(word => word.length >= 4 && !['history', 'medical', 'impression', 'assessment',
+            'patient', 'follow', 'review', 'weeks', 'days', 'plan', 'with', 'from', 'that', 'this'].includes(word)));
+    const related = (left, right) => {
+        const shared = [...left].filter(word => right.has(word)).length;
+        return shared >= 3 && shared / Math.min(left.size, right.size) >= 0.6;
+    };
+    const compareProposals = () => {
+        const states = cards.map(card => {
+            const draft = card.querySelector('[name="entryText"]');
+            const text = draft?.value ?? evidence(card);
+            return { card, draft, text, words: terms(text) };
+        });
+        states.forEach(({ card, draft, words }) => {
+            const notice = card.querySelector('.related-proposal-notice');
+            if (!notice) return;
+            const peers = states.filter(other => other.card !== card && related(words, other.words));
+            notice.hidden = !draft || peers.length === 0;
+            const container = notice.querySelector('.related-proposal-quotes');
+            container.replaceChildren();
+            peers.forEach(peer => {
+                const details = document.createElement('details');
+                const title = document.createElement('summary');
+                title.textContent = peer.card.querySelector('.proposal-number').textContent.trim() + ' '
+                    + peer.card.querySelector('h3').textContent.trim();
+                const outcome = peer.card.querySelector('.alert-success')?.textContent.trim();
+                if (outcome) title.textContent += ' — ' + outcome;
+                const quote = document.createElement('blockquote');
+                quote.textContent = peer.text;
+                details.append(title, quote);
+                container.append(details);
+            });
+        });
+    };
     const showMatches = card => {
         const matching = matches.get(card) || [];
         entries.forEach(entry => {
@@ -89,12 +125,16 @@
         compare(card);
         card.addEventListener('focusin', () => show(card));
         card.addEventListener('click', () => show(card));
-        card.querySelector('[name="entryText"]')?.addEventListener('input', () => compare(card));
+        card.querySelector('[name="entryText"]')?.addEventListener('input', () => {
+            compare(card);
+            compareProposals();
+        });
         card.querySelector('[data-show-source]').addEventListener('click', event => {
             event.preventDefault();
             show(card, true);
         });
     });
+    compareProposals();
     window.CarlosChartUpdateEvidence = { show };
     if (cards.length) show(cards.find(card => card.querySelector('.proposal-form')) || cards[0]);
 })();

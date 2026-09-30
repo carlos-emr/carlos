@@ -45,7 +45,7 @@ summary:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset
 .source-viewer:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset: 2px; }
 .source-highlight { background: #fff0a6; color: #222; padding: 0; box-shadow: 0 1px 0 #b89100; }
 .current-chart { margin-top: 1rem; }
-.chart-match-notice { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .5rem .75rem; margin-bottom: .75rem; }
-.chart-match-notice p { margin: 0 0 .35rem; }
+.chart-match-notice, .related-proposal-notice { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .5rem .75rem; margin-bottom: .75rem; }
+.chart-match-notice p, .related-proposal-notice p { margin: 0 0 .35rem; }
 .chart-match-links { margin-bottom: 0; padding-left: 1.25rem; }
 .chart-entry-match { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .4rem .5rem; }
