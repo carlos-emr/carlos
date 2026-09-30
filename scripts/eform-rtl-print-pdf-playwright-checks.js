@@ -19,7 +19,7 @@
  *
  *   1. Save PDF Only produces a real PDF download and retains the editor window;
  *   2. toolbar Download produces the same packet;
- *   3. Print Only PDF opens the generated PDF in a print viewer;
+ *   3. Print Only PDF prints current unsaved editor content without saving or navigating;
  *   4. regular Print invokes the editor iframe and saves;
  *   5. the Preventions sidebar button loads through eform/rtlPreventions.do (unmapped before);
  *   6. optionally, a clinic .rtl template (RTL_TEMPLATE_NAME) loads into the editor unsandboxed and
@@ -216,7 +216,7 @@ async function savedFdid(page) {
     step('toolbar Download saves the letter and downloads a real PDF', dl1.bytes.length > 1024, `${dl1.name}, ${dl1.bytes.length} bytes, fdid ${fdidAfterDownload}`);
     await screenshot(page, config.screenshotDir, 'rtl-print-pdf-after-download');
 
-    // ---------- 3. Saved letter page: the form's own PDF button ----------
+    // ---------- 3. Saved letter page: Save PDF Only in the toolbar menu ----------
     const storedLetter = await page.locator('#Letter').inputValue();
     step('saved letter stores the typed text with saveRTL() escaping', storedLetter === escapeLikeSaveRTL(typed) || storedLetter.includes(escapeLikeSaveRTL('"chest pain" & <cough>')), storedLetter.slice(0, 120));
     const reopened = await editorFrame(page).evaluate(() => document.body.innerHTML);
