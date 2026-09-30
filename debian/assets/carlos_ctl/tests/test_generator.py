@@ -9,6 +9,7 @@ Run (from debian/assets):
 """
 
 import importlib.util
+import inspect
 import re
 import types
 import unittest
@@ -692,6 +693,30 @@ class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
         for sc in self.mod.SCENARIOS:
             self.assertTrue(sc.why.strip(), sc.name)
             self.assertTrue(sc.stage.strip(), sc.name)
+
+    def test_the_consent_check_is_run_and_every_row_is_judged(self):
+        # a check _run_checks never calls is a check nobody runs
+        self.assertIn("check_consent_live(",
+                      inspect.getsource(self.mod._run_checks))
+        cases = self.mod.CONSENT_CASES
+        ids = [r[0] for _clause, rows, _arrives in cases for r in rows]
+        self.assertEqual(len(ids), len(set(ids)))
+        for clause, rows, arrives in cases:
+            # a seeded row with no expected arrival is one nobody reads
+            self.assertEqual(sorted(arrives), sorted(r[0] for r in rows),
+                             clause)
+        # each clause on its own patient, or one could pass on
+        # another's account (rows with no patient are never grouped)
+        owners = {}
+        for clause, rows, _arrives in cases:
+            for patient in {r[1] for r in rows} - {None}:
+                self.assertNotIn(patient, owners, clause)
+                owners[patient] = clause
+        self.assertLessEqual(set(self.mod.CONSENT_STORED_KEYS), set(ids))
+        self.assertIn(self.mod.CONSENT_P7_SABOTAGE_ID, ids)
+        # found by name, as the check finds it before it runs it
+        self.assertEqual(self.mod._consent_migration().name.split("__")[1],
+                         "one_live_consent_per_type.sql")
 
 
 class TestPreservedColumnsFitTheRow(unittest.TestCase):

@@ -65,9 +65,18 @@ type is seeded inactive until its wording has compliance sign-off, so SMS stays 
 configured until it is activated, and then for each patient until their consent is recorded.
 See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
 
+`V1.0.33__one_live_consent_per_type.sql` leaves at most one live `Consent` row per patient and
+consent type, then adds a unique key that keeps it that way. It first fills NULL flags, retires
+the extra live rows with the rule `ConsentRecords.effective` uses (an opt-out first, then a consent
+the patient confirmed directly, then the latest edit, a zero or empty date counting as undated, then
+the higher id), and makes `explicit`, `optout` and `deleted` NOT NULL. Retired duplicates change only
+`deleted`; a row that had a NULL flag also gets that flag filled, and every row the migration
+changes has its earlier values kept in `Consent_migration_audit`. The key sits on an invisible generated column, `live_demographic_no`,
+because deleted rows legitimately repeat and MariaDB has no partial index.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.32`
-(also the highest shared one), so the next free version for ANY location is `V1.0.33`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.33`
+(also the highest shared one), so the next free version for ANY location is `V1.0.34`
 (see `../README.md`).
