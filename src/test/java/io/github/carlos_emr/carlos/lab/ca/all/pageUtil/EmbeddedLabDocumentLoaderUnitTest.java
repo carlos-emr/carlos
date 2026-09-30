@@ -216,7 +216,7 @@ class EmbeddedLabDocumentLoaderUnitTest {
 
     @Test
     @DisplayName("should compare documents by content and never print their bytes")
-    void shouldCompareByContent_andHideBytesInToString() {
+    void shouldCompareByContentAndHideBytes_whenComparingDocuments() {
         Document one = new Document(Status.PDF, PDF.clone(), PDF.length);
         Document two = new Document(Status.PDF, PDF.clone(), PDF.length);
 
