@@ -401,8 +401,7 @@ Remote documents not supported
 
                 <c:set var="__enc_4"><carlos:encode value='<%= module %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_5"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(350, 500, '<%= request.getContextPath() %>/docume                
-ntManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_4}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_4}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
             }
         }
 
