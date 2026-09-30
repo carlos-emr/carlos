@@ -279,25 +279,21 @@ public final class FileUploadCheck {
     public static StoreOutcome storeSavedFileIfNew(File saved, File savedDir, String name, String provider,
             ContentStore store) throws Exception {
         AtomicBoolean storeRan = new AtomicBoolean();
-        StoreOutcome outcome;
         try {
-            outcome = storeIfNew(name, () -> Files.newInputStream(saved.toPath()), provider, checksumId -> {
+            return storeIfNew(name, () -> Files.newInputStream(saved.toPath()), provider, checksumId -> {
                 storeRan.set(true);
                 // Registered before the store step runs, so a step that throws is covered too.
                 discardOnRollback(saved, savedDir);
                 return store.store(checksumId);
             });
-        } catch (Exception | Error failure) {
+        } finally {
+            // A duplicate, a failed lookup or a transaction that never started: the store step did
+            // not run, so nothing was recorded or stored and nothing references the file. Once it
+            // ran, the rollback synchronization above decides.
             if (!storeRan.get()) {
-                // Nothing was recorded or stored, so nothing references the file.
                 discardUnreferenced(saved, savedDir);
             }
-            throw failure;
         }
-        if (!storeRan.get()) {
-            discardUnreferenced(saved, savedDir);
-        }
-        return outcome;
     }
 
     /**

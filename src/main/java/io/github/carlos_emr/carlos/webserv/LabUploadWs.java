@@ -294,11 +294,35 @@ public class LabUploadWs extends AbstractWs {
                 if (parsed == null) status.setRollbackOnly();
                 return parsed;
             });
-        } catch (RuntimeException | Error failure) {
+        } finally {
+            // The transaction never ran the parse (it could not start), so nothing references the file.
             if (!parseRan.get()) {
                 FileUploadCheck.discardUnreferenced(saved, documentDir);
             }
-            throw failure;
+        }
+    }
+
+    /**
+     * Writes the SOAP lab's local copy with CREATE_NEW, like the other lab savers: the generated
+     * name is only millisecond-unique, and this upload may later delete the file, so it must never
+     * be another upload's. Uses the default charset, as FileUtils.writeStringToFile(File, String)
+     * wrote it before.
+     *
+     * @throws IOException if the name is already in use (the file is left untouched) or the write fails
+     */
+    private static void writeNewLabFile(File labFile, String labContent, File labFolder) throws IOException {
+        if (labContent == null) {
+            throw new IllegalArgumentException("Lab content cannot be null");
+        }
+        try {
+            Files.writeString(labFile.toPath(), labContent, Charset.defaultCharset(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        } catch (FileAlreadyExistsException _) {
+            // The file belongs to a concurrent upload; leave it untouched.
+            throw new IOException("Generated lab upload name is already in use");
+        } catch (IOException | RuntimeException writeFailure) {
+            FileUploadCheck.discardUnreferenced(labFile, labFolder);
+            throw writeFailure;
         }
     }
 
@@ -349,22 +373,8 @@ public class LabUploadWs extends AbstractWs {
         }
 
         // Save a copy of the lab locally. This is done to mimic the manual lab
-        // upload process. CREATE_NEW, like the other lab savers: the name is only millisecond-unique,
-        // and this upload may later delete the file, so it must never be another upload's.
-        // Default charset, as FileUtils.writeStringToFile(File, String) wrote it before.
-        if (labContent == null) {
-            throw new IllegalArgumentException("Lab content cannot be null");
-        }
-        try {
-            Files.writeString(labFile.toPath(), labContent, Charset.defaultCharset(),
-                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-        } catch (FileAlreadyExistsException nameCollision) {
-            // The file belongs to a concurrent upload; leave it untouched.
-            throw new IOException("Generated lab upload name is already in use");
-        } catch (IOException | RuntimeException writeFailure) {
-            FileUploadCheck.discardUnreferenced(labFile, labFolder);
-            throw writeFailure;
-        }
+        // upload process.
+        writeNewLabFile(labFile, labContent, labFolder);
 
         // The checksum must commit with all parser writes, including document routing.
         MessageHandler msgHandler = HandlerClassFactory.getHandler(labType.name());
