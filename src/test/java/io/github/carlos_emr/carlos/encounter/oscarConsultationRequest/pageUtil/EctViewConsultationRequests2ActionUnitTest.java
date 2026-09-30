@@ -51,7 +51,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -141,28 +140,28 @@ class EctViewConsultationRequests2ActionUnitTest extends CarlosUnitTestBase {
         ProfessionalSpecialist specialist = new ProfessionalSpecialist();
         specialist.setLastName("Smith");
         specialist.setFirstName("Brian");
-        when(professionalSpecialistDao.find(5)).thenReturn(specialist);
+        when(professionalSpecialistDao.find(Integer.valueOf(5))).thenReturn(specialist);
         EctViewConsultationRequests2Action action = newAction();
         action.setConsultantId(" 5 ");
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("consultantId")).isEqualTo(5);
-        assertThat(request.getAttribute("consultantLabel")).isEqualTo("Smith, Brian");
+        assertThat(request.getAttribute("consultListConsultantId")).isEqualTo(5);
+        assertThat(request.getAttribute("consultListConsultantLabel")).isEqualTo("Smith, Brian");
     }
 
     @Test
     @DisplayName("should ignore a consultant id that names no specialist")
     void shouldIgnoreConsultant_whenSpecialistUnknown() throws Exception {
-        when(professionalSpecialistDao.find(9999)).thenReturn(null);
+        when(professionalSpecialistDao.find(Integer.valueOf(9999))).thenReturn(null);
         EctViewConsultationRequests2Action action = newAction();
         action.setConsultantId("9999");
 
         action.execute();
 
-        assertThat(request.getAttribute("consultantId")).isNull();
-        assertThat(request.getAttribute("consultantLabel")).isNull();
+        assertThat(request.getAttribute("consultListConsultantId")).isNull();
+        assertThat(request.getAttribute("consultListConsultantLabel")).isNull();
     }
 
     @ParameterizedTest(name = "[{index}] \"{0}\"")
@@ -174,8 +173,8 @@ class EctViewConsultationRequests2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
 
-        assertThat(request.getAttribute("consultantId")).isNull();
-        verify(professionalSpecialistDao, never()).find(anyInt());
+        assertThat(request.getAttribute("consultListConsultantId")).isNull();
+        verify(professionalSpecialistDao, never()).find(any());
     }
 
     @Test
@@ -186,8 +185,8 @@ class EctViewConsultationRequests2ActionUnitTest extends CarlosUnitTestBase {
 
         action.execute();
 
-        assertThat(request.getAttribute("filterProviderNo")).isEqualTo("202");
-        assertThat(request.getAttribute("consultMrpOptions")).isEqualTo(List.of(MRP_IN_SCOPE, MRP_OUT_OF_SCOPE));
+        assertThat(request.getAttribute("consultListFilterProviderNo")).isEqualTo("202");
+        assertThat(request.getAttribute("consultListMrpOptions")).isEqualTo(List.of(MRP_IN_SCOPE, MRP_OUT_OF_SCOPE));
     }
 
     @Test
@@ -199,8 +198,8 @@ class EctViewConsultationRequests2ActionUnitTest extends CarlosUnitTestBase {
 
         action.execute();
 
-        assertThat(request.getAttribute("filterProviderNo")).isNull();
-        assertThat(request.getAttribute("consultMrpOptions")).isEqualTo(List.of(MRP_IN_SCOPE));
+        assertThat(request.getAttribute("consultListFilterProviderNo")).isNull();
+        assertThat(request.getAttribute("consultListMrpOptions")).isEqualTo(List.of(MRP_IN_SCOPE));
     }
 
     @Test
@@ -212,7 +211,7 @@ class EctViewConsultationRequests2ActionUnitTest extends CarlosUnitTestBase {
 
         action.execute();
 
-        assertThat(request.getAttribute("filterProviderNo")).isEqualTo("101");
+        assertThat(request.getAttribute("consultListFilterProviderNo")).isEqualTo("101");
     }
 
     @Test
@@ -225,9 +224,9 @@ class EctViewConsultationRequests2ActionUnitTest extends CarlosUnitTestBase {
         String result = new EctIncomingConsultation2Action(securityInfoManager, filterResolver()).execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("consultMrpOptions")).isEqualTo(List.of(MRP_OUT_OF_SCOPE));
-        assertThat(request.getAttribute("filterProviderNo")).isNull();
-        assertThat(request.getAttribute("consultantId")).isNull();
+        assertThat(request.getAttribute("consultListMrpOptions")).isEqualTo(List.of(MRP_OUT_OF_SCOPE));
+        assertThat(request.getAttribute("consultListFilterProviderNo")).isNull();
+        assertThat(request.getAttribute("consultListConsultantId")).isNull();
     }
 
     @Test
@@ -247,7 +246,19 @@ class EctViewConsultationRequests2ActionUnitTest extends CarlosUnitTestBase {
 
         action.execute();
 
-        assertThat(request.getAttribute("filterProviderNo")).isNull();
+        assertThat(request.getAttribute("consultListFilterProviderNo")).isNull();
+    }
+
+    @Test
+    @DisplayName("should expose no getter that would leak raw filter parameters to the JSP")
+    void shouldNotExposeRawFilterGetters_forValueStackFallback() {
+        // StrutsRequestWrapper.getAttribute falls back to the value stack, so a getter named after
+        // a parameter would hand the JSP the unvalidated value.
+        for (java.lang.reflect.Method method : EctViewConsultationRequests2Action.class.getMethods()) {
+            assertThat(method.getName()).isNotIn("getConsultantId", "getFilterProviderNo",
+                    "getConsultListConsultantId", "getConsultListConsultantLabel",
+                    "getConsultListFilterProviderNo", "getConsultListMrpOptions");
+        }
     }
 
     @Test
@@ -255,8 +266,8 @@ class EctViewConsultationRequests2ActionUnitTest extends CarlosUnitTestBase {
     void shouldLeaveProviderUnset_whenNotSubmitted() throws Exception {
         newAction().execute();
 
-        assertThat(request.getAttribute("filterProviderNo")).isNull();
-        assertThat(request.getAttribute("consultantId")).isNull();
-        assertThat(request.getAttribute("consultMrpOptions")).isEqualTo(List.of(MRP_IN_SCOPE, MRP_OUT_OF_SCOPE));
+        assertThat(request.getAttribute("consultListFilterProviderNo")).isNull();
+        assertThat(request.getAttribute("consultListConsultantId")).isNull();
+        assertThat(request.getAttribute("consultListMrpOptions")).isEqualTo(List.of(MRP_IN_SCOPE, MRP_OUT_OF_SCOPE));
     }
 }

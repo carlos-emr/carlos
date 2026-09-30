@@ -228,16 +228,23 @@
         }
 
         // Consultant / Provider (MRP) filters, already validated and scope-checked by the action.
-        Integer consultantId = (Integer) request.getAttribute("consultantId");
-        String consultantLabel = (String) request.getAttribute("consultantLabel");
-        if (consultantLabel == null) {
-            consultantLabel = "";
-        }
-        String filterProviderNo = (String) request.getAttribute("filterProviderNo");
-        @SuppressWarnings("unchecked")
-        List<ConsultationMrpOptionDto> mrpOptions = (List<ConsultationMrpOptionDto>) request.getAttribute("consultMrpOptions");
-        if (mrpOptions == null) {
-            mrpOptions = Collections.emptyList();
+        // The attribute names differ from the parameter names on purpose (see
+        // ConsultationListFilterResolver): Struts answers a missing attribute from the action's value
+        // stack. The instanceof guards keep a wrong-typed value from ever reaching a cast.
+        Object consultantIdAttr = request.getAttribute("consultListConsultantId");
+        Integer consultantId = consultantIdAttr instanceof Integer ? (Integer) consultantIdAttr : null;
+        Object consultantLabelAttr = request.getAttribute("consultListConsultantLabel");
+        String consultantLabel = consultantId != null && consultantLabelAttr instanceof String ? (String) consultantLabelAttr : "";
+        Object filterProviderAttr = request.getAttribute("consultListFilterProviderNo");
+        String filterProviderNo = filterProviderAttr instanceof String ? (String) filterProviderAttr : null;
+        List<ConsultationMrpOptionDto> mrpOptions = new ArrayList<ConsultationMrpOptionDto>();
+        Object mrpOptionsAttr = request.getAttribute("consultListMrpOptions");
+        if (mrpOptionsAttr instanceof List) {
+            for (Object option : (List<?>) mrpOptionsAttr) {
+                if (option instanceof ConsultationMrpOptionDto) {
+                    mrpOptions.add((ConsultationMrpOptionDto) option);
+                }
+            }
         }
 
         EctConsultationFormRequestUtil consultUtil;

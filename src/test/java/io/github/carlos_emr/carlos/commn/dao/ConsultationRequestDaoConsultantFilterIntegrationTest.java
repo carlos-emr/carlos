@@ -306,7 +306,11 @@ class ConsultationRequestDaoConsultantFilterIntegrationTest extends CarlosTestBa
         @Test
         @Tag("search")
         @DisplayName("should match percent, underscore and bang literally")
-        void shouldMatchWildcardsLiterally_whenKeywordContainsLikeMetacharacters() {
+        void shouldMatchWildcardsLiterally_whenKeywordContainsLikeMetacharacters() throws Exception {
+            // A bare wildcard is text, not "match everything": nothing referenced contains "%" yet.
+            assertThat(consultationRequestDao.searchDistinctConsultants("%", 20)).isEmpty();
+            assertThat(consultationRequestDao.searchDistinctConsultants("__", 20)).isEmpty();
+
             ProfessionalSpecialist percent = saveSpecialist("Pc" + uid + "%x", "Lit");
             ProfessionalSpecialist percentDecoy = saveSpecialist("Pc" + uid + "yx", "Decoy");
             ProfessionalSpecialist underscore = saveSpecialist("Us" + uid + "_x", "Lit");
@@ -324,8 +328,6 @@ class ConsultationRequestDaoConsultantFilterIntegrationTest extends CarlosTestBa
                     .extracting(ConsultantOptionDto::id).containsExactly(underscore.getId());
             assertThat(consultationRequestDao.searchDistinctConsultants("bg" + uid + "!x", 20))
                     .extracting(ConsultantOptionDto::id).containsExactly(bang.getId());
-            // A bare wildcard is text, not "match everything".
-            assertThat(consultationRequestDao.searchDistinctConsultants("%", 20)).isEmpty();
         }
 
         @Test

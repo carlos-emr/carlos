@@ -60,6 +60,10 @@ const TIMEOUT = 30000;
 const PROVIDER_COLUMN = 4;
 const CONSULTANT_COLUMN = 6;
 
+function exactText(text) {
+  return new RegExp(`^\\s*${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`);
+}
+
 async function columnTexts(page, column) {
   return page.locator('table.consult-table tbody tr').evaluateAll((rows, index) => rows.map((row) => {
     const cell = row.querySelectorAll('td')[index];
@@ -126,17 +130,31 @@ async function main() {
     }
     const counts = new Map();
     consultants.forEach((name) => counts.set(name, (counts.get(name) || 0) + 1));
-    const [consultantLabel] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
-    const lastName = consultantLabel.split(',')[0].trim();
-    assert(lastName.length >= 2, `consultant "${consultantLabel}" has no usable last name`);
+    // Most frequent first, so paging has something to page through. An eReferral row shows the
+    // referral's free-text doctor, which is no specialist directory entry and is never suggested,
+    // so try each name until the type-ahead offers one.
+    const candidates = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
 
     // b. Type-ahead.
-    const items = await typeAndWaitForSuggestions(list, lastName.slice(0, Math.min(lastName.length, 4)));
-    assert(Array.isArray(items) && items.length > 0 && items.length <= 20,
-      `type-ahead returned ${Array.isArray(items) ? items.length : 'non-array'} suggestions`);
-    const option = list.locator('#consultantSuggestions li[role="option"]', { hasText: consultantLabel }).first();
-    assert(await option.count() === 1, `type-ahead did not offer "${consultantLabel}"`);
-    await option.click();
+    let consultantLabel = null;
+    let lastName = null;
+    for (const candidate of candidates.slice(0, 10)) {
+      const candidateLast = candidate.split(',')[0].trim();
+      if (candidateLast.length < 2) continue;
+      const items = await typeAndWaitForSuggestions(list, candidateLast.slice(0, Math.min(candidateLast.length, 4)));
+      assert(Array.isArray(items) && items.length <= 20,
+        `type-ahead returned ${Array.isArray(items) ? items.length : 'non-array'} suggestions`);
+      const offered = list.locator('#consultantSuggestions li[role="option"]').filter({ hasText: exactText(candidate) });
+      if (await offered.count() > 0) {
+        await offered.first().click();
+        consultantLabel = candidate;
+        lastName = candidateLast;
+        break;
+      }
+    }
+    if (!consultantLabel) {
+      throw new SkipCheck('no consultant on the first page of the list is a specialist directory entry');
+    }
     const consultantId = await list.locator('#consultantId').inputValue();
     assert(/^\d+$/.test(consultantId), `picking a consultant left consultantId "${consultantId}"`);
     assert(await list.locator('#consultantSuggestions').isHidden(), 'suggestion list stayed open after the pick');

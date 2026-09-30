@@ -52,18 +52,23 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * </ul>
  * <p>Callers must have checked {@code _con} read access first.</p>
  *
+ * <p>The attribute names deliberately differ from the request parameter names: Struts'
+ * request wrapper answers {@code getAttribute(name)} from the action's value stack when no
+ * attribute is set, so an attribute named after a bound parameter would hand the JSP the raw,
+ * unvalidated request value whenever this resolver declined to publish one.</p>
+ *
  * @since 2026-09-30
  */
 public class ConsultationListFilterResolver {
 
     /** Request attribute: the applied consultant specId (Integer), or absent. */
-    public static final String ATTR_CONSULTANT_ID = "consultantId";
+    public static final String ATTR_CONSULTANT_ID = "consultListConsultantId";
     /** Request attribute: "Last, First" of the applied consultant, for re-filling the search box. */
-    public static final String ATTR_CONSULTANT_LABEL = "consultantLabel";
+    public static final String ATTR_CONSULTANT_LABEL = "consultListConsultantLabel";
     /** Request attribute: the applied, in-scope MRP provider number, or absent. */
-    public static final String ATTR_FILTER_PROVIDER_NO = "filterProviderNo";
+    public static final String ATTR_FILTER_PROVIDER_NO = "consultListFilterProviderNo";
     /** Request attribute: List of {@link ConsultationMrpOptionDto} for the Provider dropdown. */
-    public static final String ATTR_MRP_OPTIONS = "consultMrpOptions";
+    public static final String ATTR_MRP_OPTIONS = "consultListMrpOptions";
 
     private final ConsultationRequestDao consultationRequestDao;
     private final ProfessionalSpecialistDao professionalSpecialistDao;

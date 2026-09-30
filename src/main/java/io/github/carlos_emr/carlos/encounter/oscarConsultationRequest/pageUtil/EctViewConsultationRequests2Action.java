@@ -292,17 +292,11 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
         this.limit = limit;
     }
 
-    public String getConsultantId() {
-        return consultantId;
-    }
-
+    // No getters for consultantId / filterProviderNo on purpose: the JSP must only ever see the
+    // values ConsultationListFilterResolver validated, never the raw parameters via the value stack.
     @StrutsParameter
     public void setConsultantId(String consultantId) {
         this.consultantId = consultantId;
-    }
-
-    public String getFilterProviderNo() {
-        return filterProviderNo;
     }
 
     @StrutsParameter
