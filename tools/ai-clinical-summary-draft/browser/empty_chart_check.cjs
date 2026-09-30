@@ -70,12 +70,28 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
         row.history = await cards.filter({ has: frame.locator('[name="destination"]') }).count();
         row.reminders = await cards.filter({ has: frame.locator('[name="dueDate"]') }).count();
         row.agentLabel = await frame.locator('main > p.small').innerText();
+        row.defaults = [];
         assert.equal(row.history + row.reminders, count);
         for (let index = 0; index < count; index++) {
           const quote = await frame.locator('article.proposal:visible blockquote').textContent();
           assert(source.includes(quote));
           assert((await frame.locator('.source-highlight').allTextContents()).includes(quote));
           assert.equal(await frame.locator('#chart-update-source').textContent(), source);
+          const card = frame.locator('article.proposal:visible');
+          if (await card.locator('[name="dueDate"]').count()) {
+            const dueDate = await card.locator('[name="dueDate"]').inputValue();
+            row.defaults.push({ kind: 'tickler', dueDate,
+              assignee: await card.locator('[name="assignee"]').inputValue() });
+            const days = /in 2 weeks/i.test(quote) ? 14 : /in 7 days/i.test(quote) ? 7 : null;
+            if (days !== null) {
+              const expected = new Date(`${document.date}T00:00:00Z`);
+              expected.setUTCDate(expected.getUTCDate() + days);
+              assert.equal(dueDate, expected.toISOString().slice(0, 10));
+            }
+          } else {
+            row.defaults.push({ kind: 'history',
+              destination: await card.locator('[name="destination"]').inputValue() });
+          }
           if (index + 1 < count) await frame.getByRole('button', { name: 'Next', exact: true }).click();
         }
       }

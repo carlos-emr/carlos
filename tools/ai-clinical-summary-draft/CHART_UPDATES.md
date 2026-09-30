@@ -111,6 +111,28 @@ No existing chart entries, patient IDs, provider IDs or write tools are sent to
 the model. The document text itself can contain identifiers: this does not
 de-identify a source document.
 
+The bundled OpenRouter extractor selects numbered source ranges; the host copies
+the original text, including line breaks and spelling. It uses the same reference
+selection approach as the single-document summarizer, while retaining the separate
+chart-proposal contract. It does not extract from a generated summary. A second
+model pass reviews each candidate against the full source for eligibility, repeated
+facts and completed/superseded follow-up. Every candidate needs a valid decision
+before any output is released. Empty candidate lists need only one call.
+
+The host also removes whitespace-equivalent duplicate selections of the same kind
+and excludes recognized family-history sections from patient history. These are
+bounded checks, not semantic deduplication or clinical verification; unfamiliar
+headings, lost qualifications, omissions and model classification errors remain
+possible. The Java evidence validator, chart comparison and per-entry approval
+remain authoritative. The public 20-proposal limit is unchanged.
+
+For the isolated empty-chart trial, `browser/hosted_chart_gateway.py` adds only the
+exact NHSSYN005 compilation rebuilt from the verified corpus to the proposal
+allow-list. Its summary route retains the original single-note restriction. Its
+private result cache includes source/contract, model settings and extractor code
+in the key, revalidates source and output on replay, and returns fresh request IDs.
+This lets browser tests reuse measured model outputs without more paid calls.
+
 Open the patient's eChart to establish authorized program context (and its edit
 lock for history), then open a linked, active readable document and its summary.
 Choose **Review chart updates**, generate proposals, inspect source and chart,

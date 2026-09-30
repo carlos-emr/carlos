@@ -33,13 +33,88 @@ class ChartUpdatesTest(unittest.TestCase):
         requests = []
         def complete(payload):
             requests.append(payload)
-            return output
+            return ({'proposals': [{'kind': 'history', 'start_id': 1, 'end_id': 1},
+                                   {'kind': 'tickler', 'start_id': 2, 'end_id': 2}]}
+                    if len(requests) == 1 else {'decisions': [{'id': i, 'keep': True, 'reason': 'Eligible'} for i in ['1', '2']]})
         response = updates.run(self.config, self.request, self.notes, complete)
         self.assertEqual(output, response['output'])
         self.assertEqual(self.request['request_id'], response['request_id'])
-        self.assertEqual({'sources': self.request['sources']}, json.loads(requests[0]['messages'][1]['content']))
+        self.assertEqual({'segments': {'1': self.source.splitlines(keepends=True)[0],
+                                   '2': self.source.splitlines(keepends=True)[1]}},
+                         json.loads(requests[0]['messages'][1]['content']))
+        self.assertEqual(2, len(requests))
         self.assertFalse(requests[0]['provider']['allow_fallbacks'])
         self.assertTrue(requests[0]['provider']['zdr'])
+
+    def test_copies_multiline_evidence_with_source_typos_and_crlf(self):
+        source = 'History\r\n- Suspected ashtma\r\n  if investigations confirm.\r\n\r\nOther context'
+        raw = {'proposals': [{'kind': 'history', 'start_id': 1, 'end_id': 3}]}
+        result = updates.resolve_ranges(raw, updates.source_segments(source), source)
+        self.assertEqual(source.split('\r\n\r\n')[0], result['proposals'][0]['evidence'])
+
+    def test_followup_can_be_selected_without_neighbouring_prescription(self):
+        source = 'Prescribe drug A. Advised to follow up with GP in 7 days.\r\n'
+        segments = updates.source_segments(source)
+        self.assertEqual(source, ''.join(segments.values()))
+        output = updates.resolve_ranges({'proposals': [
+            {'kind': 'tickler', 'start_id': 2, 'end_id': 2}]}, segments, source)
+        self.assertEqual('Advised to follow up with GP in 7 days.', output['proposals'][0]['evidence'])
+
+    def test_segmentation_preserves_every_complete_synthetic_note(self):
+        for _, _, source in agent.committed_notes()[0]:
+            self.assertEqual(source, ''.join(updates.source_segments(source).values()))
+
+    def test_rejects_unknown_reversed_noninteger_and_extra_reference_fields(self):
+        for change in ({'start_id': 0}, {'end_id': 99}, {'start_id': 2, 'end_id': 1},
+                       {'start_id': True}, {'end_id': '2'}, {'evidence': 'invented'}):
+            row = dict(kind='history', start_id=1, end_id=1)
+            row.update(change)
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                updates.resolve_ranges({'proposals': [row]}, updates.source_segments(self.source), self.source)
+
+    def test_family_section_cannot_become_patient_history_without_heading(self):
+        source = 'Family History\n- HTN\n\nPast Medical History\n- Asthma'
+        raw = {'proposals': [{'kind': 'history', 'start_id': 2, 'end_id': 2},
+                             {'kind': 'history', 'start_id': 4, 'end_id': 5}]}
+        result = updates.resolve_ranges(raw, updates.source_segments(source), source)
+        self.assertEqual([{'kind': 'history', 'evidence': 'Past Medical History\n- Asthma'}],
+                         result['proposals'])
+
+    def test_repeated_history_is_deduplicated_without_rewriting_first_quote(self):
+        source = 'History: suspected asthma.\n\nHistory:  suspected asthma.'
+        raw = {'proposals': [{'kind': 'history', 'start_id': 1, 'end_id': 1},
+                             {'kind': 'history', 'start_id': 3, 'end_id': 3}]}
+        result = updates.resolve_ranges(raw, updates.source_segments(source), source)
+        self.assertEqual([{'kind': 'history', 'evidence': 'History: suspected asthma.'}],
+                         result['proposals'])
+
+    def test_review_can_remove_stale_candidate_and_sees_later_source(self):
+        source = self.source + '\nLater: follow-up completed.'
+        request = copy.deepcopy(self.request)
+        request['sources'][0]['text'] = source
+        replies = [{'proposals': [{'kind': 'tickler', 'start_id': 2, 'end_id': 2}]}, {'decisions': [{'id': '1', 'keep': False, 'reason': 'Completed later'}]}]
+        seen = []
+        def complete(payload):
+            seen.append(payload)
+            return replies.pop(0)
+        result = updates.run(self.config, request, [('TEST', '', source)], complete)
+        self.assertEqual([], result['output']['proposals'])
+        self.assertIn('Later: follow-up completed.', seen[1]['messages'][1]['content'])
+
+    def test_review_must_be_valid_before_any_proposals_are_released(self):
+        valid = {'id': '1', 'keep': True, 'reason': 'Eligible'}
+        for review in ({'decisions': [dict(valid, id='unknown')]}, {'decisions': [valid, valid]},
+                       {'decisions': [dict(valid, keep='yes')]}, {'decisions': []},
+                       {'decisions': [valid], 'extra': True}):
+            replies = [{'proposals': [{'kind': 'history', 'start_id': 1, 'end_id': 1}]}, review]
+            with self.subTest(review=review), self.assertRaises(ValueError):
+                updates.run(self.config, self.request, self.notes, lambda _: replies.pop(0))
+
+    def test_empty_candidates_need_no_review_call(self):
+        with patch('chart_updates.distill.payload', wraps=updates.distill.payload) as payload:
+            result = updates.run(self.config, self.request, self.notes, lambda _: {'proposals': []})
+            self.assertEqual([], result['output']['proposals'])
+            self.assertEqual(1, payload.call_count)
 
     def test_rejects_disclosure_before_network_call(self):
         for source in ('real patient data', self.source[:20], self.source + '\nextra metadata'):
