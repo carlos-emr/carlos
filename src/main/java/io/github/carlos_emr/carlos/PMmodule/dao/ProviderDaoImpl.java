@@ -72,13 +72,15 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
 
     @Override
     public List<Object[]> searchFaxRecipients(String term, int limit) {
+        String literalTerm = term.toLowerCase(java.util.Locale.ROOT)
+                .replace("!", "!!").replace("%", "!%").replace("_", "!_");
         return entityManager().createQuery(
                 "SELECT p, u.value FROM Provider p, UserProperty u "
                 + "WHERE u.providerNo = p.providerNo AND u.name = 'faxnumber' "
                 + "AND p.status = '1' AND u.value IS NOT NULL AND TRIM(u.value) <> '' "
-                + "AND (LOWER(p.lastName) LIKE :term OR LOWER(p.firstName) LIKE :term) "
+                + "AND (LOWER(p.lastName) LIKE :term ESCAPE '!' OR LOWER(p.firstName) LIKE :term ESCAPE '!') "
                 + "ORDER BY p.lastName, p.firstName, p.providerNo", Object[].class)
-                .setParameter("term", "%" + term.toLowerCase(java.util.Locale.ROOT) + "%")
+                .setParameter("term", "%" + literalTerm + "%")
                 .setMaxResults(limit)
                 .getResultList();
     }

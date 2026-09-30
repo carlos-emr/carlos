@@ -1010,7 +1010,9 @@ function positionToolbarAfterForm(wrapper) {
     const observer = new MutationObserver(records => {
         if (records.some(record => !wrapper.contains(record.target))) schedule();
     });
-    observer.observe(document.body, {subtree: true, childList: true, attributes: true});
+    observer.observe(document.body, {subtree: true, childList: true, characterData: true,
+        attributes: true, attributeFilter: ['class', 'style', 'hidden', 'width', 'height',
+            'open', 'rows', 'cols', 'size', 'type', 'id']});
     if (window.ResizeObserver) {
         const resize = new ResizeObserver(schedule);
         Array.from(document.forms).filter(form => !wrapper.contains(form)).forEach(form => resize.observe(form));
@@ -1077,8 +1079,10 @@ function initializeFaxRecipient() {
     document.addEventListener('change', event => {
         if (['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) refresh();
     });
-    setupFaxRecipientAutocomplete({contextPath: document.getElementById('context').value,
-        nameInputId: name.id, faxInputId: fax.id, dropdownId: 'remoteFaxSuggestions'});
+    if (typeof setupFaxRecipientAutocomplete === 'function') {
+        setupFaxRecipientAutocomplete({contextPath: document.getElementById('context').value,
+            nameInputId: name.id, faxInputId: fax.id, dropdownId: 'remoteFaxSuggestions'});
+    }
     refresh();
 }
 

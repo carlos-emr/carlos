@@ -92,7 +92,14 @@ public interface ProviderDao {
 
     public List<Provider> search(String name);
 
-    /** Active providers with a configured fax number, limited to usable directory matches. */
+    /**
+     * Searches active providers with a nonblank {@code faxnumber} user property.
+     *
+     * @param term case-insensitive literal substring matched against first or last name
+     * @param limit maximum number of rows
+     * @return rows of {@code [Provider, String faxNumber]}, ordered by last name, first name,
+     *         then provider number
+     */
     public List<Object[]> searchFaxRecipients(String term, int limit);
 
     public List<Provider> getProvidersByTypeWithNonEmptyOhipNo(String type);

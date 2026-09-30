@@ -124,6 +124,19 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#oscar-spinner-screen').isVisible(),true);
     await page.evaluate(() => HideSpin());
     assert.equal(await page.locator('#oscar-spinner-screen').isVisible(),false);
+    // An absolutely positioned page can grow without resizing its containing form.
+    await page.evaluate(() => { document.getElementById('lastPage').style.height = '800px'; });
+    await page.waitForFunction(() => document.getElementById('toolbarWrapper').getBoundingClientRect().top >= document.getElementById('lastPage').getBoundingClientRect().bottom);
+    // A missing directory script must leave manual fax entry and toolbar layout usable.
+    await page.route('**/js/faxRecipientAutocomplete.js', route => route.fulfill({status:200,body:''}));
+    await open();
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxNumber').fill('416-555-0177');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0177');
+    await page.unroute('**/js/faxRecipientAutocomplete.js');
     // A legacy AddOtherFax choice must win over an older nonempty faxnumList.
     await open(false, true);
     await page.locator('#designerAddFax').click();
