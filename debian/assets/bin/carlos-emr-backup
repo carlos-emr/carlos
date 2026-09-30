@@ -734,6 +734,24 @@ cmd_verify() {
             exit 1
             ;;
     esac
+    # The outbound email archive keyring (#3448). Once the restored database
+    # holds archived emails, a files snapshot without the keyring restores a
+    # record nobody can read. Before the first archive exists (a fresh install
+    # whose EMR has not started) there may be no keyring yet, so zero archived
+    # rows pass. This user cannot look inside the live 0700 keyring directory,
+    # which is why the restored database is the yardstick.
+    local archived
+    archived="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e \
+        "SELECT COUNT(*) FROM \`${VERIFY_DB}\`.outboundEmailArchive" 2>/dev/null || echo 0)"
+    case "${files_list}" in
+        *archive-keyring/outbound-email-archive.keyring*) : ;;
+        *)
+            if [ "${archived:-0}" != 0 ]; then
+                alert "restore drill failed" "the restored database holds ${archived} archived email(s) but the newest files snapshot has no /etc/carlos-emr/archive-keyring/outbound-email-archive.keyring — archived patient email would NOT be readable after a restore."
+                exit 1
+            fi
+            ;;
+    esac
     if ! restic snapshots --tag binlog --host "$(hostname -s)-carlos" >/dev/null 2>&1 || \
             [ "$(restic snapshots --tag binlog --host "$(hostname -s)-carlos" --json 2>/dev/null | head -c 3)" = "[]" ]; then
         warn "no binlog snapshots in the repository yet; point-in-time replay is unproven"
