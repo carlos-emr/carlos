@@ -65,6 +65,13 @@ type is seeded inactive until its wording has compliance sign-off, so SMS stays 
 configured until it is activated, and then for each patient until their consent is recorded.
 See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
 
+`V1.0.45__activate_sms_consent.sql` replaces the seeded draft description of the SMS consent type
+with its approved wording (#3848) and, in the same statement, switches the type on where the
+`sms_communication` property still points at it. A clinic's own wording is left alone, and a clinic
+that turned SMS consent off by deleting, clearing or repointing that property keeps it off. Its
+number is set when it merges: it must be above the highest version on both develop and
+`release/2026.08`.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the

@@ -33,6 +33,7 @@ migration/
            V1.0.28__outbound_email_archive.sql
            V1.0.31__add_sms_security_objects.sql  # 29-30 were held by open PRs; see common/README.md
            V1.0.32__add_sms_consent.sql
+           V1.0.45__activate_sms_consent.sql  # number set at merge time, above develop and release/2026.08
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
