@@ -774,6 +774,11 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, consultationRequestId, demographicId);
                 documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, consultationRequestId, demographicId);
                 documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, consultationRequestId, demographicId);
+                // The form does not list an attachment whose target was deleted or moved to another
+                // patient, so it is missing from the lists above. attachToConsult keeps it attached
+                // rather than detaching it silently; name it on the page shown after the save.
+                request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                        documentAttachmentManager.getUnavailableConsultAttachmentWarnings(consultationRequestId));
             } catch (ParseException e) {
                 MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
             }
@@ -928,6 +933,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 			return "fax";
 			
 		}
+
+        // An Update that kept unavailable attachments names them on the confirmation page. The
+        // redirect below starts a new request, which would drop the warnings, so forward to that
+        // page instead, as "Update And Print Preview" does.
+        if (request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE) instanceof Collection<?> warnings
+                && !warnings.isEmpty()) {
+            return SUCCESS;
+        }
 
         String contextPath = request.getContextPath();
         String forward = contextPath + "/encounter/oscarConsultationRequest/ViewConfirmConsultationRequest?de=" + demographicNo;
