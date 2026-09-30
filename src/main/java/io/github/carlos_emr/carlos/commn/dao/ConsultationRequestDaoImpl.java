@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import jakarta.persistence.Query;
 
@@ -109,6 +110,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
     @Override
     public List<ConsultationRequest> getConsults(ConsultationListFilterDto filter) {
+        Objects.requireNonNull(filter, "filter");
         String team = filter.team();
         boolean showCompleted = filter.showCompleted();
         Date startDate = filter.startDate();

@@ -22,11 +22,14 @@
 package io.github.carlos_emr.carlos.consultation.dto;
 
 /**
- * Null-tolerant "Last, First" formatting shared by the consultation list option projections.
+ * Null-tolerant "Last, First" formatting for the Consultations list: the single implementation
+ * behind the consultant/MRP option labels, the applied-filter badge and the list's Consultant
+ * column ({@code EctViewConsultationRequestsUtil.formatSpecialistName} delegates here), so a
+ * suggestion, its badge and its rows always render the same text.
  *
  * @since 2026-09-30
  */
-final class ConsultationNameFormat {
+public final class ConsultationNameFormat {
 
     private ConsultationNameFormat() {
     }
@@ -39,7 +42,7 @@ final class ConsultationNameFormat {
      * @param firstName first name; may be null or blank
      * @return "Last, First", the single part present, or an empty string
      */
-    static String lastCommaFirst(String lastName, String firstName) {
+    public static String lastCommaFirst(String lastName, String firstName) {
         String last = lastName == null ? "" : lastName.trim();
         String first = firstName == null ? "" : firstName.trim();
         if (last.isEmpty()) {

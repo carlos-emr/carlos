@@ -135,6 +135,19 @@ async function main() {
     // so try each name until the type-ahead offers one.
     const candidates = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
 
+    // Start the filter from a later page, so the offset reset below is observable.
+    const next = list.locator('button[onclick="gotoPage(true);"]');
+    let startOffset = '0';
+    if (await next.count() === 1) {
+      await Promise.all([
+        list.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
+        next.click(),
+      ]);
+      await assertNotErrorPage(list, 'consultation list second page');
+      startOffset = listParam(list, 'offset');
+      assert(Number(startOffset) > 0, `paging did not move off page 1 (offset ${startOffset})`);
+    }
+
     // b. Type-ahead.
     let consultantLabel = null;
     let lastName = null;
@@ -165,7 +178,8 @@ async function main() {
     // c. Apply it.
     await submitFilters(list);
     assert(listParam(list, 'consultantId') === consultantId, 'submitted URL lost the consultantId');
-    assert(listParam(list, 'offset') === '0', `a new filter did not restart at offset 0 (${listParam(list, 'offset')})`);
+    assert(listParam(list, 'offset') === '0',
+      `a new filter submitted from offset ${startOffset} did not restart at offset 0 (${listParam(list, 'offset')})`);
     let names = await columnTexts(list, CONSULTANT_COLUMN);
     assert(names.length > 0, 'consultant filter returned no rows for a consultant seen in the list');
     assert(names.every((name) => name === consultantLabel),

@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationNameFormat;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -343,14 +344,6 @@ public class EctViewConsultationRequestsUtil {
      * @since 2026-09-24
      */
     static String formatSpecialistName(String lastName, String firstName) {
-        String last = lastName == null ? "" : lastName.trim();
-        String first = firstName == null ? "" : firstName.trim();
-        if (last.isEmpty()) {
-            return first;
-        }
-        if (first.isEmpty()) {
-            return last;
-        }
-        return last + ", " + first;
+        return ConsultationNameFormat.lastCommaFirst(lastName, firstName);
     }
 }
