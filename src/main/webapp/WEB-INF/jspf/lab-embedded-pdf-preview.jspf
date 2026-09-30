@@ -1,0 +1,74 @@
+<%--
+
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+
+--%>
+<%--
+    Inline preview row for a PDF embedded in an HL7 ED OBX (#3977).
+
+    Statically included by lab/CA/ALL/labDisplay.jsp and labDisplayAjax.jsp directly after the
+    result row's </tr>, so it reads the including page's scriptlet variables:
+      embeddedDocument          EmbeddedLabDocumentLoader.Inspection for this OBX, or null
+      embeddedDocumentViewHref  the lab/ViewEmbeddedDocumentFromLab URL (not yet encoded)
+      labPdfPreviewSettings     LabPdfPreviewSettings, loaded once per page
+      labPdfPreviewCount        running count of preview rows on the page (incremented here)
+      labPdfPreviewColspan      the result table's column count
+    The fmt declaration below repeats the including pages' own (same prefix, same URI).
+
+    No script: labDisplayAjax.jsp is inserted into the inbox with innerHTML, where inline scripts
+    never run. Lazy loading therefore relies on <details> and loading="lazy": the first
+    LAB_PDF_PREVIEWS_OPEN previews start expanded, later ones collapsed, and a collapsed frame is
+    not fetched until the clinician opens it, so a lab with many PDFs does not load them all.
+
+    @since 2026-09-30
+--%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%
+    if (embeddedDocument != null && embeddedDocument.isPdf() && labPdfPreviewSettings.inlinePreviewEnabled()) {
+        final int LAB_PDF_PREVIEWS_OPEN = 3;
+        labPdfPreviewCount++;
+%>
+<%-- Same bundle the including pages set; repeated so the fragment stands on its own. --%>
+<fmt:setBundle basename="oscarResources"/>
+<tr class="lab-embedded-pdf-row">
+    <td colspan="<%= labPdfPreviewColspan %>" style="padding:4px 8px 12px 24px;">
+        <% if (embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TOO_LARGE) { %>
+        <p class="lab-embedded-pdf-too-large" style="margin:0;font-style:italic;">
+            <fmt:message key="lab.embeddedPdf.tooLarge">
+                <fmt:param value="<%= String.valueOf((embeddedDocument.sizeBytes() + 1048575) / 1048576) %>"/>
+                <fmt:param value="<%= String.valueOf(labPdfPreviewSettings.maxMegabytes()) %>"/>
+            </fmt:message>
+        </p>
+        <% } else { %>
+        <details class="lab-embedded-pdf"<%= labPdfPreviewCount <= LAB_PDF_PREVIEWS_OPEN ? " open" : "" %>>
+            <summary style="cursor:pointer;"><fmt:message key="lab.embeddedPdf.preview"/></summary>
+            <iframe class="lab-embedded-pdf-frame"
+                    src="<%= SafeEncode.forHtmlAttribute(embeddedDocumentViewHref) %>"
+                    title="<fmt:message key="lab.embeddedPdf.frameTitle"/>"
+                    loading="lazy"
+                    style="width:100%;height:600px;border:1px solid #ccc;"></iframe>
+            <div style="font-size:smaller;color:#555;"><fmt:message key="lab.embeddedPdf.fallback"/></div>
+        </details>
+        <% } %>
+    </td>
+</tr>
+<%
+    }
+%>

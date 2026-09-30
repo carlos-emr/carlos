@@ -65,6 +65,9 @@
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.EmbeddedLabDocumentLoader" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettings" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettingsService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -169,6 +172,11 @@
     String multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
 
     MessageHandler handler = Factory.getHandler(segmentID);
+    // Inline preview of PDFs embedded in HL7 ED results (#3977): read the lab display
+    // preferences once per page; lab-embedded-pdf-preview.jspf counts the preview rows.
+    LabPdfPreviewSettings labPdfPreviewSettings = SpringUtils.getBean(LabPdfPreviewSettingsService.class).load();
+    int labPdfPreviewCount = 0;
+    final int labPdfPreviewColspan = 8;
     String hl7 = Factory.getHL7Body(segmentID);
     Hl7TextInfoDao hl7TextInfoDao = (Hl7TextInfoDao) SpringUtils.getBean(Hl7TextInfoDao.class);
     int lab_no = Integer.parseInt(segmentID);
@@ -1047,16 +1055,18 @@
                         lineClass = "AbnormalRes";
                     }
 
-                    boolean isEmbeddedDocumentResult = (handler.getMsgType().equals("ExcellerisON") || handler.getMsgType().equals("PATHL7")) && handler.getOBXValueType(j, k).equals("ED");
-                    String embeddedDocumentLegacy = "";
-                    if (isEmbeddedDocumentResult && handler.getMsgType().equals("PATHL7") && ((PATHL7Handler) handler).isLegacy(j, k)) {
-                        embeddedDocumentLegacy = "&legacy=true";
-                    }
-                    String embeddedDocumentHref = request.getContextPath() + "/lab/DownloadEmbeddedDocumentFromLab?labNo="
-                            + URLEncoder.encode(segmentID == null ? "" : segmentID, StandardCharsets.UTF_8)
+                    // An HL7 ED OBX (any lab type) whose payload is a PDF gets a Download PDF link and an inline
+                    // preview row (#3977). An ED payload that is not a PDF keeps the ordinary result rendering.
+                    // The legacy PATHL7 shape is detected server-side, so the URLs carry no legacy flag.
+                    EmbeddedLabDocumentLoader.Inspection embeddedDocument = handler.isOBXEmbeddedDocument(j, k)
+                            ? EmbeddedLabDocumentLoader.inspect(handler, j, k, labPdfPreviewSettings.maxBytes())
+                            : null;
+                    boolean isEmbeddedDocumentResult = embeddedDocument != null && embeddedDocument.isPdf();
+                    String embeddedDocumentQuery = "?labNo=" + URLEncoder.encode(segmentID == null ? "" : segmentID, StandardCharsets.UTF_8)
                             + "&segment=" + j
-                            + "&group=" + k
-                            + embeddedDocumentLegacy;
+                            + "&group=" + k;
+                    String embeddedDocumentHref = request.getContextPath() + "/lab/DownloadEmbeddedDocumentFromLab" + embeddedDocumentQuery;
+                    String embeddedDocumentViewHref = request.getContextPath() + "/lab/ViewEmbeddedDocumentFromLab" + embeddedDocumentQuery;
                     String labValuesHref = "javascript:popupStart('660','900','" + request.getContextPath()
                             + "/lab/CA/ON/ViewLabValues?testName=" + URLEncoder.encode(obxName, StandardCharsets.UTF_8)
                             + "&demo=" + (demographicID != null ? URLEncoder.encode(demographicID, StandardCharsets.UTF_8) : "")
@@ -1209,8 +1219,7 @@
                         if (isEmbeddedDocumentResult) {
                     %>
                     <td align="right"><a
-                            href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>">PDF
-                        Report</a></td>
+                            href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>" class="lab-embedded-pdf-download"><fmt:message key="lab.embeddedPdf.download"/></a></td>
                     <%
                     } else {
                     %>
@@ -1236,6 +1245,7 @@
                     <%
                         }//end of PATHL7 else %>
                 </tr>
+                <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
 
                 <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">

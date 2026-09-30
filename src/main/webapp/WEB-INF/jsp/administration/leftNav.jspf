@@ -271,6 +271,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 				<li><a href="${ctx}/admin/labForwardingRules" class="contentLink"><fmt:message key="admin.admin.labFwdRules"/></a></li>
 				</security:oscarSec>
 				<li><a href='javascript:void(0);' class="xlink" rel="${carlos:forHtmlAttribute(ctx)}/admin/providerLinkingRules"><fmt:message key="admin.admin.providerLinkingRules"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${carlos:forHtmlAttribute(ctx)}/admin/LabDisplaySettings"><fmt:message key="admin.admin.labDisplaySettings"/></a></li>
 
 				<li><a href="${ctx}/admin/ViewAddQueue" class="contentLink"><fmt:message key="admin.admin.AddNewQueue"/></a></li>
 			</ul>

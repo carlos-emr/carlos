@@ -1494,6 +1494,19 @@
       "env": []
     },
     {
+      "name": "lab-embedded-pdf",
+      "script": "scripts/lab-embedded-pdf-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "cds-export-lab-documents",
       "script": "scripts/cds-export-lab-documents-playwright-checks.js",
       "tiers": [

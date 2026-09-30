@@ -85,6 +85,34 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should render the inline embedded PDF preview in lab display")
+    void shouldRenderEmbeddedPdfPreview_inLabDisplay() throws IOException {
+        assertEmbeddedPdfPreviewIsRendered(Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    @DisplayName("should render the inline embedded PDF preview in ajax lab display")
+    void shouldRenderEmbeddedPdfPreview_inAjaxLabDisplay() throws IOException {
+        assertEmbeddedPdfPreviewIsRendered(Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    @DisplayName("should frame the preview lazily, encoded, and without inline script")
+    void shouldFramePreviewLazily_withoutInlineScript() throws IOException {
+        String fragment = Files.readString(Path.of("src/main/webapp/WEB-INF/jspf/lab-embedded-pdf-preview.jspf"),
+                StandardCharsets.UTF_8);
+
+        // labDisplayAjax.jsp is inserted with innerHTML, where an inline script never runs.
+        assertThat(fragment)
+                .contains("src=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentViewHref) %>\"")
+                .contains("loading=\"lazy\"")
+                .contains("<details class=\"lab-embedded-pdf\"")
+                .contains("labPdfPreviewSettings.inlinePreviewEnabled()")
+                .contains("EmbeddedLabDocumentLoader.Status.TOO_LARGE")
+                .doesNotContain("<script");
+    }
+
+    @Test
     @DisplayName("should close inboxhub iframe after successful lab macro")
     void shouldCloseInboxhubIframe_afterSuccessfulLabMacro() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
@@ -115,10 +143,23 @@ class LabDisplayJspRegressionTest {
 
     private void assertEmbeddedDocumentObservationLinksUseDownloadAction(String jsp) {
         assertThat(jsp)
-                .contains("String embeddedDocumentHref = request.getContextPath() + \"/lab/DownloadEmbeddedDocumentFromLab?labNo=\"")
+                .contains("String embeddedDocumentHref = request.getContextPath() + \"/lab/DownloadEmbeddedDocumentFromLab\" + embeddedDocumentQuery;")
                 .contains("String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesHref;")
                 .contains("href=\"<%= SafeEncode.forHtmlAttribute(observationHref) %>\"")
-                .contains("href=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>\"");
+                .contains("href=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>\" class=\"lab-embedded-pdf-download\">"
+                        + "<fmt:message key=\"lab.embeddedPdf.download\"/></a>");
+    }
+
+    private void assertEmbeddedPdfPreviewIsRendered(String jsp) {
+        // Detection is per OBX by value type (any lab type) and requires a verified PDF, not the
+        // former hard-coded ExcellerisON/PATHL7 test; the legacy PATHL7 flag is resolved server-side.
+        assertThat(jsp)
+                .contains("EmbeddedLabDocumentLoader.Inspection embeddedDocument = handler.isOBXEmbeddedDocument(j, k)")
+                .contains("boolean isEmbeddedDocumentResult = embeddedDocument != null && embeddedDocument.isPdf();")
+                .contains("String embeddedDocumentViewHref = request.getContextPath() + \"/lab/ViewEmbeddedDocumentFromLab\" + embeddedDocumentQuery;")
+                .contains("<%@ include file=\"/WEB-INF/jspf/lab-embedded-pdf-preview.jspf\" %>")
+                .doesNotContain("handler.getMsgType().equals(\"ExcellerisON\") || handler.getMsgType().equals(\"PATHL7\")) && handler.getOBXValueType(j, k).equals(\"ED\")")
+                .doesNotContain("&legacy=true");
     }
 
     private static List<String> ackLabFuncEncodeContexts(String jsp) {
