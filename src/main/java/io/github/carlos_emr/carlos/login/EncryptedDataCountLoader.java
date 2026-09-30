@@ -129,7 +129,7 @@ final class EncryptedDataCountLoader {
     /** Opens the connection to count with. The loader closes it. */
     @FunctionalInterface
     interface ConnectionSource {
-        Connection open() throws Exception;
+        Connection open() throws SQLException, ClassNotFoundException;
     }
 
     /**
@@ -263,9 +263,6 @@ final class EncryptedDataCountLoader {
         Connection connection;
         try {
             connection = connectionSource.open();
-            if (connection == null) {
-                throw new MissingSettingsException("no connection was opened");
-            }
         } catch (Exception | LinkageError e) {
             // LinkageError: a driver class that fails to load or initialise.
             return new Result(Map.of(), List.of("database connection (" + describe(e) + ")"));
@@ -287,9 +284,10 @@ final class EncryptedDataCountLoader {
         return new Result(counts, failures);
     }
 
-    // FindSecBugs SQL_INJECTION_JDBC: probe.sql() is only ever one of the fixed PROBES strings above,
-    // and every value is a bound parameter; nothing from a request or the database reaches the SQL.
-    @SuppressFBWarnings(value = "SQL_INJECTION_JDBC",
+    // FindSecBugs SQL_INJECTION_JDBC / SpotBugs SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING:
+    // probe.sql() is only ever one of the fixed PROBES strings above, and every value is a bound
+    // parameter; nothing from a request, the properties file or the database reaches the SQL.
+    @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
             justification = "SQL is one of the fixed PROBES constants; values are bound parameters")
     private static void runProbe(Connection connection, Probe probe, Map<Kind, Set<Long>> found,
                                  List<String> failures) {
@@ -349,15 +347,14 @@ final class EncryptedDataCountLoader {
     /** Connector/J connect timeout for the startup check, in milliseconds. */
     private static final String CONNECT_TIMEOUT_MILLIS = "15000";
 
-    private static Connection openConnection(Properties properties) throws Exception {
+    private static Connection openConnection(Properties properties) throws SQLException, ClassNotFoundException {
         String driver = properties.getProperty("db_driver");
         String uri = properties.getProperty("db_uri");
         if (driver == null || driver.isBlank() || uri == null || uri.isBlank()) {
             throw new MissingSettingsException("db_driver or db_uri is not set");
         }
         String name = properties.getProperty("db_name");
-        // Registers the driver through this webapp's class loader, as the data source would.
-        Class.forName(driver.trim());
+        registerDriver(driver.trim());
         String url = uri + (name == null ? "" : name);
         Properties connection = new Properties();
         putIfSet(connection, "user", properties.getProperty("db_username"));
@@ -368,6 +365,23 @@ final class EncryptedDataCountLoader {
             connection.setProperty("connectTimeout", CONNECT_TIMEOUT_MILLIS);
         }
         return DriverManager.getConnection(url, connection);
+    }
+
+    /**
+     * Registers the configured driver through this webapp's class loader, as the data source
+     * would: a driver in WEB-INF/lib is not visible to DriverManager's own service lookup. Only
+     * known driver names are loaded, by literal; any other name is left to DriverManager, so a
+     * configured string never chooses which class is loaded.
+     */
+    private static void registerDriver(String driver) throws ClassNotFoundException {
+        switch (driver) {
+            case "com.mysql.cj.jdbc.Driver" -> Class.forName("com.mysql.cj.jdbc.Driver");
+            case "com.mysql.jdbc.Driver" -> Class.forName("com.mysql.jdbc.Driver");
+            case "org.mariadb.jdbc.Driver" -> Class.forName("org.mariadb.jdbc.Driver");
+            case "org.h2.Driver" -> Class.forName("org.h2.Driver");
+            default -> logger.debug("Encryption key check: db_driver is not one it loads itself; relying on"
+                    + " DriverManager");
+        }
     }
 
     private static void putIfSet(Properties target, String key, String value) {
@@ -407,7 +421,7 @@ final class EncryptedDataCountLoader {
     }
 
     /** A connection that cannot be attempted; its message is fixed text and safe to show. */
-    private static final class MissingSettingsException extends Exception {
+    private static final class MissingSettingsException extends SQLException {
         private static final long serialVersionUID = 1L;
 
         MissingSettingsException(String message) {

@@ -168,7 +168,9 @@ class StartupEncryptionKeyGuardUnitTest {
         loseKey();
 
         try (StartupLogs logs = new StartupLogs()) {
-            assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
+            Startup startup = new Startup();
+            ServletContextEvent event = newStartupEvent();
+            assertThatThrownBy(() -> startup.contextInitialized(event))
                     .isInstanceOf(RuntimeException.class)
                     .hasCauseInstanceOf(IllegalStateException.class)
                     .cause()
@@ -199,7 +201,9 @@ class StartupEncryptionKeyGuardUnitTest {
         loseKey();
 
         try (StartupLogs logs = new StartupLogs()) {
-            assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
+            Startup startup = new Startup();
+            ServletContextEvent event = newStartupEvent();
+            assertThatThrownBy(() -> startup.contextInitialized(event))
                     .isInstanceOf(RuntimeException.class);
 
             assertThat(logs.errors()).containsExactly(KEY + " is missing or blank, but 5 items in the database"
@@ -272,7 +276,11 @@ class StartupEncryptionKeyGuardUnitTest {
         loseKey();
         props.setProperty(ACK, value);
 
-        assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
+        Startup startup = new Startup();
+
+        ServletContextEvent event = newStartupEvent();
+
+        assertThatThrownBy(() -> startup.contextInitialized(event))
                 .isInstanceOf(RuntimeException.class)
                 .hasCauseInstanceOf(IllegalStateException.class);
         assertThat(props.getProperty(KEY)).isBlank();
@@ -281,16 +289,19 @@ class StartupEncryptionKeyGuardUnitTest {
     @Test
     @DisplayName("should fail closed when the encrypted-data check cannot reach the database")
     void shouldRefuseStartup_whenCheckCannotConnect() throws Exception {
-        props.setProperty("db_driver", "io.github.carlos_emr.carlos.login.NoSuchJdbcDriverForTest");
+        // no driver accepts this URL, so the check cannot connect
+        props.setProperty("db_uri", "jdbc:carlos-no-such-driver:");
         loseKey();
 
         try (StartupLogs logs = new StartupLogs()) {
-            assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
+            Startup startup = new Startup();
+            ServletContextEvent event = newStartupEvent();
+            assertThatThrownBy(() -> startup.contextInitialized(event))
                     .isInstanceOf(RuntimeException.class)
                     .cause()
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("could not check whether the database holds data encrypted")
-                    .hasMessageContaining("database connection (java.lang.ClassNotFoundException)")
+                    .hasMessageContaining("database connection (SQLState 08001, error 0, java.sql.SQLException)")
                     .hasMessageContaining("fix that and restart so the check can run")
                     .hasMessageContaining(ACK + "=true");
 
@@ -304,7 +315,8 @@ class StartupEncryptionKeyGuardUnitTest {
     @Test
     @DisplayName("should generate a key and say the count is incomplete when the check fails but the loss is acknowledged")
     void shouldGenerateKey_whenCheckFailsButLossIsAcknowledged() throws Exception {
-        props.setProperty("db_driver", "io.github.carlos_emr.carlos.login.NoSuchJdbcDriverForTest");
+        // no driver accepts this URL, so the check cannot connect
+        props.setProperty("db_uri", "jdbc:carlos-no-such-driver:");
         loseKey();
         props.setProperty(ACK, "yes");
 
@@ -314,7 +326,7 @@ class StartupEncryptionKeyGuardUnitTest {
             assertThat(props.getProperty(KEY)).isNotBlank();
             assertThat(logs.errors()).containsExactly(ACK + " is set: generated a new " + KEY
                     + ". Any data encrypted with the old key is now unreadable. Found 0 items (none), but could not"
-                    + " read database connection (java.lang.ClassNotFoundException), so there may be more."
+                    + " read database connection (SQLState 08001, error 0, java.sql.SQLException), so there may be more."
                     + " Then remove " + ACK + " from the properties file.");
             secretMaterial.add(props.getProperty(KEY));
             logs.assertNoSecretMaterial(secretMaterial);
@@ -332,7 +344,9 @@ class StartupEncryptionKeyGuardUnitTest {
         keySpecField.set(null, null);
 
         try (StartupLogs logs = new StartupLogs()) {
-            assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
+            Startup startup = new Startup();
+            ServletContextEvent event = newStartupEvent();
+            assertThatThrownBy(() -> startup.contextInitialized(event))
                     .isInstanceOf(RuntimeException.class)
                     .hasCauseInstanceOf(IllegalStateException.class)
                     .cause()
@@ -389,7 +403,11 @@ class StartupEncryptionKeyGuardUnitTest {
         database.execute("INSERT INTO fax_config (id, passwd) VALUES (1, '" + encryptText(PLAINTEXT_SECRET) + "')");
         loseKey();
 
-        assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
+        Startup startup = new Startup();
+
+        ServletContextEvent event = newStartupEvent();
+
+        assertThatThrownBy(() -> startup.contextInitialized(event))
                 .isInstanceOf(RuntimeException.class)
                 .cause()
                 .hasMessageContaining("but 1 items in the database are encrypted with the original key (fax accounts: 1)");

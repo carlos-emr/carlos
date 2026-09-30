@@ -242,7 +242,7 @@ public class Startup implements ServletContextListener {
 
         if (mayOrphanData) {
             // ERROR, not WARN: data is now unreadable and people must act on it.
-            logger.error(acknowledgedLossMessage(existing));
+            logger.error(() -> acknowledgedLossMessage(existing));
         } else {
             logger.info("New Secret Key generated...");
             if (lossAcknowledged) {
