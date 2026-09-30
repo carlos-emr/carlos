@@ -227,6 +227,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
 
         if (request.getParameter("use_http_response_code") != null) {
+            if (httpCode < HttpServletResponse.SC_BAD_REQUEST) {
+                // A delivered lab must reach the sender as 200. sendError(200) dispatched to
+                // errorpage.jsp, which normalizes every status below 400 to 500, so each delivery
+                // was answered as a failure and the sender's retry then drew 409 (#4086). Answer
+                // with the normal result view, which carries the outcome and audit.
+                response.setStatus(httpCode);
+                return SUCCESS;
+            }
             try {
                 response.sendError(httpCode, outcome);
             } catch (IOException e) {

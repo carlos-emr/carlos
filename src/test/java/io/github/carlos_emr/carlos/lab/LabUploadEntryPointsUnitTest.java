@@ -69,6 +69,7 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
     private FileUploadCheckDao dao;
     private MessageHandler handler;
     private RecordingTransactionManager transactions;
+    private String signedFeedResult;
 
     @BeforeEach
     void setUpUpload() {
@@ -150,6 +151,7 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
         pending.clear();
         Path retry = runSignedFeed(true);
         assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getErrorMessage()).isNull();
         assertThat(request.getAttribute("outcome")).isEqualTo("uploaded");
         assertThat(retry).exists();
         assertThat(transactions.rollbacks).isEqualTo(1);
@@ -164,6 +166,19 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(request.getAttribute("audit")).isEqualTo("synthetic audit");
         assertThat(saved).exists();
+        // Not sendError(200): errorpage.jsp turns any status below 400 into 500, so a delivered
+        // lab would reach the sender as a failure. The result view renders the outcome instead.
+        assertThat(response.getErrorMessage()).isNull();
+        assertThat(signedFeedResult).isEqualTo("success");
+    }
+
+    @Test
+    void shouldAnswerErrorsThroughSendError_whenSignedFeedUsesHttpResponseCodes() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()));
+        runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getErrorMessage()).isEqualTo("uploaded previously");
+        assertThat(signedFeedResult).isNull();
     }
 
     @Test
@@ -224,7 +239,7 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
             feed.when(() -> LabUpload2Action.validateSignature(key, "test", file.toFile())).thenReturn(signatureValid);
             LabUpload2Action action = new LabUpload2Action();
             action.setImportFile(file.toFile());
-            action.execute();
+            signedFeedResult = action.execute();
             paths.verify(() -> PathValidationUtils.openValidatedUploadInputStream(file.toFile()));
             verify(encrypted, atLeastOnce()).close();
         }

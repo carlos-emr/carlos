@@ -57,7 +57,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { syntheticCmlLab, openUploader, contextPathOf } = require('./lab-upload-playwright-checks');
+const { syntheticCmlLab, openUploader } = require('./lab-upload-playwright-checks');
 
 /** Encrypts and signs a lab the way the legacy sender protocol does. */
 function sealForUpload(plaintext, serverPublicKey, senderPrivateKey) {
@@ -70,34 +70,32 @@ function sealForUpload(plaintext, serverPublicKey, senderPrivateKey) {
   return { encrypted, key: wrappedKey.toString('base64'), signature: signature.toString('base64') };
 }
 
-/** POSTs a sealed lab to lab/newLabUpload from a logged-in page and returns the HTTP status. */
-async function postSigned(page, contextPath, sealed, service) {
-  const result = await page.evaluate(async ({ context, content, key, signature, serviceName }) => {
-    const tokenInput = document.querySelector('input[name="CSRF-TOKEN"]');
-    const bytes = Uint8Array.from(atob(content), (c) => c.charCodeAt(0));
-    const form = new FormData();
-    form.append('importFile', new Blob([bytes], { type: 'application/octet-stream' }), 'signed-lab.enc');
-    form.append('key', key);
-    form.append('signature', signature);
-    form.append('service', serviceName);
-    form.append('use_http_response_code', 'true');
-    const headers = { 'X-Requested-With': 'XMLHttpRequest' };
-    if (tokenInput && tokenInput.value) headers['CSRF-TOKEN'] = tokenInput.value;
-    const response = await fetch(`${context}/lab/newLabUpload`, {
-      method: 'POST', body: form, headers, credentials: 'same-origin',
-    });
-    await response.text();
-    return { status: response.status, hadToken: !!(tokenInput && tokenInput.value) };
-  }, {
-    context: contextPath, content: sealed.encrypted.toString('base64'), key: sealed.key,
-    signature: sealed.signature, serviceName: service,
+/**
+ * POSTs a sealed lab to lab/newLabUpload in the logged-in session and returns the HTTP status.
+ *
+ * Sent through the context's request API rather than a page fetch: steps 1, 3 and 4 answer 500,
+ * 409 and 406 on purpose, and the strict page recorder would report those as page failures. The
+ * request still carries the session cookie and its CSRF token, and still goes through the front door.
+ */
+async function postSigned(session, page, sealed, service) {
+  const csrf = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue().catch(() => '');
+  h.assert(csrf, 'The uploader page carried no CSRF token to send with the signed post');
+  const response = await session.context.request.post(h.appUrl(session.config.baseUrl, '/lab/newLabUpload'), {
+    headers: { 'CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+    multipart: {
+      importFile: { name: 'signed-lab.enc', mimeType: 'application/octet-stream', buffer: sealed.encrypted },
+      key: sealed.key,
+      signature: sealed.signature,
+      service,
+      use_http_response_code: 'true',
+    },
+    maxRedirects: 0,
   });
-  h.assert(result.hadToken, 'The uploader page carried no CSRF token to send with the signed post');
-  return result.status;
+  return response.status();
 }
 
 async function workflow(session) {
-  const { sql, patient, marker, cleanup, config } = session;
+  const { sql, patient, marker, cleanup } = session;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
   const accession = `SF${stamp}`;
   const service = `lab-upload-probe-${stamp}`;
@@ -197,7 +195,6 @@ async function workflow(session) {
     await popup.close().catch(() => {});
     await inbox.close().catch(() => {});
   });
-  const contextPath = contextPathOf(config.baseUrl);
   const sealed = sealForUpload(plaintext, serverPublicKey, sender.privateKey);
 
   await session.step('a failure after the checksum is recorded is answered 500 and leaves nothing', async () => {
@@ -213,7 +210,7 @@ async function workflow(session) {
           END IF;
         END//
         DELIMITER ;`);
-      const status = await postSigned(popup, contextPath, sealed, service);
+      const status = await postSigned(session, popup, sealed, service);
       h.assert(status === 500, `A failed signed upload answered HTTP ${status}; a sender must be told to retry`);
       h.assert(sql.value(`SELECT
           (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownChecksum})
@@ -228,7 +225,7 @@ async function workflow(session) {
   });
 
   await session.step('the sender\'s retry of the same file is delivered, not answered 409', async () => {
-    const status = await postSigned(popup, contextPath, sealed, service);
+    const status = await postSigned(session, popup, sealed, service);
     h.assert(status === 200, `The retry answered HTTP ${status} instead of 200`);
     await expectValue(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`, '1',
       'The retried lab did not reach hl7TextInfo under its accession');
@@ -242,7 +239,7 @@ async function workflow(session) {
   });
 
   await session.step('a real duplicate is answered 409 and stores nothing new', async () => {
-    const status = await postSigned(popup, contextPath, sealed, service);
+    const status = await postSigned(session, popup, sealed, service);
     h.assert(status === 409, `A delivered lab sent again answered HTTP ${status} instead of 409`);
     h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '1',
       'The duplicate filed a second copy of the lab');
@@ -251,7 +248,7 @@ async function workflow(session) {
 
   await session.step('a wrong signature is answered 406 and leaves no decrypted copy', async () => {
     const forged = { ...sealed, signature: crypto.sign('md5', Buffer.from(`not ${accession}`), sender.privateKey).toString('base64') };
-    const status = await postSigned(popup, contextPath, forged, service);
+    const status = await postSigned(session, popup, forged, service);
     h.assert(status === 406, `A wrongly signed lab answered HTTP ${status} instead of 406`);
     expectCopies(1, 'after the wrongly signed upload');
   });

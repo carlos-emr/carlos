@@ -390,4 +390,4 @@ async function workflow(session, options = {}) {
 }
 
 if (require.main === module) runWorkflow('lab-upload', workflow);
-module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader, contextPathOf };
+module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader };
