@@ -63,10 +63,10 @@ const { syntheticCmlLab, openUploader } = require('./lab-upload-playwright-check
 function sealForUpload(plaintext, serverPublicKey, senderPrivateKey) {
   const aesKey = crypto.randomBytes(16);
   // Java's Cipher.getInstance("AES") is AES/ECB/PKCS5Padding; the legacy wire format fixes it.
-  const cipher = crypto.createCipheriv('aes-128-ecb', aesKey, null);
+  const cipher = crypto.createCipheriv('aes-128-ecb', aesKey, null); // nosemgrep: javascript.crypto.weak-symmetric-mode.weak-symmetric-mode -- test emulates the legacy lab sender, whose AES/ECB payload the receiver must accept (migration: #3413)
   const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const wrappedKey = crypto.publicEncrypt({ key: serverPublicKey, padding: crypto.constants.RSA_PKCS1_PADDING }, aesKey);
-  const signature = crypto.sign('md5', plaintext, senderPrivateKey);
+  const signature = crypto.sign('md5', plaintext, senderPrivateKey); // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- MD5withRSA is the legacy sender signature the receiver verifies (#3413)
   return { encrypted, key: wrappedKey.toString('base64'), signature: signature.toString('base64') };
 }
 
@@ -102,7 +102,7 @@ async function workflow(session) {
   const failureTrigger = `lab_signed_probe_${stamp}`;
   const plaintext = Buffer.from(syntheticCmlLab(accession, marker), 'latin1');
   // FileUploadCheck keys content by MD5 (a duplicate index, not a security control).
-  const md5 = crypto.createHash('md5').update(plaintext).digest('hex');
+  const md5 = crypto.createHash('md5').update(plaintext).digest('hex'); // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- matches FileUploadCheck's MD5 duplicate index, not a security control
   const ownChecksum = `md5sum=${h.sqlString(md5)}`;
   const store = process.env.LAB_UPLOAD_DOCUMENT_STORE ? fs.realpathSync(process.env.LAB_UPLOAD_DOCUMENT_STORE) : null;
   let triggerMayExist = false;
@@ -247,7 +247,9 @@ async function workflow(session) {
   });
 
   await session.step('a wrong signature is answered 406 and leaves no decrypted copy', async () => {
-    const forged = { ...sealed, signature: crypto.sign('md5', Buffer.from(`not ${accession}`), sender.privateKey).toString('base64') };
+    // A valid MD5withRSA signature over other bytes: the legacy protocol's wrong-signature case.
+    const wrongSignature = crypto.sign('md5', Buffer.from(`not ${accession}`), sender.privateKey); // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- legacy sender signature (#3413)
+    const forged = { ...sealed, signature: wrongSignature.toString('base64') };
     const status = await postSigned(session, popup, forged, service);
     h.assert(status === 406, `A wrongly signed lab answered HTTP ${status} instead of 406`);
     expectCopies(1, 'after the wrongly signed upload');
