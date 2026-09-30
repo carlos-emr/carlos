@@ -213,19 +213,6 @@ class AddEForm2ActionPrintAliasUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRetainPrintOutput_whenToolbarRequestsPdf() throws Exception {
-        stubSuccessfulRender();
-        mockRequest.removeParameter("print");
-        mockRequest.setParameter("saveAndDownloadEForm", "true");
-        mockRequest.setParameter("eformPdfOutput", "print");
-
-        assertThat(new AddEForm2Action().execute()).isEqualTo("download");
-        assertThat(mockRequest.getAttribute("eformPdfOutput")).isEqualTo("print");
-        assertThat(mockRequest.getAttribute("isSuccess_Autoclose")).isNull();
-        verify(mockEformDataManager, times(1)).saveEformData(any(LoggedInInfo.class), any());
-    }
-
-    @Test
     @DisplayName("should surface the mapped error result when the print-alias render fails")
     void shouldReturnMappedError_whenPrintRenderFails() throws Exception {
         when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))

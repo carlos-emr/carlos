@@ -103,9 +103,6 @@
                 <%-- A "Submit & PDF" submission closes its window after the download; the approved
                      download must still do so, so the intent travels with the retry. Display-only:
                      it is not bound into the approval digest. --%>
-                <c:if test="${eformPdfOutput == 'print'}">
-                    <input type="hidden" name="eformPdfOutput" value="print">
-                </c:if>
                 <c:if test="${approvalAutoClose == 'true'}">
                     <input type="hidden" name="autoClose" value="true">
                 </c:if>

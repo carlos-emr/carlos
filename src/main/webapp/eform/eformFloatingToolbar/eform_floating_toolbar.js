@@ -70,8 +70,8 @@ function hideAdminPreviewSaveButton() {
         return;
     }
 
-    const printOptions = document.getElementById("remotePrintOptions");
-    if (printOptions) printOptions.hidden = true;
+    const savePdfButton = document.getElementById("remoteSavePdfButton");
+    if (savePdfButton) savePdfButton.hidden = true;
     const remoteSubmitButton = document.getElementById("remoteSubmitButton");
     if (remoteSubmitButton) {
         remoteSubmitButton.style.display = "none";
@@ -467,7 +467,7 @@ function addEFormAttachments() {
  * Adds a hidden input field into the eForm form with instructions to
  * open 'Save as' window dialog
  */
-function remoteDownload(output = "download") {
+function remoteDownload() {
     // Check BEFORE ShowSpin(true) (a locked overlay) and before appending the action input: if the
     // editor is still loading, aborting after either would strand an undismissable spinner and a
     // stale saveAndDownloadEForm=true that a later plain Save would silently ride into a download.
@@ -477,7 +477,6 @@ function remoteDownload(output = "download") {
     clearWorkflowFlags();
     ShowSpin(true);
     setHiddenFormInput("saveAndDownloadEForm", "saveAndDownloadEForm", "true");
-    if (output === "print") setHiddenFormInput("eformPdfOutput", "eformPdfOutput", "print");
 
     remoteSave();
 }
@@ -519,12 +518,6 @@ function downloadEForm() {
     }
     const pdfData = new Uint8Array(atob(eFormPDF).split('').map(char => char.charCodeAt(0)));
     const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
-    if (document.getElementById("eformPdfOutput")?.value === "print") {
-        showEformPdfForPrint(pdfBlob);
-        document.getElementById("eFormPDF").value = "";
-        document.getElementById("eFormPDFName").value = "";
-        return;
-    }
     const downloadLink = document.createElement('a');
     downloadLink.href = URL.createObjectURL(pdfBlob);
     downloadLink.download = eFormPDFName;
@@ -534,29 +527,19 @@ function downloadEForm() {
     document.getElementById("eFormPDFName").value = "";
 }
 
-/** Show the generated PDF with its browser print controls and an explicit close action. */
-function showEformPdfForPrint(blob) {
-    const url = URL.createObjectURL(blob);
-    const dialog = document.createElement('dialog');
-    dialog.id = 'eformPdfPrintDialog';
-    dialog.className = 'DoNotPrint no-print';
-    dialog.style.cssText = 'width:90vw;height:90vh;padding:12px;';
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.textContent = 'Close PDF';
-    close.addEventListener('click', () => dialog.close());
-    const frame = document.createElement('iframe');
-    frame.title = 'Print eForm PDF';
-    frame.style.cssText = 'display:block;width:100%;height:calc(100% - 40px);border:0;';
-    frame.src = url;
-    frame.addEventListener('load', () => {
-        try { frame.contentWindow.focus(); frame.contentWindow.print(); }
-        catch (error) { /* The PDF viewer also provides a Print button. */ }
-    }, {once: true});
-    dialog.addEventListener('close', () => { URL.revokeObjectURL(url); dialog.remove(); }, {once: true});
-    dialog.append(close, frame);
-    document.body.appendChild(dialog);
-    dialog.showModal();
+/**
+ * Print the live page, including unsaved edits. The browser's print dialog offers Save as PDF.
+ * Call the browser directly: template PrintButton/formPrint handlers may also submit the form.
+ * Rich Text Letters keep the actual printable document in their editor frame.
+ */
+function remotePrintOnly() {
+    if (editorStillLoading()) return;
+    const options = document.getElementById('remotePrintOptions');
+    if (options) options.open = false;
+    const editor = document.getElementById('Letter') && document.getElementById('edit');
+    const printWindow = editor?.contentWindow || window;
+    printWindow.focus();
+    printWindow.print();
 }
 
 /**

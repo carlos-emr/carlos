@@ -143,7 +143,6 @@
      * For Javascript: First is last.
      */
 
-    eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
     eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/js/jquery.are-you-sure.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
@@ -154,7 +153,6 @@
     // "First is last": this must be added AFTER jQuery so it lands BEFORE it in the document.
     eForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
 
-    eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
     eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
     eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
@@ -184,7 +182,6 @@
     // Add EForm properties for handling download operation
     eForm.addHiddenInputElement("eFormPDFName", (String) request.getAttribute("eFormPDFName"));
     eForm.addHiddenInputElement("eFormPDF", (String) request.getAttribute("eFormPDF"));
-    eForm.addHiddenInputElement("eformPdfOutput", (String) request.getAttribute("eformPdfOutput"));
     eForm.addHiddenInputElement("isDownloadEForm", (String) request.getAttribute("isDownload"));
     // Advisory conditions (suppressed dialogs and failed legacy timers) deliver the PDF rather than
     // blocking it, so the reader is told here instead of silently losing that context. A count only:

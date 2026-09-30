@@ -69,9 +69,10 @@
                     <details id="remotePrintOptions">
                         <summary class="btn btn-secondary" aria-label="PDF options" title="PDF options">&#9662;</summary>
                         <div class="eform-options">
-                            <button type="button" class="btn btn-light" id="remotePrintPdfButton" onclick="remoteDownload('print')">Print Only PDF</button>
+                            <button type="button" class="btn btn-light" id="remotePrintPdfButton" onclick="remotePrintOnly()">Print Only PDF</button>
+                            <small class="d-block">Prints the current page without saving to the chart. Choose Save as PDF in the print dialog.</small>
                             <button type="button" class="btn btn-light" id="remoteSavePdfButton" onclick="remoteDownload()">Save PDF Only</button>
-                            <small class="d-block">PDF output also saves the eForm to the patient's chart.</small>
+                            <small class="d-block">Save PDF Only saves the eForm to the chart before downloading.</small>
                         </div>
                     </details>
 

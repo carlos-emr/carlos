@@ -151,14 +151,25 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0142');
     assert.equal(requests[0].get('recipient'),'Clinic Two');
-    for (const [button, mode] of [['remotePrintPdfButton','print'], ['remoteSavePdfButton',null]]) {
-      await open();
-      await page.locator('#remotePrintOptions summary').click();
-      await page.locator('#'+button).click();
-      await page.waitForURL('**/eform/addEForm');
-      assert.equal(requests[0].get('saveAndDownloadEForm'),'true');
-      assert.equal(requests[0].get('eformPdfOutput'),mode);
-    }
+    await open();
+    await page.locator('#lastField').fill('Current unsaved content');
+    await page.evaluate(() => {
+      window.needToConfirm = true;
+      window.print = () => { window.printedValue = document.getElementById('lastField').value; };
+      // A template print handler can save. Print Only must never call it.
+      window.formPrint = () => document.forms[0].submit();
+    });
+    const unsavedUrl = page.url();
+    await page.locator('#remotePrintOptions summary').click();
+    await page.locator('#remotePrintPdfButton').click();
+    assert.equal(await page.evaluate(() => window.printedValue), 'Current unsaved content');
+    assert.equal(await page.evaluate(() => window.needToConfirm), true);
+    assert.equal(page.url(), unsavedUrl);
+    assert.equal(requests.length, 0);
+    await page.locator('#remotePrintOptions summary').click();
+    await page.locator('#remoteSavePdfButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests[0].get('saveAndDownloadEForm'),'true');
     await open();
     await page.emulateMedia({media:'print'});
     assert.equal(await page.locator('#toolbarWrapper').isVisible(),false);

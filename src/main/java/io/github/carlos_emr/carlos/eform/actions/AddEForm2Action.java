@@ -171,9 +171,6 @@ public class AddEForm2Action extends ActionSupport {
         boolean submitAndPdf = print && !printPreviewOnly;
         boolean saveAsEdoc = "true".equals(request.getParameter("saveAsEdoc"));
         boolean isDownloadEForm = "true".equals(request.getParameter("saveAndDownloadEForm")) || print;
-        if (isDownloadEForm && "print".equals(request.getParameter("eformPdfOutput"))) {
-            request.setAttribute("eformPdfOutput", "print");
-        }
         boolean isEmailEForm = "true".equals(request.getParameter("emailEForm"));
 
         String[] attachedDocuments = (request.getParameterValues("docNo") != null ? request.getParameterValues("docNo") : new String[0]);

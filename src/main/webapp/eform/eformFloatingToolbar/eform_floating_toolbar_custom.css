@@ -30,7 +30,7 @@
  * (a scoped Bootstrap 3 build). On migration to Bootstrap 5.3.3, plain bootstrap.min.css was
  * substituted — which lacks the toolbar positioning and scoping rules below.
  *
- * Injected dynamically by eform_floating_toolbar.js into eForm pages alongside bootstrap.min.css.
+ * Included in the eForm page head alongside bootstrap.min.css.
  *
  * @since 2026-03-14
  */
@@ -75,7 +75,7 @@ input[name="pdfButton"], input[name="pdfSaveButton"],
 #toolbarWrapper .eform-options label { display: block; margin-top: 6px; }
 #toolbarWrapper .fax-search { position: relative; }
 @media print {
-    #toolbarWrapper, #eformPdfPrintDialog { display: none !important; }
+    #toolbarWrapper { display: none !important; }
 }
 
 /*

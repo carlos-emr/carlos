@@ -230,18 +230,23 @@ async function savedFdid(page) {
     await page.waitForTimeout(6500);
     step('Save PDF Only leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
 
-    // ---------- 3b. Print the generated PDF packet through the toolbar menu ----------
+    // ---------- 3b. Print Only uses current unsaved editor content without a chart save ----------
+    const currentLetter = 'Current unsaved print-only letter';
+    await typeLetter(page, currentLetter);
+    printLog.length = 0;
+    const printOnlySaves = [];
+    const recordSave = request => {
+      if (request.method() === 'POST' && /\/eform\/addEForm/.test(request.url())) printOnlySaves.push(request.url());
+    };
+    page.on('request', recordSave);
+    const beforePrintOnlyUrl = page.url();
     await page.locator('#remotePrintOptions summary').click();
-    await clickAndAwaitSave(page, page.locator('#remotePrintPdfButton'));
-    await page.locator('#eformPdfPrintDialog[open] iframe').waitFor();
-    const pdfBytes = await page.locator('#eformPdfPrintDialog iframe').evaluate(async frame => {
-      const response = await fetch(frame.src);
-      return Array.from(new Uint8Array(await response.arrayBuffer()));
-    });
-    step('Print Only PDF displays a real generated PDF', Buffer.from(pdfBytes).subarray(0, 5).toString() === '%PDF-', `${pdfBytes.length} bytes`);
-    const fdidAfterSubmitPdf = await savedFdid(page);
-    await page.getByRole('button', {name:'Close PDF', exact:true}).click();
-    step('PDF viewer closes and leaves the saved form editable', await page.locator('#remotePrintButton').isVisible(), '');
+    await page.locator('#remotePrintPdfButton').click();
+    await page.waitForTimeout(300);
+    page.off('request', recordSave);
+    step('Print Only PDF prints current unsaved editor text', printLog.length === 1 && !printLog[0].isTop && printLog[0].body.includes(currentLetter), '');
+    step('Print Only PDF never saves or navigates', printOnlySaves.length === 0 && page.url() === beforePrintOnlyUrl && (await savedFdid(page)) === fdidAfterPdfButton, '');
+    step('Print Only PDF preserves the dirty flag and editable letter', (await page.evaluate(() => window.needToConfirm)) === true && await page.locator('#remotePrintButton').isVisible(), '');
     await page.close();
 
     // ---------- 4. New letter: toolbar Print prints the iframe, then saves ----------
@@ -254,7 +259,7 @@ async function savedFdid(page) {
     step('toolbar Print printed document contains the typed letter', printLog.length === 1 && printLog[0].body.includes('Playwright RTL check'), '');
     await assertNotErrorPage(page, 'rtl-toolbar-print');
     const fdidAfterPrint = await savedFdid(page);
-    step('toolbar Print then saves the letter (new fdid on the result page)', /^\d+$/.test(fdidAfterPrint) && fdidAfterPrint !== fdidAfterSubmitPdf, `fdid ${fdidAfterPrint}`);
+    step('toolbar Print then saves the letter (new fdid on the result page)', /^\d+$/.test(fdidAfterPrint) && fdidAfterPrint !== fdidAfterPdfButton, `fdid ${fdidAfterPrint}`);
     await page.close();
 
     // ---------- 6. Optional: a clinic .rtl template loads unsandboxed and stays editable ----------

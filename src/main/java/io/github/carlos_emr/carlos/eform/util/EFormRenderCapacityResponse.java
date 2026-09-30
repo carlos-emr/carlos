@@ -21,7 +21,7 @@ public final class EFormRenderCapacityResponse {
         switch (operation) {
             case DOWNLOAD -> {
                 route = "/eform/downloadEFormPdf";
-                allowed = Set.of("fdid", "demographicNo", "renderApproval", "autoClose", "eformPdfOutput");
+                allowed = Set.of("fdid", "demographicNo", "renderApproval", "autoClose");
             }
             case EDOC -> {
                 route = "/eform/saveEFormAsEDoc";
