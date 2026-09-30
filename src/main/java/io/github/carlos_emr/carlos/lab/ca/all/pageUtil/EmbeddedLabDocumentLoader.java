@@ -50,6 +50,10 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
  * the former download action used is tried so a payload that downloaded before still downloads,
  * and the PDF signature check still applies to its output.</p>
  *
+ * <p>The payload is {@link MessageHandler#getOBXEmbeddedDocumentData(int, int)}: ED.5 where the
+ * parser can read it, since most handlers' {@code getOBXResult} returns OBX-5 component 1, which
+ * for a standards-compliant {@code ED} value is not the document.</p>
+ *
  * <p>Legacy PATHL7 PDFs keep the payload in ED.1 with ED.2 to ED.5 empty; that shape is detected
  * here from the message ({@link PATHL7Handler#isLegacy(int, int)}), never from a request flag.</p>
  *
@@ -186,7 +190,7 @@ public final class EmbeddedLabDocumentLoader {
         if (handler instanceof PATHL7Handler pathL7 && pathL7.isLegacy(obr, obx)) {
             return pathL7.getLegacyOBXResult(obr, obx);
         }
-        return handler.getOBXResult(obr, obx);
+        return handler.getOBXEmbeddedDocumentData(obr, obx);
     }
 
     private static long base64DecodedLength(String compact) {

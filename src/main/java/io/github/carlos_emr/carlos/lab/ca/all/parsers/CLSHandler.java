@@ -230,6 +230,18 @@ public class CLSHandler implements MessageHandler {
         }
     }
 
+    /** ED.5 for a standards-compliant ED value; see {@link EdObservationValue}. */
+    @Override
+    public String getOBXEmbeddedDocumentData(int i, int j) {
+        return EdObservationValue.data(this, i, j, () -> msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX());
+    }
+
+    /** ED.4 for a standards-compliant ED value; see {@link EdObservationValue}. */
+    @Override
+    public String getOBXDocumentEncoding(int i, int j) {
+        return EdObservationValue.encoding(this, i, j, () -> msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX());
+    }
+
     public String getOBXResult(int i, int j) {
         try {
             return (getString(Terser.get(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX(), 5, 0, 1, 1)));

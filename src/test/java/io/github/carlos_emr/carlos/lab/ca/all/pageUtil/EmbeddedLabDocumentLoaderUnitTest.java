@@ -197,7 +197,7 @@ class EmbeddedLabDocumentLoaderUnitTest {
 
     private static MessageHandler handlerReturning(String payload, String encoding) {
         MessageHandler handler = mock(MessageHandler.class, CALLS_REAL_METHODS);
-        when(handler.getOBXResult(0, 0)).thenReturn(payload);
+        when(handler.getOBXEmbeddedDocumentData(0, 0)).thenReturn(payload);
         when(handler.getOBXDocumentEncoding(0, 0)).thenReturn(encoding);
         return handler;
     }
