@@ -23,9 +23,14 @@
         return input;
     }
 
+    var selectedSource = null;
+    document.addEventListener('change', function (event) {
+        if (['faxnumList', 'otherFaxSelect'].includes(event.target.id)) selectedSource = event.target.id;
+    });
+
     function recipient() {
         var input = ensureInput();
-        for (var id of ['faxnumList', 'otherFaxSelect']) {
+        for (var id of [selectedSource, 'otherFaxSelect', 'faxnumList']) {
             var select = document.getElementById(id);
             var option = select && select.options && select.options[select.selectedIndex];
             if (option && option.value.trim()) {
@@ -59,7 +64,15 @@
         if (input) input.dispatchEvent(new Event('change', {bubbles: true}));
         return false;
     };
-    window.AddOtherFaxProvider = window.AddOtherFax;
+    window.AddOtherFaxProvider = function () {
+        var input = ensureInput();
+        var select = document.getElementById('otherFaxSelect');
+        if (input && select && select.value.trim()) {
+            input.value = select.value;
+            select.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        return false;
+    };
     window.submitFaxButtonAjax = function () {
         if (typeof window.remoteFax === 'function') window.remoteFax();
         return false;

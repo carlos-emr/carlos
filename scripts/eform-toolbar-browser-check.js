@@ -7,6 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const {chromium} = require('playwright');
+const {gotoApp, validateBaseUrl} = require('./lib/playwright-harness');
 const web = path.join(__dirname, '../src/main/webapp');
 const read = file => fs.readFileSync(path.join(web, file), 'utf8');
 const toolbar = read('WEB-INF/jsp/eform/eformFloatingToolbar/eform_floating_toolbar.jspf')
@@ -15,7 +16,7 @@ const toolbar = read('WEB-INF/jsp/eform/eformFloatingToolbar/eform_floating_tool
 const errors = [];
 let requests = [];
 let searches = [];
-const fixture = (owned = false) => `<!doctype html><html><head>
+const fixture = (owned = false, withList = false) => `<!doctype html><html><head>
 <script src="/library/jquery/jquery-3.7.1.min.js"></script>
 <script>jQuery(function(){ document.getElementById('otherFaxInput').value='416-555-0123'; });</script>
 <script src="/library/eforms/faxControl.js"></script>
@@ -28,6 +29,9 @@ const fixture = (owned = false) => `<!doctype html><html><head>
 <input id="demographicNo" value="1" type="hidden"><label for="subject">Subject</label>
 <input id="subject" name="subject" value="Designer subject" required>
 ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : ''}
+${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option></select>' : ''}
+<input id="designerFax" value="416-555-0191">
+<button id="designerAddFax" type="button" onclick="document.getElementById('otherFaxInput').value=document.getElementById('designerFax').value; AddOtherFax();">Use designer number</button>
 <input name="recipient" value="Existing name"><input name="recipientFaxNumber" value="416-555-0000">
 <input name="SubmitButton" type="submit" value="Submit">
 <input name="PrintButton" type="button" value="Print" onclick="window.print()">
@@ -41,7 +45,7 @@ const server = http.createServer((req, res) => {
   if (req.url.startsWith('/eform/eformFloatingToolbar/eform_floating_toolbar') && !req.url.endsWith('.js') && !req.url.endsWith('.css')) {
     setTimeout(() => {res.setHeader('Content-Type', 'text/html'); res.end(toolbar);}, 600); return;
   }
-  if (req.url.startsWith('/fixture')) {res.setHeader('Content-Type','text/html'); res.end(fixture(req.url.includes('owned'))); return;}
+  if (req.url.startsWith('/fixture')) {res.setHeader('Content-Type','text/html'); res.end(fixture(req.url.includes('owned=owned'), req.url.includes('selection=list'))); return;}
   if (req.url.startsWith('/fax/SearchFaxRecipient')) {
     searches.push(req.url);
     res.setHeader('Content-Type', 'application/json');
@@ -66,9 +70,9 @@ const server = http.createServer((req, res) => {
   try {
     const page = await browser.newPage({viewport:{width:1100,height:800}});
     page.on('pageerror', error => { errors.push(error.message); console.error(error.message); });
-    async function open(owned=false) {
+    async function open(owned=false, withList=false) {
       requests=[];
-      await page.goto(`http://127.0.0.1:${server.address().port}/fixture${owned ? '?owned' : ''}`);
+      await gotoApp(page, validateBaseUrl(`http://127.0.0.1:${server.address().port}`), `/fixture?owned=${owned ? 'owned' : 'no'}&selection=${withList ? 'list' : 'no'}`);
       await page.locator('#remoteFaxButton').waitFor();
       assert.equal(await page.locator('#otherFaxInput').count(),1);
       assert.equal(await page.locator('#otherFaxInput').inputValue(),'416-555-0123');
@@ -114,6 +118,26 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#openToolbarButton').isVisible(),true);
     await page.locator('#openToolbarButton').click();
     await page.locator('#remoteFaxButton').waitFor();
+    // A legacy AddOtherFax choice must win over an older nonempty faxnumList.
+    await open(false, true);
+    await page.locator('#designerAddFax').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0191');
+    await open(false, true);
+    await page.locator('#designerAddFax').click();
+    await page.locator('#faxnumList').selectOption('416-555-0102');
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0102');
+    await open();
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxNumber').fill('');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests[0].get('recipientFaxNumber'), '');
+    await open();
     // A form author can populate the O19 select after the toolbar has loaded.
     await page.evaluate(() => {
       const select = document.getElementById('otherFaxSelect');
