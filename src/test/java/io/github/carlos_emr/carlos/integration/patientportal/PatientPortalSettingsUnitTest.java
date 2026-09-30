@@ -680,7 +680,7 @@ class PatientPortalSettingsUnitTest {
         private Map<String, String> connection(String enabled) {
             Map<String, String> values = new HashMap<>();
             values.put(PatientPortalSettings.BASE_URL_KEY, "https://portal.example.ca");
-            values.put(PatientPortalSettings.CLINIC_ID_KEY, "maplecreek");
+            values.put(PatientPortalSettings.CLINIC_ID_KEY, "clinic-a");
             values.put(PatientPortalSettings.SERVICE_TOKEN_KEY, "synthetic-service-token-0000000001");
             values.put(PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY);
             values.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary");
@@ -733,7 +733,7 @@ class PatientPortalSettingsUnitTest {
 
             assertThat(PatientPortalSettings.isConfigured(values::get)).isTrue();
             assertThat(PatientPortalSettings.fromDeploymentProperties(values::get).clinicId())
-                    .isEqualTo("maplecreek");
+                    .isEqualTo("clinic-a");
         }
 
         @ParameterizedTest
