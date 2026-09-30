@@ -25,7 +25,7 @@ function copy(relative) {
   fs.copyFileSync(path.join(root, 'src/main/webapp', relative), dest);
 }
 for (const file of ['WEB-INF/jsp/documentManager/aiChartUpdates.jsp', 'WEB-INF/jspf/bootstrap-css.jspf',
-  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'share/css/global.css', 'js/ai-chart-updates.js', 'js/ai-chart-updates-navigation.js', 'js/ai-chart-updates-modal.js', 'WEB-INF/jspf/chart-update-workflow-dialog.jspf', 'css/ai-chart-updates-navigation.css', 'WEB-INF/jspf/chart-update-error-dialog.jspf', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
+  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'share/css/global.css', 'js/ai-chart-updates.js', 'js/ai-chart-updates-evidence.js', 'js/ai-chart-updates-navigation.js', 'js/ai-chart-updates-modal.js', 'WEB-INF/jspf/chart-update-workflow-dialog.jspf', 'css/ai-chart-updates-navigation.css', 'WEB-INF/jspf/chart-update-error-dialog.jspf', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
 fs.writeFileSync(path.join(webroot, 'fixture-picker.jsp'), `<%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
@@ -127,9 +127,17 @@ async function run() {
   };
 
   await scenario('preview and generation never write; hostile source is escaped', async page => {
+    await change(page, 'repeat-source');
     assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
     await generate(page);
     assert.equal(await page.locator('article').count(), 2);
+    const fullSource = await page.locator('#chart-update-source').textContent();
+    assert.equal(await page.locator('.source-highlight').count(), 2);
+    const historyPassage = await card(page, 'History entry').locator('.proposal-evidence blockquote').textContent();
+    await card(page, 'History entry').getByRole('link', { name: 'Show passage in document' }).click();
+    assert.deepEqual(await page.locator('.source-highlight').allTextContents(), [historyPassage]);
+    assert.equal(await page.locator('#chart-update-source').textContent(), fullSource);
+    assert.equal(await page.locator('#chart-update-source script').count(), 0);
     assert.equal(await card(page, 'Follow-up reminder').locator('[name="dueDate"]').inputValue(), '');
     assert.equal(await card(page, 'Follow-up reminder').locator('[name="assignee"]').inputValue(), '101');
     assert.equal(await card(page, 'History entry').locator('[name="destination"]').inputValue(), 'Concerns');
@@ -242,6 +250,8 @@ async function run() {
     await frame.locator('article.proposal:visible [name="entryText"]').fill('Edited reminder for later');
     await frame.getByRole('button', { name: 'Next', exact: true }).click();
     assert.equal(await frame.locator('[data-review-position]').innerText(), '2 / 2');
+    assert.deepEqual(await frame.locator('.source-highlight').allTextContents(),
+      [await frame.locator('article.proposal:visible .proposal-evidence blockquote').textContent()]);
     await frame.getByRole('button', { name: 'Previous', exact: true }).click();
     assert.equal(await frame.locator('article.proposal:visible [name="entryText"]').inputValue(), 'Edited reminder for later');
     page.once('dialog', dialog => dialog.dismiss());
@@ -307,6 +317,30 @@ async function run() {
     await frame.getByRole('link', { name: 'Review chart updates', exact: true }).waitFor();
     await modal.getByRole('button', { name: 'Close', exact: true }).click();
     assert.equal(context.pages().length, 1);
+  });
+  await scenario('matching chart text is visible before approval and duplicate saves are blocked', async page => {
+    await change(page, 'matching-chart');
+    await generate(page);
+    const history = card(page, 'History entry');
+    await history.locator('[name="entryText"]').focus();
+    assert.equal(await history.locator('.chart-match-notice').isVisible(), true);
+    await history.locator('.chart-match-links a').click();
+    assert.equal(await page.locator('#chart-entry-note-duplicate').evaluate(el => el.open), true);
+    assert.equal(await page.locator('#chart-entry-note-duplicate').evaluate(el => el.classList.contains('chart-entry-match')), true);
+    await history.locator('[name="confirmed"]').check();
+    await click(page, history.getByRole('button', { name: 'Accept and save', exact: true }));
+    assert.match(await page.locator('.alert-danger').innerText(), /Matching text is already recorded/);
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
+    assert.equal(await page.locator('article.proposal').count(), 2);
+    const reminder = card(page, 'Follow-up reminder');
+    assert.equal(await reminder.locator('.chart-match-notice').isVisible(), false);
+    await reminder.locator('[name="entryText"]').fill('Previous clinician entry: seasonal symptoms.');
+    assert.equal(await reminder.locator('.chart-match-notice').isVisible(), true);
+    assert.match(await reminder.locator('.chart-match-links').innerText(), /note-1/);
+    await reminder.locator('[name="entryText"]').fill('New reminder text');
+    assert.equal(await reminder.locator('.chart-match-notice').isVisible(), false);
+    await history.getByRole('link', { name: 'Show passage in document' }).click();
+    await page.screenshot({ path: path.join(runDir, 'source-highlight-chart-match.png'), fullPage: true });
   });
   await scenario('dismiss bypasses required fields and creates no chart entry', async page => {
     await generate(page);

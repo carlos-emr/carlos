@@ -49,7 +49,7 @@
         <p class="review-progress" role="status"><fmt:message key="chartUpdates.remaining"><fmt:param value="${chartUpdateRemaining}"/></fmt:message></p>
         <c:if test="${chartUpdateRemaining == 0 and not empty chartUpdateRows}"><p class="alert alert-success"><fmt:message key="chartUpdates.complete"/></p></c:if>
         <c:if test="${empty chartUpdateRows}"><p><fmt:message key="chartUpdates.none"/></p></c:if>
-        <p><a href="#chart-reference"><fmt:message key="chartUpdates.current"/></a></p>
+        <p><a href="#current-chart-title"><fmt:message key="chartUpdates.current"/></a></p>
         <p class="suggestions-help"><fmt:message key="chartUpdates.suggestionsHelp"/></p>
         <nav class="review-steps" aria-label="${carlos:forHtmlAttribute(chartUpdateWorkflowLabel)}" hidden>
             <button type="button" class="btn btn-secondary btn-sm" data-review-previous><fmt:message key="dms.incomingDocs.previous"/></button>
@@ -61,6 +61,11 @@
             <div class="card-body">
                 <div class="proposal-heading"><span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/>.</span><h3 class="h5"><c:choose><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3></div>
                 <details class="proposal-evidence" open><summary><fmt:message key="chartUpdates.evidence"/></summary><blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote></details>
+                <p><a href="#full-source" data-show-source><fmt:message key="chartUpdates.showSource"/></a></p>
+                <div class="chart-match-notice" role="status" hidden>
+                    <p><fmt:message key="chartUpdates.matchingChartText"/></p>
+                    <ul class="chart-match-links"></ul>
+                </div>
                 <c:choose>
                 <c:when test="${not empty proposal.outcome}"><p class="alert alert-success mt-2" role="status"><carlos:encode value="${proposal.outcome}"/></p></c:when>
                 <c:otherwise>
@@ -123,18 +128,31 @@
     <c:if test="${not empty chartUpdateReview}"></details></c:if>
 </main>
 <aside class="chart-reference" id="chart-reference">
-    <h2 class="h5"><fmt:message key="chartUpdates.current"/></h2>
-    <p class="small"><a href="#proposals"><fmt:message key="chartUpdates.proposals"/></a></p>
-    <p class="small"><fmt:message key="chartUpdates.coverage"/></p>
-    <c:if test="${empty chartUpdateEntries}"><p><fmt:message key="chartUpdates.noEntries"/></p></c:if>
-    <c:forEach items="${chartUpdateEntries}" var="entry">
-        <details class="mb-2"><summary><carlos:encode value="${entry.id}"/> · <carlos:encode value="${entry.kind}"/></summary><p class="source-text"><carlos:encode value="${entry.text}"/></p></details>
-    </c:forEach>
-    <details class="mt-4"><summary><fmt:message key="chartUpdates.fullSource"/></summary><pre class="source-text"><carlos:encode value="${chartUpdateSource}"/></pre></details>
+    <section aria-labelledby="full-source-title">
+        <h2 id="full-source-title"><fmt:message key="chartUpdates.fullSource"/></h2>
+        <p class="small source-highlight-help" hidden><fmt:message key="chartUpdates.sourceHighlight"/></p>
+        <div id="full-source" class="source-viewer" tabindex="0" aria-labelledby="full-source-title">
+            <div id="chart-update-source" class="source-text"><carlos:encode value="${chartUpdateSource}"/></div>
+        </div>
+    </section>
+    <section class="current-chart" aria-labelledby="current-chart-title">
+        <h2 id="current-chart-title"><fmt:message key="chartUpdates.current"/></h2>
+        <p class="small"><a href="#proposals"><fmt:message key="chartUpdates.proposals"/></a></p>
+        <p class="small"><fmt:message key="chartUpdates.coverage"/></p>
+        <p class="small"><fmt:message key="chartUpdates.duplicateCoverage"/></p>
+        <c:if test="${empty chartUpdateEntries}"><p><fmt:message key="chartUpdates.noEntries"/></p></c:if>
+        <c:forEach items="${chartUpdateEntries}" var="entry">
+            <details class="mb-2 chart-entry" id="chart-entry-${carlos:forHtmlAttribute(entry.id)}">
+                <summary><carlos:encode value="${entry.id}"/> · <c:choose><c:when test="${entry.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></summary>
+                <p class="source-text chart-entry-text"><carlos:encode value="${entry.text}"/></p>
+            </details>
+        </c:forEach>
+    </section>
 </aside>
 </div>
 </c:if>
 </div>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-evidence.js"></script>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates.js"></script>
 </body>
 </html>

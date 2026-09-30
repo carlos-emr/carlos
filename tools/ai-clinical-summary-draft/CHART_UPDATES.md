@@ -24,7 +24,9 @@ boundary. Direct standalone review links remain available, showing all cards.
   diagnosis/history candidates. An empty result is valid, not evidence that no
   follow-up is required. The model can misclassify or omit relevant passages.
 - Display accessible Medical history/Ongoing concerns entries and active
-  ticklers beside the proposals, with the full source available for comparison.
+  ticklers beside the proposals. The full source is visible with the selected
+  quotation highlighted; Previous/Next follows the current suggestion and
+  Show passage in document moves focus to the source.
 - Edit text and accept or dismiss **one item at a time**. Ticklers require a
   confirmed due date and active assignee. History requires Medical history or
   Ongoing concerns as the destination and is appended as a signed note under the
@@ -38,6 +40,20 @@ Chart comparison is clinician-led; duplicate matching is only normalized text
 containment plus durable replay protection, not semantic equivalence detection.
 The comparison excludes restricted notes, other chart sections and inactive
 ticklers. Review the normal chart when needed.
+
+Matching text is flagged before approval, with links to existing entries. The
+browser compares the source quotation and edited draft against the authorized
+entries already on the page, ignoring case and whitespace. These advisory matches
+span both history entries and reminders; matching source text can also occur in
+an earlier entry's provenance. They do not establish clinical equivalence and do
+not automatically dismiss a suggestion. The server independently reloads the
+chart and blocks matching edited text within the same entry kind before saving;
+receipt checks prevent replaying an already accepted proposal.
+
+Highlighting and comparison run locally without model calls. Source text is built
+from text nodes, including markup-like content. Repeated source passages show up
+to 100 highlights; the warning lists up to 10 matching entry links to keep long,
+repetitive documents usable. The original source text remains intact.
 
 The document list checks availability through the same authorized read boundary
 before navigating. Missing or unreadable documents show a modal over the list,

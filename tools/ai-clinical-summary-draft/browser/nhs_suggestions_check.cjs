@@ -101,6 +101,15 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
         page.getByRole('button', { name: 'Generate new proposals', exact: true }).click()]);
       assert.equal(await page.locator('article.proposal').count(), 3);
       assert.equal(await page.locator('article.proposal:visible').count(), 1);
+      const fullSource = await page.locator('#chart-update-source').textContent();
+      for (let step = 0; step < 3; step++) {
+        const passage = await page.locator('article.proposal:visible .proposal-evidence blockquote').textContent();
+        assert((await page.locator('.source-highlight').allTextContents()).includes(passage));
+        assert.equal(await page.locator('#chart-update-source').textContent(), fullSource);
+        if (step < 2) await page.getByRole('button', { name: 'Next', exact: true }).click();
+      }
+      await page.getByRole('button', { name: 'Previous', exact: true }).click();
+      await page.getByRole('button', { name: 'Previous', exact: true }).click();
       assert.match(await page.locator('main').innerText(), /Fixed NHS proposals - no model/);
       const reminder = page.locator('article').filter({ has: page.locator('[name="dueDate"]') });
       const date = sql.value(`SELECT DATE(observationdate) FROM document WHERE document_no=${doc}`);
@@ -140,7 +149,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(release.status(), 200);
       assert.equal(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998'`), '0');
       results.push({ fixture: fixture.fixture, documentDate: date, suggestedDate: expected, approvalsUnchanged: true, unavailableModalChecked });
-      console.log(`${fixture.fixture}: eChart navigation, document selection, suggested fields, explicit approval, mobile layout, modal steps, Back and Close navigation passed`);
+      console.log(`${fixture.fixture}: eChart navigation, document selection, suggested fields, explicit approval, mobile layout, source highlighting, modal steps, Back and Close navigation passed`);
       for (const candidate of context.pages()) if (candidate !== schedule) await candidate.close();
     }
     fs.writeFileSync(path.join(output, 'suggestions-result.json'), JSON.stringify(results, null, 2) + '\n');

@@ -30,6 +30,7 @@
             }
             const show = focus => {
                 cards.forEach((card, position) => { card.hidden = position !== index; });
+                window.CarlosChartUpdateEvidence?.show(cards[index]);
                 previous.disabled = index === 0;
                 next.disabled = index === cards.length - 1;
                 steps.querySelector('[data-review-position]').textContent = `${index + 1} / ${cards.length}`;

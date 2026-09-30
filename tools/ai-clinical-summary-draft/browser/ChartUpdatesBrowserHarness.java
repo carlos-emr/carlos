@@ -139,6 +139,12 @@ public final class ChartUpdatesBrowserHarness {
                     fixture.revision++;
                     fixture.entries.add(new ChartUpdateContext.Entry("note-external", "history", "Synthetic concurrent chart edit."));
                 }
+                case "/repeat-source" -> { fixture.source += "\n" + FOLLOWUP; fixture.revision++; }
+                case "/matching-chart" -> {
+                    fixture.entries.add(new ChartUpdateContext.Entry("note-duplicate", "history",
+                            HISTORY.toUpperCase(java.util.Locale.ROOT).replace(" ", "  \n")));
+                    fixture.revision++;
+                }
                 case "/source-change" -> { fixture.source += "\nSynthetic document amendment."; fixture.revision++; }
                 case "/unavailable" -> fixture.unavailable = true;
                 case "/missing-original" -> fixture.originalMissing = true;
