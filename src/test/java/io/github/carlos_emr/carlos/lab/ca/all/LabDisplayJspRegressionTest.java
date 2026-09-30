@@ -158,6 +158,9 @@ class LabDisplayJspRegressionTest {
                 .contains("boolean isEmbeddedDocumentResult = embeddedDocument != null && embeddedDocument.isPdf();")
                 .contains("String embeddedDocumentViewHref = request.getContextPath() + \"/lab/ViewEmbeddedDocumentFromLab\" + embeddedDocumentQuery;")
                 .contains("<%@ include file=\"/WEB-INF/jspf/lab-embedded-pdf-preview.jspf\" %>")
+                // A binary ED payload that is not a PDF shows a note, never its encoded bytes.
+                .contains("boolean isUndisplayableEmbeddedDocument = embeddedDocument != null && embeddedDocument.isUndisplayable();")
+                .contains("<em class=\"lab-embedded-document-unsupported\"><fmt:message key=\"lab.embeddedPdf.notPdf\"/></em>")
                 .doesNotContain("handler.getMsgType().equals(\"ExcellerisON\") || handler.getMsgType().equals(\"PATHL7\")) && handler.getOBXValueType(j, k).equals(\"ED\")")
                 .doesNotContain("&legacy=true");
     }

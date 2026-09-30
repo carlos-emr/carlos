@@ -1056,12 +1056,14 @@
                     }
 
                     // An HL7 ED OBX (any lab type) whose payload is a PDF gets a Download PDF link and an inline
-                    // preview row (#3977). An ED payload that is not a PDF keeps the ordinary result rendering.
+                    // preview row (#3977). A payload declared as text keeps the ordinary result rendering.
                     // The legacy PATHL7 shape is detected server-side, so the URLs carry no legacy flag.
                     EmbeddedLabDocumentLoader.Inspection embeddedDocument = handler.isOBXEmbeddedDocument(j, k)
                             ? EmbeddedLabDocumentLoader.inspect(handler, j, k, labPdfPreviewSettings.maxBytes())
                             : null;
                     boolean isEmbeddedDocumentResult = embeddedDocument != null && embeddedDocument.isPdf();
+                    // A binary ED payload that is not a PDF (an image, say) cannot be served or usefully printed.
+                    boolean isUndisplayableEmbeddedDocument = embeddedDocument != null && embeddedDocument.isUndisplayable();
                     String embeddedDocumentQuery = "?labNo=" + URLEncoder.encode(segmentID == null ? "" : segmentID, StandardCharsets.UTF_8)
                             + "&segment=" + j
                             + "&group=" + k;
@@ -1224,7 +1226,9 @@
                     } else {
                     %>
 	                                            <td align="right">
-                                                   <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
+                                                   <% if (isUndisplayableEmbeddedDocument) { %>
+                                                    <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                                                    <% } else if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                                                     <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %>' context="htmlWithBreakMarkers"/></em>
                                                     <% } else { %>
                                                     <carlos:encode value='<%= handler.getOBXResult( j, k) %>' context="htmlWithBreakMarkers"/>

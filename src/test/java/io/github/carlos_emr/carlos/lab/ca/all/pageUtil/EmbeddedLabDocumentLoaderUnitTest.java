@@ -139,10 +139,23 @@ class EmbeddedLabDocumentLoaderUnitTest {
 
     @Test
     @DisplayName("should never class a payload declared as text (A) as a PDF")
-    void shouldClassifyNotPdf_forTextEncoding() {
+    void shouldClassifyText_forTextEncoding() {
         MessageHandler handler = handlerReturning("%PDF-1.4 not really", "A");
 
-        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.NOT_PDF);
+        EmbeddedLabDocumentLoader.Inspection inspection = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 0);
+        assertThat(inspection.status()).isEqualTo(Status.TEXT);
+        assertThat(inspection.isPdf()).isFalse();
+        assertThat(inspection.isUndisplayable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should report a binary payload that is not a PDF as undisplayable")
+    void shouldFlagUndisplayable_forBinaryNonPdf() {
+        String png = Base64.getEncoder().encodeToString(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
+        EmbeddedLabDocumentLoader.Inspection inspection = EmbeddedLabDocumentLoader.inspect(handlerReturning(png, null), 0, 0, 0);
+
+        assertThat(inspection.isUndisplayable()).isTrue();
+        assertThat(inspection.isPdf()).isFalse();
     }
 
     @Test

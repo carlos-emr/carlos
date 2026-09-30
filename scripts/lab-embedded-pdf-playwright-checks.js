@@ -32,7 +32,8 @@
  *
  *   1. From the Inbox (filtered to the owned patient) the lab opens; the text
  *      results render as rows, the PDF gets a "Download PDF" link and an inline
- *      frame, and the HTML payload gets neither.
+ *      frame, and the HTML payload gets neither: only a short not-a-PDF note,
+ *      never its encoded bytes.
  *   2. The frame's request is answered with the PDF itself: application/pdf,
  *      Content-Disposition inline, nosniff, no-store and the restrictive CSP,
  *      and the page logs no console error (the strict recorder fails on any CSP
@@ -245,6 +246,10 @@ async function workflow(s) {
     h.assert(await frames.count() === 1, `expected one inline PDF frame (the HTML payload must get none), found ${await frames.count()}`);
     h.assert((await frames.first().getAttribute('src')).endsWith(viewPath), 'the inline frame does not address the PDF segment');
     h.assert(await report.locator('details.lab-embedded-pdf[open]').count() === 1, 'the first PDF preview is not expanded');
+    h.assert(await report.locator('em.lab-embedded-document-unsupported').count() === 1,
+      'the non-PDF ED payload does not show the not-a-PDF note');
+    h.assert(!(await report.content()).includes(HTML_PAYLOAD.toString('base64')),
+      'the non-PDF ED payload was printed as encoded bytes');
     frameResponse = await framed;
   });
 
@@ -296,6 +301,8 @@ async function workflow(s) {
     h.assert(html.includes(`/lab/ViewEmbeddedDocumentFromLab?${documentQuery(labNo, PDF_SEGMENT).replace(/&/g, '&amp;')}`),
       'the AJAX lab view frame does not address the PDF segment');
     h.assert((html.match(/class="lab-embedded-pdf-download"/g) || []).length === 1, 'the AJAX lab view has no single Download PDF link');
+    h.assert((html.match(/class="lab-embedded-document-unsupported"/g) || []).length === 1,
+      'the AJAX lab view does not show the not-a-PDF note for the HTML payload');
   });
 
   await s.step("the Inbox's preview mode shows the PDF inside the lab card", async () => {

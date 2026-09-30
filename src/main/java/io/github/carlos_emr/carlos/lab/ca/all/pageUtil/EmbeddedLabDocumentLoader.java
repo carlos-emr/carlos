@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
  * message choose what the browser renders.</p>
  *
  * <p>Decoding follows the declared HL7 ED.4 encoding when the parser exposes it
- * ({@link MessageHandler#getOBXDocumentEncoding(int, int)}): {@code A} is text and never a PDF,
+ * ({@link MessageHandler#getOBXDocumentEncoding(int, int)}): {@code A} is text ({@link Status#TEXT}),
  * {@code Hex} is hex octets, anything else is base64. Base64 is decoded strictly (RFC 4648 after
  * dropping the line breaks senders wrap at 76 or 80 columns); if that fails, the lenient decoder
  * the former download action used is tried so a payload that downloaded before still downloads,
@@ -71,6 +71,8 @@ public final class EmbeddedLabDocumentLoader {
         TOO_LARGE,
         /** Content that does not start with the PDF signature, or that cannot be decoded. */
         NOT_PDF,
+        /** A payload the sender declares as text (ED.4 {@code A}); readable as the result value. */
+        TEXT,
         /** No payload at all. */
         EMPTY
     }
@@ -87,6 +89,15 @@ public final class EmbeddedLabDocumentLoader {
         /** Whether the document is a PDF, previewable or not. */
         public boolean isPdf() {
             return status == Status.PDF || status == Status.TOO_LARGE;
+        }
+
+        /**
+         * Whether the payload is binary content that is not a PDF (an image, say): the page can
+         * neither serve it nor usefully print it, so it shows a short note instead of the
+         * encoded bytes.
+         */
+        public boolean isUndisplayable() {
+            return status == Status.NOT_PDF;
         }
     }
 
@@ -136,8 +147,9 @@ public final class EmbeddedLabDocumentLoader {
         }
         String encoding = handler.getOBXDocumentEncoding(obr, obx);
         if ("A".equals(encoding)) {
-            // Declared as text (for example PATHL7 CELLPATHR RTF in ED.1): not a PDF.
-            return new Document(Status.NOT_PDF, null, payload.length());
+            // Declared as text (for example PATHL7 CELLPATHR RTF in ED.1): never a PDF, but
+            // unlike an undecodable binary it is readable as the result value.
+            return new Document(Status.TEXT, null, payload.length());
         }
         String compact = payload.replaceAll("\\s+", "");
         boolean hex = "Hex".equals(encoding);

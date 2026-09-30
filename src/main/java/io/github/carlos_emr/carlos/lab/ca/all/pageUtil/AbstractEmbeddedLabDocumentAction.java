@@ -179,6 +179,7 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
             case EMPTY:
                 return status(response, HttpServletResponse.SC_NOT_FOUND);
             case NOT_PDF:
+            case TEXT:
                 logger.warn("Refused embedded lab document that is not a PDF: labNo={}", LogSafe.sanitize(String.valueOf(labNo)));
                 return status(response, HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE);
             case TOO_LARGE:
