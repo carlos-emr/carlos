@@ -76,5 +76,7 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
         assertThat(fields).hasSize(1);
         assertThat(fields.first().val()).isEqualTo("true");
         assertThat(fields.first().attr("type")).isEqualTo("hidden");
+        assertThat(fields.first().attr("name")).isEqualTo("newForm");
+        assertThat(fields.first().parent().tagName()).isEqualTo("form");
     }
 }

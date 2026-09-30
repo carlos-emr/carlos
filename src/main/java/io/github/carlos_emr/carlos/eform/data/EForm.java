@@ -1468,8 +1468,10 @@ public class EForm extends EFormBase {
 
     /** Preserve a template's case-sensitive newForm flag and its submitted name. */
     public void ensureNewFormInput() {
-        if (getDocument().getElementById("newForm") == null) {
-            addHiddenInputElement("newForm", "true");
+        Element form = getDocument().selectFirst("form");
+        if (form != null && getDocument().getElementById("newForm") == null) {
+            form.appendElement("input").attr("type", "hidden").attr("id", "newForm")
+                    .attr("name", "newForm").attr("value", "true");
         }
     }
 
