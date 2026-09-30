@@ -269,8 +269,9 @@ public interface DocumentAttachmentManager {
      * @param response HttpServletResponse the HTTP response for potential streaming operations
      * <p>An attachment that fails to render fails the whole render, unless the request carries
      * {@link #ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE}; then it is left out and a warning is added to
-     * the {@link #ATTACHMENT_WARNINGS_ATTRIBUTE} list. Attachments whose target no longer exists
-     * are always left out with a warning.</p>
+     * the {@link #ATTACHMENT_WARNINGS_ATTRIBUTE} list. Attachments whose target no longer exists,
+     * and HRM reports whose file is missing or unreadable, are always left out with a warning
+     * (see {@link #getUnavailableConsultAttachmentWarnings}).</p>
      *
      * @return Path the file system path to the rendered PDF document containing the consultation form and attachments
      * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process,
@@ -280,8 +281,10 @@ public interface DocumentAttachmentManager {
 
     /**
      * Lists, without rendering anything, the warnings for attachments a consultation lists whose
-     * target no longer exists or now belongs to another patient. These are the attachments a
-     * render leaves out, so a screen shown before the render (the fax cover page) can name them.
+     * target no longer exists or now belongs to another patient, and for attached HRM reports whose
+     * report file is missing or cannot be read. These are the attachments a render leaves out, so a
+     * screen shown before the render (the fax cover page) can name them. Form attachments are not
+     * checked.
      *
      * @param requestId the consultation request id
      * @return one warning per unavailable attachment, naming its type and id; empty when there are none

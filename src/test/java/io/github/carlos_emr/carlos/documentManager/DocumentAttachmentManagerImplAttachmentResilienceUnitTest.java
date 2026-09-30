@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -43,17 +44,22 @@ import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
@@ -75,6 +81,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -84,6 +91,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 @DisplayName("DocumentAttachmentManagerImpl")
 @Tag("unit")
 class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUnitTestBase {
+
+    /** A synthetic, schema-valid HRM report shipped with the dev database. */
+    private static final Path DEMO_HRM_REPORT = Path.of(".devcontainer/db/db_data/hrm/demo-hrm-diagnostic-imaging.xml");
+    private static final String HRM_12_WARNING = "HRM attachment 12 is unavailable and was not included.";
+
+    @TempDir
+    Path documentDir;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -97,6 +111,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     private FormsManager formsManager;
     private NioFileManager nioFileManager;
     private SecurityInfoManager securityInfoManager;
+    private HRMDocumentDao hrmDocumentDao;
     private DocumentAttachmentManagerImpl manager;
     private Path basePdf;
     private Path outputPdf;
@@ -115,7 +130,9 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         formsManager = mock(FormsManager.class);
         nioFileManager = mock(NioFileManager.class);
         securityInfoManager = mock(SecurityInfoManager.class);
+        hrmDocumentDao = mock(HRMDocumentDao.class);
 
+        registerMock(HRMDocumentDao.class, hrmDocumentDao);
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
@@ -365,6 +382,101 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
             assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
                     .isInstanceOf(PDFGenerationException.class);
         }
+    }
+
+    @Test
+    @DisplayName("warns, without rendering, for an attached HRM report whose file is missing")
+    void shouldWarnForHrmAttachment_whenReportFileIsMissing() {
+        attachHrmReport(12, "missing-report.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(HRM_12_WARNING);
+        }
+        verify(hrmDocumentDao).find(Integer.valueOf(12));
+        verifyNoInteractions(consultationManager);
+    }
+
+    @Test
+    @DisplayName("warns for an attached HRM report whose file is not a readable HRM report")
+    void shouldWarnForHrmAttachment_whenReportFileCannotBeParsed() throws Exception {
+        Files.writeString(documentDir.resolve("corrupt-report.xml"), "<not-an-hrm-report/>");
+        attachHrmReport(12, "corrupt-report.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(HRM_12_WARNING);
+        }
+    }
+
+    @Test
+    @DisplayName("warns once, from the database check, for an attached HRM report whose record is gone")
+    void shouldWarnOnceForHrmAttachment_whenHrmRecordIsMissing() {
+        ConsultDocs missingRecord = consultDoc(990006, "H");
+        when(consultDocsDao.findUnavailableActiveConsultAttachments(9)).thenReturn(List.of(missingRecord));
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM)).thenReturn(List.of(missingRecord));
+
+        assertThat(manager.getUnavailableConsultAttachmentWarnings(9))
+                .containsExactly("HRM attachment 990006 is unavailable and was not included.");
+        // The database check already named it; its report file is not looked for as well.
+        verifyNoInteractions(hrmDocumentDao);
+    }
+
+    @Test
+    @DisplayName("does not warn for an attached HRM report that is on file and readable")
+    void shouldNotWarnForHrmAttachment_whenReportIsPresentAndReadable() throws Exception {
+        Files.copy(DEMO_HRM_REPORT, documentDir.resolve("demo-hrm.xml"));
+        attachHrmReport(12, "demo-hrm.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).isEmpty();
+        }
+        verify(hrmDocumentDao).find(Integer.valueOf(12));
+    }
+
+    @Test
+    @DisplayName("keeps a print or fax render going, with a warning, when an attached HRM report cannot be read")
+    void shouldKeepRenderingWithWarning_whenAttachedHrmReportCannotBeRead() throws Exception {
+        // No ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE: this is the fail-closed print and fax render.
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM)).thenReturn(List.of(consultDoc(12, "H")));
+        // setUp's empty HRM list stands for HRMUtil.listHRMDocuments, which leaves out a report it cannot parse.
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedStatic<HRMReportParser> hrmReportParserMock = mockStatic(HRMReportParser.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+            hrmReportParserMock.when(() -> HRMReportParser.parseReport(isNull(), eq(Integer.valueOf(12))))
+                    .thenReturn(null);
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
+                    .asList()
+                    .containsExactly(HRM_12_WARNING);
+        }
+    }
+
+    /** Attaches HRM report 12 (or another id) to consult 9, with its record naming the given file. */
+    private void attachHrmReport(int hrmId, String reportFile) {
+        HRMDocument hrmDocument = new HRMDocument();
+        hrmDocument.setReportFile(reportFile);
+        // Integer, not int: the parser calls find(Object), and find(int) is a different overload.
+        when(hrmDocumentDao.find(Integer.valueOf(hrmId))).thenReturn(hrmDocument);
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM))
+                .thenReturn(List.of(consultDoc(hrmId, "H")));
+    }
+
+    private MockedStatic<CarlosProperties> documentDirectoryAt(Path directory) {
+        MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(directory.toString());
+        return propertiesMock;
     }
 
     private MockedConstruction<CommonLabResultData> mockCommonLabResultData(List<LabResultData> labs) {

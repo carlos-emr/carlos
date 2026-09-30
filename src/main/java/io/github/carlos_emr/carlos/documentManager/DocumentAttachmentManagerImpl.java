@@ -16,6 +16,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.Resolution;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
@@ -86,6 +87,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private static final String ATTR_DEMOGRAPHIC_ID = "demographicId";
     private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
     private static final String UNREADABLE_TEMPORARY_PDF = "unreadable temporary PDF";
+    private static final String UNREADABLE_HRM_REPORT = "missing or unreadable HRM report file";
     private static final String MISSING_CONSULT_SECURITY_OBJECT = "missing required sec object (_con)";
     private static final LongCounter TEMP_CLEANUP_FAILURES = GlobalOpenTelemetry.getMeter(
                     "io.github.carlos_emr.carlos.documentManager")
@@ -590,8 +592,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
 
             // Warnings so far are for attachments the lists above already leave out: a target that
-            // no longer exists or belongs to another patient. Any warning added below is an
-            // attachment that failed to render.
+            // no longer exists or belongs to another patient, or an HRM report whose file is missing
+            // or unreadable. Any warning added below is an attachment that failed to render.
             int unavailableWarnings = attachmentWarnings.size();
             boolean allowSkipped = Boolean.TRUE.equals(request.getAttribute(ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE));
             attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
@@ -1112,15 +1114,62 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             return;
         }
         List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(consultRequestId);
-        if (unavailableAttachments == null) {
+        Set<Integer> handledHrmIds = new HashSet<>();
+        if (unavailableAttachments != null) {
+            for (ConsultDocs consultDoc : unavailableAttachments) {
+                if (consultDoc == null) {
+                    continue;
+                }
+                recordSkippedAttachment(attachmentWarnings, documentTypeFromConsultDoc(consultDoc),
+                        consultDoc.getDocumentNo(), "unavailable consult attachment target");
+                if (ConsultDocs.DOCTYPE_HRM.equals(consultDoc.getDocType())) {
+                    handledHrmIds.add(consultDoc.getDocumentNo());
+                }
+            }
+        }
+        recordUnreadableHrmReportWarnings(consultRequestId, handledHrmIds, attachmentWarnings);
+    }
+
+    /**
+     * Warns for each attached HRM report that is still on file and matched to the patient, but whose
+     * report file is missing or cannot be read. The render lists HRM reports through
+     * {@link HRMUtil#listHRMDocuments}, which leaves out any report {@link HRMReportParser} cannot
+     * parse. This check runs the same parse, so it names the reports the render leaves out because
+     * they are missing or unreadable. It does not cover the other ways {@code listHRMDocuments}
+     * returns nothing: a user without {@code _hrm} read, or an install outside the Ontario billing
+     * region. Those reports are still left out without a warning.
+     *
+     * @param handledHrmIds HRM ids already warned about; each id is added as it is checked, so an HRM
+     *        report attached twice is read and named once
+     */
+    private void recordUnreadableHrmReportWarnings(Integer requestId, Set<Integer> handledHrmIds,
+            List<String> attachmentWarnings) {
+        List<ConsultDocs> attachedHrms = consultDocsDao.findByRequestIdDocType(requestId, ConsultDocs.DOCTYPE_HRM);
+        if (attachedHrms == null) {
             return;
         }
-        for (ConsultDocs consultDoc : unavailableAttachments) {
-            if (consultDoc == null) {
+        for (ConsultDocs attachedHrm : attachedHrms) {
+            if (attachedHrm == null || !handledHrmIds.add(attachedHrm.getDocumentNo())) {
                 continue;
             }
-            recordSkippedAttachment(attachmentWarnings, documentTypeFromConsultDoc(consultDoc),
-                    consultDoc.getDocumentNo(), "unavailable consult attachment target");
+            int hrmId = attachedHrm.getDocumentNo();
+            String failure = hrmReportReadFailure(hrmId);
+            if (failure != null) {
+                recordSkippedAttachment(attachmentWarnings, DocumentType.HRM, hrmId, failure);
+            }
+        }
+    }
+
+    /** @return why the HRM report cannot be read, or {@code null} when it parses */
+    private String hrmReportReadFailure(Integer hrmId) {
+        try {
+            // The parser keeps the file inside DOCUMENT_DIR (PathValidationUtils) and returns null
+            // for a missing record or a missing, unreadable or invalid file. It ignores
+            // LoggedInInfo, so the fax cover page can ask without one.
+            return HRMReportParser.parseReport(null, hrmId) == null ? UNREADABLE_HRM_REPORT : null;
+        } catch (RuntimeException e) {
+            // The exception class only, as for render failures: the message can carry a file path.
+            return e.getClass().getSimpleName();
         }
     }
 
@@ -1132,6 +1181,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 return DocumentType.DOC;
             case ConsultDocs.DOCTYPE_LAB:
                 return DocumentType.LAB;
+            case ConsultDocs.DOCTYPE_HRM:
+                return DocumentType.HRM;
             default:
                 return null;
         }
