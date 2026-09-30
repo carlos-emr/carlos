@@ -73,3 +73,39 @@ It checks the exact isolated database name and refuses an existing AIFACT005 cha
 it never clears charts or overwrites an earlier trial. Do not rerun it against the
 prepared chart. The source texts are rebuilt from the committed synthetic corpus,
 so no duplicated clinical source file or credentials need to be committed.
+
+## Live local-model connection follow-up
+
+The follow-up uses the prototype's supported `qwen3.5:2b` model through local
+Ollama. [Ollama's model page](https://ollama.com/library/qwen3.5) and
+[Linux installation instructions](https://docs.ollama.com/linux) are the upstream
+sources. This is a separate model evaluation from the earlier hosted Qwen 27B work.
+The application and proposal prompt/schema remain unchanged, including the limit
+of 20 proposals.
+
+`browser/local_chart_gateway.py` accepts complete checksum-verified corpus notes
+and the exact 37-note NHSSYN005 compilation rebuilt from that corpus. Its only
+model endpoint is numeric loopback; it refuses cloud-backed Ollama models. It
+validates the request before model access and the returned evidence before CARLOS
+receives any proposals. It stores raw responses (including rejected outputs) and
+validated results under an ignored local cache, keyed by model digest, runtime
+version, source, prompt, schema and generation options. Reopening or retrying an
+unchanged request reuses the result. Existing chart content is not sent.
+
+To run the gateway with an already installed local model:
+
+```sh
+OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 ollama serve
+# In another terminal:
+OLLAMA_HOST=127.0.0.1:11434 ollama pull qwen3.5:2b
+python3 tools/ai-clinical-summary-draft/browser/local_chart_gateway.py \
+  --cache target/nhs-chart-update-morning/local-model/cache
+```
+
+The isolated trial uses HTTP port 11439, request budget 50,000 bytes, timeout
+1,800 seconds and agent label `Qwen 3.5 2B - local model (cached)`. Only its private
+configuration and Tomcat are changed. The earlier fixed gateway remains available
+on 11438. The local model uses 16,384 context tokens, 4,096 output tokens,
+temperature zero, thinking disabled and four CPU threads. Twelve focused gateway
+and proposal-contract tests pass. Live generation results will be recorded after
+the model download and browser trial complete.
