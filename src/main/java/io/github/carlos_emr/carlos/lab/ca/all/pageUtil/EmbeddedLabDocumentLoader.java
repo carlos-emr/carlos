@@ -32,6 +32,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Objects;
 
 import org.apache.commons.codec.binary.Base64InputStream;
 
@@ -116,6 +117,23 @@ public final class EmbeddedLabDocumentLoader {
      * @param sizeBytes as for {@link Inspection#sizeBytes()}
      */
     public record Document(Status status, byte[] bytes, long sizeBytes) {
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Document that && status == that.status && sizeBytes == that.sizeBytes
+                    && Arrays.equals(bytes, that.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Objects.hash(status, sizeBytes) + Arrays.hashCode(bytes);
+        }
+
+        /** Never prints the document content, only its size. */
+        @Override
+        public String toString() {
+            return "Document[status=" + status + ", sizeBytes=" + sizeBytes + "]";
+        }
     }
 
     private EmbeddedLabDocumentLoader() {
@@ -153,7 +171,7 @@ public final class EmbeddedLabDocumentLoader {
         if (classified.status() != Status.PDF) {
             return new Document(classified.status(), null, classified.sizeBytes());
         }
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream((int) Math.min(classified.sizeBytes(), Integer.MAX_VALUE - 8));
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream((int) Math.min(classified.sizeBytes(), (long) Integer.MAX_VALUE - 8));
         decode(classified.compact(), classified.hex(), new byte[PDF_SIGNATURE.length], bytes);
         return new Document(Status.PDF, bytes.toByteArray(), classified.sizeBytes());
     }

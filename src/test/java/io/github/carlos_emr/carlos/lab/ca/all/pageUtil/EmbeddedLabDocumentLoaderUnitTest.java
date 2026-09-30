@@ -215,6 +215,17 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should compare documents by content and never print their bytes")
+    void shouldCompareByContent_andHideBytesInToString() {
+        Document one = new Document(Status.PDF, PDF.clone(), PDF.length);
+        Document two = new Document(Status.PDF, PDF.clone(), PDF.length);
+
+        assertThat(one).isEqualTo(two).hasSameHashCodeAs(two);
+        assertThat(one).isNotEqualTo(new Document(Status.PDF, new byte[] {1}, PDF.length));
+        assertThat(one.toString()).doesNotContain("%PDF").contains("sizeBytes=" + PDF.length);
+    }
+
+    @Test
     @DisplayName("should read the legacy PATHL7 PDF from ED.1")
     void shouldLoadPdf_fromLegacyPathL7Shape() throws Exception {
         PATHL7Handler handler = pathL7(withEdValue(PDF_BASE64));
