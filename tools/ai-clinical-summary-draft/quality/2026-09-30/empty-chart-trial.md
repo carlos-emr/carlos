@@ -22,8 +22,10 @@ The smaller-file suggestion rewrote and joined source lines, including changing
 `pprogressive` to `progressive`, so the whole proposal failed exact-source
 validation and never appeared as an approvable card. These are extraction-quality
 failures, not missing connectivity. This local model has not passed the intended
-workflow's quality bar. The hosted model configuration is still absent; this is
-not a test of the earlier hosted Qwen 27B configuration.
+workflow's quality bar. The hosted model configuration is still absent. The
+single-document summarizer in PR #3860 uses Qwen3.5-35B-A3B on Parasail; this local
+trial did not exercise that summarizer. See the
+[same-summarizer follow-up](same-summarizer-trial.md).
 
 See the [complete model outputs and metadata](local-model-results.json),
 [real browser result](local-model-browser-result.json), and
@@ -123,7 +125,8 @@ so no duplicated clinical source file or credentials need to be committed.
 The follow-up uses the prototype's supported `qwen3.5:2b` model through local
 Ollama. [Ollama's model page](https://ollama.com/library/qwen3.5) and
 [Linux installation instructions](https://docs.ollama.com/linux) are the upstream
-sources. This is a separate model evaluation from the earlier hosted Qwen 27B work.
+sources. This is a separate model evaluation from PR #3860's hosted
+Qwen3.5-35B-A3B single-document summarizer.
 The application and proposal prompt/schema remain unchanged, including the limit
 of 20 proposals.
 
