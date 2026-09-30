@@ -52,7 +52,7 @@ const {
   SkipCheck, appUrl, assert, assertNotErrorPage, assertStrictPage, createRecorder, gotoApp,
   launchBrowser, login, newContext, readConfig, runCheck, screenshot, wireStrictPage,
 } = require('./lib/playwright-harness');
-const { clickOpensPopup } = require('./lib/playwright-ui');
+const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 
 const TIMEOUT = 30000;
 // Column order in ViewConsultationRequests.jsp: Status, Urgency, Team, Patient,
@@ -108,9 +108,13 @@ async function main() {
     const schedulePage = await login(context, config, recorder);
 
     // a. Enter through the banner, as a user does.
-    const list = await clickOpensPopup(schedulePage,
+    // openScheduleSection() opens the section in a popup or in place depending on the
+    // user's schedule preference, so take whichever happened.
+    const { page: list } = await clickOpensPopupOrNavigates(schedulePage,
       schedulePage.locator("a[onclick*='/encounter/IncomingConsultation']").first(),
       { label: 'consultation-list', recorder, timeout: TIMEOUT });
+    assert(new URL(list.url()).pathname.endsWith('/encounter/IncomingConsultation'),
+      `the Consultations link opened ${new URL(list.url()).pathname}`);
     await assertNotErrorPage(list, 'consultation list');
     const providerOptions = await list.locator('#filterProviderNo option').evaluateAll((opts) => opts
       .map((o) => ({ value: o.value, label: o.textContent.replace(/\s+/g, ' ').trim() })));
@@ -194,6 +198,10 @@ async function main() {
       names = await columnTexts(list, CONSULTANT_COLUMN);
       assert(names.length === 1 && names[0] === consultantLabel, 'the second page is not the chosen consultant');
       console.log('PASS sorting and paging keep the consultant filter');
+      // Back to the default page size: the form carries limit forward, and a one-row page
+      // would make the checks below vacuous.
+      await gotoApp(list, config.baseUrl, `/encounter/ViewConsultation?consultantId=${consultantId}`);
+      await assertNotErrorPage(list, 'consultation list at the default page size');
     } else {
       console.log('PASS sorting keeps the consultant filter (one request: paging not exercised)');
     }
@@ -216,6 +224,8 @@ async function main() {
     assert(listParam(list, 'filterProviderNo') === mrp.value, 'the provider filter was not submitted');
     assert(await list.locator('#filterProviderNo').inputValue() === mrp.value, 'the provider dropdown lost its selection');
     const mrpRows = await columnTexts(list, PROVIDER_COLUMN);
+    assert(mrpRows.length > 0, `provider filter for ${mrp.value} returned no rows although the list showed that MRP`);
+    assert(listParam(list, 'limit') !== '1', 'provider filter ran on a one-row page');
     assert(mrpRows.every((name) => name === mrp.label),
       `provider filter let other MRPs through: ${[...new Set(mrpRows)].join(' | ')}`);
     assert((await list.locator('#providerFilterBadge').innerText()).includes(mrp.label),
