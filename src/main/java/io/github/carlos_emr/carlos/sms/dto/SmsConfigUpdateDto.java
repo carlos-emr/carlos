@@ -27,8 +27,9 @@ import java.util.Map;
 
 /**
  * SMS settings as submitted from Administration &gt; SMS. Secret fields are write-only: a blank
- * {@code webhookSecret} or credential value means "keep the stored one", and
- * {@code clearWebhookSecret} removes the stored secret.
+ * {@code webhookSecret} or credential value means "keep the stored one", {@code clearWebhookSecret}
+ * removes the stored secret, and {@code clearCredentials} removes the chosen provider's stored
+ * credentials (other providers' are kept).
  *
  * @param providerType       the provider to send through
  * @param enabled            whether CARLOS may send SMS at all
@@ -36,12 +37,15 @@ import java.util.Map;
  * @param senderNumber       the number messages are sent from, any common format; blank for none
  * @param webhookSecret      a new webhook secret, or blank to keep the stored one
  * @param clearWebhookSecret remove the stored webhook secret
- * @param credentials        new credential values by field name; blank values keep the stored ones
+ * @param credentials        the chosen provider's new credential values by field name; blank values keep
+ *                           the stored ones
+ * @param clearCredentials   remove the chosen provider's stored credentials before any typed in the same
+ *                           save are stored
  * @since 2026-09-24
  */
 public record SmsConfigUpdateDto(SmsProviderType providerType, boolean enabled, boolean schedulerEnabled,
                                  String senderNumber, String webhookSecret, boolean clearWebhookSecret,
-                                 Map<String, String> credentials) {
+                                 Map<String, String> credentials, boolean clearCredentials) {
 
     public SmsConfigUpdateDto {
         credentials = credentials == null ? Map.of() : Map.copyOf(credentials);

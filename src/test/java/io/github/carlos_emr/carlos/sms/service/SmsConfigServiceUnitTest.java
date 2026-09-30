@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.event.SmsConfigChangedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
 import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.AfterEach;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -116,18 +118,93 @@ class SmsConfigServiceUnitTest {
     @DisplayName("save stores only the credentials the provider declares, keeps blank ones, and drops the rest")
     void shouldStoreDeclaredCredentialsOnly_forProvider() {
         SmsConfig stored = new SmsConfig();
-        stored.setCredential("field_one", "old-value-one");
-        stored.setCredential("field_two", "old-value-two");
-        stored.setCredential("legacy_field", "stale-value");
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential(SmsProviderType.VOIPMS, "field_one", "old-value-one");
+        stored.setCredential(SmsProviderType.VOIPMS, "field_two", "old-value-two");
+        stored.setCredential(SmsProviderType.VOIPMS, "legacy_field", "stale-value");
         when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
 
         SmsConfig saved = service().save(update(SmsProviderType.VOIPMS, true, "", "", false,
                 Map.of("field_one", "new-value-one", "field_two", "", "injected", "x")), "999998");
 
-        assertThat(saved.getCredential("field_one")).isEqualTo("new-value-one");
-        assertThat(saved.getCredential("field_two")).isEqualTo("old-value-two");
-        assertThat(saved.hasCredential("legacy_field")).isFalse();
-        assertThat(saved.hasCredential("injected")).isFalse();
+        assertThat(saved.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("new-value-one");
+        assertThat(saved.getCredential(SmsProviderType.VOIPMS, "field_two")).isEqualTo("old-value-two");
+        assertThat(saved.hasCredential(SmsProviderType.VOIPMS, "legacy_field")).isFalse();
+        assertThat(saved.hasCredential(SmsProviderType.VOIPMS, "injected")).isFalse();
+    }
+
+    @Test
+    @DisplayName("switching provider keeps the first provider's credentials, and switching back finds them")
+    void shouldKeepOtherProvidersCredentials_whenSwitchingProvider() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential(SmsProviderType.VOIPMS, "field_one", "voipms-value-one");
+        stored.setCredential(SmsProviderType.VOIPMS, "field_two", "voipms-value-two");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+        SmsConfigService service = service(providerClientsWithCloudli());
+
+        service.save(credentialsUpdate(SmsProviderType.CLOUDLI, Map.of("account_id", "cloudli-value"), false),
+                "999998");
+
+        assertThat(stored.getCredential(SmsProviderType.CLOUDLI, "account_id")).isEqualTo("cloudli-value");
+        assertThat(stored.credentialNames(SmsProviderType.VOIPMS)).containsExactlyInAnyOrder("field_one", "field_two");
+
+        SmsConfig switchedBack = service.save(credentialsUpdate(SmsProviderType.VOIPMS, Map.of(), false), "999998");
+
+        assertThat(switchedBack.getProviderType()).isEqualTo(SmsProviderType.VOIPMS);
+        assertThat(switchedBack.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("voipms-value-one");
+        assertThat(switchedBack.getCredential(SmsProviderType.VOIPMS, "field_two")).isEqualTo("voipms-value-two");
+        assertThat(switchedBack.getCredential(SmsProviderType.CLOUDLI, "account_id")).isEqualTo("cloudli-value");
+    }
+
+    @Test
+    @DisplayName("save removes names the chosen provider no longer declares, and leaves other providers' alone")
+    void shouldRemoveUndeclaredNames_onlyForChosenProvider() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential(SmsProviderType.VOIPMS, "field_one", "voipms-value-one");
+        stored.setCredential(SmsProviderType.VOIPMS, "legacy_field", "stale-value");
+        stored.setCredential(SmsProviderType.CLOUDLI, "legacy_field", "cloudli-legacy-value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        SmsConfig saved = service(providerClientsWithCloudli())
+                .save(credentialsUpdate(SmsProviderType.VOIPMS, Map.of(), false), "999998");
+
+        assertThat(saved.credentialNames(SmsProviderType.VOIPMS)).containsExactly("field_one");
+        assertThat(saved.getCredential(SmsProviderType.CLOUDLI, "legacy_field")).isEqualTo("cloudli-legacy-value");
+    }
+
+    @Test
+    @DisplayName("save removes the chosen provider's stored credentials when asked, and only that provider's")
+    void shouldRemoveChosenProvidersCredentials_whenClearIsRequested() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential(SmsProviderType.VOIPMS, "field_one", "voipms-value-one");
+        stored.setCredential(SmsProviderType.VOIPMS, "field_two", "voipms-value-two");
+        stored.setCredential(SmsProviderType.CLOUDLI, "account_id", "cloudli-value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        SmsConfig saved = service(providerClientsWithCloudli())
+                .save(credentialsUpdate(SmsProviderType.VOIPMS, Map.of(), true), "999998");
+
+        assertThat(saved.credentialNames(SmsProviderType.VOIPMS)).isEmpty();
+        assertThat(saved.getCredential(SmsProviderType.CLOUDLI, "account_id")).isEqualTo("cloudli-value");
+    }
+
+    @Test
+    @DisplayName("save that removes the stored credentials and types new ones ends with just the new ones")
+    void shouldKeepOnlyNewValues_whenClearAndNewValuesAreSavedTogether() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential(SmsProviderType.VOIPMS, "field_one", "old-value-one");
+        stored.setCredential(SmsProviderType.VOIPMS, "field_two", "old-value-two");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        SmsConfig saved = service().save(
+                credentialsUpdate(SmsProviderType.VOIPMS, Map.of("field_one", "new-value-one"), true), "999998");
+
+        assertThat(saved.credentialNames(SmsProviderType.VOIPMS)).containsExactly("field_one");
+        assertThat(saved.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("new-value-one");
     }
 
     @Test
@@ -135,7 +212,8 @@ class SmsConfigServiceUnitTest {
     void shouldPublishSchedulerSetting_whenSaved() {
         when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
 
-        service().save(new SmsConfigUpdateDto(SmsProviderType.STUB, true, true, "", "", false, Map.of()), "999998");
+        service().save(new SmsConfigUpdateDto(SmsProviderType.STUB, true, true, "", "", false, Map.of(), false),
+                "999998");
 
         ArgumentCaptor<SmsConfigChangedEvent> event = ArgumentCaptor.forClass(SmsConfigChangedEvent.class);
         verify(eventPublisher).publishEvent(event.capture());
@@ -161,17 +239,93 @@ class SmsConfigServiceUnitTest {
     }
 
     @Test
+    @DisplayName("save audits a credential change by provider name only, never a value")
+    void shouldAuditCredentialChange_byProviderNameOnly() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential(SmsProviderType.VOIPMS, "field_one", "old-value-one");
+        stored.setCredential(SmsProviderType.CLOUDLI, "account_id", "cloudli-value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        service(providerClientsWithCloudli()).save(
+                credentialsUpdate(SmsProviderType.VOIPMS, Map.of("field_one", "new-value-one"), false), "999998");
+
+        List<String> changed = auditedChanges(stored);
+        assertThat(changed).containsExactly("credentials:VOIPMS");
+        assertThat(String.join(",", changed)).doesNotContain("value").doesNotContain("{ENC}");
+    }
+
+    @Test
+    @DisplayName("save audits removing the chosen provider's credentials as a change to that provider's credentials")
+    void shouldAuditClearedCredentials_asThatProvidersChange() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential(SmsProviderType.VOIPMS, "field_one", "old-value-one");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        service().save(credentialsUpdate(SmsProviderType.VOIPMS, Map.of(), true), "999998");
+
+        assertThat(auditedChanges(stored)).containsExactly("credentials:VOIPMS");
+    }
+
+    @Test
+    @DisplayName("save audits a provider switch without a credential change, since no credential changed")
+    void shouldNotAuditCredentials_whenOnlyProviderSwitches() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential(SmsProviderType.VOIPMS, "field_one", "voipms-value-one");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        service(providerClientsWithCloudli()).save(credentialsUpdate(SmsProviderType.CLOUDLI, Map.of(), false),
+                "999998");
+
+        assertThat(auditedChanges(stored)).containsExactly("providerType");
+    }
+
+    @Test
+    @DisplayName("save of a row in the earlier flat shape keeps its credentials with the stored provider, unaudited")
+    void shouldKeepFlatCredentialsWithStoredProvider_whenSwitchingProvider() throws Exception {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        // The earlier flat shape: one object of field name to encrypted value, for the row's provider.
+        ReflectionTestUtils.setField(stored, "credentialsJson",
+                "{\"field_one\":\"" + EncryptionUtils.encrypt("voipms-value-one") + "\"}");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        SmsConfig saved = service(providerClientsWithCloudli())
+                .save(credentialsUpdate(SmsProviderType.CLOUDLI, Map.of(), false), "999998");
+
+        assertThat(saved.credentialNames(SmsProviderType.CLOUDLI)).isEmpty();
+        assertThat(saved.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("voipms-value-one");
+        assertThat(saved.storedCredentials()).startsWith("{\"VOIPMS\":{");
+        assertThat(auditedChanges(stored)).containsExactly("providerType");
+    }
+
+    @Test
+    @DisplayName("save audits replacing unreadable stored credentials as plain credentials")
+    void shouldAuditPlainCredentials_whenStoredCredentialsWereUnreadable() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        ReflectionTestUtils.setField(stored, "credentialsJson", "{not json");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        service().save(credentialsUpdate(SmsProviderType.VOIPMS, Map.of("field_one", "value one"), false), "999998");
+
+        assertThat(auditedChanges(stored)).containsExactly("credentials");
+    }
+
+    @Test
     @DisplayName("save replaces stored credentials that cannot be read, instead of failing")
     void shouldReplaceUnreadableCredentials_whenSaving() {
         SmsConfig stored = new SmsConfig();
-        org.springframework.test.util.ReflectionTestUtils.setField(stored, "credentialsJson", "{not json");
+        ReflectionTestUtils.setField(stored, "credentialsJson", "{not json");
         when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
 
         SmsConfig saved = service().save(update(SmsProviderType.VOIPMS, true, "", "", false,
                 Map.of("field_one", "value one")), "999998");
 
         assertThat(saved.credentialsReadable()).isTrue();
-        assertThat(saved.credentialNames()).containsExactly("field_one");
+        assertThat(saved.credentialNames(SmsProviderType.VOIPMS)).containsExactly("field_one");
     }
 
     @Test
@@ -270,28 +424,57 @@ class SmsConfigServiceUnitTest {
     }
 
     private SmsConfigService service() {
-        return new SmsConfigService(smsConfigDao, providerClients(), eventPublisher, auditRecorder);
+        return service(providerClients());
+    }
+
+    private SmsConfigService service(SmsProviderClientResolver clients) {
+        return new SmsConfigService(smsConfigDao, clients, eventPublisher, auditRecorder);
+    }
+
+    private List<String> auditedChanges(SmsConfig saved) {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> changed = ArgumentCaptor.forClass(List.class);
+        verify(auditRecorder).recordSaved(org.mockito.ArgumentMatchers.same(saved),
+                org.mockito.ArgumentMatchers.eq("999998"), changed.capture());
+        return changed.getValue();
     }
 
     static SmsProviderClientResolver providerClients() {
-        StubSmsProviderClient voipMs = new StubSmsProviderClient() {
+        return new SmsProviderClientResolver(List.of(new StubSmsProviderClient(),
+                fakeClient(SmsProviderType.VOIPMS, List.of("field_one", "field_two"))));
+    }
+
+    /** {@link #providerClients()} plus a CLOUDLI client with a credential field of its own. */
+    private static SmsProviderClientResolver providerClientsWithCloudli() {
+        return new SmsProviderClientResolver(List.of(new StubSmsProviderClient(),
+                fakeClient(SmsProviderType.VOIPMS, List.of("field_one", "field_two")),
+                fakeClient(SmsProviderType.CLOUDLI, List.of("account_id"))));
+    }
+
+    private static SmsProviderClient fakeClient(SmsProviderType providerType, List<String> credentialFields) {
+        return new StubSmsProviderClient() {
             @Override
             public SmsProviderType providerType() {
-                return SmsProviderType.VOIPMS;
+                return providerType;
             }
 
             @Override
             public List<String> credentialFields() {
-                return List.of("field_one", "field_two");
+                return credentialFields;
             }
         };
-        return new SmsProviderClientResolver(List.of(new StubSmsProviderClient(), voipMs));
     }
 
     private static SmsConfigUpdateDto update(SmsProviderType providerType, boolean enabled, String senderNumber,
                                              String webhookSecret, boolean clearWebhookSecret,
                                              Map<String, String> credentials) {
         return new SmsConfigUpdateDto(providerType, enabled, false, senderNumber, webhookSecret, clearWebhookSecret,
-                credentials);
+                credentials, false);
+    }
+
+    /** Leaves every other setting as a new row has it, so only the provider and credentials can change. */
+    private static SmsConfigUpdateDto credentialsUpdate(SmsProviderType providerType, Map<String, String> credentials,
+                                                        boolean clearCredentials) {
+        return new SmsConfigUpdateDto(providerType, false, false, "", "", false, credentials, clearCredentials);
     }
 }

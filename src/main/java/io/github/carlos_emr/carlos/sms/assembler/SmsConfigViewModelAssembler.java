@@ -52,7 +52,8 @@ import java.util.function.BooleanSupplier;
 public class SmsConfigViewModelAssembler {
     static final String SYSTEM_TEST_ENABLED_PROPERTY = "sms.systemTest.enabled";
     private static final Set<String> RESULT_CODES =
-            Set.of("saved", "testSent", "testQueued", "testBlocked", "testInvalid", "testFailed");
+            Set.of("saved", "savedWithoutCredentials", "testSent", "testQueued", "testBlocked", "testInvalid",
+                    "testFailed");
 
     private final SmsConfigService configService;
     private final SmsProviderClientResolver providerClients;
@@ -103,11 +104,7 @@ public class SmsConfigViewModelAssembler {
             messageKeys.add("sms.config.error.credentialsUnreadable");
         }
         boolean schedulerRunning = scheduler.isRunning();
-        List<SmsConfigViewModel.CredentialField> credentialFields = configService.credentialFields(providerType)
-                .stream()
-                .map(field -> new SmsConfigViewModel.CredentialField(
-                        field, stored.map(config -> config.hasCredential(field)).orElse(false)))
-                .toList();
+        List<SmsConfigViewModel.CredentialField> credentialFields = credentialFields(providerType, stored);
         return new SmsConfigViewModel(
                 providerType.name(),
                 providerClients.registeredProviderTypes().stream().map(Enum::name).sorted().toList(),
@@ -117,6 +114,7 @@ public class SmsConfigViewModelAssembler {
                 stored.map(SmsConfig::getSenderNumber).orElse(""),
                 stored.map(SmsConfig::hasWebhookSecret).orElse(false),
                 credentialFields,
+                anyStored(credentialFields),
                 stored.isPresent(),
                 systemTestEnabled.getAsBoolean(),
                 resultCode != null && RESULT_CODES.contains(resultCode) ? "sms.config.result." + resultCode : "",
@@ -127,7 +125,8 @@ public class SmsConfigViewModelAssembler {
     /**
      * The page after a rejected save. It shows what the administrator submitted (provider, switches and sender
      * number) instead of the stored settings, so correcting one field does not silently undo the others, such as
-     * a "sending off" switch. Secrets are never echoed back; their "stored" flags still describe what is saved.
+     * a "sending off" switch. Secrets are never echoed back; their "stored" flags still describe what is saved,
+     * for the submitted provider's credentials.
      *
      * @param submitted the settings that failed validation
      * @param errorKeys the validation message keys to show
@@ -143,13 +142,8 @@ public class SmsConfigViewModelAssembler {
                 && page.providerOptions().contains(submitted.providerType().name())
                 ? submitted.providerType().name()
                 : page.providerType();
-        Optional<SmsConfig> stored = configService.current();
-        List<SmsConfigViewModel.CredentialField> credentialFields = configService
-                .credentialFields(SmsProviderType.valueOf(providerType))
-                .stream()
-                .map(field -> new SmsConfigViewModel.CredentialField(
-                        field, stored.map(config -> config.hasCredential(field)).orElse(false)))
-                .toList();
+        List<SmsConfigViewModel.CredentialField> credentialFields =
+                credentialFields(SmsProviderType.valueOf(providerType), configService.current());
         return new SmsConfigViewModel(
                 providerType,
                 page.providerOptions(),
@@ -159,10 +153,25 @@ public class SmsConfigViewModelAssembler {
                 submitted.senderNumber() == null ? "" : submitted.senderNumber(),
                 page.webhookSecretSet(),
                 credentialFields,
+                anyStored(credentialFields),
                 page.stored(),
                 page.systemTestEnabled(),
                 "",
                 page.errorKeys()
         );
+    }
+
+    /** The provider's credential fields, each flagged by whether a value is stored for that provider. */
+    private List<SmsConfigViewModel.CredentialField> credentialFields(SmsProviderType providerType,
+                                                                      Optional<SmsConfig> stored) {
+        return configService.credentialFields(providerType)
+                .stream()
+                .map(field -> new SmsConfigViewModel.CredentialField(
+                        field, stored.map(config -> config.hasCredential(providerType, field)).orElse(false)))
+                .toList();
+    }
+
+    private static boolean anyStored(List<SmsConfigViewModel.CredentialField> credentialFields) {
+        return credentialFields.stream().anyMatch(SmsConfigViewModel.CredentialField::set);
     }
 }

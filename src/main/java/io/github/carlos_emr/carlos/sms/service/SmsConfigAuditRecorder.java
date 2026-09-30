@@ -52,8 +52,8 @@ public class SmsConfigAuditRecorder {
     /**
      * @param saved         the settings as saved
      * @param providerNo    the administrator who saved them
-     * @param changedFields names of the settings that changed, for example {@code enabled} or
-     *                      {@code webhookSecret}; names only, never values
+     * @param changedFields names of the settings that changed, for example {@code enabled},
+     *                      {@code webhookSecret} or {@code credentials:VOIPMS}; names only, never values
      */
     @Transactional
     public void recordSaved(SmsConfig saved, String providerNo, List<String> changedFields) {

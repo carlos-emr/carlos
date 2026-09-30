@@ -144,6 +144,6 @@ class SmsConfigSaveConflictUnitTest {
     }
 
     private static SmsConfigUpdateDto update(boolean enabled) {
-        return new SmsConfigUpdateDto(SmsProviderType.STUB, enabled, false, "", "", false, Map.of());
+        return new SmsConfigUpdateDto(SmsProviderType.STUB, enabled, false, "", "", false, Map.of(), false);
     }
 }
