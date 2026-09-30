@@ -85,6 +85,9 @@ public final class ChartUpdateSuggestions {
                 String number = duration.group(1), unit = duration.group(2);
                 String before = evidence.substring(0, duration.start());
                 String after = evidence.substring(duration.end());
+                if (after.matches("(?s)^\\s+(?:of\\b|(?:on|at)\\s+(?:the\\s+)?(?:discharge|admission|surgery|procedure|operation|treatment)\\b).*")) {
+                    return unknown;
+                }
                 boolean timing = before.matches("(?s).*\\b(?:in|within|follow[- ]?up|review|recheck)\\s*$")
                         || after.matches("(?s)^\\s+(?:follow[- ]?up|review|recheck)\\b.*")
                         || evidence.strip().equals(duration.group());

@@ -18,7 +18,8 @@ not certification of clinical completeness or suitability for unattended chart c
   omitted. The corrected reminder contains only the orthopedic outpatient follow-up.
 - Unknown event dates no longer become document-relative defaults: “GP follow-up
   6 weeks post-surgery” stays blank. Java regression tests cover post-surgery,
-  postoperative, postop, following surgery and since discharge wording.
+  postoperative, postop, following surgery, since discharge and within weeks of
+  surgery wording, plus timing tied to discharge/admission.
 - Related suggestion wording is flagged locally, with expandable peer drafts and
   their completion status. Clinicians can compare partially overlapping impressions
   without silently losing their different causal qualifications. This is a word
@@ -57,7 +58,7 @@ The final outputs are cached for repeat use in the isolated trial.
 
 ## Verification
 
-- **115 targeted Java tests passed**, including date suggestions, authorization,
+- **118 targeted Java tests passed**, including date suggestions, authorization,
   proposal validation, review persistence, receipts and transaction integration.
 - **211 Python tests passed**, including source boundaries, mixed-plan separation,
   conditional-plan omission, exact evidence, disclosure checks, review completeness
