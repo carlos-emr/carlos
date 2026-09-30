@@ -66,8 +66,9 @@ configured until it is activated, and then for each patient until their consent 
 See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
 
 `V1.0.45__activate_sms_consent.sql` turns the SMS consent type on with its approved wording (#3848),
-in one statement, but only while the description is still the seeded draft, so a clinic's own
-wording and its own active setting are left alone. Its number is set when it merges: it must be
+in one statement, but only while the description is still the seeded draft and the
+`sms_communication` property still points at the type, so a clinic's own wording, and a clinic that
+turned SMS consent off by clearing or repointing that property, are left alone. Its number is set when it merges: it must be
 above the highest version on both develop and `release/2026.08`.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely

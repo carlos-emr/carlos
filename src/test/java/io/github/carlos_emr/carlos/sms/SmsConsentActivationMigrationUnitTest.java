@@ -92,6 +92,7 @@ class SmsConsentActivationMigrationUnitTest {
         try (Connection connection = database("sms_consent_fresh"); Statement statement = connection.createStatement()) {
             insert(statement, TYPE, seededDraft(), 0);
             insert(statement, "electronic_communication_consent", seededDraft(), 0);
+            property(statement, TYPE);
 
             applyActivation(connection);
             applyActivation(connection);
@@ -107,6 +108,7 @@ class SmsConsentActivationMigrationUnitTest {
     void shouldReplaceDraft_whenClinicAlreadyActivatedIt() throws Exception {
         try (Connection connection = database("sms_consent_on"); Statement statement = connection.createStatement()) {
             insert(statement, TYPE, seededDraft(), 1);
+            property(statement, TYPE);
 
             applyActivation(connection);
 
@@ -119,10 +121,51 @@ class SmsConsentActivationMigrationUnitTest {
     void shouldLeaveClinicWordingAlone() throws Exception {
         try (Connection connection = database("sms_consent_own"); Statement statement = connection.createStatement()) {
             insert(statement, TYPE, CLINIC_WORDING, 0);
+            property(statement, TYPE);
 
             applyActivation(connection);
 
             assertThat(row(statement, TYPE)).containsExactly(CLINIC_WORDING, "0");
+        }
+    }
+
+    @Test
+    @DisplayName("keeps SMS consent off where the clinic cleared, blanked or repointed the sms_communication setting")
+    void shouldStayOff_whenClinicTurnedSmsConsentOffThroughTheProperty() throws Exception {
+        // Each case is one clinic: its sms_communication rows, in the order they are inserted.
+        List<List<String>> clinics = List.of(
+                List.of(),                                   // row deleted
+                java.util.Arrays.asList((String) null),      // value cleared to NULL
+                List.of(""),                                 // value blank
+                List.of("electronic_communication_consent"), // repointed to another type
+                List.of(TYPE, ""));                          // one row still points, another was cleared
+        int clinic = 0;
+        for (List<String> values : clinics) {
+            try (Connection connection = database("sms_consent_off_" + clinic++);
+                 Statement statement = connection.createStatement()) {
+                insert(statement, TYPE, seededDraft(), 0);
+                for (String value : values) {
+                    property(statement, value);
+                }
+
+                applyActivation(connection);
+
+                assertThat(row(statement, TYPE)).as("sms_communication rows %s", values)
+                        .containsExactly(seededDraft(), "0");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("reads the sms_communication setting the way the app does, ignoring spaces around the value")
+    void shouldActivate_whenPropertyValueHasSurroundingSpaces() throws Exception {
+        try (Connection connection = database("sms_consent_spaces"); Statement statement = connection.createStatement()) {
+            insert(statement, TYPE, seededDraft(), 0);
+            property(statement, "  " + TYPE + " ");
+
+            applyActivation(connection);
+
+            assertThat(row(statement, TYPE)).containsExactly(approvedWording(), "1");
         }
     }
 
@@ -140,7 +183,8 @@ class SmsConsentActivationMigrationUnitTest {
     }
 
     private static Connection database(String name) throws SQLException {
-        Connection connection = DriverManager.getConnection("jdbc:h2:mem:" + name + ";MODE=MySQL");
+        // VALUE is a keyword in H2 but not in MariaDB, where the property table has a value column.
+        Connection connection = DriverManager.getConnection("jdbc:h2:mem:" + name + ";MODE=MySQL;NON_KEYWORDS=VALUE");
         try (Statement statement = connection.createStatement()) {
             statement.execute("""
                     CREATE TABLE consentType (
@@ -153,8 +197,22 @@ class SmsConsentActivationMigrationUnitTest {
                       remoteEnabled TINYINT DEFAULT NULL,
                       PRIMARY KEY (id)
                     )""");
+            statement.execute("""
+                    CREATE TABLE property (
+                      id INT NOT NULL AUTO_INCREMENT,
+                      name VARCHAR(255) NOT NULL DEFAULT '',
+                      value VARCHAR(2000) DEFAULT NULL,
+                      provider_no VARCHAR(6) DEFAULT '',
+                      PRIMARY KEY (id)
+                    )""");
         }
         return connection;
+    }
+
+    /** An sms_communication row with this value; {@code null} stores NULL. */
+    private static void property(Statement statement, String value) throws SQLException {
+        statement.execute("INSERT INTO property (name, value) VALUES ('sms_communication', "
+                + (value == null ? "NULL" : "'" + value + "'") + ")");
     }
 
     private static void insert(Statement statement, String type, String description, int active) throws SQLException {
