@@ -56,7 +56,7 @@ class PatientPortalInviteCallsUnitTest {
     // exact value the fixture carries.
     private static final String INVITE_JSON =
             """
-            {"id": 7, "clinic_id": "maplecreek", "demographic_no": 123, "status": "pending",
+            {"id": 7, "clinic_id": "clinic-a", "demographic_no": 123, "status": "pending",
              "created_by_id": "999998", "created_by": "Dr Example", "issued_count": 1,
              "last_issued_at": "2026-08-19T12:00:00+00:00", "last_issued_by": "Dr Example",
              "expires_at": "2026-08-26T12:00:00+00:00", "accepted_account_id": null,
@@ -104,7 +104,7 @@ class PatientPortalInviteCallsUnitTest {
         return PatientPortalSettings.fromProperties(
                 Map.of(
                         PatientPortalSettings.BASE_URL_KEY, "https://portal.clinic.example",
-                        PatientPortalSettings.CLINIC_ID_KEY, "maplecreek",
+                        PatientPortalSettings.CLINIC_ID_KEY, "clinic-a",
                         PatientPortalSettings.SERVICE_TOKEN_KEY, TOKEN,
                         PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
