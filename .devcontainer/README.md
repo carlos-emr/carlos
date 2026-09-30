@@ -445,6 +445,7 @@ HIBERNATE_FORMAT_SQL=true
 
 * The `.devcontainer/development/config/shared/local.env` file contains environment variables that can be customized for your development environment.
 * You can find more information about the CARLOS EMR project and its development environment in the project's documentation.
+* The encryption key CARLOS generates on first start (`encryption.util.secret.key`) is written to `/root/carlos.properties` inside the container. A container rebuild loses it, but the database volume keeps anything encrypted with it: email and fax passwords, MFA enrolments, saved signatures. CARLOS then refuses to start rather than generate a new key over that data. Copy the key line out before rebuilding and put it back afterwards. If you don't need the encrypted dev data, set `encryption.util.secret.key.acknowledge_loss=true` for one start and remove it again (see `docs/email/provider-to-patient-email-operations.md`, "Credential Encryption Key").
 
 ## Switching Branches 
 

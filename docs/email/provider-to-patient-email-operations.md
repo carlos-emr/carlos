@@ -72,6 +72,71 @@ sample SMTP/API payloads, but sender records are still managed as deployment
 configuration. Confirm the selected sender account is active before using real
 patient communications.
 
+## Credential Encryption Key
+
+Sender accounts that authenticate (an SMTP password, or a provider API key such
+as SendGrid's) store that secret in `emailConfig.configDetails`, encrypted at
+rest with the application key `encryption.util.secret.key`. The same key
+encrypts fax account passwords, the Teleplan password (BC), MFA secrets and
+digital signature images. Everything encrypted with it can only be decrypted
+with that exact key, so back the key up with the rest of the server's
+configuration and never replace it on a server that has been running.
+
+**Where the key comes from.** A packaged (Debian) install gets its key from
+`carlos-ctl init-config`, which writes it to `/etc/carlos-emr/carlos.properties`.
+Otherwise, when no key is set at startup, CARLOS first checks the database for
+data encrypted with a previous key (#3939):
+
+| What the check finds | What CARLOS does |
+|---|---|
+| Nothing encrypted (a fresh install) | Generates a key and appends it to `<context>.properties` in the Tomcat user's home directory (for example `~/carlos.properties`), as before. |
+| Encrypted data | Refuses to start, rather than generate a key that cannot decrypt it. One ERROR names what is encrypted, with counts only, and the fix. |
+| It cannot read the database | Refuses to start, because it cannot show that nothing would be lost. The ERROR names what could not be read. |
+
+CARLOS also refuses to start with an invalid key. The refusal reads, for
+example:
+
+```text
+encryption.util.secret.key is missing or blank, but 3 items in the database are
+encrypted with the original key (email sender accounts: 2, fax accounts: 1).
+Refusing to start: a new key cannot decrypt them. Fix: restore the original
+encryption.util.secret.key from backup into the properties file, then restart.
+Only if the original key is lost for good: set
+encryption.util.secret.key.acknowledge_loss=true and restart. ...
+```
+
+**If the key is lost:**
+
+1. Restore the original `encryption.util.secret.key` from backup into the
+   properties file it was configured in, and restart. On a packaged install,
+   see README.Debian for restoring `/etc/carlos-emr`.
+2. Only if the original key cannot be recovered, add
+   `encryption.util.secret.key.acknowledge_loss=true` (`yes` and `on` also work)
+   and restart. CARLOS generates a new key and logs one ERROR giving the number
+   of items that are now unreadable. Then:
+   - re-enter the password or API key of every email sender account, and the
+     password of every fax account;
+   - re-enter the Teleplan password (BC);
+   - reset MFA on each affected user's security record; those users cannot log
+     in until it is reset (if every administrator is affected, one
+     administrator's `security.mfaSecret` has to be cleared in the database
+     first, which sends them through MFA registration at their next login);
+   - stored signature images encrypted with the old key cannot be recovered.
+3. Remove `encryption.util.secret.key.acknowledge_loss`. Left in place it would
+   let a future loss of the key through without the check, so CARLOS logs a
+   WARN at every start while it is set.
+
+Logs never contain the key, a credential or stored ciphertext. The messages
+carry kinds of data and counts only.
+
+**Limits of the check.** It recognises an encrypted value by the `{ENC}` marker
+followed by well-formed Base64 long enough to hold the IV and tag, and an
+encrypted signature image by not starting like a real image. A plaintext value
+shaped exactly like that would be counted (see #3132); if that is the only
+thing blocking startup, the override is the way through. The check runs only
+when the key is missing: a valid but wrong key, such as a new one pasted in by
+hand, is not detected at startup.
+
 ## Local Development
 
 Local development must not send real patient email.

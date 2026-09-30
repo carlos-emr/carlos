@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
+import io.github.carlos_emr.carlos.utility.ImageMagicNumbers;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -97,23 +98,12 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
     }
 
     /**
-     * True when the bytes begin with a known raster-image magic number (JPEG, PNG, GIF, or BMP).
-     * Used to distinguish a legacy plaintext signature image from undecryptable ciphertext on the
-     * decrypt-failure path so a broken signature is never streamed as a valid image.
+     * True when the bytes look like a real image, so a legacy plaintext signature is told apart from
+     * undecryptable ciphertext on the decrypt-failure path and a broken signature is never streamed
+     * as a valid image. Shared with the startup check for data a missing key would orphan.
      */
     private static boolean looksLikeImage(byte[] bytes) {
-        if (bytes == null || bytes.length < 4) {
-            return false;
-        }
-        int b0 = bytes[0] & 0xFF;
-        int b1 = bytes[1] & 0xFF;
-        int b2 = bytes[2] & 0xFF;
-        int b3 = bytes[3] & 0xFF;
-        boolean jpeg = b0 == 0xFF && b1 == 0xD8 && b2 == 0xFF;
-        boolean png = b0 == 0x89 && b1 == 0x50 && b2 == 0x4E && b3 == 0x47;
-        boolean gif = b0 == 0x47 && b1 == 0x49 && b2 == 0x46 && b3 == 0x38;
-        boolean bmp = b0 == 0x42 && b1 == 0x4D;
-        return jpeg || png || gif || bmp;
+        return ImageMagicNumbers.isKnownRasterImage(bytes);
     }
 
     @Override
