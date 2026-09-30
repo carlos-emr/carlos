@@ -107,6 +107,7 @@ test('the asynchronously loaded toolbar receives the current subject after its i
   assert.equal(remote.value, subject.value);
 });
 
+/** Loads the toolbar's moveSubject() against a stub form subject and optional toolbar input. */
 function loadMoveSubject(remote, subject) {
   const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/eform/eformFloatingToolbar/eform_floating_toolbar.js'), 'utf8');
   const move = source.slice(source.indexOf('function moveSubject('), source.indexOf('function moveSubjectReverse('));

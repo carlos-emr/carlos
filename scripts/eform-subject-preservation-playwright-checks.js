@@ -66,6 +66,7 @@ const templateHtml = '<html><head><title>PW4027 fixture</title></head><body>'
 
 const state = { sql: null, fid: null, demographicNo: null };
 
+/** Opens an eForm page, fails on an error page, and waits for the async toolbar Subject box. */
 async function openEformPage(context, config, recorder, label, appPath) {
   const page = await context.newPage();
   // A saved form reloads onto a success page that calls window.close(); keep the page to read it.
@@ -88,16 +89,19 @@ async function subjectState(page) {
   }));
 }
 
+/** Clicks the toolbar Save and waits for the resulting reload. */
 async function save(page, label) {
   await clickAndAwaitReload(page, page.locator('#remoteSubmitButton'), { timeout: TIMEOUT, label });
   await assertNotErrorPage(page, `${label} result`);
 }
 
+/** Every saved revision of the fixture template, oldest first. */
 function revisions() {
   return state.sql.rows(`SELECT fdid, subject FROM eform_data WHERE fid=${Number(state.fid)} ORDER BY fdid`)
     .map(([fdid, stored]) => ({ fdid: Number(fdid), subject: stored }));
 }
 
+/** Seeds the fixture template and drives steps a-e from the header. */
 async function run(config) {
   state.sql = createSqlRunner(config.mysql);
   state.demographicNo = process.env.EFORM_SUBJECT_DEMOGRAPHIC_NO || '1';
@@ -169,12 +173,19 @@ async function run(config) {
   }
 }
 
+/** Removes the fixture template and every revision saved from it, then verifies none remain. */
 async function cleanup() {
   if (!state.sql) {
     return;
   }
   try {
+    // The INSERT can succeed while the follow-up ID lookup fails; recover the fixture by its
+    // unique name so a failed run never leaves the catalog row behind.
+    if (!state.fid) {
+      state.fid = state.sql.value(`SELECT fid FROM eform WHERE form_name=${sqlString(formName)}`) || null;
+    }
     if (state.fid) {
+      assert(/^[1-9][0-9]*$/.test(String(state.fid)), 'the recovered fixture template ID is not a positive integer');
       const fid = Number(state.fid);
       const owned = `SELECT fdid FROM eform_data WHERE fid=${fid}`;
       state.sql.execute(`START TRANSACTION;
