@@ -102,7 +102,12 @@ async function workflow(s) {
   let configId;
   let fid;
   const ownedLogs = `SELECT id FROM emailLog WHERE demographicNo=${patient}`;
-  const configsBefore = JSON.stringify(sql.rows('SELECT * FROM emailConfig ORDER BY id'));
+  // The SQL runner reads SQL NULL and the string 'NULL' alike, so every nullable column is
+  // snapshotted as an explicit NULL flag or its hex bytes.
+  const configColumns = ['emailType', 'emailProvider', 'active', 'senderFirstName', 'senderLastName', 'senderEmail', 'configDetails'];
+  const configSnapshot = () => JSON.stringify(sql.rows(`SELECT id,${configColumns
+    .map(column => `IF(${column} IS NULL,'N',CONCAT('X',HEX(${column})))`).join(',')} FROM emailConfig ORDER BY id`));
+  const configsBefore = configSnapshot();
 
   s.cleanup(async () => {
     await sink.close();
@@ -131,15 +136,20 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}`) === '0', 'Owned eForm instances were not removed');
     if (fid) sql.execute(`DELETE FROM eform WHERE fid=${fid} AND form_name=${h.sqlString(formName)}`);
     h.assert(!fid || sql.value(`SELECT COUNT(*) FROM eform WHERE fid=${fid}`) === '0', 'Owned eForm template was not removed');
-    if (configId) sql.execute(`DELETE FROM emailConfig WHERE id=${configId} AND senderEmail=${h.sqlString(sender)}`);
-    h.assert(JSON.stringify(sql.rows('SELECT * FROM emailConfig ORDER BY id')) === configsBefore,
+    sql.execute(`DELETE FROM emailConfig WHERE senderEmail=${h.sqlString(sender)} AND senderFirstName=${h.sqlString(marker)}`);
+    h.assert(configSnapshot() === configsBefore,
       'Email sender accounts differ from the snapshot taken before the check');
   });
 
   const port = await sink.listen();
-  configId = sql.value(`INSERT INTO emailConfig(emailType,emailProvider,active,senderFirstName,senderLastName,senderEmail,configDetails)
-    VALUES('SMTP','LOCAL',1,${h.sqlString(marker)},'Sink',${h.sqlString(sender)},
-      ${h.sqlString(JSON.stringify({host: '127.0.0.1', port: String(port)}))}); SELECT LAST_INSERT_ID()`);
+  // The id is taken above every configId an emailLog row already names: demo log rows can name
+  // config ids with no emailConfig row, and reusing one would attach them to the owned sender
+  // and block its removal (emailLog_ibfk_1).
+  configId = sql.value(`INSERT INTO emailConfig(id,emailType,emailProvider,active,senderFirstName,senderLastName,senderEmail,configDetails)
+    SELECT GREATEST((SELECT COALESCE(MAX(id),0) FROM emailConfig),(SELECT COALESCE(MAX(configId),0) FROM emailLog))+1,
+      'SMTP','LOCAL',1,${h.sqlString(marker)},'Sink',${h.sqlString(sender)},
+      ${h.sqlString(JSON.stringify({host: '127.0.0.1', port: String(port)}))};
+    SELECT id FROM emailConfig WHERE senderEmail=${h.sqlString(sender)} AND senderFirstName=${h.sqlString(marker)}`);
   h.assert(/^[1-9]\d*$/.test(configId), 'Owned sender account was not created');
   fid = sql.value(`INSERT INTO eform(form_name,file_name,subject,form_date,form_time,form_creator,
     status,form_html,showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)

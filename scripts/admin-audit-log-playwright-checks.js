@@ -3,8 +3,8 @@
 /*
  * Audit log workflow (coverage plan §3.7 admin-audit-log).
  *
- * User path: Schedule ▸ Search ▸ Master Record (opened by the harness, then
- * reloaded once more); Schedule ▸ Administration ▸ System Reports ▸ Security Log
+ * User path: Schedule ▸ Search ▸ Master Record (opened here once the audit-row
+ * cleanup is registered, then reloaded once more); Schedule ▸ Administration ▸ System Reports ▸ Security Log
  * Report (admin/LogReport in the administration iframe) ▸ provider, content,
  * start/end date ▸ Run Report; Administration ▸ Data Management ▸ Purge Audit
  * Log (page and client-side guards only, never a purge).
@@ -16,7 +16,8 @@
  * (time, action, content, keyword, IP, demo) in dateTime order, names the
  * provider, and renders neither the owned patient's HIN nor their name; the
  * all-providers report labels each row with the provider name and matches the
- * rows of the providers it offers (the user's site under _site_access_privacy);
+ * log rows of the providers it offers (the user's site under _site_access_privacy,
+ * where any unlabelled out-of-site row fails) or of every provider id otherwise;
  * opening the purge tool sends no POST and leaves the rows a purge would erase
  * intact, and when the tool renders its form (it currently does not, reported)
  * the empty-date alert and the confirm cancel are driven. Parity assertions
@@ -31,6 +32,7 @@ const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
+const {openMasterRecord} = require('./master-record-tabs-playwright-checks');
 
 const TIMEOUT = 20000;
 const DATE_EMPTY_ALERT = 'Please set Start and End Dates.';
@@ -99,22 +101,29 @@ async function workflow(s) {
   const logTuples = where => sql.rows(`SELECT CONCAT_WS('|', DATE_FORMAT(dateTime,'%Y-%m-%d %H:%i:%s'), COALESCE(action,''), COALESCE(content,''),
     COALESCE(contentId,''), COALESCE(ip,''), COALESCE(demographic_no,'')) FROM log WHERE ${where} ORDER BY dateTime DESC, id DESC`).map(row => row[0]);
   // The same tuples prefixed with the provider's full name as LogReport2Action builds it
-  // (first + ' ' + last, trimmed), for the all-providers layout's per-row label.
-  const labelledLogTuples = where => sql.rows(`SELECT TRIM(CONCAT(COALESCE(p.first_name,''),' ',COALESCE(p.last_name,''))),
+  // (first + ' ' + last, trimmed; empty when no provider row matches), for the
+  // all-providers layout's per-row label, with the row's provider number for scoping.
+  const labelledLogTuples = where => sql.rows(`SELECT COALESCE(log.provider_no,''),
+    TRIM(CONCAT(COALESCE(p.first_name,''),' ',COALESCE(p.last_name,''))),
     CONCAT_WS('|', DATE_FORMAT(log.dateTime,'%Y-%m-%d %H:%i:%s'), COALESCE(log.action,''), COALESCE(log.content,''),
     COALESCE(log.contentId,''), COALESCE(log.ip,''), COALESCE(log.demographic_no,''))
-    FROM log JOIN provider p ON p.provider_no=log.provider_no WHERE ${where} ORDER BY log.dateTime DESC, log.id DESC`)
-    .map(([name, tuple]) => [name.replace(/\s+/g, ' ').trim(), tuple])
-    .filter(([name]) => name !== '').map(([name, tuple]) => `${name}|${tuple}`);
+    FROM log LEFT JOIN provider p ON p.provider_no=log.provider_no WHERE ${where} ORDER BY log.dateTime DESC, log.id DESC`)
+    .map(([providerNo, name, tuple]) => ({providerNo, labelled: `${(name || '').replace(/\s+/g, ' ').trim()}|${tuple}`}));
   const todayRows = `dateTime>=${h.sqlString(today)} AND dateTime<DATE_ADD(${h.sqlString(today)}, INTERVAL 1 DAY)`;
+
+  // Opened here rather than by the harness so the cleanup above already covers the
+  // read row the first open writes, even when that open fails.
+  const {masterPage: master} = await openMasterRecord(s.context, s.schedule, s.recorder,
+    {searchTerm: marker, preferredDemographicNo: patient, timeout: TIMEOUT});
+  h.assert(new URL(master.url()).searchParams.get('demographic_no') === patient, 'The search opened a patient other than the owned fixture');
 
   await s.step('each Master Record open writes one read audit row for the owned patient', async () => {
     await expectValue(sql, `SELECT COUNT(*)>=1 FROM log WHERE ${readRows}`, '1', 'Opening the Master Record did not write a read audit row');
     sql.execute(`UPDATE demographic SET hin=${h.sqlString(hin)} WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
     h.assert(sql.value(`SELECT hin FROM demographic WHERE demographic_no=${patient}`) === hin, 'The synthetic HIN was not stored on the owned patient');
     const before = Number(sql.value(`SELECT COUNT(*) FROM log WHERE ${readRows}`));
-    await s.master.reload();
-    await s.master.waitForLoadState('networkidle', {timeout: TIMEOUT}).catch(() => {});
+    await master.reload();
+    await master.waitForLoadState('networkidle', {timeout: TIMEOUT}).catch(() => {});
     await expectValue(sql, `SELECT COUNT(*) FROM log WHERE ${readRows}`, String(before + 1), 'Reloading the Master Record did not write exactly one more read audit row');
     h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE ${readRows} AND ${todayRows} AND COALESCE(ip,'')<>''`) === String(before + 1),
       'A read audit row is missing its timestamp or client address');
@@ -190,23 +199,32 @@ async function workflow(s) {
     h.assert(!text.includes(hin) && !text.includes(marker), 'The report rendered the owned patient HIN or name');
   });
   await s.step('the all-providers report labels rows with provider names and matches the log table', async () => {
-    // The action scopes "All" to the providers it offers in the select (every
-    // provider, or the user's site under _site_access_privacy). Rows outside
-    // that set carry no provider label; a site-restricted report omits them.
-    const offered = (await report.locator('select[name="providerNo"] option').evaluateAll(options => options.map(option => option.value)))
-      .filter(value => value !== '*');
-    h.assert(offered.length >= 1 && offered.includes(provider), 'The provider select does not offer the test provider');
+    // The action offers every provider in the select, or only the user's site under
+    // _site_access_privacy, and "All" lists every log row or only the offered
+    // providers' rows to match. A provider that existed before and after the report
+    // but is not offered means the site restriction applies.
     const where = `log.content LIKE 'login' AND log.dateTime>=${h.sqlString(today)}
-      AND log.dateTime<DATE_ADD(${h.sqlString(today)}, INTERVAL 1 DAY) AND log.provider_no IN (${offered.map(h.sqlString).join(',')})`;
+      AND log.dateTime<DATE_ADD(${h.sqlString(today)}, INTERVAL 1 DAY)`;
+    const providers = () => new Set(sql.rows('SELECT provider_no FROM provider').map(row => row[0]));
+    const providersBefore = providers();
     const before = labelledLogTuples(where);
     await runReport(report, '*', 'login');
     const after = labelledLogTuples(where);
+    const providersAfter = providers();
+    const offered = new Set((await report.locator('select[name="providerNo"] option').evaluateAll(options => options.map(option => option.value)))
+      .filter(value => value !== '*'));
+    h.assert(offered.has(provider), 'The provider select does not offer the test provider');
+    const restricted = [...providersBefore].some(providerNo => providersAfter.has(providerNo) && !offered.has(providerNo));
+    const inScope = row => !restricted || offered.has(row.providerNo);
+    const expected = list => list.filter(inScope).map(row => row.labelled);
     const rows = await reportRows(report, true);
-    const unlabelled = rows.filter(row => row.provider === '').length;
-    if (unlabelled) console.log(`  ${unlabelled} row(s) without a provider label are shown (no site restriction applies)`);
-    // Each labelled row is compared WITH its label, so a row naming the wrong provider fails parity.
-    const tuples = rows.filter(row => row.provider !== '').map(row => `${row.provider}|${row.tuple}`);
-    assertParity(tuples, before, after, 'The all-providers report rows (with their provider labels) do not match the log rows of the offered providers for today');
+    // Every row is compared WITH its label, so a row naming the wrong provider fails parity,
+    // an unlabelled row must be a log row of a provider id with no name, and under the site
+    // restriction a row of a provider outside the offered set fails.
+    const tuples = rows.map(row => `${row.provider}|${row.tuple}`);
+    assertParity(tuples, expected(before), expected(after), restricted
+      ? 'The site-restricted all-providers report rows (with their provider labels) do not match the log rows of the offered providers for today'
+      : 'The all-providers report rows (with their provider labels) do not match the log rows of every provider for today');
     h.assert(rows.filter(row => row.provider === providerName).length >= 1, 'The all-providers report does not name the test provider on its rows');
     h.assert((await report.locator('h4').first().innerText()).trim().startsWith('All'), 'The all-providers heading does not say All');
     const text = await report.locator('body').innerText();
@@ -256,5 +274,5 @@ async function workflow(s) {
   if (admin !== s.schedule && !admin.isClosed()) await admin.close();
 }
 
-if (require.main === module) runWorkflow('admin-audit-log', workflow, {openPatient: true});
+if (require.main === module) runWorkflow('admin-audit-log', workflow, {openPatient: true, openMaster: false});
 module.exports = {workflow};

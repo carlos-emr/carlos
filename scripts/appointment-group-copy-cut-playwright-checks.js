@@ -55,7 +55,14 @@ async function workflow(s) {
   let ownedProviders = [];
   const inOwned = () => ownedProviders.map(h.sqlString).join(',');
   // Cleanups run in reverse: appointments and the group go before the throwaway login.
-  s.cleanup(() => fixture.cleanup());
+  // Keep the throwaway login while any appointment still names it (the appointment cleanup
+  // below refuses rows of a patient this run does not own): deleting the provider would leave
+  // those rows pointing at no one.
+  s.cleanup(() => {
+    h.assert(!fixture.providerNo || sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${h.sqlString(fixture.providerNo)}`) === '0',
+      'Throwaway login retained: appointment rows still reference it');
+    fixture.cleanup();
+  });
   s.cleanup(() => {
     if (!ownedProviders.length) return;
     const ids = sql.rows(`SELECT appointment_no FROM appointment WHERE provider_no IN (${inOwned()})`).map(([id]) => id);

@@ -3582,7 +3582,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owns one synthetic patient and one marker-labelled LookupListItem on consultApptInst, added and removed through the UI and then deleted. A run that fails before the UI removal can leave the item served from the lookup-list cache until the next lookup-list write.",
+      "fixtures": "Owns one synthetic patient and one marker-labelled LookupListItem on consultApptInst, added and removed through the UI and then deleted. A run that fails before the UI removal first removes the item through Manage Lookup Lists (best effort, evicting the lookup-list cache) before the SQL teardown.",
       "notes": "Fails at its last step on 2026.08: lookupListManagerAction accepts GET for its mutating methods."
     },
     {
