@@ -171,7 +171,7 @@ async function workflow(s) {
     const chart = await s.chart();
     const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'email-eform-list');
     await list.locator('#efmTable').waitFor();
-    const form = await s.popup(list, list.locator('#efmTable').getByText(formName, {exact: true}), 'email-eform');
+    const form = await s.popup(list, list.locator('#efmTable').getByRole('link', {name: formName, exact: true}), 'email-eform');
     await list.close();
     await form.locator('#note').fill(note);
     const email = form.locator('#remoteEmailButton');

@@ -58,9 +58,12 @@ async function workflow(s) {
     AND COALESCE(value,'')<>'') + (SELECT COUNT(*) FROM SystemPreferences WHERE name IN ${inList(PREFERENCE_NAMES)} AND COALESCE(value,'')<>'')`);
   const helpRows = name => sql.rows(`SELECT value FROM property WHERE name=${h.sqlString(name)}`).map(row => row[0]);
 
+  // The day sheet's own URL (the post-login landing page) lets a second tab show the day sheet
+  // again when Administration opens in place of it rather than in its own window.
+  const daySheetUrl = s.schedule.url();
   const {page: admin, isPopup} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     {context, recorder: s.recorder, label: 'settings-administration', timeout: TIMEOUT});
-  h.assert(isPopup, 'Administration replaced the day sheet instead of opening its own window');
+  let daySheet = isPopup ? s.schedule : null;
   async function openSection(link, path) {
     await revealAuditLink(admin, link, TIMEOUT);
     await link.click();
@@ -80,8 +83,11 @@ async function workflow(s) {
     await frame.waitForLoadState('domcontentloaded');
   }
   async function scheduleHelpTarget() {
-    await s.schedule.reload({waitUntil: 'domcontentloaded'});
-    return s.schedule.locator('#helpLink a').first().getAttribute('onclick');
+    if (!daySheet) {
+      daySheet = await context.newPage();
+      await daySheet.goto(daySheetUrl, {waitUntil: 'domcontentloaded'});
+    } else await daySheet.reload({waitUntil: 'domcontentloaded'});
+    return daySheet.locator('#helpLink a').first().getAttribute('onclick');
   }
 
   await s.step('Billing ▸ Settings states the Ontario install has no billing options', async () => {

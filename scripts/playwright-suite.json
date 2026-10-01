@@ -3765,11 +3765,12 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 420,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: the Provider Service Report form replaces the shell's jQuery and throws on its oscarMonth rule.",
+      "fixtures": "Owned patients in a 1951-1953 window, a provider group, one appointment, three billing headers and four notes; snapshots and restores the clinic-wide visitreport provider list and regenerates the reportagesex cache, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "rx-edit-discontinue",
@@ -4045,7 +4046,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Enters the CDM report by address like cdm-measurement-report, because no menu links SetupSelectCDMReport (a finding). Fails at its last step on 2026.08: the frequency report prints nothing, 'patients seen' shows a demographic number, and invalid-date errors are lost.",
+      "fixtures": "Per-run measurement type and CDM group (marker names), the owned patient plus a second -B patient and four readings; all removed."
     },
     {
       "name": "hrm-report-print-download",
