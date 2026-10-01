@@ -6270,6 +6270,139 @@
       "env": [],
       "fixtures": "The owned synthetic patient and one session-only custom drug card; nothing is saved.",
       "notes": "Fails at its last step on 2026.08: leaving the Qty box throws 'Insertion is not defined' (SearchDrug3.jsp getCost) and no rx/ViewDrugPrice request is sent (same defect as L81)."
+    },
+    {
+      "name": "search-sort-patient-order",
+      "script": "scripts/search-sort-patient-order-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Five synthetic patients inserted by SQL (surname starts with the run tag; one with no provider, chart number or phone); cleanup relabels them to the marker, removes them and asserts none remain.",
+      "notes": "Expected to FAIL at the last step 'every header ordered the owned patients correctly': the Name header orders case-sensitively (a lower-case surname sorts after Z) and the Doctor header answers HTTP 500 (NullPointerException in ProviderNoComparator) when a patient has no provider."
+    },
+    {
+      "name": "search-sort-patient-pages",
+      "script": "scripts/search-sort-patient-pages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "32 synthetic patients inserted by SQL (20 plain, 12 with an accented surname; names start with the run tag); cleanup removes them and asserts none remain.",
+      "notes": "Expected to FAIL at the last step 'paging showed every patient once, in order, with no dead end': a surname starting with an accented capital is moved to the end of its page, and the last full page offers a Next Page that leads to an empty page."
+    },
+    {
+      "name": "search-sort-appt-patient-pages",
+      "script": "scripts/search-sort-appt-patient-pages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "19 synthetic patients inserted by SQL with a shared street address per set, plus one demographic_merged row (a merged-away patient); cleanup deletes the merge row and the patients and asserts none remain. Nothing is booked.",
+      "notes": "Expected to FAIL at the last step 'every matching patient was reachable, in surname order': the booking-screen search has no ORDER BY (pages are not in surname order) and a merged-away row consumes a place on the page so no Next Page is offered and current records are unreachable."
+    },
+    {
+      "name": "search-sort-tickler-list",
+      "script": "scripts/search-sort-tickler-list-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Two synthetic patients (different MRPs) and 60 ticklers inserted by SQL (messages carry the run marker); cleanup deletes the ticklers with their rows and the patients and asserts none remain. The saved-view preference is not touched.",
+      "notes": "Expected to FAIL at the last step 'every filter and sort returned the owned ticklers correctly': the Priority header sorts the priority text (High, Low, Normal ascending; Normal, Low, High descending)."
+    },
+    {
+      "name": "search-sort-consult-list",
+      "script": "scripts/search-sort-consult-list-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Three synthetic patients, three FAKE- consultation services and specialists, and 115 consultationRequests inserted by SQL (reason carries the run marker; dates in 2097); cleanup deletes every owned row and asserts none remain.",
+      "notes": "Expected to FAIL at the last step 'every filter, header and page of the consultation list was correct': a full page of exactly 100 offers Next Page (empty page), a search from page two keeps the old offset (lists 0 rows), and a request with an appointment date and no time shows ' T00:00:00'."
+    },
+    {
+      "name": "search-sort-messenger-inbox",
+      "script": "scripts/search-sort-messenger-inbox-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The owned synthetic patient, 27 messagetbl/messagelisttbl rows for the test provider and 9 msgDemoMap links inserted by SQL (subjects carry the run marker); cleanup deletes them and asserts none remain. Nothing is sent, read, archived or deleted through the UI.",
+      "notes": "Expected to FAIL at the last step 'every messenger sort and page listed the owned messages correctly': the Inbox Linked header does not group linked messages (the sort key is 'm.messageid is null', never true)."
+    },
+    {
+      "name": "search-sort-billing-dx-search",
+      "script": "scripts/search-sort-billing-dx-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Two diagnosticcode rows inserted by SQL (descriptions start with a letters-only run word); cleanup deletes them and asserts none remain. The Default Dx box is typed into, never saved.",
+      "notes": "Expected to FAIL at the last step 'every Dx search result equalled the codes matching what was typed': a single match raises a TypeError in the Preferences modal iframe and is not selected, 13 shipped descriptions show a literal &#146; entity, and a description containing a digit also lists every code starting with that digit. The known CSRFGuard TypeError on the result page (L173) is consumed, not blamed."
     }
   ]
 }
