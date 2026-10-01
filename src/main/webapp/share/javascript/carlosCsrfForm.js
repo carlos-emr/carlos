@@ -391,13 +391,14 @@
         form.action = action;
         form.style.display = 'none';
         var target = options.target;
+        var openedHere = null;
         if (target === '_blank' && !currentToken()) {
             // The token has to be fetched first, and by the time it arrives the
             // click's user activation may have expired, so a _blank submission
             // would be popup-blocked. Open the window now, while the gesture is
             // still live, and post into it by name.
             target = 'carlosPost' + Date.now();
-            global.open('', target);
+            openedHere = global.open('', target);
         }
         if (target) {
             form.target = target;
@@ -422,7 +423,15 @@
         // task as submit() has cancelled the navigation in some browsers, and
         // one hidden form per click is harmless.
         document.body.appendChild(form);
-        return submitForm(form);
+        return submitForm(form).catch(function (err) {
+            // Nothing was sent: close the blank window this helper opened so it
+            // does not linger beside the alert. A window the caller opened (a
+            // named popup target) is the caller's to manage, and is left alone.
+            if (openedHere && typeof openedHere.close === 'function') {
+                openedHere.close();
+            }
+            throw err;
+        });
     }
 
     function warnInjectionFailure(err) {

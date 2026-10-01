@@ -167,7 +167,15 @@
             // token, which CSRFGuard cannot inject into a runtime-built form
             // in time (#4130).
             carlosPostForm("<%= request.getContextPath() %>/mcedt/reSubmit",
-                {resourceId: resourceId, serviceId: jQuery("#serviceId").val()});
+                {resourceId: resourceId, serviceId: jQuery("#serviceId").val()}).catch(function () {
+                // No token, so nothing was sent and the page stays: undo the busy state.
+                if (control) {
+                    control.disabled = false;
+                }
+                if (typeof HideSpin === 'function') {
+                    HideSpin();
+                }
+            });
             return false;
 
         }

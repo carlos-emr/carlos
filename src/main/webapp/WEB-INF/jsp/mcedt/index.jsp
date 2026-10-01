@@ -108,8 +108,13 @@
                 form.appendChild(input);
                 document.body.appendChild(form);
                 // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
-                // into a runtime-built form in time (#4130).
-                carlosSubmitForm(form);
+                // into a runtime-built form in time (#4130). If no token could be had,
+                // nothing was sent (the user has been told), so re-enable the button.
+                carlosSubmitForm(form).catch(function () {
+                    if (control) {
+                        control.disabled = false;
+                    }
+                });
                 return false;
             }
 

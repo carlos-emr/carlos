@@ -289,6 +289,7 @@ function loadHelper(options = {}) {
   const errors = [];
   const fetches = [];
   const opened = [];
+  const openedWindows = [];
 
   if (options.pageToken !== undefined) {
     const staticForm = buildForm(dom, {
@@ -315,7 +316,12 @@ function loadHelper(options = {}) {
     document: dom.document,
     MutationObserver: dom.MutationObserver,
     alert: (message) => alerts.push(message),
-    open: (url, name) => { opened.push(name); return {}; },
+    open: (url, name) => {
+      const handle = { name, closed: false, close() { this.closed = true; } };
+      opened.push(name);
+      openedWindows.push(handle);
+      return handle;
+    },
     csrfTokenReady: options.csrfTokenReady,
   };
   const context = {
@@ -342,7 +348,7 @@ function loadHelper(options = {}) {
     context[name] = window[name];
   });
 
-  return { dom, window, alerts, warnings, errors, fetches, opened };
+  return { dom, window, alerts, warnings, errors, fetches, opened, openedWindows };
 }
 
 /** Lets queued microtasks and setTimeout(..., 0) callbacks run. */
@@ -522,6 +528,24 @@ test('a _blank target is opened by name before the token fetch, keeping the clic
   const [submission] = helper.dom.submissions();
   assert.equal(submission.target, helper.opened[0]);
   assert.notEqual(submission.target, '_blank');
+});
+
+test('a _blank window the helper opened is closed again when the token lookup fails', async () => {
+  const helper = loadHelper({ fetchImpl: async () => ({ ok: false, status: 500 }) });
+
+  await assert.rejects(helper.window.carlosPostForm('/carlos/x', {}, { target: '_blank' }));
+
+  assert.equal(helper.openedWindows.length, 1);
+  assert.equal(helper.openedWindows[0].closed, true, 'no empty window is left beside the alert');
+  assert.equal(helper.dom.submissions().length, 0);
+});
+
+test('a caller-named popup target is never closed by the helper on failure', async () => {
+  const helper = loadHelper({ fetchImpl: async () => ({ ok: false, status: 500 }) });
+
+  await assert.rejects(helper.window.carlosPostForm('/carlos/x', {}, { target: 'unbill_popup' }));
+
+  assert.equal(helper.openedWindows.length, 0, 'the helper opened nothing of its own to close');
 });
 
 test('a _blank target is left alone when the token is already on the page', async () => {

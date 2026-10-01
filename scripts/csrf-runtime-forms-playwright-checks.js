@@ -207,11 +207,19 @@ async function resubmitDxDescription(context, config, recorder, sql, timeout) {
   try {
     await gotoApp(page, config.baseUrl,
       `/billing/CA/ON/ViewBillingDigSearch?coderange=&codedesc=${encodeURIComponent(search)}`);
-    const row = page.locator('#diagcode tbody tr', { has: page.locator('input[type="submit"][name="update"]') }).first();
-    await row.waitFor({ state: 'visible', timeout });
+    await page.locator('#diagcode input[name^="desc_"]').first().waitFor({ state: 'visible', timeout });
+    // BillingDiagUpdate2Action takes the code from the last three characters of
+    // the Update button's value, so only a three-character code round-trips.
+    // Pick the first row whose desc_<code> input carries one (ICD-9 codes such
+    // as 2740 also appear in results).
+    const names = await page.locator('#diagcode input[name^="desc_"]').evaluateAll(
+      (inputs) => inputs.map((input) => input.getAttribute('name')),
+    );
+    const name = names.find((candidate) => /^desc_[0-9A-Z]{3}$/i.test(candidate || ''));
+    assert(name, `dx-search: no result row has a three-character dx code (searched for "${search}")`);
+    code = name.slice('desc_'.length);
+    const row = page.locator('#diagcode tbody tr', { has: page.locator(`input[name="${name}"]`) }).first();
     const updateButton = row.locator('input[type="submit"][name="update"]');
-    code = ((await updateButton.getAttribute('value')) || '').trim().slice(-3);
-    assert(/^[0-9A-Z]{3}$/i.test(code), `dx-search: could not read a dx code from the first result row (${code})`);
     before = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(code)} LIMIT 1`);
 
     // The page-load pass used to throw on this form; now it is tokenised.

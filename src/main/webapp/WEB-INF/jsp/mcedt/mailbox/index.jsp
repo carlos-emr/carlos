@@ -142,6 +142,17 @@
             return false;
         }
 
+        // Undo the busy state a click set up when the helper could not obtain a
+        // CSRF token: nothing was sent and the page is not navigating (#4130).
+        function restoreAfterUnsent(control) {
+            if (control) {
+                control.disabled = false;
+            }
+            if (typeof HideSpin === 'function') {
+                HideSpin();
+            }
+        }
+
         function autoDownload(control) {
             var form = document.createElement('form');
             form.method = 'post';
@@ -149,7 +160,9 @@
             document.body.appendChild(form);
             // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
             // into a runtime-built form in time (#4130).
-            carlosSubmitForm(form);
+            carlosSubmitForm(form).catch(function () {
+                restoreAfterUnsent(control);
+            });
             return false;
         }
 
@@ -164,7 +177,9 @@
             document.body.appendChild(form);
             // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
             // into a runtime-built form in time (#4130).
-            carlosSubmitForm(form);
+            carlosSubmitForm(form).catch(function () {
+                restoreAfterUnsent(control);
+            });
             return false;
         }
 
@@ -240,7 +255,7 @@
                             <div class="container-fluid"
                                  style="vertical-align: middle !important; width: 65%; float: left;">
                                 <button class="green flatLink font14" style="width:45%; padding:20px; margin-right:2%;"
-                                        onclick="this.disabled=true;ShowSpin(true); return autoDownload();">
+                                        onclick="this.disabled=true;ShowSpin(true); return autoDownload(this);">
                                     <img src="mailbox/img/download.png" style="float:left;"/>
                                     Download new files (EDT >> Oscar)
                                 </button>
