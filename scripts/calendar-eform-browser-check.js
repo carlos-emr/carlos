@@ -77,7 +77,7 @@ const server = http.createServer((req, res) => {
     const queued = await browser.newPage();
     const queuedErrors = [];
     queued.on('pageerror', error => queuedErrors.push(error.message));
-    await queued.goto(`http://127.0.0.1:${server.address().port}/queued`);
+    await queued.goto(`http://127.0.0.1:${server.address().port}/queued`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- the URL is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and the path is a string literal
     assert.deepEqual(await queued.evaluate(() => window.queuedResults), [null, null, null]);
     assert.equal(await queued.evaluate(() => window.queuedBeforeLoad), 3);
     assert.deepEqual(await queued.evaluate(() => window.valuesBeforeLoad), ['2026-09-30', '21-Aug-2026', '']);
