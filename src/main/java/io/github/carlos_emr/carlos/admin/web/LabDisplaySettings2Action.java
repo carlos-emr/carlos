@@ -133,8 +133,9 @@ public class LabDisplaySettings2Action extends ActionSupport {
     }
 
     /**
-     * Saves in a new transaction per attempt, retrying only a lock conflict (deadlock or lock
-     * wait), at most {@link #MAX_SAVE_ATTEMPTS} times. This runs outside the service's
+     * Saves in a new transaction per attempt, retrying only a deadlock or serialization failure
+     * (which InnoDB reports immediately), at most {@link #MAX_SAVE_ATTEMPTS} times. A lock-wait
+     * timeout is a lock conflict too, but it is terminal: it is reported without a retry. This runs outside the service's
      * transaction on purpose: the deadlock victim's transaction is already rolled back, so only
      * a fresh call can succeed. Any other failure propagates unchanged.
      *
@@ -148,6 +149,12 @@ public class LabDisplaySettings2Action extends ActionSupport {
             } catch (RuntimeException e) {
                 if (!isLockConflict(e)) {
                     throw e;
+                }
+                if (isLockWaitTimeout(e)) {
+                    // A lock-wait timeout (1205) arrives only after a full innodb_lock_wait_timeout;
+                    // retrying would hold this request for several more. Report it at once.
+                    logger.warn("Lab display settings not saved: lock wait timeout on attempt {}", attempt, e);
+                    return false;
                 }
                 if (attempt >= MAX_SAVE_ATTEMPTS) {
                     logger.warn("Lab display settings not saved: lock conflict on all {} attempts", attempt, e);
@@ -177,6 +184,26 @@ public class LabDisplaySettings2Action extends ActionSupport {
             }
             if (t instanceof SQLException sql
                     && ("40001".equals(sql.getSQLState()) || sql.getErrorCode() == 1213 || sql.getErrorCode() == 1205)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a lock conflict is a lock-wait timeout rather than a deadlock: MySQL/MariaDB error
+     * 1205, or the JPA/Hibernate timeout types, anywhere in the cause chain. Checked before the
+     * deadlock signals because Hibernate's {@code LockTimeoutException} extends
+     * {@code LockAcquisitionException}, and the JDBC error code is the most specific signal.
+     */
+    static boolean isLockWaitTimeout(Throwable failure) {
+        int depth = 0;
+        for (Throwable t = failure; t != null && depth < 16; t = t.getCause(), depth++) {
+            if (t instanceof jakarta.persistence.LockTimeoutException
+                    || t instanceof org.hibernate.exception.LockTimeoutException) {
+                return true;
+            }
+            if (t instanceof SQLException sql && sql.getErrorCode() == 1205) {
                 return true;
             }
         }

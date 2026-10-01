@@ -226,6 +226,49 @@ class LabDisplaySettings2ActionUnitTest {
     }
 
     @Test
+    @DisplayName("should retry a save whose cause is a 1213 deadlock")
+    void shouldRetry_whenCauseIsDeadlock() {
+        postValidSave();
+        RuntimeException deadlock = new jakarta.persistence.PersistenceException("x",
+                new org.hibernate.exception.LockAcquisitionException("x",
+                        new SQLException("Deadlock found", "40001", 1213)));
+        doThrow(deadlock).doNothing().when(settingsService).save(any());
+
+        assertThat(action().execute()).isEqualTo("success");
+
+        verify(settingsService, times(2)).save(any());
+        assertThat(request.getAttribute("saved")).isEqualTo(true);
+        assertThat(request.getAttribute("saveFailed")).isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("should report a 1205 lock-wait timeout at once, without retrying")
+    void shouldReportSaveFailureWithoutRetry_whenCauseIsLockWaitTimeout() {
+        postValidSave();
+        RuntimeException timeout = new jakarta.persistence.PersistenceException("x",
+                new org.hibernate.exception.LockTimeoutException("x",
+                        new SQLException("Lock wait timeout exceeded", "HY000", 1205)));
+        doThrow(timeout).when(settingsService).save(any());
+
+        assertThat(action().execute()).isEqualTo("success");
+
+        verify(settingsService, times(1)).save(any());
+        assertThat(request.getAttribute("saved")).isEqualTo(false);
+        assertThat(request.getAttribute("saveFailed")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("should classify lock-wait timeouts apart from deadlocks")
+    void shouldClassifyLockWaitTimeout_apartFromDeadlock() {
+        assertThat(LabDisplaySettings2Action.isLockWaitTimeout(new RuntimeException(
+                new SQLException("Lock wait timeout", "HY000", 1205)))).isTrue();
+        assertThat(LabDisplaySettings2Action.isLockWaitTimeout(new jakarta.persistence.LockTimeoutException("x"))).isTrue();
+        assertThat(LabDisplaySettings2Action.isLockWaitTimeout(new RuntimeException(
+                new SQLException("Deadlock found", "40001", 1213)))).isFalse();
+        assertThat(LabDisplaySettings2Action.isLockWaitTimeout(new CannotAcquireLockException("x"))).isFalse();
+    }
+
+    @Test
     @DisplayName("should not retry or swallow a failure that is not a lock conflict")
     void shouldPropagateOtherFailures_withoutRetry() {
         postValidSave();
