@@ -312,3 +312,11 @@ test('Owasp.CsrfGuard.properties serves the patched template', () => {
   assert.match(properties,
     /^org\.owasp\.csrfguard\.JavascriptServlet\.sourceFile\s*=\s*classpath:csrfguard\/carlos-csrfguard\.js\s*$/m);
 });
+
+test('the template renderer refuses non-plain values and allows an empty context path', () => {
+  assert.throws(() => renderCsrfGuardTemplate({host: 127, token: TOKEN}), /host must be/);
+  assert.throws(() => renderCsrfGuardTemplate({host: '', token: TOKEN}), /host must be/);
+  assert.throws(() => renderCsrfGuardTemplate({host: HOST, token: ''}), /token must be/);
+  assert.throws(() => renderCsrfGuardTemplate({host: HOST, token: "x'; alert(1); '"}), /token must be/);
+  assert.doesNotThrow(() => renderCsrfGuardTemplate({host: HOST, token: TOKEN, contextPath: ''}));
+});
