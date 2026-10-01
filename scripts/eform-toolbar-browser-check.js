@@ -29,7 +29,7 @@ const fixture = (owned = false, withList = false) => `<!doctype html><html><head
 <input id="demographicNo" value="1" type="hidden"><label for="subject">Subject</label>
 <span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required></span>
 ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : ''}
-${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option></select>' : ''}
+${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option><option value="">No list recipient</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
 <button id="designerAddFax" type="button" onclick="document.getElementById('otherFaxInput').value=document.getElementById('designerFax').value; AddOtherFax();">Use designer number</button>
 <input name="recipient" value="Existing name"><input name="recipientFaxNumber" value="416-555-0000">
@@ -70,6 +70,13 @@ const server = http.createServer((req, res) => {
   try {
     const page = await browser.newPage({viewport:{width:1100,height:800}});
     page.on('pageerror', error => { errors.push(error.message); console.error(error.message); });
+    // Selects the directory row, logging the autocomplete state when the row never appears.
+    async function pickDirectoryRow() {
+      await page.locator('#remoteFaxSuggestions .fax-ac-item').click().catch(async error => {
+        console.error({searches, state: await page.evaluate(() => ({value: document.getElementById('remoteFaxRecipient').value, active: document.activeElement.id, open: document.getElementById('remoteFaxOptions').open}))});
+        throw error;
+      });
+    }
     async function open(owned=false, withList=false) {
       requests=[];
       await gotoApp(page, validateBaseUrl(`http://127.0.0.1:${server.address().port}`), `/fixture?owned=${owned ? 'owned' : 'no'}&selection=${withList ? 'list' : 'no'}`);
@@ -96,10 +103,7 @@ const server = http.createServer((req, res) => {
     await page.locator('#remoteFaxOptions summary').click();
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0123');
     await page.locator('#remoteFaxRecipient').fill('Example');
-    await page.locator('#remoteFaxSuggestions .fax-ac-item').click().catch(async error => {
-      console.error({searches, state: await page.evaluate(() => ({value: document.getElementById('remoteFaxRecipient').value, active: document.activeElement.id, open: document.getElementById('remoteFaxOptions').open}))});
-      throw error;
-    });
+    await pickDirectoryRow();
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0199');
     await page.locator('#remoteFaxOptions summary').click();
     await page.locator('#remoteFaxButton').click();
@@ -110,7 +114,7 @@ const server = http.createServer((req, res) => {
     await open();
     await page.locator('#remoteFaxOptions summary').click();
     await page.locator('#remoteFaxRecipient').fill('Example');
-    await page.locator('#remoteFaxSuggestions .fax-ac-item').click();
+    await pickDirectoryRow();
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0199');
     await page.locator('#remoteFaxRecipient').fill('Someone Else');
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'');
@@ -142,6 +146,44 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0123');
     await page.locator('#remoteFaxRecipient').fill('Reverted Recipient');
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length,1);
+    assert.equal(requests[0].get('recipient'),'Reverted Recipient');
+    assert.equal(requests[0].get('recipientFaxNumber'),'');
+    // After the name is retyped, a new explicit list or designer choice fills the number again.
+    await open(false, true);
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxRecipient').fill('Retyped List Recipient');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'');
+    await page.locator('#faxnumList').selectOption('416-555-0102');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0102');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length,1);
+    assert.equal(requests[0].get('recipient'),'Retyped List Recipient');
+    assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0102');
+    await open();
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxRecipient').fill('Retyped Designer Recipient');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'');
+    await page.locator('#designerAddFax').click();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0191');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length,1);
+    assert.equal(requests[0].get('recipient'),'Retyped Designer Recipient');
+    assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0191');
+    // A typed number is never replaced by a later list change, even after a name edit.
+    await open(false, true);
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxNumber').fill('416-555-0155');
+    await page.locator('#remoteFaxRecipient').fill('Typed Then Listed');
+    await page.locator('#faxnumList').selectOption('416-555-0102');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0155');
     await open();
     await page.setViewportSize({width:600,height:800});
     await page.locator('#remoteFaxOptions summary').click();
@@ -163,6 +205,17 @@ const server = http.createServer((req, res) => {
     // An absolutely positioned page can grow without resizing its containing form.
     await page.evaluate(() => { document.getElementById('lastPage').style.height = '800px'; });
     await page.waitForFunction(() => document.getElementById('toolbarWrapper').getBoundingClientRect().top >= document.getElementById('lastPage').getBoundingClientRect().bottom);
+    // A typed number still wins if a customized toolbar has no recipient name field.
+    await open();
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxNumber').fill('416-555-0144');
+    await page.evaluate(() => document.getElementById('remoteFaxRecipient').remove());
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0144');
+    assert.equal(requests[0].get('recipient'), '');
     // A missing directory script must leave manual fax entry and toolbar layout usable.
     await page.route('**/js/faxRecipientAutocomplete.js', route => route.fulfill({status:200,body:''}));
     await open();
@@ -185,6 +238,18 @@ const server = http.createServer((req, res) => {
     await page.locator('#remoteFaxButton').click();
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0102');
+    // Clearing the list changed last must not fall back to the other list's older choice.
+    await open(false, true);
+    await page.locator('#designerAddFax').click();
+    await page.locator('#faxnumList').selectOption('416-555-0102');
+    await page.locator('#faxnumList').selectOption('');
+    await page.locator('#remoteFaxOptions summary').click();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipientFaxNumber'), '');
     await open();
     await page.locator('#remoteFaxOptions summary').click();
     await page.locator('#remoteFaxNumber').fill('');
@@ -206,6 +271,28 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0142');
     assert.equal(requests[0].get('recipient'),'Clinic Two');
+    // The template's subject is required; hiding it must not let an empty toolbar subject save.
+    await open();
+    await page.locator('#remote_eform_subject').fill('');
+    const blockedUrl = page.url();
+    await page.locator('#remoteSubmitButton').click();
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'remote_eform_subject');
+    assert.equal(await page.evaluate(() => document.getElementById('remote_eform_subject').validity.valueMissing), true);
+    assert.equal(page.url(), blockedUrl);
+    assert.equal(requests.length, 0);
+    await page.locator('#remote_eform_subject').fill('Toolbar subject');
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('subject'), 'Toolbar subject');
+    // A template subject without the constraint still saves with an empty subject.
+    await open();
+    await page.evaluate(() => { document.getElementById('subject').required = false; });
+    await page.locator('#remote_eform_subject').fill('');
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('subject'), '');
     await open();
     await page.locator('#lastField').fill('Current unsaved content');
     await page.evaluate(() => {

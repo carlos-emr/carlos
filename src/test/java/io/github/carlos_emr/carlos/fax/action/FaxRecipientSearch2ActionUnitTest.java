@@ -93,6 +93,31 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldSkipDirectoryQueries_whenTermMissing() throws Exception {
+        request.removeParameter("term");
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(mapper.readTree(response.getContentAsString())).isEmpty();
+        verifyNoInteractions(specialists, pharmacies, providers);
+    }
+
+    @Test
+    void shouldSkipProviderAndPharmacyQueries_whenSpecialistsFillEverySlot() throws Exception {
+        List<Object[]> rows = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            rows.add(new Object[]{specialist("Smith", "Person " + i, "416-555-1000"), "Cardiology"});
+        }
+        when(specialists.searchSpecialistsWithService("clinic", 20)).thenReturn(rows);
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mapper.readTree(response.getContentAsString())).hasSize(20);
+        verifyNoInteractions(providers, pharmacies);
+    }
+
+    @Test
     void shouldRenderSpecialistAndPharmacyRows_whenTermMatches() throws Exception {
         ProfessionalSpecialist organisation = specialist(null, "Clinic One", "416-555-1000");
         ProfessionalSpecialist person = specialist("Smith", "Ava", "416-555-1001");
@@ -159,9 +184,9 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
         provider.setLastName("Example");
         provider.setFirstName("Alex");
         when(providers.searchFaxRecipients("clinic", 20)).thenReturn(
-                List.<Object[]>of(new Object[]{provider, "416-555-0100"}));
+                List.<Object[]>of(new Object[]{provider, " 416-555-0100 "}));
 
-        execute();
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
 
         JsonNode rows = mapper.readTree(response.getContentAsString());
         assertThat(rows).hasSize(1);
@@ -172,10 +197,11 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnUnavailable_whenProviderDirectoryFails() {
+    void shouldReturnUnavailable_whenProviderDirectoryFails() throws Exception {
         when(providers.searchFaxRecipients("clinic", 20)).thenThrow(new IllegalStateException());
-        execute();
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(mapper.readTree(response.getContentAsString())).isEmpty();
         verifyNoInteractions(pharmacies);
     }
 

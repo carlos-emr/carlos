@@ -186,6 +186,22 @@ function editorStillLoading() {
  */
 function eFormValidationBlocked() {
 	const ef = getEForm();
+	// moveSubjectReverse() turns the template's subject input into type="hidden", which the browser
+	// excludes from constraint validation, and the toolbar's own subject lives in a separate form
+	// that is never submitted. Enforce the template's required subject on the field the clinician
+	// actually edits, so hiding the original does not silently drop the author's constraint.
+	const templateSubject = ef && ef.elements ? ef.elements["subject"] : null;
+	const toolbarSubject = document.getElementById("remote_eform_subject");
+	if (templateSubject && templateSubject.required === true && toolbarSubject
+			&& typeof toolbarSubject.checkValidity === "function") {
+		toolbarSubject.required = true;
+		if (!toolbarSubject.checkValidity()) {
+			toolbarSubject.reportValidity();
+			HideSpin();
+			clearWorkflowFlags();
+			return true;
+		}
+	}
 	// No resolvable form, or a browser/form without the constraint API: nothing can be asserted, so
 	// never block on it — the pre-existing submit paths stay exactly as they were.
 	if (!ef || typeof ef.checkValidity !== "function" || ef.checkValidity()) {
@@ -554,9 +570,10 @@ function remoteFax() {
         return;
     }
     clearWorkflowFlags();
-    setHiddenFormInput("faxAction", "faxEForm", "true");
-
+    // Resolve the recipient before declaring the fax intent, so a failure here cannot leave
+    // faxEForm=true on the form for a later plain Save to ride into the fax workflow.
     const chosen = selectedEformFaxRecipient();
+    setHiddenFormInput("faxAction", "faxEForm", "true");
     // Include empty overrides too: clearing a recipient must not resurrect a template's old number.
     setHiddenFormInput("recipient", "recipient", chosen.name);
     setHiddenFormInput("recipientFaxNumber", "recipientFaxNumber", chosen.fax);
@@ -1030,7 +1047,9 @@ function positionToolbarAfterForm(wrapper) {
 function selectedEformFaxRecipient() {
     const fax = document.getElementById('remoteFaxNumber');
     const name = document.getElementById('remoteFaxRecipient');
-    if (fax && fax.dataset.edited === 'true') return {name: name.value.trim(), fax: fax.value.trim()};
+    // The edited number wins even when the name field is missing: falling through to the eForm's
+    // own recipient would fax a number the clinician had replaced.
+    if (fax && fax.dataset.edited === 'true') return {name: name ? name.value.trim() : '', fax: fax.value.trim()};
     const chosen = window.carlosEformFax ? window.carlosEformFax.recipient() : {name: '', fax: ''};
     if (name && name.dataset.edited === 'true') chosen.name = name.value.trim();
     return chosen;
@@ -1066,6 +1085,7 @@ function initializeFaxRecipient() {
     }
     fromForm.addEventListener('change', () => {
         const option = fromForm.options[fromForm.selectedIndex];
+        delete fax.dataset.cleared;
         if (option && option.value) {
             fax.value = option.value;
             name.value = option.dataset.recipientName;
@@ -1079,7 +1099,8 @@ function initializeFaxRecipient() {
         }
     });
     ['input', 'change'].forEach(event => {
-        fax.addEventListener(event, () => { fax.dataset.edited = 'true'; });
+        // Any number entered or chosen in the field itself replaces the pending cleared state.
+        fax.addEventListener(event, () => { fax.dataset.edited = 'true'; delete fax.dataset.cleared; });
         name.addEventListener(event, () => { name.dataset.edited = 'true'; });
     });
     // A number the clinician typed is theirs; one filled in from the directory, the eForm or the
@@ -1090,15 +1111,25 @@ function initializeFaxRecipient() {
     // Typing a different recipient name must not keep the previous recipient's number: the fax
     // would go there under the new name. Clear it (as an explicit empty override, so the eForm's
     // number is not resurrected either) until a directory row or a typed number supplies one.
+    // The clear is marked separately from a number the clinician chose, so a later explicit choice
+    // on the eForm itself can still fill the number for the newly typed recipient.
     name.addEventListener('input', event => {
         if (!event.isTrusted || fax.dataset.typed === 'true') return;
         fax.value = '';
         fax.dataset.edited = 'true';
+        fax.dataset.cleared = 'true';
         fromForm.value = '';
     });
     document.getElementById('remoteFaxOptions').addEventListener('toggle', () => { refreshOptions(); refresh(); });
     document.addEventListener('change', event => {
-        if (['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) refresh();
+        if (!['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) return;
+        // A list or designer selection made after the name was retyped is a new, explicit source:
+        // lift only the pending clear (never a typed or menu-chosen number) and let it fill in.
+        if (fax.dataset.cleared === 'true') {
+            delete fax.dataset.cleared;
+            delete fax.dataset.edited;
+        }
+        refresh();
     });
     if (typeof setupFaxRecipientAutocomplete === 'function') {
         setupFaxRecipientAutocomplete({contextPath: document.getElementById('context').value,

@@ -67,6 +67,19 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPreserveAuthoredNewFormFlag_whenTemplateDeclaresItByNameOnly() {
+        EForm form = new EForm();
+        form.setFormHtml("<form><input type='hidden' name='newForm' value='True'></form>");
+        form.ensureNewFormInput();
+        form.ensureNewFormInput();
+        var document = Jsoup.parse(form.getFormHtml());
+        var fields = document.select("[name=newForm]");
+        assertThat(fields).hasSize(1);
+        assertThat(fields.first().val()).isEqualTo("True");
+        assertThat(document.select("#newForm")).isEmpty();
+    }
+
+    @Test
     void shouldSupplyNewFormFlag_whenTemplateHasNone() {
         EForm form = new EForm();
         form.setFormHtml("<form></form>");

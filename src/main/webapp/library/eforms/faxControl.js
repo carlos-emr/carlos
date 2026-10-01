@@ -28,14 +28,28 @@
         if (['faxnumList', 'otherFaxSelect'].includes(event.target.id)) selectedSource = event.target.id;
     });
 
+    function selectedOption(id) {
+        var select = document.getElementById(id);
+        var option = select && select.options && select.options[select.selectedIndex];
+        return option && option.value.trim() ? option : null;
+    }
+
     function recipient() {
         var input = ensureInput();
-        for (var id of [selectedSource, 'otherFaxSelect', 'faxnumList']) {
-            var select = document.getElementById(id);
-            var option = select && select.options && select.options[select.selectedIndex];
-            if (option && option.value.trim()) {
-                return {name: option.getAttribute('name') || option.textContent.trim(), fax: option.value.trim()};
-            }
+        var option;
+        // The list the clinician changed last is authoritative. When they cleared it, falling
+        // through to the other list (or to the otherFaxInput value AddOtherFax/AddOtherFaxProvider
+        // copied from it) would fax a recipient they had just deselected, so fail closed with no
+        // number rather than misroute the document.
+        if (selectedSource) {
+            option = selectedOption(selectedSource);
+            return option
+                ? {name: option.getAttribute('name') || option.textContent.trim(), fax: option.value.trim()}
+                : {name: '', fax: ''};
+        }
+        for (var id of ['otherFaxSelect', 'faxnumList']) {
+            option = selectedOption(id);
+            if (option) return {name: option.getAttribute('name') || option.textContent.trim(), fax: option.value.trim()};
         }
         if (input && input.value.trim()) return {name: '', fax: input.value.trim()};
         var fax = document.querySelector('[name="recipientFaxNumber"]:not([data-carlos-workflow-flag])');

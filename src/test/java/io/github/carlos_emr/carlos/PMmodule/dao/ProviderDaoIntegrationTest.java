@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -1864,6 +1865,98 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for {@link ProviderDao#searchFaxRecipients(String, int)}, the provider source of the
+     * eForm fax recipient directory: only active providers whose {@code faxnumber} property holds a
+     * non-blank value are offered, matched case-insensitively by first or last name.
+     */
+    @Nested
+    @DisplayName("Fax recipient search")
+    @Tag("search")
+    @Tag("read")
+    class FaxRecipientSearch {
+
+        private void persistFaxNumber(String providerNo, String value) {
+            UserProperty property = new UserProperty();
+            property.setProviderNo(providerNo);
+            property.setName("faxnumber");
+            property.setValue(value);
+            hibernateTemplate.save(property);
+        }
+
+        @Test
+        @DisplayName("should return active provider with a fax number when last name matches")
+        void shouldReturnProviderWithFax_whenLastNameMatches() {
+            persistFaxNumber("T001", "416-555-0101");
+            hibernateTemplate.flush();
+
+            List<Object[]> rows = providerDao.searchFaxRecipients("smi", 10);
+
+            // Jane Smith (T003) matches the name but has no fax number property.
+            assertThat(rows).hasSize(1);
+            assertThat(((Provider) rows.get(0)[0]).getProviderNo()).isEqualTo("T001");
+            assertThat(rows.get(0)[1]).isEqualTo("416-555-0101");
+        }
+
+        @Test
+        @DisplayName("should exclude providers whose fax number is blank")
+        void shouldExcludeProvider_whenFaxNumberIsBlank() {
+            persistFaxNumber("T003", "   ");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("jane", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should exclude inactive providers even when they have a fax number")
+        void shouldExcludeProvider_whenProviderIsInactive() {
+            persistFaxNumber("T004", "416-555-0104");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("johnson", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should ignore other provider properties holding a number")
+        void shouldExcludeProvider_whenOnlyOtherPropertyIsSet() {
+            UserProperty other = new UserProperty();
+            other.setProviderNo("T002");
+            other.setName("faxnumberx");
+            other.setValue("416-555-0102");
+            hibernateTemplate.save(other);
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("doe", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should match first names case-insensitively, ordered by last name, within the limit")
+        void shouldMatchFirstNameCaseInsensitively_withinLimit() {
+            persistFaxNumber("T001", "416-555-0101");
+            persistFaxNumber("T002", "416-555-0102");
+            hibernateTemplate.flush();
+
+            List<Object[]> all = providerDao.searchFaxRecipients("JOHN", 10);
+            assertThat(all).extracting(row -> ((Provider) row[0]).getProviderNo())
+                    .containsExactly("T002", "T001");
+
+            List<Object[]> limited = providerDao.searchFaxRecipients("JOHN", 1);
+            assertThat(limited).extracting(row -> ((Provider) row[0]).getProviderNo())
+                    .containsExactly("T002");
+        }
+
+        @Test
+        @DisplayName("should treat LIKE wildcards in the term as literal text")
+        void shouldTreatWildcards_asLiteralText() {
+            persistFaxNumber("T001", "416-555-0101");
+            persistFaxNumber("T002", "416-555-0102");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("%", 10)).isEmpty();
+            assertThat(providerDao.searchFaxRecipients("_", 10)).isEmpty();
         }
     }
 }
