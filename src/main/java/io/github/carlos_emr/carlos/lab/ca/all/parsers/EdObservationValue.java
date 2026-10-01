@@ -91,10 +91,11 @@ final class EdObservationValue {
      * {@code getString} normalises ordinary results (trimmed, HL7 {@code \.br\} turned into the
      * {@code <br />} marker that the {@code htmlWithBreakMarkers} rendering expects), otherwise
      * the handler's own {@code getOBXResult}, which is already normalised. Never applied to the
-     * data handed to the PDF decoder.
+     * data handed to the PDF decoder, and only for ED.5 the handler declares as text: an encoded
+     * (Base64, Hex or undeclared) ED.5 is a document, not a value to show.
      */
     static String text(MessageHandler handler, int i, int j, ObxLookup lookup) {
-        if (handler.isOBXEmbeddedDocument(i, j)) {
+        if (handler.isOBXEmbeddedDocument(i, j) && "A".equals(handler.getOBXDocumentEncoding(i, j))) {
             String data = component(lookup, 5);
             if (data != null && !data.isBlank()) {
                 return normaliseText(data);
