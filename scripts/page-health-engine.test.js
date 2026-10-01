@@ -22,6 +22,33 @@ test('scanText reports each rendering accident once with its kind', () => {
   ]);
 });
 
+test('findings name the defect token and never the patient text around it', () => {
+  const read = {
+    text: 'Patient Jane Q Testpatient HIN 1234-567-890 diagnosis: type 2 diabetes mellitus null follow-up\n'
+      + 'Allergy: penicillin rash undefined and note ${see Jane Testpatient chart} then NaN dose '
+      + 'plus ???demographic.missing.key??? beside metformin 500 mg &amp; insulin',
+    values: ['Jane Testpatient ???form.missing.key??? asthma'],
+    title: 'Master Record for Jane Testpatient null',
+  };
+  const findings = scanText(read);
+  assert.ok(findings.length >= 7, `the rules should still fire, got ${kinds(findings).join(',')}`);
+  const reported = JSON.stringify(findings);
+  for (const secret of ['Jane', 'Testpatient', '1234-567-890', 'diabetes', 'penicillin', 'metformin', 'insulin',
+    'asthma', 'follow-up', 'chart', 'dose']) {
+    assert.ok(!reported.includes(secret), `"${secret}" is page text and must not reach a finding: ${reported}`);
+  }
+  assert.ok(findings.some(f => f.detail === 'visible text: "null"'), 'the null token itself is reported');
+  assert.ok(findings.some(f => f.detail === 'form value: "???form.missing.key???"'), 'a form value reports its key only');
+  assert.ok(findings.some(f => f.kind === 'unresolved-el' && f.detail === 'visible text: "${...}"'),
+    'a free-text template expression is reduced to its delimiters');
+});
+
+test('an allow rule still sees the surrounding text even though findings do not report it', () => {
+  const read = { text: 'doctor FAKE-<i data-xp=1> &amp; more', values: [], title: '' };
+  assert.deepEqual(scanText(read), []);
+  assert.deepEqual(kinds(scanText({ text: 'plain &amp; text', values: [], title: '' })), ['double-encoded-entity']);
+});
+
 test('scanText leaves ordinary words, paths and identifiers alone', () => {
   const read = {
     text: 'Nullable fields, a nullity test, /carlos/null.png, user@null.example, undefined-behaviour notes',

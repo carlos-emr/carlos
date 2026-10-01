@@ -127,20 +127,45 @@ function readPageText(scopeSelector) {
   return { text, values, title: document.title || '' };
 }
 
-/** Context of a hit, short enough to read and never more than a line. */
+/**
+ * Context of a hit, used ONLY to decide whether an allow rule applies ("data-xp" seeded
+ * hostile data, the documented ${token} help text). It is never reported: the page may be
+ * a real patient's chart when an operator points a check at one (MASTER_RECORD_SEARCH,
+ * MASTER_RECORD_DEMOGRAPHIC_NO), and the text around a defect is patient text.
+ */
 function snippet(text, index, length) {
   const start = Math.max(0, index - 30);
   return text.slice(start, index + length + 30).replace(/\s+/g, ' ').trim();
 }
 
-/** Pure: apply the text rules to what readPageText returned. Exported for the unit test. */
+/**
+ * The part of a hit that is safe to print: the defect token itself, never its neighbours.
+ * The tokens the rules look for are code-shaped (null, NaN, ???key???, [object X], an
+ * entity, a Java class name). A template expression's inner text is free text on a page,
+ * so unless it is a plain identifier path it is reduced to its delimiters.
+ */
+function needle(kind, matched) {
+  const token = String(matched).replace(/\s+/g, ' ').trim();
+  if (kind === 'unresolved-el' || kind === 'unresolved-ognl') {
+    const open = token.slice(0, 2);
+    return /^[%$]\{[A-Za-z_][\w.[\]]{0,60}\}$/.test(token) ? token : `${open}...}`;
+  }
+  if (kind === 'unresolved-scriptlet') return token;
+  return token.length > 80 ? `${token.slice(0, 77)}...` : token;
+}
+
+/**
+ * Pure: apply the text rules to what readPageText returned. Exported for the unit test.
+ * A finding's detail names the source and the defect token only; no page text around it.
+ */
 function scanText(read, extraAllow = []) {
   const findings = [];
   const seen = new Set();
   const consider = (kind, why, text, index, length, source) => {
-    const detail = `${source}: "${snippet(text, index, length)}"`;
+    const context = `${source}: "${snippet(text, index, length)}"`;
     if ([...DEFAULT_ALLOW, ...extraAllow].some(rule => (rule.kind instanceof RegExp ? rule.kind.test(kind) : rule.kind === kind)
-      && rule.match.test(detail))) return;
+      && rule.match.test(context))) return;
+    const detail = `${source}: "${needle(kind, text.slice(index, index + length))}"`;
     const key = `${kind}|${detail}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -163,8 +188,9 @@ function scanText(read, extraAllow = []) {
     if (/^(?:null|undefined|NaN|Invalid Date|\[object [A-Za-z]+\])$/.test(trimmed)) {
       consider(`field-${trimmed.replace(/\W+/g, '-').toLowerCase()}`, 'a form control is pre-filled with a rendering accident', trimmed, 0, trimmed.length, 'form value');
     }
-    if (/\?\?\?[\w.\-]+\?\?\?/.test(trimmed)) {
-      consider('missing-resource-key', 'a resource-bundle key is missing', trimmed, 0, trimmed.length, 'form value');
+    const key = /\?\?\?[\w.\-]+\?\?\?/.exec(trimmed);
+    if (key) {
+      consider('missing-resource-key', 'a resource-bundle key is missing', trimmed, key.index, key[0].length, 'form value');
     }
   }
   return findings;
