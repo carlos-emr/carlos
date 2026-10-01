@@ -137,9 +137,13 @@ async function workflow(s) {
       return;
     }
     const token = await csrfToken(page, s.config.baseUrl);
-    const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/oscarReport/reportByTemplate/addEditTemplatesAction'),
-      { headers: { 'CSRF-TOKEN': token }, maxRedirects: 0,
-        form: { 'CSRF-TOKEN': token, action: 'delete', templateid: '0', xmltext: '<script>alert(document.cookie)</script>' } });
+    // A fixed attack-shaped string the front door must refuse; it is sent only to the local
+    // test deployment and never rendered by this script.
+    const probe = '<script>alert(document.cookie)</script>';
+    const route = h.appUrl(s.config.baseUrl, '/oscarReport/reportByTemplate/addEditTemplatesAction');
+    const response = await s.context.request.post(route, { // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- deliberate WAF probe payload posted to the local test deployment; the check asserts it is refused (403) and never renders it
+      headers: { 'CSRF-TOKEN': token }, maxRedirects: 0,
+      form: { 'CSRF-TOKEN': token, action: 'delete', templateid: '0', xmltext: probe } });
     h.assert(response.status() === 403, `Markup on action=delete answered HTTP ${response.status()}, not 403`);
     h.assert(stored().length === 1, 'The probe changed the template');
   });
