@@ -3192,6 +3192,57 @@
         "FORM_PRINT_NAME",
         "FORM_PRINT_TIMEOUT_MS"
       ]
+    },
+    {
+      "name": "messenger-pdf-attachments-server-render",
+      "script": "scripts/messenger-pdf-attachments-server-render-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD"
+      ]
+    },
+    {
+      "name": "report-by-template-editor-front-door",
+      "script": "scripts/report-by-template-editor-front-door-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD"
+      ]
+    },
+    {
+      "name": "report-query-by-example-front-door",
+      "script": "scripts/report-query-by-example-front-door-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD"
+      ]
     }
   ]
 }
