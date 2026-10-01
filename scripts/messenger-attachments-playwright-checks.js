@@ -72,16 +72,21 @@ async function workflow(s) {
   const patient = Number(s.patient);
   const like = h.sqlString(`%${s.marker}%`);
   let groupId;
+  // Delivery rows are scoped above a high-water mark taken before anything is sent: the demo
+  // seed ships orphan messagelisttbl rows (no messagetbl parent) whose message ids a fresh
+  // install's first messages reuse, and those pre-existing rows are not ours to read or delete.
+  const listMark = Number(s.sql.value('SELECT IFNULL(MAX(id), 0) FROM messagelisttbl'));
+  const demoMapMark = Number(s.sql.value('SELECT IFNULL(MAX(id), 0) FROM msgDemoMap'));
   s.cleanup(() => {
     const ids = s.sql.rows(`SELECT messageid FROM messagetbl WHERE thesubject LIKE ${like}`).map(([id]) => Number(id));
     if (ids.length) {
       const list = ids.join(',');
-      s.sql.execute(`DELETE FROM msgDemoMap WHERE messageID IN (${list});
-        DELETE FROM messagelisttbl WHERE message IN (${list});
+      s.sql.execute(`DELETE FROM msgDemoMap WHERE messageID IN (${list}) AND id > ${demoMapMark};
+        DELETE FROM messagelisttbl WHERE message IN (${list}) AND id > ${listMark};
         DELETE FROM messagetbl WHERE messageid IN (${list}) AND thesubject LIKE ${like}`);
       h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM messagetbl WHERE messageid IN (${list}))
-        + (SELECT COUNT(*) FROM messagelisttbl WHERE message IN (${list}))
-        + (SELECT COUNT(*) FROM msgDemoMap WHERE messageID IN (${list}))`) === '0', 'Owned messages were not removed');
+        + (SELECT COUNT(*) FROM messagelisttbl WHERE message IN (${list}) AND id > ${listMark})
+        + (SELECT COUNT(*) FROM msgDemoMap WHERE messageID IN (${list}) AND id > ${demoMapMark})`) === '0', 'Owned messages were not removed');
     }
     if (groupId) {
       s.sql.execute(`DELETE FROM groupMembers_tbl WHERE groupID=${groupId} AND provider_No=${provider};
@@ -116,7 +121,8 @@ async function workflow(s) {
     await clickAndLoad(page, page.locator('button[type="submit"]', { hasText: /Send Message/i }), '/messenger/CreateMessage');
     await expectValue(s.sql, `SELECT COUNT(*) FROM messagetbl WHERE thesubject=${h.sqlString(subject)}`, '1', 'Send did not write one messagetbl row');
     const [[id]] = sent(subject);
-    h.assert(s.sql.value(`SELECT GROUP_CONCAT(status) FROM messagelisttbl WHERE message=${id} AND provider_no=${provider}`) === 'new',
+    h.assert(s.sql.value(`SELECT GROUP_CONCAT(status) FROM messagelisttbl WHERE message=${id} AND provider_no=${provider}
+      AND id > ${listMark}`) === 'new',
       'The message was not delivered once, unread, to the test provider');
     return id;
   }
@@ -340,7 +346,7 @@ async function workflow(s) {
   let pdfMessageId;
   await s.step('sending stores both rendered items on the message, linked to the patient', async () => {
     pdfMessageId = await sendToSelf(compose, pdfSubject);
-    h.assert(s.sql.value(`SELECT demographic_no FROM msgDemoMap WHERE messageID=${pdfMessageId}`) === String(patient),
+    h.assert(s.sql.value(`SELECT demographic_no FROM msgDemoMap WHERE messageID=${pdfMessageId} AND id > ${demoMapMark}`) === String(patient),
       'The chart-sent message was not linked to the patient');
     const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${pdfMessageId}`);
     const entries = stored.match(/<PDF>.*?<\/PDF>/g) || [];

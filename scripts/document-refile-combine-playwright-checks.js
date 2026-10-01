@@ -39,7 +39,7 @@ async function workflow(s) {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-refile-combine-'));
   const docs = ownedPdfDocuments(store, marker, [{ key: 'A', pages: 2 }, { key: 'B', pages: 3 }]);
   const refiled = path.join(incoming, '1', 'Refile', `R${marker}-A.pdf`);
-  const owned = { sql, marker, patient, files: [...docs.map(doc => doc.file), refiled] };
+  const owned = { sql, marker, patient, docs, files: [...docs.map(doc => doc.file), refiled] };
   const preferenceWhere = `provider_no=${h.sqlString(provider)} AND name=${h.sqlString(PREFERENCE)}`;
   const preference = sql.rows(`SELECT id,value,IF(value IS NULL,1,0) FROM property WHERE ${preferenceWhere} ORDER BY id`);
   h.assert(preference.length <= 1, 'The test provider has duplicate document-browser preference rows');

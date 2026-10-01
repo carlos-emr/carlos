@@ -42,7 +42,7 @@ async function workflow(s) {
   const [docA, docB] = docs;
   // EDocUtil.getRefiledDocumentFileName drops the 14-character upload timestamp and prefixes R.
   const refiled = path.join(incoming, '1', 'Refile', `R${docB.filename.substring(14)}`);
-  const owned = { sql, marker, patient, files: [...docs.map(doc => doc.file), refiled] };
+  const owned = { sql, marker, patient, docs, files: [...docs.map(doc => doc.file), refiled] };
   const texts = [1, 2, 3].map(n => `${marker} note revision ${n}`);
 
   s.cleanup(() => {
@@ -61,6 +61,17 @@ async function workflow(s) {
   h.assert(!fs.existsSync(refiled), 'The refile destination already exists');
   seedOwnedPdfDocuments({ sql, store, patient, provider, docs });
   const status = doc => sql.value(`SELECT status FROM document WHERE document_no=${doc.id}`);
+
+  // Independent of the Note Browser page, so it runs before the steps that page's script
+  // errors stop: a GET must not delete a seeded, published document.
+  await s.step('NoteBrowserDocumentDelete refuses GET and changes nothing', async () => {
+    const query = new URLSearchParams({ delDocumentNo: docB.id, demographicNo: patient }).toString();
+    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/casemgmt/NoteBrowserDocumentDelete?${query}`), { maxRedirects: 0, failOnStatusCode: false });
+    const code = response.status();
+    await response.dispose();
+    h.assert(code === 405, `GET NoteBrowserDocumentDelete answered HTTP ${code}, expected 405`);
+    h.assert(status(docB) === 'A', 'GET NoteBrowserDocumentDelete deleted the document');
+  });
 
   let chart;
   let noteId;
@@ -142,15 +153,6 @@ async function workflow(s) {
     h.assert(fs.existsSync(refiled) && sha(refiled) === sha(docB.file), 'The refiled copy is missing or differs from the stored PDF');
     h.assert(sql.value(`SELECT CONCAT_WS('|',status,docfilename) FROM document WHERE document_no=${docB.id}`)
       === `A|${docB.filename}`, 'Refiling changed the source document row');
-  });
-
-  await s.step('NoteBrowserDocumentDelete refuses GET and changes nothing', async () => {
-    const query = new URLSearchParams({ delDocumentNo: docB.id, demographicNo: patient }).toString();
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/casemgmt/NoteBrowserDocumentDelete?${query}`), { maxRedirects: 0, failOnStatusCode: false });
-    const code = response.status();
-    await response.dispose();
-    h.assert(code === 405, `GET NoteBrowserDocumentDelete answered HTTP ${code}, expected 405`);
-    h.assert(status(docB) === 'A', 'GET NoteBrowserDocumentDelete deleted the document');
   });
 
   await s.step('View status Deleted lists the deleted document and Undelete restores status A', async () => {

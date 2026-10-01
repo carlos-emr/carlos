@@ -5,8 +5,9 @@
  *
  * A check names its documents with ownedPdfDocuments() and registers its own cleanup
  * (removeOwnedPdfDocuments, then assertOwnedPdfDocumentsRemoved) BEFORE seedOwnedPdfDocuments()
- * writes the first file or row. Only rows whose docdesc starts with the run marker, their
- * ctl_document links to the owned patient, and the named files are ever touched.
+ * writes the first file or row. Only rows whose docdesc starts with the run marker or whose id
+ * seedOwnedPdfDocuments() captured (pass the same `docs` to cleanup), their ctl_document links to
+ * the owned patient, and the named files are ever touched.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -95,19 +96,31 @@ function seedOwnedPdfDocuments({ sql, store, patient, provider, docs }) {
   }
 }
 
-/** Delete the marker's document rows, their links to the owned patient, and the given files. */
-function removeOwnedPdfDocuments({ sql, marker, patient, files }) {
-  const ids = sql.rows(`SELECT document_no FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`).map(row => row[0]);
+/** Ids seedOwnedPdfDocuments() captured; they stay owned even if an edit rewrote the description. */
+function capturedIds(docs = []) {
+  return docs.map(doc => doc.id).filter(Boolean);
+}
+
+/**
+ * Delete the marker's document rows and the captured fixture rows, their links to the owned
+ * patient, and the given files.
+ */
+function removeOwnedPdfDocuments({ sql, marker, patient, files, docs }) {
+  const byMarker = sql.rows(`SELECT document_no FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`).map(row => row[0]);
+  const ids = [...new Set([...byMarker, ...capturedIds(docs)])];
   h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned document identity');
   if (ids.length) {
     sql.execute(`DELETE FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND module='demographic' AND module_id=${patient};
-      DELETE FROM document WHERE document_no IN (${ids.join(',')}) AND docdesc LIKE ${h.sqlString(`${marker}%`)}`);
+      DELETE FROM document WHERE document_no IN (${ids.join(',')})`);
   }
   for (const file of files) if (fs.existsSync(file)) fs.unlinkSync(file);
 }
 
-function assertOwnedPdfDocumentsRemoved({ sql, marker, patient, files }) {
+function assertOwnedPdfDocumentsRemoved({ sql, marker, patient, files, docs }) {
+  const ids = capturedIds(docs);
+  h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned document identity');
   h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`) === '0'
+    && (!ids.length || sql.value(`SELECT COUNT(*) FROM document WHERE document_no IN (${ids.join(',')})`) === '0')
     && sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${patient}`) === '0',
   'Owned document rows were not removed');
   h.assert(!files.some(file => fs.existsSync(file)), 'Owned document files were not removed');

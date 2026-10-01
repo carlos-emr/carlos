@@ -42,6 +42,11 @@ async function workflow(s) {
   const {sql, marker, provider, context, recorder} = s;
   const ids = [];
   s.cleanup(() => {
+    // A committed insert whose LAST_INSERT_ID() reply was lost still carries the per-run
+    // marker as its last name, so recover owned patients by marker as well as by id.
+    for (const [id] of sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(marker)}`)) {
+      if (/^[1-9]\d*$/.test(id) && !ids.includes(id)) ids.push(id);
+    }
     if (!ids.length) return;
     const list = ids.join(',');
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${list})
