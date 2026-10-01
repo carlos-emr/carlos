@@ -363,7 +363,19 @@
     "test:gap-billing-inr-calendar-popup-playwright": "node scripts/gap-billing-inr-calendar-popup-playwright-checks.js",
     "test:gap-billing-create-invoice-no-appointment-playwright": "node scripts/gap-billing-create-invoice-no-appointment-playwright-checks.js",
     "test:gap-billing-moh-return-files-playwright": "node scripts/gap-billing-moh-return-files-playwright-checks.js",
-    "test:gap-billing-bill-form-validations-playwright": "node scripts/gap-billing-bill-form-validations-playwright-checks.js"
+    "test:gap-billing-bill-form-validations-playwright": "node scripts/gap-billing-bill-form-validations-playwright-checks.js",
+    "test:gap-records-demographic-add-fields-playwright": "node scripts/gap-records-demographic-add-fields-playwright-checks.js",
+    "test:gap-records-demographic-edit-clinical-playwright": "node scripts/gap-records-demographic-edit-clinical-playwright-checks.js",
+    "test:gap-records-enrollment-history-playwright": "node scripts/gap-records-enrollment-history-playwright-checks.js",
+    "test:gap-records-label-print-setting-playwright": "node scripts/gap-records-label-print-setting-playwright-checks.js",
+    "test:gap-records-rourke-export-playwright": "node scripts/gap-records-rourke-export-playwright-checks.js",
+    "test:gap-records-usage-report-playwright": "node scripts/gap-records-usage-report-playwright-checks.js",
+    "test:gap-records-document-annotate-save-playwright": "node scripts/gap-records-document-annotate-save-playwright-checks.js",
+    "test:gap-records-health-care-team-panel-playwright": "node scripts/gap-records-health-care-team-panel-playwright-checks.js",
+    "test:gap-records-hrm-report-actions-playwright": "node scripts/gap-records-hrm-report-actions-playwright-checks.js",
+    "test:gap-records-demographic-report-criteria-playwright": "node scripts/gap-records-demographic-report-criteria-playwright-checks.js",
+    "test:gap-records-lab-patient-link-playwright": "node scripts/gap-records-lab-patient-link-playwright-checks.js",
+    "test:gap-records-hrm-inbox-null-hin-playwright": "node scripts/gap-records-hrm-inbox-null-hin-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

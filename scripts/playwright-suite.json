@@ -5802,6 +5802,194 @@
       "env": [],
       "notes": "Fails at its last step on 2026.08: a malformed percent (abc) is not stopped by the form's decimal-number alert (its check selects ids the percent boxes lack) and Next answers HTTP 500 (BillingReviewLoader NumberFormatException); the review page of an unknown or duplicated code and a fee edited on an OHIP review page also throw script errors (total / gst elements missing). The empty-form alert, empty-Dx confirm, unknown/duplicate-code warnings with no Save, and the fee override saved to the item pass.",
       "fixtures": "createBillingFixture and three owned appointments today; claims written by the browser removed by id and asserted gone."
+    },
+    {
+      "name": "gap-records-demographic-add-fields",
+      "script": "scripts/gap-records-demographic-add-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Patients carrying the run marker surname (cleanup removes every row of those patients, not the append-only audit log, and asserts none remain) and one unused synthetic Ontario HIN.",
+      "notes": "Fails at its last step on 2026.08: dates typed into Date Rostered / Effective / Renewal / Date Joined never reach the server (add.jsp:576-578 parseDateField template literal is consumed as JSP EL), so a rostered patient cannot be added (alert 'You must choose a valid Date Rostered') and the other dates are silently dropped. Steps 1-6 pass first."
+    },
+    {
+      "name": "gap-records-demographic-edit-clinical",
+      "script": "scripts/gap-records-demographic-edit-clinical-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient plus a second marker-suffixed patient holding the contested HIN; the second patient is removed in cleanup and checked gone.",
+      "notes": "PASS expected; fails at the first stored-field comparison naming the lost field, or at the last step if a refused duplicate-HIN update still writes part of the submission."
+    },
+    {
+      "name": "gap-records-enrollment-history",
+      "script": "scripts/gap-records-enrollment-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient only; its demographicArchive rows are removed with it.",
+      "notes": "Fails at its last step on 2026.08: changing Roster Status throws TypeError (edit.jsp:854 updateEnrolledTo calls rosterSelect.getValue(), which a <select> lacks), so the 'enrol to the MRP' confirmation never runs. Every earlier step passes."
+    },
+    {
+      "name": "gap-records-label-print-setting",
+      "script": "scripts/gap-records-label-print-setting-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient given an address, phones, chart number and a synthetic Ontario HIN by SQL; removed with the patient.",
+      "notes": "PASS expected; fails at the step naming the label count, offset or content that disagrees with the typed settings."
+    },
+    {
+      "name": "gap-records-rourke-export",
+      "script": "scripts/gap-records-rourke-export-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "The runWorkflow FAKE- patient, one marker formRourke2009 row (all checkbox columns set to 0), one marker-named patient set; the run's dataExport row and its zip in DOCUMENT_DIR are found by the marker contact name and deleted and checked gone.",
+      "notes": "Fails at its last step on 2026.08: the previous-reports table prints the typed contact user name as markup (rourkeExport.jsp unencoded getUser/getFile/setName) and its file link points at eRourkeExport?method=getFile, a parameter the action never dispatches on, so no zip is sent."
+    },
+    {
+      "name": "gap-records-usage-report",
+      "script": "scripts/gap-records-usage-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "An idle demo provider (no patients or activity of any kind, else SKIP) given six active patients, one inactive patient, five appointments, three encounter notes and four prescriptions carrying the marker; all deleted in cleanup and checked gone. Counts are scoped to that provider.",
+      "notes": "Fails at its last step on 2026.08: Scheduled Appts and Encounter Note exclude rows dated on the End Date, and percentages print float noise (16.66666716337204%). Roster size, age/sex shares, Rx count and the form validation pass first."
+    },
+    {
+      "name": "gap-records-document-annotate-save",
+      "script": "scripts/gap-records-document-annotate-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "The runWorkflow FAKE- patient (NULL HIN set to the empty HIN the inbox name search needs, L207), one owned two-page PDF with document, ctl_document and providerLabRouting rows; the annotated copy and its file are removed in cleanup and checked gone.",
+      "notes": "PASS expected; fails at the step naming the viewer, save, copy or source-integrity assertion that breaks."
+    },
+    {
+      "name": "gap-records-health-care-team-panel",
+      "script": "scripts/gap-records-health-care-team-panel-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; the one DemographicContact association is deleted in cleanup and checked gone. SKIPs when DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM is off.",
+      "notes": "Fails at its last step on 2026.08: embedded in the Master Record edit form the panel prints '???demographic.manageHealthCareTeam.*???' for its heading, labels, Add/Search buttons and placeholders (manageHealthCareTeam.jsp sets its fmt bundle only inside the detached-view branch). Add and Remove pass first."
+    },
+    {
+      "name": "gap-records-hrm-report-actions",
+      "script": "scripts/gap-records-hrm-report-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "The runWorkflow FAKE- patient (HIN set to '' so the report does not trigger N9), one owned schema-valid text HRM XML file in DOCUMENT_DIR with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows; a second active provider is only read. Cleanup deletes the owned rows and file and asserts them gone.",
+      "notes": "Fails at its last step on 2026.08: the provider autocomplete menu prints `<span class='match'>` markup as text (js/carlosAutocomplete.js renders an HTML label with .text()). Sign-Off, description, category, provider and patient steps pass first."
+    },
+    {
+      "name": "gap-records-demographic-report-criteria",
+      "script": "scripts/gap-records-demographic-report-criteria-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Six marker patients (first names P1..P6) restricted by the id list, plus the runWorkflow patient, which the list excludes; the six are removed in cleanup and checked gone. Nothing is saved (Run Query only).",
+      "notes": "PASS expected; fails at the criterion step naming the owned patients listed versus the owned patients that match."
+    },
+    {
+      "name": "gap-records-lab-patient-link",
+      "script": "scripts/gap-records-lab-patient-link-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "fixtures": "The runWorkflow FAKE- patient (NULL HIN set to the empty HIN) and one synthetic CML HL7 lab (unique accession, patient name marker-U); cleanup removes the lab rows and its archived upload file and asserts them gone.",
+      "notes": "Fails at its last step on 2026.08: (ISSUES L220) the matching popup is redirected and loses its opener, so the open lab display keeps its unmatched highlight after a patient is chosen; and (N11) PatientMatch answers a fetch() with a redirect to oscarMDS/ViewOpenEChart that the popup then aborts. Upload, popup, search, match and reopen/E-Chart steps pass first. Any other session's NULL-HIN HRM fixture (N9) makes the Inbox list steps answer 500."
+    },
+    {
+      "name": "gap-records-hrm-inbox-null-hin",
+      "script": "scripts/gap-records-hrm-inbox-null-hin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "EXCLUSIVE=1 (while the fixture exists every session's any-provider Inbox list is broken). The runWorkflow FAKE- patient with its HIN left NULL, one owned HRM XML file with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows, all removed in cleanup and checked gone.",
+      "notes": "Fails at its only step on 2026.08: the Inbox list answers HTTP 500 (HRMResultsData.java:180 NPE on the NULL health number). Run with EXCLUSIVE=1."
     }
   ]
 }
