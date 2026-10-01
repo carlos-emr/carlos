@@ -74,8 +74,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *       payload: 404.</li>
  *   <li>Decoded content that is not a PDF ({@code %PDF-}): 415.</li>
  *   <li>A PDF over the preview limit (inline only): 413.</li>
+ *   <li>A GET whose read audit record cannot be persisted: 500, before any PDF header.</li>
  *   <li>Otherwise {@code application/pdf} with {@code nosniff}, {@code no-store} and a
- *       restrictive per-response CSP; a GET writes the bytes and a read audit record.</li>
+ *       restrictive per-response CSP; a GET writes the read audit record, then the bytes.</li>
  * </ol>
  *
  * <p>Error statuses are set without a body (and without {@code sendError}, which would render the
@@ -192,19 +193,18 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
                 break;
         }
 
-        // Audit the read before any header or body is written (direct-response contract): addLog
-        // can persist synchronously when its executor is saturated, and a failure after the PDF
-        // headers would let Struts write an error page under them. An unaudited read is refused.
+        // Audit the read before any header or body is written (direct-response contract), with
+        // the strict variant: the best-effort LogAction.addLog never throws, so a failed audit
+        // would otherwise still serve the PDF. An unaudited read is refused with a bare 500, like
+        // every other error path here (no sendError, whose HTML page would land in the frame).
         if (!head) {
             try {
-                LogAction.addLog(loggedInInfo, LogConst.READ, AUDIT_CONTENT, String.valueOf(labNo), demographicNo,
+                LogAction.addLogStrict(loggedInInfo, LogConst.READ, AUDIT_CONTENT, String.valueOf(labNo), demographicNo,
                         "segment=" + segment + ",group=" + group + ",disposition=" + disposition());
             } catch (RuntimeException e) {
                 logger.error("Refused embedded lab document: the read audit failed for labNo={}",
                         LogSafe.sanitize(String.valueOf(labNo)), e);
-                noStore(response);
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                return NONE;
+                return status(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
         }
 
