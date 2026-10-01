@@ -15,9 +15,12 @@
  * today lists exactly the provider's `login` rows that the `log` table holds
  * (time, action, content, keyword, IP, demo) in dateTime order, names the
  * provider, and renders neither the owned patient's HIN nor their name; the
- * all-providers report labels each row with the provider name; the purge page
- * states its minimum-age window, refuses an empty date and lets the operator
- * cancel its confirm, with the `log` row count unchanged and no POST sent.
+ * all-providers report labels each row with the provider name and matches the
+ * rows of the providers it offers (the user's site under _site_access_privacy);
+ * opening the purge tool sends no POST and leaves the rows a purge would erase
+ * intact, and when the tool renders its form (it currently does not, reported)
+ * the empty-date alert and the confirm cancel are driven. Parity assertions
+ * tolerate rows other parallel checks add or remove between the snapshots.
  *
  * Fixtures: the harness's owned synthetic patient (given a synthetic HIN here).
  * Audit rows are append-only evidence and are left alone, except the rows that

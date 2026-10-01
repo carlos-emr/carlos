@@ -3209,7 +3209,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates one SystemMessage through the administration UI and deletes it; asserts the day-sheet banner shows and then drops it."
+      "fixtures": "Creates one SystemMessage through the administration UI and deletes it by id/marker; asserts the day-sheet banner shows and then drops it. SKIPs when the CAISI module (caisi=on) is off, because the menu entry is CAISI-gated.",
+      "notes": "Skips on the packaged default (caisi=off); its later steps have not run on a caisi=on deployment yet."
     },
     {
       "name": "admin-audit-log",
@@ -3227,7 +3228,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient (given a synthetic HIN); leaves audit rows untouched except those referencing the owned demographic_no, which it deletes. Never purges."
+      "fixtures": "Owned synthetic patient (given a synthetic HIN); audit rows are left in place except those referencing the owned demographic_no, which cleanup deletes. Parallel-safe: parity and purge assertions are scoped to attributable rows. Never purges."
     },
     {
       "name": "demographic-merge",

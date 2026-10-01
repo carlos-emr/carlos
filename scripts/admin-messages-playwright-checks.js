@@ -18,6 +18,10 @@
  * Fixtures: only SystemMessage rows created through the UI in this run; cleanup
  * deletes rows above the pre-run id high-water mark that carry the run marker
  * and asserts they are gone. The UI offers no delete control (reported).
+ *
+ * SKIPs on a deployment with the CAISI module off (carlos.properties caisi=off):
+ * the only menu entry for System Messages lives in the CAISI administration
+ * group, so the route then has no user path to drive.
  */
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
