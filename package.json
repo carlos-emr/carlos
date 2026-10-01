@@ -223,7 +223,8 @@
     "test:report-query-by-example-playwright": "node scripts/report-query-by-example-playwright-checks.js",
     "test:fax-queue-admin-playwright": "node scripts/fax-queue-admin-playwright-checks.js",
     "test:billing-on-correction-delete-playwright": "node scripts/billing-on-correction-delete-playwright-checks.js",
-    "test:billing-shortcut-playwright": "node scripts/billing-shortcut-playwright-checks.js"
+    "test:billing-shortcut-playwright": "node scripts/billing-shortcut-playwright-checks.js",
+    "test:demographic-report-favourites-playwright": "node scripts/demographic-report-favourites-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

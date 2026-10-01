@@ -3520,6 +3520,25 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned patient and appointment billed through the month-view billing shortcut; owned billing and appointment rows removed."
+    },
+    {
+      "name": "demographic-report-favourites",
+      "script": "scripts/demographic-report-favourites-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned patient plus a second marker patient; demographicQueryFavourites rows named with the marker; cleanup deletes only marker rows and asserts they are gone.",
+      "notes": "Fails at its last step on 2026.08: a GET of report/DemographicReport with query=Save Query writes a saved query (no GET rejection, no CSRF on GET)."
     }
   ]
 }
