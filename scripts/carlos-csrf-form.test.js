@@ -163,7 +163,30 @@ function makeDom() {
     set(value) { this._value = String(value); },
   });
 
-  class HTMLFormElement extends Element {}
+  const CONTROL_TAGS = new Set(['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA']);
+
+  class HTMLFormElement extends Element {
+    /**
+     * The form's own controls, as the browser computes them: descendants that
+     * are not reassigned elsewhere by a form="" attribute, plus any control in
+     * the document whose form="" names this form's id.
+     */
+    get elements() {
+      const id = this.getAttribute('id');
+      const all = documentElement.descendants().filter((node) => CONTROL_TAGS.has(node.tagName));
+      return all.filter((node) => {
+        const owner = node.getAttribute('form');
+        if (owner !== null) {
+          return id !== null && owner === id;
+        }
+        let parent = node.parentNode;
+        while (parent && parent.tagName !== 'FORM') {
+          parent = parent.parentNode;
+        }
+        return parent === this;
+      });
+    }
+  }
   HTMLFormElement.prototype.requestSubmit = function requestSubmit(submitter) {
     // Like the browser: dispatch a cancelable submit event, then submit.
     const event = {
@@ -180,7 +203,7 @@ function makeDom() {
   };
   HTMLFormElement.prototype.submit = function submit(submitter) {
     const fields = {};
-    this.querySelectorAll('input').forEach((input) => {
+    this.elements.filter((node) => node.tagName === 'INPUT').forEach((input) => {
       // As in the browser, submit buttons are not sent unless they are the
       // submitter; a replay that lost its submitter must show up as such.
       if (input.getAttribute('type') === 'submit') {
@@ -943,6 +966,42 @@ test('after a blanked override, an ordinary submit of the same form is re-tokeni
   form.requestSubmit(save);
 
   assert.deepEqual(helper.dom.submissions()[1].fields['CSRF-TOKEN'], ['PAGE-TOKEN']);
+});
+
+test('a token input owned by another form (form="") is never written', async () => {
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
+  const foreign = buildForm(helper.dom, { action: 'https://elsewhere.example/x' });
+  foreign.setAttribute('id', 'foreignForm');
+  const ours = buildForm(helper.dom, { action: '/carlos/y' });
+  // Sits inside our form but is submitted by the foreign one.
+  const borrowed = helper.dom.document.createElement('input');
+  borrowed.setAttribute('name', 'CSRF-TOKEN');
+  borrowed.setAttribute('form', 'foreignForm');
+  ours.appendChild(borrowed);
+  [foreign, ours].forEach((form) => helper.dom.document.body.appendChild(form));
+
+  await helper.window.carlosSubmitForm(ours);
+
+  assert.equal(borrowed.value, '', 'the foreign form\'s field did not receive the token');
+  assert.deepEqual(helper.dom.submissions()[0].fields['CSRF-TOKEN'], ['PAGE-TOKEN'],
+    'our form got a token input of its own instead');
+});
+
+test('a token input outside the form but owned by it (form="") is cleared for an excluded submission', async () => {
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
+  const form = buildForm(helper.dom, { method: 'get', action: '/carlos/search' });
+  form.setAttribute('id', 'searchForm');
+  const outside = helper.dom.document.createElement('input');
+  outside.setAttribute('name', 'CSRF-TOKEN');
+  outside.setAttribute('form', 'searchForm');
+  outside.value = 'PAGE-TOKEN';
+  helper.dom.document.body.appendChild(form);
+  helper.dom.document.body.appendChild(outside);
+
+  await helper.window.carlosSubmitForm(form);
+
+  assert.equal(outside.value, '', 'the GET submission does not carry the token into its URL');
+  assert.deepEqual(helper.dom.submissions()[0].fields['CSRF-TOKEN'], ['']);
 });
 
 /* ------------------------------------------------------------------------ */

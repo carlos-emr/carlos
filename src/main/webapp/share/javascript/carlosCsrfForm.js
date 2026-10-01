@@ -247,13 +247,29 @@
     }
 
     /**
-     * Writes the token into the form, reusing a CSRF-TOKEN input it already
-     * has. Uses querySelectorAll rather than form.elements[name]: a form whose
-     * controls are named with numbers (the dx code search results) makes
-     * form.elements resolve names as indexes.
+     * The CSRF-TOKEN inputs this form will actually submit: its own controls,
+     * per form.elements. That honours the form="" attribute (an input inside
+     * this form may belong to another, and one outside may belong to this), so
+     * the token never goes into a field another form submits. Iterated by
+     * index, never form.elements[name]: a form whose controls are named with
+     * numbers (the dx code search) makes named lookups resolve as indexes.
      */
+    function ownedTokenInputs(form) {
+        var owned = [];
+        var controls = form.elements;
+        if (controls && typeof controls.length === 'number') {
+            for (var i = 0; i < controls.length; i++) {
+                if (controls[i] && controls[i].name === TOKEN_NAME) {
+                    owned.push(controls[i]);
+                }
+            }
+        }
+        return owned;
+    }
+
+    /** Writes the token into the form, reusing a CSRF-TOKEN input it already owns. */
     function setFormToken(form, value) {
-        var inputs = form.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
+        var inputs = ownedTokenInputs(form);
         if (inputs.length > 0) {
             for (var i = 0; i < inputs.length; i++) {
                 inputs[i].value = value;
@@ -268,14 +284,14 @@
     }
 
     function clearFormToken(form) {
-        var inputs = form.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
+        var inputs = ownedTokenInputs(form);
         for (var i = 0; i < inputs.length; i++) {
             inputs[i].value = '';
         }
     }
 
     function hasToken(form) {
-        var inputs = form.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
+        var inputs = ownedTokenInputs(form);
         for (var i = 0; i < inputs.length; i++) {
             if (inputs[i].value) {
                 return true;
