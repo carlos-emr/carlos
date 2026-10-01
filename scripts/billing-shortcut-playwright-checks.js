@@ -95,9 +95,13 @@ async function driveShortcutSave(s, page, { code, provider, today, fee }) {
     page.locator(`${PAGE1_FORM} input[type="submit"][name="submit"]`).click(),
   ]);
   await h.assertNotErrorPage(page, 'billing shortcut page 2');
-  const confirm = page.locator('form[name="titlesearch"] input[name="addition"][value="Confirm"]');
-  await confirm.waitFor({ state: 'attached', timeout: 20000 });
+  // billingShortcutPg2.jsp opens its <form> inside a <table>, so the browser
+  // hoists the controls out of the form element: do not scope to the form.
+  const confirm = page.locator('input[name="addition"][value="Confirm"]');
+  await confirm.waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
   const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
+  h.assert(await confirm.count() === 1,
+    `Next did not reach the confirmation page; it rendered: ${body.slice(0, 300)}`);
   h.assert(/Calculation/.test(body) && body.includes(code) && body.includes(`Total: ${Number(fee).toFixed(2)}`),
     'Page 2 did not show the calculation for the chosen code at the schedule fee');
   let response;

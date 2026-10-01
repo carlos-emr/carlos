@@ -224,7 +224,14 @@
     "test:fax-queue-admin-playwright": "node scripts/fax-queue-admin-playwright-checks.js",
     "test:billing-on-correction-delete-playwright": "node scripts/billing-on-correction-delete-playwright-checks.js",
     "test:billing-shortcut-playwright": "node scripts/billing-shortcut-playwright-checks.js",
-    "test:demographic-report-favourites-playwright": "node scripts/demographic-report-favourites-playwright-checks.js"
+    "test:demographic-report-favourites-playwright": "node scripts/demographic-report-favourites-playwright-checks.js",
+    "test:admin-jobs-playwright": "node scripts/admin-jobs-playwright-checks.js",
+    "test:admin-lookup-lists-playwright": "node scripts/admin-lookup-lists-playwright-checks.js",
+    "test:admin-update-demographic-provider-playwright": "node scripts/admin-update-demographic-provider-playwright-checks.js",
+    "test:dx-registry-quicklist-playwright": "node scripts/dx-registry-quicklist-playwright-checks.js",
+    "test:flowsheet-patient-customization-playwright": "node scripts/flowsheet-patient-customization-playwright-checks.js",
+    "test:immunization-schedule-config-playwright": "node scripts/immunization-schedule-config-playwright-checks.js",
+    "test:report-by-template-playwright": "node scripts/report-by-template-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

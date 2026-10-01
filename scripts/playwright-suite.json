@@ -3383,7 +3383,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owned prescription and drugs rows for the synthetic patient; drug profile print rendering (pdftotext), previous prints, and Write to Encounter; owned casemgmt_note/drugs/prescription rows removed."
+      "fixtures": "Owned prescription and drugs rows for the synthetic patient; drug profile print rendering (pdftotext), previous prints, and Write to Encounter; owned casemgmt_note/drugs/prescription rows removed.",
+      "notes": "Needs pdftotext; the drug profile is HTML + window.print(), so the PDF asserted is the browser print rendering."
     },
     {
       "name": "tickler-forward-preferences",
@@ -3396,7 +3397,9 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
+      "env": [
+        "TICKLER_PREFS_DIRECT"
+      ],
       "fixtures": "Owned ticklers for the synthetic patient reassigned between providers; property tickler_task_assignee snapshotted and restored."
     },
     {
@@ -3539,6 +3542,104 @@
       ],
       "fixtures": "Owned patient plus a second marker patient; demographicQueryFavourites rows named with the marker; cleanup deletes only marker rows and asserts they are gone.",
       "notes": "Fails at its last step on 2026.08: a GET of report/DemographicReport with query=Save Query writes a saved query (no GET rejection, no CSRF on GET)."
+    },
+    {
+      "name": "admin-jobs",
+      "script": "scripts/admin-jobs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "admin-lookup-lists",
+      "script": "scripts/admin-lookup-lists-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "admin-update-demographic-provider",
+      "script": "scripts/admin-update-demographic-provider-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "dx-registry-quicklist",
+      "script": "scripts/dx-registry-quicklist-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "flowsheet-patient-customization",
+      "script": "scripts/flowsheet-patient-customization-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "immunization-schedule-config",
+      "script": "scripts/immunization-schedule-config-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "report-by-template",
+      "script": "scripts/report-by-template-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
     }
   ]
 }
