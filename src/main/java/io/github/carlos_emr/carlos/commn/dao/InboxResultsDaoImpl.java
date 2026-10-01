@@ -322,6 +322,9 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     moduleLoc = 7;
                     descriptionLoc = 10;
                     updateDateLoc = 11;
+                    // Patient-search columns are COALESCEd: a NULL HIN or name (uninsured, newborn,
+                    // out-of-province or imported patients) never satisfies LIKE, so a blank search
+                    // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = " SELECT plr.id, doc.document_no, plr.status, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id, "
                         + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
                         + " FROM demographic d, providerLabRouting plr, document doc,  "
@@ -330,7 +333,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "		(SELECT DISTINCT plr.id, plr.lab_type, d.demographic_no "
                         + "			FROM providerLabRouting plr, ctl_document cd, demographic d "
                         + "			WHERE 	 "
-                        + "			(d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
+                        + "			(COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "		AND cd.module_id = d.demographic_no 	AND cd.document_no = plr.lab_no	AND plr.lab_type = 'DOC' "
                         + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
@@ -340,7 +343,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "		(SELECT DISTINCT plr.id, plr.lab_type, d.demographic_no "
                         + "		FROM providerLabRouting plr, patientLabRouting plr2, demographic d"
                         + (isAbnormal != null ? ", hl7TextInfo info " : " ")
-                        + "		WHERE d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
+                        + "		WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "		AND	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
                         + (isAbnormal != null ? " AND plr.lab_no = info.lab_no AND (info.result_status IS NULL OR info.result_status != 'A') "
                         : " ")
@@ -447,10 +450,13 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     moduleLoc = 7;
                     descriptionLoc = 10;
                     updateDateLoc = 11;
+                    // Patient-search columns are COALESCEd: a NULL HIN or name (uninsured, newborn,
+                    // out-of-province or imported patients) never satisfies LIKE, so a blank search
+                    // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = "SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
                         + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
                         + "FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
-                        + "WHERE d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
+                        + "WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "	AND cd.module_id = d.demographic_no "
                         + "	AND cd.document_no = plr.lab_no "
                         + "	AND plr.lab_type = 'DOC' "

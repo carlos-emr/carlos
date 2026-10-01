@@ -34,6 +34,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -555,6 +557,67 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
                     false, null, null, false, null, startDate, endDate);
 
             // Then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    /**
+     * The Inbox patient search matched a document through {@code d.hin LIKE :patientHealthNumber},
+     * which a NULL HIN never satisfies, so a patient without a health card number disappeared from
+     * every name search.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData patient search with a missing health card number")
+    @Tag("search")
+    class PopulateDocumentResultsDataNullHin {
+
+        private Integer createPatientWithoutHin(String lastName) {
+            Demographic demo = new Demographic();
+            demo.setFirstName("Nohin");
+            demo.setLastName(lastName);
+            demo.setHin(null);
+            demo.setSex("F");
+            demo.setProviderNo(PROVIDER_NO);
+            demo.setPatientStatus("AC");
+            demo.setPatientStatusDate(today);
+            demo.setDateJoined(today);
+            hibernateTemplate.save(demo);
+            hibernateTemplate.flush();
+            return demo.getDemographicNo();
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should find a routed document by name when the patient has no HIN")
+        @SuppressWarnings("unchecked")
+        void shouldFindDocument_whenPatientHinIsNull(boolean mixLabsAndDocs) {
+            Integer patient = createPatientWithoutHin("Nullhindoc");
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", patient, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+
+            ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, "", "", "Nullhindoc", "", "N",
+                    false, null, null, mixLabsAndDocs, null);
+
+            assertThat(result).extracting(lrd -> lrd.segmentID)
+                    .containsExactly(String.valueOf(doc.getDocumentNo()));
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should not match a patient without a HIN when a health number is searched")
+        @SuppressWarnings("unchecked")
+        void shouldExcludeNullHinPatient_whenHealthNumberIsSearched(boolean mixLabsAndDocs) {
+            Integer patient = createPatientWithoutHin("Nullhinexcluded");
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", patient, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+
+            ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, "", "", "Nullhinexcluded", "12345", "N",
+                    false, null, null, mixLabsAndDocs, null);
+
             assertThat(result).isEmpty();
         }
     }

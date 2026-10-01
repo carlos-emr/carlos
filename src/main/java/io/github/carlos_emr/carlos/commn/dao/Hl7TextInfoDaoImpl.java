@@ -373,6 +373,9 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "message.created" : "info.obr_date") + " DESC "
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             } else if (patientSearch) { // N
+                // Patient-search columns are COALESCEd: a NULL HIN or name (uninsured, newborn,
+                // out-of-province or imported patients) never satisfies LIKE, so a blank search
+                // field ("%%") would otherwise drop those patients from every Inbox search.
                 sql = " SELECT info.label, info.lab_no, info.sex, info.health_no, info.result_status," + (dateSearchType.equals("receivedCreated") ? " message.created" : "info.obr_date")
                         + ", info.priority, info.requesting_client, info.discipline, info.last_name, info.first_name, info.report_status, info.accessionNum, info.final_result_count, Z.status "
                         + " FROM hl7TextInfo info, " + (dateSearchType.equals("receivedCreated") ? " hl7TextMessage message, " : "")
@@ -380,14 +383,14 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + "			(SELECT DISTINCT plr.id, plr.lab_type, plr.lab_no, plr.status, d.demographic_no "
                         + "				FROM providerLabRouting plr, ctl_document cd, demographic d "
                         + "				WHERE "
-                        + "					d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
+                        + "					COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "					AND cd.module_id = d.demographic_no 	AND cd.document_no = plr.lab_no	AND plr.lab_type = 'DOC' "
                         + "					AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 		) AS X "
                         + " 		UNION "
                         + "			(SELECT DISTINCT plr.id, plr.lab_type, plr.lab_no, plr.status, d.demographic_no "
                         + "				FROM providerLabRouting plr, patientLabRouting plr2, demographic d" + (isAbnormal != null ? ", hl7TextInfo info " : " ")
-                        + "				WHERE d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
+                        + "				WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "					AND	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
                          + 					(isAbnormal != null ? " AND plr.lab_no = info.lab_no AND "+(!isAbnormal? "(info.result_status IS NULL OR info.result_status != 'A')": "(info.result_status = 'A')")+" " : " " )
                         + "					AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
@@ -396,7 +399,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " 		UNION "
                         + " 		(SELECT DISTINCT plr.id, plr.lab_type, plr.lab_no, plr.status, NULL AS demographic_no "
                         + " 			FROM providerLabRouting plr, hl7TextInfo info "
-                        + " 			WHERE info.first_name like :patientFirstName AND info.last_name like :patientLastName AND info.health_no like :patientHealthNumber "
+                        + " 			WHERE COALESCE(info.first_name, '') like :patientFirstName AND COALESCE(info.last_name, '') like :patientLastName AND COALESCE(info.health_no, '') like :patientHealthNumber "
                         + " 				AND plr.lab_type = 'HL7' AND plr.lab_no = info.lab_no "
                          +					(isAbnormal != null ? " AND "+(isAbnormal? "info.result_status = 'A'": "(info.result_status IS NULL OR info.result_status != 'A')")+"" : " ")
                         + " 				AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
@@ -459,13 +462,16 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "message.created" : "info.obr_date") + " DESC "
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
             } else if (patientSearch) { // A
+                // Patient-search columns are COALESCEd: a NULL HIN or name (uninsured, newborn,
+                // out-of-province or imported patients) never satisfies LIKE, so a blank search
+                // field ("%%") would otherwise drop those patients from every Inbox search.
                 sql = " SELECT info.label, info.lab_no, info.sex, info.health_no, info.result_status," + (dateSearchType.equals("receivedCreated") ? " message.created" : "info.obr_date") + ", info.priority, " +
                         "info.requesting_client, info.discipline, info.last_name, info.first_name, info.report_status, info.accessionNum, info.final_result_count, Z.status "
                         + " FROM hl7TextInfo info, " + (dateSearchType.equals("receivedCreated") ? " hl7TextMessage message, " : "")
                         + " 	(SELECT * FROM "
                         + " 		(SELECT DISTINCT plr.id, plr.lab_type, plr.status, plr.lab_no, d.demographic_no "
                         + " 			FROM providerLabRouting plr, patientLabRouting plr2, demographic d "
-                        + " 			WHERE d.first_name like :patientFirstName AND d.last_name like :patientLastName AND d.hin like :patientHealthNumber "
+                        + " 			WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + " 				AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = d.demographic_no "
                         + " 				AND plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
                         + " 				AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
@@ -473,7 +479,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " 		UNION "
                         + " 		(SELECT DISTINCT plr.id, plr.lab_type, plr.status, plr.lab_no, NULL AS demographic_no "
                         + " 			FROM providerLabRouting plr, hl7TextInfo info "
-                        + " 			WHERE info.first_name like :patientFirstName AND info.last_name like :patientLastName AND info.health_no like :patientHealthNumber "
+                        + " 			WHERE COALESCE(info.first_name, '') like :patientFirstName AND COALESCE(info.last_name, '') like :patientLastName AND COALESCE(info.health_no, '') like :patientHealthNumber "
                         + " 				AND plr.lab_type = 'HL7' AND plr.lab_no = info.lab_no "
                         + " 				AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 				AND plr.lab_no NOT IN (SELECT DISTINCT lab_no FROM patientLabRouting WHERE lab_type = 'HL7' AND demographic_no != 0) "

@@ -240,9 +240,7 @@ async function openLabFromInbox(s, labNo, label) {
 }
 
 async function workflow(s) {
-  // The Inbox patient search matches a routed lab through d.hin LIKE '%...%', which a NULL HIN
-  // never satisfies; the owned fixture patient has none, so give it an empty one.
-  s.sql.execute(`UPDATE demographic SET hin='' WHERE demographic_no=${s.patient} AND hin IS NULL`);
+  // The owned fixture patient has no HIN (NULL): the Inbox patient search must still find it.
   const labNo = seedLab(s);
   const preferences = ownPreferences(s);
   // Start from the shipped defaults whatever this database holds.
