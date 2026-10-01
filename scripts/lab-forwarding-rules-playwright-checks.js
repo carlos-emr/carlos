@@ -111,11 +111,16 @@ function removeArchiveFiles(names) {
 /**
  * The run's own archives found by the known upload name (LabUpload.<fileName>.<millis>), so a
  * file the uploader saved before a rejected or rolled-back upload (no committed lab row to
- * discover it through) is still found. Empty when the store is not configured.
+ * discover it through) is still found. Without the store it warns with the run's archive name
+ * prefix (as removeArchiveFiles does for known names) and returns none, so a retained file is
+ * always reported.
  */
 function archivesNamed(fileName) {
   const store = process.env.LAB_UPLOAD_DOCUMENT_STORE;
-  if (!store) return [];
+  if (!store) {
+    console.warn(`    archived lab upload may be retained: set LAB_UPLOAD_DOCUMENT_STORE to check/remove LabUpload.${fileName}.*`);
+    return [];
+  }
   const prefix = `LabUpload.${fileName}.`;
   return fs.readdirSync(fs.realpathSync(store))
     .filter((name) => name.startsWith(prefix) && /^\d+$/.test(name.slice(prefix.length)) && ARCHIVE_NAME.test(name));

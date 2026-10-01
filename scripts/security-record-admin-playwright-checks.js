@@ -32,6 +32,8 @@ const LINK = 'Search/Edit/Delete Security Records';
 // preferences popup can add its children; mirrors lib/throwaway-login-fixture.js.
 const PROVIDER_PREFERENCE_TABLES = ['ProviderPreferenceAppointmentScreenEForm', 'ProviderPreferenceAppointmentScreenForm',
   'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
+// provider_no-keyed tables cleanup deletes from wholesale; the picker checks them too.
+const PROVIDER_LINKED_TABLES = ['secUserRole', 'program_provider', 'provider_facility', 'providersite', 'property'];
 
 // provider_no is varchar(6); choose a high value nobody holds anywhere cleanup deletes by
 // provider number, so leftovers of a deleted provider (audit log, preferences) are never swept up.
@@ -39,9 +41,13 @@ function pickUnusedProviderNo(sql) {
   for (let attempt = 0; attempt < 50; attempt++) {
     const candidate = String(randomInt(700000, 999000));
     const c = h.sqlString(candidate);
-    const used = sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${c})
-      + (SELECT COUNT(*) FROM security WHERE provider_no=${c}) + (SELECT COUNT(*) FROM log WHERE provider_no=${c})
-      + ${PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`).join(' + ')}`);
+    const used = sql.value(`SELECT ${[
+      `(SELECT COUNT(*) FROM provider WHERE provider_no=${c})`,
+      `(SELECT COUNT(*) FROM security WHERE provider_no=${c})`,
+      `(SELECT COUNT(*) FROM log WHERE provider_no=${c})`,
+      ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`),
+      ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`),
+    ].join(' + ')}`);
     if (used === '0') return candidate;
   }
   h.assert(false, 'No unused provider number was found in the fixture range');
@@ -96,9 +102,7 @@ async function workflow(s) {
       AND action IN ('failed','unlock')))`;
     sql.execute(`DELETE FROM log WHERE ${ownedLog}`);
     sql.execute(`DELETE FROM security WHERE provider_no=${no} AND user_name IN (${h.sqlString(userName)},${h.sqlString(renamed)})`);
-    for (const table of ['secUserRole', 'program_provider', 'provider_facility', 'providersite', 'property']) {
-      sql.execute(`DELETE FROM ${table} WHERE provider_no=${no}`);
-    }
+    for (const table of PROVIDER_LINKED_TABLES) sql.execute(`DELETE FROM ${table} WHERE provider_no=${no}`);
     // Logging in creates ProviderPreference (keyed providerNo) and may add its children.
     for (const table of PROVIDER_PREFERENCE_TABLES) sql.execute(`DELETE FROM ${table} WHERE providerNo=${no}`);
     sql.execute(`DELETE FROM provider WHERE provider_no=${no} AND last_name=${h.sqlString(s.marker)}`);

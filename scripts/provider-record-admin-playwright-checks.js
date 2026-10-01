@@ -35,13 +35,14 @@ const ADD_LINK = 'Add a Provider Record';
 const SEARCH_LINK = 'Search/Edit Provider Records';
 const CHILD_TABLES = ['providerbillcenter', 'providersite', 'providerArchive', 'property', 'secUserRole', 'security'];
 
-// provider_no is varchar(6); choose a high value nobody holds anywhere a provider is referenced.
+// provider_no is varchar(6); choose a high value no row holds in provider or in any table
+// cleanup deletes from by provider number, so pre-existing orphan rows are never swept up.
 function pickUnusedProviderNo(sql) {
   for (let attempt = 0; attempt < 50; attempt++) {
     const candidate = String(randomInt(700000, 999000));
     const quoted = h.sqlString(candidate);
-    const used = sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${quoted})
-      + (SELECT COUNT(*) FROM security WHERE provider_no=${quoted}) + (SELECT COUNT(*) FROM providerArchive WHERE provider_no=${quoted})`);
+    const used = sql.value(`SELECT ${['provider', ...CHILD_TABLES]
+      .map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${quoted})`).join(' + ')}`);
     if (used === '0') return candidate;
   }
   h.assert(false, 'No unused provider number was found in the fixture range');

@@ -25,6 +25,7 @@
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
+const {settleOperations} = require('./graceful-signal-cancellation');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 
 const TIMEOUT = 20000;
@@ -80,8 +81,8 @@ async function workflow(s) {
   async function managerPost(frame, action) {
     const response = admin.waitForResponse(r => r.request().method() === 'POST'
       && new URL(r.url()).pathname.endsWith('/lookupListManagerAction') && r.request().frame() === frame, {timeout: TIMEOUT});
-    await action();
-    const answered = await response;
+    // Settle both so a click that fails before dispatch cannot leave the waiter to reject unhandled.
+    const [, answered] = await settleOperations([Promise.resolve().then(action), response]);
     h.assert(answered.status() === 200, `The lookup list manager answered HTTP ${answered.status()}`);
     await frame.waitForFunction(() => window.jQuery && window.jQuery.active === 0, null, {timeout: TIMEOUT});
   }
