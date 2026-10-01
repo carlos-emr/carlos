@@ -167,12 +167,16 @@ async function workflow(s) {
 
   // E-Chart ▸ eForms "+" ▸ owned eForm ▸ Email. The patient has not opted in, so the toolbar asks
   // for the explicit 'Yes' acknowledgement before it saves the eForm and opens the composer.
+  // The Add eForm list stays open between the two sends, as it does for a clinician: the chart
+  // reopens it by window name, so a second "+" would focus it rather than open a new window.
+  let list;
   async function composeFromChart(note) {
-    const chart = await s.chart();
-    const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'email-eform-list');
+    if (!list || list.isClosed()) {
+      const chart = await s.chart();
+      list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'email-eform-list');
+    }
     await list.locator('#efmTable').waitFor();
     const form = await s.popup(list, list.locator('#efmTable').getByRole('link', {name: formName, exact: true}), 'email-eform');
-    await list.close();
     await form.locator('#note').fill(note);
     const email = form.locator('#remoteEmailButton');
     await email.waitFor({timeout: TIMEOUT});

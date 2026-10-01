@@ -15,8 +15,10 @@
  * Asserts the `scheduleholiday`, `scheduletemplatecode`, `scheduledate`, `appointment_status` and
  * `appointmentType` rows after each save/delete, the validation alerts, the preview and calendar
  * rendering of the owned code and holiday, and that GET cannot reach any of the mutators.
- * Fixtures: a marker provider with one seeded day template, an unused template code character, a
- * holiday on a free far-future date, and a marker appointment type. One editable appointment
+ * Fixtures: a throwaway login (doctor + an owned role holding _admin.schedule; the seeded admin
+ * role carries _site_access_privacy, which hides Holiday/Template Code Setting) with one seeded day
+ * template, an unused template code character, a holiday on a free far-future date, and a marker
+ * appointment type. One editable appointment
  * status is snapshotted, changed through the UI and restored (run with EXCLUSIVE=1: the status
  * label/colour is clinic-wide). Cleanup deletes only rows carrying the marker or owned keys.
  */

@@ -119,6 +119,8 @@ async function workflow(s) {
   h.assert(free(`SELECT COUNT(*) FROM billingservice WHERE service_code=${h.sqlString(privateCode)}`), 'Private code collision');
   const location = pickFree(no => free(`SELECT COUNT(*) FROM clinic_location WHERE clinic_location_no=${h.sqlString(no)}`),
     () => `PW${String(randomInt(10000)).padStart(4, '0')}`, 'location number');
+  // The private-code date field is a readonly flatpickr: pick a day the calendar offers.
+  const issued = `${new Date().toISOString().slice(0, 7)}-01`;
   const formName = `${marker} form`;
   const locationName = `${marker} loc`;
   const descA = `${marker} svc A`;
@@ -175,25 +177,135 @@ async function workflow(s) {
       'Searching an unused private code did not offer to add it');
     await form.locator('input[name="description"]').fill(`${marker} private`);
     await form.locator('input[name="value"]').fill('31.50');
-    await form.locator('#billingservice_date').fill('2020-01-01');
-    await form.locator('input[name="description"]').click();
+    await ui.pickDate(frame, form.locator('#billingservice_date'), issued);
     const dialogs = await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('input[name="submit"][value="Save"]')));
     h.assert(dialogs.length === 1 && /sure you want to save/i.test(dialogs[0].text), 'Save did not ask for confirmation once');
     h.assert((await frame.locator('form[name="baseurl"] .alert').innerText()).includes(`${privateCode} is added`),
       'The add banner did not name the private code');
-    h.assert(sql.value(`SELECT CONCAT_WS('|', description, value, billingservice_date, region) FROM billingservice
-      WHERE service_code=${h.sqlString(privateCode)}`) === `${marker} private|31.50|2020-01-01|ON`,
+    h.assert(sql.value(`SELECT CONCAT_WS('|', description, value, billingservice_date, termination_date) FROM billingservice
+      WHERE service_code=${h.sqlString(privateCode)}`) === `${marker} private|31.50|${issued}|9999-12-31`,
     'The private code row does not carry the typed description, fee and date');
-    await frame.locator('#service_code').selectOption(privateCode);
+    await frame.locator('#service_code').selectOption(privateBare);
     await navigates(admin, frame, frame.locator('form[name="baseur0"] input[name="action"][value="Edit"]'));
     h.assert(await form.locator('input[name="description"]').inputValue() === `${marker} private`,
       'Editing the private code did not load its description');
     await form.locator('input[name="value"]').fill('32.75');
-    await form.locator('#billingservice_date').fill('2020-01-01');
-    await form.locator('input[name="description"]').click();
+    await ui.pickDate(frame, form.locator('#billingservice_date'), issued);
     await h.withExpectedDialogs(admin, () => navigates(admin, frame, form.locator('input[name="submit"][value="Save"]')));
     h.assert(sql.value(`SELECT CONCAT_WS('|', COUNT(*), MAX(value)) FROM billingservice
       WHERE service_code=${h.sqlString(privateCode)}`) === '1|32.75', 'The private code edit did not update its single row');
+  });
+
+  await s.step('Add Billing Form refuses an empty id in the browser and GET at the server, then adds the owned form', async () => {
+    frame = await adminFrame(admin, FORM_ROUTE, 'form[name="serviceform"]');
+    await manageForm(admin, frame, '000');
+    const add = frame.locator('form[name="servicetypeform"]');
+    await add.waitFor({ state: 'visible' });
+    const dialogs = await h.withExpectedDialogs(admin, () => add.locator('input[name="addForm"]').click());
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'An empty service type id did not raise the required-field alert');
+    const refused = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/DbManageBillingformAdd'), {
+      params: { typeid: typeId, type: formName, group1: 'G1', group2: 'G2', group3: 'G3', billtype: 'ODP' }, maxRedirects: 0,
+    });
+    h.assert(refused.status() === 405, 'DbManageBillingformAdd must reject GET');
+    h.assert(ctlServices() === '' && ctlDx() === '' && billType() === '', 'A refused add wrote billing form rows');
+    await add.locator('input[name="typeid"]').fill(typeId);
+    await add.locator('input[name="type"]').fill(formName);
+    await add.locator('input[name="group1"]').fill('FAKE Group One');
+    await add.locator('input[name="group2"]').fill('FAKE Group Two');
+    await add.locator('input[name="group3"]').fill('FAKE Group Three');
+    await add.locator('select[name="billtype"]').selectOption('ODP');
+    await navigates(admin, frame, add.locator('input[name="addForm"]'));
+    await expectValue(sql, `SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(typeId)}`, '3',
+      'Adding the billing form did not write its three service groups');
+    h.assert(ctlServices() === ['Group1|FAKE Group One', 'Group2|FAKE Group Two', 'Group3|FAKE Group Three']
+      .map(group => `${group}|A007A|${formName}`).join(';'), 'The added form rows do not carry the typed name and groups');
+    h.assert(ctlDx() === '000' && billType() === 'ODP', 'The added form did not seed its dx row and default bill type');
+    await manageForm(admin, frame, '000');
+    h.assert(await frame.locator('a[title="Manage Billing Form"]', { hasText: formName }).count() === 1,
+      'The existing-forms list does not show the added form');
+    h.assert(await frame.locator(`form[name="serviceform"] select[name="billingform"] option[value="${typeId}"]`).count() === 1,
+      'The form chooser does not offer the added form');
+  });
+
+  await s.step('a second add with the same id is refused with a message and writes nothing', async () => {
+    const add = frame.locator('form[name="servicetypeform"]');
+    await add.locator('input[name="typeid"]').fill(typeId);
+    await add.locator('input[name="type"]').fill(`${formName} dup`);
+    await navigates(admin, frame, add.locator('input[name="addForm"]'));
+    h.assert((await frame.locator('form[name="servicetypeform"]').innerText()).includes(`Service Type ID '${typeId}' already exists`),
+      'The duplicate add did not explain the refusal');
+    h.assert(sql.value(`SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(typeId)}`) === '3',
+      'The duplicate add wrote rows');
+  });
+
+  await s.step('service codes saved on the form replace its groups with the owned and private codes', async () => {
+    await manageForm(admin, frame, typeId, 'servicecode');
+    const grid = frame.locator('form[action="DbManageBillingformService"]');
+    h.assert(await grid.locator('input[name="group1"]').inputValue() === 'FAKE Group One', 'The service grid did not load the group names');
+    h.assert(await grid.locator('input[name="group1_service0"]').inputValue() === 'A007A', 'The service grid did not load the seeded code');
+    await grid.locator('input[name="group1_service0"]').fill(codeA);
+    await grid.locator('input[name="group1_service0_order"]').fill('1');
+    await grid.locator('input[name="group2_service0"]').fill(codeB);
+    await grid.locator('input[name="group2_service0_order"]').fill('1');
+    await grid.locator('input[name="group3_service0"]').fill(privateCode);
+    await grid.locator('input[name="group3_service0_order"]').fill('1');
+    await navigates(admin, frame, grid.locator('input[type="submit"][name="submit"]'));
+    await expectValue(sql, `SELECT GROUP_CONCAT(service_code ORDER BY service_group) FROM ctl_billingservice
+      WHERE servicetype=${h.sqlString(typeId)}`, [codeA, codeB, privateCode].join(','), 'The service grid save did not replace the codes');
+    h.assert(ctlServices() === [`Group1|FAKE Group One|${codeA}`, `Group2|FAKE Group Two|${codeB}`,
+      `Group3|FAKE Group Three|${privateCode}`].map(row => `${row}|${formName}`).join(';'), 'The saved service rows lost their group or form names');
+  });
+
+  await s.step('dx codes saved on the form replace its seeded dx row', async () => {
+    await manageForm(admin, frame, typeId, 'dxcode');
+    const grid = frame.locator('form[action="DbManageBillingformDx"]');
+    h.assert(await grid.locator('input[name="diagcode0"]').inputValue() === '000', 'The dx grid did not load the seeded dx');
+    await grid.locator('input[name="diagcode0"]').fill(dxA);
+    await grid.locator('input[name="diagcode1"]').fill(dxB);
+    await navigates(admin, frame, grid.locator('input[type="submit"][name="submit"]'));
+    await expectValue(sql, `SELECT GROUP_CONCAT(diagnostic_code ORDER BY diagnostic_code) FROM ctl_diagcode
+      WHERE servicetype=${h.sqlString(typeId)}`, [dxA, dxB].sort().join(','), 'The dx grid save did not replace the dx codes');
+  });
+
+  await s.step('the form\'s default bill type changes through the manage-type panel', async () => {
+    await manageForm(admin, frame, '000');
+    await frame.locator('a[title="Manage Billing Form"]', { hasText: typeId }).first().click();
+    const panel = frame.locator('#manage_type');
+    await panel.locator('select[name="billtype_new"]').waitFor({ state: 'visible' });
+    h.assert(await panel.locator('input[name="billtype_old"]').inputValue() === 'ODP', 'The manage-type panel did not load the bill type');
+    await panel.locator('select[name="billtype_new"]').selectOption('WCB');
+    await postsToClosingPopup(s, () => panel.locator('input[type="button"][value="Change"]').click());
+    await expectValue(sql, `SELECT billtype FROM ctl_billingtype WHERE servicetype=${h.sqlString(typeId)}`, 'WCB',
+      'The bill type change did not reach ctl_billingtype');
+    await frame.waitForLoadState('domcontentloaded');
+  });
+
+  await s.step('a premium code is added and removed again from the premium list', async () => {
+    await manageForm(admin, frame, '***');
+    const addForm = frame.locator('form[action="DbManageBillingformPremium"]');
+    await addForm.locator('input[name="service1"]').fill(codeA);
+    await navigates(admin, frame, addForm.locator('input[type="submit"]'));
+    await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(status), MAX(servicetype_name)) FROM ctl_billingservice_premium
+      WHERE service_code=${h.sqlString(codeA)}`, '1|A|Office', 'The premium add did not write one active row');
+    await manageForm(admin, frame, '***');
+    const deleteForm = frame.locator('form[action="DbManageBillingformPremiumDelete"]');
+    const box = deleteForm.locator(`input[type="checkbox"][value="${codeA}"]`);
+    h.assert(await box.count() === 1, 'The premium list does not offer the owned code');
+    await box.check();
+    await navigates(admin, frame, deleteForm.locator('input[type="submit"]'));
+    await expectValue(sql, `SELECT COUNT(*) FROM ctl_billingservice_premium WHERE service_code=${h.sqlString(codeA)}`, '0',
+      'The premium delete did not remove the owned row');
+  });
+
+  await s.step('Add Billing Location adds the owned location to the list', async () => {
+    frame = await adminFrame(admin, LOCATION_ROUTE, 'form[action="DbManageBillingLocation"]');
+    const add = frame.locator('form[action="DbManageBillingLocation"]');
+    await add.locator('input[name="location1"]').fill(location);
+    await add.locator('input[name="location1desc"]').fill(locationName);
+    await navigates(admin, frame, add.locator('input[type="submit"][name="action"]'));
+    await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(clinic_no), MAX(clinic_location_name)) FROM clinic_location
+      WHERE clinic_location_no=${h.sqlString(location)}`, `1|1|${locationName}`, 'The location add did not write the owned row');
+    h.assert(await frame.locator('tr', { hasText: locationName }).count() === 1, 'The location list does not show the owned location');
   });
 }
 

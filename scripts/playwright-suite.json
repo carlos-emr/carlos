@@ -3694,7 +3694,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "fixtures": "Owned patient; a throwaway login and a second marker provider in a marker group; every row of both owned providers deleted."
     },
     {
       "name": "consultation-services-admin",
@@ -3944,9 +3944,10 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 600,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: the schedule date popup preselects the wrong template and Template Code Setting edit truncates apostrophes.",
+      "fixtures": "Snapshots and restores one clinic-wide appointment_status label/colour/active flag, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Throwaway login with an owned role granting _admin.schedule and a seeded day template; owned template code, far-future holiday and appointment type; all deleted."
     },
     {
       "name": "demographic-cds-import",
@@ -4384,6 +4385,34 @@
       "assertsDatabase": true,
       "provinces": [
         "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "billing-on-reports-inr-eoy",
+      "script": "scripts/billing-on-reports-inr-eoy-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "patient-swipe-card-search",
+      "script": "scripts/patient-swipe-card-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
       ],
       "timeoutSec": 300,
       "env": [],

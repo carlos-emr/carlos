@@ -277,7 +277,9 @@
     "test:billing-on-payment-status-playwright": "node scripts/billing-on-payment-status-playwright-checks.js",
     "test:billing-on-ra-import-playwright": "node scripts/billing-on-ra-import-playwright-checks.js",
     "test:billing-on-batch-clipboard-playwright": "node scripts/billing-on-batch-clipboard-playwright-checks.js",
-    "test:billing-on-admin-config-playwright": "node scripts/billing-on-admin-config-playwright-checks.js"
+    "test:billing-on-admin-config-playwright": "node scripts/billing-on-admin-config-playwright-checks.js",
+    "test:billing-on-reports-inr-eoy-playwright": "node scripts/billing-on-reports-inr-eoy-playwright-checks.js",
+    "test:patient-swipe-card-search-playwright": "node scripts/patient-swipe-card-search-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
