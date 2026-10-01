@@ -130,7 +130,7 @@ async function workflow(s) {
     h.assert(await rows.count() === 1, 'Lab values does not list the entered result exactly once');
     const cells = (await rows.locator('td').allInnerTexts()).map((text) => text.trim());
     h.assert(cells[0] === test.name && cells[1] === test.value && cells[2] === test.flag
-      && cells[3] === `${test.low}-${test.high}` && cells[4] === test.unit && cells[5].startsWith(DATE),
+      && cells[3] === `${test.low} - ${test.high}` && cells[4] === test.unit && cells[5].startsWith(DATE),
     `Lab values shows ${JSON.stringify(cells)}`);
     await report.close();
   });
