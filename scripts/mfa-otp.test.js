@@ -10,7 +10,10 @@
  * corrector directly (encode, damage, correct) and end to end: a QR built here
  * from scratch -- an independent encoder, not the decoder run backwards -- is
  * rendered to a PNG, its centre is blanked or flipped like a logo, and it must
- * still decode; damage past the EC capacity must throw, never decode wrongly.
+ * still decode. Past the EC capacity the decoder rejects what is detectable (the
+ * seeded random cases below); a constructed case pins the inherent limit that
+ * damage landing near another codeword decodes to it, which is why the MFA check
+ * relies on the server verifying the TOTP, not on the decoder throwing.
  *
  * The RFC 6238 SHA-1 vectors at the end pin totp() itself, and wrongTotp()
  * is checked against every window the server accepts.
@@ -20,7 +23,7 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { deflateSync, crc32 } = require('node:zlib');
+const { deflateSync } = require('node:zlib');
 const { correctBlock, decodeMatrix, decodeQrPng, parseOtpauthUrl, totp, wrongTotp } = require('./lib/mfa-otp');
 
 // ---- an independent GF(256) / RS encoder (QR: 0x11D, roots alpha^0..) ------
@@ -106,7 +109,7 @@ test('errors in the EC codewords themselves, and at both ends of the block, are 
   assert.deepEqual(correctBlock(damage(block, ecOnly, next), 16), block);
 });
 
-test('more errors than floor(ec/2) throw a clear error and never return a block', () => {
+test('seeded random damage past floor(ec/2) is detected and throws a clear error', () => {
   for (const [dataLength, ecLength] of [[16, 10], [43, 24], [15, 28]]) {
     const next = rng(ecLength);
     for (let trial = 0; trial < 60; trial++) {
@@ -117,6 +120,26 @@ test('more errors than floor(ec/2) throw a clear error and never return a block'
       assert.throws(() => correctBlock(broken, ecLength), /the QR block could not be corrected/,
         `${errors} errors in a ${dataLength}+${ecLength} block, trial ${trial}`);
     }
+  }
+});
+
+test('damage past floor(ec/2) that lands within floor(ec/2) of another codeword decodes to that codeword', () => {
+  // The limit of every bounded-distance RS decoder, pinned so no comment claims
+  // more. c and c2 differ in one data codeword, hence in exactly ec + 1 places
+  // (RS is MDS). Moving c toward c2 in t + 1 of those places leaves it t from c2:
+  // the locator degree, Chien root count and syndromes are all consistent, and
+  // the nearest codeword -- c2, not c -- is the correct output for this decoder.
+  for (const ecLength of [10, 26]) {
+    const t = ecLength >> 1;
+    const data = Array.from(Buffer.from('otpauth://totp/CARLOS:FAKE?secret=JBSWY3DP'));
+    const other = data.slice(); other[0] ^= 0x01;
+    const c = [...data, ...rsEncode(data, ecLength)];
+    const c2 = [...other, ...rsEncode(other, ecLength)];
+    const differ = c.map((v, i) => (v !== c2[i] ? i : -1)).filter(i => i >= 0);
+    assert.equal(differ.length, ecLength + 1);
+    const received = c.slice();
+    for (const i of differ.slice(0, t + 1)) received[i] = c2[i];
+    assert.deepEqual(correctBlock(received, ecLength), c2, `${t + 1} errors against ${ecLength} EC codewords`);
   }
 });
 
@@ -238,6 +261,25 @@ function encodeQr(text, version, level, maskIndex) {
   }
   return matrix;
 }
+
+// PNG chunk CRC (ISO 3309 / zlib CRC-32, reflected polynomial 0xEDB88320). Local
+// because zlib.crc32 only exists from Node 20.15 / 22.2 and package.json declares
+// node >= 18, where `npm run test:scripts` must still run.
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (const byte of bytes) c = CRC_TABLE[(c ^ byte) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+test('the local CRC-32 matches the published check value and a PNG IEND chunk', () => {
+  assert.equal(crc32(Buffer.from('123456789', 'ascii')), 0xcbf43926);
+  assert.equal(crc32(Buffer.from('IEND', 'ascii')), 0xae426082);
+});
 
 /** A grayscale PNG of `matrix` at `scale` pixels per module with a 4-module quiet zone. */
 function toPng(matrix, scale = 4) {

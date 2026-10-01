@@ -62,10 +62,10 @@ satisfies this, so the manifest needs no extra field.
 
 Many surfaces open as popups, so a check's first click is often the one that matters.
 Each workflow enters through the control a user clicks, with one deliberate exception noted
-in its row (`report-cdm`, whose page no menu links). Two kinds of request are made directly
-on purpose and are not workflow entry points: the GET-refusal and missing-token probes,
-which send the forged request a cross-site attacker would, and SQL-seeded fixtures, which
-create the rows a workflow starts from.
+in its row (`report-cdm`, whose page no menu links). The GET-refusal and missing-token
+probes are requests made directly on purpose, not workflow entry points: they send the
+forged request a cross-site attacker would. Separately, SQL-seeded fixtures are test setup,
+not requests: they create the rows a workflow starts from.
 
 New shared helpers:
 

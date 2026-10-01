@@ -14,10 +14,13 @@
  *    module grid. Each block is then run through Reed-Solomon correction, because
  *    the grid is NOT always intact: with mfa.registration.qrcode.logo.path set,
  *    MfaManagerImpl punches a logo through the centre and relies on the code's own
- *    error correction (level M, ~15%) to carry the modules it hides. A block with
- *    more damage than its EC codewords can repair throws rather than decoding, and
- *    the corrected block must re-check to zero syndromes, so a misread fails loudly
- *    instead of yielding a plausible wrong secret.
+ *    error correction (level M, ~15%) to carry the modules it hides. Up to
+ *    floor(ec/2) wrong codewords per block are repaired exactly. Past that the
+ *    decoder rejects what it can detect (see correctBlock), but no RS decoder can
+ *    detect every over-capacity block: damage that lands within floor(ec/2) of a
+ *    DIFFERENT codeword decodes to it. The real backstop is the caller -- a
+ *    decoded secret is only ever used to answer a TOTP challenge the server
+ *    verifies, so a miscorrected secret fails enrolment loudly, never silently.
  *  - totp(): HMAC-SHA1, 30 s step, 6 digits -- the parameters of the
  *    TimeBasedOneTimePasswordGenerator defaults Login2Action validates against.
  *
@@ -200,10 +203,20 @@ function syndromes(block, ecLength) {
  * Correct one block (data codewords followed by its `ecLength` EC codewords) and
  * return the corrected copy; the input is not modified. Up to floor(ecLength / 2)
  * wrong codewords are repaired -- Berlekamp-Massey for the error locator, Chien
- * search for where, Forney for by how much. Anything beyond that throws: the
- * locator comes out too long, its roots do not all land inside the block, or the
- * "corrected" block still fails its syndromes. Messages never carry codeword
- * values, which for an enrolment QR are pieces of a live secret.
+ * search for where, Forney for by how much. Beyond that the block is rejected
+ * when the damage is detectable: the locator's degree exceeds floor(ecLength/2),
+ * the Chien search finds a different number of roots in the block than that
+ * degree, or the "corrected" block still fails its syndromes (a defensive
+ * invariant; it cannot fire once the root count matches).
+ *
+ * This is bounded-distance decoding, and its limit is inherent: a received block
+ * more than floor(ecLength/2) codewords from the one sent can lie within
+ * floor(ecLength/2) of another codeword, and then every check above passes and
+ * that other codeword is returned. Random damage almost never does this at QR
+ * EC lengths, but it is possible, so callers must verify what they decode (the
+ * MFA check does: the secret has to produce a TOTP the server accepts). Messages
+ * never carry codeword values, which for an enrolment QR are pieces of a live
+ * secret.
  */
 function correctBlock(block, ecLength) {
   const fail = (why) => new Error(`the QR block could not be corrected (${why}; ${ecLength} EC codewords repair at most ${ecLength >> 1})`);
@@ -436,7 +449,8 @@ function decodeQrPng(source) {
 
 /**
  * Parse an otpauth://totp/ URL into { issuer, account, secret }; throws on
- * anything else so a misread QR fails loudly instead of yielding a bad secret.
+ * anything else, so a misread that breaks the URL's shape fails here. A misread
+ * that keeps the shape is caught downstream, when the server rejects its TOTP.
  */
 function parseOtpauthUrl(text) {
   const url = new URL(text);
