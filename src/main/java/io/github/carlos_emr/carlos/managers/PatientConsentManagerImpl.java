@@ -353,6 +353,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         List<Consent> live = consentTypeId == null ? List.of()
                 : consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographicNo, consentTypeId);
 
+        String priorChoice = describeChoice(consent.isOptout());
         Date date = new Date(System.currentTimeMillis());
         consent.setOptout(Boolean.TRUE);
         consent.setOptoutDate(date);
@@ -360,7 +361,8 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
         consentDao.merge(consent);
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", CONSENT_LOG_CONTENT,
-                String.valueOf(consentId), demographicNo, LOG_CONSENT_ID + consentId);
+                String.valueOf(consentId), demographicNo, LOG_CONSENT_ID + consentId
+                        + " Choice: " + priorChoice + "->opt-out");
         if (consentTypeId != null) {
             retireDuplicates(loggedinInfo, demographicNo, consentTypeId, live, consent);
         }

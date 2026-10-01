@@ -354,6 +354,26 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
         @ParameterizedTest
         @ValueSource(booleans = {false, true})
+        @DisplayName("should audit the refreshed prior choice when opting out by ID")
+        void shouldAuditRefreshedChoice_whenOptingOutById(boolean priorOptout) {
+            Consent named = consent(10, !priorOptout, new Date(1_000L));
+            when(mockConsentDao.find(10)).thenReturn(named);
+            doAnswer(invocation -> {
+                named.setOptout(priorOptout);
+                return null;
+            }).when(mockConsentDao).refresh(named);
+
+            manager.optoutConsent(loggedInInfo, 10);
+
+            assertThat(named.isOptout()).isTrue();
+            String priorChoice = priorOptout ? "opt-out" : "opt-in";
+            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+                    "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,
+                    " ConsentId: 10 Choice: " + priorChoice + "->opt-out"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
         @DisplayName("should retire and audit duplicates when opting out by record ID or object")
         void shouldRetireDuplicates_whenOptingOutByRecord(boolean useObjectOverload) {
             Consent named = consent(10, false, new Date(1_000L));
@@ -384,7 +404,8 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             order.verify(mockConsentDao).merge(named);
             order.verify(mockConsentDao).merge(duplicate);
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
-                    "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100, " ConsentId: 10"));
+                    "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,
+                    " ConsentId: 10 Choice: opt-in->opt-out"));
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                     "PatientConsentManager.retireDuplicateConsent", "consent", "11", 100,
                     " Demographic: 100 ConsentTypeId: 1 ConsentId: 11 KeptConsentId: 10"));
@@ -418,7 +439,8 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             order.verify(mockConsentDao).merge(consent);
             // Audited once, as an opt-out filed under the patient, after the outcome is known.
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
-                    "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100, " ConsentId: 10"));
+                    "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,
+                    " ConsentId: 10 Choice: opt-in->opt-out"));
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                     "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,
                     " ConsentId: 10 skipped: no live record"), never());
