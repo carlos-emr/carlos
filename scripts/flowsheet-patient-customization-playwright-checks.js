@@ -97,6 +97,8 @@ async function workflow(s) {
 
   await s.step('the tracker renders the item, the warning and the target colour on a seeded value', async () => {
     await tracker.close();
+    await new Promise(r => setTimeout(r, 3000));
+    console.log(chart.isClosed(), await chart.locator('#measurementslist').innerHTML().catch(e => String(e)));
     view = await s.popup(chart, trackerLink, 'health-tracker-customised');
     await view.waitForLoadState('networkidle').catch(() => {});
     const card = view.locator(`#wrap-${TYPE}`);

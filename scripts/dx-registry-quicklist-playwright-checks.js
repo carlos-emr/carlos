@@ -143,6 +143,21 @@ async function workflow(s) {
     await bill.close();
   });
 
+  await s.step('removing every item retires the owned list from the chooser', async () => {
+    const chooser = await s.popup(admin, frame.getByRole('button', { name: 'Edit Quick List', exact: true }), 'dx-quicklist-retire');
+    await chooser.locator('select[name="quickListName"]').selectOption(name);
+    await clickAndAwaitReload(chooser, chooser.getByRole('button', { name: 'Continue', exact: true }));
+    const items = chooser.locator('select[name="quickListItems"]');
+    await items.selectOption(await items.locator('option').evaluateAll(o => o.map(x => x.value)));
+    await clickAndAwaitReload(chooser, chooser.getByRole('button', { name: '<< Remove', exact: true }));
+    await expectValue(sql, `SELECT COUNT(*) FROM quickList WHERE quickListName=${sqlString(name)}`, '0',
+      'Removing every item left quick-list rows behind');
+    await chooser.close();
+    const again = await s.popup(admin, frame.getByRole('button', { name: 'Edit Quick List', exact: true }), 'dx-quicklist-retired');
+    assert(await again.locator(`select[name="quickListName"] option[value="${name}"]`).count() === 0, 'A retired quick list is still offered');
+    await again.close();
+  });
+
   await s.step('registry sidebar switches to the owned list and its add link registers the code', async () => {
     const chart = await s.chart();
     const registry = await s.popup(chart, chart.locator('a[onclick*="setupDxResearch"]').first(), 'dx-quicklist-registry');

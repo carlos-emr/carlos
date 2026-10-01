@@ -68,7 +68,7 @@ async function workflow(s) {
         DELETE FROM casemgmt_note WHERE demographic_no=${patient} AND note_id IN (${notes.join(',')})`);
     }
     sql.execute(`DELETE FROM drugReason WHERE demographicNo=${patient};
-      ${drugIds.length ? `DELETE FROM partial_date WHERE table_name=1 AND table_id IN (${drugIds.join(',')});` : ''}
+      ${drugIds.length ? `DELETE FROM partial_date WHERE table_name=2 AND table_id IN (${drugIds.join(',')});` : ''}
       DELETE FROM drugs WHERE demographic_no=${patient}; DELETE FROM prescription WHERE demographic_no=${patient};
       DELETE FROM DigitalSignature WHERE demographicId=${patient} AND ModuleType='PRESCRIPTION'`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient})
@@ -102,6 +102,46 @@ async function workflow(s) {
       && String(body.duration) === '14' && body.durationUnit === 'D', `The instructions parsed to ${JSON.stringify(body)}`);
     h.assert((await rx.locator(`#frequency_${card}`).innerText()).trim() === 'BID'
       && (await rx.locator(`#duration_${card}`).innerText()).trim() === '14', 'The staged card does not show the parsed frequency and duration');
+  });
+
+  let drug;
+  await s.step('Save And Print persists the parsed dose, frequency, duration, quantity and end date on the drugs row', async () => {
+    h.assert(drugCount() === '0', 'A drug existed before the save');
+    await rx.locator('#saveButton').click();
+    const modal = rx.frameLocator('#carlosModalBody iframe');
+    await modal.locator('#printPasteButton').waitFor({ state: 'visible', timeout: 30000 });
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`, '1', 'Save And Print did not persist one drug');
+    const [row] = sql.rows(`SELECT drugid,BN,takemin,takemax,freqcode,duration,durunit,quantity,special,
+        DATEDIFF(end_date,rx_date),archived,provider_no,script_no FROM drugs WHERE demographic_no=${patient}`);
+    const [id, brand, takemin, takemax, freq, duration, unit, quantity, special, days, archived, prescriber, script] = row;
+    drug = id;
+    h.assert(brand === DRUG_NAME, 'The saved drug is not the product chosen from the search');
+    h.assert(Number(takemin) === 1 && Number(takemax) === 1 && freq === 'BID' && duration === '14' && unit === 'D',
+      `The saved dose/frequency/duration is ${takemin}-${takemax} ${freq} x ${duration}${unit}`);
+    h.assert(quantity === '28', `The saved quantity is ${quantity}, not 1 tab BID for 14 days (28)`);
+    h.assert(special.includes(INSTRUCTIONS), 'The saved prescription text lost the typed instructions');
+    h.assert(days === '14', `The saved end date is ${days} day(s) after the start, not the 14-day duration`);
+    h.assert(archived === '0' && prescriber === provider && /^[1-9]\d*$/.test(script), 'The saved drug is archived, unsigned by the test provider, or not on a script');
+    // The preview is rendered from the session stash, so it exists only while the stash still holds the script.
+    await modal.locator('#preview').waitFor({ state: 'attached' });
+  });
+
+  await s.step('Back to CARLOS posts rx/clearPending and a reopened Rx module stages nothing', async () => {
+    const modal = rx.frameLocator('#carlosModalBody iframe');
+    const closed = rx.waitForEvent('close', { timeout: 20000 });
+    const [cleared] = await Promise.all([
+      s.context.waitForEvent('requestfinished', { predicate: request => request.method() === 'POST'
+        && h.pathOnly(request.url()).endsWith('/rx/clearPending'), timeout: 20000 }),
+      modal.locator('input[onclick*="clearPending(\'close\')"]').click(),
+    ]);
+    const response = await cleared.response();
+    h.assert(response && response.status() < 400, `rx/clearPending answered HTTP ${response && response.status()}`);
+    h.assert(new URLSearchParams(cleared.postData() || '').get('demographicNo') === patient, 'clearPending named another patient');
+    await closed;
+    rx = await openRx('rx-module-reopened');
+    await rx.locator('#drugProfile').getByText(DRUG_NAME).first().waitFor();
+    h.assert(await rx.locator('[id^="drugName_"]').count() === 0, 'The saved script is still staged after Back to CARLOS');
+    h.assert(drugCount() === '1', 'Clearing the staged script changed the saved drugs');
   });
 }
 

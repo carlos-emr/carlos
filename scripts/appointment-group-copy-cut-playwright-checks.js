@@ -23,10 +23,17 @@
 const {randomInt} = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
-const {throwawayLoginFixture} = require('./lib/throwaway-login-fixture');
+const {bundleMessage, throwawayLoginFixture} = require('./lib/throwaway-login-fixture');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 
 const NEXT_DAY = 'a.redArrow:has(span.fa-forward-step)';
+// The group page's buttons are labelled from the bundle; the hidden groupappt value is fixed.
+const GROUP_BUTTON = {
+  add: bundleMessage('appointment.appointmentgrouprecords.btnAddGroupAppt', 'Add Recurring Appointment'),
+  update: bundleMessage('appointment.appointmentgrouprecords.btnGroupUpdate', 'Recurring Update'),
+  cancel: bundleMessage('appointment.appointmentgrouprecords.btnGroupCancel', 'Recurring Cancel'),
+  delete: bundleMessage('appointment.appointmentgrouprecords.btnGroupDelete', 'Recurring Delete'),
+};
 const APPOINTMENT_COLUMNS = 'appointment_no,provider_no,appointment_date,start_time,end_time,demographic_no,status,reason,notes,name';
 
 function toRow([id, provider, date, start, end, demographic, status, reason, notes, name]) {
@@ -150,6 +157,7 @@ async function workflow(s) {
     await h.assertNotErrorPage(popup, 'group appointment page');
     return popup;
   }
+  const groupButton = (page, key) => page.locator(`form[name="groupappt"] input[type="button"][value="${GROUP_BUTTON[key]}"]`);
   const groupBox = (page, providerNo, column) =>
     page.locator(`tr:has(input[name^="provider_no"][value="${providerNo}"]) input[type="checkbox"][name^="${column}"]`);
 
@@ -172,7 +180,7 @@ async function workflow(s) {
     h.assert(await groupBox(popup, first, 'one').isChecked(), 'The clicked provider was not preselected for the group booking');
     h.assert(!(await groupBox(popup, second, 'one').isChecked()), 'The second provider was preselected');
     await groupBox(popup, second, 'one').check();
-    await popup.locator('input[type="button"][value="Add Group Appointment"]').click();
+    await groupButton(popup, 'add').click();
     await waitClosed(popup, 'Add Group Appointment');
     const rows = ownedRows(`reason=${h.sqlString(`${marker} group`)}`);
     h.assert(rows.length === 2 && rows.map(r => r.provider).sort().join() === [...ownedProviders].sort().join(),
@@ -190,7 +198,7 @@ async function workflow(s) {
     for (const providerNo of ownedProviders) {
       h.assert(await groupBox(popup, providerNo, 'one').isChecked(), 'Group Action did not preselect a matching group appointment');
     }
-    await popup.locator('input[type="button"][value="Group Update"]').click();
+    await groupButton(popup, 'update').click();
     await waitClosed(popup, 'Group Update');
     const rows = ownedRows(`reason=${h.sqlString(`${marker} group updated`)}`);
     h.assert(rows.length === 2 && rows.every(r => r.date === date && r.start === '10:00:00' && r.demographic === patient),
@@ -203,7 +211,7 @@ async function workflow(s) {
   await s.step('Group Cancel marks both group appointments cancelled', async () => {
     const popup = await openEdit(groupIds[0]);
     await groupPage(popup);
-    await popup.locator('input[type="button"][value="Group Cancel"]').click();
+    await groupButton(popup, 'cancel').click();
     await waitClosed(popup, 'Group Cancel');
     const rows = ownedRows(`appointment_no IN (${groupIds.join(',')})`);
     h.assert(rows.length === 2 && rows.every(r => r.status === 'C'), 'Group Cancel did not cancel both appointments');
@@ -213,7 +221,7 @@ async function workflow(s) {
     const popup = await openEdit(groupIds[0]);
     await groupPage(popup);
     const seen = await h.withExpectedDialogs(popup, async () => {
-      await popup.locator('input[type="button"][value="Group Delete"]').click();
+      await groupButton(popup, 'delete').click();
       await waitClosed(popup, 'Group Delete');
     });
     h.assert(seen.length === 1 && seen[0].type === 'confirm', 'Group Delete did not ask for confirmation exactly once');

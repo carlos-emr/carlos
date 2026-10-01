@@ -1,26 +1,20 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * Jobs and Job Types administration workflow (coverage plan admin-jobs).
- *
- * User path: Schedule ▸ Administration ▸ System Management ▸ Job Type Management
- * (admin/ViewJobTypes in the shell's #myFrame) ▸ Add New / edit by name; then
- * System Management ▸ Jobs Management (admin/ViewJobs) ▸ Add New ▸ Save Job,
- * calendar icon ▸ Schedule Job ▸ Save, edit by name ▸ Save Job. Both pages drive
- * the /ws/rs/jobs REST service (types/all, saveJobType, jobType/{id}, all,
- * saveJob, job/{id}, saveCrontabExpression).
- *
- * Asserted: the job type and job round-trip through the editors and OscarJobType /
- * OscarJob (same id on edit, every field, enabled=0); the required-field alert;
- * the unusable type is offered as "(N/A)"; the schedule dialog stores the cron
- * expression it shows and reopens with the stored choice; a disabled job has no
- * planned run; a job name is listed as text, not markup (placed last).
- *
- * Fixtures: one job type (DISABLED, class name in the CARLOS package that does
- * not exist, so it can never be scheduled) and one DISABLED job on it, both named
- * with the run marker. No job is ever enabled. The UI has no delete control
- * (reported); cleanup deletes only rows above the pre-run id high-water marks
- * that carry the marker and asserts they are gone.
+ * Jobs / Job Types administration (coverage plan admin-jobs). User path: Schedule ▸
+ * Administration ▸ System Management ▸ Job Type Management / Jobs Management (the
+ * admin/ViewJobTypes and admin/ViewJobs pages in #myFrame, driving /ws/rs/jobs).
+ * Asserted: an invalid-class type is listed invalid+disabled and reloads in its
+ * editor; the job editor's required-field alert posts nothing; the unusable type is
+ * offered "(N/A)"; a disabled job round-trips to OscarJob with no planned run;
+ * Schedule Job stores the chosen cron without enabling the job. Last (each now
+ * fails on an app defect): edit-by-name without a page error, the schedule dialog
+ * reopening with the stored choice, a job name listed as text, and the Job Type
+ * editor saving without alerts (OscarJobType round trip).
+ * Fixtures: a DISABLED type seeded with a nonexistent CARLOS-package class (never
+ * schedulable) plus UI-created job/type, all carrying the marker; no job is ever
+ * enabled. No delete control exists; cleanup removes only marker rows above the
+ * pre-run id high-water marks and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
