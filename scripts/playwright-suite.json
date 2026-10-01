@@ -4397,9 +4397,10 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 600,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: Manage Billing Form Add/bill-type/Delete and dx Search Update are refused for missing CSRF tokens, and the code Search update/confirm pages throw script errors.",
+      "fixtures": "Owned billing form (seeded, because its Add is broken), two marked service codes, two unused dx codes and an owned bill; the private code, location and favourite are created through the UI; all removed."
     },
     {
       "name": "billing-on-reports-inr-eoy",
@@ -4459,9 +4460,10 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 600,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: Manage Code Styles drops a hand-typed colour declaration on save.",
+      "fixtures": "Snapshots and restores the clinic-wide gstControl, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned bill with billing_on_ext GST rows and one unused fake fee code created by a one-line synthetic schedule upload; no existing fee is changed."
     }
   ]
 }

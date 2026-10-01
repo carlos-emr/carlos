@@ -4,22 +4,22 @@
 /*
  * Ontario GST, code-style and Schedule of Benefits administration check.
  *
- * User path: Schedule ▸ Administration ▸ Billing ▸ Manage GST Control / GST Report / Manage Code
- * Styles / Schedule of Benefits (each in the #dynamic-content iframe).
+ * User path: Schedule ▸ Administration ▸ Billing ▸ Manage GST Control / GST Report / Schedule of
+ * Benefits / Manage Code Styles / Manage Billing Service Code (each in the #dynamic-content iframe).
  *
- * Asserts against MariaDB: a GST percent typed with a stray "%" is saved as digits (gstControl) and
- * restored through the same form; the GST report lists the owned bill's GST, revenue and total for
- * its provider and dates; a malformed fee-schedule file is refused with an error and writes
- * nothing; a one-line synthetic schedule previews exactly its one new fake code and applying that
- * one change inserts its billingservice row (no existing fee is touched); GET against the apply
- * mutator is refused; a code style is added, renamed and deleted (cssStyles), and the delete clears
- * the style from the code that used it.
+ * Asserts against MariaDB: a GST percent typed with a stray "%" is saved as digits and restored
+ * through the same form (gstControl); the GST report lists the owned bill's GST, revenue and total;
+ * a malformed fee-schedule file is refused and writes nothing; a one-line synthetic schedule
+ * previews only its new fake code, GET against the apply mutator is refused, and applying that one
+ * change inserts just its billingservice row (no existing fee is touched); a code style built with
+ * the pickers is added, renamed, assigned to the owned code and deleted, which resets the code.
+ * The LAST step asserts a hand-typed (Manual Enter) style keeps its colour; it fails while the
+ * page strips it.
  *
- * Fixtures: one owned bill (seedOwnedBill) with owned billing_on_ext GST rows; one unused fake fee
- * code created by the upload; the style is created through the UI and linked to the owned code.
- * gstControl is a clinic-wide setting: it is snapshotted and restored, so run with EXCLUSIVE=1.
- * Cleanup deletes owned rows by id/code/marker and asserts they are gone. Implements coverage-plan
- * §2.7 billing-on-gst-css-benefit.
+ * Fixtures: one owned bill (seedOwnedBill) with owned billing_on_ext GST rows; an unused fake fee
+ * code created by the upload. gstControl is clinic-wide: it is snapshotted and restored, so run with
+ * EXCLUSIVE=1. Cleanup deletes owned rows by id/code/marker and asserts they are gone.
+ * Implements coverage-plan §2.7 billing-on-gst-css-benefit.
  */
 
 const { randomInt } = require('node:crypto');
@@ -195,8 +195,8 @@ async function workflow(s) {
     frame = await adminFrame(admin, CODE_ROUTE, 'input[name="service_code"]');
     await frame.locator('input[name="service_code"]').fill(serviceCode);
     await navigates(admin, frame, frame.locator('button[name="submitFrm"][value="Search"]').first());
-    h.assert((await frame.locator('textarea[name="description"]').inputValue()) !== null
-      && await frame.locator('input[name="value"]').inputValue() === '12.34', 'Searching the owned code did not load it');
+    h.assert(/edit the service code/i.test(await frame.locator('.alert').first().innerText())
+      && Number(await frame.locator('input[name="value"]').inputValue()) === 12.34, 'Searching the owned code did not load it');
     await frame.locator('#servicecode_style').selectOption({ label: `${styleName} edited` });
     h.assert(await frame.locator('#displayStyle').inputValue() === styleText, 'The style viewer does not show the chosen style');
     const asked = await h.withExpectedDialogs(admin,
@@ -206,19 +206,20 @@ async function workflow(s) {
       WHERE service_code=${h.sqlString(serviceCode)}`, `1|${styleId}|12.34`, 'The style was not assigned to the owned code');
   });
 
-  await s.step('deleting the owned style marks it deleted and clears it from the code that used it', async () => {
+  await s.step('deleting the owned style asks first, marks it deleted and resets it on its code', async () => {
     frame = await adminFrame(admin, STYLE_ROUTE, '#style');
     await frame.locator('#style').selectOption({ label: `${styleName} edited` });
     const dialogs = await h.withExpectedDialogs(admin,
       () => navigates(admin, frame, frame.locator('input[type="submit"][name="submit"]:not(.btn-primary)')));
-    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Deleting the style did not ask for confirmation once');
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && /reset all links to service codes/.test(dialogs[0].text),
+      'Deleting the style did not ask, once, warning that its code links are reset');
     await expectValue(sql, `SELECT status FROM cssStyles WHERE id=${Number(styleId)}`, 'D', 'The style was not marked deleted');
-    h.assert(sql.value(`SELECT IFNULL(displaystyle, 'NULL') FROM billingservice WHERE service_code=${h.sqlString(serviceCode)}`) === 'NULL',
-      `Deleting the style did not clear it from the code that used it DEBUG ${styleId} ${sql.rows(`SELECT billingservice_no, IFNULL(displaystyle,'NULL') FROM billingservice WHERE service_code=${h.sqlString(serviceCode)}`).join(';')} ${sql.rows(`SELECT id,name,style,status FROM cssStyles WHERE name LIKE 'FAKE-PW%'`).join(';')}`);
+    await expectValue(sql, `SELECT IFNULL(displaystyle, 'none') FROM billingservice WHERE service_code=${h.sqlString(serviceCode)}`,
+      'none', 'Deleting the style did not reset it on the code that used it');
     h.assert(await frame.locator('#style option', { hasText: styleName }).count() === 0, 'The deleted style is still offered');
   });
 
-  await s.step('a style typed by hand (Manual Enter) is saved with the colour it was typed with', async () => {
+  await s.step('a style typed by hand (Manual Enter) is saved with every declaration typed', async () => {
     frame = await adminFrame(admin, STYLE_ROUTE, '#style');
     const typed = `color:${colour};text-decoration:underline;`;
     await frame.locator('#styleName').fill(`${styleName} typed`);
@@ -226,7 +227,7 @@ async function workflow(s) {
     await frame.locator('#styleText').fill(typed);
     await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
     await expectValue(sql, `SELECT style FROM cssStyles WHERE name=${h.sqlString(`${styleName} typed`)}`, typed,
-      'Saving a hand-typed style dropped declarations the operator typed');
+      'Saving a hand-typed style dropped the colour declaration the operator typed');
   });
 }
 
