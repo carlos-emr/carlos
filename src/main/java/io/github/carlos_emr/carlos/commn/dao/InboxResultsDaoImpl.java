@@ -333,7 +333,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "		(SELECT DISTINCT plr.id, plr.lab_type, d.demographic_no "
                         + "			FROM providerLabRouting plr, ctl_document cd, demographic d "
                         + "			WHERE 	 "
-                        + "			(COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
+                        + " (COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "		AND cd.module_id = d.demographic_no 	AND cd.document_no = plr.lab_no	AND plr.lab_type = 'DOC' "
                         + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
@@ -343,7 +343,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "		(SELECT DISTINCT plr.id, plr.lab_type, d.demographic_no "
                         + "		FROM providerLabRouting plr, patientLabRouting plr2, demographic d"
                         + (isAbnormal != null ? ", hl7TextInfo info " : " ")
-                        + "		WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
+                        + " WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "		AND	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
                         + (isAbnormal != null ? " AND plr.lab_no = info.lab_no AND (info.result_status IS NULL OR info.result_status != 'A') "
                         : " ")

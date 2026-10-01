@@ -359,7 +359,7 @@ public class CategoryData {
                     + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
                     + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
                     + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                    + hinFilter("like ?")
+                    + hinFilter()
                     + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
                     + (providerSearch ? "AND plr.provider_no = ? " : "")
                     + " AND plr.lab_type = 'HL7' "
@@ -422,7 +422,7 @@ public class CategoryData {
                 + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : "  like ? ")
                 + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                + hinFilter("like ?")
+                + hinFilter()
                 + " AND plr.lab_type = 'HL7' "
                 + " AND cd.lab_type = 'HL7' "
                 + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
@@ -514,7 +514,7 @@ public class CategoryData {
                 + "LEFT JOIN providerLabRouting plr ON cd.document_no = plr.lab_no "
                 + documentJoinSql
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
-                + hinFilter("like ?")
+                + hinFilter()
                 + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
                 + " AND plr.lab_type = 'DOC' "
                 + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
@@ -561,6 +561,11 @@ public class CategoryData {
      * would leave those patients out of the Inbox counts and patient list while the result rows,
      * which treat a NULL HIN as empty, still show their labs and documents.
      */
+    private String hinFilter() {
+        return hinFilter("like ?");
+    }
+
+    /** As {@link #hinFilter()}, with the given condition (a named parameter for JPA queries). */
     private String hinFilter(String condition) {
         return StringUtils.isEmpty(patientHealthNumber) ? "" : " AND d.hin " + condition + " ";
     }

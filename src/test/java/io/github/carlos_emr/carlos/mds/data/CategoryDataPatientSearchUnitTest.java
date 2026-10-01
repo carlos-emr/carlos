@@ -69,7 +69,7 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
     private EntityManager entityManager;
 
     @BeforeEach
-    void captureQueries() throws Exception {
+    void captureQueries() {
         registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
         EntityManagerFactory factory = mock(EntityManagerFactory.class);
         entityManager = mock(EntityManager.class);
