@@ -150,9 +150,12 @@ except ImportError:  # pragma: no cover - exercised only on a mis-provisioned ho
 VERSION = "2.0.0"
 
 # Excelleris requires a User-Agent that identifies the destination software.
-# The shell script's value was built with "\/" escapes that bash left in
-# verbatim, so what it actually sent contained literal backslashes.
-USER_AGENT = f"CARLOS-EMR excelleris_pull/{VERSION}"
+# Keep the browser-shaped form the guide-conformant OSCAR scripts have always
+# sent, with the product and version in the parenthesised comment, so nothing
+# on the Excelleris side that pattern-matches the header sees a change. The
+# shell script's value was built with "\/" escapes that bash left in verbatim,
+# so what it actually sent contained literal backslashes; this one does not.
+USER_AGENT = f"Mozilla/5.0 (Windows NT 6.2; CARLOS; {VERSION}) Gecko/20100101 Firefox/32.0"
 
 EXIT_OK = 0
 EXIT_FAILED = 1
@@ -278,6 +281,8 @@ def _require_private_file(path: Path, what: str) -> None:
         st = path.stat()
     except FileNotFoundError:
         raise ConfigError(f"{what} not found: {path}") from None
+    except OSError as exc:  # permission denied, dangling symlink, I/O error
+        raise ConfigError(f"{what} {path}: {exc}") from exc
     if not stat.S_ISREG(st.st_mode):
         raise ConfigError(f"{what} is not a regular file: {path}")
     if st.st_mode & 0o077:
@@ -303,7 +308,10 @@ def _read_key_material(section: configparser.SectionProxy, key: str) -> str:
     if file_ref:
         path = Path(file_ref)
         _require_private_file(path, f"[{section.name}] {key}_file")
-        inline = path.read_text(encoding="utf-8")
+        try:
+            inline = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise ConfigError(f"[{section.name}] {key}_file {path}: {exc}") from exc
     if not inline:
         raise ConfigError(f"[{section.name}] {key} (or {key}_file) is required")
     return _strip_key_armour(inline)
@@ -606,7 +614,10 @@ class ClientCertificate:
         self.pem_path: Optional[Path] = None
 
     def __enter__(self) -> "ClientCertificate":
-        raw = self.pfx_file.read_bytes()
+        try:
+            raw = self.pfx_file.read_bytes()
+        except OSError as exc:
+            raise ConfigError(f"cannot read PFX {self.pfx_file}: {exc}") from exc
         password = self.pfx_password.encode("utf-8") if self.pfx_password else None
         try:
             key, cert, extra = pkcs12.load_key_and_certificates(raw, password)
@@ -790,17 +801,28 @@ class ExcellerisSession:
         """
         value = "Positive" if positive else "Negative"
         resp = self._get({"Page": "HL7", "ACK": value}, f"ack {value}")
+        if resp.status != 200:
+            raise StepError("excelleris ack", f"{value} ack rejected (HTTP {resp.status})")
         body = resp.text().strip()
         try:
             root = ET.fromstring(body) if body else None
         except ET.ParseError:
             root = None
-        ok = (
-            root is not None and root.tag == "HL7Messages" and root.get("ReturnCode") in (None, "0")
+        if root is not None and root.tag == "HL7Messages":
+            code = root.get("ReturnCode")
+            if code not in (None, "0"):
+                raise StepError("excelleris ack", f"{value} ack failed (ReturnCode={code})")
+            log.info("excelleris: %s acknowledgment accepted", value.lower())
+            return
+        # HTTP 200 with a body neither the guide nor the shell script describes.
+        # The shell script treated this as success by only ever logging; keep
+        # that leniency (no false alert every run) but make it visible.
+        log.warning(
+            "excelleris: %s acknowledgment returned an unrecognised %d-byte reply; "
+            "treating as accepted",
+            value.lower(),
+            len(resp.body),
         )
-        if not ok:
-            raise StepError("excelleris ack", f"{value} ack not accepted (HTTP {resp.status})")
-        log.info("excelleris: %s acknowledgment accepted", value.lower())
 
 
 # ---------------------------------------------------------------------------
@@ -874,8 +896,14 @@ class Archive:
         """Compress into done/ and remove the inbox copy."""
         dest = self._unique(self.cfg.done_dir, path.name + ".xz")
         fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "wb") as raw, lzma.open(raw, "wb") as out, path.open("rb") as src:
-            shutil.copyfileobj(src, out)
+        try:
+            with os.fdopen(fd, "wb") as raw, lzma.open(raw, "wb") as out, path.open("rb") as src:
+                shutil.copyfileobj(src, out)
+        except BaseException:
+            # Never leave a truncated archive behind; the inbox copy stays and
+            # is re-sent next run (CARLOS answers 409, so that is harmless).
+            dest.unlink(missing_ok=True)
+            raise
         path.unlink()
         return dest
 
@@ -1113,6 +1141,11 @@ class CarlosSession:
             )
         if "loginfailed" in location:
             return "CARLOS rejected the credentials"
+        if resp.status == 200 and b"mfa" in resp.body.lower():
+            # The MFA challenge renders as a 200 HTML page, not a redirect.
+            return (
+                "the service account is enrolled in MFA; a scripted login cannot answer a challenge"
+            )
         if resp.status == 200:
             return "CARLOS rejected the credentials (invalid username, password or PIN)"
         return f"unexpected reply HTTP {resp.status}" + (f" -> {location}" if location else "")
@@ -1266,7 +1299,18 @@ def pull_step(
                 if opts.dry_run:
                     log.info("dry run: skipping pull")
                     return None
-                body = session.pull()
+                try:
+                    body = session.pull()
+                except StepError:
+                    # The shell script sent a negative ack when the download
+                    # itself failed; keep that so Excelleris sees the session
+                    # end the same way. Best effort: the pull error is the one
+                    # to report.
+                    try:
+                        session.ack(False)
+                    except StepError as ack_exc:
+                        log.warning("excelleris: negative ack after failed pull: %s", ack_exc)
+                    raise
                 summary = inspect_pull(body)
                 if summary.problem or summary.return_code is not None:
                     # Not a results document: keep them pending at Excelleris
@@ -1401,8 +1445,14 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
 def check_config(cfg: Config) -> int:
     """Validate keys and PFX offline and print the masked configuration."""
     LabUploadEnvelope(cfg.client_private_key, cfg.server_public_key)
-    with ClientCertificate(cfg.pfx_file, cfg.pfx_password):
-        pass
+    with ClientCertificate(cfg.pfx_file, cfg.pfx_password) as cert:
+        # Also proves the optional ca_file bundles parse, so a bad PEM is found
+        # here rather than on the first scheduled run.
+        try:
+            cert.ssl_context(cfg.excelleris_ca_file)
+            server_verifying_context(cfg.carlos_ca_file)
+        except ssl.SSLError as exc:
+            raise ConfigError(f"ca_file / certificate could not be loaded: {exc}") from exc
     for key, value in cfg.masked().items():
         print(f"{key:22s} = {value}")
     print("keys and PFX load correctly")

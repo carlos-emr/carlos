@@ -343,6 +343,14 @@ class ConfigTest(TempEnv):
         with self.assertRaisesRegex(ep.ConfigError, "embed credentials"):
             ep.load_config(self.conf)
 
+    def test_ca_file_must_exist(self):
+        text = self.conf.read_text().replace(
+            "[carlos]\n", "[carlos]\nca_file = /nonexistent/ca.pem\n", 1
+        )
+        self.conf.write_text(text)
+        with self.assertRaisesRegex(ep.ConfigError, "ca_file not found"):
+            ep.load_config(self.conf)
+
     def test_missing_required_key(self):
         _, _, c, s = make_keys()
         self.write_conf(c, s, user_id="")
@@ -497,8 +505,19 @@ class ExcellerisSessionTest(TempEnv):
             self.script(**{"excelleris:ack:Positive": ok('<HL7Messages ReturnCode="1"/>')})
         )
         with ep.ExcellerisSession(self.cfg, t) as s:
-            with self.assertRaisesRegex(ep.StepError, "Positive ack not accepted"):
+            with self.assertRaisesRegex(ep.StepError, "Positive ack failed"):
                 s.ack(True)
+
+    def test_unrecognised_ack_reply_is_lenient_but_http_error_is_not(self):
+        # The shell script only ever logged the ack reply; an unknown 200 body
+        # must not alert on every run, but a non-200 is a real refusal.
+        t = FakeTransport(self.script(**{"excelleris:ack:Negative": ok("OK")}))
+        with ep.ExcellerisSession(self.cfg, t) as s:
+            s.ack(False)  # no exception
+        t = FakeTransport(self.script(**{"excelleris:ack:Negative": ok("", 500)}))
+        with ep.ExcellerisSession(self.cfg, t) as s:
+            with self.assertRaisesRegex(ep.StepError, "Negative ack rejected"):
+                s.ack(False)
 
     def test_logout_failure_is_swallowed(self):
         t = FakeTransport(self.script(**{"excelleris:logout": ep.TransportError("boom")}))
@@ -689,6 +708,17 @@ class OrchestrationTest(TempEnv):
         rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
         self.assertEqual(rc, ep.EXIT_FAILED)
         self.assertIn("excelleris:ack:Negative", self.labels())
+
+    def test_failed_pull_sends_negative_ack_and_still_uploads_backlog(self):
+        archive = ep.Archive(self.cfg)
+        archive.save_inbox("backlog", PULL_WITH_RESULTS)
+        self.script["excelleris:pull"] = ok("maintenance", 503)
+        rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        labels = self.labels()
+        self.assertIn("excelleris:ack:Negative", labels)
+        self.assertEqual(labels.count("POST /carlos/lab/newLabUpload"), 1)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
 
     def test_store_failure_sends_negative_ack(self):
         original = ep.Archive.save_inbox
@@ -1033,7 +1063,9 @@ class LiveServersTest(TempEnv):
         pages = [c[1].get("Page", c[1].get("Logout"))[0] for c in self.excelleris.log]
         self.assertEqual(pages, ["Login", "HL7", "HL7", "Yes"])
         self.assertEqual(self.excelleris.acks, ["Positive"])
-        self.assertTrue(all("CARLOS-EMR excelleris_pull" in c[3] for c in self.excelleris.log))
+        self.assertTrue(
+            all(f"CARLOS; {ep.VERSION}" in c[3] and "\\" not in c[3] for c in self.excelleris.log)
+        )
         # CARLOS: login, upload decrypted and verified, logout via POST.
         kinds = [c[0] for c in self.carlos.log]
         self.assertEqual(kinds, ["login", "upload", "logout"])
