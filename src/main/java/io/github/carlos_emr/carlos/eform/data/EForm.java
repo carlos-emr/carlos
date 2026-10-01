@@ -1486,16 +1486,25 @@ public class EForm extends EFormBase {
     }
 
     /**
-     * True when the form already submits a value named exactly {@code newForm}: an input (other
-     * than the button-like types, which submit nothing unless they are the submitter), select or
-     * textarea. An {@code <a name>} or {@code <img name>} anchor submits nothing, so it must not
-     * suppress the fallback.
+     * True when the form already submits a value named exactly {@code newForm}, i.e. it has a
+     * successful control by that name (HTML forms spec): an input other than the button-like
+     * types (which submit nothing unless they are the submitter), a select or a textarea, that is
+     * not disabled (itself or through a disabled ancestor fieldset) and, for a checkbox or radio,
+     * is checked. Anything else (an {@code <a name>}, a disabled field, an unchecked box)
+     * contributes no parameter, so it must not suppress the fallback.
      */
     private static boolean hasSubmittableNewFormControl(Element form) {
         return form.select("input[name], select[name], textarea[name]").stream()
                 .filter(control -> "newForm".equals(control.attr("name")))
-                .anyMatch(control -> !control.is(
-                        "input[type=button], input[type=submit], input[type=reset], input[type=image]"));
+                .filter(control -> !control.is(
+                        "input[type=button], input[type=submit], input[type=reset], input[type=image]"))
+                .filter(control -> !control.hasAttr("disabled"))
+                // A control inside a disabled fieldset's first legend stays enabled; eForm
+                // templates do not put fields there, so any disabled ancestor fieldset counts.
+                .filter(control -> control.parents().stream()
+                        .noneMatch(parent -> parent.is("fieldset[disabled]")))
+                .anyMatch(control -> !control.is("input[type=checkbox], input[type=radio]")
+                        || control.hasAttr("checked"));
     }
 
     public void addHiddenInputElement(String id, String name, String className, String value, Map<String, String> additionalProperties) {

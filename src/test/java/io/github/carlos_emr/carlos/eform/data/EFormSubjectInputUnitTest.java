@@ -7,6 +7,8 @@ import org.jsoup.Jsoup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -108,6 +110,39 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
         assertThat(fields).hasSize(1);
         assertThat(fields.get(0).id()).isEqualTo("newForm");
         assertThat(fields.get(0).val()).isEqualTo("true");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "<input type='hidden' name='newForm' value='True' disabled>",
+            "<input type='checkbox' name='newForm' value='True'>",
+            "<input type='radio' name='newForm' value='True'>",
+            "<select name='newForm' disabled><option value='True' selected>True</option></select>",
+            "<textarea name='newForm' disabled>True</textarea>",
+            "<fieldset disabled><input type='hidden' name='newForm' value='True'></fieldset>"})
+    void shouldSupplyNewFormFlag_whenNewFormControlWouldNotBeSubmitted(String control) {
+        EForm form = new EForm();
+        form.setFormHtml("<form>" + control + "</form>");
+        form.ensureNewFormInput();
+        var fallback = Jsoup.parse(form.getFormHtml()).getElementById("newForm");
+        assertThat(fallback).isNotNull();
+        assertThat(fallback.attr("type")).isEqualTo("hidden");
+        assertThat(fallback.val()).isEqualTo("true");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "<input type='checkbox' name='newForm' value='True' checked>",
+            "<input type='radio' name='newForm' value='True' checked>",
+            "<input type='hidden' name='newForm' value='True'>",
+            "<select name='newForm'><option value='True' selected>True</option></select>"})
+    void shouldKeepTemplateNewFormFlag_whenNewFormControlIsSubmitted(String control) {
+        EForm form = new EForm();
+        form.setFormHtml("<form>" + control + "</form>");
+        form.ensureNewFormInput();
+        var document = Jsoup.parse(form.getFormHtml());
+        assertThat(document.getElementById("newForm")).isNull();
+        assertThat(document.select("[name=newForm]")).hasSize(1);
     }
 
     @Test
