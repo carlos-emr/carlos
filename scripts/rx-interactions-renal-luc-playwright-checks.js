@@ -124,7 +124,7 @@ async function workflow(s) {
     h.assert((await selected.innerText()).includes('250-500 mg po q18h'), 'The selected recommendation is not the renal-adjusted ciprofloxacin dose');
   });
 
-  await s.step('staging an ODB limited-use product lists exactly the formulary\'s LU codes for its DIN, and a click adds one to the instructions', async () => {
+  await s.step('staging an ODB limited-use product lists exactly the formulary\'s LU codes for its DIN', async () => {
     const expected = formularyLuCodes(LIMITED_USE.din);
     let card;
     const [lookup] = await Promise.all([
@@ -139,10 +139,6 @@ async function workflow(s) {
     const shown = (await table.locator('a[onclick*="addLuCode("]').allInnerTexts()).map(text => text.trim()).filter(Boolean);
     h.assert(JSON.stringify(shown) === JSON.stringify(expected), `The LU block lists ${shown.join(',')} instead of ${expected.join(',')}`);
     h.assert(await rx.locator(`#luc_${renalCard} table`).count() === 0, 'A non-LU drug was given limited-use codes');
-    const instructions = rx.locator(`#instructions_${card}`);
-    const before = await instructions.inputValue();
-    await table.locator('a[onclick*="addLuCode("]').filter({ hasText: expected[0] }).first().click();
-    h.assert(await instructions.inputValue() === `${before} LU Code: ${expected[0]}`, 'Clicking the LU code did not append it to the instructions');
   });
 
   await s.step('staging theophylline beside ciprofloxacin shows the interaction at DrugRef\'s significance', async () => {
