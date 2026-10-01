@@ -179,7 +179,7 @@ async function workflow(s) {
     await popup.locator('#measuringInstrc').fill(created.instruction);
     await popup.locator('#validation').selectOption({label: 'Numeric Value: 0 to 300'});
     await landOn(popup, 'AddMeasurementType', () => popup.locator('input[type="submit"][name="submit"]').click());
-    await popup.getByText('Measurement type has been added successfully!').waitFor();
+    await popup.getByText('Measurement type has been added successfully').waitFor();
     h.assert(JSON.stringify(typeRows(created)) === JSON.stringify([[created.type, created.display, created.desc, created.instruction, '5']]),
       'The saved measurementType row does not match the submitted (upper-cased) type');
     await popup.close();
@@ -213,7 +213,7 @@ async function workflow(s) {
     await popup.locator('#measuringInstrc').fill(instruction2);
     await popup.locator('#validation').selectOption({label: 'Numeric Value: 0 to 300'});
     await landOn(popup, 'AddMeasuringInstruction', () => popup.getByRole('button', {name: 'Add', exact: true}).click());
-    await popup.getByText('Measuring Instruction has been added successfully!').waitFor();
+    await popup.getByText('Measuring Instruction has been added successfully').waitFor();
     h.assert(JSON.stringify(typeRows(created).map(row => row[3])) === JSON.stringify([created.instruction, instruction2]),
       'The second instruction was not stored against the new type');
     await popup.close();

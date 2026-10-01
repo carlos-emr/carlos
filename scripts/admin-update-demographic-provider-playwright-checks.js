@@ -2,22 +2,15 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
  * Bulk patient-provider reassignment: coverage plan §2.2 admin-misc (Update Patient Provider).
- *
  * User path: Schedule ▸ Administration ▸ Data Management ▸ Update Patient Provider
- * (admin/UpdateDemographicProvider in the #dynamic-content iframe) ▸ MRP "replace ... With ...
- * ON CONDITION last name from .. to .." ▸ Update; then the Resident section the same way.
- *
- * Asserted: both owned providers are offered; a last-name range that excludes the owned patients
- * reassigns nothing; the F..F range moves exactly the three owned active patients (demographic.
- * provider_no, one demographicArchive copy each holding the old MRP, lastUpdateUser = the admin)
- * and reports "3 record(s)"; the Resident section rewrites only the owned resident extensions and
- * archives their previous value; Update in reverse restores the original MRP; every demographic and
- * demographicExt row this run does not own is byte-identical before and after (needs EXCLUSIVE=1);
- * a GET carrying the update parameters is refused without reassigning anyone.
- *
- * Fixtures: two throwaway providers (last name = run marker, unused numbers) and three synthetic
- * FAKE- patients whose MRP and resident are the FROM provider. Cleanup deletes only the owned
- * patients' ext/archive rows, the patients and the providers, and asserts they are gone.
+ * (admin/UpdateDemographicProvider in the #dynamic-content iframe) ▸ MRP / Resident ▸ Update.
+ * Asserted: both owned providers are offered; an excluding last-name range moves nobody; F..F moves
+ * exactly the three owned patients (provider_no, one demographicArchive copy of the old MRP each,
+ * lastUpdateUser) and reports "3 record(s)"; Resident rewrites only the owned extensions and archives
+ * the old value; the reverse Update restores the MRP; every demographic/demographicExt row the run
+ * does not own is unchanged (run with EXCLUSIVE=1); a GET with the update parameters is refused.
+ * Fixtures: two throwaway providers (last name = run marker) and three FAKE- patients whose MRP and
+ * resident are the FROM provider; cleanup deletes only those rows and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');

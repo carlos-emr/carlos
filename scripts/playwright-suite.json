@@ -3597,7 +3597,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: a GET performs the bulk reassignment (HTTP 200).",
+      "fixtures": "Two marker providers and three owned patients; hashes every non-owned demographic/demographicExt row before and after, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "dx-registry-quicklist",
@@ -3814,9 +3815,10 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 420,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: TypeError on Assign Role/Rights to Object, the Administration link 403s for plain doctors, and GET FixRolesOnNotes reaches the bulk update (500 on the probe's invalid role).",
+      "fixtures": "Marker role, throwaway login (doctor only) and marker group; the access-control restriction applies only to the owned group. Role rows are removed by SQL because the UI has no role delete."
     },
     {
       "name": "document-refile-combine",
@@ -3919,6 +3921,90 @@
     {
       "name": "demographic-cds-import",
       "script": "scripts/demographic-cds-import-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "admin-sites-clinic-numbers",
+      "script": "scripts/admin-sites-clinic-numbers-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "consultation-edit-status",
+      "script": "scripts/consultation-edit-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "dashboard-display",
+      "script": "scripts/dashboard-display-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "measurement-group-entry",
+      "script": "scripts/measurement-group-entry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "report-by-template-groups",
+      "script": "scripts/report-by-template-groups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "report-cdm",
+      "script": "scripts/report-cdm-playwright-checks.js",
       "tiers": [
         "core"
       ],

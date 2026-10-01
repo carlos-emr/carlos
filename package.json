@@ -250,7 +250,13 @@
     "test:messenger-demographic-link-playwright": "node scripts/messenger-demographic-link-playwright-checks.js",
     "test:prevention-admin-playwright": "node scripts/prevention-admin-playwright-checks.js",
     "test:schedule-admin-settings-playwright": "node scripts/schedule-admin-settings-playwright-checks.js",
-    "test:demographic-cds-import-playwright": "node scripts/demographic-cds-import-playwright-checks.js"
+    "test:demographic-cds-import-playwright": "node scripts/demographic-cds-import-playwright-checks.js",
+    "test:admin-sites-clinic-numbers-playwright": "node scripts/admin-sites-clinic-numbers-playwright-checks.js",
+    "test:consultation-edit-status-playwright": "node scripts/consultation-edit-status-playwright-checks.js",
+    "test:dashboard-display-playwright": "node scripts/dashboard-display-playwright-checks.js",
+    "test:measurement-group-entry-playwright": "node scripts/measurement-group-entry-playwright-checks.js",
+    "test:report-by-template-groups-playwright": "node scripts/report-by-template-groups-playwright-checks.js",
+    "test:report-cdm-playwright": "node scripts/report-cdm-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

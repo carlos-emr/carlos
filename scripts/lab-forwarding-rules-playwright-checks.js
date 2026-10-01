@@ -224,6 +224,7 @@ async function workflow(s) {
   let report;
   await s.step('Label on the lab display stores the typed label on the lab', async () => {
     // Search again so the list includes the lab uploaded after it was first drawn.
+    if (!await inbox.locator('#inbox-sidebar').isVisible()) await inbox.locator('#inbox-sidebar-toggle').click();
     await ui.clickAndAwaitReload(inbox, inbox.locator('#inboxhubFormSearchBtn'), { timeout: TIMEOUT, label: 'Inbox search' });
     await settle(inbox, 60000);
     const row = inbox.locator(`tr[data-lab-type="HL7"][data-segment-id="${labNo}"]`);

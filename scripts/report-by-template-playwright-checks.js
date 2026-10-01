@@ -116,10 +116,20 @@ async function workflow(s) {
     await frame.locator('h3', {hasText: ownedTitle}).waitFor();
   }
   async function deleteFromConfiguration(id, ownedTitle) {
+    const posted = admin.waitForResponse(r => r.request().method() === 'POST'
+      && new URL(r.url()).pathname.endsWith('/oscarReport/reportByTemplate/addEditTemplatesAction'), {timeout: 20000});
+    posted.catch(() => {});
     const dialogs = await h.withExpectedDialogs(admin, async () => {
-      await frameClick(frame.getByRole('link', {name: 'Delete Template', exact: true}), 'Delete Template');
+      const navigated = admin.waitForEvent('framenavigated', {predicate: f => f === frame, timeout: 20000});
+      navigated.catch(() => {});
+      await frame.getByRole('link', {name: 'Delete Template', exact: true}).click();
+      await navigated;
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask exactly one confirmation');
+    const status = (await posted).status();
+    h.assert(status === 200, `Confirmed Delete Template POST answered HTTP ${status}; the form deleteTemplate() `
+      + 'builds after confirm() carries no CSRF-TOKEN');
+    await settle('Delete Template');
     await frame.locator('h3', {hasText: 'Template Library'}).waitFor();
     h.assert(s.sql.value(`SELECT COUNT(*) FROM reportTemplates WHERE templateid=${id}`) === '0',
       'Confirmed delete left the template row');

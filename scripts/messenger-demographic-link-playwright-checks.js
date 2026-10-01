@@ -97,9 +97,14 @@ async function workflow(s) {
 
   await s.step('the patient typeahead picks the owned patient and Link writes one msgDemoMap row', async () => {
     await openMessage(messageId);
-    await ui.typeAutocomplete(inbox, '#keyword', s.marker, {
-      menu: 'ul.demographic-autocomplete-list', option: s.marker, hidden: 'input[name="demographic_no"]', timeout: TIMEOUT,
-    });
+    // fill() raises one input event and so one lookup; per-key typing makes the
+    // widget abort its own superseded XHRs, which the strict recorder reports.
+    const [lookup] = await Promise.all([
+      inbox.waitForResponse(r => new URL(r.url()).pathname.endsWith('/demographic/SearchDemographic'), { timeout: TIMEOUT }),
+      inbox.locator('#keyword').fill(s.marker),
+    ]);
+    console.log('DEBUG', lookup.status(), lookup.headers()['content-type'], (await lookup.text()).slice(0, 300));
+    await inbox.locator('ul.demographic-autocomplete-list li', { hasText: s.marker }).first().click();
     h.assert(await inbox.locator('input[name="demographic_no"]').inputValue() === s.patient,
       'The typeahead filled a patient other than the owned fixture');
     const selected = (await inbox.locator('input[name="selectedDemo"]').inputValue()).toLowerCase();

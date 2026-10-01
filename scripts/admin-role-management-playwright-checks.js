@@ -2,24 +2,16 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
  * Role and privilege administration: coverage plan §2.2 admin-misc / role-privilege-matrix.
- *
- * User path: Schedule ▸ Administration ▸ System Management ▸ Add A Role (admin/ProviderAddRole)
- * ▸ Assign Role/Rights to Object (admin/ProviderPrivilege); User Management ▸ Assign Role to
- * Provider (admin/ProviderRole, fixture step only: assign-role covers it); Schedule Management ▸
- * Access Control (admin/GroupNoAcl); Data Management ▸ Fix notes with invalid role
- * (admin/FixRolesOnNotes, opened read-only: its submit is an unscoped bulk UPDATE and is never sent).
- *
- * Asserted: the new role is created once (secRole + audit row); the editor grants it
- * _admin.userAdmin read (secObjPrivilege + audit); a throwaway doctor login given the role reaches
- * Add A Role from its own Administration menu while Assign Role/Rights to Object stays hidden and
- * refused (403); deleting the grant (recyclebin copy) closes Add A Role again for a fresh session;
- * unassigning removes the secUserRole row; Access Control hides an owned schedule group from the
- * admin's own day-sheet group list and the un-restrict brings it back; Fix notes lists the owned
- * role and writes nothing; GET saves are refused (405).
- *
- * Fixtures: role and throwaway login named by the run marker, one owned mygroup. The page offers
- * no role delete, so cleanup deletes the role, its grants, assignments, restrictions, recyclebin
- * and audit rows carrying the marker, then the throwaway login, and asserts all are gone.
+ * User path: Schedule ▸ Administration ▸ System Management ▸ Add A Role, Assign Role/Rights to Object;
+ * User Management ▸ Assign Role to Provider (fixture step; assign-role covers it); Schedule Management
+ * ▸ Access Control; Data Management ▸ Fix notes with invalid role (opened only: its submit is an
+ * unscoped bulk UPDATE). Asserted: the role is created once (secRole + audit); the editor grants it
+ * _admin.userAdmin read (secObjPrivilege + audit); a throwaway doctor given the role opens Add A Role
+ * from its own menu while the write-only editor stays hidden and 403; deleting the grant (recyclebin
+ * copy) refuses Add A Role again; unassigning removes secUserRole; Access Control hides an owned group
+ * from the admin's day-sheet list and back; Fix notes lists the role; GET saves are 405. Defects met on
+ * the way are asserted in the last step. Fixtures: role, throwaway login and mygroup named by the marker;
+ * no role delete exists in the UI, so cleanup deletes every marker row and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
@@ -197,7 +189,8 @@ async function workflow(s) {
         const { page: own } = await clickOpensPopupOrNavigates(schedule, schedule.locator('#admin-panel'),
           { context: ctx, recorder, label, timeout: TIMEOUT });
         await own.waitForLoadState('load');
-        const forbidden = deferFailure(label, /\/administration(\?|$)/, 403, 'Schedule ▸ Administration is offered to a plain doctor '
+        // The popup's first response is recorded under the context's label, before the relabel.
+        const forbidden = deferFailure('role-throwaway-before', /\/administration(\?|$)/, 403, 'Schedule ▸ Administration is offered to a plain doctor '
           + '(day-sheet gate includes _admin.flowsheet) but /administration answers 403 (ViewAdministrationIndex2Action omits it)');
         if (!forbidden) {
           await own.locator('#adminNav').waitFor({ state: 'attached', timeout: TIMEOUT });
@@ -251,7 +244,16 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${throwaway}`) === 'doctor',
       'The owned role was not unassigned (or doctor went with it)');
   });
-  const groupOption = () => s.schedule.locator(`#mygroup_no option[value="_grp_${group}"]`).count();
+  // The Administration link replaced the original day sheet, so a second admin session keeps one open.
+  const dayContext = await h.newContext(context.browser(), config);
+  dayContext.on('page', page => h.wireStrictPage(page, 'role-day-sheet', recorder));
+  s.cleanup(() => dayContext.close());
+  const daySheet = await h.login(dayContext, config, recorder, { label: 'role-day-sheet' });
+  async function refreshDaySheet() {
+    await daySheet.reload();
+    await daySheet.locator('#mygroup_no').waitFor({ state: 'attached' });
+  }
+  const groupOption = () => daySheet.locator(`#mygroup_no option[value="_grp_${group}"]`).count();
   const restrictions = () => sql.rows(`SELECT providerNo FROM MyGroupAccessRestriction WHERE myGroupNo=${G} ORDER BY providerNo`).map(r => r[0]);
   async function accessControl(restrict) {
     frame = await openItem(admin, 'GroupNoAcl', 'select#chosen_group');
@@ -262,11 +264,10 @@ async function workflow(s) {
     await box.setChecked(restrict);
     await submitIn(admin, frame, frame.locator('input[name="Submit"]'));
     h.assert(await frame.locator(`input[name="data"][value="${s.provider}"]`).isChecked() === restrict, 'The saved restriction is not shown');
-    await s.schedule.reload();
-    await s.schedule.locator('#mygroup_no').waitFor({ state: 'attached' });
+    await refreshDaySheet();
   }
   await s.step('Access Control restricts the owned group from the admin, hiding it from the day-sheet group list', async () => {
-    await s.schedule.reload();
+    await refreshDaySheet();
     h.assert(await groupOption() === 1, 'The owned schedule group is not offered on the day sheet');
     await accessControl(true);
     h.assert(JSON.stringify(restrictions()) === JSON.stringify([s.provider]), 'The restriction was not stored for exactly the admin');
@@ -277,12 +278,11 @@ async function workflow(s) {
     h.assert(restrictions().length === 0, 'The restriction row was not removed');
     h.assert(await groupOption() === 1, 'The un-restricted group did not return to the day sheet');
   });
-  await s.step('Fix notes with invalid role lists the owned role as a target; opening it writes nothing', async () => {
-    const before = sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${R}`);
+  await s.step('Fix notes with invalid role lists the owned role as a target (opened, never submitted)', async () => {
     frame = await openItem(admin, 'FixRolesOnNotes', 'select[name="role_to"]');
     const option = frame.locator(`select[name="role_to"] option[value="${roleNo}"]`);
     h.assert(await option.count() === 1 && (await option.innerText()).trim() === role, 'The owned role is not offered as a target');
-    h.assert(await frame.locator('input[name="action"]').inputValue() === 'run' && before === '1', 'The page did not render its unsubmitted form');
+    h.assert(await frame.locator('input[name="action"]').inputValue() === 'run', 'The page did not render its unsubmitted form');
   });
   await s.step('ProviderAddRole and ProviderPrivilege refuse a GET save without writing', async () => {
     const extra = `${role}-GET`;

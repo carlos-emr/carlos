@@ -201,9 +201,8 @@ async function workflow(s) {
     await ui.clickAndAwaitReload(rx, rx.locator(`#prescrip_${drug}`), { label: 'drug row' });
     h.assert(h.pathOnly(rx.url()).endsWith('/rx/ViewStaticScript2'), 'The drug row did not open the static script page');
     const record = await s.popup(rx, rx.locator(`a[onclick*="/rx/ViewDisplayRxRecord?id=${drug}'"]`).first(), 'rx-record');
-    const field = async label => (await record.locator('tr').filter({ has: record.locator('td.label', { hasText: new RegExp(`^${label}:$`) }) })
-      .first().locator('td').nth(1).innerText()).trim();
-    console.log('DEBUG', JSON.stringify(await Promise.all(['Brand Name','Frequency','Duration','Quantity','Archived Reason','Problem Code'].map(field))));
+    const field = async label => (await record.locator('td.label', { hasText: new RegExp(`^${label}:$`) }).first()
+      .locator('xpath=following-sibling::td[1]').innerText()).trim();
     h.assert(await field('Brand Name') === DRUG_NAME && await field('Frequency') === 'BID' && await field('Duration') === '14'
       && await field('Quantity') === '28', 'The record popup does not show the saved product, frequency, duration and quantity');
     h.assert(await field('Archived Reason') === 'doseChange', 'The record popup does not show the discontinue reason');
@@ -238,9 +237,15 @@ async function workflow(s) {
     h.assert(snapshot() === before, 'A refused GET changed the chart');
   });
 
-  await s.step('Back to CARLOS after Save And Print clears the staged script (rx/clearPending), so a reopened Rx stages nothing', async () => {
+  await s.step('re-prescribing warns of the discontinue; Back to CARLOS after Save And Print clears the staged script (rx/clearPending), so a reopened Rx stages nothing', async () => {
+    // The Rx window now shows the static script; the Master Record link reuses a named window.
+    await rx.close();
     rx = await openRx('rx-module-print');
-    const staged = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME);
+    let staged;
+    // Choosing a drug the chart has discontinued asks before staging it again; that warning is the point.
+    const warned = await h.withExpectedDialogs(rx, async () => { staged = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME); });
+    h.assert(warned.length === 1 && warned[0].type === 'confirm' && /discontinued .* because of doseChange/.test(warned[0].text),
+      'Re-prescribing the discontinued drug did not warn with its discontinue reason');
     await rx.locator(`#instructions_${staged}`).fill(INSTRUCTIONS);
     await Promise.all([rx.waitForResponse(isPost('/rx/UpdateScript')), rx.locator(`label[for="jsonDxSearch_${staged}"]`).click()]);
     await rx.locator('#saveButton').click();

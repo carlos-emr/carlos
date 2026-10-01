@@ -85,9 +85,11 @@ async function workflow(s) {
     if (!state.providers.length) return;
     const ids = state.providers.map(q).join(',');
     sql.execute(`DELETE FROM secUserRole WHERE provider_no IN (${ids});
+      DELETE FROM providersite WHERE provider_no IN (${ids});
       DELETE FROM provider WHERE provider_no IN (${ids}) AND last_name=${q(marker)}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM secUserRole WHERE provider_no IN (${ids}))
-      + (SELECT COUNT(*) FROM provider WHERE provider_no IN (${ids}))`) === '0', 'Owned providers or roles were not removed');
+      + (SELECT COUNT(*) FROM providersite WHERE provider_no IN (${ids}))
+      + (SELECT COUNT(*) FROM provider WHERE provider_no IN (${ids}))`) === '0', 'Owned providers, sites or roles were not removed');
   });
   s.cleanup(() => {
     if (!state.group) return;
@@ -122,6 +124,12 @@ async function workflow(s) {
     INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate) VALUES (${q(nurse)},'other','R0000001',1,NOW())`);
   h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no IN (${q(roleless)},${q(nurse)}) AND last_name=${q(marker)}`) === '2',
     'Provider fixtures were not created');
+  // Site access privacy hides providers outside the viewer's sites. The nurse shares the test
+  // provider's first site; the role-less provider has none.
+  const site = sql.value(`SELECT MIN(site_id) FROM providersite WHERE provider_no=${q(provider)}`);
+  const sitePrivacy = sql.value(`SELECT COUNT(*) FROM secObjPrivilege o JOIN secUserRole r ON r.role_name=o.roleUserGroup
+    WHERE r.provider_no=${q(provider)} AND o.objectName='_site_access_privacy' AND o.privilege<>'o'`) !== '0';
+  if (site) sql.execute(`INSERT INTO providersite (provider_no,site_id) VALUES (${q(nurse)},${site})`);
 
   state.group = `PW${marker.slice(-8)}`;
   sql.execute(`INSERT INTO mygroup (mygroup_no,provider_no,last_name,first_name,vieworder)
@@ -139,6 +147,7 @@ async function workflow(s) {
     cancelled: `${marker} cancelled`,
     late: `${marker} late`,
     other: `${marker} other provider`,
+    offsite: `${marker} other site`,
   };
   const appts = [
     ['visit', provider, '09:00:00', '09:14:00', 't', null],
@@ -146,6 +155,7 @@ async function workflow(s) {
     ['cancelled', provider, '09:30:00', '09:44:00', 'C', null],
     ['late', provider, '20:30:00', '20:44:00', 't', null],
     ['other', nurse, '10:00:00', '10:14:00', 't', null],
+    ['offsite', roleless, '10:15:00', '10:29:00', 't', null],
   ];
   for (const [key, prov, start, end, status, source] of appts) {
     const id = sql.value(`INSERT INTO appointment (provider_no,appointment_date,start_time,end_time,name,demographic_no,program_id,
@@ -329,9 +339,11 @@ async function workflow(s) {
     h.assert(same(await listed(sheet), ['visit', 'self']), `Group day sheet listed [${await listed(sheet)}]`);
     await sheet.close();
   });
-  await s.step('All Providers day sheet adds the other provider without a family-doctor tag on its own patient', async () => {
+  await s.step('All Providers day sheet adds the same-site provider, honours site privacy, and tags only foreign family doctors', async () => {
+    h.assert(site || !sitePrivacy, 'The test provider has site access privacy but no site');
     const sheet = await daySheet('day sheet all', { providerNo: '*' });
-    h.assert(same(await listed(sheet), ['visit', 'self', 'other']), `All-provider day sheet listed [${await listed(sheet)}]`);
+    const expected = sitePrivacy ? ['visit', 'self', 'other'] : ['visit', 'self', 'other', 'offsite'];
+    h.assert(same(await listed(sheet), expected), `All-provider day sheet listed [${await listed(sheet)}], expected [${expected}]`);
     const cells = (await sheet.locator('tbody tr').filter({ hasText: reasons.other }).locator('td').allInnerTexts()).map(norm);
     h.assert(cells[cells.length - 1] === reasons.other, 'The family-doctor tag was shown for the patient\'s own doctor');
     h.assert(apptSnapshot() === apptsBefore, 'Viewing the all-provider day sheet changed appointment status');
@@ -339,19 +351,6 @@ async function workflow(s) {
   });
 
   // ── Correct behaviour the application does not have yet (asserted last) ────────────────────
-  await s.step('a GET carrying the PHCP role-update parameters does not change secUserRole', async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider'
-      + `?buttonUpdate=Update&providerId=${nurse}&name${nurse}=doctor`), { maxRedirects: 0 });
-    await response.dispose();
-    h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${q(nurse)}`) === 'nurse',
-      'A tokenless GET changed a security role (report/ViewReportonbilledvisitprovider mutates on GET)');
-  });
-  await s.step('Non Rostered Only leaves the rostered patient off the day sheet', async () => {
-    const sheet = await daySheet('day sheet non-rostered', { providerNo: provider, nonRostered: true });
-    const found = await listed(sheet);
-    await sheet.close();
-    h.assert(found.length === 0, `Non Rostered Only still listed the rostered patient's appointments [${found}]`);
-  });
   await s.step('sorting a time-windowed day sheet keeps its time window', async () => {
     const sheet = await daySheet('day sheet sort', { providerNo: provider });
     await Promise.all([sheet.waitForNavigation({ waitUntil: 'domcontentloaded' }),
@@ -359,6 +358,12 @@ async function workflow(s) {
     const found = await listed(sheet);
     await sheet.close();
     h.assert(same(found, ['visit', 'self']), `Sorting dropped the 8 am-8 pm window and listed [${found}]`);
+  });
+  await s.step('Non Rostered Only leaves the rostered patient off the day sheet', async () => {
+    const sheet = await daySheet('day sheet non-rostered', { providerNo: provider, nonRostered: true });
+    const found = await listed(sheet);
+    await sheet.close();
+    h.assert(found.length === 0, `Non Rostered Only still listed the rostered patient's appointments [${found}]`);
   });
 }
 

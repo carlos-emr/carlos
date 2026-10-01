@@ -13,7 +13,8 @@
  * exactly one patient whose demographic, drugs, allergies and casemgmt_note rows
  * carry the file's values and the matched test provider; the downloaded import
  * event log counts 1 allergy / 1 medication / 1 clinical note for that patient;
- * re-importing the same file creates no second patient and reports the duplicate.
+ * re-importing the same file creates no second patient, lists the duplicate, and
+ * (last step, an open application defect) must not be labelled "Imported Successfully".
  *
  * Fixtures and cleanup: the patient exists only because the check imported it
  * (surname = per-run FAKE-PW marker). Cleanup, registered before the upload,
@@ -28,7 +29,7 @@ const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
-const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { runWorkflow } = require('./lib/workflow-session');
 
 const xmlText = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
@@ -57,7 +58,7 @@ function buildCdsXml(v, provider) {
 <OmdCds xmlns="cds" xmlns:cdsd="cds_dt">
 <PatientRecord>
 <Demographics>
-<Names><cdsd:LegalName>
+<Names><cdsd:LegalName namePurpose="L">
 <cdsd:FirstName><cdsd:Part>${xmlText(v.firstName)}</cdsd:Part><cdsd:PartType>GIV</cdsd:PartType></cdsd:FirstName>
 <cdsd:LastName><cdsd:Part>${xmlText(v.lastName)}</cdsd:Part><cdsd:PartType>FAMC</cdsd:PartType></cdsd:LastName>
 </cdsd:LegalName></Names>
@@ -174,8 +175,17 @@ async function workflow(s) {
   s.cleanup(() => {
     for (const id of importedIds()) {
       h.assert(/^[1-9]\d*$/.test(id), 'Imported patient has an invalid identity');
+      const ids = sql => s.sql.rows(sql).flat().join(',') || '0';
+      const drugIds = ids(`SELECT drugid FROM drugs WHERE demographic_no=${id}`);
+      const allergyIds = ids(`SELECT allergyid FROM allergies WHERE demographic_no=${id}`);
+      const noteIds = ids(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${h.sqlString(id)}`);
       s.sql.execute(childCleanup(id).join(';\n'));
-      h.assert(remainingChildren(s.sql, id) === '0', 'Imported patient child rows were not removed');
+      h.assert(remainingChildren(s.sql, id) === '0' && s.sql.value(`SELECT
+        (SELECT COUNT(*) FROM partial_date WHERE (table_name=2 AND table_id IN (${drugIds}))
+          OR (table_name=1 AND table_id IN (${allergyIds})))
+        + (SELECT COUNT(*) FROM casemgmt_note_link WHERE note_id IN (${noteIds}))
+        + (SELECT COUNT(*) FROM casemgmt_issue_notes WHERE note_id IN (${noteIds}))`) === '0',
+      'Imported patient child rows were not removed');
       s.sql.execute(`DELETE FROM demographic WHERE demographic_no=${id} AND ${owner}`);
     }
     h.assert(importedIds().length === 0, 'The imported patient was not removed');
@@ -207,11 +217,11 @@ async function workflow(s) {
 
   await s.step('Import without a file is refused in the browser and writes nothing', async () => {
     const seen = await h.withExpectedDialogs(admin, async () => {
+      const dialog = admin.waitForEvent('dialog', { timeout: 10000 });
       await frame.locator('input[type="submit"][name="Submit"]').click();
-      await expectValue(s.sql, 'SELECT 1', '1', '');
-      await admin.waitForTimeout(300);
+      await dialog;
     });
-    h.assert(seen.length === 1 && /select at least one file/i.test(seen[0].message),
+    h.assert(seen.length === 1 && /select at least one file/i.test(seen[0].text),
       'Importing with no file did not raise the "select at least one file" alert');
     h.assert(importedIds().length === 0, 'An empty import created a patient');
   });
@@ -290,6 +300,14 @@ async function workflow(s) {
     h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}`) === '1'
       && s.sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${id}`) === '1',
     'Re-importing the same file duplicated the existing patient\'s records');
+  });
+
+  // Last on purpose: every database fact above is proven before this UI defect.
+  await s.step('the refused duplicate is not reported as "Imported Successfully"', async () => {
+    const panels = frame.locator('#result > div').filter({ hasText: file.name });
+    h.assert(await panels.count() === 1, 'The duplicate import produced no result panel of its own');
+    h.assert(await panels.locator('h5', { hasText: 'Imported Successfully' }).count() === 0,
+      'A file whose only patient was refused as a duplicate is reported as "Imported Successfully"');
   });
 }
 

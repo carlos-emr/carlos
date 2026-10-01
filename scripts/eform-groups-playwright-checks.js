@@ -17,13 +17,23 @@
  * Implements coverage plan section 4.1 eForms, eform-groups-independent (the groups half).
  */
 const h = require('./lib/playwright-harness');
-const {clickOpensPopupOrNavigates, clickInjectsPanel, clickAndAwaitReload} = require('./lib/playwright-ui');
+const {clickOpensPopupOrNavigates, clickInjectsPanel} = require('./lib/playwright-ui');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 
 const TEMPLATE_HTML = '<html><head><title>eForm group fixture</title></head><body>'
   + '<form method="post" action="" name="FormName" id="FormName">'
   + '<input type="text" name="note" id="note"><input type="submit" value="Submit" id="SubmitButton">'
   + '</form></body></html>';
+
+// The View Group links are href="#" anchors whose onclick submits a GET form, so the fragment
+// navigation comes first: wait for the submitted list itself, not the first navigation.
+async function viewGroup(page, link, groupView) {
+  await Promise.all([
+    page.waitForURL(url => url.searchParams.get('group_view') === groupView, {waitUntil: 'load'}),
+    link.click(),
+  ]);
+  await page.locator('#efmTable').waitFor();
+}
 
 async function workflow(s) {
   const group = `PW${s.marker.slice(-16)}`;
@@ -52,13 +62,13 @@ async function workflow(s) {
   for (const name of [grouped, loose]) {
     const fid = s.sql.value(`INSERT INTO eform(form_name,file_name,subject,form_date,form_time,form_creator,
       status,form_html,showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
-      VALUES(${h.sqlString(name)},'',${h.sqlString(name)},CURDATE(),CURTIME(),${h.sqlString(s.provider)},
+      VALUES(${h.sqlString(name)},'','eForm group fixture',CURDATE(),CURTIME(),${h.sqlString(s.provider)},
       1,${h.sqlString(TEMPLATE_HTML)},0,0,'',0,1); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(fid), 'eForm template fixture was not created');
     fids.push(fid);
     const fdid = s.sql.value(`INSERT INTO eform_data(fid,form_name,subject,demographic_no,status,form_date,
       form_time,form_provider,form_data,showLatestFormOnly,patient_independent,roleType)
-      VALUES(${fid},${h.sqlString(name)},${h.sqlString(name)},${s.patient},1,CURDATE(),CURTIME(),
+      VALUES(${fid},${h.sqlString(name)},'eForm group fixture',${s.patient},1,CURDATE(),CURTIME(),
       ${h.sqlString(s.provider)},${h.sqlString(TEMPLATE_HTML)},0,0,''); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(fdid), 'eForm instance fixture was not created');
     fdids.push(fdid);
@@ -104,8 +114,7 @@ async function workflow(s) {
       'The unfiltered Add eForm list does not offer the ungrouped eForm');
     const groupLink = list.locator('.grouplist li a').filter({hasText: group});
     h.assert(/\(\s*1\s*\)/.test(await groupLink.innerText()), 'The Add eForm group list does not count one eForm in the group');
-    await clickAndAwaitReload(list, groupLink, {label: 'Add eForm group filter'});
-    h.assert(new URL(list.url()).searchParams.get('group_view') === group, 'The group filter did not submit the group');
+    await viewGroup(list, groupLink, group);
     await list.locator('#efmTable').waitFor();
     h.assert(await list.locator('#efmTable').getByText(grouped, {exact: true}).count() === 1
       && await list.locator('#efmTable').getByText(loose, {exact: true}).count() === 0,
@@ -121,11 +130,11 @@ async function workflow(s) {
       'The unfiltered patient eForm list does not show both saved instances');
     const groupLink = list.locator('.grouplist li a').filter({hasText: group});
     h.assert(/\(\s*1\s*\)/.test(await groupLink.innerText()), 'The patient group list does not count one saved instance in the group');
-    await clickAndAwaitReload(list, groupLink, {label: 'patient eForm group filter'});
+    await viewGroup(list, groupLink, group);
     await table.waitFor();
     h.assert(await table.getByText(grouped, {exact: true}).count() === 1 && await table.getByText(loose, {exact: true}).count() === 0,
       'The group-filtered patient eForm list does not show exactly the grouped instance');
-    await clickAndAwaitReload(list, list.locator('.grouplist li a').first(), {label: 'patient eForm Show All'});
+    await viewGroup(list, list.locator('.grouplist li a').first(), '');
     await table.waitFor();
     h.assert(await table.getByText(loose, {exact: true}).count() === 1, 'Show All did not clear the group filter');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM eform_data WHERE fdid IN (${fdids.join(',')}) AND status=1`) === '2',

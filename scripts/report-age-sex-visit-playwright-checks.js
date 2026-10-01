@@ -99,7 +99,7 @@ async function workflow(s) {
     h.assert(response.status() === 200, `Age-Sex Report regeneration answered HTTP ${response.status()}`);
     const frame = admin.frame({ name: 'myFrame' });
     h.assert(frame, 'Age-Sex Report did not open in the administration frame');
-    await frame.locator('form[name="serviceform"]').waitFor();
+    await frame.locator('select[name="providerview"]').waitFor();
     return frame;
   }
   async function ageSexCounts(frame, action) {
@@ -111,7 +111,7 @@ async function workflow(s) {
       frame.waitForURL(url => url.pathname.endsWith('/oscarReport/ViewOscarReportAgeSex') && url.searchParams.get('reportAction') === action),
       frame.locator('input[type="submit"][name="Submit"]').click(),
     ]);
-    await frame.locator('form[name="serviceform"]').waitFor();
+    await frame.locator('select[name="providerview"]').waitFor();
     await h.assertNotErrorPage(frame, `Age-Sex Report (${action})`);
     const rows = await tableCells(frame, 'table tr');
     const buckets = {};
