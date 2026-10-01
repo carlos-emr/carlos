@@ -189,6 +189,35 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should size an over-limit payload from its encoded length without decoding past the signature")
+    void shouldClassifyTooLarge_withoutDecodingPastSignature() {
+        // A PDF whose hex breaks after the first kilobyte: a full decode fails, so classifying it
+        // as an over-limit PDF shows only the signature was read. The download path (no limit)
+        // still decodes everything and refuses it.
+        String hexPdf = HexFormat.of().formatHex(PDF).repeat(20);
+        String corruptTail = hexPdf + "zz" + hexPdf;
+        MessageHandler handler = handlerReturning(corruptTail, "Hex");
+
+        EmbeddedLabDocumentLoader.Inspection inspection = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10);
+
+        assertThat(inspection.status()).isEqualTo(Status.TOO_LARGE);
+        assertThat(inspection.sizeBytes()).isEqualTo(corruptTail.length() / 2);
+        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.NOT_PDF);
+    }
+
+    @Test
+    @DisplayName("should estimate the decoded size exactly for strict and lenient base64 and for hex")
+    void shouldEstimateDecodedSize_fromEncodedLength() {
+        for (int length = 0; length <= 7; length++) {
+            byte[] bytes = new byte[length];
+            String base64 = Base64.getEncoder().encodeToString(bytes);
+            assertThat(EmbeddedLabDocumentLoader.estimateDecodedSize(base64, false)).as("length %d", length).isEqualTo(length);
+            assertThat(EmbeddedLabDocumentLoader.estimateDecodedSize("*" + base64 + "%", false)).isEqualTo(length);
+        }
+        assertThat(EmbeddedLabDocumentLoader.estimateDecodedSize(HexFormat.of().formatHex(PDF) + "a", true)).isEqualTo(PDF.length);
+    }
+
+    @Test
     @DisplayName("should agree between inspect and load for every classification")
     void shouldAgree_betweenInspectAndLoad() {
         String hexPdf = HexFormat.of().formatHex(PDF);
