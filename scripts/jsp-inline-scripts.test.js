@@ -69,7 +69,9 @@ function blankJspComments(source) {
 /** Inline, executable script blocks with the line each starts on. */
 function inlineScripts(source) {
   const scripts = [];
-  const pattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+  // HTML ends a script at "</script" followed by whitespace, "/" or ">", so "</script >" and
+  // "</script\n>" close it too; matching only "</script>" would fold the following markup in.
+  const pattern = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
   let match;
   while ((match = pattern.exec(source))) {
     const attributes = match[1];
