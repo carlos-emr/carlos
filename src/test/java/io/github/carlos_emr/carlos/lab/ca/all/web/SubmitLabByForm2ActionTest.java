@@ -105,7 +105,7 @@ class SubmitLabByForm2ActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should not log any generated HL7 fields")
-    void shouldNotLogGeneratedHl7Fields() throws Exception {
+    void shouldNotLogHl7Fields_whenLabIsGenerated() throws Exception {
         // MSH can also contain sender-supplied fields, so neither segment is safe to log.
         String msh = "MSH|^~\\&|private-sender|CML|OSCAR|OSCAR|20260403100000||ORU^R01|BAR260403100000|P|2.3|||ER|AL";
         String pid = "PID||||1234567890|Test^Patient||19900101|M|||||555-0100||||||X1234567890";

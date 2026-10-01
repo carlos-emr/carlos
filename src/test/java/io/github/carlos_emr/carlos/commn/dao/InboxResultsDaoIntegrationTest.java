@@ -335,7 +335,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("name search includes a patient without a health number when HIN is blank")
-        void shouldFindDocumentForPatientWithoutHin() {
+        void shouldFindDocument_forPatientWithoutHin() {
             Demographic patient = entityManager.find(Demographic.class, demoId);
             patient.setHin(null);
             Document doc = createDocument("lab", PROVIDER_NO, 'A');
