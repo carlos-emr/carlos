@@ -63,7 +63,7 @@
     const compare = card => {
         const input = card.querySelector('[name="entryText"]');
         const draft = matcher.prepare(input?.value ?? evidence(card));
-        const destination = card.querySelector('[name="destination"]')?.value || card.dataset.destination;
+        const destination = card.querySelector('[name="destination"]')?.value ?? card.dataset.destination;
         const nativeKinds = { Medications: 'medication', Allergies: 'allergy', Preventions: 'prevention' };
         const found = entries.filter(entry => card.dataset.kind === 'history'
                 ? entry.kind === 'history' && entry.destinations.includes(destination)

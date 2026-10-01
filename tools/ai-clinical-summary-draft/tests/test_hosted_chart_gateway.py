@@ -39,6 +39,14 @@ class HostedChartGatewayTest(unittest.TestCase):
             gateway.implementation = 'changed'
             self.assertNotEqual(old, gateway.cache_file(request))
 
+    def test_chart_completion_budget_does_not_change_summary_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = dict(hosted.agent.DEFAULTS, max_tokens=4096)
+            gateway = hosted.Gateway(config, directory)
+            self.assertEqual(4096, gateway.config['max_tokens'])
+            self.assertEqual(8192, gateway.chart_config['max_tokens'])
+            self.assertEqual(4096, config['max_tokens'])
+
     def test_compiled_fixture_is_not_added_to_summary_allowlist(self):
         with tempfile.TemporaryDirectory() as directory:
             gateway = hosted.Gateway(hosted.agent.DEFAULTS, directory)

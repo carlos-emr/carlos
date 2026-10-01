@@ -112,3 +112,37 @@ Open <http://localhost:8082/carlos/>, search for **FAKE-EMPTY-CHART**
 for the broad trial. The 561-word clerking note remains available for comparison.
 Only the isolated trial and its loopback synthetic gateway were updated; shared
 port 8080 and production were not changed.
+
+
+## Follow-up review fixes
+
+The next automated review identified three confirmed defects: global CPP overrides
+bypassed the normal privilege resolver; punctuation could detach a follow-up from
+its preceding condition; and inline section headings could merge patient facts into
+family history. Each now has a regression test. An independent review also checked
+that cancelled/completed status and qualified headings remain attached during
+advisory duplicate matching, and that the quotation boundary accepts complete
+clinical statements such as “Hepatitis C.” while rejecting detached “Dr.” titles.
+
+Other fixes align schema destinations with proposal kinds, stabilize chart
+fingerprints across JVMs, clear comparisons when the destination is blank, use the
+availability dialog from the summary page, and keep native forms usable in short
+windows. Local gateway calls share one request deadline and malformed/incomplete
+model envelopes return a service error. The chart-specific completion budget no
+longer changes the inherited summary budget. Test fixtures remove only issue
+rows they created. Browser assertions now require the expected demographics form
+and distinguish review-token denial from CSRF denial. Cost evidence explicitly
+identifies its partial per-document call lists. Dead locale keys were removed.
+
+The proposed change to route medication facts back into OMeds was declined because
+the user chose dedicated medication records with their normal review forms. The
+legacy OMeds selector alias remains a medication-review item; its prompt and test
+now state this. Existing OMeds chart notes remain available for chart comparison.
+Splitting one already-covered tickler-access test into several methods was deferred
+as a readability suggestion; its assertions and production behavior are unchanged.
+
+These fixes use synthetic regressions and previously accepted quotations. They do
+not establish exhaustive clinical extraction. Cached trial suggestions remain a
+reviewable draft, with the same explicit approval and medication/allergy handoff
+limitations described above. Final test, independent-review, and CI status are
+tracked on the PR and in the supervisor ledger.

@@ -32,7 +32,6 @@ public final class ChartUpdateSections {
             return security.hasPrivilege(user, "_" + code, right, patient);
         }
         var overrides = objects.stream().filter(object -> ("_" + code).equals(object.getObjectname_code())).toList();
-        return overrides.isEmpty() || overrides.stream().anyMatch(object -> object.getPrivilege_code() != null
-                && (object.getPrivilege_code().contains("x") || object.getPrivilege_code().contains(right)));
+        return overrides.isEmpty() || security.hasPrivilege(user, "_" + code, right, patient);
     }
 }

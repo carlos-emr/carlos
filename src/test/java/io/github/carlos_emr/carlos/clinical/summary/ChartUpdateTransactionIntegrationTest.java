@@ -67,6 +67,7 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
     private CarlosProperties properties;
     private ChartUpdateContext.Snapshot snapshot;
     private ChartUpdateContext context;
+    private final java.util.List<Issue> createdIssues = new java.util.ArrayList<>();
 
     @BeforeEach void configure() {
         transactions = new TransactionTemplate(transactionManager);
@@ -80,6 +81,7 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
                     issue.setCode(section); issue.setDescription(section);
                     issue.setRole("doctor"); issue.setType("system");
                     em.persist(issue);
+                    createdIssues.add(issue);
                 }
             }
         });
@@ -135,6 +137,11 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
             em.flush();
             em.createQuery("delete from CaseManagementIssue where demographic_no = :patient").setParameter("patient", PATIENT).executeUpdate();
             em.createQuery("delete from CasemgmtNoteLock where demographicNo = :patient").setParameter("patient", PATIENT).executeUpdate();
+            // Bulk deletion leaves stale issue references in the persistence context.
+            em.flush();
+            em.clear();
+            for (var issue : createdIssues) em.remove(em.find(Issue.class, issue.getId()));
+            createdIssues.clear();
         });
     }
 

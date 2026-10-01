@@ -7,6 +7,7 @@ import json
 from http.server import HTTPServer
 from pathlib import Path
 import sys
+import time
 from urllib.request import Request, ProxyHandler, build_opener
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -16,6 +17,7 @@ import openrouter_agent as agent
 from openrouter_agent import committed_notes, loads, private_write, NoRedirect
 
 MODEL = 'qwen3.5:2b'
+REQUEST_TIMEOUT_SECONDS = 1800
 OPTIONS = {'temperature': 0, 'num_ctx': 16384, 'num_predict': 4096, 'num_thread': 4}
 
 
@@ -37,6 +39,7 @@ class Gateway:
         self.cache = Path(cache)
         self.notes = allowed_notes()
         self.cache_hits = 0
+        self.deadline = None
         self.config = dict(agent.DEFAULTS, model=MODEL, provider='local', request_bytes=50000,
                            max_tokens=OPTIONS['num_predict'])
         self.implementation = hashlib.sha256(b''.join(Path(module.__file__).read_bytes()
@@ -47,24 +50,37 @@ class Gateway:
         body = None if data is None else json.dumps(data).encode()
         request = Request(self.url + route, data=body, headers={'Content-Type': 'application/json'})
         try:
-            with self.opener.open(request, timeout=1800) as response:
+            remaining = self.deadline - time.monotonic() if self.deadline is not None else REQUEST_TIMEOUT_SECONDS
+            if remaining <= 0:
+                raise agent.UpstreamError('Local model request deadline exceeded')
+            with self.opener.open(request, timeout=remaining) as response:
                 raw = response.read(4 * 1024 * 1024 + 1)
             if len(raw) > 4 * 1024 * 1024:
                 raise ValueError('Model response exceeds limit')
-            return loads(raw)
+            result = loads(raw)
+            if not isinstance(result, dict):
+                raise ValueError('Invalid model response envelope')
+            return result
         except (OSError, ValueError):
             raise agent.UpstreamError('Local model connection, timeout, or response-format failure') from None
 
     def generate(self, request):
         chart_updates.validate_request(request, self.notes, 50000)
+        self.deadline = time.monotonic() + REQUEST_TIMEOUT_SECONDS
         source = request['sources'][0]['text']
         info = self.call('/api/show', {'model': MODEL})
         if info.get('remote_model') or info.get('remote_host'):
             raise ValueError('A local model is required')
-        tag = next((row for row in self.call('/api/tags')['models'] if row['name'] == MODEL), None)
+        models = self.call('/api/tags').get('models')
+        if not isinstance(models, list) or any(not isinstance(row, dict) for row in models):
+            raise agent.UpstreamError('Invalid local model inventory')
+        tag = next((row for row in models if row.get('name') == MODEL), None)
         if tag is None:
             raise agent.UpstreamError('Configured local model is unavailable')
-        identity = {'model': MODEL, 'digest': tag['digest'], 'version': self.call('/api/version')['version']}
+        version = self.call('/api/version').get('version')
+        if not isinstance(tag.get('digest'), str) or not tag['digest'] or not isinstance(version, str) or not version:
+            raise agent.UpstreamError('Invalid local model identity')
+        identity = {'model': MODEL, 'digest': tag['digest'], 'version': version}
         key = hashlib.sha256(json.dumps([identity, OPTIONS, self.implementation,
             {k: v for k, v in request.items() if k != 'request_id'}], sort_keys=True).encode()).hexdigest()
         cached = self.cache / (key + '.json')
@@ -85,9 +101,12 @@ class Gateway:
                 else:
                     raw = self.call('/api/generate', payload)
                     private_write(raw_path, json.dumps(raw) + '\n')
-                if raw.get('model') != MODEL or raw.get('done') is not True or raw.get('done_reason') != 'stop':
-                    raise ValueError('Incomplete local model response')
-                return loads(raw['response'])
+                if not isinstance(raw, dict) or raw.get('model') != MODEL or raw.get('done') is not True or raw.get('done_reason') != 'stop' or not isinstance(raw.get('response'), str):
+                    raise agent.UpstreamError('Incomplete local model response')
+                try:
+                    return loads(raw['response'])
+                except ValueError:
+                    raise agent.UpstreamError('Invalid local model completion') from None
             # Both backends use host-owned ranges and review every candidate against full source.
             output = chart_updates.run(self.config, request, self.notes, complete)['output']
             private_write(cached, json.dumps({'identity': identity, 'output': output}) + '\n')

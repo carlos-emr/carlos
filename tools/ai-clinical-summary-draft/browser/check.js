@@ -354,6 +354,8 @@ async function run() {
     await diagnosis.locator('[name="destination"]').selectOption('FamHistory');
     assert.equal(await diagnosis.locator('.chart-match-notice').isVisible(), true);
     assert.match(await diagnosis.locator('.chart-match-links').innerText(), /Family history/);
+    await diagnosis.locator('[name="destination"]').selectOption('');
+    assert.equal(await diagnosis.locator('.chart-match-notice').isVisible(), false);
     await diagnosis.locator('[name="destination"]').selectOption('MedHistory');
     assert.equal(await diagnosis.locator('.chart-match-notice').isVisible(), false);
     for (const name of ['Medications', 'Allergies']) {
@@ -370,6 +372,9 @@ async function run() {
     const nativeFrame = page.frameLocator('#native-chart-review iframe');
     assert.equal(await nativeFrame.locator('[name="demographic_no"]').inputValue(), '3001');
     assert.equal(await dialog.locator('.native-review-source').textContent(), 'Immunization: influenza given.');
+    await page.setViewportSize({ width: 1000, height: 600 });
+    const frameBox = await dialog.locator('iframe').boundingBox();
+    assert(frameBox.height >= 160 && frameBox.y + frameBox.height <= 600, 'Native form fits a short eChart window');
     await nativeFrame.getByRole('textbox', { name: 'Native draft' }).fill('Unsaved native draft');
     page.once('dialog', event => event.dismiss());
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();

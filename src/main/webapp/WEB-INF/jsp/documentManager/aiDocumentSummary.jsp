@@ -16,6 +16,7 @@
     <title><fmt:message key="documentSummary.title"/> | CARLOS EMR</title>
     <%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>
     <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/ai-document-summary.css">
+<link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/ai-chart-updates-navigation.css">
 </head>
 <body class="container py-3">
 <header class="mb-3">
@@ -54,8 +55,10 @@
     </c:otherwise>
 </c:choose>
 <c:if test="${chartUpdatesEnabled}">
-    <p class="mt-3"><a class="btn btn-outline-primary" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/AiChartUpdates?documentId=${carlos:forHtmlAttribute(documentSummaryId)}"><fmt:message key="chartUpdates.title"/></a></p>
+    <p class="mt-3"><a class="btn btn-outline-primary chart-update-document-link" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/AiChartUpdates?documentId=${carlos:forHtmlAttribute(documentSummaryId)}"><fmt:message key="chartUpdates.title"/></a></p>
 </c:if>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-document-summary.js"></script>
+<%@ include file="/WEB-INF/jspf/chart-update-error-dialog.jspf" %>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-navigation.js"></script>
 </body>
 </html>

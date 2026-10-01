@@ -102,7 +102,8 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
             row.defaults.push({ kind: 'review', destination, relatedSuggestion: hasRelated });
             assert.equal(await card.locator('[name="confirmed"]').count(), 0);
             assert.equal(await card.getByRole('button', { name: 'Accept and save', exact: true }).count(), 0);
-            if (destination === 'Demographics' && !checkedNativeForm && await card.locator('.native-review-open').count()) {
+            if (destination === 'Demographics' && !checkedNativeForm) {
+              assert.equal(await card.locator('.native-review-open').count(), 1, 'Demographics review must offer its normal form');
               await card.locator('.native-review-open').click();
               const dialog = frame.locator('#native-chart-review');
               const native = await (await dialog.locator('iframe').elementHandle()).contentFrame();

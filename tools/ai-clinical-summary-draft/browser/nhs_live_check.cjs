@@ -97,6 +97,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       const forgedReview = await page.request.post(`${config.baseUrl}/documentManager/DismissAiChartUpdate`,
         { form: { documentId: String(doc), 'CSRF-TOKEN': await csrf.inputValue(), reviewToken: 'forged', proposalKey: firstKey } });
       assert.equal(forgedReview.status(), 403, 'Forged review token must be rejected');
+      assert.match(await forgedReview.text(), /Security Exception/, 'Token rejection must reach chart authorization');
       assert.equal(count(), receiptsBefore);
       details.checks.push('review token rejection');
       await page.screenshot({ path: path.join(output, `${fixture.fixture}-review.png`), fullPage: true });

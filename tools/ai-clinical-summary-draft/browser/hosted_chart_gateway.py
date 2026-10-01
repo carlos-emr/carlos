@@ -20,6 +20,7 @@ class Gateway(agent.Gateway):
     def __init__(self, config, cache, **kwargs):
         super().__init__(config, **kwargs)
         self.cache_directory = Path(cache)
+        self.chart_config = dict(self.config, max_tokens=8192)
         # This trial alone also accepts the exact, locally rebuilt NHSSYN005 compilation.
         # The inherited single-document summary route keeps its original note allow-list.
         self.trial_notes = allowed_notes()
@@ -29,7 +30,7 @@ class Gateway(agent.Gateway):
     def cache_file(self, request):
         key = {'request': {k: v for k, v in request.items() if k != 'request_id'},
                'implementation': self.implementation,
-               'settings': {k: self.config[k] for k in ('model', 'provider', 'temperature', 'max_tokens')}}
+               'settings': {k: self.chart_config[k] for k in ('model', 'provider', 'temperature', 'max_tokens')}}
         digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
         return self.cache_directory / (digest + '.json')
 
@@ -43,7 +44,7 @@ class Gateway(agent.Gateway):
         else:
             self.deadline = time.monotonic() + 540
             try:
-                response = chart_updates.run(self.config, request, self.trial_notes, self.complete)
+                response = chart_updates.run(self.chart_config, request, self.trial_notes, self.complete)
             except agent.pipeline.OutputLimitError:
                 raise agent.UpstreamError('Proposal completion exceeded its output limit; no proposals accepted') from None
             output = response['output']
@@ -61,7 +62,7 @@ def main():
     if not 1024 <= args.port <= 65535:
         parser.error('Invalid loopback port')
     config = agent.read_config(args.config or agent.runtime_directory() / 'openrouter/config.json')
-    config.update(request_bytes=50000, max_tokens=8192)
+    config.update(request_bytes=50000)
     gateway = Gateway(config, args.cache)
     with HTTPServer(('127.0.0.1', args.port), agent.handler_for(gateway)) as server:
         print(f'Hosted synthetic chart trial: {config["model"]}, {config["provider"]}, port {args.port}', flush=True)

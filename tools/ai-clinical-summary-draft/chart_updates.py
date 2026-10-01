@@ -28,7 +28,7 @@ Concerns: clinical findings, test results and measurements, symptoms and care in
 SocHistory: living situation, occupation, alcohol/smoking/drugs, function and support.
 FamHistory: relatives' history with relationship preserved; never patient's diagnosis.
 RiskFactors: documented risks, including safety/falls.
-OMeds: medication narrative to document, never a prescription.
+OMeds: legacy alias for Medications; use Medications for normal medication review.
 Reminders: documented care advice or information to remember.
 Medications: reported medications, changes or discharge drugs to review in the normal medication
 form. Preserve inpatient-only, stopped, historical, suspected and conflicting status.
@@ -184,14 +184,18 @@ def preserve_preceding_context(excerpt, source, range_start):
     start = source.find(excerpt, range_start)
     require(start >= 0, 'Source excerpt is unavailable')
     end = start + len(excerpt)
-    heading = re.compile(r'(?:Past (?:Medical |Surgical )?History|Medical History|Social History|Family (?:History|Hx)|Medications|Allergies|Risk Factors|Review of Systems|=== Source note [0-9]+ \| [0-9]{4}-[0-9]{2}-[0-9]{2} ===)\s*:?$', re.I)
+    heading = re.compile(r'(?:Past (?:Medical |Surgical )?History|Medical History|Social History|Family (?:History|Hx)|Medications|Allergies|Risk Factors|Immunizations|Immunisations|Screening|Preventions|Demographics|Review of Systems|Systems Review|Impression|Assessment|Plan|Recommendations|=== Source note [0-9]+ \| [0-9]{4}-[0-9]{2}-[0-9]{2} ===)\s*:?$', re.I)
     while start > 0:
+        # An explicit section boundary ends the scope of qualifications above it.
+        first_line = source[start:end].splitlines()[0].strip()
+        if heading.fullmatch(first_line) or (':' in first_line and heading.fullmatch(first_line.partition(':')[0])):
+            break
         prefix = source[:start].rstrip()
         if source[len(prefix):start].count('\n') != 1:
             break
         previous_start = prefix.rfind('\n') + 1
         previous = prefix[previous_start:].strip()
-        last_clause = re.split(r'[.!?]', previous)[-1]
+        last_clause = re.split(r'[.!?]', previous.rstrip('.!?'))[-1]
         if not heading.fullmatch(previous) and not re.search(r'\b(?:no|not|denies|without|if|unless|pending)\b', last_clause, re.I):
             break
         start = previous_start
@@ -208,7 +212,7 @@ def resolve_ranges(raw, lines, source):
     for number, line in lines.items():
         if re.match(r'^\s*(?:Family (?:History|Hx)|FHx?|F/H)\s*(?::|-|$)', line, re.I):
             in_family = True
-        elif line.startswith('=== Source note ') or re.match(r'^\s*(?:Past (?:Medical |Surgical )?History|Medical History|PMHx?|Assessment|Impression|Plan|Recommendations|Social History|Medications|Allergies|On Examination|Observations|Investigations|Test Results|Review of Systems|Systems Review|Referral|Presenting Complaint|History of Presenting Complaint)\s*(?::|-|$)', line, re.I):
+        elif line.startswith('=== Source note ') or re.match(r'^\s*(?:Past (?:Medical |Surgical )?History|Medical History|PMHx?|Assessment|Impression|Plan|Recommendations|Social History|Risk Factors|Immunizations|Immunisations|Screening|Preventions|Demographics|Medications|Allergies|On Examination|Observations|Investigations|Test Results|Review of Systems|Systems Review|Referral|Presenting Complaint|History of Presenting Complaint)\s*(?::|-|$)', line, re.I):
             in_family = False
         if in_family:
             family_lines.add(number)
@@ -311,21 +315,25 @@ def section_inventory(lines):
     stops = set(sections) | {'plan', 'recommendations', 'presenting complaint',
               'history of presenting complaint', 'review of systems', 'on examination',
               'observations', 'investigations', 'test results', 'systems review', 'referral', 'admitting consultant',
-              'clerking doctor', 'clinician leading ward round', 'issues', 'today', 'on review'}
+              'clerking doctor', 'clinician leading ward round', 'issues', 'today', 'on review',
+              'risk factors', 'immunizations', 'immunisations', 'screening', 'preventions', 'demographics'}
     result, start, destination, end = [], None, None, None
+    inline_content = False
     def finish():
-        if start is not None and end is not None and end > start:
+        if start is not None and end is not None and (end > start or inline_content):
             evidence = ''.join(lines[n] for n in range(start, end + 1)).strip()
             # An inventory is a fallback. Never fail an otherwise valid selection because
             # an unstructured section cannot be safely split into bounded quotations.
             if all(len(item.encode('utf-16-le')) // 2 <= 2000 for item in independent_items(evidence)):
                 result.append({'destination': destination, 'start_id': start, 'end_id': end})
     for number, line in lines.items():
-        heading = line.strip().rstrip(':').lower()
+        label, separator, remainder = line.strip().partition(':')
+        heading = label.strip().lower() if separator else line.strip().lower()
         boundary = heading in stops or re.match(r'^(?:=== Source note |Dr\.|Nurse |Therapist |GMC number:|NMC number:)', line)
         if boundary:
             finish()
             start, destination, end = None, None, None
+            inline_content = bool(separator and remainder.strip())
             if heading in sections:
                 start, destination, end = number, sections[heading], number
         elif start is not None and line.strip():

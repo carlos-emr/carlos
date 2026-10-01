@@ -227,6 +227,7 @@ class ChartUpdatesTest(unittest.TestCase):
             {'kind': 'review', 'destination': 'Allergies', 'start_id': 7, 'end_id': 8}]}
         output = updates.resolve_ranges(raw, lines, source)
         self.assertEqual(3, len(output['proposals']))
+        self.assertEqual({'kind': 'history', 'destination': 'SocHistory', 'evidence': 'Social History\n- Non-smoker'}, output['proposals'][0])
         self.assertEqual('Allergies\nNone', output['proposals'][2]['evidence'])
         self.assertEqual('Family History\n- Father: MI at 67', output['proposals'][1]['evidence'])
 
@@ -270,9 +271,18 @@ class ChartUpdatesTest(unittest.TestCase):
         self.assertEqual('Preventions', updates.route_excerpt({'destination': 'Preventions'}, 'Vaccination and falls prevention')['destination'])
 
     def test_oversized_inventory_fallback_does_not_discard_valid_selected_fact(self):
-        source = 'Social History\n' + 'long narrative ' * 200 + '\nAllergies\nNone'
+        source = 'History: asthma.\n\nSocial History\n' + 'long narrative ' * 200 + '\nAllergies\nNone'
         inventory = updates.section_inventory(updates.source_segments(source))
         self.assertEqual(['Allergies'], [r['destination'] for r in inventory])
+        request = copy.deepcopy(self.request)
+        request['sources'][0]['text'] = source
+        def complete(payload):
+            if 'segments' in json.loads(payload['messages'][1]['content']):
+                return {'proposals': [{'destination': 'MedHistory', 'start_id': 1, 'end_id': 1}]}
+            return {'decisions': [{'id': key, 'keep': True, 'reason': 'Eligible'} for key in
+                                  json.loads(payload['messages'][1]['content'])['candidates']]}
+        result = updates.run(self.config, request, [('TEST', '2026-09-28', source)], complete)
+        self.assertEqual(['History: asthma.', 'Allergies\nNone'], [r['evidence'] for r in result['output']['proposals']])
 
     def test_adjacent_negation_and_note_date_remain_with_selected_facts(self):
         source = '=== Source note 1 | 2026-01-02 ===\nPatient details.\n\nMedications\n- No regular medications\n- IV paracetamol during ED stay'
@@ -286,6 +296,53 @@ class ChartUpdatesTest(unittest.TestCase):
         source = 'Plan\n- Discharge if neurologically stable\n- Arrange outpatient follow-up'
         result = updates.resolve_ranges({'proposals': [{'kind': 'tickler', 'start_id': 3, 'end_id': 3}]}, updates.source_segments(source), source)
         self.assertEqual([], result['proposals'])
+
+    def test_punctuated_conditions_remain_attached_before_tickler_filtering(self):
+        for punctuation in ('.', '!', '?'):
+            source = 'Plan\n- Discharge if neurologically stable' + punctuation + '\n- Arrange outpatient follow-up'
+            result = updates.resolve_ranges({'proposals': [{'kind': 'tickler', 'start_id': 3, 'end_id': 3}]}, updates.source_segments(source), source)
+            self.assertEqual([], result['proposals'])
+
+    def test_inline_inventory_headings_preserve_patient_and_family_boundaries(self):
+        source = 'Family History:\nFather: asthma.\nImpression: Possible pneumonia.\nPlan: Review tomorrow.'
+        lines = updates.source_segments(source)
+        result = updates.resolve_ranges({'proposals': updates.section_inventory(lines)}, lines, source)
+        self.assertEqual([('FamHistory', 'Family History:\nFather: asthma.'), ('Concerns', 'Impression: Possible pneumonia.')],
+                         [(row['destination'], row['evidence']) for row in result['proposals']])
+        source = 'Assessment: Possible pneumonia.'
+        lines = updates.source_segments(source)
+        result = updates.resolve_ranges({'proposals': updates.section_inventory(lines)}, lines, source)
+        self.assertEqual(source, result['proposals'][0]['evidence'])
+
+    def test_family_scope_resets_at_other_patient_sections(self):
+        for heading, destination in [('Risk Factors', 'RiskFactors'), ('Immunizations', 'Preventions'), ('Demographics', 'Demographics')]:
+            source = 'Family History:\nFather: asthma.\n' + heading + ':\nPatient fact.'
+            lines = updates.source_segments(source)
+            result = updates.resolve_ranges({'proposals': [{'destination': destination, 'start_id': 4, 'end_id': 4}]}, lines, source)
+            self.assertEqual(destination, result['proposals'][0]['destination'])
+            self.assertNotIn('Father', result['proposals'][0]['evidence'])
+            inventory = updates.section_inventory(lines)
+            self.assertEqual(2, inventory[0]['end_id'])
+
+    def test_inline_heading_resets_preceding_unrelated_negation(self):
+        source = 'No symptoms.\nImpression: Possible pneumonia.'
+        result = updates.resolve_ranges({'proposals': [{'destination': 'Concerns', 'start_id': 2, 'end_id': 2}]}, updates.source_segments(source), source)
+        self.assertEqual('Impression: Possible pneumonia.', result['proposals'][0]['evidence'])
+
+    def test_legacy_medication_selector_routes_to_dedicated_review(self):
+        source = 'Stopped paracetamol.'
+        result = updates.resolve_ranges({'proposals': [{'destination': 'OMeds', 'start_id': 1, 'end_id': 1}]}, updates.source_segments(source), source)
+        self.assertEqual([{'kind': 'review', 'destination': 'Medications', 'evidence': source}], result['proposals'])
+
+    def test_advertised_schema_destinations_agree_with_host_kinds(self):
+        found = set()
+        for variant in updates.SCHEMA['properties']['proposals']['items']['anyOf']:
+            kind = variant['properties']['kind']['enum'][0]
+            destinations = set(variant['properties']['destination']['enum'])
+            expected = {'history': {'', *updates.SECTIONS}, 'tickler': {''}, 'review': set(updates.NATIVE)}[kind]
+            self.assertEqual(expected, destinations)
+            found.update(destinations)
+        self.assertEqual({'', *updates.SECTIONS, *updates.NATIVE}, found)
 
     def test_inventory_stops_at_referral_and_system_review(self):
         source = 'Family History\nNil significant.\nSystems Review\nNo seizures.\nImpression\nSuspected asthma.\nReferral\nDr. Example'

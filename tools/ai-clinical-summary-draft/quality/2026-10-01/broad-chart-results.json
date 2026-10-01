@@ -778,5 +778,6 @@
         }
       ]
     }
-  ]
+  ],
+  "call_recording_note": "Only accepted or reused calls are listed per document. The total includes 19 billable responses, including rejected intermediate outputs omitted from those lists; listed call costs do not sum to the total. One provider error reported no cost and is excluded."
 }

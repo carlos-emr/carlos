@@ -82,6 +82,36 @@ class ChartUpdateProposalsUnitTest {
         assertThat(ChartUpdateProposals.completePassage("Plan:\n- Review in two weeks.", "- Review in two weeks.")).isTrue();
     }
 
+    @Test void shouldRejectAbbreviatedEndings_withoutRejectingNumericResults() {
+        assertThat(ChartUpdateProposals.completePassage("Dr. Smith advised review.", "Dr.")).isFalse();
+        assertThat(ChartUpdateProposals.completePassage("Dr.\nSmith advised review.", "Dr.")).isFalse();
+        assertThat(ChartUpdateProposals.completePassage("Sodium was 132. Review planned.", "Sodium was 132.")).isTrue();
+        assertThat(ChartUpdateProposals.completePassage("Dr. A. Smith advised review.", "Dr. A.")).isFalse();
+        assertThat(ChartUpdateProposals.completePassage("Hepatitis C. Another fact.", "Hepatitis C.")).isTrue();
+        assertThat(ChartUpdateProposals.completePassage("Hepatitis C.\nPlan:\nReview.", "Hepatitis C.")).isTrue();
+        assertThat(ChartUpdateProposals.completePassage("Blood group A. Another fact.", "Blood group A.")).isTrue();
+    }
+
+    @Test void shouldKeepSchemaDestinationsAligned_withHostValidation() throws Exception {
+        try (var stream = getClass().getResourceAsStream("/clinical/summary/chart-update-schema.json")) {
+            var alternatives = JSON.readTree(stream).path("properties").path("proposals").path("items").path("anyOf");
+            var found = new java.util.HashSet<String>();
+            for (var variant : alternatives) {
+                String kind = variant.path("properties").path("kind").path("enum").get(0).asText();
+                for (var destination : variant.path("properties").path("destination").path("enum")) {
+                    String code = destination.asText();
+                    found.add(code);
+                    var row = JSON.createObjectNode().put("kind", kind).put("evidence", "Fact.").put("destination", code);
+                    assertThatCode(() -> ChartUpdateProposals.validate(JSON.createObjectNode().set("proposals",
+                            JSON.createArrayNode().add(row)), "Fact.")).doesNotThrowAnyException();
+                }
+            }
+            var expected = new java.util.HashSet<>(ChartUpdateSections.CODES);
+            expected.addAll(ChartUpdateSections.NATIVE); expected.add("");
+            assertThat(found).isEqualTo(expected);
+        }
+    }
+
     @Test void shouldAcceptSavedReviewedQuotations_fromTenSyntheticTrialCases() throws Exception {
         var acceptance = JSON.readTree(java.nio.file.Files.readString(java.nio.file.Path.of(
                 "tools/ai-clinical-summary-draft/quality/2026-09-30/extraction-acceptance-results.json")));

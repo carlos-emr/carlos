@@ -10,7 +10,7 @@ import threading
 from http.server import HTTPServer
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, ProxyHandler, build_opener
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'browser'))
 import local_chart_gateway as local
 
@@ -97,6 +97,40 @@ class LocalChartGatewayTest(unittest.TestCase):
             server.shutdown()
             server.server_close()
             worker.join(timeout=5)
+
+    def test_malformed_envelopes_and_incomplete_completions_return_upstream_errors(self):
+        for envelope in ([], None, 3, 'text'):
+            response = MagicMock()
+            response.__enter__.return_value.read.return_value = json.dumps(envelope).encode()
+            with self.subTest(envelope=envelope), patch.object(self.gateway.opener, 'open', return_value=response):
+                with self.assertRaises(local.agent.UpstreamError):
+                    self.gateway.call('/api/show')
+        for envelope in ({'models': None}, {'models': [None]}):
+            def malformed(route, data=None):
+                return envelope if route == '/api/tags' else self.call(route, data)
+            with self.subTest(envelope=envelope), patch.object(self.gateway, 'call', side_effect=malformed):
+                with self.assertRaises(local.agent.UpstreamError):
+                    self.gateway.generate(self.request)
+        def incomplete(route, data=None):
+            result = self.call(route, data)
+            if route == '/api/generate':
+                result['done_reason'] = 'length'
+            return result
+        with patch.object(self.gateway, 'call', side_effect=incomplete):
+            with self.assertRaises(local.agent.UpstreamError):
+                self.gateway.generate(self.request)
+
+    def test_model_calls_share_one_request_deadline(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b'{}'
+        self.gateway.deadline = 200
+        with patch.object(local.time, 'monotonic', side_effect=[100, 175, 201]), patch.object(
+                self.gateway.opener, 'open', return_value=response) as opened:
+            self.gateway.call('/api/show')
+            self.gateway.call('/api/version')
+            with self.assertRaises(local.agent.UpstreamError):
+                self.gateway.call('/api/tags')
+        self.assertEqual([100, 25], [call.kwargs['timeout'] for call in opened.call_args_list])
 
     def test_refuses_cloud_backed_local_model(self):
         with patch.object(self.gateway, 'call', return_value={'remote_host': 'https://example.invalid'}) as call:

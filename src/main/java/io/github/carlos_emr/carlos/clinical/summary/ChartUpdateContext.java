@@ -84,7 +84,7 @@ public class ChartUpdateContext {
 
     public record Entry(String id, String kind, String text, String entryText, String dueDate, String assignee,
             java.util.Set<String> destinations) implements Serializable {
-        public Entry { destinations = java.util.Set.copyOf(destinations); }
+        public Entry { destinations = java.util.Collections.unmodifiableSortedSet(new java.util.TreeSet<>(destinations)); }
         public Entry(String id, String kind, String text) { this(id, kind, text, text, "", ""); }
         public Entry(String id, String kind, String text, String entryText, String dueDate, String assignee) {
             this(id, kind, text, entryText, dueDate, assignee, java.util.Set.of());

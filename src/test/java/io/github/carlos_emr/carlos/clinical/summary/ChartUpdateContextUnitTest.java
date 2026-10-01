@@ -207,12 +207,31 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         when(security.getSecurityObjects(user)).thenReturn(List.of(section));
         assertThatThrownBy(() -> context.requireSectionWrite(user, 3001, "SocHistory")).isInstanceOf(SecurityException.class);
         section.setPrivilege_code("w");
+        when(security.hasPrivilege(user, "_SocHistory", "w", 3001)).thenReturn(true);
         assertThatCode(() -> context.requireSectionWrite(user, 3001, "SocHistory")).doesNotThrowAnyException();
         when(security.hasPrivilege(user, "_FamHistory", "w", 3001)).thenReturn(true);
         assertThatThrownBy(() -> context.requireSectionWrite(user, 3001, "FamHistory")).isInstanceOf(SecurityException.class);
         when(security.hasPrivilege(user, "_newCasemgmt.familyHistory", "x", 3001)).thenReturn(true);
         assertThatCode(() -> context.requireSectionWrite(user, 3001, "FamHistory")).doesNotThrowAnyException();
         assertThatThrownBy(() -> context.requireSectionWrite(user, 3001, "Allergies")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test void shouldDelegateConfiguredGlobalRights_toNativePermissionHierarchy() {
+        var section = new io.github.carlos_emr.carlos.model.security.Secobjprivilege();
+        section.setObjectname_code("_SocHistory"); section.setPrivilege_code("w");
+        when(security.getSecurityObjects(user)).thenReturn(List.of(section));
+        when(security.hasPrivilege(user, "_SocHistory", "r", 3001)).thenReturn(true);
+        assertThat(ChartUpdateSections.accessible(security, user, 3001, "SocHistory", "r")).isTrue();
+        // A priority restriction decided by the native resolver must defeat this raw grant.
+        when(security.hasPrivilege(user, "_SocHistory", "r", 3001)).thenReturn(false);
+        assertThat(ChartUpdateSections.accessible(security, user, 3001, "SocHistory", "r")).isFalse();
+    }
+
+    @Test void shouldUseStableDestinationOrder_forSerializedFingerprintInput() {
+        var entry = new ChartUpdateContext.Entry("1", "history", "text", "text", "", "",
+                new java.util.LinkedHashSet<>(List.of("SocHistory", "Concerns", "FamHistory")));
+        assertThat(entry.destinations()).containsExactly("Concerns", "FamHistory", "SocHistory");
+        assertThatThrownBy(() -> entry.destinations().add("MedHistory")).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test void shouldPreserveReadableSectionMembership_forComparisonAndFingerprint() {
@@ -246,7 +265,9 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(user, "_prevention", "r", 3001)).thenReturn(true);
         when(security.hasPrivilege(user, "_prevention", "w", 3001)).thenReturn(true);
         assertThat(context.nativeReviewUrl(user, 3001, "Preventions")).isEqualTo("/prevention/ViewPreventionIndex?demographic_no=3001");
-        assertThat(context.nativeReviewUrl(user, 3002, "Allergies")).isEmpty();
+        assertThat(context.nativeReviewUrl(user, 3002, "Preventions")).isEmpty();
+        when(security.hasPrivilege(user, "_demographic", "w", 3001)).thenReturn(true);
+        assertThat(context.nativeReviewUrl(user, 3001, "Demographics")).isEqualTo("/demographic/DemographicEdit?demographic_no=3001");
         assertThat(context.nativeReviewUrl(user, 3001, "Measurements")).isEmpty();
         when(security.hasPrivilege(user, "_rx", "r", 3001)).thenReturn(true);
         when(security.hasPrivilege(user, "_rx", "w", 3001)).thenReturn(true);

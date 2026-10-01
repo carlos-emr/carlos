@@ -119,6 +119,7 @@ public final class ChartUpdateProposals {
         private static final java.util.regex.Pattern NEXT_LIST = java.util.regex.Pattern.compile("(?:[-*•][ \\t]*|[0-9]+[.)][ \\t]+)");
         private static final java.util.regex.Pattern HEADING = java.util.regex.Pattern.compile("[A-Z][A-Za-z /-]{0,60}:");
         private static final java.util.regex.Pattern PLAIN_HEADING = java.util.regex.Pattern.compile("(?i)(?:impression|presenting complaint|diagnosis|diagnoses|issues|plan)");
+        private static final java.util.regex.Pattern END_ABBREVIATION = java.util.regex.Pattern.compile("\\b(?:Dr|Mr|Mrs|Ms|Prof|St)\\.(?:\\s+[A-Z]\\.)*$");
         private static final java.util.regex.Pattern ABBREVIATION = java.util.regex.Pattern.compile("\\b(?:Dr|Mr|Mrs|Ms|Prof|St|[A-Z]|[0-9]+)\\.$");
         private static final java.util.regex.Pattern PREFIX_QUALIFIER = java.util.regex.Pattern.compile("(?i)\\b(?:no|not|denies|without|if|unless|pending)\\b");
         private static final java.util.regex.Pattern SUFFIX_QUALIFIER = java.util.regex.Pattern.compile(
@@ -182,6 +183,7 @@ public final class ChartUpdateProposals {
                         && newlines(end, following) < 2
                         && !NEXT_LIST.matcher(source).region(following, source.length()).lookingAt()
                         && !HEADING.matcher(source).region(following, source.length()).lookingAt()) ends = false;
+                if (following < source.length() && END_ABBREVIATION.matcher(evidence).find()) ends = false;
                 if (SUFFIX_QUALIFIER.matcher(source).region(following, source.length()).lookingAt()) ends = false;
                 if (ends) return true;
             }

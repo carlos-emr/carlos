@@ -9,45 +9,102 @@
       "type": "array",
       "maxItems": 100,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "kind",
-          "evidence",
-          "destination"
-        ],
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "tickler",
-              "history",
-              "review"
-            ]
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "evidence",
+              "destination"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "history"
+                ]
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "destination": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "MedHistory",
+                  "Concerns",
+                  "SocHistory",
+                  "FamHistory",
+                  "RiskFactors",
+                  "OMeds",
+                  "Reminders"
+                ]
+              }
+            }
           },
-          "evidence": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "evidence",
+              "destination"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "tickler"
+                ]
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "destination": {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              }
+            }
           },
-          "destination": {
-            "type": "string",
-            "enum": [
-              "",
-              "MedHistory",
-              "Concerns",
-              "SocHistory",
-              "FamHistory",
-              "RiskFactors",
-              "OMeds",
-              "Reminders",
-              "Medications",
-              "Allergies",
-              "Preventions",
-              "Demographics"
-            ]
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "evidence",
+              "destination"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "review"
+                ]
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "destination": {
+                "type": "string",
+                "enum": [
+                  "Medications",
+                  "Allergies",
+                  "Preventions",
+                  "Demographics"
+                ]
+              }
+            }
           }
-        }
+        ]
       }
     }
   }

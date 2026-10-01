@@ -25,7 +25,9 @@ class ChartUpdateChartRecordsUnitTest {
     }
 
     @Test void shouldPreserveMedicationInstructionsAllergyReactionsAndObservationDates() {
-        when(security.hasPrivilege(eq(user), anyString(), eq("r"), eq(3001))).thenReturn(true);
+        for (String module : List.of("_rx", "_allergy", "_measurement")) {
+            when(security.hasPrivilege(user, module, "r", 3001)).thenReturn(true);
+        }
         Drug drug = new Drug(); drug.setId(1); drug.setDemographicId(3001); drug.setCustomName("Synthetic drug");
         drug.setSpecial("5 mg daily"); drug.setSpecialInstruction("Only if instructed");
         when(drugs.getDrugs(user, 3001, RxStatus.CURRENT)).thenReturn(List.of(drug));

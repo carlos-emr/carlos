@@ -19,6 +19,7 @@
         'please clinician entry').split(' '));
     // Suppress uncertain scopes instead of guessing their meaning or dropping qualifiers.
     const excluded = /\b(?:no|not|none|denies|denied|without|negative|absent|ruled|rule|possible|possibly|probable|suspected|suspect|query|risk|if|unless|pending|resolved|recovered|completed|cancelled|canceled|family|familial|fhx|mother|father|maternal|paternal|sister|brother|daughter|son|wife|husband|parents?|siblings?)\b|\?|\b(?:r\/o|f\/h)\b/;
+    const statusContinuation = /^(?:ruled out|resolved|recovered|completed|cancelled|canceled|not confirmed|suspected|unconfirmed|in remission)\b/i;
     const resetHeading = /^(?:past medical history|pmh|medical history|assessment|impression|diagnos(?:is|es)|plan|recommendations|follow[ -]?up|current problems)\s*:/i;
     function prepare(text) {
         if (!text?.trim() || text.length > 100000) return [];
@@ -32,7 +33,7 @@
         for (const line of text.split(/\r?\n/)) {
             const trimmed = line.trim();
             const previous = lines[lines.length - 1];
-            if (previous && /^(?:ruled out|resolved|recovered|not confirmed|suspected|unconfirmed|in remission)\b/i.test(trimmed)) {
+            if (previous && statusContinuation.test(trimmed)) {
                 lines[lines.length - 1] += '\n' + trimmed;
             } else if (previous && trimmed && !/[.!?:]$/.test(previous) &&
                     !/^(?:[-*•]|\d+[.)])\s/.test(trimmed) && !resetHeading.test(trimmed)) {
@@ -40,8 +41,18 @@
             } else lines.push(trimmed);
         }
         // Keep semicolon/conjunction scopes together. Never split decimal values or dates.
-        for (const raw of lines.flatMap(line => excluded.test(line.toLowerCase())
-                ? [line] : line.split(/(?<=[.!?])\s+(?=[A-Z])/))) {
+        const sentences = [];
+        for (const line of lines) {
+            const qualifiedHeading = /^[^:\n]{1,64}:/.test(line) && !resetHeading.test(line);
+            const parts = qualifiedHeading || /\b(?:if|unless|pending)\b/i.test(line) ? [line] : line.split(/(?<=[.!?])\s+(?=[A-Z])/);
+            const joined = [];
+            for (const part of parts) {
+                if (joined.length && statusContinuation.test(part)) joined[joined.length - 1] += ' ' + part;
+                else joined.push(part);
+            }
+            sentences.push(...joined);
+        }
+        for (const raw of sentences) {
             const passage = raw.trim();
             if (!passage) continue;
             const lower = passage.toLowerCase();
@@ -50,7 +61,7 @@
                     /^(?:family history|family hx|fhx|f\/h)\b/.test(lower) ||
                     /^(?:no history of|possible diagnoses)\s*:?$/.test(lower)) blockedHeading = true;
             // Unknown headings may qualify the entire following list (e.g. dates or status).
-            if (lower.endsWith(':') && !resetHeading.test(passage)) blockedHeading = true;
+            if ((lower.endsWith(':') || /^[^:\n]{1,64}:/.test(passage)) && !resetHeading.test(passage)) blockedHeading = true;
             if (blockedHeading) continue;
             facts.push({ passage, key: 'exact:' + lower.replace(/\s+/g, ' ').trim() });
             if (excluded.test(lower)) continue;
