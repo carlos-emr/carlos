@@ -32,13 +32,15 @@
 <%--
   attachmentFrameset.jsp - Creates frameset for PDF attachment preview
   
-  This JSP page creates a frameset structure for displaying PDF attachments
-  associated with a specific patient demographic. It divides the browser window
-  into two frames for preview and source management.
-  
+  This JSP page hosts the Messenger attachment chooser for a specific patient
+  demographic in a single frame (the chooser and its PDF preview replace each
+  other in that frame).
+
   Frame structure:
-  - Top frame (300px): Displays PDF preview via messenger/PreviewPDF
-  - Bottom frame (0px): Hidden frame for source/processing operations
+  - main: the chooser (messenger/PreviewPDF); Preview streams the PDF into it
+
+  There is no hidden source frame any more: items used to be loaded into one and
+  their HTML posted back for conversion; the server now renders them (#4133).
   
   Request parameters:
   - demographic_no: Patient demographic ID for attachment retrieval
@@ -70,13 +72,11 @@ String demographic_no = request.getParameter("demographic_no");
 
         <% if ( demographic_no != null ) { %>
     <%-- Create frameset when demographic is provided --%>
-    <frameset rows="300,0">
+    <frameset rows="*">
         <%-- Main frame: Shows the PDF preview via the gated Struts action. --%>
         <frame name="main"
                src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<%= SafeEncode.forUriComponent(demographic_no) %>"
                noresize scrolling=auto marginheight=5 marginwidth=5>
-        <%-- Hidden source frame: Used for background processing --%>
-        <frame name="srcFrame" src="">
     </frameset>
         <% } else { %>
     <%-- Error message when no demographic selected --%>

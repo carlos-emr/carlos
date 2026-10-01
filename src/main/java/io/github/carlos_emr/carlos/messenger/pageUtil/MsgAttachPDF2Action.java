@@ -31,369 +31,295 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
+import java.util.EnumSet;
+import java.util.Optional;
+import java.util.ResourceBundle;
+import java.util.Set;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+
+import io.github.carlos_emr.carlos.commn.dao.EChartDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.Attachment;
+import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.Item;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
+import io.github.carlos_emr.carlos.util.Doc2PDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.util.Doc2PDF;
-
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
- * Struts2 action for attaching PDF documents to messages.
- * 
- * <p>This action handles the conversion of HTML content to PDF format and manages
- * the attachment process for the messaging system. It supports both single and
- * multiple PDF attachments, with preview capabilities and incremental attachment
- * handling for large document sets.</p>
- * 
- * <p>The action operates in two main modes:</p>
- * <ul>
- *   <li><b>Preview Mode:</b> Generates a PDF preview directly to the response stream
- *       for immediate viewing without saving the attachment</li>
- *   <li><b>Attachment Mode:</b> Converts HTML to PDF and stores it in the session
- *       bean for later inclusion in the message</li>
- * </ul>
- * 
- * <p>For multiple attachments, the action uses an incremental processing approach
- * where each attachment is processed individually with a small delay between
- * operations to prevent overwhelming the server. The action tracks progress using
- * currentAttachmentCount and totalAttachmentCount in the session bean.</p>
- * 
- * <p>Technical implementation details:</p>
- * <ul>
- *   <li>Uses Doc2PDF utility for HTML to PDF conversion</li>
- *   <li>Stores attachments as Base64-encoded strings in the session</li>
- *   <li>Implements a 500ms delay between multiple attachments</li>
- *   <li>Returns different result codes based on processing state</li>
- * </ul>
- * 
- * @version 2.0
+ * Renders a patient's chart items to PDF for the Messenger attachment chooser
+ * ({@code messenger/Doc2PDF}): either streams one item back as a preview, or stores every
+ * ticked item on the compose session's {@link MsgSessionBean} for the message being written.
+ *
+ * <p><b>The request names items, never HTML.</b> The chooser posts the patient
+ * ({@code demographic_no}) and item keys ({@code item}, or {@code previewItem} with
+ * {@code isPreview=true}); {@link MsgPdfAttachmentResolver} maps each key to a fixed internal
+ * route, which is included in this request and captured, and the captured page is what becomes
+ * the PDF. This replaces the legacy design in which the browser loaded each page into a hidden
+ * frame and posted its {@code innerHTML} back as {@code srcText}: that let any {@code _msg}
+ * writer store arbitrary markup as a "chart PDF", and the front-door WAF refused the posted page
+ * (it carries its own {@code <script>} blocks) so the feature 403'd on packaged installs
+ * (carlos-emr/carlos#4133). Nothing here needs a WAF exclusion.</p>
+ *
+ * <p><b>Authorization.</b> {@code _msg} write and POST, as before; access to the named patient's
+ * record; and, per item, read on the security object that item's route requires
+ * ({@link Item#securityObject()}). The per-item check runs here, before the include, because an
+ * included gate action that refuses would render the error page into the capture and that page
+ * would be stored as the "PDF".</p>
+ *
  * @since 2005
+ * @see MsgPdfAttachmentResolver
  * @see MsgSessionBean
- * @see Doc2PDF
  */
 public class MsgAttachPDF2Action extends ActionSupport {
-    /**
-     * HTTP request object for accessing session and parameters.
-     */
+
+    /** Renders an application route inside the current request and returns its HTML. */
+    @FunctionalInterface
+    interface RouteRenderer {
+        String render(HttpServletRequest request, HttpServletResponse response, String route)
+                throws ServletException, IOException;
+    }
+
+    /** HTML-to-PDF conversion, separated so the action can be unit tested without a renderer. */
+    interface PdfConverter {
+        void streamPdf(HttpServletRequest request, HttpServletResponse response, String html);
+
+        String toBase64Pdf(HttpServletRequest request, HttpServletResponse response, String html);
+    }
+
+    private static final Logger logger = MiscUtils.getLogger();
+
     HttpServletRequest request = ServletActionContext.getRequest();
-    
-    /**
-     * HTTP response object for sending PDF content directly to the client.
-     */
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    /**
-     * Logger instance for tracking attachment operations and debugging.
-     */
-    private static Logger logger = MiscUtils.getLogger();
+    private final SecurityInfoManager securityInfoManager;
+    private final DemographicManager demographicManager;
+    private final MsgPdfAttachmentResolver resolver;
+    private final RouteRenderer routeRenderer;
+    private final PdfConverter pdfConverter;
+
+    public MsgAttachPDF2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+                SpringUtils.getBean(DemographicManager.class),
+                new MsgPdfAttachmentResolver(SpringUtils.getBean(EChartDao.class)),
+                (req, res, route) -> new FormTransportContainer(res, req, route).getHTML(),
+                new PdfConverter() {
+                    @Override
+                    public void streamPdf(HttpServletRequest req, HttpServletResponse res, String html) {
+                        Doc2PDF.parseString2PDF(req, res, html);
+                    }
+
+                    @Override
+                    public String toBase64Pdf(HttpServletRequest req, HttpServletResponse res, String html) {
+                        return Doc2PDF.parseString2Bin(req, res, html);
+                    }
+                });
+    }
+
+    MsgAttachPDF2Action(SecurityInfoManager securityInfoManager, DemographicManager demographicManager,
+                        MsgPdfAttachmentResolver resolver, RouteRenderer routeRenderer, PdfConverter pdfConverter) {
+        this.securityInfoManager = securityInfoManager;
+        this.demographicManager = demographicManager;
+        this.resolver = resolver;
+        this.routeRenderer = routeRenderer;
+        this.pdfConverter = pdfConverter;
+    }
 
     /**
-     * Security manager used to enforce {@code _msg} privilege on every invocation.
+     * Previews one item, or attaches every ticked item.
+     *
+     * @return {@link #SUCCESS} after attaching (closes the chooser and refreshes compose), or
+     *         {@link #NONE} when the response was written here (a PDF preview or an error status)
+     * @throws IOException if an error status cannot be written
+     * @throws SecurityException if the user lacks {@code _msg} write, access to the patient, or
+     *         read on an item's security object
      */
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    /**
-     * Executes the PDF attachment workflow.
-     * 
-     * <p>This method handles two primary operations:</p>
-     * 
-     * <p><b>Preview Mode (isPreview=true):</b></p>
-     * <ul>
-     *   <li>Converts the HTML source text to PDF</li>
-     *   <li>Streams the PDF directly to the response</li>
-     *   <li>Does not store the PDF as an attachment</li>
-     * </ul>
-     * 
-     * <p><b>Attachment Mode (isPreview=false):</b></p>
-     * <ul>
-     *   <li>Converts HTML to PDF and encodes as Base64</li>
-     *   <li>Stores in session bean for message composition</li>
-     *   <li>Handles multiple attachments incrementally</li>
-     *   <li>Returns "attaching" if more attachments pending</li>
-     *   <li>Returns SUCCESS when all attachments complete</li>
-     * </ul>
-     * 
-     * <p>The method implements a stateful attachment process where multiple
-     * attachments are processed one at a time with a 500ms delay between
-     * each to prevent server overload.</p>
-     * 
-     * @return {@link #SUCCESS} when all attachments are complete; {@code "attaching"}
-     *         when more attachments are pending; {@link #NONE} when the request
-     *         is rejected with HTTP 405 (non-POST); {@code null} for the
-     *         preview-mode happy path (PDF streamed directly to the response)
-     * @throws IOException if there's an error writing to the response stream
-     * @throws ServletException if there's a servlet processing error
-     * @throws SecurityException if the current user lacks {@code _msg} write privilege
-     */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
-    public String execute() throws IOException, ServletException {
-        // Enforce _msg privilege on every invocation. The action both generates
-        // PHI-bearing PDF previews and mutates the messenger session bean, so
-        // both preview and attachment modes require the messaging privilege.
+    public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
-            logger.warn("MsgAttachPDF2Action denied: provider={} lacks _msg write",
-                    loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo());
+            logger.warn("MsgAttachPDF2Action denied: caller lacks _msg write");
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // Reject non-POST: the action processes request-supplied HTML (srcText)
-        // and mutates MsgSessionBean in attachment mode, so permitting GET would
-        // reintroduce the CSRF class of bug this PR is closing elsewhere.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            logger.warn("MsgAttachPDF2Action method not allowed: provider={} method={}",
-                    loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo(),
-                    request.getMethod());
+        // Preview streams PHI and attach mutates the compose session, so both are POST-only.
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 
-        // Retrieve the message session bean containing attachment state
-        MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
-
-        // Handle preview mode - generate PDF and send directly to client
-        if (isPreview) {
-            // Do NOT log srcText: it contains rendered demographic/encounter/
-            // prescription content (PHI). Log length metadata only.
-            logger.debug("Preview mode: srcText length={}", srcText == null ? 0 : srcText.length());
-
-            // Convert HTML to PDF and stream to response
-            Doc2PDF.parseString2PDF(request, response, "<HTML>" + srcText + "</HTML>");
-            // Reset preview flag after processing
-            isPreview = false;
-        } else {
-            // Handle attachment mode - store PDF in session for message composition
-
-            try {
-                if (bean != null) {
-                    // Clear existing attachments if this is a new attachment session
-                    if (isNew) {
-                        logger.debug("Nullifying attachment");
-                        bean.nullAttachment();
-                    }
-
-                    // Set the total number of attachments to process
-                    bean.setTotalAttachmentCount(Integer.parseInt(attachmentCount));
-
-                    // Process next attachment if more remain
-                    if (bean.getCurrentAttachmentCount() < bean.getTotalAttachmentCount()) {
-                        // Convert HTML to Base64-encoded PDF binary
-                        String resultString = Doc2PDF.parseString2Bin(request, response, "<HTML>" + srcText + "</HTML>");
-                        // Store the attachment in the session bean
-                        bean.setAppendPDFAttachment(resultString, attachmentTitle);
-                        // Increment the processed attachment counter
-                        bean.setCurrentAttachmentCount(bean.getCurrentAttachmentCount() + 1);
-                        // Brief delay to prevent server overload with multiple attachments
-                        Thread.sleep(500);
-                    }
-
-                    // Check if all attachments have been processed
-                    if (bean.getCurrentAttachmentCount() >= bean.getTotalAttachmentCount()) {
-                        // Reset counters for future attachment sessions
-                        bean.setTotalAttachmentCount(0);
-                        bean.setCurrentAttachmentCount(0);
-                        return SUCCESS;
-                    } else {
-                        // More attachments to process - return intermediate status
-                        return "attaching";
-                    }
-                } else {
-                    logger.error("Bean is null");
-                }
-            } catch (Exception e) {
-                logger.error("Error: " + e.getMessage(), e);
-            }
-
+        int demographicNo = parsePositiveInt(demographicNoParam);
+        if (demographicNo <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A patient is required");
+            return NONE;
         }
-        return null;
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("missing required patient access");
+        }
+        Demographic demographic = demographicManager.getDemographic(loggedInInfo, String.valueOf(demographicNo));
+        if (demographic == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Patient not found");
+            return NONE;
+        }
+        String patientName = demographic.getLastName() + ", " + demographic.getFirstName();
+        ResourceBundle labels = MsgPdfAttachmentResolver.labels(request.getLocale());
+
+        if (isPreview) {
+            return preview(loggedInInfo, demographicNo, patientName, labels);
+        }
+        return attach(loggedInInfo, demographicNo, patientName, labels);
     }
+
+    private String preview(LoggedInInfo loggedInInfo, int demographicNo, String patientName, ResourceBundle labels)
+            throws IOException {
+        Optional<Attachment> attachment = Item.fromKey(previewItem)
+                .flatMap(item -> resolver.resolve(item, demographicNo, patientName, labels));
+        if (attachment.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown attachment item");
+            return NONE;
+        }
+        requireItemPrivilege(loggedInInfo, attachment.get().item());
+        String html = render(attachment.get(), demographicNo, loggedInInfo);
+        if (html == null) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
+            return NONE;
+        }
+        pdfConverter.streamPdf(request, response, html);
+        return NONE;
+    }
+
+    private String attach(LoggedInInfo loggedInInfo, int demographicNo, String patientName, ResourceBundle labels)
+            throws IOException {
+        MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
+        if (bean == null) {
+            // The chooser is opened from a compose window, which creates the bean; without one
+            // there is no message to attach to.
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No message is being composed");
+            return NONE;
+        }
+
+        // Resolve and authorize every ticked item before touching the bean, so a refusal leaves
+        // the message's existing attachments as they were. Unknown keys are ignored, duplicates
+        // collapse, and items render in the chooser's order.
+        Set<Item> selected = EnumSet.noneOf(Item.class);
+        if (items != null) {
+            for (String key : items) {
+                Item.fromKey(key).ifPresent(selected::add);
+            }
+        }
+        for (Item item : selected) {
+            requireItemPrivilege(loggedInInfo, item);
+        }
+
+        // Attach replaces the message's chart-PDF set with exactly what is ticked now (ticking
+        // nothing clears it), matching the chooser's long-standing behaviour.
+        bean.nullAttachment();
+        for (Item item : selected) {
+            Optional<Attachment> attachment = resolver.resolve(item, demographicNo, patientName, labels);
+            if (attachment.isEmpty()) {
+                continue;
+            }
+            String html = render(attachment.get(), demographicNo, loggedInInfo);
+            String pdf = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
+            // A failed render is still recorded (status BAD, "(N/A)" title) so the sender sees it.
+            bean.setAppendPDFAttachment(pdf, attachment.get().title());
+        }
+        return SUCCESS;
+    }
+
+    private void requireItemPrivilege(LoggedInInfo loggedInInfo, Item item) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (" + item.securityObject() + ")");
+        }
+    }
+
     /**
-     * Total number of attachments to be processed in this session.
-     * Used for multiple attachment handling.
+     * Includes the item's route and returns its HTML, or {@code null} if it did not render.
+     * The route never comes from the request: it is built by {@link MsgPdfAttachmentResolver}
+     * from an item key and the validated patient number.
      */
-    private String attachmentCount = "0";
-    
-    /**
-     * Title or filename for the current attachment.
-     * Displayed in the message attachment list.
-     */
-    private String attachmentTitle = "";
-    
-    /**
-     * HTML source text to be converted to PDF.
-     * Contains the document content including formatting.
-     */
-    private String srcText = "";
-    
-    /**
-     * Flag indicating whether to preview the PDF without attaching.
-     * When true, PDF is streamed directly to the response.
-     */
+    private String render(Attachment attachment, int demographicNo, LoggedInInfo loggedInInfo) {
+        try {
+            if (attachment.item() == Item.PRESCRIPTIONS) {
+                // The drug-profile page reads this patient's Rx session bean; make sure the
+                // session holds one for THIS patient (#3875), as the chooser page also does.
+                RxSessionBeanResolver.ensure(request, demographicNo, loggedInInfo.getLoggedInProviderNo());
+            }
+            return routeRenderer.render(request, response, attachment.route());
+        } catch (ServletException | IOException | RuntimeException e) {
+            // No PHI: the item kind only, never the rendered content or the patient.
+            logger.error("Could not render Messenger PDF attachment item {}", attachment.item().key(), e);
+            return null;
+        }
+    }
+
+    private static int parsePositiveInt(String value) {
+        if (value == null) {
+            return 0;
+        }
+        try {
+            int parsed = Integer.parseInt(value.trim());
+            return Math.max(parsed, 0);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private String demographicNoParam;
+    private String[] items;
+    private String previewItem;
     private boolean isPreview = false;
-    
-    /**
-     * Flag indicating attachment is in progress.
-     * Currently not actively used in the execute logic.
-     */
-    private boolean isAttaching = false;
-    
-    /**
-     * Flag indicating whether this is a new attachment session.
-     * When true, existing attachments are cleared before processing.
-     */
-    private boolean isNew = true;
-    
-    /**
-     * Array of indices for batch attachment processing.
-     * Currently not actively used in the implementation.
-     */
-    private String[] indexArray;
 
-    /**
-     * Gets the total number of attachments to process.
-     * 
-     * @return the attachment count as a string
-     */
-    public String getAttachmentCount() {
-        return attachmentCount;
+    public String getDemographic_no() {
+        return demographicNoParam;
     }
 
-    /**
-     * Sets the total number of attachments to process.
-     * 
-     * @param attachmentCount the number of attachments as a string
-     */
+    /** @param demographicNo the patient whose chart items are rendered */
     @StrutsParameter
-    public void setAttachmentCount(String attachmentCount) {
-        this.attachmentCount = attachmentCount;
+    public void setDemographic_no(String demographicNo) {
+        this.demographicNoParam = demographicNo;
     }
 
-    /**
-     * Gets the title of the current attachment.
-     * 
-     * @return the attachment title
-     */
-    public String getAttachmentTitle() {
-        return attachmentTitle;
+    public String[] getItem() {
+        return items == null ? null : items.clone();
     }
 
-    /**
-     * Sets the title of the current attachment.
-     * 
-     * @param attachmentTitle the title to set for the attachment
-     */
+    /** @param items keys of the ticked items ({@link Item#key()}) to attach */
     @StrutsParameter
-    public void setAttachmentTitle(String attachmentTitle) {
-        this.attachmentTitle = attachmentTitle;
+    public void setItem(String[] items) {
+        this.items = items == null ? null : items.clone();
     }
 
-    /**
-     * Gets the HTML source text to be converted to PDF.
-     * 
-     * @return the HTML source text
-     */
-    public String getSrcText() {
-        return srcText;
+    public String getPreviewItem() {
+        return previewItem;
     }
 
-    /**
-     * Sets the HTML source text to be converted to PDF.
-     * 
-     * @param srcText the HTML content to convert
-     */
+    /** @param previewItem key of the single item to preview */
     @StrutsParameter
-    public void setSrcText(String srcText) {
-        this.srcText = srcText;
+    public void setPreviewItem(String previewItem) {
+        this.previewItem = previewItem;
     }
 
-    /**
-     * Checks if the action is in preview mode.
-     * 
-     * @return true if preview mode is enabled, false otherwise
-     */
     public boolean isPreview() {
         return isPreview;
     }
 
-    /**
-     * Sets the preview mode flag.
-     * 
-     * @param preview true to enable preview mode, false to disable
-     */
+    /** @param preview {@code true} to stream one item back instead of attaching */
     @StrutsParameter
     public void setIsPreview(boolean preview) {
         isPreview = preview;
-    }
-
-    /**
-     * Checks if attachment is currently in progress.
-     * 
-     * @return true if attaching, false otherwise
-     */
-    public boolean isAttaching() {
-        return isAttaching;
-    }
-
-    /**
-     * Sets the attaching in progress flag.
-     * 
-     * @param attaching true if attachment is in progress
-     */
-    @StrutsParameter
-    public void setIsAttaching(boolean attaching) {
-        isAttaching = attaching;
-    }
-
-    /**
-     * Checks if this is a new attachment session.
-     * 
-     * @return true if new session, false otherwise
-     */
-    public boolean isNew() {
-        return isNew;
-    }
-
-    /**
-     * Sets whether this is a new attachment session.
-     * 
-     * @param aNew true to indicate a new session requiring attachment clearing
-     */
-    @StrutsParameter
-    public void setIsNew(boolean aNew) {
-        isNew = aNew;
-    }
-
-    /**
-     * Gets the array of indices for batch processing.
-     * 
-     * @return the index array
-     */
-    public String[] getIndexArray() {
-        return indexArray;
-    }
-
-    /**
-     * Sets the array of indices for batch processing.
-     * 
-     * @param indexArray the array of indices to set
-     */
-    @StrutsParameter
-    public void setIndexArray(String[] indexArray) {
-        this.indexArray = indexArray;
     }
 }

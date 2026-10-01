@@ -79,6 +79,19 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%!
+    /*
+     * Every patient field below is written into HTML through this helper. The page is also the
+     * source the Messenger "Demographic information" PDF is rendered from, so an unencoded field
+     * (an address typed as "O'Neil & <Fixture> Lane", say) was lost from the PDF or, worse,
+     * interpreted as markup (stored HTML injection, finding L61 / #4133). Null renders as empty
+     * rather than the literal "null" a bare expression printed.
+     */
+    private static String h(Object value) {
+        return SafeEncode.forHtml(value == null ? "" : String.valueOf(value));
+    }
+%>
 <%
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
     DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
@@ -183,59 +196,59 @@
         <table width="100%" class="MainTableLeftColumn">
             <tr>
                 <td class="RowTop" colspan="3" align="center" bgcolor="#EEEEFF">
-                    <b>Record</b> (<%=d.getDemographicNo()%>) <%=d.getLastName()%>,
-                    <%=d.getFirstName()%> <%=d.getSex()%>
-                    <%=age%> years
+                    <b>Record</b> (<%=h(d.getDemographicNo())%>) <%=h(d.getLastName())%>,
+                    <%=h(d.getFirstName())%> <%=h(d.getSex())%>
+                    <%=h(age)%> years
                 </td>
             </tr>
             <tr>
                 <td align="left"
-                    title='<%=d.getDemographicNo()%>'><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><%=d.getLastName()%>
+                    title='<%=h(d.getDemographicNo())%>'><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><%=h(d.getLastName())%>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>: </b></td>
-                <td align="left"><%=d.getFirstName()%>
+                <td align="left"><%=h(d.getFirstName())%>
                 </td>
             </tr>
 
 
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formAddr"/>: </b> <%=d.getAddress()%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formAddr"/>: </b> <%=h(d.getAddress())%>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b></td>
-                <td align="left"><%=d.getCity()%>
+                <td align="left"><%=h(d.getCity())%>
                 </td>
             </tr>
 
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formProcvince"/>: </b><%=d.getProvince()%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formProcvince"/>: </b><%=h(d.getProvince())%>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPostal"/>: </b></td>
-                <td align="left"><%=d.getPostal()%>
+                <td align="left"><%=h(d.getPostal())%>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>: </b><%=d.getPhone()%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>: </b><%=h(d.getPhone())%>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>:</b></td>
-                <td align="left"><%=d.getPhone2()%>
+                <td align="left"><%=h(d.getPhone2())%>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEmail"/>: </b><%=d.getEmail() != null ? d.getEmail() : ""%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEmail"/>: </b><%=h(d.getEmail() != null ? d.getEmail() : "")%>
                 </td>
             </tr>
             <tr valign="top">
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formDOB"/></b><fmt:message key="demographic.demographiceditdemographic.formDOBDetais"/><b>:
-                </b> <%=d.getYearOfBirth()%>/ <%=d.getMonthOfBirth()%>/
-                    <%=d.getDateOfBirth()%> <b>Age: </b> <%=age%>
+                </b> <%=h(d.getYearOfBirth())%>/ <%=h(d.getMonthOfBirth())%>/
+                    <%=h(d.getDateOfBirth())%> <b>Age: </b> <%=h(age)%>
                 </td>
                 <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</b></td>
-                <td align="left"><%=d.getSex()%>
+                <td align="left"><%=h(d.getSex())%>
                 </td>
             </tr>
             <tr valign="top">
-                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formHin"/>: </b><%=d.getHin()%>
-                    <b><fmt:message key="demographic.demographiceditdemographic.formVer"/></b> <%=d.getVer()%>
+                <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formHin"/>: </b><%=h(d.getHin())%>
+                    <b><fmt:message key="demographic.demographiceditdemographic.formVer"/></b> <%=h(d.getVer())%>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEFFDate"/>:</b></td>
                 <td align="left">
@@ -249,13 +262,13 @@
                         decF.applyPattern("00");
                         String effDateMonth = decF.format(MyDateFormat.getMonthFromStandardDate(d.getFormattedEffDate()));
                         String effDateDay = decF.format(MyDateFormat.getDayFromStandardDate(d.getFormattedEffDate()));
-                    %> <%= effDateYear%>/ <%= effDateMonth%>/ <%= effDateDay%>
+                    %> <%=h(effDateYear)%>/ <%=h(effDateMonth)%>/ <%=h(effDateDay)%>
                 </td>
             </tr>
             <tr valign="top">
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formHCType"/>:</b> <%
                     String hctype = d.getHcType() == null ? "" : d.getHcType(); %>
-                    <%=hctype%>
+                    <%=h(hctype)%>
                 </td>
                 <td></td>
                 <td></td>
@@ -265,7 +278,7 @@
                     List<Provider> providers = providerDao.getActiveProviders();
                     for (Provider p : providers) {
                         if (p.getProviderNo().equals(d.getProviderNo())) {%>
-                    <%=Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen)%>
+                    <%=h(Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen))%>
                     <% }
                     }
                     %>
@@ -275,7 +288,7 @@
                     <%
                         for (Provider p : providers) {
                             if (p.getProviderNo().equals(resident)) {%>
-                    <%=Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen)%>
+                    <%=h(Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen))%>
                     <% }
                     }%>
                 </td>
@@ -284,7 +297,7 @@
                 <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>: </b> <%
                     for (Provider p : providers) {
                         if (p.getProviderNo().equals(midwife)) {%>
-                    <%=Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen)%>
+                    <%=h(Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen))%>
                     <% }
                     }%>
                 </td>
@@ -293,7 +306,7 @@
                     <%
                         for (Provider p : providers) {
                             if (p.getProviderNo().equals(nurse)) {%>
-                    <%=Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen)%>
+                    <%=h(Misc.getShortStr((p.getLastName() + "," + p.getFirstName()), "", nStrShowLen))%>
                     <% }
                     }%>
                 </td>
@@ -323,9 +336,9 @@
                         prop = (Properties) vecRef.get(k);
                     %>
                     <option
-                            value="<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>"
+                            value="<%=SafeEncode.forHtmlAttribute(String.valueOf(prop.getProperty("last_name")+","+prop.getProperty("first_name")))%>"
                             <%=prop.getProperty("referral_no").equals(rdohip) ? "selected" : ""%>>
-                        <%=Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen)%>
+                        <%=h(Misc.getShortStr((prop.getProperty("last_name") + "," + prop.getProperty("first_name")), "", nStrShowLen))%>
                     </option>
                     <% } %>
                 </select>
@@ -338,8 +351,8 @@
                             <% for(int k=0; k<vecRef.size(); k++) {
                                     prop= (Properties) vecRef.get(k);
                             %>
-                            if (refName == "<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>") {
-                                refNo = '<%=prop.getProperty("referral_no", "")%>';
+                            if (refName == "<%=SafeEncode.forJavaScript(String.valueOf(prop.getProperty("last_name")+","+prop.getProperty("first_name")))%>") {
+                                refNo = '<%=SafeEncode.forJavaScript(String.valueOf(prop.getProperty("referral_no", "")))%>';
                             }
                             <% } %>
                             document.updatedelete.r_doctor_ohip.value = refNo;
@@ -347,10 +360,10 @@
 
                         //-->
                     </script>
-                    <% } else {%> <%=rd%> <% } %>
+                    <% } else {%> <%=h(rd)%> <% } %>
                 </td>
                 <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>: </b></td>
-                <td align="left"><%=rdohip%>
+                <td align="left"><%=h(rdohip)%>
                 </td>
             </tr>
 
@@ -360,7 +373,7 @@
                     if (rosterStatus == null) {
                         rosterStatus = "";
                     }
-                %> <%=rosterStatus%>
+                %> <%=h(rosterStatus)%>
                 </td>
                 <td align="left" nowrap><b><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>: </b></td>
                 <td align="left">
@@ -371,7 +384,7 @@
                         decF.applyPattern("00");
                         String hcRenewMonth = decF.format(MyDateFormat.getMonthFromStandardDate(d.getFormattedRenewDate()));
                         String hcRenewDay = decF.format(MyDateFormat.getDayFromStandardDate(d.getFormattedRenewDate()));
-                    %> <%= hcRenewYear %> <%= hcRenewMonth %> <%= hcRenewDay %>
+                    %> <%=h(hcRenewYear)%> <%=h(hcRenewMonth)%> <%=h(hcRenewDay)%>
                 </td>
             </tr>
             <tr valign="top">
@@ -382,16 +395,16 @@
 
                         for (String pt : demographicDao.search_ptstatus()) {
                             if (pacStatus.equals(pt)) { %>
-                    <%=pt%> <% nextStatus = false;
+                    <%=h(pt)%> <% nextStatus = false;
                     }
                     }
 
                     %> <% if (nextStatus) {
 
-                    %> <%=pacStatus%> <% } %>
+                    %> <%=h(pacStatus)%> <% } %>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formChartNo"/>:</b></td>
-                <td align="left"><%=d.getChartNo()%>
+                <td align="left"><%=h(d.getChartNo())%>
                 </td>
             </tr>
 
@@ -406,13 +419,13 @@
 
                     for (WaitingListName wln : waitingListNameDao.findCurrentByGroup(((ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)).getMyGroupNo())) {
                         if (wln.getId().toString().equals(listID)) {
-                %><%=wln.getName()%> <%
+                %><%=h(wln.getName())%> <%
                         }
                     }
                 %>
                 </td>
                 <td align="left" nowrap><b>Waiting List Note: </b></td>
-                <td align="left"><%=wlnote%>
+                <td align="left"><%=h(wlnote)%>
                 </td>
             </tr>
             <%}%>
@@ -424,7 +437,7 @@
                     decF.applyPattern("00");
                     String dateJoinedMonth = decF.format(MyDateFormat.getMonthFromStandardDate(d.getFormattedDateJoined()));
                     String dateJoinedDay = decF.format(MyDateFormat.getDayFromStandardDate(d.getFormattedDateJoined()));
-                %> <%= dateJoinedYear %> <%= dateJoinedMonth %> <%= dateJoinedDay %>
+                %> <%=h(dateJoinedYear)%> <%=h(dateJoinedMonth)%> <%=h(dateJoinedDay)%>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formEndDate"/>: </b></td>
                 <td align="left">
@@ -435,19 +448,19 @@
                         decF.applyPattern("00");
                         String endMonth = decF.format(MyDateFormat.getMonthFromStandardDate(d.getFormattedEndDate()));
                         String endDay = decF.format(MyDateFormat.getDayFromStandardDate(d.getFormattedEndDate()));
-                    %> <%= endYear %> <%= endMonth %> <%= endDay %>
+                    %> <%=h(endYear)%> <%=h(endMonth)%> <%=h(endDay)%>
                 </td>
             <tr valign="top">
                 <td nowrap colspan="3">
                     <table width="100%" bgcolor="#EEEEFF">
                         <tr>
                             <td width="7%" align="left"><font color="#FF0000"><b><fmt:message key="demographic.demographiceditdemographic.formAlert"/>: </b></font></td>
-                            <td><%=alert%>
+                            <td><%=h(alert)%>
                             </td>
                         </tr>
                         <tr>
                             <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formNotes"/>: </b></td>
-                            <td><%=notes%>
+                            <td><%=h(notes)%>
                             </td>
                         </tr>
                     </table>

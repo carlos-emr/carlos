@@ -70,23 +70,37 @@ class MessengerJspRouteMigrationTest {
     }
 
     @Test
-    @DisplayName("generate preview JSP should use migrated messenger routes without conflict markers")
-    void generatePreviewJspShouldUseMigratedRoutes() throws Exception {
+    @DisplayName("generate preview JSP should post item keys to Doc2PDF and never captured page HTML")
+    void generatePreviewJspShouldPostItemKeysNotHtml() throws Exception {
         String jsp = Files.readString(GENERATE_PREVIEW);
 
+        // #4133: the chooser used to load each item into a hidden frame and post its HTML as
+        // srcText. It now names items; MsgPdfAttachmentResolver owns the routes.
         assertThat(jsp)
                 .doesNotContain("<<<<<<<", "=======", ">>>>>>>")
                 .contains("/messenger/Doc2PDF")
-                .contains("/demographic/DemographicPdfLabel?demographic_no=")
-                .contains("/encounter/ViewEcharthistoryprint?echartid=")
-                .contains("/rx/ViewPrintDrugProfile2?demographic_no=")
+                .contains("name=\"item\" value=\"demographic\"")
+                .contains("name=\"item\" value=\"encounter\"")
+                .contains("name=\"item\" value=\"prescriptions\"")
+                .contains("name=\"previewItem\"")
                 .contains("/securityError?type=_msg")
                 .contains("errorPage=\"/WEB-INF/jsp/error/errorpage.jsp\"")
+                .doesNotContain("srcText")
+                .doesNotContain("srcFrame.document")
+                .doesNotContain("uriArray")
+                .doesNotContain("titleArray")
                 .doesNotContain("/messenger/Doc2PDF.do")
-                .doesNotContain("/demographic/DemographicPdfLabel.do")
-                .doesNotContain("echarthistoryprint.jsp")
-                .doesNotContain("PrintDrugProfile2.jsp")
                 .doesNotContain("/securityError.jsp?type=_msg");
+    }
+
+    @Test
+    @DisplayName("attachment frameset should have no hidden source frame to capture pages into")
+    void attachmentFramesetShouldHaveNoSourceFrame() throws Exception {
+        String jsp = Files.readString(ATTACHMENT_FRAMESET);
+
+        assertThat(jsp)
+                .contains("<frame name=\"main\"")
+                .doesNotContain("name=\"srcFrame\"");
     }
 
     @Test
@@ -102,20 +116,15 @@ class MessengerJspRouteMigrationTest {
     }
 
     @Test
-    @DisplayName("generate preview JSP should localize attachment titles and restore checked batch indexes")
-    void generatePreviewJspShouldLocalizeAttachmentTitlesAndRestoreIndexes() throws Exception {
+    @DisplayName("generate preview JSP should localize its labels and encode the locale lang attribute")
+    void generatePreviewJspShouldLocalizeLabels() throws Exception {
         String jsp = Files.readString(GENERATE_PREVIEW);
 
         assertThat(jsp)
                 .contains("<fmt:message key=\"messenger.generatePreviewPDF.information\" var=\"informationLabel\"/>")
                 .contains("<fmt:message key=\"messenger.generatePreviewPDF.encounter\" var=\"encounterLabel\"/>")
-                .contains("request.getParameterValues(\"indexArray\")")
-                .contains("selectedIndexes.contains(")
-                .contains("checked")
                 .contains("<html lang=\"${carlos:forHtmlAttribute(pageContext.request.locale.language)}\">")
                 .doesNotContain("<%@ taglib uri=\"owasp.encoder.jakarta\" prefix=\"e\" %>")
-                .doesNotContain("pageContext.setAttribute(\"demoTitleValue\", demoName + \" information\");")
-                .doesNotContain("pageContext.setAttribute(\"ecTitleValue\", \"Encounter: \" + ec.getTimestamp().toString());")
                 .doesNotContain("<html lang=\"${pageContext.request.locale.language}\">");
     }
 
