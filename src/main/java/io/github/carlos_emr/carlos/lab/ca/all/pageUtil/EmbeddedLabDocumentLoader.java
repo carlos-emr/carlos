@@ -71,6 +71,13 @@ public final class EmbeddedLabDocumentLoader {
     /** The PDF file signature every served document must start with. */
     private static final byte[] PDF_SIGNATURE = "%PDF-".getBytes(StandardCharsets.US_ASCII);
 
+    /**
+     * How much of an over-limit payload is decoded to read its signature: far more than the
+     * eight base64 (or ten hex) characters the five signature bytes need, so stray characters the
+     * lenient decoder skips near the start do not hide it, and still a fixed, small amount.
+     */
+    private static final int HEAD_PREFIX_CHARS = 1024;
+
     /** Classification of an embedded document. */
     public enum Status {
         /** A PDF within the size limit. */
@@ -142,7 +149,9 @@ public final class EmbeddedLabDocumentLoader {
     /**
      * Classifies the document in the given OBX for the lab display page, without keeping it: the
      * payload is decoded as a stream into a byte counter, and only the first five bytes (the PDF
-     * signature) are retained. {@link #load} runs the same classification first, so the page never
+     * signature) are retained. A payload whose encoded length alone puts it over {@code maxBytes}
+     * is not decoded in full: only a short prefix is, for the signature, and its size is estimated
+     * from the encoded length. {@link #load} runs the same classification first, so the page never
      * offers a preview or download the endpoints would refuse.
      *
      * @param handler the parsed lab
@@ -172,7 +181,7 @@ public final class EmbeddedLabDocumentLoader {
             return new Document(classified.status(), null, classified.sizeBytes());
         }
         ByteArrayOutputStream bytes = new ByteArrayOutputStream((int) Math.min(classified.sizeBytes(), (long) Integer.MAX_VALUE - 8));
-        decode(classified.compact(), classified.hex(), new byte[PDF_SIGNATURE.length], bytes);
+        decode(classified.compact(), classified.hex(), new byte[PDF_SIGNATURE.length], bytes, false);
         return new Document(Status.PDF, bytes.toByteArray(), classified.sizeBytes());
     }
 
@@ -194,7 +203,19 @@ public final class EmbeddedLabDocumentLoader {
         String compact = payload.replaceAll("\\s+", "");
         boolean hex = "Hex".equals(encoding);
         byte[] head = new byte[PDF_SIGNATURE.length];
-        long size = decode(compact, hex, head, null);
+        if (maxBytes > 0) {
+            long estimated = estimateDecodedSize(compact, hex);
+            if (estimated > maxBytes) {
+                // Over the limit by its encoded length alone: decode only far enough to read the
+                // signature, so an oversized payload costs no more than a small one.
+                long headSize = decode(compact, hex, head, null, true);
+                if (headSize < PDF_SIGNATURE.length || !isPdf(head)) {
+                    return new Classified(Status.NOT_PDF, headSize < 0 ? 0 : estimated, null, false);
+                }
+                return new Classified(Status.TOO_LARGE, estimated, null, false);
+            }
+        }
+        long size = decode(compact, hex, head, null, false);
         if (size < PDF_SIGNATURE.length || !isPdf(head)) {
             return new Classified(Status.NOT_PDF, Math.max(size, 0), null, false);
         }
@@ -202,6 +223,28 @@ public final class EmbeddedLabDocumentLoader {
             return new Classified(Status.TOO_LARGE, size, null, false);
         }
         return new Classified(Status.PDF, size, compact, hex);
+    }
+
+    /**
+     * The decoded size implied by the encoded length, without decoding: half the characters for
+     * hex (an unmatched final character is dropped, as {@link #decodeHex} does), and three bytes
+     * per four base64-alphabet characters otherwise. Counting only alphabet characters (standard
+     * or URL-safe, never {@code =} padding) makes this exact both for strict base64 and for the
+     * lenient decoder, which skips every other character.
+     */
+    static long estimateDecodedSize(String compact, boolean hex) {
+        if (hex) {
+            return compact.length() / 2;
+        }
+        long alphabet = 0;
+        for (int i = 0; i < compact.length(); i++) {
+            char c = compact.charAt(i);
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+                    || c == '+' || c == '/' || c == '-' || c == '_') {
+                alphabet++;
+            }
+        }
+        return alphabet * 3 / 4;
     }
 
     /** Whether the bytes start with the PDF signature {@code %PDF-}. */
@@ -235,13 +278,29 @@ public final class EmbeddedLabDocumentLoader {
      * the fallback cannot turn text into something served as a PDF. Hex drops an unmatched final
      * character.</p>
      *
+     * <p>With {@code headOnly} (and no sink) decoding stops once {@code head} is filled, so only a
+     * bounded prefix of an oversized payload is ever decoded; the returned size is then that
+     * prefix's, not the document's.</p>
+     *
      * @return the decoded size in bytes, or {@code -1} when the payload cannot be decoded
      */
-    private static long decode(String compact, boolean hex, byte[] head, ByteArrayOutputStream sink) {
+    private static long decode(String compact, boolean hex, byte[] head, ByteArrayOutputStream sink, boolean headOnly) {
+        // Hex needs two characters per byte, base64 four per three: either way a few times the
+        // signature length covers the head, plus slack for characters the lenient decoder skips.
+        String input = headOnly && sink == null ? compact.substring(0, Math.min(compact.length(), HEAD_PREFIX_CHARS)) : compact;
         if (hex) {
-            return decodeHex(compact, head, sink);
+            return decodeHex(input, head, sink);
         }
-        byte[] ascii = compact.getBytes(StandardCharsets.ISO_8859_1);
+        byte[] ascii = input.getBytes(StandardCharsets.ISO_8859_1);
+        if (headOnly && sink == null) {
+            // A prefix cut mid-quantum is not strict base64; the lenient decoder reads it, and
+            // the signature check below still decides.
+            try (InputStream in = new Base64InputStream(new ByteArrayInputStream(ascii))) {
+                return drain(in, head, null);
+            } catch (IOException | IllegalArgumentException notBase64) {
+                return -1;
+            }
+        }
         try (InputStream in = Base64.getDecoder().wrap(new ByteArrayInputStream(ascii))) {
             return drain(in, head, sink);
         } catch (IOException | IllegalArgumentException notStrictBase64) {

@@ -217,16 +217,10 @@ public class CDLHandler implements MessageHandler {
     }
 
 
-    /** ED.5 for a standards-compliant ED value; see {@link EdObservationValue}. */
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
     @Override
-    public String getOBXEmbeddedDocumentData(int i, int j) {
-        return EdObservationValue.data(this, i, j, () -> msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX());
-    }
-
-    /** ED.4 for a standards-compliant ED value; see {@link EdObservationValue}. */
-    @Override
-    public String getOBXDocumentEncoding(int i, int j) {
-        return EdObservationValue.encoding(this, i, j, () -> msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX());
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX();
     }
 
     public String getOBXResult(int i, int j) {

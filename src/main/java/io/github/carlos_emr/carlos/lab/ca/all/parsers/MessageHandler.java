@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 import java.util.ArrayList;
 
 import ca.uhn.hl7v2.HL7Exception;
+import ca.uhn.hl7v2.model.Segment;
 
 /**
  * When implementing this class a global variable 'msg' should be created as
@@ -201,20 +202,43 @@ public interface MessageHandler {
     }
 
     /**
-     * Encoding of the returned embedded-document payload (HL7 ED.4), when exposed by the parser.
-     * A means unencoded text, Base64 and Hex explicitly identify encoded octets. An absent
-     * value retains the legacy signature-based fallback for handlers without this metadata.
+     * The parsed OBX segment behind {@code (i, j)}, for the embedded-document accessors below.
+     *
+     * <p>Handlers whose {@code getOBXResult} reads OBX-5 component 1 override this so a
+     * standards-compliant {@code ED} value ({@code ^TEXT^PDF^Base64^<data>}) yields its ED.5
+     * data and ED.4 encoding wherever the parser can reach the segment, instead of the empty
+     * source-application component. The default, {@code null}, keeps the handler's own
+     * {@link #getOBXResult(int, int)} (PATHL7, for example, decodes ED values there itself).</p>
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return the OBX segment, or {@code null} when the handler does not expose it
+     * @throws Exception when the indices do not resolve; callers treat it as "not available"
+     * @since 2026-10-01
      */
-    default String getOBXDocumentEncoding(int i, int j) {
+    default Segment getOBXSegment(int i, int j) throws Exception {
         return null;
     }
 
     /**
+     * Encoding of the returned embedded-document payload (HL7 ED.4), when exposed by the parser.
+     * A means unencoded text, Base64 and Hex explicitly identify encoded octets. An absent
+     * value retains the legacy signature-based fallback for handlers without this metadata.
+     * The default reads ED.4 from {@link #getOBXSegment(int, int)} when ED.5 carries the data.
+     */
+    default String getOBXDocumentEncoding(int i, int j) {
+        return EdObservationValue.encoding(this, i, j, () -> getOBXSegment(i, j));
+    }
+
+    /**
      * The payload of an embedded document (see {@link #isOBXEmbeddedDocument(int, int)}): HL7
-     * ED.5 where the parser can read it, otherwise the ordinary {@link #getOBXResult(int, int)}.
-     * Handlers whose {@code getOBXResult} reads OBX-5 component 1 override this, because for a
-     * standards-compliant {@code ED} value component 1 is the (empty) source application and
-     * the document is in component 5.
+     * ED.5 where the parser exposes the segment ({@link #getOBXSegment(int, int)}), otherwise the
+     * ordinary {@link #getOBXResult(int, int)}. For a standards-compliant {@code ED} value
+     * component 1 is the (empty) source application and the document is in component 5.
+     *
+     * <p>The value is returned exactly as sent: it feeds the PDF decoder, so it is neither
+     * trimmed nor line-break translated. Views showing a text payload use
+     * {@link #getOBXEmbeddedDocumentText(int, int)}.</p>
      *
      * @param i the OBR group index
      * @param j the OBX index within the group
@@ -222,7 +246,24 @@ public interface MessageHandler {
      * @since 2026-09-30
      */
     default String getOBXEmbeddedDocumentData(int i, int j) {
-        return getOBXResult(i, j);
+        return EdObservationValue.data(this, i, j, () -> getOBXSegment(i, j));
+    }
+
+    /**
+     * An embedded document declared as text (ED.4 {@code A}), ready for display: the
+     * {@link #getOBXEmbeddedDocumentData(int, int)} payload with the same normalisation
+     * {@code getOBXResult} applies to ordinary results (trimmed, HL7 {@code \.br\} turned into
+     * the {@code <br />} marker described on this interface), so views render it with the
+     * {@code htmlWithBreakMarkers} context. When ED.5 is empty this is the handler's own
+     * {@link #getOBXResult(int, int)}, already normalised.
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return the text; may be empty, never {@code null}
+     * @since 2026-10-01
+     */
+    default String getOBXEmbeddedDocumentText(int i, int j) {
+        return EdObservationValue.text(this, i, j, () -> getOBXSegment(i, j));
     }
 
 

@@ -80,6 +80,30 @@ class EdObservationValueUnitTest {
     }
 
     @Test
+    @DisplayName("should keep the Excelleris OBX-4 sub-ID label on an ED text value")
+    void shouldPrefixSubId_forExcellerisEdText() throws Exception {
+        ExcellerisOntarioHandler handler = new ExcellerisOntarioHandler();
+        handler.init(message("2.3.1", "ORU^R01",
+                "OBX|2|ED|RPT^Report|A|^TEXT^PLAIN^A^First line\\.br\\Second line||||||F|||20260930100000"));
+
+        assertThat(handler.getOBXSubIdWithEmbeddedDocumentText(0, 1)).isEqualTo("A) First line<br />Second line");
+        // The OBX-5.1 form, unchanged, shows only the (empty) source application after the label.
+        assertThat(handler.getOBXSubIdWithObservationValue(0, 1)).isEqualTo("A) ");
+    }
+
+    @Test
+    @DisplayName("should label the OBX-5.1 text when an Excelleris ED value has no ED.5")
+    void shouldPrefixSubIdToResult_whenExcellerisDataComponentIsEmpty() throws Exception {
+        ExcellerisOntarioHandler handler = new ExcellerisOntarioHandler();
+        handler.init(message("2.3.1", "ORU^R01",
+                "OBX|2|ED|RPT^Report|B|Legacy text\\.br\\payload||||||F|||20260930100000"));
+
+        assertThat(handler.getOBXSubIdWithEmbeddedDocumentText(0, 1))
+                .isEqualTo(handler.getOBXSubIdWithObservationValue(0, 1))
+                .isEqualTo("B) Legacy text<br />payload");
+    }
+
+    @Test
     @DisplayName("should return ED.5 and ED.4 for a standards-compliant ED value")
     void shouldReadDataComponent_forStandardEdValue() throws Exception {
         DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^TEXT^PDF^Base64^" + PDF_BASE64 + "||||||F|||20260930100000");

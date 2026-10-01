@@ -113,6 +113,71 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should encode the preview's localised text and count only rendered frames")
+    void shouldEncodePreviewMessages_andCountOnlyRenderedFrames() throws IOException {
+        String fragment = Files.readString(Path.of("src/main/webapp/WEB-INF/jspf/lab-embedded-pdf-preview.jspf"),
+                StandardCharsets.UTF_8);
+
+        assertThat(fragment)
+                .contains("title=\"<carlos:encode value=\"${labEmbeddedPdfFrameTitle}\" context=\"htmlAttribute\"/>\"")
+                .contains("<carlos:encode value=\"${labEmbeddedPdfTooLarge}\"/>")
+                .contains("<carlos:encode value=\"${labEmbeddedPdfPreview}\"/>")
+                .contains("<carlos:encode value=\"${labEmbeddedPdfFallback}\"/>")
+                // Every message is resolved into a variable, never written straight into the page.
+                .doesNotContainPattern("<fmt:message key=\"[^\"]+\"\\s*/>");
+        // An over-limit PDF shows a note, not a frame, so it must not use up an expanded slot.
+        int tooLargeBranch = fragment.indexOf("EmbeddedLabDocumentLoader.Status.TOO_LARGE");
+        int frameBranch = fragment.indexOf("<% } else {", tooLargeBranch);
+        assertThat(fragment.indexOf("labPdfPreviewCount++")).isGreaterThan(frameBranch);
+        assertThat(frameBranch).isGreaterThan(tooLargeBranch);
+    }
+
+    @Test
+    @DisplayName("should send ED rows past the HHSEMR, CML and Spire renderers in lab display")
+    void shouldRouteEmbeddedDocumentRows_pastLabSpecificRenderersInLabDisplay() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("} else if (embeddedDocument == null && (handler.getMsgType().equals(\"HHSEMR\") || handler.getMsgType().equals(\"CML\"))) {")
+                .contains("} else if (embeddedDocument == null && handler.getMsgType().equals(\"Spire\")) {");
+    }
+
+    @Test
+    @DisplayName("should send ED rows past the HHSEMR renderer in ajax lab display")
+    void shouldRouteEmbeddedDocumentRows_pastLabSpecificRendererInAjaxLabDisplay() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("} else if (embeddedDocument == null && handler.getMsgType().equals(\"HHSEMR\")) {");
+    }
+
+    @Test
+    @DisplayName("should send PDF and binary ED rows past the unstructured-report layout in both lab views")
+    void shouldRouteEmbeddedPdfRows_pastUnstructuredLayoutInBothViews() throws IOException {
+        for (Path view : List.of(LAB_DISPLAY_JSP, LAB_DISPLAY_AJAX_JSP)) {
+            String jsp = Files.readString(view, StandardCharsets.UTF_8);
+
+            assertThat(jsp).as(view.toString())
+                    .contains("if (isUnstructuredDoc && !isEmbeddedDocumentResult && !isUndisplayableEmbeddedDocument) {")
+                    // Text ED rows stay in the narrative layout but show the ED.5 text.
+                    .contains("embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT"
+                            + " ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k)");
+        }
+    }
+
+    @Test
+    @DisplayName("should show ED text normalised and keep the Excelleris sub-ID label in both lab views")
+    void shouldRenderEmbeddedText_withExcellerisSubIdInBothViews() throws IOException {
+        for (Path view : List.of(LAB_DISPLAY_JSP, LAB_DISPLAY_AJAX_JSP)) {
+            String jsp = Files.readString(view, StandardCharsets.UTF_8);
+
+            assertThat(jsp).as(view.toString())
+                    .contains("<em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithEmbeddedDocumentText(j, k) %>' context=\"htmlWithBreakMarkers\"/></em>")
+                    .contains("<carlos:encode value='<%= handler.getOBXEmbeddedDocumentText(j, k) %>' context=\"htmlWithBreakMarkers\"/>")
+                    .doesNotContain("handler.getOBXEmbeddedDocumentData(j, k) %>");
+        }
+    }
+
+    @Test
     @DisplayName("should close inboxhub iframe after successful lab macro")
     void shouldCloseInboxhubIframe_afterSuccessfulLabMacro() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
