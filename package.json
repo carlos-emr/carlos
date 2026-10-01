@@ -37,6 +37,7 @@
     "test:edoc-schedule-nav-playwright": "node scripts/edoc-schedule-navigation-playwright-checks.js",
     "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
     "test:schedule-setting-playwright": "node scripts/schedule-setting-playwright-checks.js",
+    "test:portal-booking-playwright": "node scripts/portal-booking-prompt-playwright-checks.js",
     "test:scripts": "node --test scripts/*.test.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
     "test:fax-configure-playwright": "node scripts/fax-configure-playwright-checks.js",

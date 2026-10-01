@@ -1582,5 +1582,8 @@ if (privateConsentEnabled) {
 %>
 
     </script>
+<jsp:include page="/WEB-INF/jsp/demographic/portalBookingPrompt.jsp">
+    <jsp:param name="portalBookingPatient" value="<%= demographic_no %>"/>
+</jsp:include>
     </body>
 </html>

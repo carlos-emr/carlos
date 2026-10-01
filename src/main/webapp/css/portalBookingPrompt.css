@@ -1,0 +1,9 @@
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+.portal-booking { margin: 1rem; padding: 1rem; border: 1px solid #adb5bd; border-radius: .3rem; background: #fff; color: #212529; }
+.portal-booking h2 { font-size: 1.2rem; }
+.portal-booking [data-role="create"] { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin-bottom: .75rem; }
+.portal-booking [hidden] { display: none !important; }
+.portal-booking label { display: flex; flex-direction: column; gap: .25rem; }
+.portal-booking select, .portal-booking button { font: inherit; padding: .4rem .6rem; }
+.portal-booking li { margin: .5rem 0; }
+.portal-booking li button { margin-left: .75rem; }

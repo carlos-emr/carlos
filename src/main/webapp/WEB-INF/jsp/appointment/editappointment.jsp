@@ -745,12 +745,14 @@
 
                     focus: function (event, ui) {
                         jQuery("#keyword").val(ui.item.formattedName);
+                        document.getElementById('keyword').dispatchEvent(new Event('change'));
                         return false;
                     },
                     select: function (event, ui) {
                         jQuery("#demographic_no").val(ui.item.value);
                         jQuery("#mrp").val(ui.item.provider);
                         jQuery("#keyword").val(ui.item.formattedName);
+                        document.getElementById('keyword').dispatchEvent(new Event('change'));
 
                         // Update patient alert banner
                         var patientAlert = ui.item.alert || "";
@@ -1599,6 +1601,12 @@
 
 </div> <!-- end of edit appointment screen -->
 </form>
+<% if (apptFromRequest != null && apptFromRequest.getDemographicNo() > 0) { %>
+<jsp:include page="/WEB-INF/jsp/demographic/portalBookingPrompt.jsp">
+    <jsp:param name="portalBookingPatient" value="<%= apptFromRequest.getDemographicNo() %>"/>
+    <jsp:param name="portalBookingPatientInput" value="#demographic_no"/>
+</jsp:include>
+<% } %>
     </body>
 
 </html>
