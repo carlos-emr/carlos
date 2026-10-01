@@ -111,6 +111,18 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should match the viewer's acknowledgement by CARLOS provider number in ajax lab display")
+    void shouldMatchAcknowledgement_byCarlosProviderNumberInAjaxLabDisplay() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);
+
+        // ReportStatus.getProviderNo() is the routed provider's practitioner number, null for a
+        // provider without one; dereferencing it made the AJAX view answer 500 for such labs (#4124).
+        assertThat(jsp)
+                .contains("providerNo.equals(reportStatus.getOscarProviderNo())")
+                .doesNotContain("reportStatus.getProviderNo().equals(");
+    }
+
+    @Test
     @DisplayName("should frame the preview lazily, encoded, and without inline script")
     void shouldFramePreviewLazily_withoutInlineScript() throws IOException {
         String fragment = Files.readString(Path.of("src/main/webapp/WEB-INF/jspf/lab-embedded-pdf-preview.jspf"),

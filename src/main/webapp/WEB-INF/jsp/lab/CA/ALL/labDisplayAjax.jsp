@@ -159,7 +159,9 @@
     if (ackList != null) {
         for (int i = 0; i < ackList.size(); i++) {
             ReportStatus reportStatus = (ReportStatus) ackList.get(i);
-            if (reportStatus.getProviderNo().equals(providerNo)) {
+            // getProviderNo() is the routed provider's practitioner number (null for one without,
+            // such as the system provider), not the CARLOS provider number; compare like labDisplay.jsp.
+            if (providerNo != null && providerNo.equals(reportStatus.getOscarProviderNo())) {
                 labStatus = reportStatus.getStatus();
                 if (labStatus.equals("A")) {
                     ackFlag = true;

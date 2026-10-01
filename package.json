@@ -29,6 +29,7 @@
     "test:upstream-small-fixes-playwright": "node scripts/upstream-small-fixes-playwright-checks.js",
     "test:cds-export-lab-documents-playwright": "node scripts/cds-export-lab-documents-playwright-checks.js",
     "test:lab-embedded-pdf-playwright": "node scripts/lab-embedded-pdf-playwright-checks.js",
+    "test:lab-epsilon-playwright": "node scripts/lab-epsilon-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
     "test:lab-upload-playwright": "node scripts/lab-upload-playwright-checks.js",
     "test:login-failure-host-header-playwright": "node scripts/login-failure-host-header-playwright-checks.js",
