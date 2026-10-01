@@ -137,9 +137,24 @@ is optional; the action omits it until the staff UI has a server-verified provid
 accepts a provider name from browser free text. Audit failures after a confirmed remote change do not
 turn that change into a retryable failure.
 
-This draft provides the Java API, permission mapping, and action contract. The staff controls on the
-appointment and master-record screens, their English catalog keys, and a separately approved
-security-object/default-role database seed remain required before #3849 is complete. No permission
-is granted by this code alone. Offered-slot selection, atomic appointment creation, the polling
+The UI draft adds a shared panel to the persisted appointment's patient and the master record.
+Changing the appointment's patient ID or editing/previewing its patient name blocks portal
+controls until save/reopen; every mutation rechecks the current inputs, including programmatic
+changes that emit no input event.
+The fragment checks patient access and booking read before rendering; create controls require
+booking write and account read. The `panel` POST reports account eligibility, prompt history, and
+current create/withdraw capabilities. It reads account status only when permitted and treats an
+explicit absent account separately from an outage. It never reads unrelated invitations.
+
+The browser waits for CSRF bootstrap, uses fixed pick-lists and text-only rendering, and disables
+concurrent changes. An uncertain create retains its operation ID and fixed choices in tab-scoped
+session storage, keyed by actor and patient, across refresh/navigation. No provider names, patient
+names, or portal credentials are stored. Until confirmed, retries retain those choices and ID.
+Sending is disabled if storage cannot retain the retry identity. Withdrawal failures require a
+status refresh; no prompt is presented as withdrawn without the confirmed ID/state response.
+The latest-100 history and optional provider attribution limitations above still apply.
+
+All five catalogs use the same English labels. A separately approved security-object/default-role
+database seed remains required before #3849 is complete. No permission is granted by this code alone. Offered-slot selection, atomic appointment creation, the polling
 system principal, and decline/expiry ticklers belong to #3850. The draft is stacked on #3478 and
 requires that client before mainline integration.
