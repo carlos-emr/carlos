@@ -86,7 +86,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
         String key = request.getParameter("key");
         String keyToMatch = CarlosProperties.getInstance().getProperty("CML_UPLOAD_KEY");
-        _logger.debug("upload key present: {}", key != null);
+        _logger.debug("Checking whether the CML upload key was supplied");
         String outcome = "";
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);

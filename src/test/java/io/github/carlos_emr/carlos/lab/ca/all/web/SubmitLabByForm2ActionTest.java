@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.web;
 import io.github.carlos_emr.carlos.lab.ca.all.util.CMLLabHL7Generator;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +38,7 @@ import static org.mockito.Mockito.mockStatic;
 
 /**
  * Unit tests for {@link SubmitLabByForm2Action}, focused on the null guard
- * for HL7 generation and PHI-safe MSH segment extraction.
+ * for HL7 generation and protection of request-derived data in logs.
  *
  * @since 2026-04-03
  */
@@ -103,39 +104,28 @@ class SubmitLabByForm2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should extract only MSH segment when HL7 uses LF separators")
-    void shouldExtractOnlyMshSegment_whenHL7UsesLfSeparators() throws Exception {
-        // Given — HL7 with \n separators (as all three generators produce)
-        // MSH is safe metadata; PID contains PHI (name, HIN, DOB)
-        String msh = "MSH|^~\\&|CML|CML|OSCAR|OSCAR|20260403100000||ORU^R01|BAR260403100000|P|2.3|||ER|AL";
+    @DisplayName("should not log any generated HL7 fields")
+    void shouldNotLogGeneratedHl7Fields() throws Exception {
+        // MSH can also contain sender-supplied fields, so neither segment is safe to log.
+        String msh = "MSH|^~\\&|private-sender|CML|OSCAR|OSCAR|20260403100000||ORU^R01|BAR260403100000|P|2.3|||ER|AL";
         String pid = "PID||||1234567890|Test^Patient||19900101|M|||||555-0100||||||X1234567890";
         String hl7WithLf = msh + "\n" + pid + "\n";
 
         cmlGeneratorMock = mockStatic(CMLLabHL7Generator.class);
         cmlGeneratorMock.when(() -> CMLLabHL7Generator.generate(any())).thenReturn(hl7WithLf);
 
-        // When — saveManage proceeds past HL7 generation to file save (which will fail,
-        // but the MSH extraction happens before that). We just need to verify no PHI is logged.
-        // The action will throw during file save since Utilities.saveFile() isn't mocked,
-        // but the log statement at line 184 already executed by then.
-        try {
-            executeActionMethod(action, "saveManage");
-        } catch (Exception e) {
-            // Expected — file save infrastructure not mocked
-        }
+        try (LogCapture logs = LogCapture.forLogger(SubmitLabByForm2Action.class)) {
+            // File-save infrastructure is not set up in this unit test; inspect the logs
+            // emitted before that boundary regardless of its outcome.
+            try {
+                executeActionMethod(action, "saveManage");
+            } catch (Exception expected) {
+                // The request has already passed HL7 generation.
+            }
 
-        // Then — verify the MSH extraction logic didn't fall through to full HL7.
-        // We can't easily inspect the log output, but we can verify the extraction logic
-        // directly by checking the same algorithm the action uses:
-        int firstSep = hl7WithLf.indexOf('\r');
-        if (firstSep <= 0) {
-            firstSep = hl7WithLf.indexOf('\n');
+            assertThat(logs.messages()).contains("HL7 generated for lab submission");
+            assertThat(String.join("\n", logs.messages()))
+                    .doesNotContain("private-sender", "BAR260403100000", "Test^Patient", "1234567890");
         }
-        String extractedSegment = firstSep > 0 ? hl7WithLf.substring(0, firstSep) : "[MSH extraction failed]";
-
-        assertThat(extractedSegment).isEqualTo(msh);
-        assertThat(extractedSegment).doesNotContain("PID");
-        assertThat(extractedSegment).doesNotContain("Test^Patient");
-        assertThat(extractedSegment).doesNotContain("1234567890");
     }
 }

@@ -32,9 +32,9 @@
                                                                   is authoritative at click time
 
     Renders the Manage Attachments button, the count badge, the per-type name lists and the
-    hidden ".delegateAttachment" inputs that carry the current selection back to the action.
-    Items of a type the reader may not open are listed as restricted and marked so the dialog
-    never drops them from the submission. ticklerAttachmentsDialog.jspf (placed AFTER the form)
+    hidden ".delegateAttachment" inputs that carry viewable selections back to the action.
+    Items of a type the reader may not open have no identifiers in the page; the service
+    preserves those rows on an empty submission. ticklerAttachmentsDialog.jspf (placed AFTER the form)
     holds the picker dialog and its script.
 
     @since 2026-09-26
@@ -51,7 +51,7 @@
     ticklerAttachmentGroups.put(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.HRM, "tickler.attachments.group.hrm");
     ticklerAttachmentGroups.put(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.FORM, "tickler.attachments.group.forms");
 %>
-<div class="tickler-attachments">
+<div class="tickler-attachments" data-current-provider="<carlos:encode value='<%= loggedInInfo.getLoggedInProviderNo() %>' context="htmlAttribute"/>">
     <span class="attachments-cell">
         <button type="button" class="btn btn-outline-secondary btn-sm" id="manageAttachmentsBtn"
                 title="<fmt:message key="tickler.attachments.manage"/>"
@@ -87,7 +87,7 @@
                 <%
                         } else {
                 %>
-                <li class="restricted text-muted" data-delegate-id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"><fmt:message key="tickler.attachments.restricted"/></li>
+                <li class="restricted text-muted"><fmt:message key="tickler.attachments.restricted"/></li>
                 <%
                         }
                     }
@@ -96,6 +96,9 @@
         </div>
         <% } %>
     </div>
+    <p id="attachmentAssigneeWarning" class="alert alert-warning mt-2" role="status" style="display:none;">
+        <fmt:message key="tickler.attachments.assigneeAccessWarning"/>
+    </p>
     <%-- Hidden delegates mirror the picker's checkbox names so the dialog can pre-check them and
          the action can read the same parameters whether or not the dialog was opened. The value
          is what the action reads (labs carry their source: "HL7:123"); data-picker-id is the
@@ -103,12 +106,15 @@
          source, so the source is part of the DOM key). --%>
     <%
         for (io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData ticklerAttachment : ticklerAttachments) {
+            if (!ticklerAttachment.isViewable()) {
+                continue;
+            }
             String ticklerAttachmentParam = ticklerAttachment.getParameterName();
     %>
     <input type="hidden" class="delegateAttachment" name="<%= ticklerAttachmentParam %>"
            value="<carlos:encode value='<%= ticklerAttachment.getSubmissionValue() %>' context="htmlAttribute"/>"
            data-picker-id="<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"
-           id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"<%= ticklerAttachment.isViewable() ? "" : " data-restricted=\"1\"" %>>
+           id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"/>
     <% } %>
     <%-- Set to 1 by the dialog's Save and Close; without it the action leaves the stored set alone. --%>
     <input type="hidden" name="<%= io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters.SUBMITTED_MARKER %>" id="attachmentsSubmitted" value="">

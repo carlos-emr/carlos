@@ -86,12 +86,12 @@ class CredentialLoggingRegressionTest {
     }
 
     @Test
-    @DisplayName("CML upload should log key presence only")
+    @DisplayName("CML upload should not log the key or data derived from it")
     void shouldLogKeyPresenceOnly_forCmlUpload() throws IOException {
         String labUploadAction = readSource("lab/ca/on/CML/Upload/LabUpload2Action.java");
 
         assertThat(labUploadAction)
-                .contains("_logger.debug(\"upload key present: {}\", key != null)")
+                .contains("_logger.debug(\"Checking whether the CML upload key was supplied\")")
                 .doesNotContain("MiscUtils.getLogger().debug(\"key=\" + key)");
     }
 

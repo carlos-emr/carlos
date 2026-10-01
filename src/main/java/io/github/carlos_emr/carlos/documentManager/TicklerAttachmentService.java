@@ -117,6 +117,7 @@ public class TicklerAttachmentService {
     private final HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
     private final FormsManager formsManager;
     private final DocumentAttachmentManager documentAttachmentManager;
+    private final TicklerDocumentAccess ticklerDocumentAccess;
 
     public TicklerAttachmentService(TicklerDocsDao ticklerDocsDao,
                                     SecurityInfoManager securityInfoManager,
@@ -126,7 +127,8 @@ public class TicklerAttachmentService {
                                     HRMDocumentToDemographicDao hrmDocumentToDemographicDao,
                                     FormsManager formsManager,
                                     DocumentAttachmentManager documentAttachmentManager,
-                                    TicklerDao ticklerDao) {
+                                    TicklerDao ticklerDao,
+                                    TicklerDocumentAccess ticklerDocumentAccess) {
         this.ticklerDocsDao = ticklerDocsDao;
         this.securityInfoManager = securityInfoManager;
         this.documentDao = documentDao;
@@ -136,6 +138,7 @@ public class TicklerAttachmentService {
         this.formsManager = formsManager;
         this.documentAttachmentManager = documentAttachmentManager;
         this.ticklerDao = ticklerDao;
+        this.ticklerDocumentAccess = ticklerDocumentAccess;
     }
 
     /**
@@ -200,11 +203,16 @@ public class TicklerAttachmentService {
                     detached.put(ref, storedDoc);
                 }
             }
-            // A caller who cannot read a type never sees its items in the picker: the form
-            // carries the stored rows through as restricted delegates, so a submission that
-            // equals the stored set is "nothing shown", not a change, and the rows are left
-            // alone. Any difference would add or drop items the caller may not see.
+            // A caller who cannot read a type never sees its identifiers in the form or
+            // picker. An empty submission therefore means "leave this type alone", even
+            // when it has stored rows. Do not send restricted identifiers to the browser
+            // merely to distinguish that case from an intentional removal.
             if (!isTypeReadable(loggedInInfo, documentType, demographicNo)) {
+                if (wanted.isEmpty()) {
+                    continue;
+                }
+                // Accept an unchanged submission from older forms that still carried the
+                // identifiers, but reject any attempt to add or change hidden items.
                 // The form carried only the rows listAttachments showed: a row whose item has
                 // since moved to another patient is omitted there whatever the caller's rights,
                 // so it is not part of "unchanged" and its absence is not a change either.
@@ -219,6 +227,18 @@ public class TicklerAttachmentService {
                 }
                 requireTypeReadable(loggedInInfo, documentType, demographicNo);
             }
+            if (documentType == DocumentType.DOC) {
+                // A provider may have _edoc read but lack this document's program or
+                // active-queue access. Such rows were not sent to the browser, so keep
+                // them when synchronising the visible selection of the same type.
+                for (AttachmentRef ref : existing.keySet()) {
+                    if (!wanted.contains(ref)
+                            && belongsToPatient(loggedInInfo, documentType, ref, demographicNo)
+                            && !ticklerDocumentAccess.canRead(loggedInInfo, ref.documentNo())) {
+                        wanted.add(ref);
+                    }
+                }
+            }
             // Ownership checks come before any write, so a rejected submission leaves the
             // stored set untouched rather than half-synchronised. A new item that is not the
             // patient's is refused; a live item is re-verified too, since a document can be
@@ -228,6 +248,9 @@ public class TicklerAttachmentService {
             for (AttachmentRef ref : wanted) {
                 if (!existing.containsKey(ref)) {
                     requireBelongsToPatient(loggedInInfo, documentType, ref, demographicNo);
+                    if (documentType == DocumentType.DOC) {
+                        ticklerDocumentAccess.requireRead(loggedInInfo, ref.documentNo());
+                    }
                 } else if (!belongsToPatient(loggedInInfo, documentType, ref, demographicNo)) {
                     logger.warn("Detaching tickler attachment: {} item is no longer the tickler's patient's", documentType.getName());
                     stale.add(ref);
@@ -295,6 +318,9 @@ public class TicklerAttachmentService {
             requireTypeReadable(loggedInInfo, documentType, demographicNo);
             for (AttachmentRef ref : wanted) {
                 requireBelongsToPatient(loggedInInfo, documentType, ref, demographicNo);
+                if (documentType == DocumentType.DOC) {
+                    ticklerDocumentAccess.requireRead(loggedInInfo, ref.documentNo());
+                }
             }
         }
     }
@@ -381,6 +407,11 @@ public class TicklerAttachmentService {
         }
     }
 
+    /** A document link is viewable only if the document viewer would authorize it. */
+    public boolean canReadDocument(LoggedInInfo loggedInInfo, int documentNo) {
+        return ticklerDocumentAccess.canRead(loggedInInfo, documentNo);
+    }
+
     /**
      * Turns stored rows of one patient into display entries, loading each per-patient name
      * collection (labs, HRM reports, encounter forms) and each type's read decision at most once
@@ -433,6 +464,9 @@ public class TicklerAttachmentService {
             if (!owned) {
                 logger.warn("Omitting tickler attachment: {} item is no longer the tickler's patient's", documentType.getName());
                 return null;
+            }
+            if (viewable && documentType == DocumentType.DOC) {
+                viewable = ticklerDocumentAccess.canRead(loggedInInfo, ticklerDoc.getDocumentNo());
             }
             if (!viewable) {
                 return new TicklerAttachmentData(documentType, documentId, ticklerDoc.getLabType(), null, false);
