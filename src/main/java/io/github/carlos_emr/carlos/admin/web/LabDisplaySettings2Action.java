@@ -22,6 +22,8 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import java.sql.SQLException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -30,9 +32,12 @@ import io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettings;
 import io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettingsService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.dao.PessimisticLockingFailureException;
 
 /**
  * Lab Display Settings admin page ({@code admin/LabDisplaySettings}): whether PDFs embedded in
@@ -48,6 +53,16 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-09-30
  */
 public class LabDisplaySettings2Action extends ActionSupport {
+
+    /**
+     * Attempts at the transactional save before reporting a conflict. A first save on a table
+     * with no row to lock can lose an InnoDB deadlock to a concurrent first save (see
+     * {@code SystemPreferencesDao#upsertPreference}); a fresh transaction then finds the
+     * winner's row and updates it.
+     */
+    static final int MAX_SAVE_ATTEMPTS = 3;
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     /** Form field for the size limit, in MiB. */
     static final String MAX_SIZE_MB_PARAMETER = "lab_pdf_max_size_mb";
@@ -83,6 +98,7 @@ public class LabDisplaySettings2Action extends ActionSupport {
 
         boolean saved = false;
         boolean invalidSize = false;
+        boolean saveFailed = false;
         LabPdfPreviewSettings settings;
         Object displayedMaxSizeMb = null;
         if ("POST".equals(method) && saveIntent) {
@@ -99,8 +115,9 @@ public class LabDisplaySettings2Action extends ActionSupport {
                 displayedMaxSizeMb = submittedSize == null ? "" : submittedSize.trim();
             } else {
                 settings = new LabPdfPreviewSettings(enabled, maxMegabytes * 1024 * 1024);
-                previewSettingsService.save(settings);
-                saved = true;
+                saved = saveWithRetry(settings);
+                // On a persistent conflict the submitted values stay on the page with an error.
+                saveFailed = !saved;
             }
         } else {
             settings = previewSettingsService.load();
@@ -111,7 +128,59 @@ public class LabDisplaySettings2Action extends ActionSupport {
         request.setAttribute("labPdfMaxSizeMbLimit", LabPdfPreviewSettings.MAX_ALLOWED_BYTES / (1024 * 1024));
         request.setAttribute("saved", saved);
         request.setAttribute("invalidSize", invalidSize);
+        request.setAttribute("saveFailed", saveFailed);
         return SUCCESS;
+    }
+
+    /**
+     * Saves in a new transaction per attempt, retrying only a lock conflict (deadlock or lock
+     * wait), at most {@link #MAX_SAVE_ATTEMPTS} times. This runs outside the service's
+     * transaction on purpose: the deadlock victim's transaction is already rolled back, so only
+     * a fresh call can succeed. Any other failure propagates unchanged.
+     *
+     * @return {@code true} when saved; {@code false} when every attempt hit a lock conflict
+     */
+    private boolean saveWithRetry(LabPdfPreviewSettings settings) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                previewSettingsService.save(settings);
+                return true;
+            } catch (RuntimeException e) {
+                if (!isLockConflict(e)) {
+                    throw e;
+                }
+                if (attempt >= MAX_SAVE_ATTEMPTS) {
+                    logger.warn("Lab display settings not saved: lock conflict on all {} attempts", attempt, e);
+                    return false;
+                }
+                logger.info("Lab display settings save hit a lock conflict; retrying (attempt {} of {})",
+                        attempt, MAX_SAVE_ATTEMPTS);
+            }
+        }
+    }
+
+    /**
+     * Whether a save failed because of a lock conflict. The DAO is not behind Spring's exception
+     * translation, so this recognises the translated, JPA, Hibernate and JDBC forms anywhere in
+     * the cause chain: SQLState {@code 40001} (serialization failure / deadlock) or MySQL/MariaDB
+     * error 1213 (deadlock) or 1205 (lock wait timeout).
+     */
+    static boolean isLockConflict(Throwable failure) {
+        int depth = 0;
+        for (Throwable t = failure; t != null && depth < 16; t = t.getCause(), depth++) {
+            if (t instanceof PessimisticLockingFailureException
+                    || t instanceof jakarta.persistence.PessimisticLockException
+                    || t instanceof jakarta.persistence.LockTimeoutException
+                    || t instanceof org.hibernate.exception.LockAcquisitionException
+                    || t instanceof org.hibernate.PessimisticLockException) {
+                return true;
+            }
+            if (t instanceof SQLException sql
+                    && ("40001".equals(sql.getSQLState()) || sql.getErrorCode() == 1213 || sql.getErrorCode() == 1205)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whole MiB from 1 to the allowed maximum, or {@code null}. */

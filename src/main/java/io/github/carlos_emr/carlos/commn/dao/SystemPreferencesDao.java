@@ -58,7 +58,9 @@ public interface SystemPreferencesDao extends AbstractDao<SystemPreferences> {
      * inserts only when none exists. Under InnoDB's default REPEATABLE READ the update's locking
      * scan of the unindexed {@code name} column serializes a concurrent first save behind this
      * one (or, on an otherwise empty table, fails one of them with a deadlock) instead of letting
-     * both insert. Must run inside a transaction.</p>
+     * both insert. Must run inside a transaction. The caller owns recovery from that deadlock:
+     * it must retry the whole transaction from outside it (the victim's transaction is already
+     * rolled back), as {@code LabDisplaySettings2Action} does with a bounded retry.</p>
      *
      * @param name the preference key
      * @param value the value to store

@@ -24,12 +24,16 @@ package io.github.carlos_emr.carlos.admin.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+
+import java.sql.SQLException;
 
 import io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettings;
 import io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettingsService;
@@ -46,6 +50,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -180,6 +185,73 @@ class LabDisplaySettings2ActionUnitTest {
         assertThat(request.getAttribute("invalidSize")).isEqualTo(true);
         assertThat(request.getAttribute("labPdfInlinePreview")).isEqualTo(enabled);
         assertThat(request.getAttribute("labPdfMaxSizeMb")).isEqualTo("250");
+    }
+
+    private void postValidSave() {
+        request.setMethod("POST");
+        request.setParameter("dboperation", "Save");
+        request.setParameter("lab_pdf_max_size_mb", "25");
+        request.setParameter("lab_pdf_inline_preview", "true");
+        when(security.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("should retry a save that lost a deadlock and report success")
+    void shouldSaveOnRetry_whenFirstAttemptHitsLockConflict() {
+        postValidSave();
+        LabPdfPreviewSettings expected = new LabPdfPreviewSettings(true, 25L * 1024 * 1024);
+        doThrow(new CannotAcquireLockException("deadlock")).doNothing().when(settingsService).save(expected);
+
+        assertThat(action().execute()).isEqualTo("success");
+
+        verify(settingsService, times(2)).save(expected);
+        assertThat(request.getAttribute("saved")).isEqualTo(true);
+        assertThat(request.getAttribute("saveFailed")).isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("should stop after the bounded attempts and render the save error, not a 500")
+    void shouldReportSaveFailure_whenEveryAttemptHitsLockConflict() {
+        postValidSave();
+        doThrow(new CannotAcquireLockException("deadlock")).when(settingsService).save(any());
+
+        assertThat(action().execute()).isEqualTo("success");
+
+        verify(settingsService, times(LabDisplaySettings2Action.MAX_SAVE_ATTEMPTS)).save(any());
+        assertThat(LabDisplaySettings2Action.MAX_SAVE_ATTEMPTS).isBetween(2, 5);
+        assertThat(request.getAttribute("saved")).isEqualTo(false);
+        assertThat(request.getAttribute("saveFailed")).isEqualTo(true);
+        assertThat(request.getAttribute("labPdfInlinePreview")).isEqualTo(true);
+        assertThat(request.getAttribute("labPdfMaxSizeMb")).isEqualTo(25L);
+    }
+
+    @Test
+    @DisplayName("should not retry or swallow a failure that is not a lock conflict")
+    void shouldPropagateOtherFailures_withoutRetry() {
+        postValidSave();
+        IllegalStateException failure = new IllegalStateException("synthetic");
+        doThrow(failure).when(settingsService).save(any());
+
+        assertThatThrownBy(action()::execute).isSameAs(failure);
+
+        verify(settingsService, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("should recognise lock conflicts in translated, JPA, Hibernate and JDBC forms")
+    void shouldClassifyLockConflicts_forEveryExceptionForm() {
+        SQLException deadlock = new SQLException("Deadlock found", "40001", 1213);
+        SQLException lockWait = new SQLException("Lock wait timeout", "HY000", 1205);
+        assertThat(LabDisplaySettings2Action.isLockConflict(new CannotAcquireLockException("x"))).isTrue();
+        assertThat(LabDisplaySettings2Action.isLockConflict(new jakarta.persistence.PessimisticLockException("x"))).isTrue();
+        assertThat(LabDisplaySettings2Action.isLockConflict(new jakarta.persistence.LockTimeoutException("x"))).isTrue();
+        assertThat(LabDisplaySettings2Action.isLockConflict(new jakarta.persistence.PersistenceException("x",
+                new org.hibernate.exception.LockAcquisitionException("x", deadlock)))).isTrue();
+        assertThat(LabDisplaySettings2Action.isLockConflict(new RuntimeException(deadlock))).isTrue();
+        assertThat(LabDisplaySettings2Action.isLockConflict(new RuntimeException(lockWait))).isTrue();
+        assertThat(LabDisplaySettings2Action.isLockConflict(new RuntimeException(
+                new SQLException("Duplicate entry", "23000", 1062)))).isFalse();
+        assertThat(LabDisplaySettings2Action.isLockConflict(new IllegalStateException("x"))).isFalse();
     }
 
     @ParameterizedTest

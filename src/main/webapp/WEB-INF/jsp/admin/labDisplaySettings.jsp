@@ -115,6 +115,11 @@
         <c:if test="${saved}">
             <span id="labDisplaySettingsSaved" style="color:green;"><fmt:message key="admin.labDisplaySettings.saved"/></span>
         </c:if>
+        <c:if test="${saveFailed}">
+            <span id="labDisplaySettingsSaveFailed" style="color:#b00020;">
+                <fmt:message key="admin.labDisplaySettings.saveFailed"/>
+            </span>
+        </c:if>
         <c:if test="${invalidSize}">
             <span id="labDisplaySettingsInvalid" style="color:#b00020;">
                 <fmt:message key="admin.labDisplaySettings.invalidSize">
