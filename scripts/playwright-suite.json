@@ -6404,6 +6404,156 @@
       ],
       "fixtures": "Two diagnosticcode rows inserted by SQL (descriptions start with a letters-only run word); cleanup deletes them and asserts none remain. The Default Dx box is typed into, never saved.",
       "notes": "Expected to FAIL at the last step 'every Dx search result equalled the codes matching what was typed': a single match raises a TypeError in the Preferences modal iframe and is not selected, 13 shipped descriptions show a literal &#146; entity, and a description containing a digit also lists every code starting with that digit. The known CSRFGuard TypeError on the result page (L173) is consumed, not blamed."
+    },
+    {
+      "name": "export-content-dx-registry-xlsx",
+      "script": "scripts/export-content-dx-registry-xlsx-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns the runWorkflow FAKE-PW patient (names/DOB/phone/HIN set by SQL), a second FAKE- patient of another provider, and four dxresearch rows with unused ICD-9 codes 036/0369/0360; cleanup deletes only those rows and asserts them gone. Reads only (the report and its Download Excel).",
+      "notes": "Fails at its LAST step on 2026.08 (the three data steps for All/Active/Resolved PASS: the downloaded .xlsx equals the database and the on-screen list): the workbook header cells are clipped to the JRXML static-text box width (\"First \", \"Update \", \"Statu\" instead of First Name / Update Date / Status; DxResearchReport.jrxml:30,66,70) and every Update Date cell carries a fractional-second suffix (\"2024-05-06 07:08:09.0\", DxresearchDAOImpl.java:103 Timestamp.toString())."
+    },
+    {
+      "name": "export-content-invoice-csv",
+      "script": "scripts/export-content-invoice-csv-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "createBillingFixture (owned provider and HIN), three submitted claims for the owned patient, two owned raheader/radetail rows (one paying more than billed so ADJ is negative); no OHIP disk is generated. Cleanup removes them and asserts it.",
+      "notes": "Fails at its LAST step on 2026.08 (the CSV/Excel steps before it PASS: header row, one row per claim, billed/paid/code/date/name equal what was billed): js/table-export.js (a) exports a negative adjustment as a tab-prefixed text cell because the formula-injection guard also hits legitimate numbers, (b) exports the first header cell with the page source's line break and indentation (\"SERVICE\\n   DATE\"), (c) writes the CSV as UTF-8 without a byte-order mark so Excel shows accents as mojibake."
+    },
+    {
+      "name": "export-content-chart-print",
+      "script": "scripts/export-content-chart-print-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient (accented first name) with six SQL-seeded signed notes (Latin-1 punctuation, multi-line, 3 500-character, Vietnamese, Polish, Turkish); cleanup deletes the patient's notes and asserts them gone. Needs pdftotext.",
+      "notes": "Fails at its LAST step on 2026.08 (Latin-1 note, multi-line note, long note, patient header all PASS from the downloaded PDF): the chart print silently drops every letter outside Windows-1252 (U+1EC5 U+1ECB U+01B0 U+01A1 U+0111 U+1EA7 / U+0141 U+017B U+0142 U+0107 U+0105 U+0119 U+015B U+0144 / U+0130 U+015F U+011F U+0131) because CaseManagementPrintPdf.java:166 uses a non-embedded Helvetica CP1252 BaseFont; the same font setup is in LabPDFCreator, ConsultationPDFCreator, FrmCustomedPDFServlet and others."
+    },
+    {
+      "name": "export-content-chart-print-sections",
+      "script": "scripts/export-content-chart-print-sections-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with one signed note, two allergies (one archived), three preventions (given, deleted, refused), one prescription row and five drugs (two custom-name rows of the same drug, one discontinued, one expired); cleanup deletes each table's owned rows and asserts them gone. Needs pdftotext.",
+      "notes": "Fails at its LAST step on 2026.08 (print downloads; active allergy with reaction/severity/start date, given/refused/deleted prevention, current/discontinued/expired medications all PASS): (1) the Allergies section prints an ARCHIVED (removed) allergy as an ordinary entry (CaseManagementPrint.java:292 findAllergies includes archived rows, printAllergies filters nothing); (2) a custom-name medication prescribed twice with another drug in between is listed twice in the Rx history (RxPrescriptionData.getUniquePrescriptionsByPatient:505-512 lets the last comparison decide)."
+    },
+    {
+      "name": "export-content-provider-service-csv",
+      "script": "scripts/export-content-provider-service-csv-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Two FAKE- Service programs (the default OSCAR program is a Bed program, which the report skips), one more owned patient, doctor-role notes dated February/March 2003; precondition: no notes dated Jan-Apr 2003 exist. Cleanup deletes only those programs/notes/patient and asserts them gone. The page's known oscarMonth TypeError (ISSUES L112) is set aside so the file can be read; any other page error still fails the step.",
+      "notes": "Fails at its LAST step on 2026.08 (header, per-month and range counts for the clean program, UTF-8/quoting of an accented program name, month order all PASS): (1) the range row is labelled with the exclusive end month (\"2003-02 to 2003-04\" for 02/2003-03/2003; ProviderServiceReportUIBean.java:132,167); (2) the Content-Disposition filename contains \"/\" (MM/yyyy format; provider_service_report_export.jsp:77); (3) archived notes and every stored row of a note uuid are counted as encounters (CaseManagementNoteDAOImpl.java:781-828 has no archived/latest-revision filter)."
+    },
+    {
+      "name": "export-content-eform-export-zip",
+      "script": "scripts/export-content-eform-export-zip-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Three FAKE- eform rows inserted by SQL (plain name, accented/quoted name, a name with a slash); cleanup deletes only those rows and asserts them gone. Reads only.",
+      "notes": "Fails at its LAST step on 2026.08 (HTML byte-for-byte, eform.properties name/subject/creator/date/flags for the plain and the accented/quoted form all PASS): (1) Export of a form named like \"Well Baby 0/6 months\" answers HTTP 500 and no zip (EFormExportZip.java:84 validatePathComponent rejects the slash); (2) the attachment name has the numeric form id spliced in place of each space (\"Export99Plain.zip\", ManageEForm2Action.java:79)."
+    },
+    {
+      "name": "export-content-rbt-columns",
+      "script": "scripts/export-content-rbt-columns-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned FAKE-PW patient (accented first name, multi-line address) and one marker-titled reportTemplates row (a no-parameter SELECT with aliases, two columns named last_name, NULL, DATE, DATETIME, DECIMAL, a leading-zero text and a 17-digit text); cleanup deletes only the marker template and asserts it gone.",
+      "notes": "Fails at its LAST step on 2026.08 (aliased headings, every other column of the table, the CSV and the XLS text values PASS): (1) the result table reads cells by column NAME (RptResultStruct.java:344), so the second of two columns named last_name shows the first's value; (2) the XLS export writes every cell that parses as a double as a NUMBER (GenerateOutFiles2Action.java:144-151), so '00123' becomes 123 and a 17-digit id loses digits."
+    },
+    {
+      "name": "export-content-patient-labels",
+      "script": "scripts/export-content-patient-labels-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Two FAKE- patients with realistic short names written by SQL (one with a middle name starting with a non-Latin-1 letter, one with a NULL middle name); the runWorkflow patient only owns the session. Cleanup deletes the two patients (and their chart-lock/ext/archive rows) and asserts it. Needs pdftotext.",
+      "notes": "Fails at its LAST step on 2026.08 (all five label PDFs produced; name/address/city/postal on every label; HIN, version, DOB, phone, chart number on the labels that print them; no \"null\" for the full patient all PASS): (1) PDF Label and PDF Chart Label drop the middle name's Ł (CP1252 font); (2) the Chart Label prints AGE:64.0 (Chartlabel.xml:13 string arithmetic yields a decimal); (3) PDF Label prints the literal word \"null\" after the first name for a patient whose middleNames is NULL (oscarDemographic/label.xml:39)."
+    },
+    {
+      "name": "export-content-lab-print",
+      "script": "scripts/export-content-lab-print-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "One synthetic PATHL7 ORU^R01 in hl7TextMessage/hl7TextInfo with provider and patient routing for the owned FAKE-PW patient (serviceName CARLOSEXPORT); cleanup deletes exactly this run's lab id and asserts it. Needs pdftotext. Nothing leaves the host.",
+      "notes": "Fails at its LAST step on 2026.08 (Inbox row opens the lab, Print downloads a PDF, patient/accession, every result row with value/units/range, L/H/N flags, accented OBX and NTE comments all PASS): a result comment containing characters outside Latin-1 (>=, <=, a Polish L-stroke) loses them in the lab PDF (LabPDFCreator.java:166,209 CP1252 BaseFont)."
+    },
+    {
+      "name": "export-content-dashboard-csv",
+      "script": "scripts/export-content-dashboard-csv-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) with the dashboard grants, three FAKE- patients (first names Zoë / Ro\"b / Plain; Ro\"b has a two-line address and no e-mail), one dashboard and one indicator template carrying the marker; cleanup removes all of it and asserts it. Reads only.",
+      "notes": "Fails at its LAST step on 2026.08 (Dashboard menu opens the owned dashboard, Drill Down lists three patients, Export downloads a .csv with the template titles all PASS): (1) the CSV is cut off when any value is non-ASCII because ExportResults2Action.java:87 sets Content-Length from csvFile.length() (characters) but writes getBytes() (bytes); (2) ExportQueryHandler.java:109-134 exports an empty value as the word null, doubles an inner quote without quoting the field, and does not quote a value containing a line break."
     }
   ]
 }

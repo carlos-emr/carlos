@@ -399,7 +399,17 @@
     "test:search-sort-tickler-list-playwright": "node scripts/search-sort-tickler-list-playwright-checks.js",
     "test:search-sort-consult-list-playwright": "node scripts/search-sort-consult-list-playwright-checks.js",
     "test:search-sort-messenger-inbox-playwright": "node scripts/search-sort-messenger-inbox-playwright-checks.js",
-    "test:search-sort-billing-dx-search-playwright": "node scripts/search-sort-billing-dx-search-playwright-checks.js"
+    "test:search-sort-billing-dx-search-playwright": "node scripts/search-sort-billing-dx-search-playwright-checks.js",
+    "test:export-content-dx-registry-xlsx-playwright": "node scripts/export-content-dx-registry-xlsx-playwright-checks.js",
+    "test:export-content-invoice-csv-playwright": "node scripts/export-content-invoice-csv-playwright-checks.js",
+    "test:export-content-chart-print-playwright": "node scripts/export-content-chart-print-playwright-checks.js",
+    "test:export-content-chart-print-sections-playwright": "node scripts/export-content-chart-print-sections-playwright-checks.js",
+    "test:export-content-provider-service-csv-playwright": "node scripts/export-content-provider-service-csv-playwright-checks.js",
+    "test:export-content-eform-export-zip-playwright": "node scripts/export-content-eform-export-zip-playwright-checks.js",
+    "test:export-content-rbt-columns-playwright": "node scripts/export-content-rbt-columns-playwright-checks.js",
+    "test:export-content-patient-labels-playwright": "node scripts/export-content-patient-labels-playwright-checks.js",
+    "test:export-content-lab-print-playwright": "node scripts/export-content-lab-print-playwright-checks.js",
+    "test:export-content-dashboard-csv-playwright": "node scripts/export-content-dashboard-csv-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
