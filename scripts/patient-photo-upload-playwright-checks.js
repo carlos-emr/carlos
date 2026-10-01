@@ -8,9 +8,10 @@
  *   The Master Record renders no patient photo, so the chart header column is the only viewer.
  * Asserts: an owned JPEG is stored once in client_image (type jpeg, decoded bytes = uploaded),
  * the popup closes and reloads the chart, and the chart's photo request answers exactly the
- * uploaded bytes; a GIF replaces it in the same single row; a non-image upload is refused with
- * the page's error and leaves the stored photo untouched; Clear Photo (confirm) removes the row
- * and the chart falls back to the placeholder; ClientImage refuses GET for deleteImage.
+ * uploaded bytes; a GIF replaces it in the same single row; ClientImage refuses GET for
+ * deleteImage; a non-image upload is refused, keeps the manager open, leaves the stored photo
+ * untouched and shows an error; Clear Photo (confirm) removes the row and the chart falls back
+ * to the placeholder. (PNG is not accepted by design: the action allows GIF/JPEG only.)
  * Fixtures: the owned FAKE- patient and its client_image rows (images carry the run marker in a
  * comment segment); cleanup deletes only that patient's rows and verifies they are gone.
  * Implements docs/ui-tests/playwright-coverage-plan-2026.08.md chart section (patient-photo-upload).
@@ -123,35 +124,6 @@ async function workflow(s) {
     h.assert(sha(await image.body()) === sha(gif), 'The chart photo bytes differ from the uploaded GIF');
   });
 
-  await s.step('Clear Photo asks to confirm, removes the row and the chart shows the placeholder', async () => {
-    const manager = await openManager();
-    const since = s.recorder.requestFailures.length;
-    const dialogs = await h.withExpectedDialogs(manager, async () => {
-      await Promise.all([
-        manager.waitForEvent('close'),
-        chart.waitForEvent('load'),
-        manager.locator('button[type="submit"]', { hasText: 'Clear Photo' }).click(),
-      ]);
-    });
-    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Clear Photo did not ask exactly once to confirm');
-    await expectValue(sql, `SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`, '0', 'Clear Photo left the photo row');
-    await waitForNavbars(chart, 20000);
-    consumeUnloadBeacon(s.recorder, since);
-    h.assert(await photo(chart).getAttribute('alt') === 'No_Id_Photo', 'The chart still shows a photo after Clear Photo');
-  });
-
-  await s.step('ClientImage refuses a GET deleteImage and keeps the re-uploaded photo', async () => {
-    await upload({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: jpeg });
-    await expectValue(sql, `SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`, '1', 'The re-upload was not stored');
-    const response = await s.context.request.get(`${s.config.baseUrl}/ClientImage?method=deleteImage`,
-      { maxRedirects: 0, failOnStatusCode: false });
-    const status = response.status();
-    await response.dispose();
-    h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`) === '1',
-      'A GET request deleted the patient photo (ClientImage mutates on GET)');
-    h.assert(status === 405, `GET ClientImage deleteImage answered HTTP ${status}, expected 405`);
-  });
-
   let refused;
   await s.step('A non-image upload is refused: the manager stays open and the stored photo is unchanged', async () => {
     const before = JSON.stringify(stored());
@@ -178,6 +150,33 @@ async function workflow(s) {
     h.assert(await error.count() === 1 && (await error.innerText()).trim().length > 0,
       'The refused upload re-rendered the form with no error message');
     await refused.close();
+  });
+
+  await s.step('ClientImage refuses a GET deleteImage and keeps the stored photo', async () => {
+    const response = await s.context.request.get(`${s.config.baseUrl}/ClientImage?method=deleteImage`,
+      { maxRedirects: 0, failOnStatusCode: false });
+    const status = response.status();
+    await response.dispose();
+    h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`) === '1',
+      'A GET request deleted the patient photo (ClientImage mutates on GET)');
+    h.assert(status === 405, `GET ClientImage deleteImage answered HTTP ${status}, expected 405`);
+  });
+
+  await s.step('Clear Photo asks to confirm, removes the row and the chart shows the placeholder', async () => {
+    const manager = await openManager();
+    const since = s.recorder.requestFailures.length;
+    const dialogs = await h.withExpectedDialogs(manager, async () => {
+      await Promise.all([
+        manager.waitForEvent('close'),
+        chart.waitForEvent('load'),
+        manager.locator('button[type="submit"]', { hasText: 'Clear Photo' }).click(),
+      ]);
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Clear Photo did not ask exactly once to confirm');
+    await expectValue(sql, `SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`, '0', 'Clear Photo left the photo row');
+    await waitForNavbars(chart, 20000);
+    consumeUnloadBeacon(s.recorder, since);
+    h.assert(await photo(chart).getAttribute('alt') === 'No_Id_Photo', 'The chart still shows a photo after Clear Photo');
   });
 }
 

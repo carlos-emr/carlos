@@ -21,7 +21,7 @@
  *
  * Fixtures: the owned synthetic patient, one marker tickler on it, one marker
  * suggested-text row (plus any row the save writes on this run's behalf), and a
- * throwaway login holding a marker role with only _appointment r and _tickler r; all
+ * throwaway login holding a marker role with only _appointment, _tickler and _msg r; all
  * removed and verified by cleanup. encounter/ViewTimeOut has no UI entry and is not
  * driven.
  */
@@ -100,6 +100,8 @@ async function workflow(s) {
     const page = await ctx.newPage();
     await h.gotoApp(page, config.baseUrl, '/provider/providercontrol');
     await page.locator('#logoutButton').waitFor({ timeout: TIMEOUT });
+    // Let the day sheet's own start-up requests finish so Logout aborts none of them.
+    await page.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
     await page.locator('#logoutButton').click();
     await onLoginForm(page);
     h.assert(await sessionValid(source) === false, 'Logging out elsewhere did not end the shared session');
@@ -107,6 +109,9 @@ async function workflow(s) {
   }
 
   // ---- fixtures ------------------------------------------------------------
+  // The read-only role also holds _msg r: without it the schedule's message-count
+  // refresh (provider/ViewTabAlertsRefresh?id=oscar_new_msg) answers HTTP 500 -- an
+  // application defect reported separately, not what this check is about.
   const role = `FAKEPW${marker.slice(-16)}`;
   s.cleanup(() => {
     sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${h.sqlString(role)};
@@ -143,7 +148,8 @@ async function workflow(s) {
   sql.execute(`DELETE FROM secUserRole WHERE provider_no=${readerNo};
     INSERT INTO secRole (role_name,description) VALUES (${h.sqlString(role)},${h.sqlString(marker)});
     INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
-      VALUES (${h.sqlString(role)},'_appointment','r',0,${h.sqlString(provider)}),(${h.sqlString(role)},'_tickler','r',0,${h.sqlString(provider)});
+      VALUES (${h.sqlString(role)},'_appointment','r',0,${h.sqlString(provider)}),(${h.sqlString(role)},'_tickler','r',0,${h.sqlString(provider)}),
+        (${h.sqlString(role)},'_msg','r',0,${h.sqlString(provider)});
     INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate) VALUES (${readerNo},${h.sqlString(role)},'R0000001',1,NOW())`);
   const ticklerNo = sql.value(`INSERT INTO tickler (demographic_no,message,status,update_date,service_date,creator,priority,task_assigned_to)
     VALUES (${patient},${h.sqlString(ticklerMessage)},'A',NOW(),DATE_SUB(CURDATE(),INTERVAL 1 DAY),${h.sqlString(provider)},'Normal',${readerNo});

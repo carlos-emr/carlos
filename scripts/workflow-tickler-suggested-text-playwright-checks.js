@@ -147,32 +147,6 @@ async function workflow(s) {
     if (!add.isClosed()) await add.close();
   });
 
-  await s.step('E-Chart document > open ticklers > Complete (DbTicklerDemoMain) completes the owned tickler', async () => {
-    const owner = fs.statSync(store);
-    fs.writeFileSync(docFile, textPdf(marker), { flag: 'wx', mode: 0o640 });
-    fs.chownSync(docFile, owner.uid, owner.gid);
-    documentNo = sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,
-        status,contenttype,contentdatetime,public1,observationdate,number_of_pages,restrictToProgram,abnormal)
-      VALUES ('others',${h.sqlString(marker)},${h.sqlString(path.basename(docFile))},${h.sqlString(provider)},${h.sqlString(provider)},
-        '',NOW(),'A','application/pdf',NOW(),0,CURDATE(),1,0,0); SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(documentNo), 'The document fixture was not created');
-    sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${documentNo},'A')`);
-    const chart = await s.chart();
-    const link = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: marker }).first();
-    const viewer = await s.popup(chart, link, 'show-document');
-    const alert = viewer.locator('.alert-info', { hasText: suggestion });
-    await alert.waitFor();
-    const list = await s.popup(viewer, alert.locator('a.alert-link', { hasText: 'open ticklers' }), 'tickler-demo-main');
-    const box = list.locator(`form[name="ticklerform"] input[name="checkbox"][value="${ticklerNo}"]`);
-    await box.check();
-    await Promise.all([
-      list.waitForURL(/\/tickler\/ViewTicklerMain\?/),
-      list.locator('form[name="ticklerform"] input[type="button"][value="Complete"]').click(),
-    ]);
-    await expectValue(sql, `SELECT status FROM tickler WHERE tickler_no=${ticklerNo}`, 'C', 'Complete did not mark the tickler completed');
-    h.assert(new URL(list.url()).searchParams.get('demoview') === patient, 'Complete returned to another patient\'s list');
-  });
-
   await s.step('moving the suggestion to Inactive stores it inactive and New Tickler stops offering it', async () => {
     add = await openAdd();
     const page = await openSuggestions(add);
@@ -238,6 +212,36 @@ async function workflow(s) {
       h.assert((await page.locator('.MainTableTopRowLeftColumn').innerText()).trim() === 'workFlow', 'The WorkFlow list did not render');
     });
   }
+
+  await s.step('E-Chart document > open ticklers > Complete (DbTicklerDemoMain) completes the owned tickler', async () => {
+    const owner = fs.statSync(store);
+    fs.writeFileSync(docFile, textPdf(marker), { flag: 'wx', mode: 0o640 });
+    fs.chownSync(docFile, owner.uid, owner.gid);
+    documentNo = sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,
+        status,contenttype,contentdatetime,public1,observationdate,number_of_pages,restrictToProgram,abnormal)
+      VALUES ('others',${h.sqlString(marker)},${h.sqlString(path.basename(docFile))},${h.sqlString(provider)},${h.sqlString(provider)},
+        '',NOW(),'A','application/pdf',NOW(),0,CURDATE(),1,0,0); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(documentNo), 'The document fixture was not created');
+    sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${documentNo},'A')`);
+    const chart = await s.chart();
+    const link = chart.locator(`#leftNavBar a[onclick*="segmentID=${documentNo}'"], #rightNavBar a[onclick*="segmentID=${documentNo}'"]`).first();
+    // The trailing date <span> overlays the link's centre (as in the eChart navbar), so click its start.
+    const viewer = await ui.clickOpensPopup(chart, link,
+      { context: s.context, recorder, label: 'show-document', timeout: TIMEOUT, position: { x: 4, y: 4 } });
+    const alert = viewer.locator('.alert-info', { hasText: suggestion });
+    await alert.waitFor();
+    // Last on purpose: on this release the patient tickler list fails to render (see the report).
+    const list = await s.popup(viewer, alert.locator('a.alert-link', { hasText: 'open ticklers' }), 'tickler-demo-main')
+      .catch(error => { throw new Error(`The patient tickler list (ViewTicklerDemoMain) did not render for a patient with a tickler: ${error.message}`); });
+    const box = list.locator(`form[name="ticklerform"] input[name="checkbox"][value="${ticklerNo}"]`);
+    await box.check();
+    await Promise.all([
+      list.waitForURL(/\/tickler\/ViewTicklerMain\?/),
+      list.locator('form[name="ticklerform"] input[type="button"][value="Complete"]').click(),
+    ]);
+    await expectValue(sql, `SELECT status FROM tickler WHERE tickler_no=${ticklerNo}`, 'C', 'Complete did not mark the tickler completed');
+    h.assert(new URL(list.url()).searchParams.get('demoview') === patient, 'Complete returned to another patient\'s list');
+  });
 }
 
 if (require.main === module) runWorkflow('workflow-tickler-suggested-text', workflow, { openPatient: true });

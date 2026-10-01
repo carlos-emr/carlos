@@ -143,6 +143,47 @@ async function workflow(s) {
       'The Allergies box ignored the start-date/severity preference');
   });
 
+  const viewValue = name => sql.value(`SELECT COALESCE(value,'') FROM view WHERE providerNo=${owner}
+    AND view_name='tickler' AND name=${h.sqlString(name)} ORDER BY id LIMIT 1`);
+  let creator;
+  // The Tickler link opens a window or, in the focused navigation mode, replaces the schedule.
+  async function withTicklers(label, body) {
+    const opened = await ui.clickOpensPopupOrNavigates(schedule, schedule.locator('a:has(#oscar_new_tickler)').first(),
+      { context, recorder, label, timeout: 20000 });
+    h.assert(h.pathOnly(opened.page.url()).endsWith('/tickler/ViewTicklerMain'), 'The schedule Tickler link did not open the tickler list');
+    await body(opened.page);
+    if (opened.isPopup) await opened.page.close();
+    else {
+      await schedule.goBack({ waitUntil: 'domcontentloaded' });
+      await schedule.getByTitle(/Edit your personal setting/i).first().waitFor({ state: 'attached' });
+    }
+  }
+  await s.step('Tickler ▸ Save View stores the chosen status and creator filters for this provider', async () => {
+    await withTicklers('tickler-main', async ticklers => {
+    await ticklers.locator('#ticklerview').selectOption('C');
+    creator = await ticklers.locator('#providerview option:not([value="all"])').first().getAttribute('value');
+    h.assert(creator, 'The tickler creator filter offers no provider to choose');
+    await ticklers.locator('#providerview').selectOption(creator);
+    const [saved] = await Promise.all([
+      ticklers.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/saveWorkView')),
+      ticklers.locator('#saveViewButton').click(),
+    ]);
+    h.assert(saved.status() === 200, `Save View answered HTTP ${saved.status()}`);
+    await ticklers.locator('#saveViewButton.btn-success').waitFor({ state: 'attached' });
+    await expectValue(sql, `SELECT COALESCE(value,'') FROM view WHERE providerNo=${owner} AND view_name='tickler'
+      AND name='ticklerview' ORDER BY id LIMIT 1`, 'C', 'The tickler status filter was not saved');
+    h.assert(viewValue('providerview') === creator, 'The tickler creator filter was not saved');
+    });
+  });
+
+  await s.step('reopening the tickler list starts from the saved view', async () => {
+    await withTicklers('tickler-main-reopen', async ticklers => {
+      h.assert(await ticklers.locator('#ticklerview').inputValue() === 'C'
+        && await ticklers.locator('#providerview').inputValue() === creator,
+      'The reopened tickler list ignored the saved view');
+    });
+  });
+
   await s.step('Preferences ▸ default billing dx code ▸ Save All stores it on ProviderPreference', async () => {
     const prefs = await openPrefs();
     const field = prefs.locator('#dxCode');
@@ -160,6 +201,26 @@ async function workflow(s) {
     h.assert(await bill.locator('input[name="dxCode"]').first().inputValue() === dxCode,
       'The bill form did not preselect the provider\'s default dx code');
     await bill.close();
+  });
+
+  await s.step('negative probes: GET on saveWorkView and on the CPP save is refused and changes nothing', async () => {
+    const before = `${viewValue('ticklerview')}|${property('cpp.pref.enable')}|${property('cpp.allergy.severity')}`;
+    const view = await context.request.get(h.appUrl(config.baseUrl,
+      '/saveWorkView?method=save&view_name=tickler&ticklerview=D'), { maxRedirects: 0 });
+    h.assert(view.status() === 405, `GET saveWorkView answered HTTP ${view.status()}, expected 405`);
+    const cpp = await context.request.get(h.appUrl(config.baseUrl,
+      '/provider/CppPreferences?method=save&cpp.pref.enable=off&cpp.allergy.severity=off'), { maxRedirects: 0 });
+    h.assert(`${viewValue('ticklerview')}|${property('cpp.pref.enable')}|${property('cpp.allergy.severity')}` === before,
+      'A GET request changed a saved preference');
+    h.assert(cpp.status() === 405, `GET provider/CppPreferences?method=save answered HTTP ${cpp.status()}, expected 405`);
+  });
+
+  await s.step('the chart honours the CPP "Hide" choice: the Preventions section is not rendered', async () => {
+    // The chart was opened after the CPP save, so this is the render the preference should shape.
+    const heading = chart.locator('#leftNavBar, #rightNavBar').locator('h3, a, div').filter({ hasText: /^\s*Preventions\s*$/ });
+    h.assert(await chart.locator('#preventions').count() === 0 && await heading.count() === 0,
+      'Configure eChart CPP saved Preventions = Hide with the custom chart enabled, but the chart still renders '
+      + 'the Preventions section (the CPP display/position preferences are not applied by the encounter page)');
   });
 }
 

@@ -4126,7 +4126,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails on 2026.08: a refused upload shows no error message; Clear Photo answers 500 (DetachedObjectException) and deleteImage accepts GET.",
+      "fixtures": "Owned FAKE- patient and its client_image rows only."
     },
     {
       "name": "note-browser-documents",
@@ -4138,9 +4139,13 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "timeoutSec": 420,
+      "env": [
+        "DOCUMENT_DIR",
+        "INCOMINGDOCUMENT_DIR"
+      ],
+      "notes": "Fails on 2026.08: the Note Browser page has a JavaScript syntax error (identifiers split across lines) and its controls POST to a GET-only gate; note edits also overwrite rather than add revisions.",
+      "fixtures": "Owned FAKE- patient, two owned PDFs (rows, ctl_document and files), an owned note and the refiled copy; all removed. Needs pdftotext."
     },
     {
       "name": "login-mfa",
@@ -4256,6 +4261,20 @@
       "assertsDatabase": true,
       "provinces": [
         "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "billing-on-invoice-3rdparty",
+      "script": "scripts/billing-on-invoice-3rdparty-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [],

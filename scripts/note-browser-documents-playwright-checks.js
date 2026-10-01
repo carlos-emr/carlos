@@ -148,6 +148,8 @@ async function workflow(s) {
         'An owned document is missing from the note browser');
     }
     h.assert(await browser.locator(`#encounterlist option[value="${noteId}"]`).count() === 1, 'The owned note is missing from the encounter list');
+    // The page's whole script must parse: OnLoad, the list handlers and every button live in it.
+    h.assertStrictPage(s.recorder);
     // OnLoad selects the first encounter and shows it through CaseManagementEntry displayNotes.
     const preview = browser.frameLocator('#docdisp iframe');
     await preview.locator('body', { hasText: texts[2] }).waitFor();

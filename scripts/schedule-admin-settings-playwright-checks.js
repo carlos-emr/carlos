@@ -294,6 +294,7 @@ async function workflow(s) {
     const popup = await ui.clickOpensPopup(admin, cell, {context, recorder, label: 'schedule-date-popup', timeout: 20000});
     await popup.locator('select[name="hour"]').waitFor();
     h.assert(await popup.locator('input[name="available"][value="1"]').isChecked(), 'The date popup did not load the day as available');
+    await popup.locator('select[name="hour"]').selectOption(templateName);
     await popup.locator('input[name="available"][value="0"]').check();
     const reloaded = admin.waitForEvent('framenavigated', {predicate: candidate => candidate === f, timeout: 20000});
     reloaded.catch(() => {});

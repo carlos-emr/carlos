@@ -163,6 +163,15 @@ async function workflow(s) {
     return id;
   };
 
+  // Open the transferred-items tree the way a reader does: table node, then item node.
+  async function expandItem(items) {
+    await items.locator('span.treeNode', { hasText: `${s.marker} table` }).click();
+    const item = items.locator('span.treeNode', { hasText: itemName });
+    await item.waitFor({ state: 'visible' });
+    await item.click();
+    await items.getByText('FAKE-PW detail', { exact: true }).waitFor({ state: 'visible' });
+  }
+
   let inbox;
   const openMessage = async id => {
     await clickAndLoad(inbox, inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${id}&"]`).first(), '/messenger/ViewMessage');
@@ -214,9 +223,7 @@ async function workflow(s) {
     const items = await s.popup(inbox, inbox.locator('a[href*="ViewAttach?attachId="]'), 'messenger-items');
     await settle(items);
     h.assert(new URL(items.url()).pathname.endsWith('/messenger/ViewAttach'), 'The attachment link did not open ViewAttach');
-    await items.locator('a[href="javascript:expandAll();"]').click();
-    h.assert((await items.locator('#tblRoot').innerText()).includes(itemName), 'ViewAttach did not render the transferred item');
-    h.assert((await items.locator('#tblRoot').innerText()).includes('FAKE-PW detail'), 'Expand all did not reveal the item fields');
+    await expandItem(items);
     // Save Attachments keeps the selection in the session and hands over to the
     // patient search (AdjustAttachments redirects to DemographicLinkMsg).
     const [adjust] = await Promise.all([
@@ -243,8 +250,7 @@ async function workflow(s) {
     await openMessage(id);
     const items = await s.popup(inbox, inbox.locator('a[href*="ViewAttach?attachId="]'), 'messenger-sent-items');
     await settle(items);
-    await items.locator('a[href="javascript:expandAll();"]').click();
-    h.assert((await items.locator('#tblRoot').innerText()).includes(itemName), 'The sent message did not render the transferred item');
+    await expandItem(items);
     await items.close();
   });
 
@@ -290,6 +296,7 @@ async function workflow(s) {
     const onRequest = request => {
       if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/messenger/Doc2PDF')) posts.push(request.postData() || '');
     };
+    const since = s.recorder.requestFailures.length;
     s.context.on('request', onRequest);
     try {
       await Promise.all([
@@ -297,20 +304,42 @@ async function workflow(s) {
         main.locator('button[name="Attach"]').click(),
       ]);
     } finally { s.context.off('request', onRequest); }
+    // generatePreviewPDF.jsp re-submits itself from an inline script between renders,
+    // which cancels its own csrfguard script load; consume exactly those aborts.
+    for (let i = s.recorder.requestFailures.length - 1; i >= since; i--) {
+      const entry = s.recorder.requestFailures[i];
+      if (entry.label === 'messenger-attachments' && entry.resourceType === 'script' && entry.errorText === 'net::ERR_ABORTED'
+        && new URL(entry.url).pathname.endsWith('/csrfguard')) s.recorder.requestFailures.splice(i, 1);
+    }
     h.assert(posts.length === 2 && posts.every(body => new URLSearchParams(body).get('isAttaching') === 'true'),
       `Attach did not render exactly the two ticked items (saw ${posts.length} renders)`);
     await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible' });
   });
 
-  await s.step('sending stores both rendered PDFs, linked to the patient, and the received copy downloads them', async () => {
-    const id = await sendToSelf(compose, pdfSubject);
-    h.assert(s.sql.value(`SELECT demographic_no FROM msgDemoMap WHERE messageID=${id}`) === String(patient),
+  let pdfMessageId;
+  await s.step('sending stores both rendered items on the message, linked to the patient', async () => {
+    pdfMessageId = await sendToSelf(compose, pdfSubject);
+    h.assert(s.sql.value(`SELECT demographic_no FROM msgDemoMap WHERE messageID=${pdfMessageId}`) === String(patient),
       'The chart-sent message was not linked to the patient');
-    const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${id}`);
-    h.assert((stored.match(/<STATUS>OK<\/STATUS>/g) || []).length === 2, 'The message did not store two successfully rendered PDFs');
+    const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${pdfMessageId}`);
+    const entries = stored.match(/<PDF>.*?<\/PDF>/g) || [];
+    h.assert(entries.length === 2, 'The message did not store one entry per ticked item');
+    const content = (entries[0].match(/<CONTENT>([^<]*)<\/CONTENT>/) || [])[1] || '';
+    h.assert(entries[0].includes('<STATUS>OK</STATUS>') && Buffer.from(content, 'base64').subarray(0, 5).toString('latin1') === '%PDF-',
+      'The patient information was not stored as a rendered PDF');
     await compose.close();
+  });
+
+  await s.step('the received message downloads the rendered patient information PDF', async () => {
     await toInbox();
-    await downloadStoredPdf(id, ['', ''], 0);
+    await downloadStoredPdf(pdfMessageId, ['', ''], 0);
+  });
+
+  // Asserted separately: in this build the prescriptions page fails to render
+  // (Doc2PDF XHTML parse error) and is stored as a BAD "(N/A)" entry (see report).
+  await s.step('the current prescriptions item was rendered to a PDF too', async () => {
+    const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${pdfMessageId}`);
+    h.assert((stored.match(/<STATUS>OK<\/STATUS>/g) || []).length === 2, 'The current prescriptions attachment was stored as a failed render');
   });
 }
 
