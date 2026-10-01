@@ -5526,6 +5526,282 @@
       ],
       "fixtures": "Four synthetic patients (birthday tomorrow / today / yesterday, 29 Feb 2000) inserted by SQL; nothing is booked; cleanup deletes them and asserts none remain.",
       "notes": "Expected to FAIL at its only step: the Age column of the booking-popup search shows 24 for a patient whose 25th birthday is today (Demographic.getAge -> Utility.calcAge tests curDay > birthDay)."
+    },
+    {
+      "name": "gap-clinical-cpp-boxes",
+      "script": "scripts/gap-clinical-cpp-boxes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs; all notes, issue links, ext rows, casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
+      "notes": "Passes on 2026.08. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
+    },
+    {
+      "name": "gap-clinical-chart-print-scope",
+      "script": "scripts/gap-clinical-chart-print-scope-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with three SQL-seeded signed notes (2021, 2022, now), one allergy and one MMR prevention; all removed and asserted gone. Needs pdftotext.",
+      "notes": "Fails at its LAST assertion on 2026.08 with up to three findings joined: (1) Clear in the print dialog leaves the queued notes selected once the older-notes fetch has run (ChartNotesAjax.jsp:856 sets maxNcId=0); (2) Clear after Print all leaves ALL_NOTES queued; (3) the dialog's Today / date-range print answers HTTP 500 (SQLGrammarException: Column 'provider_no' not found in the mostRecentDateRange native query)."
+    },
+    {
+      "name": "gap-clinical-chart-notes-pagination",
+      "script": "scripts/gap-clinical-chart-notes-pagination-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with 45 SQL-seeded signed notes dated 10 days apart (one multi-line); notes and eChart rows removed and asserted gone.",
+      "notes": "Fails at its last step on 2026.08: after the final empty paging batch maxNcId is reset to 0 (ChartNotesAjax.jsp:856), so every nc1..maxNcId loop in the chart (print dialog Clear) finds no notes. Paging, Load All and Collapse/Expand pass."
+    },
+    {
+      "name": "gap-clinical-calculators-conversions",
+      "script": "scripts/gap-clinical-calculators-conversions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient (chart only); nothing is saved.",
+      "notes": "Passes on 2026.08."
+    },
+    {
+      "name": "gap-clinical-calculators-coronary",
+      "script": "scripts/gap-clinical-calculators-coronary-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient; the calculator prediction is pasted into the chart note but never saved (draft/lock rows removed by the harness).",
+      "notes": "Passes on 2026.08."
+    },
+    {
+      "name": "gap-clinical-measurement-group-style",
+      "script": "scripts/gap-clinical-measurement-group-style-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Two FAKEPW measurement groups (A, and B whose style row sits at an explicit large key), one FAKEPW measurement type, one measurementCSSLocation row; all removed by name and by key and asserted gone. No demo row is at risk: B's row owns the key a mishandled merge would overwrite.",
+      "notes": "Fails at its last step on 2026.08: Modify Measurement Style > OK leaves the chosen group's style unchanged and overwrites another group's measurementGroupStyle row (EctEditMeasurementStyle2Action.changeCSS writes the style sheet id into the primary key; finding L88, now confirmed live)."
+    },
+    {
+      "name": "gap-clinical-flowsheet-scopes",
+      "script": "scripts/gap-clinical-flowsheet-scopes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with one WT reading and one dxresearch row (an unused ICD-9 code chosen at run time); one flowsheet created through Administration > Create New Flowsheet (display name = run marker) with its customization rows; all removed and asserted gone. The application keeps a deleted flowsheet's trigger registered in memory, so the check finds its flowsheet by name.",
+      "notes": "Passes on 2026.08."
+    },
+    {
+      "name": "gap-clinical-prevention-notifications",
+      "script": "scripts/gap-clinical-prevention-notifications-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "No rows created. Changes the clinic-wide hide_prevention_stop_signs property (snapshot and restore in cleanup), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Fails at its final assertion on 2026.08 (collected after every round-trip step has passed): with no setting row the appointment screen shows stop signs (PreventionManager.isDisabled() is false) but Administration > Prevention Notification Settings reads Disabled (PreventionManager.jsp falls back to SHOW_PREVENTION_STOP_SIGNS=false)."
+    },
+    {
+      "name": "gap-billing-bill-form-options",
+      "script": "scripts/gap-billing-bill-form-options-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: the Referral Doctor search popup lists the owned specialist but picking a row throws 'Invalid or unexpected token' (handler JavaScript-encoded twice, ISSUES L214), so the referral number never reaches the bill form. The four earlier steps (header options, typed codes with units and percent, review, Save) pass.",
+      "fixtures": "createBillingFixture (owned billing provider with OHIP/group numbers in the operator's sites, synthetic HIN on the owned FAKE- patient), an owned professionalSpecialists row (last name = marker), two owned appointments today; claim rows the browser writes are removed by id and asserted gone."
+    },
+    {
+      "name": "gap-billing-bill-types",
+      "script": "scripts/gap-billing-bill-types-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "notes": "Passes on 2026.08 (seven bill types: Do Not Bill, IFH, CPP, STD/LTD, OCF, ODS, Bill Patient with a private code).",
+      "fixtures": "createBillingFixture, seven owned appointments today (one per bill type); claim, ext and transaction rows written by the browser removed by id and asserted gone."
+    },
+    {
+      "name": "gap-billing-private-bill-save-actions",
+      "script": "scripts/gap-billing-private-bill-save-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: Settle & Print Invoice does nothing because its onclick calls document.forms['titlesearch'].submit() and the form holds an input named 'submit' (TypeError: submit is not a function), so no claim is saved or settled. Back to Edit, Save & Print Invoice and Save & Add Another pass.",
+      "fixtures": "createBillingFixture, four owned appointments today; claims, ext, payment and audit rows written by the browser removed by id and asserted gone."
+    },
+    {
+      "name": "gap-billing-correction-admin-actions",
+      "script": "scripts/gap-billing-correction-admin-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: Settle All settles the bill without writing its billing_on_payment record (oldStatus is read after the header was already updated), a Save from the Administration entry lands the frame on close.html because the GET search form drops ?admin, and an OHIP claim number typed alone cannot be searched (the invoice-number field is required). Lookup, unknown invoice, Rebill OHIP and Reprint pass.",
+      "fixtures": "Two owned bills (seedOwnedBill, billed under an active OHIP provider the correction page lists, with the operator's missing site memberships added and removed) and an owned raheader/radetail pair (claim number); all removed and asserted gone."
+    },
+    {
+      "name": "gap-billing-ra-premium-settle35",
+      "script": "scripts/gap-billing-ra-premium-settle35-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "RA_DOCUMENT_DIR",
+        "RA_EDT_INBOX"
+      ],
+      "notes": "Fails at its third step on 2026.08: ApplyPractitionerPremium has no GET/HEAD rejection, so a plain GET with providerNo<id> unticks and clears an applied premium. Behind that, Billing Reconciliation Report and S35 answer 403 (runtime form without CSRF token, ISSUES L136), so the premium apply and the I2/35 + Q-code settlement are not reachable and stay unproven until both are fixed.",
+      "fixtures": "createBillingFixture with three submitted claims; the RA is uploaded through the page (raheader/radetail/billing_on_premium rows plus the stored file in DOCUMENT_DIR and the MOH inbox); a second raheader with two seeded premiums; all removed and asserted gone. Nothing is sent to MOH/MCEDT."
+    },
+    {
+      "name": "gap-billing-invoice-report-filters",
+      "script": "scripts/gap-billing-invoice-report-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: emptying the Serv. Code box (it arrives holding '%') makes Invoice Reports take a legacy query that inner-joins billing_on_payment, so every claim without a payment record disappears; and the LOCATION column sort answers HTTP 500 when a claim has no visit location (NPE in VISIT_LOCATION_COMPARATOR). Report rows, RA columns, footer totals, bill type / service code / dx / visit type / location / RA code / claim number filters and the CSV export pass.",
+      "fixtures": "createBillingFixture with three submitted claims (OHIP x2, WSIB) and two owned radetail rows under an owned raheader; all removed and asserted gone."
+    },
+    {
+      "name": "gap-billing-inr-calendar-popup",
+      "script": "scripts/gap-billing-inr-calendar-popup-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Passes on 2026.08.",
+      "fixtures": "createBillingFixture and one owned billinginr row; the claim the generator writes and the INR row are removed and asserted gone."
+    },
+    {
+      "name": "gap-billing-create-invoice-no-appointment",
+      "script": "scripts/gap-billing-create-invoice-no-appointment-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Passes on 2026.08.",
+      "fixtures": "createBillingFixture; the appointment-less claim the browser writes is removed by id and asserted gone."
+    },
+    {
+      "name": "gap-billing-moh-return-files",
+      "script": "scripts/gap-billing-moh-return-files-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RA_DOCUMENT_DIR",
+        "RA_EDT_INBOX"
+      ],
+      "notes": "Fails on 2026.08 in its single step after proving the R (batch eligibility) upload, the ## version flag and the repeat upload: the patient alert starts with a literal 'null' line (the empty alert is concatenated), and the Batch Acknowledgement (B) report answers HTTP 500 (billingEAreport.jsp reads batchAcks.batchAckReportBeanVector, which the parser does not have; ISSUES L137 'likely' now confirmed). Every report page also links a missing /billing.css.",
+      "fixtures": "createBillingFixture, an owned demographiccust row, the uploaded R and B files in DOCUMENT_DIR and the MOH inbox; all removed and asserted gone. Nothing is sent to MOH/MCEDT."
+    },
+    {
+      "name": "gap-billing-bill-form-validations",
+      "script": "scripts/gap-billing-bill-form-validations-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: a malformed percent (abc) is not stopped by the form's decimal-number alert (its check selects ids the percent boxes lack) and Next answers HTTP 500 (BillingReviewLoader NumberFormatException); the review page of an unknown or duplicated code and a fee edited on an OHIP review page also throw script errors (total / gst elements missing). The empty-form alert, empty-Dx confirm, unknown/duplicate-code warnings with no Save, and the fee override saved to the item pass.",
+      "fixtures": "createBillingFixture and three owned appointments today; claims written by the browser removed by id and asserted gone."
     }
   ]
 }
