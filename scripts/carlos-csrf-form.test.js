@@ -916,6 +916,45 @@ test('a held submit switched to GET whose replay validation blocks leaves no tok
     'no token was left in the form for a later native submit() to carry into a URL');
 });
 
+test('repeated submits while the token loads are coalesced into one replay', async () => {
+  const fetch = deferredFetch();
+  const helper = loadHelper({ fetchImpl: fetch.fetchImpl });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/eform/addGroup' });
+  helper.dom.document.body.appendChild(form);
+
+  // A double click on Add Group before any token exists.
+  form.requestSubmit();
+  form.requestSubmit();
+  form.requestSubmit();
+  fetch.release();
+  await settle();
+
+  assert.equal(helper.dom.submissions().length, 1, 'only one mutation goes out');
+});
+
+test('a form is no longer held after a failed lookup, so a later submit is guarded afresh', async () => {
+  let attempt = 0;
+  const helper = loadHelper({
+    fetchImpl: async () => (++attempt === 1
+      ? { ok: false, status: 503 }
+      : { ok: true, text: async () => SERVLET_JS }),
+  });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/eform/addGroup' });
+  helper.dom.document.body.appendChild(form);
+
+  form.requestSubmit();
+  await settle();
+  assert.equal(helper.dom.submissions().length, 0);
+
+  form.requestSubmit();
+  await settle();
+  const [submission] = helper.dom.submissions();
+  assert.ok(submission, 'the retry was not swallowed as a duplicate');
+  assert.deepEqual(submission.fields['CSRF-TOKEN'], ['SERVLET-TOKEN']);
+});
+
 test('a native submit whose lookup fails is stopped and the user is told', async () => {
   const helper = loadHelper({ fetchImpl: async () => ({ ok: false, status: 503 }) });
   await settle();

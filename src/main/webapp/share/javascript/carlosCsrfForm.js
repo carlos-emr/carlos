@@ -76,6 +76,8 @@
     'use strict';
 
     var TOKEN_NAME = 'CSRF-TOKEN';
+    // Marks a form whose submission the guard is holding for the token.
+    var HELD_FLAG = '__carlosCsrfHeldSubmit';
     var SCRIPT_PATH_SUFFIX = '/share/javascript/carlosCsrfForm.js';
     var FAILURE_MESSAGE = 'This action could not be sent because the page\'s security token '
         + 'could not be loaded. Please reload the page and try again.';
@@ -545,6 +547,14 @@
                 clearFormToken(form);
                 return;
             }
+            if (form[HELD_FLAG]) {
+                // One submission is already held for this form: a second click
+                // while the token loads must not queue a second replay (two
+                // AJAX mutations through registerFormSubmit, say).
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                return;
+            }
             if (hasToken(form)) {
                 return;
             }
@@ -555,7 +565,10 @@
             }
             event.preventDefault();
             event.stopImmediatePropagation();
+            form[HELD_FLAG] = true;
             token().then(function (value) {
+                // Cleared before the replay, whose own submit event must pass.
+                form[HELD_FLAG] = false;
                 var canReplay = typeof form.requestSubmit === 'function';
                 // Only requestSubmit() carries the submitter; the native fallback
                 // submits with the form's own method and action.
@@ -576,7 +589,10 @@
                 } else {
                     HTMLFormElement.prototype.submit.call(form);
                 }
-            }, reportFailure);
+            }, function (err) {
+                form[HELD_FLAG] = false;
+                reportFailure(err);
+            });
         }, true);
 
         var observeInsertions = function () {

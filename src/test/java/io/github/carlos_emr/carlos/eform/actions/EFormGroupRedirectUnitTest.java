@@ -68,6 +68,16 @@ class EFormGroupRedirectUnitTest {
     }
 
     @Test
+    @DisplayName("should reopen the same group through the shell for a native schedule-mode submission")
+    void shouldCarryEncodedGroupView_forNativeScheduleModeSubmission() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/eform/removeFromGroup");
+        request.setParameter("scheduleNav", "1");
+
+        assertThat(EFormGroupRedirect.toGroup("Intake & Triage", request))
+                .isEqualTo("/administration?show=FormsGroups&group_view=Intake+%26+Triage&scheduleNav=1");
+    }
+
+    @Test
     @DisplayName("should keep the groups page and the flag for an AJAX submission from the shell panel")
     void shouldKeepGroupsPageWithFlag_forAjaxScheduleModeSubmission() {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/eform/addGroup");

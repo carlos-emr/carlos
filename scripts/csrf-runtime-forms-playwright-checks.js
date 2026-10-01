@@ -40,8 +40,8 @@
  *
  * FIXTURES: one eForm group and one report template, both uniquely named and
  * created by SQL, removed by the workflow under test and, if the run fails
- * first, by cleanup. The dx row's description is snapshotted and restored if
- * it ever differs.
+ * first, by cleanup. Every diagnosticcode row of the updated dx code (and of
+ * its three-character suffix) is snapshotted by id and restored if it differs.
  *
  * Defaults are for the local devcontainer:
  *   MYSQL_PASSWORD=... npm run test:csrf-runtime-forms-playwright
@@ -213,14 +213,40 @@ async function deleteReportTemplate(context, config, recorder, sql, timeout) {
   }
 }
 
+/**
+ * diagnosticcode rows matching `where`, keyed by their surrogate id. NULL is
+ * kept apart from the text "NULL" so a restore puts back exactly what was there.
+ */
+function dxRows(sql, where) {
+  return sql.rows('SELECT diagnosticcode_no, description IS NULL, IFNULL(description, \'\') '
+    + `FROM diagnosticcode WHERE ${where} ORDER BY diagnosticcode_no`)
+    .map(([id, isNull, description]) => ({ id: Number(id), description: isNull === '1' ? null : description }));
+}
+
+/**
+ * Every row for `code`. diagnostic_code is not unique and the update writes
+ * every match, so the check snapshots and restores row by row.
+ */
+function snapshotDxRows(sql, code) {
+  return dxRows(sql, `diagnostic_code = ${sqlString(code)}`);
+}
+
+function restoreDxRows(sql, snapshot) {
+  for (const row of snapshot) {
+    const [current] = dxRows(sql, `diagnosticcode_no = ${row.id}`);
+    if (!current || current.description !== row.description) {
+      const value = row.description === null ? 'NULL' : sqlString(row.description);
+      sql.execute(`UPDATE diagnosticcode SET description = ${value} WHERE diagnosticcode_no = ${row.id}`);
+    }
+  }
+}
+
 async function resubmitDxDescription(context, config, recorder, sql, timeout) {
   const search = process.env.CSRF_FORMS_DX_SEARCH || 'diabetes';
   const page = await context.newPage();
   wireStrictPage(page, 'dx-search', recorder);
-  let code = '';
-  let before = null;
-  let suffixCode = '';
-  let suffixBefore = null;
+  let before = [];
+  let suffixBefore = [];
   try {
     await gotoApp(page, config.baseUrl,
       `/billing/CA/ON/ViewBillingDigSearch?coderange=&codedesc=${encodeURIComponent(search)}`);
@@ -233,14 +259,14 @@ async function resubmitDxDescription(context, config, recorder, sql, timeout) {
     )).filter((candidate) => /^desc_[0-9A-Z]{3,}$/i.test(candidate || ''));
     const name = names.find((candidate) => candidate.length > 'desc_'.length + 3) || names[0];
     assert(name, `dx-search: no result row has a dx code (searched for "${search}")`);
-    code = name.slice('desc_'.length);
-    if (code.length > 3) {
-      suffixCode = code.slice(-3);
-      suffixBefore = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(suffixCode)} LIMIT 1`);
-    }
+    const code = name.slice('desc_'.length);
+    const suffixCode = code.length > 3 ? code.slice(-3) : '';
+    before = snapshotDxRows(sql, code);
+    assert(before.length > 0, `dx-search: code ${code} has no diagnosticcode row`);
+    suffixBefore = suffixCode ? snapshotDxRows(sql, suffixCode) : [];
     const row = page.locator('#diagcode tbody tr', { has: page.locator(`input[name="${name}"]`) }).first();
+    const submitted = await row.locator(`input[name="${name}"]`).inputValue();
     const updateButton = row.locator('input[type="submit"][name="update"]');
-    before = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(code)} LIMIT 1`);
 
     // The page-load pass used to throw on this form; now it is tokenised.
     await assertFormsTokenised('dx-search', page, '#diagcode');
@@ -254,30 +280,21 @@ async function resubmitDxDescription(context, config, recorder, sql, timeout) {
     assert((request.postData() || '').includes(`desc_${code}=`),
       `dx-search: the update did not post desc_${code}; the input is still named with the bare code`);
 
-    const after = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(code)} LIMIT 1`);
-    // Trailing whitespace is not a change: legacy rows are space-padded, and the
-    // round trip through the form drops the padding (it did before #4130 too).
-    // The cleanup below still restores the row byte-for-byte.
-    assert(String(after).trimEnd() === String(before).trimEnd(),
-      `dx-search: resubmitting the unchanged description changed the stored text for ${code}`);
+    // The update writes the submitted text to every row of the code. Trailing
+    // whitespace is not a change: legacy rows are space-padded, and the round
+    // trip through the form drops the padding (it did before #4130 too). The
+    // cleanup below restores every row byte-for-byte.
+    for (const after of snapshotDxRows(sql, code)) {
+      assert(String(after.description).trimEnd() === submitted.trimEnd(),
+        `dx-search: row ${after.id} of ${code} does not hold the submitted description`);
+    }
     if (suffixCode) {
-      const suffixAfter = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(suffixCode)} LIMIT 1`);
-      assert(suffixAfter === suffixBefore,
-        `dx-search: updating ${code} changed the description of code ${suffixCode}`);
+      assert(JSON.stringify(snapshotDxRows(sql, suffixCode)) === JSON.stringify(suffixBefore),
+        `dx-search: updating ${code} changed a row of code ${suffixCode}`);
     }
   } finally {
-    if (suffixCode && suffixBefore) {
-      const current = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(suffixCode)} LIMIT 1`);
-      if (current !== suffixBefore) {
-        sql.execute(`UPDATE diagnosticcode SET description = ${sqlString(suffixBefore)} WHERE diagnostic_code = ${sqlString(suffixCode)}`);
-      }
-    }
-    if (code && before !== null) {
-      const current = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(code)} LIMIT 1`);
-      if (current !== before) {
-        sql.execute(`UPDATE diagnosticcode SET description = ${sqlString(before)} WHERE diagnostic_code = ${sqlString(code)}`);
-      }
-    }
+    restoreDxRows(sql, suffixBefore);
+    restoreDxRows(sql, before);
     await page.close().catch(() => {});
   }
 }

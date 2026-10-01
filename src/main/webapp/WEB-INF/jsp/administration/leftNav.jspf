@@ -986,6 +986,23 @@ $(document).ready(function(){
 			bootstrap.Collapse.getOrCreateInstance(panel).show();
 		}
 
+		// eForm group mutators made in schedule mode return through this shell
+		// (EFormGroupRedirect) and name the group to reopen; without it the
+		// panel would open on the first group instead. The value is decoded and
+		// re-encoded so only that one parameter can reach the panel URL.
+		var groupView = getUrlVars()["group_view"];
+		if (pageToLoad && show === 'FormsGroups' && groupView) {
+			try {
+				groupView = decodeURIComponent(groupView.replace(/\+/g, ' '));
+			} catch (e) {
+				groupView = null;
+			}
+			if (groupView) {
+				pageToLoad += (pageToLoad.indexOf('?') >= 0 ? '&' : '?')
+					+ 'group_view=' + encodeURIComponent(groupView);
+			}
+		}
+
 		//load request page or load default
 		if (pageToLoad) {
 			$("#dynamic-content").load(pageToLoad, 

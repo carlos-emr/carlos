@@ -74,6 +74,11 @@ final class EFormGroupRedirect {
         if (RequestNegotiation.isAjax(request)) {
             return ScheduleNav.append(toGroup(groupName), request);
         }
-        return ScheduleNav.append(SHELL_GROUPS_SECTION, request);
+        // The shell's deep-link loader passes group_view on to the groups panel, so the
+        // group the user was working in reopens instead of the first one.
+        String shellTarget = (groupName == null || groupName.isEmpty())
+                ? SHELL_GROUPS_SECTION
+                : SHELL_GROUPS_SECTION + "&group_view=" + URLEncoder.encode(groupName, StandardCharsets.UTF_8);
+        return ScheduleNav.append(shellTarget, request);
     }
 }
