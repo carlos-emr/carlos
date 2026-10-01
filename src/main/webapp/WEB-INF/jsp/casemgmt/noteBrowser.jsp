@@ -340,12 +340,11 @@
                 showPageImg(docid, doctype);
                 var div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "visible";
-                if (doctype == "text/html") {
-                    var div_ref = document.getElementById("refilebutton");
-                    div_ref.style.visibility = "hidden";
-                } else {
-                    var div_ref = document.getElementById("refilebutton");
-                    div_ref.style.visibility = "visible";
+                // The Refile control is only rendered in the published view; the deleted view
+                // offers Undelete instead, so there may be nothing to show or hide.
+                var refile = document.getElementById("refilebutton");
+                if (refile) {
+                    refile.style.visibility = (doctype == "text/html") ? "hidden" : "visible";
                 }
             }
         }

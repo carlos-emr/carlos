@@ -24,7 +24,7 @@
  * 1-31 pickers, and Cancel leaves the row untouched; a stored schedule the pickers cannot show
  * (weekday names) is explained and its Save is disabled, so it is never rewritten.
  * Fixtures: the run's FAKE- patient, one owned document type containing '+' (ctl_doctype), one
- * owned PDF of that type (document + ctl_document rows, file under
+ * owned PDF of that type plus a second owned PDF (document + ctl_document rows, files under
  * DOCUMENT_DIR), the owned note, a DISABLED job type with a nonexistent class plus a DISABLED
  * job on it (never schedulable); the test provider's edoc_browser_in_document_report preference
  * is turned on and restored exactly, so do not run it concurrently with another check that reads
@@ -66,27 +66,28 @@ function documentStore() {
 }
 
 /** One owned PDF on the patient's chart: the row, its chart link and the stored file. */
-function seedDocument(s, store, docType) {
+function seedDocument(s, store, docType, suffix = '') {
   const { sql, marker, patient, provider } = s;
-  const filename = `${marker}.pdf`;
+  const filename = `${marker}${suffix}.pdf`;
   const file = path.join(store, filename);
   let documentNo = null;
   s.cleanup(() => {
     if (documentNo) {
-      h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE document_no=${documentNo} AND docdesc=${h.sqlString(marker)}`) === '1',
+      // The Edit step renames the document, so ownership is the marker prefix, not the exact text.
+      h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE document_no=${documentNo} AND docdesc LIKE ${h.sqlString(`${marker}%`)}`) === '1',
         'Document fixture ownership changed');
       sql.execute(`DELETE FROM ctl_document WHERE document_no=${documentNo} AND module='demographic' AND module_id=${patient};
-        DELETE FROM document WHERE document_no=${documentNo} AND docdesc=${h.sqlString(marker)}`);
+        DELETE FROM document WHERE document_no=${documentNo} AND docdesc LIKE ${h.sqlString(`${marker}%`)}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE document_no=${documentNo}`) === '0', 'The owned document row was not removed');
     }
     if (fs.existsSync(file)) fs.unlinkSync(file);
     h.assert(!fs.existsSync(file), 'The owned PDF was not removed');
   });
   h.assert(!fs.existsSync(file), 'The owned PDF path already exists');
-  fs.writeFileSync(file, fixturePdf(marker), { mode: 0o644, flag: 'wx' });
+  fs.writeFileSync(file, fixturePdf(`${marker}${suffix}`), { mode: 0o644, flag: 'wx' });
   documentNo = sql.value(`INSERT INTO document
     (doctype,docdesc,docfilename,doccreator,responsible,status,contenttype,public1,number_of_pages,restrictToProgram,observationdate,updatedatetime,contentdatetime)
-    VALUES (${h.sqlString(docType)},${h.sqlString(marker)},${h.sqlString(filename)},${h.sqlString(provider)},${h.sqlString(provider)},
+    VALUES (${h.sqlString(docType)},${h.sqlString(`${marker}${suffix}`)},${h.sqlString(filename)},${h.sqlString(provider)},${h.sqlString(provider)},
       'A','application/pdf',0,3,0,CURDATE(),NOW(),NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(documentNo), 'Document fixture was not inserted');
   sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${documentNo},'A')`);
@@ -176,6 +177,9 @@ async function workflow(s) {
   h.assert(/^[1-9]\d*$/.test(docTypeId), 'The document type fixture was not inserted');
   const documentNo = seedDocument(s, store, docType);
   const optionValue = `${documentNo}-application/pdf`;
+  // A second owned PDF, so the browser's two-document combined preview can be exercised.
+  const secondNo = seedDocument(s, store, 'lab', ' second');
+  const secondValue = `${secondNo}-application/pdf`;
   enableBrowseLink(s);
 
   // ---- Document Browser ------------------------------------------------------------------
@@ -205,12 +209,51 @@ async function workflow(s) {
     h.assert(await browser.locator('#refilebutton').isVisible(), 'The Refile control is hidden for a PDF');
   });
 
-  await s.step('Edit opens the document editor for the selected PDF', async () => {
+  await s.step('selecting two PDFs previews them combined (combinePDFs inline answers a PDF)', async () => {
+    // The inline preview used to carry a duplicate Transfer-Encoding header that nginx refused (502).
+    const [preview] = await Promise.all([
+      browser.waitForResponse(r => new URL(r.url()).pathname.endsWith('/documentManager/combinePDFs'), { timeout: TIMEOUT }),
+      browser.locator('#doclist').selectOption([optionValue, secondValue]),
+    ]);
+    h.assert(preview.status() === 200 && /application\/pdf/.test(preview.headers()['content-type'] || ''),
+      `The combined preview answered HTTP ${preview.status()} instead of a PDF`);
+    h.assert(await browser.locator('#docdisp iframe[src*="combinePDFs"]').count() === 1, 'The combined preview frame was not shown');
+    await browser.locator('#doclist').selectOption(optionValue);
+  });
+
+  await s.step('Edit opens the document editor for the selected PDF and Update saves it', async () => {
     const editor = await s.popup(browser, browser.locator('#docbuttons input[type="button"][onclick="DocEdit();"]'), 'edoc-edit');
     const url = new URL(editor.url());
     h.assert(url.pathname.endsWith('/documentManager/ViewEditDocument') && url.searchParams.get('editDocumentNo') === documentNo,
       'Edit did not open the editor for the selected document');
-    await editor.close();
+    // submitUpload() validates the date with validDate() from Oscar.js; without that script
+    // every Update threw a ReferenceError and nothing was posted.
+    const edited = `${marker} edited`;
+    await editor.locator('input[name="docDesc"]').fill(edited);
+    const [post] = await Promise.all([
+      editor.waitForResponse(r => new URL(r.url()).pathname.endsWith('/documentManager/addEditDocument') && r.request().method() === 'POST',
+        { timeout: TIMEOUT }),
+      editor.locator('input[name="Submit"]').click(),
+    ]);
+    h.assert(post.status() < 400, `The document edit POST answered HTTP ${post.status()}`);
+    await expectValue(sql, `SELECT docdesc FROM document WHERE document_no=${documentNo}`, edited,
+      'Update in the document editor did not save the description');
+    if (!editor.isClosed()) await editor.close();
+  });
+
+  await s.step('selecting a document in the Deleted view works without a script error', async () => {
+    // The Refile control only exists in the published view; selecting in the deleted view used
+    // to dereference it and throw.
+    sql.execute(`UPDATE document SET status='D' WHERE document_no=${documentNo} AND docdesc LIKE ${h.sqlString(`${marker}%`)}`);
+    try {
+      await Promise.all([browser.waitForEvent('load', { timeout: TIMEOUT }), browser.locator('#selviewstatus').selectOption('deleted')]);
+      await browser.locator(`#doclist option[value="${optionValue}"]`).waitFor({ state: 'attached', timeout: TIMEOUT });
+      await browser.locator('#doclist').selectOption(optionValue);
+      await browser.locator('#docbuttons input[type="button"][onclick="UnDeleteDoc();"]').waitFor({ state: 'visible', timeout: TIMEOUT });
+      h.assertStrictPage(recorder);
+    } finally {
+      sql.execute(`UPDATE document SET status='A' WHERE document_no=${documentNo} AND docdesc LIKE ${h.sqlString(`${marker}%`)}`);
+    }
     await browser.close();
   });
 
@@ -268,6 +311,19 @@ async function workflow(s) {
     h.assert(await notes.locator(`#doclist option[value="${optionValue}"]`).count() === 0, 'The deleted view lists a published document');
     await chooseStatus('active');
     h.assert(await notes.locator(`#doclist option[value="${optionValue}"]`).count() === 1, 'The published view lost the owned document');
+  });
+
+  await s.step('selecting a document in the note browser\'s Deleted view works without a script error', async () => {
+    sql.execute(`UPDATE document SET status='D' WHERE document_no=${documentNo} AND docdesc LIKE ${h.sqlString(`${marker}%`)}`);
+    try {
+      await chooseStatus('deleted');
+      await notes.locator('#doclist').selectOption(optionValue);
+      await notes.locator('#docbuttons input[type="button"][onclick="UnDeleteDoc();"]').waitFor({ state: 'visible', timeout: TIMEOUT });
+      h.assertStrictPage(recorder);
+    } finally {
+      sql.execute(`UPDATE document SET status='A' WHERE document_no=${documentNo} AND docdesc LIKE ${h.sqlString(`${marker}%`)}`);
+    }
+    await chooseStatus('active');
   });
 
   await s.step('a document type containing "+" survives the type filter and repeated reloads', async () => {
