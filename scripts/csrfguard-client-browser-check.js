@@ -55,6 +55,9 @@ const FIXTURE = `<!doctype html><html><head>
   <input type="checkbox" name="1" value="1">
 </form>
 <form id="afterNumeric" action="/post/after" method="post"><input name="b" value="2"></form>
+<form id="noMethod" action="/post/no-method"><input name="q" value="x"><button id="noMethodGo">Go</button></form>
+<form id="leaves" action="/post/stays" method="post"><input name="a" value="1">
+  <button id="leavesGo" type="submit" formaction="http://localhost:PORT/post/leaves">Elsewhere</button></form>
 <form id="getForm" action="/post/get" method="get"><input name="q" value="x">
   <button id="asPost" type="submit" formmethod="post" formaction="/post/formmethod">Post instead</button>
 </form>
@@ -79,7 +82,12 @@ function startServer() {
       res.end(FRAGMENT);
     } else if (url.pathname === '/fixture' && req.method === 'GET') {
       res.setHeader('Content-Type', 'text/html');
-      res.end(FIXTURE);
+      res.end(FIXTURE.split('PORT').join(String(server.address().port)));
+    } else if (url.pathname === '/based' && req.method === 'GET') {
+      // A cross-origin <base>: a relative action resolves to the other origin.
+      res.setHeader('Content-Type', 'text/html');
+      res.end(`<!doctype html><html><head><base href="http://localhost:${server.address().port}/">
+<script src="http://127.0.0.1:${server.address().port}/csrfguard"></script></head><body></body></html>`);
     } else {
       req.resume();
       req.on('end', () => {
@@ -241,6 +249,37 @@ async function captureSubmission(page, urlPart, action) {
         assert.equal(sent.body.has('CSRF-TOKEN'), false);
       });
     }
+
+    await check('a load-time token is not sent when a form without a method submits as a GET', async () => {
+      // Upstream's load-time scan fills forms without a method attribute; the GET must not carry it.
+      assert.equal(await tokenOf('#noMethod'), TOKEN);
+      const sent = await captureSubmission(page, '/post/no-method', () => page.click('#noMethodGo'));
+      assert.equal(sent.method, 'GET');
+      assert.equal(new URL(sent.url).searchParams.has('CSRF-TOKEN'), false);
+    });
+
+    await check('a load-time token is not sent when a submit button points the form at another origin', async () => {
+      await page.route('**/post/leaves', route => route.fulfill({status: 200, body: 'ok'}));
+      assert.equal(await tokenOf('#leaves'), TOKEN);
+      const sent = await captureSubmission(page, '/post/leaves', () => page.click('#leavesGo'));
+      assert.equal(sent.method, 'POST');
+      assert.equal(sent.body.has('CSRF-TOKEN'), false);
+      assert.equal(sent.body.get('a'), '1');
+    });
+
+    await check('a cross-origin <base href> does not make a relative action same-origin', async () => {
+      await page.route('**/collect', route => route.fulfill({status: 200, body: 'ok'}));
+      await page.goto(`${base}/based`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own 127.0.0.1 fixture server
+      const sent = await captureSubmission(page, '/collect', () => page.evaluate(() => {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = 'collect';
+        document.body.appendChild(form);
+        form.submit();
+      }));
+      assert.equal(new URL(sent.url).hostname, 'localhost');
+      assert.equal(sent.body.has('CSRF-TOKEN'), false);
+    });
 
     await check('a cross-origin POST action never receives the token', async () => {
       const crossOrigin = `http://localhost:${server.address().port}/post/cross`;

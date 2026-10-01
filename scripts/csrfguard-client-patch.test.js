@@ -77,12 +77,27 @@ function loadPage({pathname = '/carlos/billing/CA/ON/history', evaluations = 1} 
       super('form');
     }
 
+    /**
+     * Shaped like the browser's HTMLFormControlsCollection where it matters: controls
+     * by position, plus an enumerable key for a control whose NAME is numeric, which
+     * (being an array index) resolves positionally -- to undefined past the end.
+     * That is what made upstream's Object.keys(form.elements) walk throw on the dx
+     * search results.
+     */
     get elements() {
-      return this.descendants().filter(node => node.tagName === 'INPUT' || node.tagName === 'BUTTON');
+      const controls = this.descendants().filter(node => node.tagName === 'INPUT' || node.tagName === 'BUTTON');
+      const collection = {};
+      controls.forEach((control, index) => { collection[index] = control; });
+      for (const control of controls) {
+        if (/^\d+$/.test(control.name || '') && !(control.name in collection)) collection[control.name] = undefined;
+      }
+      Object.defineProperty(collection, 'length', {value: controls.length, enumerable: false});
+      return collection;
     }
   }
+  /** Records the form data set as a browser builds it: disabled controls are left out. */
   HTMLFormElement.prototype.submit = function () {
-    submitted.push(this.elements.map(field => [field.name, field.value]));
+    submitted.push(Array.from(this.elements).filter(field => !field.disabled).map(field => [field.name, field.value]));
   };
 
   const href = `https://${HOST}${pathname}`;
@@ -108,12 +123,18 @@ function loadPage({pathname = '/carlos/billing/CA/ON/history', evaluations = 1} 
     disconnect() {}
   }
 
+  const windowListeners = {};
   const context = vm.createContext({
     document,
     HTMLFormElement,
     XMLHttpRequest,
     MutationObserver,
-    window: {addEventListener() {}},
+    setTimeout,
+    window: {
+      addEventListener(type, fn, capture) {
+        (windowListeners[type] = windowListeners[type] || []).push({fn, capture});
+      },
+    },
     navigator: {appName: 'Netscape'},
     location: {hostname: HOST, pathname, search: '', href, origin: `https://${HOST}`},
     URL,
@@ -139,17 +160,26 @@ function loadPage({pathname = '/carlos/billing/CA/ON/history', evaluations = 1} 
     return element;
   }
 
-  function dispatchSubmit(target, submitter = null) {
+  /** Capture on document, then bubble to window; returns the data a navigation would send. */
+  function dispatchSubmit(target, submitter = null, {pageCancels = false} = {}) {
+    const event = {target, submitter, defaultPrevented: false};
     for (const {fn, capture} of listeners.submit || []) {
-      if (capture) fn({target, submitter});
+      if (capture) fn(event);
     }
+    if (pageCancels) event.defaultPrevented = true;
+    for (const {fn} of windowListeners.submit || []) fn(event);
+    return Array.from(target.elements).filter(field => !field.disabled).map(field => [field.name, field.value]);
   }
 
-  return {submitted, observers, form, dispatchSubmit, HTMLFormElement};
+  function setBase(url) {
+    document.baseURI = url;
+  }
+
+  return {submitted, observers, form, dispatchSubmit, HTMLFormElement, setBase};
 }
 
 const tokensIn = fields => fields.filter(([name]) => name === 'CSRF-TOKEN').map(([, value]) => value);
-const tokenFieldsOf = form => form.elements.filter(field => field.name === 'CSRF-TOKEN').map(field => field.value);
+const tokenFieldsOf = form => Array.from(form.elements).filter(field => field.name === 'CSRF-TOKEN').map(field => field.value);
 
 test('form.submit() on a script-built POST form adds the token before posting', () => {
   const page = loadPage();
@@ -221,10 +251,56 @@ test('forms nested in inserted HTML get the token, including numerically named c
 });
 
 test('the submit hook wraps form.submit() only once per window', () => {
-  const page = loadPage({evaluations: 2});
-  page.form({action: '/carlos/x'}).submit();
-  assert.equal(page.submitted.length, 1, 'the native submit ran more than once');
-  assert.deepEqual(tokensIn(page.submitted[0]), [TOKEN]);
+  const once = loadPage();
+  const twice = loadPage({evaluations: 2});
+  // The second evaluation must leave the prototype's submit exactly as the first set it.
+  assert.equal(twice.HTMLFormElement.prototype.submit.toString(), once.HTMLFormElement.prototype.submit.toString());
+  assert.equal(Object.getOwnPropertyDescriptor(twice.HTMLFormElement.prototype, 'carlosCsrfSubmitHooked').value, true);
+  twice.form({action: '/carlos/x'}).submit();
+  assert.equal(twice.submitted.length, 1, 'the native submit ran more than once');
+  assert.deepEqual(tokensIn(twice.submitted[0]), [TOKEN]);
+});
+
+test('a token already in the form is withheld from a GET or cross-origin form.submit() and then restored', () => {
+  // The load-time scan fills forms that have no method attribute; their native submit is a GET.
+  const page = loadPage();
+  const getForm = page.form({method: null, action: '/carlos/search', fields: {'CSRF-TOKEN': TOKEN, q: 'x'}});
+  getForm.submit();
+  const crossForm = page.form({action: 'https://example.invalid/collect', fields: {'CSRF-TOKEN': TOKEN}});
+  crossForm.submit();
+  assert.deepEqual(page.submitted.map(tokensIn), [[], []]);
+  assert.deepEqual(tokenFieldsOf(getForm), [TOKEN], 'the withheld field must stay in the form');
+  assert.equal(getForm.elements[0].disabled, false, 'the withheld field must be enabled again');
+});
+
+test('a submit event leaving the origin or as a GET does not send an existing token', () => {
+  const page = loadPage();
+  // A fresh form per case: a withheld field is enabled again on the next task.
+  const form = () => page.form({action: '/carlos/eforms/delGroup', fields: {'CSRF-TOKEN': TOKEN}});
+  const away = new FakeElement('button');
+  away.setAttribute('formaction', 'https://example.invalid/collect');
+  assert.deepEqual(tokensIn(page.dispatchSubmit(form(), away)), []);
+  const asGet = new FakeElement('button');
+  asGet.setAttribute('formmethod', 'get');
+  assert.deepEqual(tokensIn(page.dispatchSubmit(form(), asGet)), []);
+  // A page handler that cancels the navigation to post the form itself keeps the token.
+  assert.deepEqual(tokensIn(page.dispatchSubmit(form(), away, {pageCancels: true})), [TOKEN]);
+});
+
+test('a withheld submit-event token is enabled again on the next task', async () => {
+  const page = loadPage();
+  const form = page.form({method: 'get', action: '/carlos/search', fields: {'CSRF-TOKEN': TOKEN}});
+  page.dispatchSubmit(form);
+  assert.equal(form.elements[0].disabled, true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(form.elements[0].disabled, false);
+});
+
+test('a cross-origin <base href> does not make a relative action count as same-origin', () => {
+  const page = loadPage();
+  page.setBase('https://example.invalid/');
+  page.form({action: 'collect'}).submit();
+  assert.deepEqual(page.submitted.map(tokensIn), [[]]);
 });
 
 test('Owasp.CsrfGuard.properties serves the patched template', () => {

@@ -33,6 +33,14 @@ const PATCHED_TEMPLATE = path.join(__dirname, '..', '..',
  * @returns {string} JavaScript ready to serve or evaluate
  */
 function renderCsrfGuardTemplate({host, token, contextPath = '', templatePath = PATCHED_TEMPLATE}) {
+  // The servlet substitutes these into JavaScript string literals unescaped; the
+  // fixtures only ever pass plain values, and anything else is refused rather than
+  // rendered into a script.
+  for (const [name, value] of Object.entries({host, token, contextPath})) {
+    if (!/^[A-Za-z0-9._:\/-]*$/.test(String(value))) {
+      throw new Error(`renderCsrfGuardTemplate: ${name} must be a plain host, token or path`);
+    }
+  }
   const values = {
     "'%DOMAIN_STRICT%'": 'true',
     "'%INJECT_ATTRIBUTES%'": 'false',
@@ -49,7 +57,6 @@ function renderCsrfGuardTemplate({host, token, contextPath = '', templatePath = 
     '%TOKEN_VALUE%': token,
     '%CONTEXT_PATH%': contextPath,
     '%SERVLET_PATH%': `${contextPath}/csrfguard`,
-    '%X_REQUESTED_WITH%': 'OWASP CSRFGuard Project',
     '%UNPROTECTED_EXTENSIONS%': 'css,js,png,jpg,gif,svg,ico,woff,woff2,ttf,eot',
   };
   let js = fs.readFileSync(templatePath, 'utf8');

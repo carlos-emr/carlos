@@ -55,8 +55,9 @@
  * Patch 3 adds the token at submission time (form.submit() and the submit
  * event), only for POST forms whose effective action resolves to exactly this
  * page's origin (scheme, host and port). That is stricter than the upstream
- * isValidUrl(), which compares the hostname alone. GET forms never receive the
- * token, so it is not leaked into URLs, history or access logs.
+ * isValidUrl(), which compares the hostname alone. A submission that is a GET
+ * or leaves the origin is sent WITHOUT any token the load-time scan put in the
+ * form, so it is not leaked into URLs, history, access logs or another site.
  *
  * When upgrading CSRFGuard: diff the new META-INF/csrfguard.js against the
  * unmarked parts of this file, re-apply the marked patches, and update the
@@ -422,39 +423,54 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
         }
 
         /**
-         * CARLOS patch 3: put the token into a form that is about to be posted.
-         *
-         * Runs at submission, so it also covers forms built in script and
-         * submitted before the MutationObserver could see them. The effective
-         * method and action honour the submitter's formmethod/formaction. Only
-         * POST to an action resolving to exactly this page's origin (scheme,
-         * host and port) is touched; a missing or empty action posts back to
-         * this page. Upstream isValidUrl() compares the hostname alone, which
-         * would hand the token to another port or scheme on the same host, so
-         * it is not used here. GET forms are left alone so the token never
-         * lands in a URL.
-         *
-         * @param form      the form being submitted
-         * @param submitter the submit button, when known (submit event), else null
+         * CARLOS patch 3: the effective method and action of a submission. The
+         * submitter's formmethod/formaction win over the form's; a missing or
+         * empty action posts back to this page.
          */
-        function carlosInjectAtSubmit(form, submitter) {
-            if (!form || !form.tagName || form.tagName.toLowerCase() !== 'form') {
-                return;
-            }
+        function carlosEffectiveSubmission(form, submitter) {
             var method = submitter && submitter.hasAttribute && submitter.hasAttribute('formmethod')
                 ? submitter.getAttribute('formmethod') : form.getAttribute('method');
-            if (!method || method.trim().toLowerCase() !== 'post') {
-                return;
-            }
             var action = submitter && submitter.hasAttribute && submitter.hasAttribute('formaction')
                 ? submitter.getAttribute('formaction') : form.getAttribute('action');
             if (action === null || action.trim() === '') {
                 action = location.pathname + location.search;
             }
-            action = action.trim();
-            if (!carlosIsSameOrigin(action)) {
-                return;
+            return {
+                method: method ? method.trim().toLowerCase() : 'get',
+                action: action.trim()
+            };
+        }
+
+        /**
+         * CARLOS patch 3: true when this submission may carry the token: a POST to
+         * an action resolving to exactly this page's origin (scheme, host and
+         * port). Upstream isValidUrl() compares the hostname alone, which would
+         * hand the token to another port or scheme on the same host.
+         */
+        function carlosMaySendToken(form, submitter) {
+            if (!form || !form.tagName || form.tagName.toLowerCase() !== 'form') {
+                return false;
             }
+            var submission = carlosEffectiveSubmission(form, submitter);
+            return submission.method === 'post' && carlosIsSameOrigin(submission.action);
+        }
+
+        /**
+         * CARLOS patch 3: put the token into a form that is about to be posted.
+         *
+         * Runs at submission, so it also covers forms built in script and
+         * submitted before the MutationObserver could see them. Only a submission
+         * carlosMaySendToken() accepts is touched.
+         *
+         * @param form      the form being submitted
+         * @param submitter the submit button, when known (submit event), else null
+         * @returns true when the token was put in place
+         */
+        function carlosInjectAtSubmit(form, submitter) {
+            if (!carlosMaySendToken(form, submitter)) {
+                return false;
+            }
+            var action = carlosEffectiveSubmission(form, submitter).action;
             var value = calculatePageTokenForUri(pageTokenWrapper.pageTokens || {}, parseUri(action));
             if (value == null) {
                 value = masterTokenValue;
@@ -471,11 +487,46 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
                     field.value = value;
                 });
             }
+            return true;
         }
 
         /**
-         * CARLOS patch 3: true only when url resolves (against the document base,
-         * as the browser resolves a form action) to this page's exact origin.
+         * CARLOS patch 3: keep a token already in the form out of a submission
+         * that must not carry it -- a GET, which would put it in the URL, or an
+         * action on another origin. The load-time scan (upstream behaviour, kept
+         * because pages read the token back with new FormData(form)) fills forms
+         * that have no method attribute, and a submit button can redirect any
+         * form with formaction/formmethod.
+         *
+         * The fields are disabled, not removed: a disabled control is left out of
+         * the form data set the browser builds synchronously at submission, and
+         * the caller enables them again straight afterwards, so the form is
+         * unchanged for any script that reads it later.
+         *
+         * @returns the fields that were disabled, for carlosRestoreTokens()
+         */
+        function carlosWithholdTokens(form) {
+            var withheld = [];
+            carlosTokenFields(form, tokenName).forEach(function (field) {
+                if (!field.disabled) {
+                    field.disabled = true;
+                    withheld.push(field);
+                }
+            });
+            return withheld;
+        }
+
+        function carlosRestoreTokens(fields) {
+            fields.forEach(function (field) {
+                field.disabled = false;
+            });
+        }
+
+        /**
+         * CARLOS patch 3: true only when url, resolved against the document base
+         * (as the browser resolves a form action), has this page's exact origin.
+         * The comparison is with the page's own origin, never the base's: a
+         * cross-origin <base href> must not make a relative action look local.
          * javascript:, data: and other opaque URLs have origin "null" and fail.
          */
         function carlosIsSameOrigin(url) {
@@ -484,7 +535,7 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
             }
             try {
                 var base = document.baseURI || location.href;
-                return new URL(url, base).origin === new URL(base).origin;
+                return new URL(url, base).origin === new URL(location.href).origin;
             } catch (e) {
                 return false;
             }
@@ -503,12 +554,20 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
             }
             var nativeSubmit = proto.submit;
             proto.submit = function () {
+                // form.submit() fires no submit event, so both halves happen here.
+                var withheld = [];
                 try {
-                    carlosInjectAtSubmit(this, null);
+                    if (!carlosInjectAtSubmit(this, null)) {
+                        withheld = carlosWithholdTokens(this);
+                    }
                 } catch (e) {
                     console.warn('CSRF token could not be added before form submission: ', e);
                 }
-                return nativeSubmit.apply(this, arguments);
+                try {
+                    return nativeSubmit.apply(this, arguments);
+                } finally {
+                    carlosRestoreTokens(withheld);
+                }
             };
             Object.defineProperty(proto, 'carlosCsrfSubmitHooked', {value: true});
             /* capture phase: runs before page handlers, which may serialise or cancel */
@@ -519,6 +578,27 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
                     console.warn('CSRF token could not be added before form submission: ', e);
                 }
             }, true);
+            /*
+             * Bubble phase on window: runs after the page's own handlers, so a
+             * submission they cancelled (to serialise the form for an XHR) keeps its
+             * token. One that will really navigate as a GET or to another origin is
+             * sent without it; the fields come back on the next task.
+             */
+            window.addEventListener('submit', function (event) {
+                try {
+                    if (event.defaultPrevented || carlosMaySendToken(event.target, event.submitter || null)) {
+                        return;
+                    }
+                    var withheld = carlosWithholdTokens(event.target);
+                    if (withheld.length > 0) {
+                        setTimeout(function () {
+                            carlosRestoreTokens(withheld);
+                        }, 0);
+                    }
+                } catch (e) {
+                    console.warn('CSRF token could not be withheld from form submission: ', e);
+                }
+            }, false);
         }
 
         /**
@@ -751,7 +831,8 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
                     injectToElements(carlosWithNestedForms([event.detail]), tokenName, masterTokenValue, pageTokenWrapper.pageTokens);
                 });
             }  else {
-                if (MutationObserver) {
+                // CARLOS patch: a bare MutationObserver reference throws where it is undefined.
+                if (typeof MutationObserver !== 'undefined') {
                     const formMutationObserver = new MutationObserver(function (mutations, observer) {
                         for (let i in mutations) {
                             const mutation = mutations[i];

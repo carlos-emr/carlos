@@ -136,12 +136,18 @@ CARLOS serves CSRFGuard 4.5.0's unminified client template with three marked pat
 | 2 | The dynamic-node `MutationObserver` only injected into added nodes that are themselves `<form>` | Forms inside HTML inserted with jQuery `.load()`/`.html()` (the Administration panel) had no token | Also inject into every `<form>` nested inside each added node |
 | 3 | Injection runs at load and in a `MutationObserver` callback | A form built in script and submitted in the same task was posted before any callback ran (Unbill, Delete Template, eForm restore, RA settle, Messenger link …) | Wrap `HTMLFormElement.prototype.submit` and add a capture-phase `submit` listener; each injects the token just before submission |
 
-Patch 3 adds the token only when the effective method is `post` and the effective action resolves
-to exactly the page's origin (scheme, host and port). That is stricter than the upstream
-`isValidUrl()`, which compares the hostname alone. Both method and action honour a submit button's
-`formmethod`/`formaction`. A missing or empty action counts as the current page. GET forms and
-actions on any other origin, including another port or scheme on the same host, are never touched,
-so the token does not leak into URLs, history or logs.
+Patch 3 adds the token only when the effective method is `post` and the effective action, resolved
+against the document base, has exactly the page's own origin (scheme, host and port). That is
+stricter than the upstream `isValidUrl()`, which compares the hostname alone, and a cross-origin
+`<base href>` cannot make a relative action count as local. Both method and action honour a submit
+button's `formmethod`/`formaction`. A missing or empty action counts as the current page.
+
+Patch 3 also closes the reverse leak. The upstream load-time scan still fills forms that have no
+`method` attribute, because pages read the token back with `new FormData(form)`. A submission
+that is a GET, or that leaves the origin (for example through a submit button's `formaction`), is
+sent without any token already in the form. The token fields are disabled only while the browser
+builds the form data set, then enabled again, so scripts that read the form later still find the
+token. A submit event that the page cancels, to post the form itself, keeps the token.
 
 **Upgrading CSRFGuard:** diff the new jar's `META-INF/csrfguard.js` against the unmarked parts
 of the CARLOS copy and re-apply the `CARLOS patch` blocks. Three checks guard the copy:

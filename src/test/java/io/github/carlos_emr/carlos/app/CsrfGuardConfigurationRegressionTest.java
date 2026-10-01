@@ -35,8 +35,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.Properties;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -64,6 +64,8 @@ class CsrfGuardConfigurationRegressionTest {
     private static final String UPSTREAM_TEMPLATE = "META-INF/csrfguard.js";
     /** JavaScriptServlet placeholders: %NAME%, some written inside single quotes. */
     private static final Pattern PLACEHOLDER = Pattern.compile("%[A-Z_]+%");
+    /** Placeholder uses the CARLOS patches add: patch 3 installs only when injectIntoForms is on. */
+    private static final Map<String, Integer> CARLOS_ADDED_PLACEHOLDERS = Map.of("%INJECT_FORMS%", 1);
 
     @Test
     @DisplayName("should use DRBG without provider constraint")
@@ -90,7 +92,7 @@ class CsrfGuardConfigurationRegressionTest {
 
         // The classpath: form is what makes JavaScriptServlet read WEB-INF/classes
         // rather than the jar's META-INF copy (issue #4130).
-        assertThat(sourceFile).startsWith(CLASSPATH_PREFIX);
+        assertThat(sourceFile).as(SOURCE_FILE_PROPERTY).isNotNull().startsWith(CLASSPATH_PREFIX);
         String template = readClasspathResource(sourceFile.substring(CLASSPATH_PREFIX.length()).trim());
 
         assertThat(template)
@@ -105,6 +107,7 @@ class CsrfGuardConfigurationRegressionTest {
     @DisplayName("should resolve the configured sourceFile through CSRFGuard's own loader")
     void shouldResolveConfiguredSourceFile_throughCsrfGuardLoader() throws Exception {
         String sourceFile = loadCsrfGuardProperties().getProperty(SOURCE_FILE_PROPERTY);
+        assertThat(sourceFile).as(SOURCE_FILE_PROPERTY).isNotNull();
 
         // The same private resolver JavaScriptServlet's configuration uses, so a
         // spelling CSRFGuard does not understand fails here rather than as a
@@ -126,21 +129,25 @@ class CsrfGuardConfigurationRegressionTest {
     @DisplayName("should keep every placeholder of the upstream CSRFGuard template")
     void shouldKeepEveryUpstreamPlaceholder_inPatchedTemplate() throws IOException {
         String sourceFile = loadCsrfGuardProperties().getProperty(SOURCE_FILE_PROPERTY);
-        Set<String> patched = placeholders(
+        assertThat(sourceFile).as(SOURCE_FILE_PROPERTY).isNotNull().startsWith(CLASSPATH_PREFIX);
+        Map<String, Integer> patched = placeholders(
                 readClasspathResource(sourceFile.substring(CLASSPATH_PREFIX.length()).trim()));
-        Set<String> upstream = placeholders(readClasspathResource(UPSTREAM_TEMPLATE));
+        Map<String, Integer> upstream = placeholders(readClasspathResource(UPSTREAM_TEMPLATE));
 
-        // A CSRFGuard upgrade that adds a placeholder (a new configurable option)
-        // fails here until the CARLOS copy is rebased onto the new template.
+        // Counted, not just collected: a CSRFGuard upgrade that adds a placeholder,
+        // or a rebase that drops one occurrence of an existing one (which the servlet
+        // would then never substitute), fails here.
         assertThat(upstream).isNotEmpty();
-        assertThat(patched).containsExactlyInAnyOrderElementsOf(upstream);
+        Map<String, Integer> expected = new TreeMap<>(upstream);
+        CARLOS_ADDED_PLACEHOLDERS.forEach((name, count) -> expected.merge(name, count, Integer::sum));
+        assertThat(patched).isEqualTo(expected);
     }
 
-    private static Set<String> placeholders(String template) {
-        Set<String> found = new TreeSet<>();
+    private static Map<String, Integer> placeholders(String template) {
+        Map<String, Integer> found = new TreeMap<>();
         Matcher matcher = PLACEHOLDER.matcher(template);
         while (matcher.find()) {
-            found.add(matcher.group());
+            found.merge(matcher.group(), 1, Integer::sum);
         }
         return found;
     }
