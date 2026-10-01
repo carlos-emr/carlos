@@ -231,8 +231,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
         }
 
         // Attach replaces the message's chart-PDF set with exactly what is ticked now (ticking
-        // nothing clears it), matching the chooser's long-standing behaviour.
-        bean.nullAttachment();
+        // nothing clears it). Only the PDFs: transferred chart items attached another way stay.
+        bean.nullPDFAttachment();
         for (Item item : selected) {
             Optional<Attachment> attachment = resolver.resolve(item, demographicNo, patientName, labels);
             if (attachment.isEmpty()) {

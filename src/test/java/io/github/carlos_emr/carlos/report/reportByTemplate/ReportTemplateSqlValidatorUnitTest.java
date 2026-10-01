@@ -68,6 +68,8 @@ class ReportTemplateSqlValidatorUnitTest {
             "SELECT 1; DELETE FROM demographic",
             "SELECT 1 -- trailing comment",
             "SELECT * FROM demographic INTO OUTFILE '/tmp/FAKE'",
+            "SELECT * FROM demographic INTO\nOUTFILE '/tmp/FAKE'",
+            "SELECT * FROM demographic INTO\tDUMPFILE '/tmp/FAKE'",
             "SELECT LOAD_FILE('/etc/passwd')"})
     @DisplayName("should refuse a <query> that is not a single plain SELECT")
     void shouldRefuseQuery_whenNotASingleSelect(String sql) throws Exception {

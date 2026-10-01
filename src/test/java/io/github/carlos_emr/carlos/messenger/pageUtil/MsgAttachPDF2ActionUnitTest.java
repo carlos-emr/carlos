@@ -331,6 +331,20 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should keep a non-PDF attachment on the message when replacing the chart PDFs")
+        void shouldKeepTransferredAttachment_whenAttachingChartPdfs() throws Exception {
+            bean.setAttachment("<root><table name=\"FAKE\"/></root>");
+            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(bean.getAttachment()).isEqualTo("<root><table name=\"FAKE\"/></root>");
+            assertThat(bean.getPDFAttachment()).doesNotContain("FAKE earlier attachment").contains("Information");
+        }
+
+        @Test
         @DisplayName("should leave existing attachments untouched when one ticked item is refused")
         void shouldKeepExistingAttachments_whenItemPrivilegeDenied() {
             bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
