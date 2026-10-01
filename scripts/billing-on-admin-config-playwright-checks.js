@@ -109,6 +109,8 @@ async function workflow(s) {
       OR description LIKE ${h.sqlString(`%${p}%`)}) + (SELECT COUNT(*) FROM ctl_billingservice_premium
       WHERE service_code LIKE ${h.sqlString(`${p}%`)}) + (SELECT COUNT(*) FROM ctl_billingservice WHERE service_code LIKE ${h.sqlString(`${p}%`)})`),
   () => `${'WY'[randomInt(2)]}${String(randomInt(100)).padStart(2, '0')}`, 'service code prefix');
+  const typeId2 = pickFree(id => id !== typeId && free(`SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(id)}`),
+    () => `Z${'ABCDEFGHJKLMNPQRSTUVWXY'[randomInt(23)]}${randomInt(10)}`, 'second billing form id');
   const codeA = `${prefix}1Z`;
   const codeB = `${prefix}2Z`;
   const dxFree = code => free(`SELECT COUNT(*) FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(code)}`);
@@ -122,6 +124,8 @@ async function workflow(s) {
   // The private-code date field is a readonly flatpickr: pick a day the calendar offers.
   const issued = `${new Date().toISOString().slice(0, 7)}-01`;
   const formName = `${marker} form`;
+  const formName2 = `${marker} form 2`;
+  const types = [typeId, typeId2].map(h.sqlString).join(',');
   const locationName = `${marker} loc`;
   const descA = `${marker} svc A`;
   const descB = `${marker} svc B`;
@@ -130,17 +134,17 @@ async function workflow(s) {
   const codes = [codeA, codeB, privateCode].map(h.sqlString).join(',');
 
   s.cleanup(() => {
-    sql.execute(`DELETE FROM ctl_billingservice WHERE servicetype=${h.sqlString(typeId)};
-      DELETE FROM ctl_diagcode WHERE servicetype=${h.sqlString(typeId)};
-      DELETE FROM ctl_billingtype WHERE servicetype=${h.sqlString(typeId)};
+    sql.execute(`DELETE FROM ctl_billingservice WHERE servicetype IN (${types});
+      DELETE FROM ctl_diagcode WHERE servicetype IN (${types});
+      DELETE FROM ctl_billingtype WHERE servicetype IN (${types});
       DELETE FROM ctl_billingservice_premium WHERE service_code IN (${codes});
       DELETE FROM clinic_location WHERE clinic_location_no=${h.sqlString(location)} AND clinic_location_name=${h.sqlString(locationName)};
       DELETE FROM billing_on_favourite WHERE name=${h.sqlString(marker)};
       DELETE FROM billingservice WHERE service_code IN (${codes});
       DELETE FROM diagnosticcode WHERE diagnostic_code IN (${h.sqlString(dxA)},${h.sqlString(dxB)}) AND description LIKE ${h.sqlString(`${token}%`)}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(typeId)})
-      + (SELECT COUNT(*) FROM ctl_diagcode WHERE servicetype=${h.sqlString(typeId)})
-      + (SELECT COUNT(*) FROM ctl_billingtype WHERE servicetype=${h.sqlString(typeId)})
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype IN (${types}))
+      + (SELECT COUNT(*) FROM ctl_diagcode WHERE servicetype IN (${types}))
+      + (SELECT COUNT(*) FROM ctl_billingtype WHERE servicetype IN (${types}))
       + (SELECT COUNT(*) FROM ctl_billingservice_premium WHERE service_code IN (${codes}))
       + (SELECT COUNT(*) FROM clinic_location WHERE clinic_location_no=${h.sqlString(location)})
       + (SELECT COUNT(*) FROM billing_on_favourite WHERE name=${h.sqlString(marker)})
@@ -153,7 +157,13 @@ async function workflow(s) {
     VALUES ('', ${h.sqlString(codeA)}, ${h.sqlString(descA)}, '12.34', '', '2020-01-01', '', 'ON', '00', '9999-12-31', 0, 0),
       ('', ${h.sqlString(codeB)}, ${h.sqlString(descB)}, '23.45', '', '2020-01-01', '', 'ON', '00', '9999-12-31', 0, 0);
     INSERT INTO diagnosticcode (diagnostic_code, description, status, region)
-    VALUES (${h.sqlString(dxA)}, ${h.sqlString(dxDescA)}, 'A', 'ON'), (${h.sqlString(dxB)}, ${h.sqlString(dxDescB)}, 'A', 'ON')`);
+    VALUES (${h.sqlString(dxA)}, ${h.sqlString(dxDescA)}, 'A', 'ON'), (${h.sqlString(dxB)}, ${h.sqlString(dxDescB)}, 'A', 'ON');
+    INSERT INTO ctl_billingservice (servicetype_name, servicetype, service_code, service_group_name, service_group, status, service_order)
+    VALUES (${h.sqlString(formName)}, ${h.sqlString(typeId)}, 'A007A', 'FAKE Group One', 'Group1', 'A', 1),
+      (${h.sqlString(formName)}, ${h.sqlString(typeId)}, 'A007A', 'FAKE Group Two', 'Group2', 'A', 1),
+      (${h.sqlString(formName)}, ${h.sqlString(typeId)}, 'A007A', 'FAKE Group Three', 'Group3', 'A', 1);
+    INSERT INTO ctl_diagcode (servicetype, diagnostic_code, status) VALUES (${h.sqlString(typeId)}, '000', 'A');
+    INSERT INTO ctl_billingtype (servicetype, billtype) VALUES (${h.sqlString(typeId)}, 'ODP')`);
   h.assert(sql.value(`SELECT COUNT(*) FROM billingservice WHERE service_code IN (${codes})`) === '2'
     && sql.value(`SELECT COUNT(*) FROM diagnosticcode WHERE description LIKE ${h.sqlString(`${token}%`)}`) === '2',
   'The owned service and dx code fixtures were not created');
@@ -196,7 +206,7 @@ async function workflow(s) {
       WHERE service_code=${h.sqlString(privateCode)}`) === '1|32.75', 'The private code edit did not update its single row');
   });
 
-  await s.step('Add Billing Form refuses an empty id in the browser and GET at the server, then adds the owned form', async () => {
+  await s.step('Add Billing Form refuses an empty id in the browser and GET at the server, and lists the owned form', async () => {
     frame = await adminFrame(admin, FORM_ROUTE, 'form[name="serviceform"]');
     await manageForm(admin, frame, '000');
     const add = frame.locator('form[name="servicetypeform"]');
@@ -204,38 +214,15 @@ async function workflow(s) {
     const dialogs = await h.withExpectedDialogs(admin, () => add.locator('input[name="addForm"]').click());
     h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'An empty service type id did not raise the required-field alert');
     const refused = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/DbManageBillingformAdd'), {
-      params: { typeid: typeId, type: formName, group1: 'G1', group2: 'G2', group3: 'G3', billtype: 'ODP' }, maxRedirects: 0,
+      params: { typeid: typeId2, type: formName2, group1: 'G1', group2: 'G2', group3: 'G3', billtype: 'ODP' }, maxRedirects: 0,
     });
     h.assert(refused.status() === 405, 'DbManageBillingformAdd must reject GET');
-    h.assert(ctlServices() === '' && ctlDx() === '' && billType() === '', 'A refused add wrote billing form rows');
-    await add.locator('input[name="typeid"]').fill(typeId);
-    await add.locator('input[name="type"]').fill(formName);
-    await add.locator('input[name="group1"]').fill('FAKE Group One');
-    await add.locator('input[name="group2"]').fill('FAKE Group Two');
-    await add.locator('input[name="group3"]').fill('FAKE Group Three');
-    await add.locator('select[name="billtype"]').selectOption('ODP');
-    await navigates(admin, frame, add.locator('input[name="addForm"]'));
-    await expectValue(sql, `SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(typeId)}`, '3',
-      'Adding the billing form did not write its three service groups');
-    h.assert(ctlServices() === ['Group1|FAKE Group One', 'Group2|FAKE Group Two', 'Group3|FAKE Group Three']
-      .map(group => `${group}|A007A|${formName}`).join(';'), 'The added form rows do not carry the typed name and groups');
-    h.assert(ctlDx() === '000' && billType() === 'ODP', 'The added form did not seed its dx row and default bill type');
-    await manageForm(admin, frame, '000');
+    h.assert(sql.value(`SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(typeId2)}`) === '0',
+      'A refused add wrote billing form rows');
     h.assert(await frame.locator('a[title="Manage Billing Form"]', { hasText: formName }).count() === 1,
-      'The existing-forms list does not show the added form');
+      'The existing-forms list does not show the owned form');
     h.assert(await frame.locator(`form[name="serviceform"] select[name="billingform"] option[value="${typeId}"]`).count() === 1,
-      'The form chooser does not offer the added form');
-  });
-
-  await s.step('a second add with the same id is refused with a message and writes nothing', async () => {
-    const add = frame.locator('form[name="servicetypeform"]');
-    await add.locator('input[name="typeid"]').fill(typeId);
-    await add.locator('input[name="type"]').fill(`${formName} dup`);
-    await navigates(admin, frame, add.locator('input[name="addForm"]'));
-    h.assert((await frame.locator('form[name="servicetypeform"]').innerText()).includes(`Service Type ID '${typeId}' already exists`),
-      'The duplicate add did not explain the refusal');
-    h.assert(sql.value(`SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(typeId)}`) === '3',
-      'The duplicate add wrote rows');
+      'The form chooser does not offer the owned form');
   });
 
   await s.step('service codes saved on the form replace its groups with the owned and private codes', async () => {

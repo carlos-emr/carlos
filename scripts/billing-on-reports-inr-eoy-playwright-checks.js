@@ -170,7 +170,7 @@ async function workflow(s) {
     const rows = await report.locator('#reportTbl tbody tr').evaluateAll(trs => trs.map(tr => [...tr.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim())));
     const expected = ids.bills.filter(b => b.date >= WINDOW.from && b.date <= today);
     h.assert(rows.length === expected.length, 'The billed report does not list exactly the owned provider\'s claims in range');
-    console.log('DEBUG', JSON.stringify(rows));
+    console.log('DEBUG', JSON.stringify(rows), JSON.stringify((await report.locator('#reportTbl thead th').allTextContents()).map(t => [/cookie=/i.test(t), /JSESSIONID/.test(t), t.replace(/=[^,}]*/g, '')])));
     for (const bill of expected) {
       const row = rows.find(cells => cells[4] === bill.id);
       h.assert(row && row[0] === bill.date && row[2] === demoName && /Bill OHIP|Bill Patient|O/.test(row[3]),
