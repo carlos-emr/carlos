@@ -4304,8 +4304,10 @@
         "ON"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "OHIP_DISK_DIR"
+      ],
+      "fixtures": "Throwaway provider (marker last name, own OHIP and group numbers, added to the operator's sites), the owned patient with a synthetic HIN and owned claims; generated disk files and rows removed. Nothing is sent to MOH."
     },
     {
       "name": "provider-signature-contact",
@@ -4316,6 +4318,34 @@
       "assertsDatabase": true,
       "provinces": [
         "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "billing-on-payment-status",
+      "script": "scripts/billing-on-payment-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "billing-on-ra-import",
+      "script": "scripts/billing-on-ra-import-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [],

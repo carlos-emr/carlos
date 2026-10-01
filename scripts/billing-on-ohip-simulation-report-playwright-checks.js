@@ -369,15 +369,20 @@ async function workflow(s) {
   });
 
   await s.step('the downloaded OHIP file parses into HEB/HEH/HET/HEE records equal to the owned claims', async () => {
-    const outcome = await ui.clickDownloadsOrOpens(frame, frame.locator(`a[href*="filename=${encodeURIComponent(ohipFile)}"]`).first(),
+    const link = frame.locator(`a[href*="filename=${encodeURIComponent(ohipFile)}"]`).first();
+    const href = new URL(await link.getAttribute('href'), frame.url()).toString();
+    const outcome = await ui.clickDownloadsOrOpens(frame, link,
       { context: s.context, recorder: s.recorder, label: 'ohip-file', timeout: 30000 });
     let bytes;
     if (outcome.kind === 'download') bytes = fs.readFileSync(await outcome.download.path());
     else {
-      const response = await s.context.request.get(outcome.url, { maxRedirects: 0 });
+      // A popup that turned into a download (or rendered the text) carries no
+      // body to inspect; read the bytes the link names back through the session.
+      h.assert(/^https?:/.test(outcome.url) ? outcome.url === href : true, 'The OHIP link opened an unexpected address');
+      const response = await s.context.request.get(href, { maxRedirects: 0 });
       h.assert(response.status() === 200, `The OHIP download answered HTTP ${response.status()}`);
       bytes = await response.body();
-      await outcome.page.close();
+      if (!outcome.page.isClosed()) await outcome.page.close();
     }
     h.assert(bytes.equals(fs.readFileSync(path.join(diskDir, ohipFile))), 'The download differs from the file the generator wrote');
     const records = parseClaimFile(bytes.toString('latin1'));

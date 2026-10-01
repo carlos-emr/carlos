@@ -214,19 +214,51 @@ async function workflow(s) {
   });
 
   let adjustedItems;
-  await s.step('a received message with transferred items renders them and Save Attachments keeps them', async () => {
+  await s.step('chart Messenger + opens a compose form with the patient attached and the owned group offered', async () => {
+    const chart = await s.chart();
+    compose = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(), 'messenger-compose');
+    await settle(compose);
+    await compose.locator('#subject').waitFor();
+    h.assert(await compose.locator('input[name="demographic_no"]').inputValue() === String(patient), 'Compose did not carry the chart patient');
+    await compose.locator(`#member_group_${groupId}`).waitFor({ state: 'attached' });
+  });
+
+  await s.step('Attach Patient opens the frameset whose PreviewPDF page lists the patient items', async () => {
+    await openAttachments();
+    const uris = await main.locator('input[name="uriArray"]').evaluateAll(inputs => inputs.map(input => input.value));
+    h.assert(uris.some(uri => uri.includes(`/demographic/DemographicPdfLabel?demographic_no=${patient}`))
+      && uris.some(uri => uri.includes(`/rx/ViewPrintDrugProfile2?demographic_no=${patient}`)),
+      'The attachment page did not offer the patient information and prescriptions of the chart patient');
+    h.assert((await main.locator('body').innerText()).toLowerCase().includes(s.marker.toLowerCase()), 'The attachment page did not name the patient');
+    // Close asks for confirmation and closes the whole frameset window.
+    const dialogs = await h.withExpectedDialogs(attach, async () => {
+      await Promise.all([attach.waitForEvent('close', { timeout: TIMEOUT }), main.locator('button[onclick*="MSGS.exitConfirm"]').click()]);
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Close did not ask once for confirmation');
+    h.assert(sent(pdfSubject).length === 0, 'Opening the attachment page wrote a message');
+  });
+
+  let itemsPage;
+  await s.step('a received message with transferred items renders them in ViewAttach', async () => {
     const xml = `<root><table name="${s.marker} table"><item itemId="0" name="${itemName}" value="FAKE-PW value" removable="false">`
       + '<content><fld name="FAKE-PW field" value="FAKE-PW detail"/></content><data/></item></table></root>';
     const id = deliver(itemSubject, ',attachment', `,${h.sqlString(xml)}`);
     await toInbox();
     await openMessage(id);
     const items = await s.popup(inbox, inbox.locator('a[href*="ViewAttach?attachId="]'), 'messenger-items');
+    itemsPage = items;
     await settle(items);
     h.assert(new URL(items.url()).pathname.endsWith('/messenger/ViewAttach'), 'The attachment link did not open ViewAttach');
     await expandItem(items);
+  });
+
+  // Kept after every other provable step: the hand-over page (msgSearchDemo.jsp)
+  // runs write2Parent on load even with no patient chosen and throws (see report).
+  await s.step('Save Attachments keeps the items and hands over to the patient search without a script error', async () => {
+    h.assert(itemsPage && !itemsPage.isClosed(), 'The transferred-items window is not open');
+    const items = itemsPage;
     // Save Attachments keeps the selection in the session and hands over to the
     // patient search (AdjustAttachments redirects to DemographicLinkMsg).
-    console.log('DEBUG opener', await items.evaluate(() => String(!!window.opener) + ' ' + (window.opener && window.opener.location.pathname)));
     const [adjust] = await Promise.all([
       items.waitForResponse(r => new URL(r.url()).pathname.endsWith('/messenger/AdjustAttachments'), { timeout: TIMEOUT }),
       items.locator('form[action$="/messenger/AdjustAttachments"] input[type="submit"]').click(),
@@ -234,8 +266,7 @@ async function workflow(s) {
     h.assert(adjust.status() === 302 && /\/demographic\/DemographicLinkMsg$/.test(adjust.headers().location || ''),
       'Save Attachments did not hand over to the patient search');
     adjustedItems = true;
-    // Let the hand-over page finish its own scripts before the window goes away:
-    // closing it mid-load nulls window.opener under msgSearchDemo.jsp's inline script.
+    // Let the hand-over page run its own scripts before the window goes away.
     await Promise.race([
       items.waitForEvent('close', { timeout: TIMEOUT }),
       items.waitForURL(/\/demographic\/DemographicLinkMsg/, { timeout: TIMEOUT, waitUntil: 'load' }),
@@ -261,28 +292,11 @@ async function workflow(s) {
     await items.close();
   });
 
-  await s.step('chart Messenger + opens a compose form with the patient attached and the owned group offered', async () => {
-    const chart = await s.chart();
-    compose = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(), 'messenger-compose');
-    await settle(compose);
-    await compose.locator('#subject').waitFor();
-    h.assert(await compose.locator('input[name="demographic_no"]').inputValue() === String(patient), 'Compose did not carry the chart patient');
-    await compose.locator(`#member_group_${groupId}`).waitFor({ state: 'attached' });
-  });
-
-  await s.step('Attach Patient opens the frameset whose PreviewPDF page lists the patient items', async () => {
-    await openAttachments();
-    const uris = await main.locator('input[name="uriArray"]').evaluateAll(inputs => inputs.map(input => input.value));
-    h.assert(uris.some(uri => uri.includes(`/demographic/DemographicPdfLabel?demographic_no=${patient}`))
-      && uris.some(uri => uri.includes(`/rx/ViewPrintDrugProfile2?demographic_no=${patient}`)),
-      'The attachment page did not offer the patient information and prescriptions of the chart patient');
-    h.assert((await main.locator('body').innerText()).toLowerCase().includes(s.marker.toLowerCase()), 'The attachment page did not name the patient');
-  });
-
   // From here on every step posts rendered chart HTML to messenger/Doc2PDF, which
   // the front-door WAF blocks in this build (see report); kept last so all of the
   // above is proven first. The steps assert the correct behaviour.
   await s.step('Preview posts the rendered patient page to Doc2PDF and streams a PDF without attaching', async () => {
+    await openAttachments();
     const preview = main.locator('button[data-preview-uri*="/demographic/DemographicPdfLabel"]');
     const captured = await capturePdf(attach, '/messenger/Doc2PDF', () => preview.click());
     const post = new URLSearchParams(captured.post);

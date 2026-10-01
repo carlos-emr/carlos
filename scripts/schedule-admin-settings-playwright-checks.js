@@ -381,7 +381,8 @@ async function workflow(s) {
   });
 
   await s.step('the add-appointment form offers the owned type and fills its defaults', async () => {
-    const slot = daySheet.locator('a.adhour:not([onclick*="\',\'Yes\',"]):not([onclick*="\',\'Day\',"]):not([onclick*="\',\'Wk\',"]):not([onclick*="\',\'Onc\',"])').first();
+    // A slot whose template code asks for no booking confirmation (empty confirm argument).
+    const slot = daySheet.locator(`a.adhour[onclick*="','',"]`).first();
     const popup = await ui.clickOpensPopup(daySheet, slot, {context, recorder, label: 'add-appointment', timeout: 20000});
     await popup.locator('#type-button').waitFor({timeout: 20000});
     await popup.locator('#type-button').click();
