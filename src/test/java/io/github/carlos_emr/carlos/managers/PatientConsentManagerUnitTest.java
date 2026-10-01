@@ -147,7 +147,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(result).isTrue();
             verify(mockConsentDao).persist(any(Consent.class));
             // A first decision is audited with the saved record's id, after it is saved.
-            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
                     eq("PatientConsentManager.changeConsent"), eq("consent"), eq("31"), eq(100),
                     eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 31 Choice: none->opt-in")));
         }
@@ -183,7 +183,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isTrue();
             verify(mockConsentDao).merge(existing);
-            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
                     eq("PatientConsentManager.changeConsent"), eq("consent"), eq("10"), eq(100),
                     eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 10 Choice: opt-in->opt-out")));
         }
@@ -208,7 +208,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             verify(mockConsentDao).merge(olderOptOut);
             verify(mockConsentDao).merge(newerOptIn);
             // The reversed decision is audited against the patient and the record, with both values.
-            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
                     eq("PatientConsentManager.changeConsent"), eq("consent"), eq("12"), eq(100),
                     eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 12 Choice: opt-out->opt-in")));
         }
@@ -232,7 +232,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(olderExplicit.isExplicit()).isTrue();
             assertThat(olderExplicit.getEditDate()).isEqualTo(new Date(1_000L));
             assertThat(newerImplied.isDeleted()).isTrue();
-            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
                     eq("PatientConsentManager.retireDuplicateConsent"), eq("consent"), eq("12"), eq(100),
                     eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 12 KeptConsentId: 11")));
         }
@@ -255,9 +255,9 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(newerOptIn.getLastEnteredBy()).isEqualTo("clerk2");
             assertThat(newerOptIn.getEditDate()).isSameAs(enteredAt);
             // The shown choice was re-posted unchanged, so no change of decision is audited.
-            logActionMock.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class),
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(any(LoggedInInfo.class),
                     eq("PatientConsentManager.changeConsent"), anyString(), anyString(), anyInt(), anyString()), never());
-            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
                     eq("PatientConsentManager.retireDuplicateConsent"), eq("consent"), eq("11"), eq(100),
                     eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 11 KeptConsentId: 12")));
         }
@@ -367,7 +367,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(named.isOptout()).isTrue();
             String priorChoice = priorOptout ? "opt-out" : "opt-in";
-            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(loggedInInfo,
                     "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,
                     " ConsentId: 10 Choice: " + priorChoice + "->opt-out"));
         }
@@ -403,10 +403,10 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
             order.verify(mockConsentDao).merge(named);
             order.verify(mockConsentDao).merge(duplicate);
-            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(loggedInInfo,
                     "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,
                     " ConsentId: 10 Choice: opt-in->opt-out"));
-            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(loggedInInfo,
                     "PatientConsentManager.retireDuplicateConsent", "consent", "11", 100,
                     " Demographic: 100 ConsentTypeId: 1 ConsentId: 11 KeptConsentId: 10"));
         }
@@ -438,7 +438,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             order.verify(mockConsentDao).refresh(consent);
             order.verify(mockConsentDao).merge(consent);
             // Audited once, as an opt-out filed under the patient, after the outcome is known.
-            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(loggedInInfo,
                     "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,
                     " ConsentId: 10 Choice: opt-in->opt-out"));
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
@@ -722,7 +722,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             verify(mockConsentDao).merge(first);
             verify(mockConsentDao).merge(second);
             for (int id : new int[] {11, 12}) {
-                logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
                         eq("PatientConsentManager.deleteConsent()"), eq("consent"), eq(String.valueOf(id)), eq(100),
                         eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: " + id)));
             }

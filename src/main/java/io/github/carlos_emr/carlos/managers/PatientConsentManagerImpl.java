@@ -234,7 +234,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             }
             if (currentDate != null && addOrUpdateDbComplete) {
                 // Only a save that changed the decision: every chart save re-posts the shown choice.
-                LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.changeConsent", CONSENT_LOG_CONTENT,
+                LogAction.addLogSynchronousOrThrow(loggedinInfo, "PatientConsentManager.changeConsent", CONSENT_LOG_CONTENT,
                         String.valueOf(consent.getId()), demographic_no, " Demographic: " + demographic_no
                                 + LOG_CONSENT_TYPE_ID + consentType.getId() + LOG_CONSENT_ID + consent.getId()
                                 + " Choice: " + priorChoice + "->" + describeChoice(optOut));
@@ -261,7 +261,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             }
             duplicate.setDeleted(Boolean.TRUE);
             consentDao.merge(duplicate);
-            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.retireDuplicateConsent", CONSENT_LOG_CONTENT,
+            LogAction.addLogSynchronousOrThrow(loggedinInfo, "PatientConsentManager.retireDuplicateConsent", CONSENT_LOG_CONTENT,
                     String.valueOf(duplicate.getId()), demographic_no, " Demographic: " + demographic_no
                             + LOG_CONSENT_TYPE_ID + consentTypeId + LOG_CONSENT_ID + duplicate.getId() + " KeptConsentId: " + kept.getId());
         }
@@ -360,7 +360,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         consent.setEditDate(date);
         consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
         consentDao.merge(consent);
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", CONSENT_LOG_CONTENT,
+        LogAction.addLogSynchronousOrThrow(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", CONSENT_LOG_CONTENT,
                 String.valueOf(consentId), demographicNo, LOG_CONSENT_ID + consentId
                         + " Choice: " + priorChoice + "->opt-out");
         if (consentTypeId != null) {
@@ -550,7 +550,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             consent.setEditDate(now);
             consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
             consentDao.merge(consent);
-            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.deleteConsent()", CONSENT_LOG_CONTENT,
+            LogAction.addLogSynchronousOrThrow(loggedinInfo, "PatientConsentManager.deleteConsent()", CONSENT_LOG_CONTENT,
                     String.valueOf(consent.getId()), demographic_no,
                     " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentTypeId + LOG_CONSENT_ID + consent.getId());
         }
