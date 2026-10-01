@@ -2308,7 +2308,7 @@ input[id^='acklabel_']{
                 }
 
                 // An HL7 ED OBX (any lab type) whose payload is a PDF gets a Download PDF link and an inline
-                // preview row (#3977). A payload declared as text keeps the ordinary result rendering.
+                // preview row (#3977). A payload declared as text is shown as the result value.
                 // The legacy PATHL7 shape is detected server-side, so the URLs carry no legacy flag.
                 EmbeddedLabDocumentLoader.Inspection embeddedDocument = handler.isOBXEmbeddedDocument(j, k)
                         ? EmbeddedLabDocumentLoader.inspect(handler, j, k, labPdfPreviewSettings.maxBytes())
@@ -2646,6 +2646,10 @@ input[id^='acklabel_']{
             <td style="text-align:<%=align%>">
                 <% if (isUndisplayableEmbeddedDocument) { %>
                 <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                <% } else if (embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT) { %>
+                <%-- Sender-declared text (ED.4 A): a standards-compliant value keeps it in ED.5, which
+                     getOBXResult does not read; getOBXEmbeddedDocumentData falls back to it when ED.5 is empty. --%>
+                <carlos:encode value='<%= handler.getOBXEmbeddedDocumentData(j, k) %>' context="htmlWithBreakMarkers"/>
                 <% } else if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                 <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue(j, k) %>' context="htmlWithBreakMarkers"/></em>
                 <% } else { %>
