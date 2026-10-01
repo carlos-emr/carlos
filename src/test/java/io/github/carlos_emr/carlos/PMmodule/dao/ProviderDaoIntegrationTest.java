@@ -1949,6 +1949,47 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @DisplayName("should return one row with the newest number when a provider has several fax rows")
+        void shouldReturnOneRowPerProvider_whenFaxPropertyIsDuplicated() {
+            persistFaxNumber("T001", "416-555-0001");
+            persistFaxNumber("T001", "416-555-0002");
+            hibernateTemplate.flush();
+
+            List<Object[]> rows = providerDao.searchFaxRecipients("smith", 10);
+
+            assertThat(rows).hasSize(1);
+            assertThat(((Provider) rows.get(0)[0]).getProviderNo()).isEqualTo("T001");
+            assertThat(rows.get(0)[1]).isEqualTo("416-555-0002");
+        }
+
+        @Test
+        @DisplayName("should skip a newer blank fax row and keep the provider's nonblank number")
+        void shouldIgnoreNewerBlankRow_whenFaxPropertyIsDuplicated() {
+            persistFaxNumber("T001", "416-555-0001");
+            persistFaxNumber("T001", "  ");
+            hibernateTemplate.flush();
+
+            List<Object[]> rows = providerDao.searchFaxRecipients("smith", 10);
+
+            assertThat(rows).hasSize(1);
+            assertThat(rows.get(0)[1]).isEqualTo("416-555-0001");
+        }
+
+        @Test
+        @DisplayName("should count providers, not duplicate property rows, toward the limit")
+        void shouldApplyLimitToProviders_whenFaxPropertyIsDuplicated() {
+            persistFaxNumber("T002", "416-555-0021");
+            persistFaxNumber("T002", "416-555-0022");
+            persistFaxNumber("T001", "416-555-0011");
+            hibernateTemplate.flush();
+
+            List<Object[]> rows = providerDao.searchFaxRecipients("john", 2);
+
+            assertThat(rows).extracting(row -> ((Provider) row[0]).getProviderNo())
+                    .containsExactly("T002", "T001");
+        }
+
+        @Test
         @DisplayName("should treat LIKE wildcards in the term as literal text")
         void shouldTreatWildcards_asLiteralText() {
             persistFaxNumber("T001", "416-555-0101");

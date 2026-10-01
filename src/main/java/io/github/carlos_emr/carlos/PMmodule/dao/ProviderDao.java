@@ -95,6 +95,9 @@ public interface ProviderDao {
     /**
      * Searches active providers with a nonblank {@code faxnumber} user property.
      *
+     * <p>A provider with several {@code faxnumber} rows is returned once, with the newest
+     * (highest id) nonblank value, so {@code limit} counts providers rather than property rows.
+     *
      * @param term case-insensitive literal substring matched against first or last name
      * @param limit maximum number of rows
      * @return rows of {@code [Provider, String faxNumber]}, ordered by last name, first name,

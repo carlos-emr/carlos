@@ -31,6 +31,7 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -71,13 +72,21 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     private static Logger log = MiscUtils.getLogger();
 
     @Override
+    // FindSecBugs IMPROPER_UNICODE: lower-casing a directory search term with Locale.ROOT to match
+    // LOWER(name) in the query; not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive directory name search term; not a security or authorization decision")
     public List<Object[]> searchFaxRecipients(String term, int limit) {
         String literalTerm = term.toLowerCase(java.util.Locale.ROOT)
                 .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        // property has no unique key on (provider_no, name), so a provider can carry several
+        // faxnumber rows. Return one canonical row per provider (the newest nonblank one) so the
+        // picker never offers a stale duplicate and the limit counts providers, not rows.
         return entityManager().createQuery(
                 "SELECT p, u.value FROM Provider p, UserProperty u "
                 + "WHERE u.providerNo = p.providerNo AND u.name = 'faxnumber' "
                 + "AND p.status = '1' AND u.value IS NOT NULL AND TRIM(u.value) <> '' "
+                + "AND u.id = (SELECT MAX(u2.id) FROM UserProperty u2 WHERE u2.providerNo = p.providerNo "
+                + "AND u2.name = 'faxnumber' AND u2.value IS NOT NULL AND TRIM(u2.value) <> '') "
                 + "AND (LOWER(p.lastName) LIKE :term ESCAPE '!' OR LOWER(p.firstName) LIKE :term ESCAPE '!') "
                 + "ORDER BY p.lastName, p.firstName, p.providerNo", Object[].class)
                 .setParameter("term", "%" + literalTerm + "%")
