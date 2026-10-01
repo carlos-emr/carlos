@@ -305,7 +305,7 @@ async function workflow(s) {
 
   await s.step('Summary View collapses the owned provider to one row with its item count and total', async () => {
     const panel = await runSimulation(s, admin, owned, { summary: true });
-    const row = panel.locator('tr').filter({ has: panel.locator('button[id^="recordShowButton"]') });
+    const row = panel.locator('tr').filter({ has: admin.locator('button[id^="recordShowButton"]') });
     h.assert(await row.count() === 1, 'Summary View did not render exactly one provider row');
     const cells = (await row.locator('td').allInnerTexts()).map(cell => cell.trim());
     h.assert(cells[0] === owned.ohipNo && cells[1] === String(itemCount) && Number(cells[2]) === Number(total),
