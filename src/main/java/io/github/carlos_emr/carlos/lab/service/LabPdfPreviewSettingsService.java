@@ -22,8 +22,6 @@
  */
 package io.github.carlos_emr.carlos.lab.service;
 
-import java.util.Date;
-
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS;
@@ -79,13 +77,7 @@ public class LabPdfPreviewSettingsService {
     }
 
     private void upsert(LAB_DISPLAY_PREFERENCE_KEYS key, String value) {
-        SystemPreferences preference = systemPreferencesDao.findPreferenceByName(key);
-        if (preference == null) {
-            systemPreferencesDao.persist(new SystemPreferences(key.name(), value));
-        } else {
-            preference.setValue(value);
-            preference.setUpdateDate(new Date());
-            systemPreferencesDao.merge(preference);
-        }
+        // Not find-then-insert: that duplicates rows when two first saves race (see upsertPreference).
+        systemPreferencesDao.upsertPreference(key, value);
     }
 }
