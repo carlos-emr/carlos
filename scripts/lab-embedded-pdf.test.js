@@ -29,6 +29,16 @@ test('rejects an inline response missing any hardening header', () => {
     { ...GOOD_HEADERS, 'content-security-policy': "default-src 'none'; frame-ancestors 'self'" }, PDF), /sandbox/);
 });
 
+test('rejects an inline response missing any single CSP directive', () => {
+  // Each directive individually, so dropping one from the live check's directive loop fails here.
+  for (const missing of ["default-src 'none'", "frame-ancestors 'self'", 'sandbox']) {
+    const csp = GOOD_HEADERS['content-security-policy'].replace(missing, '');
+    assert.notEqual(csp, GOOD_HEADERS['content-security-policy'], missing);
+    assert.throws(() => assertInlinePdfResponse(200, { ...GOOD_HEADERS, 'content-security-policy': csp }, PDF),
+      new RegExp(`lacks ${missing}`), missing);
+  }
+});
+
 test('rejects an attachment, a wrong type or non-PDF bytes on the inline route', () => {
   assert.throws(() => assertInlinePdfResponse(200,
     { ...GOOD_HEADERS, 'content-disposition': 'attachment; filename="Lab-12.pdf"' }, PDF), /inline/);
