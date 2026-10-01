@@ -75,6 +75,8 @@ public class PortalStaffContextResolver {
     public static final String OBJECT_SECRET = "_portal.secret";
     public static final String OBJECT_CONTACT_REVIEW = "_portal.contact.review";
 
+    public static final String OBJECT_BOOKING_PROMPT = "_portal.booking_prompt";
+
     private static final Map<String, String> PERMISSION_BY_OBJECT =
             Map.of(
                     OBJECT_INVITE,
@@ -86,7 +88,9 @@ public class PortalStaffContextResolver {
                     OBJECT_SECRET,
                     PatientPortalStaffContext.PERMISSION_SECRET_MANAGE,
                     OBJECT_CONTACT_REVIEW,
-                    PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW);
+                    PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW,
+                    OBJECT_BOOKING_PROMPT,
+                    PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE);
 
     private static final String NO_PRIVILEGE = "missing required sec object (%s r)";
     private static final String OR_READ = " r or ";
