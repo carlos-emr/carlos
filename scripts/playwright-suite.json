@@ -3192,6 +3192,242 @@
         "FORM_PRINT_NAME",
         "FORM_PRINT_TIMEOUT_MS"
       ]
+    },
+    {
+      "name": "admin-messages",
+      "script": "scripts/admin-messages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates one SystemMessage through the administration UI and deletes it; asserts the day-sheet banner shows and then drops it."
+    },
+    {
+      "name": "admin-audit-log",
+      "script": "scripts/admin-audit-log-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient (given a synthetic HIN); leaves audit rows untouched except those referencing the owned demographic_no, which it deletes. Never purges."
+    },
+    {
+      "name": "demographic-merge",
+      "script": "scripts/demographic-merge-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Two owned synthetic patients merged and unmerged through Administration > Merge Patient Records; demographic_merged, secObjPrivilege and recyclebin rows removed."
+    },
+    {
+      "name": "patient-set-cohort",
+      "script": "scripts/patient-set-cohort-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient saved into a marker-named patient set from the Demographic Report Tool; set rows removed."
+    },
+    {
+      "name": "password-change-preferences",
+      "script": "scripts/password-change-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates a throwaway login (security/provider/secUserRole copied from the test login), changes its password, deletes every owned row including SecurityArchive, provider_facility and audit rows."
+    },
+    {
+      "name": "account-lockout-unlock",
+      "script": "scripts/account-lockout-unlock-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates a throwaway login, locks it with wrong passwords (never the shared test account), unlocks it via Administration > Unlock Account, deletes every owned row including audit rows. Requires login_lock=true."
+    },
+    {
+      "name": "encounter-templates",
+      "script": "scripts/encounter-templates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owns one PW<hex> encounter template and the synthetic patient's chart notes; create/edit/delete through Administration > eChart > Insert a Template, inserts it through the chart's Template Search and saves the note."
+    },
+    {
+      "name": "admin-issue-editor",
+      "script": "scripts/admin-issue-editor-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owns one PW<hex>-coded issue (plus a GET-probe code) and the synthetic patient's notes/casemgmt_issue/CPP/eChart rows; adds the issue through Administration > CAISI > Issue Editor and assigns it from the chart's CPP item editor."
+    },
+    {
+      "name": "security-record-admin",
+      "script": "scripts/security-record-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Seeds and removes one marker-named provider, its security row (hash/PIN copied from the test login) and a doctor role; edits, deletes and re-logs-in through Administration > User Management."
+    },
+    {
+      "name": "provider-record-admin",
+      "script": "scripts/provider-record-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates one marker-named provider through the Add Provider form and removes it with its providerbillcenter/providerArchive/property rows; covers duplicate-number refusal, search listing, edit and GET rejection."
+    },
+    {
+      "name": "rx-print-profile",
+      "script": "scripts/rx-print-profile-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned prescription and drugs rows for the synthetic patient; drug profile print rendering (pdftotext), previous prints, and Write to Encounter; owned casemgmt_note/drugs/prescription rows removed."
+    },
+    {
+      "name": "tickler-forward-preferences",
+      "script": "scripts/tickler-forward-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned ticklers for the synthetic patient reassigned between providers; property tickler_task_assignee snapshotted and restored."
+    },
+    {
+      "name": "my-groups",
+      "script": "scripts/my-groups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates one marker-named provider group (test provider + two active demo providers) through Administration and the provider My Group pages; snapshots and restores ProviderPreference.myGroupNo; deletes the group through the UI and again in cleanup. The Group Preferences (billing form) step runs only when the Ontario link is present."
+    },
+    {
+      "name": "schedule-views",
+      "script": "scripts/schedule-views-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored."
     }
   ]
 }

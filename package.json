@@ -203,7 +203,21 @@
     "test:encounter-legacy-note-soft-wrap-playwright": "node scripts/encounter-legacy-note-soft-wrap-playwright-checks.js",
     "test:patient-search-rest-dob-playwright": "node scripts/patient-search-rest-dob-playwright-checks.js",
     "test:stored-document-mutations-playwright": "node scripts/stored-document-mutations-playwright-checks.js",
-    "test:lab-results-table-playwright": "node scripts/lab-results-table-playwright-checks.js"
+    "test:lab-results-table-playwright": "node scripts/lab-results-table-playwright-checks.js",
+    "test:admin-messages-playwright": "node scripts/admin-messages-playwright-checks.js",
+    "test:admin-audit-log-playwright": "node scripts/admin-audit-log-playwright-checks.js",
+    "test:demographic-merge-playwright": "node scripts/demographic-merge-playwright-checks.js",
+    "test:patient-set-cohort-playwright": "node scripts/patient-set-cohort-playwright-checks.js",
+    "test:password-change-preferences-playwright": "node scripts/password-change-preferences-playwright-checks.js",
+    "test:account-lockout-unlock-playwright": "node scripts/account-lockout-unlock-playwright-checks.js",
+    "test:encounter-templates-playwright": "node scripts/encounter-templates-playwright-checks.js",
+    "test:admin-issue-editor-playwright": "node scripts/admin-issue-editor-playwright-checks.js",
+    "test:security-record-admin-playwright": "node scripts/security-record-admin-playwright-checks.js",
+    "test:provider-record-admin-playwright": "node scripts/provider-record-admin-playwright-checks.js",
+    "test:rx-print-profile-playwright": "node scripts/rx-print-profile-playwright-checks.js",
+    "test:tickler-forward-preferences-playwright": "node scripts/tickler-forward-preferences-playwright-checks.js",
+    "test:my-groups-playwright": "node scripts/my-groups-playwright-checks.js",
+    "test:schedule-views-playwright": "node scripts/schedule-views-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
