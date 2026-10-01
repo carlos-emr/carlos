@@ -127,7 +127,7 @@
                 <td align="center"><%=String.valueOf(i + 1)%>
                 </td>
                 <td><a style="display:block;outline:none;"
-                       href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<carlos:encode value='<%= curReport.getTemplateId() %>' context="uriComponent"/>"><carlos:encode value='<%= curReport.getTitle() %>'/>
+                       href="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<carlos:encode value='<%= curReport.getTemplateId() %>' context="uriComponent"/>"><carlos:encode value='<%= curReport.getTitle() %>'/>
                 </a></td>
                 <td><carlos:encode value='<%= curReport.getDescription() %>'/>
                 </td>

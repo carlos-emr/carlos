@@ -59,10 +59,10 @@ class ReportAuthoringWafExclusionRegressionTest {
     private static final Path EXCLUSIONS = resolveProjectPath(
             Path.of("debian", "assets", "modsecurity", "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"));
 
-    /** Every ctl action in a rule, whatever its kind (ruleEngine, ruleRemoveById, ...). */
     /** A rule id in the report-authoring block's reserved range. */
     private static final Pattern RULE_ID = Pattern.compile("\\bid:(140\\d)\\b");
 
+    /** Every ctl action in a rule, whatever its kind (ruleEngine, ruleRemoveById, ...). */
     private static final Pattern CTL_ACTION = Pattern.compile("ctl:([^,\"\\\\\\s]+)");
 
     /** id, route, exempted {@code tag;argument} pairs (exactly), phase. */

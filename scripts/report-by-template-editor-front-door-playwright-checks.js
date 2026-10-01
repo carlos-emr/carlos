@@ -130,8 +130,12 @@ async function workflow(s) {
         await h.gotoApp(page, s.config.baseUrl, route);
         h.assert(await page.locator('#rbt-title-injected, #rbt-description-injected').count() === 0,
           `A stored template title or description rendered as markup on ${route}`);
-        h.assert((await page.locator('body').innerText()).includes(markupTitle),
-          `${route} does not list the template title as literal text`);
+        const bodyText = await page.locator('body').innerText();
+        h.assert(bodyText.includes(markupTitle), `${route} does not list the template title as literal text`);
+        // Only the home page has a description column; the side list shows titles alone.
+        if (route.endsWith('/ViewHomePage')) {
+          h.assert(bodyText.includes(markupDescription), `${route} does not list the template description as literal text`);
+        }
       }
     } finally {
       s.sql.execute(`UPDATE reportTemplates SET templatetitle=${h.sqlString(title)},

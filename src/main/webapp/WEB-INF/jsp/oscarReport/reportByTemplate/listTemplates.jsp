@@ -75,7 +75,7 @@
 	                if (templateId.equals(templateViewId)) selectedTemplate = "selectedTemplate";%>
 
         <li class="<%=selectedTemplate%>"><%=String.valueOf(i + 1)%>. <a
-                href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<carlos:encode value='<%= templateId %>' context="uriComponent"/>"><carlos:encode value='<%= templateTitle %>'/>
+                href="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<carlos:encode value='<%= templateId %>' context="uriComponent"/>"><carlos:encode value='<%= templateTitle %>'/>
         </a></li>
         <% } %>
     </ul>
