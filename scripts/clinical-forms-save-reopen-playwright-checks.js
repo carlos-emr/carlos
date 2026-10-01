@@ -213,7 +213,9 @@ async function workflow(s) {
 
     if (form.resave) {
       // A clinician keeps working in the window Save redisplayed; its next Save must be accepted.
-      await attempt(entry, 'a second Save from the redisplayed form is accepted and updates the record', async () => {
+      // Encounter forms are versioned: every Save inserts a new row (FrmRecordHelp.saveFormRecord)
+      // and the chart reopens formId=latest, so the revision is the second row, not an overwrite.
+      await attempt(entry, 'a second Save from the redisplayed form is accepted and files the revision as the next version', async () => {
         const revised = `${entry.text} (revised)`;
         await entry.page.locator(`[name="${form.prose}"]`).first().fill(revised);
         const posted = entry.page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/form/formname'));
@@ -221,6 +223,10 @@ async function workflow(s) {
         h.assert((await posted).status() === 302, 'The second save was refused');
         await expectValue(sql, `SELECT ${form.prose} FROM ${form.table} WHERE demographic_no=${patient}
           ORDER BY ${form.idColumn} DESC LIMIT 1`, revised, 'The second save did not store the revision');
+        h.assert(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`) === '2',
+          'The second save did not file exactly one new version');
+        h.assert(sql.value(`SELECT ${form.prose} FROM ${form.table} WHERE demographic_no=${patient}
+          AND ${form.idColumn}=${entry.id}`) === entry.text, 'The second save altered the first saved version');
       });
     }
     if (entry.page && !entry.page.isClosed()) await entry.page.close();

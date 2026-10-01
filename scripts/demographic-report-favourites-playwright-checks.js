@@ -9,8 +9,8 @@
  * last-name and sex criteria (archived='1') and offers it by its exact (encoded) name; Load
  * Query restores exactly those criteria into a deliberately different form; the re-run lists
  * exactly the rows MariaDB returns for the owned FAKE- patients (the sex filter excludes the
- * second one); the manage page lists it and Delete Selected archives only that row and drops it
- * from the dropdown. Negative probes on a second marker favourite: a tokenless POST and a GET of
+ * second one); the manage page lists it and Delete Selected archives only that row (a second,
+ * unticked marker favourite stays active) and drops it from the dropdown. Negative probes on a second marker favourite: a tokenless POST and a GET of
  * the delete mutator must leave it unarchived (GET must answer 405), and a GET of the tool with
  * Save Query intent must store nothing (405).
  * Fixtures: the runWorkflow patient plus a second marker patient; favourites named with the
@@ -109,6 +109,10 @@ async function workflow(s) {
   });
 
   await s.step('manage ▸ Delete Selected archives only the saved query and drops it from the list', async () => {
+    // A second owned active favourite, left unticked, proves the delete is limited to the selection.
+    const keptId = sql.value(`INSERT INTO demographicQueryFavourites (queryName,archived,selects,lastName)
+      VALUES (${h.sqlString(marker + '-KEEP')},'1','',${h.sqlString(marker)}); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(keptId), 'The kept query fixture was not created');
     const {page: manage} = await clickOpensPopupOrNavigates(tool, tool.getByRole('link', {name: 'manage', exact: true}),
       {context, recorder, label: 'manage-demographic-queries', timeout: TIMEOUT});
     const listed = manage.locator('tr').filter({has: manage.locator(`input[name="queryFavourite"][value="${favouriteId}"]`)});
@@ -118,6 +122,8 @@ async function workflow(s) {
     await submit(manage, 'Delete Selected');
     h.assert(sql.value(`SELECT archived FROM demographicQueryFavourites WHERE favId=${favouriteId}`) === '0',
       'Delete Selected did not archive the saved query');
+    h.assert(sql.value(`SELECT archived FROM demographicQueryFavourites WHERE favId=${keptId}`) === '1',
+      'Delete Selected archived a saved query that was not selected');
     await manage.locator('#savedQuery').waitFor({state: 'attached'});
     h.assert(await manage.locator(`#savedQuery option[value="${favouriteId}"]`).count() === 0,
       'The deleted query is still offered in the saved-query list');

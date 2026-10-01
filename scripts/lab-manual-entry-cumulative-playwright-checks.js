@@ -45,6 +45,9 @@ async function workflow(s) {
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
   const accession = `ML${stamp}`;
   let labNo = null;
+  // Cleanup deletes every lab under this accession, so it must be unused before it is claimed.
+  h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '0',
+    'The run accession is already in use');
   s.cleanup(() => {
     const labs = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`).map(([id]) => id);
     if (labNo) labs.push(labNo);

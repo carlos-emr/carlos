@@ -13,7 +13,8 @@
 // group page stops offering it, and that the type export link returns XML for that type.
 // echart-vitals-bmi and measurement-validation drive Anthropometrics by URL; measurement-history
 // covers the index-to-history path and the graph. Fixtures: the owned FAKE-PW patient (runWorkflow);
-// readings carry the marker comment. Cleanup deletes this patient's readings and archived readings.
+// readings carry the marker comment. Cleanup deletes this patient's readings, archived readings and
+// notes (with their issue, ext and link rows).
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -26,11 +27,19 @@ const VALUES = { BP: '128/82', HR: '72', TEMP: '36.8' };
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   s.cleanup(() => {
+    // The patient is the run's own marker fixture, so every note on it (one the save should not
+    // have written, or the open encounter note) was written by this run.
+    const ownedNotes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
     sql.execute(`DELETE FROM measurements WHERE demographicNo=${patient};
-      DELETE FROM measurementsDeleted WHERE demographicNo=${patient}`);
+      DELETE FROM measurementsDeleted WHERE demographicNo=${patient};
+      DELETE FROM casemgmt_issue_notes WHERE note_id IN (${ownedNotes});
+      DELETE FROM casemgmt_note_ext WHERE note_id IN (${ownedNotes});
+      DELETE FROM casemgmt_note_link WHERE note_id IN (${ownedNotes});
+      DELETE FROM casemgmt_note WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient})
-      + (SELECT COUNT(*) FROM measurementsDeleted WHERE demographicNo=${patient})`) === '0',
-    'Owned readings were not removed');
+      + (SELECT COUNT(*) FROM measurementsDeleted WHERE demographicNo=${patient})
+      + (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})`) === '0',
+    'Owned readings or notes were not removed');
   });
   const reading = (type) => `SELECT id FROM measurements WHERE demographicNo=${patient} AND type=${h.sqlString(type)}
     AND dataField=${h.sqlString(VALUES[type])} AND comments=${h.sqlString(marker)}
