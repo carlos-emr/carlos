@@ -52,4 +52,31 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
         form.ensureSubjectInput();
         assertThat(Jsoup.parse(form.getFormHtml()).selectFirst("[name=subject]").val()).isEmpty();
     }
+
+    @Test
+    void shouldPreserveAuthoredNewFormFlag_whenTemplateUsesCaseSensitiveInitialization() {
+        EForm form = new EForm();
+        form.setFormHtml("<form><input type='hidden' id='newForm' name='newForm' value='True'></form>");
+        form.ensureNewFormInput();
+        form.ensureNewFormInput();
+        var fields = Jsoup.parse(form.getFormHtml()).select("#newForm");
+        assertThat(fields).hasSize(1);
+        assertThat(fields.first().val()).isEqualTo("True");
+        assertThat(fields.first().attr("name")).isEqualTo("newForm");
+        assertThat(fields.first().parent().tagName()).isEqualTo("form");
+    }
+
+    @Test
+    void shouldSupplyNewFormFlag_whenTemplateHasNone() {
+        EForm form = new EForm();
+        form.setFormHtml("<form></form>");
+        form.ensureNewFormInput();
+        form.ensureNewFormInput();
+        var fields = Jsoup.parse(form.getFormHtml()).select("#newForm");
+        assertThat(fields).hasSize(1);
+        assertThat(fields.first().val()).isEqualTo("true");
+        assertThat(fields.first().attr("type")).isEqualTo("hidden");
+        assertThat(fields.first().attr("name")).isEqualTo("newForm");
+        assertThat(fields.first().parent().tagName()).isEqualTo("form");
+    }
 }

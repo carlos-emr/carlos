@@ -238,7 +238,14 @@ Calendar._doSetup = function (params) {
 
     /* ── Initialise flatpickr on the input element ───────────────────── */
     var target = inputEl || buttonEl;
+    // Legacy Calendar.setup did not rewrite the field before the form's onload
+    // handler. eForms often receive an ISO date and format it themselves there.
+    var initialValue = inputEl ? inputEl.value : null;
+    if (!params.multiple && /^\d{4}-\d{2}-\d{2}$/.test(initialValue || "")) {
+        fpOpts.defaultDate = flatpickr.parseDate(initialValue, "Y-m-d");
+    }
     var fp = flatpickr(target, fpOpts);
+    if (inputEl && !params.multiple) inputEl.value = initialValue;
 
     /* ── Button trigger ──────────────────────────────────────────────── */
     if (buttonEl && buttonEl !== inputEl) {
