@@ -3977,7 +3977,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the administration shell Help ignores the saved Help Link. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
+      "notes": "Fails at its last step on 2026.08: the administration shell Help ignores the saved Help Link, and the Ontario Billing Settings Save (no options shown) writes NULL rows for the BC-only property keys and invoice SystemPreferences. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
       "fixtures": "Snapshots and restores (with ids) the billing-settings and help-link rows in property and SystemPreferences; clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -4169,7 +4169,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "Fails at its last step on 2026.08: the security record edit page loads a missing admin/bcArStyle.css. Enabling MFA also wipes the PIN (reported, not asserted).",
+      "notes": "Fails at its last step on 2026.08: enabling MFA wipes the stored PIN (the disabled PIN field posts no pin), and the security record edit page loads a missing admin/bcArStyle.css.",
       "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration ▸ Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed."
     },
     {
@@ -4287,8 +4287,8 @@
       "fixtures": "One owned patient with its suggestion, tickler and one PDF document (row, ctl_document link and file); pre-existing suggestions asserted unchanged."
     },
     {
-      "name": "billing-on-invoice-3rdparty",
-      "script": "scripts/billing-on-invoice-3rdparty-playwright-checks.js",
+      "name": "billing-on-invoice-third-party",
+      "script": "scripts/billing-on-invoice-third-party-playwright-checks.js",
       "tiers": [
         "core"
       ],

@@ -107,7 +107,9 @@ async function workflow(s) {
   const jobRow = () => jobs.locator('#jobTable tbody tr', {hasText: marker});
   const jobsLoaded = async frame => {
     await frame.locator(`#jobType option[value="${typeId}"]`).waitFor({state: 'attached', timeout: TIMEOUT});
-    await frame.locator(`#jobProvider option[value="${provider}"]`).first().waitFor({state: 'attached', timeout: TIMEOUT});
+    // Matched in the page, not in a selector, so a timeout message cannot carry the provider number.
+    await frame.waitForFunction(wanted => [...document.querySelectorAll('#jobProvider option')].some(option => option.value === wanted),
+      provider, {timeout: TIMEOUT});
     await frame.waitForFunction(() => window.jQuery && window.jQuery.active === 0, null, {timeout: TIMEOUT});
   };
   let jobId;
@@ -200,7 +202,7 @@ async function workflow(s) {
     const markupName = `${marker} <b>bold</b> job`;
     const loaded = admin.waitForResponse(isRest(`job/${jobId}`, 'GET'), {timeout: TIMEOUT});
     await jobRow().getByRole('link', {name: jobName, exact: true}).click();
-    await loaded;
+    h.assert((await loaded).status() === 200, 'The job editor could not load the stored job');
     await jobs.waitForFunction(id => document.getElementById('jobId').value === String(id), jobId, {timeout: TIMEOUT});
     await jobs.locator('#jobName').fill(markupName);
     await clickAwaiting(isRest('saveJob'), dialogButton(jobs, 'new-job', 'Save Job'));

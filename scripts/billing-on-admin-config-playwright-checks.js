@@ -27,7 +27,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { seedOwnedBill, openHistory, openCorrection, billDate } = require('./billing-on-invoice-3rdparty-playwright-checks');
+const { seedOwnedBill, openHistory, openCorrection, billDate } = require('./billing-on-invoice-third-party-playwright-checks');
 
 const FORM_ROUTE = '/billing/CA/ON/ManageBillingform';
 const LOCATION_ROUTE = '/billing/CA/ON/ManageBillingLocation';

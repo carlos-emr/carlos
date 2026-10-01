@@ -33,7 +33,10 @@ async function workflow(s) {
   const facilities = sql.rows(`SELECT f.id,f.name FROM provider_facility pf JOIN Facility f ON f.id=pf.facility_id
     WHERE pf.provider_no=${h.sqlString(provider)} AND f.disabled=0`);
   if (facilities.length !== 1) throw new h.SkipCheck('The test login is not linked to exactly one active facility');
-  const [[facilityId, facilityName]] = facilities;
+  const [[facilityId, fullFacilityName]] = facilities;
+  // facility_message.facility_name is varchar(32) (FacilityMessage @Column length=32) while
+  // Facility.name allows 50, so seed and expect the display name bounded to the column.
+  const facilityName = fullFacilityName.slice(0, 32);
   const text = `${marker} O'Neil & "A<b>B</b>" 100% <script>window.__pwFacilityMessage=1</script> done`;
   const ids = [];
   s.cleanup(() => {

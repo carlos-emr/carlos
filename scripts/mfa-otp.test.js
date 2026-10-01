@@ -12,13 +12,16 @@
  * rendered to a PNG, its centre is blanked or flipped like a logo, and it must
  * still decode; damage past the EC capacity must throw, never decode wrongly.
  *
+ * The RFC 6238 SHA-1 vectors at the end pin totp() itself, and wrongTotp()
+ * is checked against every window the server accepts.
+ *
  * Every payload is synthetic. The secret below is a fixed test value, not a
  * credential for any account.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { deflateSync, crc32 } = require('node:zlib');
-const { correctBlock, decodeMatrix, decodeQrPng, parseOtpauthUrl } = require('./lib/mfa-otp');
+const { correctBlock, decodeMatrix, decodeQrPng, parseOtpauthUrl, totp, wrongTotp } = require('./lib/mfa-otp');
 
 // ---- an independent GF(256) / RS encoder (QR: 0x11D, roots alpha^0..) ------
 
@@ -311,4 +314,54 @@ test('centre damage beyond EC capacity throws instead of returning text', () => 
   const { matrix } = centreDisc(clean, 11, dark => !dark);
   assert.throws(() => decodeMatrix(matrix), /QR block \d of 2: the QR block could not be corrected/);
   assert.throws(() => decodeQrPng(toPng(matrix)), /could not be corrected/);
+});
+
+test('a truncated or IEND-less PNG is refused with the module\'s own error, never a RangeError', () => {
+  const png = toPng(encodeQr(OTPAUTH, 5, 'M', 1));
+  const iend = png.length - 12;
+  const cases = [
+    ['cut inside a chunk header', png.subarray(0, 8 + 6), /no IEND chunk/],
+    ['cut inside the IDAT data', png.subarray(0, iend - 20), /a chunk runs past the end/],
+    ['IEND removed', png.subarray(0, iend), /no IEND chunk/],
+    ['chunk length overstated', (() => { const copy = Buffer.from(png); copy.writeUInt32BE(0xffffff00, 8); return copy; })(), /a chunk runs past the end/],
+  ];
+  for (const [name, buffer, message] of cases) {
+    assert.throws(() => decodeQrPng(buffer), error => !(error instanceof RangeError) && message.test(error.message), name);
+  }
+});
+
+// ---- RFC 6238 code generation --------------------------------------------------
+
+// RFC 6238 Appendix B, SHA-1: the ASCII seed "12345678901234567890" (Base32
+// below) at each listed Unix time gives these eight-digit codes.
+const RFC6238_SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+const RFC6238_SHA1 = [
+  [59, '94287082'], [1111111109, '07081804'], [1111111111, '14050471'],
+  [1234567890, '89005924'], [2000000000, '69279037'], [20000000000, '65353130'],
+];
+
+test('totp reproduces the RFC 6238 SHA-1 vectors', () => {
+  for (const [seconds, code] of RFC6238_SHA1) {
+    assert.equal(totp(RFC6238_SECRET, { timeMs: seconds * 1000, digits: 8 }), code, `T=${seconds}`);
+    // The six-digit code CARLOS uses is the same truncation, mod 10^6.
+    assert.equal(totp(RFC6238_SECRET, { timeMs: seconds * 1000 }), code.slice(-6), `T=${seconds}, 6 digits`);
+  }
+});
+
+test('totp steps by 30 s and offsetSteps moves to the neighbouring window', () => {
+  const at = 1111111111 * 1000;
+  assert.equal(totp(RFC6238_SECRET, { timeMs: at, offsetSteps: -1 }), totp(RFC6238_SECRET, { timeMs: at - 30000 }));
+  assert.equal(totp(RFC6238_SECRET, { timeMs: at, offsetSteps: 1 }), totp(RFC6238_SECRET, { timeMs: at + 30000 }));
+});
+
+test('wrongTotp is a six-digit code outside every window Login2Action accepts', () => {
+  // T=59 is skipped: two steps back from it is before the Unix epoch.
+  for (const [seconds] of RFC6238_SHA1.filter(([t]) => t >= 60)) {
+    const timeMs = seconds * 1000;
+    const wrong = wrongTotp(RFC6238_SECRET, timeMs);
+    assert.match(wrong, /^\d{6}$/);
+    for (const offsetSteps of [-2, -1, 0, 1, 2]) {
+      assert.notEqual(wrong, totp(RFC6238_SECRET, { timeMs, offsetSteps }), `T=${seconds} offset ${offsetSteps}`);
+    }
+  }
 });

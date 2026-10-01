@@ -109,21 +109,30 @@ async function workflow(s) {
   // Application defects found on the way are asserted in the LAST step, so every step that can be
   // proven is proven first; the check still fails while any of them stands.
   const defects = [];
+  // The evidence taken out of the strict recorder is kept here, so a run that fails before the
+  // last step still prints the deferred defects (sanitised like the recorder's own details).
+  const deferred = h.createRecorder();
+  let lastStepReached = false;
+  s.cleanup(() => {
+    if (lastStepReached || !defects.length) return;
+    console.error(JSON.stringify({ deferredDefects: defects, evidence: h.buildFailureDetails(deferred) }, null, 2));
+  });
   function deferPageErrors(pattern, description) {
     const matched = recorder.pageErrors.filter(entry => entry.label === 'role-administration' && pattern.test(entry.text));
     if (!matched.length) return;
     recorder.pageErrors.splice(0, recorder.pageErrors.length, ...recorder.pageErrors.filter(entry => !matched.includes(entry)));
+    deferred.pageErrors.push(...matched);
     defects.push(description);
   }
-  // Take one HTTP failure on `label` out of the strict recorder as a deferred defect; false if none.
-  function deferFailure(label, urlPattern, status, description) {
-    const index = recorder.badResponses.findIndex(entry => entry.label === label && entry.status === status && urlPattern.test(entry.url));
+  // Take one HTTP failure on any of `labels` out of the strict recorder as a deferred defect; false if none.
+  function deferFailure(labels, urlPattern, status, description) {
+    const index = recorder.badResponses.findIndex(entry => labels.includes(entry.label) && entry.status === status && urlPattern.test(entry.url));
     if (index < 0) return false;
-    recorder.badResponses.splice(index, 1);
+    deferred.badResponses.push(...recorder.badResponses.splice(index, 1));
     for (let i = recorder.consoleIssues.length - 1; i >= 0; i--) {
       const entry = recorder.consoleIssues[i];
-      if (entry.label === label && urlPattern.test(entry.location.url || '') && entry.text.includes(`status of ${status} (`)) {
-        recorder.consoleIssues.splice(i, 1);
+      if (labels.includes(entry.label) && urlPattern.test(entry.location.url || '') && entry.text.includes(`status of ${status} (`)) {
+        deferred.consoleIssues.push(...recorder.consoleIssues.splice(i, 1));
       }
     }
     defects.push(description);
@@ -191,8 +200,9 @@ async function workflow(s) {
         const { page: own } = await clickOpensPopupOrNavigates(schedule, schedule.locator('#admin-panel'),
           { context: ctx, recorder, label, timeout: TIMEOUT });
         await own.waitForLoadState('load');
-        // The popup's first response is recorded under the context's label, before the relabel.
-        const forbidden = deferFailure('role-throwaway-before', /\/administration(\?|$)/, 403, 'Schedule ▸ Administration is offered to a plain doctor '
+        // A popup is relabelled to `label` in the same 'page' dispatch that wires it, before its
+        // response arrives; an in-place navigation keeps the schedule's label until it commits.
+        const forbidden = deferFailure(['role-throwaway-before', label], /\/administration(\?|$)/, 403, 'Schedule ▸ Administration is offered to a plain doctor '
           + '(day-sheet gate includes _admin.flowsheet) but /administration answers 403 (ViewAdministrationIndex2Action omits it)');
         if (!forbidden) {
           await own.locator('#adminNav').waitFor({ state: 'attached', timeout: TIMEOUT });
@@ -299,6 +309,7 @@ async function workflow(s) {
       'A refused GET wrote a role or grant');
   });
   await s.step('Fix notes refuses a GET carrying its run action, and no deferred defect remains', async () => {
+    lastStepReached = true;
     // role_to is deliberately not a number: were the GET to reach the UPDATE, parseInt fails first.
     const response = await context.request.get(h.appUrl(config.baseUrl, '/admin/FixRolesOnNotes'), {
       params: { action: 'run', role_to: 'not-a-role' }, maxRedirects: 0 });

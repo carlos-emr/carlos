@@ -25,7 +25,7 @@
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { seedOwnedBill, billDate } = require('./billing-on-invoice-3rdparty-playwright-checks');
+const { seedOwnedBill, billDate } = require('./billing-on-invoice-third-party-playwright-checks');
 const { openAdmin, adminFrame, navigates } = require('./billing-on-admin-config-playwright-checks');
 
 const GST_ROUTE = '/admin/GstControl';

@@ -24,9 +24,13 @@ const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
 const { submitLoginForm, throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
-// Bounded above the devcontainer's login_max_failed_times=10 (the shipped default is 3) and below
-// the /login rate-limit tier (10/60s when WAF_RATE_LIMIT_MODE=enforce) plus the two real logins.
+// Bounded above the devcontainer's login_max_failed_times=10 (the shipped default is 3).
 const MAX_PROBES = 12;
+// With RateLimitFilter enforcing the /login=10/60 tier (or the nginx login zone) for a
+// non-exempt client, the lock is recorded by the tenth wrong password and the POST that must
+// observe it is refused 429 instead. A 429 is not an authentication outcome: wait out the window
+// and repeat the same attempt, at most once per probe.
+const RATE_LIMIT_WAIT_MS = 65000;
 
 async function workflow(s) {
   const { sql, config, recorder } = s;
@@ -76,11 +80,42 @@ async function workflow(s) {
   const probes = await h.newContext(s.context.browser(), config);
   probes.on('page', page => h.wireStrictPage(page, 'lockout-probe', recorder));
   const wrongPassword = `${config.testPassword}-WRONG`;
+  async function probe(password) {
+    for (let attempt = 0; ; attempt++) {
+      const since = { responses: recorder.badResponses.length, console: recorder.consoleIssues.length };
+      let limited = null;
+      const watch = response => {
+        if (response.status() === 429 && /\/login[^/]*$/.test(new URL(response.url()).pathname)) limited = response;
+      };
+      probes.on('response', watch);
+      let result;
+      let error;
+      try {
+        result = await submitLoginForm(probes, config, { username, password, pin: config.testPin });
+      } catch (caught) { error = caught; } finally { probes.off('response', watch); }
+      if (!limited) {
+        if (error) throw error;
+        return result;
+      }
+      h.assert(attempt === 0, 'The /login rate limit still refused the attempt after its window reset');
+      // Consume exactly the 429 this probe drew; any other signal stays strict.
+      for (let i = recorder.badResponses.length - 1; i >= since.responses; i--) {
+        if (recorder.badResponses[i].status === 429) recorder.badResponses.splice(i, 1);
+      }
+      for (let i = recorder.consoleIssues.length - 1; i >= since.console; i--) {
+        if (/status of 429 \(/.test(recorder.consoleIssues[i].text)) recorder.consoleIssues.splice(i, 1);
+      }
+      for (const page of probes.pages()) await page.close();
+      const retryAfter = Number((await limited.allHeaders())['retry-after']);
+      await new Promise(resolve => setTimeout(resolve,
+        Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000 + 1000, RATE_LIMIT_WAIT_MS) : RATE_LIMIT_WAIT_MS));
+    }
+  }
   let failures = 0;
   await s.step('repeated wrong passwords lock the throwaway login: each failure audited, then the lockout message', async () => {
     let locked = false;
     for (let attempt = 1; attempt <= MAX_PROBES && !locked; attempt++) {
-      const result = await submitLoginForm(probes, config, { username, password: wrongPassword, pin: config.testPin });
+      const result = await probe(wrongPassword);
       await result.page.close();
       if (result.outcome === 'locked') { locked = true; break; }
       h.assert(result.outcome === 'failed',
@@ -95,7 +130,7 @@ async function workflow(s) {
   });
 
   await s.step('the correct password is refused with the lockout message while the login is locked', async () => {
-    const result = await submitLoginForm(probes, config, { username, password: config.testPassword, pin: config.testPin });
+    const result = await probe(config.testPassword);
     h.assert(result.outcome === 'locked', `A locked login accepted or mis-reported its correct password (landed on ${result.landing})`);
     await result.page.close();
     h.assert(sql.value(failedLogins) === String(failures), 'A refused locked attempt was audited as an authentication failure');
@@ -108,11 +143,16 @@ async function workflow(s) {
     const added = listed.filter(entry => !before.includes(entry));
     if (!added.includes(username)) {
       // The lock is keyed by something other than the username (login_lock is not true, so
-      // LoginCheckLogin tracked the client address). Release what this run locked before failing,
-      // so later checks can still log in from this runner.
-      for (const entry of added) await unlockSelected(frame, entry);
-      h.assert(false, `The lockout is not keyed by username: this run added ${added.length} non-username entr(y/ies) to the lock list,`
-        + ' which were unlocked again; set login_lock=true in carlos.properties for the username lockout this check covers');
+      // LoginCheckLogin tracked the client address). Release only the address this run's own
+      // audited failures came from (LoginCheckLoginBean logs the same ip it locks), so later
+      // checks can still log in from this runner; any other new entry is left untouched.
+      const ownAddresses = sql.rows(`SELECT DISTINCT ip FROM log WHERE action='failed' AND content='login' AND contentId=${user}`)
+        .map(row => row[0]);
+      const released = added.filter(entry => ownAddresses.includes(entry));
+      for (const entry of released) await unlockSelected(frame, entry);
+      h.assert(false, `The lockout is not keyed by username: this run added ${added.length} non-username entr(y/ies) to the lock list`
+        + ` and unlocked the ${released.length} matching its own audited client address; set login_lock=true in carlos.properties`
+        + ' for the username lockout this check covers');
     }
     const message = await unlockSelected(frame, username);
     h.assert(message === `Account unlocked: ${username}`, 'The unlock did not confirm the throwaway by name');

@@ -98,6 +98,14 @@ async function workflow(s) {
   h.assert(providerName, 'The test provider has no name to appear in the report');
   const logTuples = where => sql.rows(`SELECT CONCAT_WS('|', DATE_FORMAT(dateTime,'%Y-%m-%d %H:%i:%s'), COALESCE(action,''), COALESCE(content,''),
     COALESCE(contentId,''), COALESCE(ip,''), COALESCE(demographic_no,'')) FROM log WHERE ${where} ORDER BY dateTime DESC, id DESC`).map(row => row[0]);
+  // The same tuples prefixed with the provider's full name as LogReport2Action builds it
+  // (first + ' ' + last, trimmed), for the all-providers layout's per-row label.
+  const labelledLogTuples = where => sql.rows(`SELECT TRIM(CONCAT(COALESCE(p.first_name,''),' ',COALESCE(p.last_name,''))),
+    CONCAT_WS('|', DATE_FORMAT(log.dateTime,'%Y-%m-%d %H:%i:%s'), COALESCE(log.action,''), COALESCE(log.content,''),
+    COALESCE(log.contentId,''), COALESCE(log.ip,''), COALESCE(log.demographic_no,''))
+    FROM log JOIN provider p ON p.provider_no=log.provider_no WHERE ${where} ORDER BY log.dateTime DESC, log.id DESC`)
+    .map(([name, tuple]) => [name.replace(/\s+/g, ' ').trim(), tuple])
+    .filter(([name]) => name !== '').map(([name, tuple]) => `${name}|${tuple}`);
   const todayRows = `dateTime>=${h.sqlString(today)} AND dateTime<DATE_ADD(${h.sqlString(today)}, INTERVAL 1 DAY)`;
 
   await s.step('each Master Record open writes one read audit row for the owned patient', async () => {
@@ -188,15 +196,17 @@ async function workflow(s) {
     const offered = (await report.locator('select[name="providerNo"] option').evaluateAll(options => options.map(option => option.value)))
       .filter(value => value !== '*');
     h.assert(offered.length >= 1 && offered.includes(provider), 'The provider select does not offer the test provider');
-    const where = `content LIKE 'login' AND ${todayRows} AND provider_no IN (${offered.map(h.sqlString).join(',')})`;
-    const before = logTuples(where);
+    const where = `log.content LIKE 'login' AND log.dateTime>=${h.sqlString(today)}
+      AND log.dateTime<DATE_ADD(${h.sqlString(today)}, INTERVAL 1 DAY) AND log.provider_no IN (${offered.map(h.sqlString).join(',')})`;
+    const before = labelledLogTuples(where);
     await runReport(report, '*', 'login');
-    const after = logTuples(where);
+    const after = labelledLogTuples(where);
     const rows = await reportRows(report, true);
     const unlabelled = rows.filter(row => row.provider === '').length;
     if (unlabelled) console.log(`  ${unlabelled} row(s) without a provider label are shown (no site restriction applies)`);
-    const tuples = rows.filter(row => row.provider !== '').map(row => row.tuple);
-    assertParity(tuples, before, after, 'The all-providers report rows do not match the log rows of the offered providers for today');
+    // Each labelled row is compared WITH its label, so a row naming the wrong provider fails parity.
+    const tuples = rows.filter(row => row.provider !== '').map(row => `${row.provider}|${row.tuple}`);
+    assertParity(tuples, before, after, 'The all-providers report rows (with their provider labels) do not match the log rows of the offered providers for today');
     h.assert(rows.filter(row => row.provider === providerName).length >= 1, 'The all-providers report does not name the test provider on its rows');
     h.assert((await report.locator('h4').first().innerText()).trim().startsWith('All'), 'The all-providers heading does not say All');
     const text = await report.locator('body').innerText();

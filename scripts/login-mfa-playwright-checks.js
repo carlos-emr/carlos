@@ -40,6 +40,9 @@ async function workflow(s) {
   // mysql -B prints SQL NULL as NULL, which the runner reads back as null: spell it out.
   const mfaStateQuery = `SELECT CONCAT(usingMfa,'|',IF(mfaSecret IS NULL,'none',mfaSecret)) FROM security WHERE security_no=${securityNo}`;
   const mfaState = () => sql.value(mfaStateQuery);
+  // A digest, never the PIN itself, so a mismatch cannot print the credential.
+  const pinState = () => sql.value(`SELECT IF(pin IS NULL,'none',SHA2(pin,256)) FROM security WHERE security_no=${securityNo}`);
+  const pinBefore = pinState();
   const audits = content => sql.value(`SELECT COUNT(*) FROM log WHERE provider_no=${h.sqlString(login.providerNo)}
     AND action='login' AND content=${h.sqlString(content)}`);
   const contexts = [];
@@ -67,7 +70,9 @@ async function workflow(s) {
     await h.gotoApp(page, config.baseUrl, '/');
     await page.locator('#username').fill(login.username);
     await page.locator('#password').fill(config.testPassword);
-    await page.locator('#pin').fill(config.testPin);
+    // The PIN field is configuration-dependent, as in h.login and submitLoginForm.
+    const pin = page.locator('#pin');
+    if (await pin.count() > 0) await pin.fill(config.testPin);
     await settleOperations([
       page.waitForURL(url => /providercontrol|loginfailed|login=failed/i.test(String(url)) || /\/login$/.test(new URL(String(url)).pathname),
         { timeout: TIMEOUT }),
@@ -90,7 +95,8 @@ async function workflow(s) {
 
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context, recorder, label: 'mfa-admin', timeout: TIMEOUT });
-  // KNOWN DEFECT, ASSERTED LAST: securityupdatesecurity.jsp links a relative
+  // KNOWN DEFECTS, ASSERTED LAST: ticking Enable MFA disables the PIN input, so the save
+  // posts no pin and securityupdate.jsp overwrites the stored PIN; and securityupdatesecurity.jsp links a relative
   // bcArStyle.css that resolves to the missing admin/bcArStyle.css (an HTML answer the
   // browser refuses as a stylesheet; see the security-record-admin manifest note). The
   // entries are set aside here so every MFA step is still proven, and the final step
@@ -243,10 +249,15 @@ async function workflow(s) {
     await ctx.close();
   });
 
-  await s.step('the security record edit page loads its stylesheet', async () => {
+  await s.step('enabling and clearing MFA kept the stored PIN, and the edit page loads its stylesheet', async () => {
     setAsideStylesheetDefect();
-    h.assert(stylesheetDefect.length === 0, `The security record edit page requested the missing admin/bcArStyle.css `
-      + `(${stylesheetDefect.length} console/network report(s)): the relative link in securityupdatesecurity.jsp is broken`);
+    const problems = [];
+    if (pinState() !== pinBefore) problems.push('enabling and clearing MFA changed the stored PIN (the disabled PIN field posts no pin)');
+    if (stylesheetDefect.length) {
+      problems.push(`the security record edit page requested the missing admin/bcArStyle.css `
+        + `(${stylesheetDefect.length} console/network report(s)): the relative link in securityupdatesecurity.jsp is broken`);
+    }
+    h.assert(problems.length === 0, problems.join('; '));
   });
 }
 

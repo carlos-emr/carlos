@@ -5,11 +5,11 @@
  * User path: Schedule ▸ Administration ▸ Billing ▸ Settings (admin/BillingSettings) and
  * Administration ▸ System Management ▸ Help Link Setting (admin/ResourceBaseUrl), then the Help
  * link on the day sheet and on the administration shell's own menu bar.
- * Asserts: the Ontario Billing Settings page states it has no options and its Save confirms
- * without storing any value for the BC-only keys; Help Link "Website" stores resource_baseurl and
+ * Asserts: the Ontario Billing Settings page states it has no options and its Save confirms; Help Link "Website" stores resource_baseurl and
  * the day sheet's Help opens it; "Details" replaces it with resource_helpHtml and the shell's Help
  * panel shows the text; GET with a save flag is refused 405 and stores nothing; finally the shell's
- * Help follows a saved Website link like the day sheet does.
+ * Help follows a saved Website link like the day sheet does, and the billing Save (checked by row
+ * identity and value, asserted last) wrote no BC-only property or invoice preference row.
  * Fixtures: none created; the property / SystemPreferences rows these pages own are snapshotted
  * (byte-exact, with ids) before the first click and restored in cleanup. EXCLUSIVE=1: both are
  * clinic-wide settings. Satellite-sites Admin (multisites=off) and Manage Clinic NBR Codes
@@ -54,8 +54,10 @@ async function workflow(s) {
       && JSON.stringify(snapshotRows(sql, 'SystemPreferences', preferenceColumns, PREFERENCE_NAMES)) === JSON.stringify(preferences),
     'Billing/help settings were not restored to their snapshot');
   });
-  const storedBcValues = () => sql.value(`SELECT (SELECT COUNT(*) FROM property WHERE name IN ${inList(BC_PROPERTY_NAMES)}
-    AND COALESCE(value,'')<>'') + (SELECT COUNT(*) FROM SystemPreferences WHERE name IN ${inList(PREFERENCE_NAMES)} AND COALESCE(value,'')<>'')`);
+  // Row identities and exact values (not a count), so a save that inserts, deletes or rewrites any
+  // BC-only key -- even to another non-empty value -- changes the result.
+  const storedBcValues = () => JSON.stringify([snapshotRows(sql, 'property', ['name', 'value', 'provider_no'], BC_PROPERTY_NAMES),
+    snapshotRows(sql, 'SystemPreferences', ['name', 'value'], PREFERENCE_NAMES)]);
   const helpRows = name => sql.rows(`SELECT value FROM property WHERE name=${h.sqlString(name)}`).map(row => row[0]);
 
   // The day sheet's own URL (the post-login landing page) lets a second tab show the day sheet
@@ -97,12 +99,16 @@ async function workflow(s) {
       'BC-only billing settings are offered on the Ontario install');
   });
 
-  await s.step('Billing Settings Save confirms and stores no value for the BC-only keys', async () => {
+  // KNOWN DEFECT, ASSERTED LAST: billingSettings.jsp saves every BC key and general setting
+  // from the (absent) form fields, persisting NULL rows or overwriting stored values with NULL.
+  // It is recorded here and asserted in the final step so the Help Link steps are still proven.
+  let billingSaveWrote = false;
+  await s.step('Billing Settings Save confirms the save', async () => {
     const settings = admin.frames().find(f => new URL(f.url(), 'http://x').pathname.endsWith('/admin/BillingSettings'));
     const before = storedBcValues();
     await submitInFrame(settings, settings.locator('input[name="saveBillingSettings"]'));
     await settings.getByText('Settings Saved').waitFor({timeout: TIMEOUT});
-    h.assert(storedBcValues() === before, 'Saving the Ontario settings page stored values for BC-only keys');
+    billingSaveWrote = storedBcValues() !== before;
   });
 
   let help;
@@ -150,7 +156,7 @@ async function workflow(s) {
       'A GET with a save flag changed the stored settings');
   });
 
-  await s.step('the administration shell Help follows a saved Website link like the day sheet', async () => {
+  await s.step('the shell Help follows a saved Website link, and the Ontario billing Save wrote no BC-only row', async () => {
     help = await openSection(admin.getByRole('link', {name: 'Help Link Setting', exact: true, includeHidden: true}), '/admin/ResourceBaseUrl');
     await help.locator('input.helpOption[value="website"]').check();
     await websiteInput().fill(helpUrl);
@@ -159,8 +165,14 @@ async function workflow(s) {
     h.assert((await scheduleHelpTarget() || '').includes(`'${helpUrl}'`), 'The day sheet Help does not open the saved URL');
     await admin.reload({waitUntil: 'domcontentloaded'});
     const shellHelp = await admin.locator('#helpLink a').first().getAttribute('onclick');
-    h.assert((shellHelp || '').includes(`'${helpUrl}'`),
-      'The administration shell Help ignores the saved Help Link and opens the carlos.properties resource_base_url');
+    const problems = [];
+    if (!(shellHelp || '').includes(`'${helpUrl}'`)) {
+      problems.push('the administration shell Help ignores the saved Help Link and opens the carlos.properties resource_base_url');
+    }
+    if (billingSaveWrote) {
+      problems.push('saving the Ontario Billing Settings page (no options shown) inserted or rewrote BC-only property / invoice SystemPreferences rows');
+    }
+    h.assert(!problems.length, problems.join('; '));
   });
 }
 

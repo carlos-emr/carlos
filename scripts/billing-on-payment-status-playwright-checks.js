@@ -20,7 +20,7 @@
  * form's history popup show the owned bills with their status and amounts.
  *
  * Fixtures: an owned PAT bill (status P) and an owned HCP bill (status O) seeded with
- * seedOwnedBill from billing-on-invoice-3rdparty, one owned error-report row for the HCP
+ * seedOwnedBill from billing-on-invoice-third-party, one owned error-report row for the HCP
  * bill, one owned appointment today for the test provider. Cleanup deletes them by
  * id/marker and asserts they are gone. Implements coverage-plan §2.7
  * billing-on-payment-status.
@@ -32,7 +32,7 @@ const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const {
   seedOwnedBill, openHistory, historyRow, runInvoiceReport, fillDate, awaitResponse, billDate, money,
-} = require('./billing-on-invoice-3rdparty-playwright-checks');
+} = require('./billing-on-invoice-third-party-playwright-checks');
 
 const ER_ROUTE = '/billing/CA/ON/BillingONStatusERUpdateStatus';
 

@@ -78,26 +78,36 @@ function decodePng(buffer) {
   let header = null;
   let palette = null;
   const idat = [];
-  while (offset < buffer.length) {
+  // Every chunk (length, type, data, CRC) must fit in the buffer and the image must end
+  // with IEND, so truncated input is refused here rather than as a RangeError.
+  for (let ended = false; !ended;) {
+    if (offset + 12 > buffer.length) throw new Error('The QR PNG is truncated: it has no IEND chunk');
     const length = buffer.readUInt32BE(offset);
+    if (length > buffer.length - offset - 12) throw new Error('The QR PNG is truncated: a chunk runs past the end of the image');
     const type = buffer.toString('ascii', offset + 4, offset + 8);
     const data = buffer.subarray(offset + 8, offset + 8 + length);
     if (type === 'IHDR') {
+      if (length < 13) throw new Error('The QR PNG has an unsupported header');
       header = { width: data.readUInt32BE(0), height: data.readUInt32BE(4), bitDepth: data[8], colorType: data[9], interlace: data[12] };
     } else if (type === 'PLTE') palette = data;
     else if (type === 'IDAT') idat.push(data);
-    else if (type === 'IEND') break;
+    else if (type === 'IEND') ended = true;
     offset += 12 + length;
   }
-  if (!header || header.interlace !== 0) throw new Error('The QR PNG has an unsupported header');
+  if (!header || header.interlace !== 0 || header.width < 1 || header.height < 1 || header.width > 10000 || header.height > 10000) {
+    throw new Error('The QR PNG has an unsupported header');
+  }
   const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[header.colorType];
   const { width, height, bitDepth, colorType } = header;
   if (!channels || ![1, 2, 4, 8].includes(bitDepth) || (bitDepth < 8 && ![0, 3].includes(colorType))) {
     throw new Error('The QR PNG uses an unsupported pixel format');
   }
-  const raw = inflateSync(Buffer.concat(idat));
+  if (colorType === 3 && (!palette || palette.length % 3 !== 0)) throw new Error('The QR PNG has no usable palette');
+  let raw;
+  try { raw = inflateSync(Buffer.concat(idat)); } catch { throw new Error('The QR PNG image data is corrupt'); }
   const bitsPerPixel = channels * bitDepth;
   const stride = Math.ceil((width * bitsPerPixel) / 8);
+  if (raw.length < height * (stride + 1)) throw new Error('The QR PNG image data is truncated');
   const bpp = Math.max(1, bitsPerPixel >> 3);
   const pixels = Buffer.alloc(stride * height);
   for (let y = 0; y < height; y++) {

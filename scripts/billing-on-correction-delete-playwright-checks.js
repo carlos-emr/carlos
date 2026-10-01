@@ -25,7 +25,7 @@
  * one open and one already billed, status B)
  * seeded for the owned FAKE- patient under an active provider that carries an
  * OHIP number (the correction page only offers such providers), seeded by the
- * shared seedOwnedBill helper (billing-on-invoice-3rdparty). Its cleanup
+ * shared seedOwnedBill helper (billing-on-invoice-third-party). Its cleanup
  * deletes the owned repo/proc/eareport/transaction/item-payment/payment/ext/
  * item/header rows by id and marker, and any provider-site memberships it
  * added, and asserts they are gone.
@@ -46,7 +46,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 // cleanup (repo/proc/eareport/transaction/item_payment/payment/ext/item/header).
 const {
   seedOwnedBill, openHistory, fillDate, awaitResponse, billDate, money,
-} = require('./billing-on-invoice-3rdparty-playwright-checks');
+} = require('./billing-on-invoice-third-party-playwright-checks');
 
 const UNBILL_CONFIRM = 'You are about to delete the previous billing, are you sure?';
 const CORRECTION_FORM = 'form[action$="/billing/CA/ON/UpdateBillingONCorrection"]';

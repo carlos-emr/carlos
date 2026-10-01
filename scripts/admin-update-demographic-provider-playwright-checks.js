@@ -76,14 +76,19 @@ async function workflow(s) {
   const mrp = () => sql.rows(`SELECT provider_no FROM demographic WHERE demographic_no IN (${ids()}) ORDER BY demographic_no`).map(r => r[0]);
   const residents = () => sql.rows(`SELECT value FROM demographicExt WHERE demographic_no IN (${ids()}) AND key_val='resident'
     ORDER BY demographic_no`).map(r => r[0]);
-  // Every row this run does not own. EXCLUSIVE=1 keeps other checks from changing them meanwhile.
+  // Every row this run does not own, fingerprinted over EVERY column (QUOTE keeps NULL distinct
+  // from text), so any change to a non-owned row fails the invariant. EXCLUSIVE=1 keeps other
+  // checks from changing them meanwhile.
+  const fingerprint = table => {
+    const columns = sql.rows(`SELECT column_name FROM information_schema.columns
+      WHERE table_schema=DATABASE() AND table_name=${h.sqlString(table)} ORDER BY ordinal_position`).map(r => r[0]);
+    h.assert(columns.length && columns.every(column => /^\w+$/.test(column)), `Unexpected ${table} column names`);
+    const row = `SHA2(CONCAT_WS(':',${columns.map(column => `QUOTE(\`${column}\`)`).join(',')}),256)`;
+    const key = table === 'demographic' ? 'demographic_no' : 'id';
+    return `(SELECT SHA2(COALESCE(GROUP_CONCAT(${row} ORDER BY ${key}),''),256) FROM ${table} WHERE demographic_no NOT IN (${ids()}))`;
+  };
   const others = () => sql.value(`SET SESSION group_concat_max_len=67108864;
-    SELECT CONCAT(
-      (SELECT SHA2(COALESCE(GROUP_CONCAT(CONCAT_WS(':',demographic_no,COALESCE(provider_no,'-'),COALESCE(lastUpdateDate,'-'),
-        COALESCE(lastUpdateUser,'-')) ORDER BY demographic_no),''),256) FROM demographic WHERE demographic_no NOT IN (${ids()})),
-      '|',
-      (SELECT SHA2(COALESCE(GROUP_CONCAT(CONCAT_WS(':',id,COALESCE(key_val,'-'),COALESCE(value,'-')) ORDER BY id),''),256)
-        FROM demographicExt WHERE demographic_no NOT IN (${ids()})))`);
+    SELECT CONCAT(${fingerprint('demographic')},'|',${fingerprint('demographicExt')})`);
   const othersBefore = others();
 
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),

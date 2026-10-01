@@ -23,7 +23,7 @@
  * the owned FAKE- patient, one owned bill-to address (company = marker), the billing
  * provider's missing site memberships (as billing-on-correction-delete). Cleanup deletes
  * owned rows by id/marker, the server-side list-print PDFs of the owned invoice, and
- * asserts they are gone. Implements coverage-plan §2.7 billing-on-invoice-3rdparty.
+ * asserts they are gone. Implements coverage-plan §2.7 billing-on-invoice-third-party.
  */
 
 const fs = require('node:fs');
@@ -497,7 +497,7 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('billing-on-invoice-3rdparty', workflow, { openPatient: true });
+if (require.main === module) runWorkflow('billing-on-invoice-third-party', workflow, { openPatient: true });
 module.exports = {
   workflow, seedOwnedBill, openHistory, historyRow, openCorrection, openInvoiceReport, runInvoiceReport,
   fillDate, awaitResponse, billDate, money,

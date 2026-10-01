@@ -87,6 +87,11 @@ function startSmtpSink() {
 
 async function workflow(s) {
   const {sql, patient, provider, marker, context} = s;
+  // CARLOS, not this runner, opens the SMTP connection, and the sink listens on the runner's
+  // loopback. That is only the server's loopback when BASE_URL is too (same host).
+  if (!['localhost', '127.0.0.1', '::1', '[::1]'].includes(s.config.baseUrl.hostname.toLowerCase())) {
+    throw new h.SkipCheck('The SMTP sink binds the runner\'s loopback, which CARLOS can reach only when BASE_URL is loopback');
+  }
   const hex = marker.slice(-16);
   const sender = `sender-${hex}@example.com`;
   const recipient = `patient-${hex}@example.com`;
@@ -109,9 +114,12 @@ async function workflow(s) {
         DELETE FROM emailLog WHERE id IN (${logs.join(',')}) AND demographicNo=${patient}`);
     }
     h.assert(sql.value(`SELECT COUNT(*) FROM emailLog WHERE demographicNo=${patient}`) === '0', 'Owned email log rows were not removed');
-    // A send with "add as note" files a chart note on the owned patient; remove any such note.
+    // A send with "add as note" files a chart note on the owned patient; remove any such note
+    // and its children. The patient is the run's own marker-named fixture, so every note on it
+    // was written by this run.
     const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
     sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
+      DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
       DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '0', 'Owned chart notes were not removed');

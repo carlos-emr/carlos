@@ -215,8 +215,11 @@ async function workflow(s) {
       await idle(keys);
     });
     const updatePath = new URL(update.url()).pathname;
-    if (!updatePath.startsWith(`${contextPath}/`) || update.status() !== 200) {
-      problems.push(`Update Matching Professional Specialist posted to ${updatePath} (HTTP ${update.status()}) outside ${contextPath}`);
+    // The exact route, as for Create New Key below: on a web-root deployment contextPath is ''
+    // and a prefix test would accept any path.
+    if (updatePath !== `${contextPath}/admin/ViewKeygenUpdateMatchingProfessionalSpecialist` || update.status() !== 200) {
+      problems.push(`Update Matching Professional Specialist posted to ${updatePath} (HTTP ${update.status()}) `
+        + `instead of ${contextPath}/admin/ViewKeygenUpdateMatchingProfessionalSpecialist`);
     }
     if (!dialogs.some(dialog => dialog.text === 'Changes saved.')) problems.push('no "Changes saved." confirmation');
     if (sql.value(`SELECT COALESCE(matchingProfessionalSpecialistId,'') FROM publicKeys WHERE service=${h.sqlString(service)}`) !== specialistId) {
