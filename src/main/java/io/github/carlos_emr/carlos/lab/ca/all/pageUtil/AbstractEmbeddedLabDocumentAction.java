@@ -192,6 +192,22 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
                 break;
         }
 
+        // Audit the read before any header or body is written (direct-response contract): addLog
+        // can persist synchronously when its executor is saturated, and a failure after the PDF
+        // headers would let Struts write an error page under them. An unaudited read is refused.
+        if (!head) {
+            try {
+                LogAction.addLog(loggedInInfo, LogConst.READ, AUDIT_CONTENT, String.valueOf(labNo), demographicNo,
+                        "segment=" + segment + ",group=" + group + ",disposition=" + disposition());
+            } catch (RuntimeException e) {
+                logger.error("Refused embedded lab document: the read audit failed for labNo={}",
+                        LogSafe.sanitize(String.valueOf(labNo)), e);
+                noStore(response);
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                return NONE;
+            }
+        }
+
         byte[] bytes = document.bytes();
         response.setContentType("application/pdf");
         response.setContentLength(bytes.length);
@@ -203,8 +219,6 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
             return NONE;
         }
 
-        LogAction.addLog(loggedInInfo, LogConst.READ, AUDIT_CONTENT, String.valueOf(labNo), demographicNo,
-                "segment=" + segment + ",group=" + group + ",disposition=" + disposition());
         OutputStream output = response.getOutputStream();
         output.write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- verified %PDF- bytes served as application/pdf with nosniff
         output.flush();

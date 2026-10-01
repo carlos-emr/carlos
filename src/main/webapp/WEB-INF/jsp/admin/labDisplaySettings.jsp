@@ -55,6 +55,10 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%-- Negotiated locale first, so an unsupported first Accept-Language preference falls through
+     to the next supported one instead of the server locale. --%>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 
 <html lang="${pageContext.response.locale.language}">
