@@ -170,7 +170,10 @@ async function workflow(s) {
   });
 
   await s.step('Edit Associations lists the owned mapping with its registry description', async () => {
+    const jsonResp = s.context.waitForEvent('response', r => r.url().includes('getAllAssociations'));
     const associations = await s.popup(admin, frame.getByRole('button', { name: 'Edit Associations', exact: true }), 'dx-associations');
+    const jr = await jsonResp; const body = await jr.text();
+    console.log('DEBUG', jr.status(), jr.headers()['content-type'], body.length, body.slice(0, 400).replace(/FAKE-PW[0-9a-f]+/g,'MARK'));
     const row = associations.locator('#associations tbody tr', { has: associations.locator('td', { hasText: `${marker}S` }) });
     await row.waitFor({ state: 'visible' });
     const cells = await row.locator('td').allInnerTexts();

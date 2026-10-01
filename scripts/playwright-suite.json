@@ -4038,6 +4038,20 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "demographic-relations-pdf-labels",
+      "script": "scripts/demographic-relations-pdf-labels-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
     }
   ]
 }
