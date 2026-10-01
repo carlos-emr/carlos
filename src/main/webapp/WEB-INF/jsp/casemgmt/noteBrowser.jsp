@@ -49,7 +49,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
-<%@page import="java.net.URLDecoder, java.net.URLEncoder,java.util.Date, java.util.List" %>
+<%@page import="java.util.Date, java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil,io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -96,7 +96,9 @@
     if (request.getParameter("view") != null) {
         view = request.getParameter("view");
     }
-    view = URLDecoder.decode(view, "UTF-8");
+    // No second URLDecoder pass: every caller (the doc-type links, the filter reload's
+    // URLSearchParams GET and the mutation actions' redirects) sends the raw type once
+    // encoded, and decoding again turned a literal "+" in a type name into a space.
 
     String module = "demographic";
 
@@ -526,7 +528,7 @@
                     </a> <% for (int i3 = 0; i3 < doctypes.size(); i3++) {%>
                     | <a
                         href="#"
-                        onclick="LoadView('<carlos:encode value='<%= URLEncoder.encode((String) doctypes.get(i3),"UTF-8") %>' context="javaScriptAttribute"/>'); return false;"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><carlos:encode value='<%= (String) doctypes.get(i3) %>' context="html"/><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
+                        onclick="LoadView('<carlos:encode value='<%= (String) doctypes.get(i3) %>' context="javaScriptAttribute"/>'); return false;"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><carlos:encode value='<%= (String) doctypes.get(i3) %>' context="html"/><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
                 </a>
                     <%}%>
                 </fieldset>

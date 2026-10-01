@@ -76,7 +76,10 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     String demographicID = request.getParameter("demographicID");
+    // Null-safe: ViewDocumentBrowserRead2Action rejects a missing key, but a forward that
+    // skips that gate must still render the "not supported" branch rather than an NPE.
     String categoryKey = request.getParameter("categorykey");
+    if (categoryKey == null) categoryKey = "";
     // errorMessage is populated by DocumentRefile2Action via a redirect query
     // param when a refile throws. Read it here so the alert block below renders.
     String errorMessage = request.getParameter("errorMessage");

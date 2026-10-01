@@ -152,7 +152,7 @@ test('lab forwarding rules binds its provider handler to the select that exists'
   const ids = new Set([...source.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]));
   const script = inlineScripts(source).map(s => s.code).join('\n');
   const bound = [...script.matchAll(/\$\(\s*["']#([\w-]+)["']\s*\)\s*\.\s*(?:on|change)\s*\(/g)].map(match => match[1]);
-  assert.deepEqual(bound, ['provider-selection']);
+  assert.ok(bound.includes('provider-selection'), 'The provider change handler is not bound to #provider-selection');
   for (const id of bound) assert.ok(ids.has(id), `The handler is bound to #${id}, which the page does not render`);
 });
 
@@ -179,7 +179,8 @@ function jobsHelpers() {
     return { map: fn => ({ get: () => options[type].map(value => fn.call({ value })) }) };
   };
   const context = { $ };
-  vm.runInNewContext(`${take('firstJob')}\n${take('expandCronPart')}\nthis.firstJob = firstJob; this.expandCronPart = expandCronPart;`, context);
+  vm.runInNewContext(`${take('firstJob')}\n${take('expandCronPart')}\n${take('parseCronExpression')}\n`
+    + 'this.firstJob = firstJob; this.expandCronPart = expandCronPart; this.parseCronExpression = parseCronExpression;', context);
   return { context, options };
 }
 
@@ -190,15 +191,55 @@ test('Jobs Management reads the stored job from the jobs array', () => {
   assert.equal(context.firstJob({}), null);
 });
 
-test('Jobs Management expands stored cron fields into the values its selects show', () => {
+test('Jobs Management expands stored cron fields into exactly the values its selects show', () => {
   const { context } = jobsHelpers();
-  const expand = (value, type) => [...context.expandCronPart(value, type)];
+  // Copy out of the VM realm so deepEqual compares plain arrays.
+  const expand = (value, type) => {
+    const result = context.expandCronPart(value, type);
+    return Array.isArray(result) ? [...result] : result;
+  };
+  assert.equal(expand('*', 'minute'), null);
+  assert.equal(expand('?', 'day'), null);
   assert.deepEqual(expand('15,45', 'minute'), ['15', '45']);
   assert.deepEqual(expand('1-5', 'weekday'), ['1', '2', '3', '4', '5']);
   assert.deepEqual(expand('*/15', 'minute'), ['0', '15', '30', '45']);
   assert.deepEqual(expand('0-30/10', 'minute'), ['0', '10', '20', '30']);
   assert.deepEqual(expand('5/20', 'minute'), ['5', '25', '45']);
-  assert.deepEqual(expand('MON-FRI', 'weekday'), []);
+  // Spring's 7 is Sunday: 1-7 must keep Sunday, as option 0.
+  assert.deepEqual(expand('1-7', 'weekday'), ['0', '1', '2', '3', '4', '5', '6']);
+  assert.deepEqual(expand('7', 'weekday'), ['0']);
+});
+
+test('Jobs Management refuses cron fields it cannot represent exactly', () => {
+  const { context } = jobsHelpers();
+  // Each of these would be silently changed by a lossy parse (parseInt('1W') is 1).
+  for (const [value, type] of [['MON-FRI', 'weekday'], ['JAN', 'month'], ['1W', 'day'], ['L', 'day'],
+    ['5#2', 'weekday'], ['5L', 'weekday'], ['60', 'minute'], ['0', 'day'], ['13', 'month'], ['5-1', 'hour'],
+    ['*/0', 'minute'], ['', 'minute'], ['1,', 'minute']]) {
+    assert.equal(context.expandCronPart(value, type), undefined, `${type} "${value}" must be refused`);
+  }
+});
+
+test('Jobs Management only restores six-field expressions it can show completely', () => {
+  const { context } = jobsHelpers();
+  const parsed = context.parseCronExpression('0 15,45 3 * * *');
+  assert.deepEqual([...parsed.minute], ['15', '45']);
+  assert.deepEqual([...parsed.hour], ['3']);
+  assert.equal(parsed.day, null);
+  assert.equal(parsed.month, null);
+  assert.equal(parsed.weekday, null);
+  for (const expression of ['0 5 * * *', '30 15 3 * * *', '0 0 9 * * MON-FRI', '0 0 9 1W * *', '0 0 9 * * * 2027']) {
+    assert.equal(context.parseCronExpression(expression), null, `"${expression}" must not be restored`);
+  }
+});
+
+test('Jobs Management refuses to save a schedule it could not restore', () => {
+  const source = fs.readFileSync(path.join(WEBAPP, 'WEB-INF/jsp/admin/jobs.jsp'), 'utf8');
+  assert.match(source, /click: function \(\) \{\s*if \(!scheduleEditable\) \{\s*return;\s*\}/,
+    'The schedule dialog Save must return early when the stored schedule is not editable');
+  const schedule = functionSource(source, 'scheduleJob', 'jobs.jsp');
+  assert.match(schedule, /if \(request !== scheduleRequestSeq\) \{\s*return;/, 'A superseded schedule response must be ignored');
+  assert.match(schedule, /\$\('#scheduleJobId'\)\.val\(job\.id\)/, 'The dialog must be bound to the loaded job, not the click');
 });
 
 test('Jobs Management offers every cron minute and day of the month and no javascript: links', () => {

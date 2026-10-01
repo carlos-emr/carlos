@@ -21,13 +21,16 @@
  * Lab Forwarding Rules loads that provider's rules and Update asks to confirm instead of
  * refusing; Jobs Management lists a markup-bearing job name as text, its name link opens the
  * editor, and the schedule dialog restores the stored cron (0 15,45 3 * * *) with full 0-59 /
- * 1-31 pickers, and Cancel leaves the row untouched.
- * Fixtures: the run's FAKE- patient, one owned PDF (document + ctl_document rows, file under
+ * 1-31 pickers, and Cancel leaves the row untouched; a stored schedule the pickers cannot show
+ * (weekday names) is explained and its Save is disabled, so it is never rewritten.
+ * Fixtures: the run's FAKE- patient, one owned document type containing '+' (ctl_doctype), one
+ * owned PDF of that type (document + ctl_document rows, file under
  * DOCUMENT_DIR), the owned note, a DISABLED job type with a nonexistent class plus a DISABLED
  * job on it (never schedulable); the test provider's edoc_browser_in_document_report preference
- * is turned on and restored exactly, so do not run it concurrently with another check that reads it. Cleanup removes exactly those rows
- * and the file, and asserts they are gone.
- * Env: DOCUMENT_DIR, plus the harness contract.
+ * is turned on and restored exactly, so do not run it concurrently with another check that reads
+ * it. Cleanup removes exactly those rows and the file, and asserts they are gone.
+ * Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR, as deb-install-validation.md exports it), plus the
+ * harness contract.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -44,9 +47,14 @@ const CRON = '0 15,45 3 * * *';
 const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
   && new URLSearchParams(r.request().postData() || '').get('method') === method;
 
+/**
+ * The install's document store. DOCUMENT_DIR names it; RX_FAX_DOCUMENT_DIR, which the
+ * deb-install validation already exports for the same directory, is accepted in its place.
+ * Called from runWorkflow's preflight, so a run without it skips before any fixture work.
+ */
 function documentStore() {
-  const store = process.env.DOCUMENT_DIR;
-  if (!store) throw new h.SkipCheck('DOCUMENT_DIR is not set; this check stores one owned PDF there');
+  const store = process.env.DOCUMENT_DIR || process.env.RX_FAX_DOCUMENT_DIR;
+  if (!store) throw new h.SkipCheck('DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR) is not set; this check stores one owned PDF there');
   let real;
   try {
     real = fs.realpathSync(store);
@@ -58,7 +66,7 @@ function documentStore() {
 }
 
 /** One owned PDF on the patient's chart: the row, its chart link and the stored file. */
-function seedDocument(s, store) {
+function seedDocument(s, store, docType) {
   const { sql, marker, patient, provider } = s;
   const filename = `${marker}.pdf`;
   const file = path.join(store, filename);
@@ -78,30 +86,54 @@ function seedDocument(s, store) {
   fs.writeFileSync(file, fixturePdf(marker), { mode: 0o644, flag: 'wx' });
   documentNo = sql.value(`INSERT INTO document
     (doctype,docdesc,docfilename,doccreator,responsible,status,contenttype,public1,number_of_pages,restrictToProgram,observationdate,updatedatetime,contentdatetime)
-    VALUES ('lab',${h.sqlString(marker)},${h.sqlString(filename)},${h.sqlString(provider)},${h.sqlString(provider)},
+    VALUES (${h.sqlString(docType)},${h.sqlString(marker)},${h.sqlString(filename)},${h.sqlString(provider)},${h.sqlString(provider)},
       'A','application/pdf',0,3,0,CURDATE(),NOW(),NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(documentNo), 'Document fixture was not inserted');
   sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${documentNo},'A')`);
   return documentNo;
 }
 
-/** Turns the report's Browse link on for the test provider and restores the row exactly. */
+/**
+ * Turns the report's Browse link on for the test provider and restores the row exactly. The
+ * value is snapshotted as HEX so NULL and the literal string 'NULL' round-trip (mysql -B prints
+ * both alike), and cleanup refuses to overwrite a row that changed under the run.
+ */
 function enableBrowseLink(s) {
   const { sql, provider } = s;
   const where = `provider_no=${h.sqlString(provider)} AND name=${h.sqlString(PREFERENCE)}`;
-  const snapshot = () => JSON.stringify(sql.rows(`SELECT id,value,IF(value IS NULL,1,0) FROM property WHERE ${where} ORDER BY id`));
-  const before = sql.rows(`SELECT id,value,IF(value IS NULL,1,0) FROM property WHERE ${where} ORDER BY id`);
+  const snapshot = () => sql.rows(`SELECT id,IFNULL(HEX(value),'NULL') FROM property WHERE ${where} ORDER BY id`);
+  const before = snapshot();
   h.assert(before.length <= 1, 'The test provider has duplicate document-browser preference rows');
-  const original = JSON.stringify(before);
+  for (const [id, hex] of before) {
+    h.assert(/^\d+$/.test(id) && (hex === 'NULL' || /^[0-9A-F]*$/i.test(hex)), 'Unexpected preference snapshot');
+  }
+  let insertedId = null;
+  let applied = false;
   s.cleanup(() => {
+    const current = snapshot();
+    if (!applied) {
+      h.assert(JSON.stringify(current) === JSON.stringify(before), 'The document-browser preference changed before the run set it');
+      return;
+    }
+    const ours = JSON.stringify(current.map(([id]) => [id, Buffer.from('yes').toString('hex').toUpperCase()]));
+    h.assert(JSON.stringify(current) === ours && current.length === 1
+      && current[0][0] === (before.length ? before[0][0] : insertedId),
+    'The document-browser preference changed during the run; it was left as found for an operator to check');
     if (before.length) {
-      const [id, value, isNull] = before[0];
-      sql.execute(`UPDATE property SET value=${isNull === '1' ? 'NULL' : h.sqlString(value)} WHERE id=${id} AND ${where}`);
-    } else sql.execute(`DELETE FROM property WHERE ${where}`);
-    h.assert(snapshot() === original, 'The document-browser preference was not restored');
+      const [id, hex] = before[0];
+      sql.execute(`UPDATE property SET value=${hex === 'NULL' ? 'NULL' : `UNHEX('${hex}')`} WHERE id=${id} AND ${where}`);
+    } else sql.execute(`DELETE FROM property WHERE id=${insertedId} AND ${where}`);
+    h.assert(JSON.stringify(snapshot()) === JSON.stringify(before), 'The document-browser preference was not restored');
   });
-  if (before.length) sql.execute(`UPDATE property SET value='yes' WHERE id=${before[0][0]} AND ${where}`);
-  else sql.execute(`INSERT INTO property (provider_no,name,value) VALUES (${h.sqlString(provider)},${h.sqlString(PREFERENCE)},'yes')`);
+  if (before.length) {
+    sql.execute(`UPDATE property SET value='yes' WHERE id=${before[0][0]} AND ${where}`);
+    applied = true;
+  } else {
+    insertedId = sql.value(`INSERT INTO property (provider_no,name,value) VALUES (${h.sqlString(provider)},${h.sqlString(PREFERENCE)},'yes');
+      SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(insertedId), 'The preference fixture was not inserted');
+    applied = true;
+  }
 }
 
 /** A disabled job type that names no real class, and a disabled job on it with a stored cron. */
@@ -131,7 +163,18 @@ function seedJob(s, jobName) {
 async function workflow(s) {
   const { sql, marker, patient, provider, recorder } = s;
   const store = documentStore();
-  const documentNo = seedDocument(s, store);
+  // An owned document type containing '+': the note browser's doc-type filter must survive
+  // repeated reloads without the '+' being decoded into a space.
+  const docType = `${marker}+plus`;
+  let docTypeId = null;
+  s.cleanup(() => {
+    if (!docTypeId) return;
+    sql.execute(`DELETE FROM ctl_doctype WHERE id=${docTypeId} AND doctype=${h.sqlString(docType)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM ctl_doctype WHERE doctype=${h.sqlString(docType)}`) === '0', 'The owned document type was not removed');
+  });
+  docTypeId = sql.value(`INSERT INTO ctl_doctype (module,doctype,status) VALUES ('demographic',${h.sqlString(docType)},'A'); SELECT LAST_INSERT_ID()`);
+  h.assert(/^[1-9]\d*$/.test(docTypeId), 'The document type fixture was not inserted');
+  const documentNo = seedDocument(s, store, docType);
   const optionValue = `${documentNo}-application/pdf`;
   enableBrowseLink(s);
 
@@ -225,6 +268,23 @@ async function workflow(s) {
     h.assert(await notes.locator(`#doclist option[value="${optionValue}"]`).count() === 0, 'The deleted view lists a published document');
     await chooseStatus('active');
     h.assert(await notes.locator(`#doclist option[value="${optionValue}"]`).count() === 1, 'The published view lost the owned document');
+  });
+
+  await s.step('a document type containing "+" survives the type filter and repeated reloads', async () => {
+    const link = notes.locator('a[onclick*="LoadView("]', { hasText: docType });
+    h.assert(await link.count() === 1, 'The owned document type is not offered as a filter');
+    await Promise.all([
+      notes.waitForURL(url => url.pathname.endsWith('/casemgmt/ViewNoteBrowser') && url.searchParams.get('view') === docType, { timeout: TIMEOUT }),
+      link.click(),
+    ]);
+    await notes.locator('#doclist').waitFor({ state: 'attached', timeout: TIMEOUT });
+    for (const status of ['deleted', 'active']) {
+      await chooseStatus(status);
+      h.assert(new URL(notes.url()).searchParams.get('view') === docType, `Reloading with status ${status} changed the document-type filter`);
+      h.assert(await notes.locator('input[name="view"]').inputValue() === docType, 'The page lost the exact document-type filter');
+    }
+    h.assert(await notes.locator(`#doclist option[value="${optionValue}"]`).count() === 1,
+      'The "+" document type no longer matches its own document after a reload');
   });
 
   await s.step('Print opens the print popup and leaves the note browser in place', async () => {
@@ -347,7 +407,33 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT CONCAT_WS('|',cronExpression,enabled) FROM OscarJob WHERE id=${jobId}`) === `${CRON}|0`,
       'Cancelling the schedule dialog changed the job');
   });
+
+  await s.step('a stored schedule the editor cannot show exactly blocks Save instead of being rewritten', async () => {
+    // Weekday names cannot be shown by the numeric picker; opening and saving must not turn this
+    // job into "every day".
+    const unshowable = '0 0 9 * * MON-FRI';
+    sql.execute(`UPDATE OscarJob SET cronExpression=${h.sqlString(unshowable)} WHERE id=${jobId} AND name=${h.sqlString(jobName)}`);
+    const [loaded] = await Promise.all([admin.waitForResponse(isRest(`job/${jobId}`, 'GET'), { timeout: TIMEOUT }),
+      jobRow().locator('td').first().locator('a').click()]);
+    h.assert(loaded.status() === 200, 'The schedule dialog could not load the stored job');
+    await jobs.locator('#scheduleDialog').waitFor({ state: 'visible', timeout: TIMEOUT });
+    h.assert((await jobs.locator('#scheduleDialog .validateTips').innerText()).includes(unshowable),
+      'The dialog does not explain that the stored schedule cannot be edited here');
+    const save = dialogButton('scheduleDialog', 'Save');
+    h.assert(await save.isDisabled(), 'Save stays enabled for a schedule the dialog cannot represent');
+    let posted = false;
+    const listener = request => { if (request.method() === 'POST' && request.url().includes('/ws/rs/jobs/saveCrontabExpression')) posted = true; };
+    s.context.on('request', listener);
+    try {
+      await save.click({ force: true });
+      await jobs.waitForTimeout(500);
+    } finally { s.context.off('request', listener); }
+    h.assert(!posted, 'A disabled Save still posted the schedule');
+    await dialogButton('scheduleDialog', 'Cancel').click();
+    await jobs.locator('#scheduleDialog').waitFor({ state: 'hidden', timeout: TIMEOUT });
+    h.assert(sql.value(`SELECT cronExpression FROM OscarJob WHERE id=${jobId}`) === unshowable, 'The unshowable schedule was changed');
+  });
 }
 
-if (require.main === module) runWorkflow('page-script-repairs', workflow);
+if (require.main === module) runWorkflow('page-script-repairs', workflow, { preflight: () => { documentStore(); } });
 module.exports = { workflow };
