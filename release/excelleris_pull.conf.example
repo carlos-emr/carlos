@@ -1,0 +1,74 @@
+# excelleris_pull.conf - configuration for release/excelleris_pull.py
+#
+# Copy to a location only the service user can read, then:
+#     chown carlos-excelleris:carlos-excelleris pull.conf
+#     chmod 600 pull.conf
+# The tool refuses to start if group or other can read this file.
+#
+# Values are taken literally: '%' and ';' inside a value are fine. Do not quote.
+# Lines starting with '#' are comments.
+
+[excelleris]
+# Informational only; appears in alert emails so a clinic running several
+# feeds can tell them apart. Mirrors CONTEXT in the old config_inc.txt.
+context = Example Family Practice
+
+# Ontario test:        https://api.ontest.excelleris.com/hl7pull.aspx
+# Ontario production:  https://api.on.excelleris.com/hl7pull.aspx
+# BC:                  replace "on" with "bc"
+url = https://api.ontest.excelleris.com/hl7pull.aspx
+
+# Clinic Excelleris user id and password (what USERNAME/PASSWORD were before).
+user_id =
+password =
+
+# The PFX Excelleris issued for this clinic, also mode 0600, and its passphrase.
+pfx_file = /etc/carlos-excelleris/clinic.pfx
+pfx_password =
+
+# Per-request timeout. The old script had none and could hang forever.
+timeout_seconds = 60
+
+[carlos]
+# The CARLOS base URL including the context path, no trailing slash.
+base_url = https://emr.example.ca/carlos
+
+# A dedicated CARLOS provider login holding only the _lab security object with
+# write access. No MFA, no pending forced password reset.
+username =
+password =
+pin =
+
+# The key name created in Administration > Key Manager > Create Key, with type
+# "OTHER" / "ExcellerisON" (Ontario). CARLOS picks the import handler from the
+# key, so this one name selects both the signature check and the parser.
+service = excelleris
+
+# Keys as base64 copied from CARLOS. Either paste inline or point at a file
+# (mode 0600) with the *_file variant; PEM armour and line breaks are tolerated.
+#   client_private_key: "base64EncodedPrivateKey" from
+#                       <base_url>/admin/keygen/getPublicKey?id=<service>
+#   server_public_key:  the block shown at the top of the Key Manager page
+client_private_key_file = /etc/carlos-excelleris/client-private-key.b64
+server_public_key_file = /etc/carlos-excelleris/server-public-key.b64
+
+timeout_seconds = 120
+
+[paths]
+# Private working directory; the tool creates inbox/, done/, failed/ under it
+# with mode 0700. Lab results live here, so keep it on local encrypted storage
+# and out of any backup that is not itself PHI-grade.
+state_dir = /var/lib/carlos-excelleris
+
+# Run log. Never contains result content or credentials.
+log_file = /var/log/carlos-excelleris/pull.log
+
+# Days to keep compressed, already-imported pulls in done/. 0 keeps forever
+# (and logs a warning every run). Set this to what your records policy allows.
+retention_days = 90
+
+[alerts]
+# Failure alerts are emailed here through sendmail. Leave empty to disable.
+email = clinic-it@example.ca
+from = carlos-excelleris@emr.example.ca
+sendmail = /usr/sbin/sendmail
