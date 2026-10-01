@@ -4246,6 +4246,20 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "workflow-tickler-suggested-text",
+      "script": "scripts/workflow-tickler-suggested-text-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
     }
   ]
 }
