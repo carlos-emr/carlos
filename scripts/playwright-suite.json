@@ -3777,8 +3777,11 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "RX_EDIT_DRUG_TERM",
+        "RX_EDIT_DRUG_NAME"
+      ],
+      "fixtures": "Owned synthetic patient; prescriptions created through the UI against live DrugRef and removed by patient id."
     },
     {
       "name": "admin-api-keygen",
@@ -4170,11 +4173,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "RX_ODB_FILE"
+      ],
+      "notes": "Fails at its last step on 2026.08: no drug-drug interaction marker is shown for a DrugRef major interaction (the interaction calls are commented out of the Rx page).",
+      "fixtures": "Owned patient with owned WT/SCR measurements; the test provider's rxInteractionWarningLevel property is snapshotted and restored."
     },
     {
       "name": "messenger-attachments",
