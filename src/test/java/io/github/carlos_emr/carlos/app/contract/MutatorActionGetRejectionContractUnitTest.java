@@ -256,6 +256,8 @@ class MutatorActionGetRejectionContractUnitTest {
             // answer 503 until durable delivery is wired, but the routes remain mutators.
             // Unconditional: reading the invite list belongs to a separate read action, so every
             // route on this class mutates and the method check runs before authorization.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalBookingPrompt2Action",
+                         "_portal.booking_prompt", "w"),
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
                     "_portal.invite", "w"),
             // Clears a lockout or disables an account. Unconditional for the same reason: the panel
