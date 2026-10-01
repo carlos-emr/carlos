@@ -30,6 +30,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -350,6 +352,57 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             verify(mockConsentDao).merge(consent);
         }
 
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        @DisplayName("should retire and audit duplicates when opting out by record ID or object")
+        void shouldRetireDuplicates_whenOptingOutByRecord(boolean useObjectOverload) {
+            Consent named = consent(10, false, new Date(1_000L));
+            named.setConsentTypeId(1);
+            named.setExplicit(true);
+            Date duplicateDate = new Date(2_000L);
+            Consent duplicate = consent(11, false, duplicateDate);
+            duplicate.setConsentTypeId(1);
+            duplicate.setLastEnteredBy("original-author");
+            when(mockConsentDao.find(10)).thenReturn(named);
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1))
+                    .thenReturn(List.of(duplicate, named));
+
+            if (useObjectOverload) manager.optoutConsent(loggedInInfo, named);
+            else manager.optoutConsent(loggedInInfo, 10);
+
+            assertThat(named.isOptout()).isTrue();
+            assertThat(named.isDeleted()).isFalse();
+            assertThat(named.isExplicit()).isTrue();
+            assertThat(duplicate.isDeleted()).isTrue();
+            assertThat(duplicate.isOptout()).isFalse();
+            assertThat(duplicate.getEditDate()).isEqualTo(duplicateDate);
+            assertThat(duplicate.getLastEnteredBy()).isEqualTo("original-author");
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).refresh(named);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+            order.verify(mockConsentDao).merge(named);
+            order.verify(mockConsentDao).merge(duplicate);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+                    "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100, " ConsentId: 10"));
+            logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
+                    "PatientConsentManager.retireDuplicateConsent", "consent", "11", 100,
+                    " Demographic: 100 ConsentTypeId: 1 ConsentId: 11 KeptConsentId: 10"));
+        }
+
+        @Test
+        @DisplayName("should opt out an untyped record without grouping other untyped records")
+        void shouldNotGroupDuplicates_whenRecordHasNoConsentType() {
+            Consent untyped = consent(10, false, new Date(1_000L));
+            when(mockConsentDao.find(10)).thenReturn(untyped);
+
+            manager.optoutConsent(loggedInInfo, 10);
+
+            assertThat(untyped.isOptout()).isTrue();
+            verify(mockConsentDao).merge(untyped);
+            verify(mockConsentDao, never()).findLiveByDemographicAndConsentTypeIdForUpdate(anyInt(), anyInt());
+        }
+
         @Test
         @DisplayName("should lock the patient and re-read the record before opting it out by ID")
         void shouldLockAndReread_beforeOptingOutById() {
@@ -375,6 +428,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should leave a record alone when a concurrent clear retired it before the lock")
         void shouldNotReviveRecord_whenRetiredBeforeLock() {
             Consent consent = consent(10, false, new Date(1_000L));
+            consent.setConsentTypeId(1);
             when(mockConsentDao.find(10)).thenReturn(consent);
             // The re-read after the lock sees the clear another request committed meanwhile.
             doAnswer(invocation -> {
@@ -386,6 +440,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
 
             assertThat(consent.isOptout()).isFalse();
             verify(mockConsentDao, never()).merge(any());
+            verify(mockConsentDao, never()).findLiveByDemographicAndConsentTypeIdForUpdate(anyInt(), anyInt());
             // The audit says nothing was opted out.
             logActionMock.verify(() -> LogAction.addLogSynchronous(loggedInInfo,
                     "PatientConsentManager.optoutConsent[consentID]", "consent", "10", 100,

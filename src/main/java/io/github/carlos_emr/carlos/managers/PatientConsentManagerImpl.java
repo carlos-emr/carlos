@@ -308,8 +308,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     }
 
     /**
-     * Used for removing consent from a patient that previously consented. For a Consent object.
-     * A record that has been deleted or retired is left as it is.
+     * Opts out the named live record and retires other live records for its patient and type.
+     * A record that has been deleted or retired is left as it is. Untyped records are opted out
+     * without grouping unrelated records whose consent type is also missing.
      */
     public void optoutConsent(LoggedInInfo loggedinInfo, int consentId) {
 
@@ -346,6 +347,12 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             return;
         }
 
+        // Read and refresh the duplicate set before mutating the named record: refreshing it
+        // after the change could overwrite the pending opt-out with its prior database state.
+        Integer consentTypeId = consent.getConsentTypeId();
+        List<Consent> live = consentTypeId == null ? List.of()
+                : consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographicNo, consentTypeId);
+
         Date date = new Date(System.currentTimeMillis());
         consent.setOptout(Boolean.TRUE);
         consent.setOptoutDate(date);
@@ -354,6 +361,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         consentDao.merge(consent);
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", CONSENT_LOG_CONTENT,
                 String.valueOf(consentId), demographicNo, LOG_CONSENT_ID + consentId);
+        if (consentTypeId != null) {
+            retireDuplicates(loggedinInfo, demographicNo, consentTypeId, live, consent);
+        }
     }
 
     /**

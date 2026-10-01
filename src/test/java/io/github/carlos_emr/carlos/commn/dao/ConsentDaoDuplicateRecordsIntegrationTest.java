@@ -149,11 +149,18 @@ class ConsentDaoDuplicateRecordsIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should return the live records newest first when reading them for update")
+    @DisplayName("should return only the requested patient and type live records, newest first, for update")
     void shouldReturnLiveRecordsNewestFirst_whenReadingForUpdate() {
         consentRecord(510, false, false, 1_000L);
         consentRecord(510, true, true, 3_000L);
         consentRecord(510, true, false, 2_000L);
+        consentRecord(999, false, false, 4_000L);
+        ConsentType otherType = new ConsentType();
+        otherType.setName("Other consent");
+        otherType.setType("dup_test_other_type");
+        otherType.setActive(true);
+        entityManager.persist(otherType);
+        consentRecord(otherType, 510, false, false, 5_000L);
         flushAndClear();
 
         assertThat(consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(510, emailType.getId()))
