@@ -125,7 +125,10 @@ class SubmitLabByForm2ActionTest extends CarlosWebTestBase {
 
             assertThat(logs.messages()).contains("HL7 generated for lab submission");
             assertThat(String.join("\n", logs.messages()))
-                    .doesNotContain("private-sender", "BAR260403100000", "Test^Patient", "1234567890");
+                    // Every PHI-bearing value in the generated MSH/PID segments, plus the raw
+                    // request values they were built from (DOB, accession, billing number).
+                    .doesNotContain("private-sender", "BAR260403100000", "Test^Patient", "1234567890",
+                            "19900101", "555-0100", "X1234567890", "1990-01-01", "ACC001", "B001");
         }
     }
 }

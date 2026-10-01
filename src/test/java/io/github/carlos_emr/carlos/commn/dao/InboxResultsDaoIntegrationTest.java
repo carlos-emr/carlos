@@ -325,17 +325,33 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     }
 
     // ========================================================================
-    // populateDocumentResultsData — full overload with demographicNo
+    // populateDocumentResultsData — patient-name search without a HIN
     // ========================================================================
 
+    /**
+     * A blank HIN filter must not drop a patient whose {@code hin} is NULL, and a non-blank one
+     * must still exclude them. Both the separate-documents path ({@code mixLabsAndDocs=false})
+     * and the mixed inbox path ({@code true}) build the HIN predicate, so each is its own test.
+     */
     @Nested
-    @DisplayName("populateDocumentResultsData (full, !mixLabsAndDocs)")
+    @DisplayName("populateDocumentResultsData (name search, patient without HIN)")
     @Tag("read")
-    class PopulateDocumentResultsDataFull {
+    @Tag("search")
+    class PopulateDocumentResultsDataWithoutHin {
 
         @Test
-        @DisplayName("name search includes a patient without a health number when HIN is blank")
-        void shouldFindDocument_forPatientWithoutHin() {
+        @DisplayName("should include a patient without a HIN when documents are listed separately")
+        void shouldFindDocumentForPatientWithoutHin_whenNotMixingLabsAndDocs() {
+            assertNameSearchMatchesPatientWithoutHin(false);
+        }
+
+        @Test
+        @DisplayName("should include a patient without a HIN when labs and documents are mixed")
+        void shouldFindDocumentForPatientWithoutHin_whenMixingLabsAndDocs() {
+            assertNameSearchMatchesPatientWithoutHin(true);
+        }
+
+        private void assertNameSearchMatchesPatientWithoutHin(boolean mixLabsAndDocs) {
             Demographic patient = entityManager.find(Demographic.class, demoId);
             patient.setHin(null);
             Document doc = createDocument("lab", PROVIDER_NO, 'A');
@@ -343,18 +359,26 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
             createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
             entityManager.flush();
 
-            for (boolean mixLabsAndDocs : new boolean[] {false, true}) {
-                ArrayList<LabResultData> matches = inboxResultsDao.populateDocumentResultsData(
-                        PROVIDER_NO, null, "Test", "Patient", "", "N",
-                        false, null, null, mixLabsAndDocs, null);
-                assertThat(matches).extracting(result -> result.segmentID)
-                        .containsExactly(doc.getDocumentNo().toString());
+            ArrayList<LabResultData> matches = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, null, "Test", "Patient", "", "N",
+                    false, null, null, mixLabsAndDocs, null);
+            assertThat(matches).extracting(result -> result.segmentID)
+                    .containsExactly(doc.getDocumentNo().toString());
 
-                assertThat(inboxResultsDao.populateDocumentResultsData(
-                        PROVIDER_NO, null, "Test", "Patient", "other-hin", "N",
-                        false, null, null, mixLabsAndDocs, null)).isEmpty();
-            }
+            assertThat(inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, null, "Test", "Patient", "other-hin", "N",
+                    false, null, null, mixLabsAndDocs, null)).isEmpty();
         }
+    }
+
+    // ========================================================================
+    // populateDocumentResultsData — full overload with demographicNo
+    // ========================================================================
+
+    @Nested
+    @DisplayName("populateDocumentResultsData (full, !mixLabsAndDocs)")
+    @Tag("read")
+    class PopulateDocumentResultsDataFull {
 
         @Test
         @DisplayName("should return documents for specific demographic when routing exists")
