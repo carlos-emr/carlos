@@ -251,6 +251,7 @@ public class EmailManager {
     private EmailSendResult sendEmailInternal(LoggedInInfo loggedInInfo, EmailData emailData,
             DispatchGate dispatchGate) {
         boolean ownsWorkingDirectory = emailData.getWorkingDirectory() == null;
+        EmailLog persistedEmailLog = null;
         try {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
                 throw new RuntimeException("missing required sec object (_email)");
@@ -271,6 +272,7 @@ public class EmailManager {
             }
             EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
             EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
+            persistedEmailLog = emailLog;
             upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
             applyConsentSnapshot(emailLog, consentResult, emailData);
             logPreparedEmail(loggedInInfo, emailLog);
@@ -339,11 +341,29 @@ public class EmailManager {
                 return completeFailedSend(loggedInInfo, emailLog, e);
             }
         } finally {
+            forgetInvitationBody(persistedEmailLog);
             if (ownsWorkingDirectory && emailData.getWorkingDirectory() != null) {
                 emailData.getWorkingDirectory().close();
             }
             emailData.setPassword("");
             emailData.setPasswordClue("");
+        }
+    }
+
+    /** Clears the durable invitation body even when a synchronous failure precedes the dispatch gate. */
+    private void forgetInvitationBody(EmailLog emailLog) {
+        if (emailLog == null || emailLog.getId() == null
+                || emailLog.getTransactionType() != EmailLog.TransactionType.PORTAL_INVITE) {
+            return;
+        }
+        try {
+            // A body-only update cannot overwrite a concurrently recorded delivery outcome.
+            emailLogDao.replaceBody(emailLog.getId(), EmailLog.PORTAL_INVITE_BODY_FORGOTTEN);
+            emailLog.setBody(EmailLog.PORTAL_INVITE_BODY_FORGOTTEN);
+        } catch (RuntimeException exception) {
+            // Cleanup must preserve the send result or original exception and disclose no email content.
+            logger.warn("patient portal invitation email body could not be cleared: {}",
+                    exception.getClass().getSimpleName());
         }
     }
 

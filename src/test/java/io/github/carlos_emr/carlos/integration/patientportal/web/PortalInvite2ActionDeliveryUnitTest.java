@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliver
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService.Decision;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService.InviteRequest;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException.Reason;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -62,6 +63,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -314,6 +316,16 @@ class PortalInvite2ActionDeliveryUnitTest {
         assertThat(payload().get("message").asText()).contains("pending invitation");
     }
 
+    @ParameterizedTest
+    @EnumSource(value = Reason.class, names = {"INVALID_DATE_OF_BIRTH", "INVALID_HEALTH_CARD"})
+    void shouldReturnBadRequest_forInvalidActivationDetails(Reason reason) throws Exception {
+        request.setParameter("method", "create");
+        when(invites.invite(any(), any(), any(), any())).thenThrow(new PortalInviteException(reason));
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(payload().get("reason").asText()).isEqualTo(reason.code());
+    }
+
     @Test
     @DisplayName("should map a portal failure the same way every portal action does")
     void shouldMapPortalFailures_likeOtherPortalActions() throws Exception {
@@ -376,18 +388,20 @@ class PortalInvite2ActionDeliveryUnitTest {
         assertThat(payload().get("delivery").get("onCurrentConnection").booleanValue()).isFalse();
     }
 
-    @Test
-    @DisplayName("should measure a consent override reason as the email stores it, trimmed")
-    void shouldAcceptOverrideReason_whenItFitsOnceTrimmed() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"  ", "\u2003"})
+    @DisplayName("should measure the normalized consent override reason that is passed to delivery")
+    void shouldAcceptOverrideReason_whenItFitsOnceStripped(String padding) throws Exception {
         request.setParameter("method", "create");
         request.setParameter("consentOverride", "true");
-        request.setParameter("consentOverrideReason", "  " + "r".repeat(255) + "  ");
+        request.setParameter("consentOverrideReason", padding + "r".repeat(255) + padding);
         when(invites.invite(any(), any(), any(), any())).thenReturn(delivery(State.SENT));
 
         execute();
 
         assertThat(response.getStatus()).isEqualTo(200);
-        verify(invites).invite(any(), any(), any(), any());
+        verify(invites).invite(any(), any(), any(), org.mockito.ArgumentMatchers.argThat(
+                invite -> "r".repeat(255).equals(invite.consentOverrideReason())));
     }
 
     @ParameterizedTest

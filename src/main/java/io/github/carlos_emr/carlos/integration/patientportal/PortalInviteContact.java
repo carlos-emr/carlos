@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException.Reason;
+import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.Locale;
@@ -46,6 +47,11 @@ record PortalInviteContact(String email, LocalDate dateOfBirth, String healthCar
 
     /** @throws PortalInviteException when the chart lacks a usable email, date of birth or health card */
     static PortalInviteContact from(Demographic patient) {
+        return from(patient, LocalDate.now(Clock.systemUTC()));
+    }
+
+    /** Uses the portal's inclusive UTC date bounds, with a supplied date for deterministic checks. */
+    static PortalInviteContact from(Demographic patient, LocalDate today) {
         String email = strip(patient.getEmail());
         if (email.isEmpty()) {
             throw new PortalInviteException(Reason.MISSING_EMAIL);
@@ -61,9 +67,20 @@ record PortalInviteContact(String email, LocalDate dateOfBirth, String healthCar
         } catch (NumberFormatException | DateTimeException exception) {
             throw new PortalInviteException(Reason.INCOMPLETE_DATE_OF_BIRTH);
         }
-        String healthCard = strip(patient.getHin()).replace(" ", "").replace("-", "").toUpperCase(Locale.ROOT);
+        if (dateOfBirth.isBefore(today.minusYears(126)) || dateOfBirth.isAfter(today.plusDays(1))) {
+            throw new PortalInviteException(Reason.INVALID_DATE_OF_BIRTH);
+        }
+        StringBuilder compactCard = new StringBuilder();
+        strip(patient.getHin()).codePoints()
+                .filter(character -> character != '-' && character != 0x85 && !Character.isWhitespace(character)
+                        && !Character.isSpaceChar(character))
+                .forEach(compactCard::appendCodePoint);
+        String healthCard = compactCard.toString().toUpperCase(Locale.ROOT);
         if (healthCard.length() < MIN_HEALTH_CARD_LENGTH) {
             throw new PortalInviteException(Reason.MISSING_HEALTH_CARD);
+        }
+        if (!healthCard.matches("[A-Z0-9]{4,64}")) {
+            throw new PortalInviteException(Reason.INVALID_HEALTH_CARD);
         }
         return new PortalInviteContact(email, dateOfBirth, healthCard);
     }

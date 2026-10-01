@@ -183,6 +183,24 @@ class PortalManage2ActionUnitTest {
     }
 
     @Test
+    void shouldOfferAccountChanges_withoutUnlockRights() {
+        grant("_portal.account", SecurityInfoManager.READ);
+        grant("_portal.account", SecurityInfoManager.WRITE);
+        new PortalManage2Action(security, compose).execute();
+        assertThat(request.getAttribute("portalCanSetAccess")).isEqualTo(true);
+        assertThat(request.getAttribute("portalCanUnlock")).isEqualTo(false);
+    }
+
+    @Test
+    void shouldOfferUnlock_withoutAccountWriteRights() {
+        grant("_portal.account", SecurityInfoManager.READ);
+        grant("_portal.account.unlock", SecurityInfoManager.WRITE);
+        new PortalManage2Action(security, compose).execute();
+        assertThat(request.getAttribute("portalCanSetAccess")).isEqualTo(false);
+        assertThat(request.getAttribute("portalCanUnlock")).isEqualTo(true);
+    }
+
+    @Test
     @DisplayName("should answer anything but GET with 405 before any check")
     void shouldRejectPost_withMethodNotAllowed() {
         request.setMethod("POST");

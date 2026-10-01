@@ -388,7 +388,7 @@ public class PortalInviteDeliveryService {
         if (prepared == null) {
             // Recovery may claim a stalled preparation before its response arrives. Once fenced out,
             // this sender must never store or send the code. Withdraw a late response as well.
-            discardLatePreparation(row.getId(), demographicNo, inviteId, staff);
+            discardLatePreparation(row.getId(), inviteId, staff);
             throw new PortalInviteException(Reason.STATE_CHANGED);
         }
         row = prepared;
@@ -695,7 +695,7 @@ public class PortalInviteDeliveryService {
         // Age only makes the button available. The durable claim, before any portal call,
         // is what prevents a resumed sender from advancing to COMMITTED and dispatching.
         Outcome initial = row.getState() == State.ABANDONING ? row.getOutcome() : Outcome.ABANDONED_BY_STAFF;
-        if (row.getState() == State.QUEUED && row.getSupersededInviteId() != null) {
+        if (row.getState() == State.QUEUED) {
             initial = Outcome.COMMIT_UNCONFIRMED;
         }
         PatientPortalInviteDelivery claimed = claimAbandonment(row.getId(), row.getState(), initial,
@@ -707,12 +707,9 @@ public class PortalInviteDeliveryService {
         if (inviteId == null) {
             inviteId = findLostPreparation(claimed, patient, staff);
         }
-        Outcome outcome = claimed.getOutcome();
-        if (outcome == Outcome.COMMIT_UNCONFIRMED && claimed.getSupersededInviteId() != null
-                && replacedInviteStillPending(claimed, staff)) {
-            outcome = Outcome.ABANDONED_BY_STAFF;
-        }
-        PatientPortalInviteDelivery abandoned = finishAbandonment(claimed, outcome, inviteId, staff);
+        // A queued portal commit may still activate the replacement after a status read. Keep the
+        // warning that the patient's earlier code may have been retired even after withdrawing this one.
+        PatientPortalInviteDelivery abandoned = finishAbandonment(claimed, claimed.getOutcome(), inviteId, staff);
         if (abandoned == null) {
             throw new PortalInviteException(Reason.STATE_CHANGED);
         }
@@ -724,24 +721,6 @@ public class PortalInviteDeliveryService {
                     EMAIL_ABANDONED_BY_STAFF, Date.from(clock.instant()));
         }
         return abandoned;
-    }
-
-    /**
-     * Whether the invitation a resend was to replace is still pending on the portal. The portal retires it
-     * and activates the replacement in one transaction, so while it is pending the resend was never
-     * activated and the patient's earlier code still works, whatever became of the new one. Read-only.
-     *
-     * @return {@code false} when it was retired or is not listed, or the portal cannot say
-     */
-    private boolean replacedInviteStillPending(PatientPortalInviteDelivery row, PatientPortalStaffContext staff) {
-        long replaced = row.getSupersededInviteId();
-        try {
-            return portal.listInvites(row.getDemographicNo(), staff).stream()
-                    .anyMatch(invite -> invite.id() == replaced && STATUS_PENDING.equals(invite.status()));
-        } catch (PatientPortalException exception) {
-            logger.warn("patient portal invitation status could not be read: kind={}", exception.kind());
-            return false;
-        }
     }
 
     /**
@@ -911,43 +890,47 @@ public class PortalInviteDeliveryService {
                 return null;
             }
         }
-        boolean revokeFailed = inviteId != null && !withdraw(claimed.getDemographicNo(), inviteId, staff);
+        CodeFate fate = null;
+        if (inviteId != null) {
+            try {
+                fate = revokeCode(claimed, staff);
+            } catch (PatientPortalException exception) {
+                logger.warn("patient portal invitation withdrawal remains unconfirmed: kind={}", exception.kind());
+                // The sender is fenced, but the code may still be live. Keep withdrawal retryable.
+                return deliveries.advance(claimed.getId(), State.ABANDONING, State.ABANDONING, r -> {
+                    r.setOutcome(outcome);
+                    r.setRevokeFailed(true);
+                });
+            }
+        }
+        Outcome finishedOutcome = fate == CodeFate.USED ? Outcome.CODE_ALREADY_USED : outcome;
         return deliveries.advance(claimed.getId(), State.ABANDONING, State.ABANDONED, r -> {
-            r.setOutcome(outcome);
-            r.setRevokeFailed(revokeFailed);
+            // A late preparation can record its id while this request holds an older no-id snapshot.
+            // Check under the DAO row lock so its unfinished withdrawal cannot be erased.
+            if (inviteId == null && r.getPortalInviteId() != null) {
+                throw new PortalInviteException(Reason.STATE_CHANGED);
+            }
+            r.setOutcome(finishedOutcome);
+            r.setRevokeFailed(false);
         });
     }
 
     /** A preparation that returned after abandonment can no longer reach the dispatch gate. */
-    private void discardLatePreparation(Long deliveryId, int demographicNo, long inviteId,
+    private void discardLatePreparation(Long deliveryId, long inviteId,
             PatientPortalStaffContext staff) {
         PatientPortalInviteDelivery row = deliveries.find(deliveryId);
         if (row == null || (row.getState() != State.ABANDONING && row.getState() != State.ABANDONED)) {
             return;
         }
-        boolean revokeFailed = !withdraw(demographicNo, inviteId, staff);
-        // Both states permanently fence sending. A concurrent finisher may have advanced the first.
+        // Persist the late response and reopen only an abandonment, before contacting the portal.
+        // Both states fence dispatch; uncertainty must remain visible and retryable.
         for (State expected : List.of(State.ABANDONING, State.ABANDONED)) {
-            if (deliveries.advance(deliveryId, expected, expected, r -> {
-                r.setPortalInviteId(inviteId);
-                r.setRevokeFailed(revokeFailed);
-            }) != null) {
+            PatientPortalInviteDelivery claimed = deliveries.advance(deliveryId, expected, State.ABANDONING,
+                    r -> r.setPortalInviteId(inviteId));
+            if (claimed != null) {
+                finishAbandonment(claimed, claimed.getOutcome(), inviteId, staff);
                 return;
             }
-        }
-    }
-
-    /** @return whether the portal withdrew the invitation; a failure leaves it to expire on its own */
-    private boolean withdraw(int demographicNo, long inviteId, PatientPortalStaffContext staff) {
-        try {
-            portal.revokeInvite(demographicNo, inviteId, staff);
-            return true;
-        } catch (PatientPortalException exception) {
-            // The attempt records only that the withdrawal failed; the log says why. The kind and the
-            // transport's fixed category name no patient data.
-            logger.warn("patient portal invitation could not be withdrawn: kind={}, cause={}", exception.kind(),
-                    exception.getCause() == null ? "none" : exception.getCause().getMessage());
-            return false;
         }
     }
 

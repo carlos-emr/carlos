@@ -123,8 +123,8 @@ class PortalInvite2ActionUnitTest {
     @ValueSource(strings = {"create", "resend"})
     void shouldRequireEmailWrite_beforeSending(String method) throws Exception {
         // The email layer enforces _email write for every patient email; refusing here keeps a send the
-        // email layer would reject from preparing a token on the portal first. Document write is
-        // granted, so only the missing email right can be what refuses.
+        // email layer would reject from preparing a token on the portal first. The document grant is
+        // defensive setup; the earlier email privilege gate is what refuses this request.
         when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
         request.setParameter("method", method);
         request.setParameter("confirmReplace", "true");
