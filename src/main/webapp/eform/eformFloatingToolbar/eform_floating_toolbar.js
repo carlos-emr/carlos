@@ -1073,6 +1073,7 @@ function initializeFaxRecipient() {
             delete fax.dataset.typed;
         } else {
             delete fax.dataset.edited;
+            delete fax.dataset.typed;
             delete name.dataset.edited;
             refresh();
         }
