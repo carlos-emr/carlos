@@ -136,7 +136,8 @@ public class FaxRecipientSearch2Action extends ActionSupport {
             Provider provider = (Provider) row[0];
             ObjectNode item = objectMapper.createObjectNode();
             item.put("name", displayName(provider.getLastName(), provider.getFirstName()));
-            item.put("fax", (String) row[1]);
+            // The query filters on TRIM(value); return the same trimmed number it matched on.
+            item.put("fax", StringUtils.trimToEmpty((String) row[1]));
             item.put("badge", "Provider");
             item.put("type", "PROVIDER");
             results.add(item);

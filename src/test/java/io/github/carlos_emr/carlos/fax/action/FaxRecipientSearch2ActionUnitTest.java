@@ -184,9 +184,9 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
         provider.setLastName("Example");
         provider.setFirstName("Alex");
         when(providers.searchFaxRecipients("clinic", 20)).thenReturn(
-                List.<Object[]>of(new Object[]{provider, "416-555-0100"}));
+                List.<Object[]>of(new Object[]{provider, " 416-555-0100 "}));
 
-        execute();
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
 
         JsonNode rows = mapper.readTree(response.getContentAsString());
         assertThat(rows).hasSize(1);
@@ -197,10 +197,11 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnUnavailable_whenProviderDirectoryFails() {
+    void shouldReturnUnavailable_whenProviderDirectoryFails() throws Exception {
         when(providers.searchFaxRecipients("clinic", 20)).thenThrow(new IllegalStateException());
-        execute();
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(mapper.readTree(response.getContentAsString())).isEmpty();
         verifyNoInteractions(pharmacies);
     }
 
