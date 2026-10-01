@@ -333,8 +333,11 @@ public class OscarJobService extends AbstractServiceImpl {
     }
 
     private String generateCronTabItem(String chooser, List<String> values) {
-        if (chooser.equals("1")) {
-            if (values.isEmpty()) {
+        if ("1".equals(chooser)) {
+            // "Choose" with nothing selected posts no values at all (the multi-select is
+            // omitted from the form), so params.get(...) is null rather than empty. Treat it
+            // as the invalid item it is instead of failing with a NullPointerException.
+            if (values == null || values.isEmpty()) {
                 return null;
             }
             return getIdsAsStringList(values);

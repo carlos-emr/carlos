@@ -143,10 +143,26 @@
         sortorder = "Content";
     }
 
-    if (categoryKey.indexOf("Private") >= 0) {
+    // categorykey selects the document set. Callers send the stable tokens "private" /
+    // "public". The legacy form was the report's display heading ("<LAST, FIRST> Private
+    // Documents"), which put the patient's name into the URL and access logs, and which no
+    // longer contained "Private" once the heading was localized. Legacy headings are still
+    // recognised so old bookmarks and in-flight redirects keep working, but the page only
+    // ever re-emits the token.
+    String categoryScope = null;
+    if ("private".equals(categoryKey) || categoryKey.indexOf("Private") >= 0) {
+        categoryScope = "private";
+    } else if ("public".equals(categoryKey) || categoryKey.indexOf("Public") >= 0) {
+        categoryScope = "public";
+    }
+    if (categoryScope != null) {
+        categoryKey = categoryScope;
+    }
+
+    if ("private".equals(categoryScope)) {
         docs = EDocUtil.listDocs(loggedInInfo, module, moduleid, view, EDocUtil.PRIVATE, sort, viewstatus);
 
-    } else if (categoryKey.indexOf("Public") >= 0) {
+    } else if ("public".equals(categoryScope)) {
         docs = EDocUtil.listDocs(loggedInInfo, module, moduleid, view, EDocUtil.PUBLIC, sort, viewstatus);
 
     } else {%>
@@ -345,6 +361,10 @@ Remote documents not supported
             } else if (selected.length == 1) {
                 var docidindexend = selected[0].value.indexOf('-');
                 docid = selected[0].value.substring(0, docidindexend);
+                // The refile control is hidden for HTML documents, so the single-selection
+                // branch needs this document's own content type (it was previously read from
+                // the undeclared multi-select loop variable and was always undefined).
+                var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
                 showPageImg(docid);
                 var div_ref = document.getElementById("docbuttons");
@@ -395,14 +415,12 @@ Remote documents not supported
             if (doctype == 'text/html') {
                 <c:set var="__enc_2"><carlos:encode value='<%= module %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_3"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(450,                
- 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_2}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_3}' context="javaScript"/>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_2}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_3}' context="javaScript"/>', 'EditDoc');
             } else {
 
                 <c:set var="__enc_4"><carlos:encode value='<%= module %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_5"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(350, 500, '<%= request.getContextPath() %>/docume                
-ntManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_4}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_4}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
             }
         }
 
@@ -421,7 +439,13 @@ ntManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<carlos:encode 
         <tr>
             <td align="left" valign="top" style="width: 400px">
                 <oscar:nameage demographicNo="<%=moduleid%>"/><br>
+                <% if ("private".equals(categoryScope)) { %>
+                <fmt:message key="dms.documentReport.msgPrivateDocuments"/>
+                <% } else if ("public".equals(categoryScope)) { %>
+                <fmt:message key="dms.documentReport.msgPublicDocuments"/>
+                <% } else { %>
                 <carlos:encode value='<%= categoryKey %>' context="html"/>
+                <% } %>
                 <br>
 
                 <input type="hidden" name="viewstatus" value="<carlos:encode value='<%= viewstatus %>' context="htmlAttribute"/>">

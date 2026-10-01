@@ -515,6 +515,10 @@
 
                 for (int i = 0; i < categories.size(); i++) {
                     String currentkey = (String) categoryKeys.get(i);
+                    // The heading carries the patient's (or provider's) name, so the Browse link
+                    // sends a stable scope token instead: categories[0] is always the private list
+                    // and categories[1] (provider module only) the public one.
+                    String currentScope = (i == 0) ? "private" : "public";
                     ArrayList category = (ArrayList) categories.get(i);
             %>
                 <div class="doclist card">
@@ -561,7 +565,7 @@
                                 <div class="mb-3">
                                     <a class="btn btn-link"
                                         <%-- The browser link is a full navigation; append scheduleNav so it remains in the schedule shell. --%>
-                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<carlos:encode value='<%= currentkey %>' context="uriComponent"/><%=scheduleNavQuerySuffix%>">
+                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<%= currentScope %><%=scheduleNavQuerySuffix%>">
                                         <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>

@@ -272,13 +272,24 @@
         registerFormSubmit('ForwardRulesForm', 'dynamic-content');
     }
 
-    $("#providers-selection").change(function (e) {
+    // The select is #provider-selection (singular). The handler was bound to a non-existent
+    // #providers-selection, so choosing a provider never reloaded the rules: providerNo stayed
+    // "0" and confirmUpdate() refused every save (issue #4131, previously #2626).
+    $("#provider-selection").on('change', function (e) {
         e.preventDefault();
-        $("#dynamic-content").load('${ctx}/admin/labForwardingRules?providerNo=' + $("#providers-selection").val(),
+        var url = '${ctx}/admin/labForwardingRules?providerNo=' + encodeURIComponent($(this).val());
+        var panel = $("#dynamic-content");
+        if (panel.length === 0) {
+            // Opened as a stand-alone popup (admin.jsp): there is no administration panel to
+            // inject into, so navigate the window itself.
+            window.location.href = url;
+            return;
+        }
+        panel.load(url,
             function (response, status, xhr) {
                 if (status == "error") {
                     var msg = "Sorry but there was an error: ";
-                    $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+                    panel.text(msg + xhr.status + " " + xhr.statusText);
                 }
             }
         );

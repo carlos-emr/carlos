@@ -23,18 +23,25 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
 
+import jakarta.ws.rs.core.Form;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.OscarJob;
@@ -184,6 +191,71 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
             assertThat(response.getStatus()).isEqualTo(200);
             OscarJobResponse body = response.readEntity(OscarJobResponse.class);
             assertThat(body.getJobs()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("should serialise jobs as an array carrying the stored cron expression")
+        void shouldSerialiseJobsAsArray_withStoredCronExpression() {
+            // Jobs Management (admin/jobs.jsp) reads the schedule from jobs[0]; reading it off
+            // "jobs" itself was always undefined and the dialog then saved every-minute.
+            OscarJobType jobType = createTestJobType(1, "TestType", "com.example.TestJob");
+            OscarJob testJob = createTestJob(5, "Specific Job", jobType);
+            testJob.setCronExpression("0 15,45 3 * * *");
+            when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(5)))
+                .thenReturn(testJob);
+
+            JsonNode json = responseJson(request().path("/jobs/job/5").get());
+
+            assertThat(json.get("jobs").isArray()).isTrue();
+            assertThat(json.get("jobs").get(0).get("cronExpression").asText()).isEqualTo("0 15,45 3 * * *");
+        }
+    }
+
+    /** Tests for POST /jobs/saveCrontabExpression endpoint. */
+    @Nested
+    @DisplayName("POST /jobs/saveCrontabExpression")
+    class SaveCrontabExpression {
+
+        private Form everyPartExcept(String part, String... values) {
+            Form form = new Form().param("scheduleJobId", "5");
+            for (String name : List.of("minute", "hour", "day", "month", "weekday")) {
+                form.param(name + "_chooser", name.equals(part) ? "1" : "0");
+            }
+            for (String value : values) {
+                form.param(part, value);
+            }
+            return form;
+        }
+
+        private Response post(Form form) {
+            return request().path("/jobs/saveCrontabExpression")
+                .type(MediaType.APPLICATION_FORM_URLENCODED)
+                .post(form);
+        }
+
+        @Test
+        @DisplayName("should store the chosen minutes as the job cron expression")
+        void shouldStoreCronExpression_withChosenMinutes() {
+            OscarJob job = createTestJob(5, "Specific Job", createTestJobType(1, "TestType", "com.example.TestJob"));
+            // Disabled, so OscarJobUtils.scheduleJob never reaches the task scheduler.
+            job.setEnabled(false);
+            when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(5))).thenReturn(job);
+
+            Response response = post(everyPartExcept("minute", "15", "45"));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            ArgumentCaptor<OscarJob> saved = ArgumentCaptor.forClass(OscarJob.class);
+            verify(mockOscarJobManager).updateJob(any(LoggedInInfo.class), saved.capture());
+            assertThat(saved.getValue().getCronExpression()).isEqualTo("0 15,45 * * * *");
+        }
+
+        @Test
+        @DisplayName("should refuse a chosen part with no values without saving or failing")
+        void shouldRefuseWithoutSaving_whenChosenPartHasNoValues() {
+            Response response = post(everyPartExcept("minute"));
+
+            assertThat(response.getStatus()).isLessThan(500);
+            verify(mockOscarJobManager, never()).updateJob(any(LoggedInInfo.class), any(OscarJob.class));
         }
     }
 }

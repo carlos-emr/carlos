@@ -140,16 +140,31 @@
             }
         }
 
+        // casemgmt/ViewNoteBrowser is a GET/HEAD-only view gate (ViewClinical2Action answers 405
+        // to anything else), so the view/status/sort filters re-open the page with a GET built
+        // from the filter fields only. Submitting the DisplayDoc form would POST, and its
+        // CSRFGuard token must never be copied into a GET URL. The form itself stays POST for
+        // the delete/undelete/refile mutation actions.
+        function reloadNoteBrowser() {
+            var form = document.DisplayDoc;
+            var params = new URLSearchParams();
+            params.set('demographic_no', form.demographic_no.value);
+            params.set('view', form.view.value);
+            params.set('viewstatus', form.viewstatus.value);
+            params.set('sortorder', form.sortorder.value);
+            window.location.href = '<%= request.getContextPath() %>/casemgmt/ViewNoteBrowser?' + params.toString();
+        }
+
         function ReLoadDoc() {
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.sortorder.value = document.DisplayDoc.selsortorder.options[document.DisplayDoc.selsortorder.selectedIndex].value;
-            document.DisplayDoc.submit();
+            reloadNoteBrowser();
         }
 
         function LoadView(viewstr) {
             document.DisplayDoc.view.value = viewstr;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
-            document.DisplayDoc.submit();
+            reloadNoteBrowser();
         }
 
         function DeleteDoc() {
@@ -240,8 +255,7 @@
         }
 
         <c:set var="__enc_1"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-        function showEncounter(enc            
-List) {
+        function showEncounter(encList) {
             var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=displayNotes&demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false';
             var iframe = document.createElement('iframe');
             iframe.src = url2;
@@ -405,8 +419,7 @@ List) {
                 }
 
                 <c:set var="__enc_2"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                po                
-pup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
+                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
             }
         }
 
@@ -426,13 +439,11 @@ pup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=pri
 
             if (doctype == 'text/html') {
                 <c:set var="__enc_4"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(450, 600, '<%= request.getContextPath() %>/docum                
-entManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_4}' context="javaScript"/>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_4}' context="javaScript"/>', 'EditDoc');
             } else {
 
                 <c:set var="__enc_5"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocumen                
-t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
             }
         }
 
@@ -510,12 +521,12 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode va
                     <input type="hidden" name="queueId" value="<%=queueId%>">
 
                     <a
-                            href="#" onclick="LoadView('all')"><%=view.equals("all") ? "<b>" : ""%>
+                            href="#" onclick="LoadView('all'); return false;"><%=view.equals("all") ? "<b>" : ""%>
                         All<%=view.equals("all") ? "</b>" : ""%>
                     </a> <% for (int i3 = 0; i3 < doctypes.size(); i3++) {%>
                     | <a
                         href="#"
-                        onclick="LoadView('<%=URLEncoder.encode((String) doctypes.get(i3),"UTF-8")%>')"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><carlos:encode value='<%= (String) doctypes.get(i3) %>' context="html"/><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
+                        onclick="LoadView('<carlos:encode value='<%= URLEncoder.encode((String) doctypes.get(i3),"UTF-8") %>' context="javaScriptAttribute"/>'); return false;"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><carlos:encode value='<%= (String) doctypes.get(i3) %>' context="html"/><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
                 </a>
                     <%}%>
                 </fieldset>
@@ -550,8 +561,11 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode va
 
 
                 <div id="docinfo"></div>
+                <%-- type="image" is a submit control: inside DisplayDoc it also POSTed the form to the
+                     GET-only ViewNoteBrowser gate (405) and replaced the browser. Returning false keeps
+                     Print to its popup only. --%>
                 <div id="printnotesbutton"><input type='image' src="<%= request.getContextPath() %>/encounter/graphics/document-print.png"
-                                                  onclick="PrintEncounter();"
+                                                  onclick="PrintEncounter(); return false;"
                                                   title='<fmt:message key="encounter.Index.btnPrint"/>'
                                                   id="imgPrintEncounter"></div>
             </td>
