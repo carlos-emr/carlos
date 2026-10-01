@@ -38,6 +38,7 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -124,8 +125,8 @@ public class ManageTemplates2Action extends ActionSupport {
         } else if ("edit".equals(action)) {
             message = reportManagerFactory.get().updateTemplate(uuid, templateId, xmltext, loggedInInfo);
         }
-        boolean failed = message.toLowerCase().startsWith("error")
-                || message.toLowerCase().startsWith("exception");
+        String outcome = message.toLowerCase(Locale.ROOT);
+        boolean failed = outcome.startsWith("error") || outcome.startsWith("exception");
         request.setAttribute("message", message);
         request.setAttribute("action", action);
         request.setAttribute("templateid", request.getParameter("templateid"));
