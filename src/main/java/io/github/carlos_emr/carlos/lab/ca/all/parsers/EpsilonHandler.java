@@ -76,20 +76,44 @@ public class EpsilonHandler extends DefaultGenericHandler {
     /**
      * Formats an HL7 {@code TS} value like the other generic handlers ({@code yyyy-MM-dd HH:mm:ss},
      * truncated to the precision sent), which is what the lab views show and what
-     * {@code MessageUploader} and {@link #getDOB()} expect. A value the shared formatter cannot
-     * read is returned trimmed rather than dropped, as this handler always returned it raw.
+     * {@code MessageUploader} and {@link #getDOB()} expect. Fractional seconds and a timezone
+     * offset, which v2.3 allows after the date and time, are dropped first (see
+     * {@link #timestampDigits(String)}). A value the shared formatter still cannot read is returned
+     * trimmed rather than dropped, as this handler always returned it raw.
      */
     @Override
     public String formatDateTime(String s) {
         if (s == null || s.trim().isEmpty()) {
             return "";
         }
+        String digits = timestampDigits(s);
+        if (digits.isEmpty()) {
+            return s.trim();
+        }
         try {
-            String formatted = super.formatDateTime(s.trim());
+            String formatted = super.formatDateTime(digits);
             return formatted.isEmpty() ? s.trim() : formatted;
         } catch (RuntimeException unreadable) {
             return s.trim();
         }
+    }
+
+    /**
+     * The {@code YYYY[MM[DD[HHMM[SS]]]]} digits that lead an HL7 v2.3 {@code TS} value, without
+     * the fractional seconds ({@code .S[S[S[S]]]}) and offset ({@code +/-ZZZZ}) the shared
+     * {@code yyyyMMddHHmmss} pattern cannot read; empty when the value does not start with at
+     * least a four-digit year.
+     */
+    static String timestampDigits(String ts) {
+        if (ts == null) {
+            return "";
+        }
+        String value = ts.trim();
+        int end = 0;
+        while (end < value.length() && end < 14 && Character.isDigit(value.charAt(end))) {
+            end++;
+        }
+        return end >= 4 ? value.substring(0, end) : "";
     }
 
     @Override
@@ -208,12 +232,10 @@ public class EpsilonHandler extends DefaultGenericHandler {
 
     @Override
     public boolean isOBXAbnormal(int i, int j) {
-        if (("").equals(getOBXAbnormalFlag(i, j).trim())) {
-            return (false);
-        } else {
-            return (true);
-        }
-
+        // HL7 table 0078: an empty flag or N is normal, as in DefaultGenericHandler. The uploader
+        // marks the whole report abnormal from this, so N must not count.
+        String flag = getOBXAbnormalFlag(i, j).trim();
+        return !flag.isEmpty() && !flag.equals("N");
     }
 
     @Override
@@ -318,8 +340,8 @@ public class EpsilonHandler extends DefaultGenericHandler {
     public Date getMsgDateAsDate() {
         Date date = null;
         try {
-            // getMsgDate() is formatted for display; parse the raw MSH-7 value.
-            date = getDateTime(getString(msg.getMSH().getDateTimeOfMessage().getTimeOfAnEvent().getValue()).trim());
+            // getMsgDate() is formatted for display; parse the digits of the raw MSH-7 value.
+            date = getDateTime(timestampDigits(msg.getMSH().getDateTimeOfMessage().getTimeOfAnEvent().getValue()));
         } catch (Exception e) {
             logger.error("Error of parsing message date :", e);
         }

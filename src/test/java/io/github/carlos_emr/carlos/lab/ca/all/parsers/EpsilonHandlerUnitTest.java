@@ -22,12 +22,14 @@
 package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
@@ -35,8 +37,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.EmbeddedLabDocumentLoader;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
 /**
  * Regression tests for {@link EpsilonHandler} (#4124).
@@ -49,7 +55,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.EmbeddedLabDocumentLoader
  * name the uploader reads first.</p>
  *
  * <p>The fixtures are the repository's fictitious Epsilon samples. The uploader stores one
- * message per PID ({@code Utilities.separateMessages}), so the samples are split the same way.</p>
+ * message per PID, so the samples are split with the production {@code Utilities.separateMessages}.</p>
  *
  * @since 2026-10-01
  */
@@ -65,35 +71,20 @@ class EpsilonHandlerUnitTest {
         return Files.readString(FIXTURES.resolve(name), StandardCharsets.UTF_8);
     }
 
-    /** Splits a feed into one message per PID, repeating the MSH, as {@code Utilities.separateMessages} does. */
-    private static List<String> separateMessages(String feed) {
-        List<String> messages = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        String msh = "";
-        boolean seenPid = false;
-        for (String line : feed.split("\r\n|\r|\n")) {
-            if (line.length() <= 3) {
-                continue;
-            }
-            if (line.startsWith("MSH")) {
-                if (current.length() > 0) {
-                    messages.add(current.toString());
-                    current.setLength(0);
-                }
-                msh = line;
-                seenPid = false;
-            } else if (line.startsWith("PID")) {
-                if (seenPid) {
-                    messages.add(current.toString());
-                    current.setLength(0);
-                    current.append(msh).append("\r\n");
-                }
-                seenPid = true;
-            }
-            current.append(line).append("\r\n");
+    /**
+     * The messages the uploader stores for a feed: the production {@link Utilities#separateMessages}
+     * (one message per PID, repeating the MSH), reading the feed from a document directory as the
+     * upload path does.
+     */
+    private static List<String> separateMessages(String fixtureName, Path documentDir) throws Exception {
+        Path feed = documentDir.resolve(fixtureName);
+        Files.copy(FIXTURES.resolve(fixtureName), feed);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+        try (MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class)) {
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            return Utilities.separateMessages(feed.toString());
         }
-        messages.add(current.toString());
-        return messages;
     }
 
     private static MessageHandler handler(String message) {
@@ -125,8 +116,8 @@ class EpsilonHandlerUnitTest {
 
         @Test
         @DisplayName("should expose every OBX of every stored message of the general sample")
-        void shouldExposeAllObxRows_forEachStoredMessage() throws Exception {
-            List<String> messages = separateMessages(fixture("medhealth-general.hl7"));
+        void shouldExposeAllObxRows_forEachStoredMessage(@TempDir Path documentDir) throws Exception {
+            List<String> messages = separateMessages("medhealth-general.hl7", documentDir);
             assertThat(messages).hasSize(5);
 
             int obxTotal = 0;
@@ -151,8 +142,8 @@ class EpsilonHandlerUnitTest {
 
         @Test
         @DisplayName("should name the OBR group and its text rows in the pap sample")
-        void shouldNameObrGroup_forPapSample() throws Exception {
-            MessageHandler handler = handler(separateMessages(fixture("medhealth-pap.hl7")).get(0));
+        void shouldNameObrGroup_forPapSample(@TempDir Path documentDir) throws Exception {
+            MessageHandler handler = handler(separateMessages("medhealth-pap.hl7", documentDir).get(0));
 
             assertThat(handler.getOBRCount()).isEqualTo(1);
             assertThat(handler.getOBXCount(0)).isEqualTo(11);
@@ -185,6 +176,9 @@ class EpsilonHandlerUnitTest {
             assertThat(handler.getOBXUnits(1, 1)).isEqualTo("10*9/L");
             assertThat(handler.getOBXReferenceRange(1, 1)).isEqualTo("4.0-11.0");
             assertThat(handler.isOBXAbnormal(1, 1)).isTrue();
+            // N is the HL7 "normal" flag: it must not make the row, or the uploaded report, abnormal.
+            assertThat(handler.isOBXAbnormal(0, 0)).isFalse();
+            assertThat(handler.isOBXAbnormal(1, 0)).isFalse();
             assertThat(handler.getHeaders()).containsExactly("GENERAL CHEMISTRY", "HEMATOLOGY");
         }
     }
@@ -215,6 +209,32 @@ class EpsilonHandlerUnitTest {
 
             assertThat(handler.getMsgDate()).isEqualTo("2012-04-04 16:04");
             assertThat(handler.getServiceDate()).isEqualTo("2012-04-03 00:04");
+            assertThat(handler.getMsgDateAsDate()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should drop fractional seconds and a timezone offset before formatting")
+        void shouldFormatDate_whenTimestampHasFractionAndOffset() {
+            EpsilonHandler handler = new EpsilonHandler();
+
+            assertThat(handler.formatDateTime("20120404160400-0500")).isEqualTo("2012-04-04 16:04:00");
+            assertThat(handler.formatDateTime("20120404160400.1234+0100")).isEqualTo("2012-04-04 16:04:00");
+            assertThat(handler.formatDateTime("201204041604-0500")).isEqualTo("2012-04-04 16:04");
+            assertThat(EpsilonHandler.timestampDigits("20120404160400.1234-0500")).isEqualTo("20120404160400");
+            assertThat(EpsilonHandler.timestampDigits("12")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should parse the message date when MSH-7 carries a timezone offset")
+        void shouldParseMessageDate_whenMsh7HasOffset() {
+            EpsilonHandler handler = (EpsilonHandler) handler(String.join("\r\n",
+                    "MSH|^~\\&|Epsilon-System||||20120404160400-0500||ORU^R01|PW4124-TZ|P|2.3|||||||",
+                    "PID|1||||FAKE-EPSILON^PATIENT||19800102|F",
+                    "OBR|1||||R|20120403000400-0500||||||||||||||||||||F",
+                    "OBX|1|NM|GENERAL CHEMISTRY^GLU^Glucose|1|5.2|mmol/L|3.3-7.7||||F") + "\r\n");
+
+            assertThat(handler.getMsgDate()).isEqualTo("2012-04-04 16:04:00");
+            assertThat(handler.getServiceDate()).isEqualTo("2012-04-03 00:04:00");
             assertThat(handler.getMsgDateAsDate()).isNotNull();
         }
 
