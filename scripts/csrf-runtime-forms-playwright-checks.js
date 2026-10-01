@@ -70,13 +70,20 @@ async function tokenCarried(request) {
 }
 
 /** Asserts the POST carried a token and was not refused. */
-async function assertAccepted(label, request) {
+async function assertAccepted(label, request, expectedRedirect = null) {
   const token = await tokenCarried(request);
   assert(token, `${label}: the POST reached the server with no CSRF-TOKEN, so CarlosCsrfGuardFilter refuses it (#4130)`);
   const response = await request.response();
   const status = response ? response.status() : 0;
   assert(status !== 403, `${label}: the POST answered 403; CSRFGuard (or the WAF) refused it`);
   assert(status > 0 && status < 400, `${label}: the POST answered HTTP ${status}`);
+  if (status >= 300) {
+    // A redirect only counts when it is the action's own post/redirect/get
+    // target: a login or logout redirect means the endpoint never ran.
+    const location = (await response.headerValue('location')) || '';
+    assert(expectedRedirect && expectedRedirect.test(location),
+      `${label}: the POST answered ${status} to an unexpected location: ${location || '(none)'}`);
+  }
   console.log(`  ${label}: POST carried CSRF-TOKEN and answered ${status}`);
 }
 
@@ -149,7 +156,7 @@ async function deleteEFormGroupInAdminPanel(context, config, recorder, sql, time
       confirm.click(),
     ]);
     await request.response();
-    await assertAccepted('eform-groups delete', request);
+    await assertAccepted('eform-groups delete', request, /\/(?:eform\/efmmanageformgroups|administration)(?:\?|$)/);
     await page.waitForLoadState('load', { timeout }).catch(() => {});
 
     const remaining = Number(sql.value(`SELECT COUNT(*) FROM eform_groups WHERE group_name = ${sqlString(groupName)}`));

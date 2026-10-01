@@ -2713,7 +2713,8 @@
       "timeoutSec": 300,
       "env": [
         "CSRF_FORMS_DX_SEARCH",
-        "CSRF_FORMS_TIMEOUT_MS"
+        "CSRF_FORMS_TIMEOUT_MS",
+        "MYSQL_PASSWORD"
       ]
     },
     {

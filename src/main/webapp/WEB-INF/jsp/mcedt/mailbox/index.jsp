@@ -154,6 +154,10 @@
         }
 
         function autoDownload(control) {
+            // As in submitSelected: no second request while the token loads.
+            if (control) {
+                control.disabled = true;
+            }
             var form = document.createElement('form');
             form.method = 'post';
             form.action = '<%= request.getContextPath() %>/mcedt/kaiautodl';
@@ -171,6 +175,11 @@
         }
 
         function submitSelected(control) {
+            // Disabled until the POST is sent or refused, so repeated clicks
+            // while the token loads cannot queue several uploads.
+            if (control) {
+                control.disabled = true;
+            }
             var form = document.createElement('form');
             form.method = 'post';
             form.action = '<%= request.getContextPath() %>/mcedt/autoUpload';
