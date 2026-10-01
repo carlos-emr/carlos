@@ -43,6 +43,9 @@ const SOURCE = fs.readFileSync(
   'utf8',
 );
 
+// The csrf-token.jspf bootstrap, loaded beside the helper where a test needs
+// the real script's page-wide fill rather than a stand-in promise.
+const BOOTSTRAP_PATH = path.join(__dirname, '..', 'src', 'main', 'webapp', 'share', 'javascript', 'csrfTokenFetch.js');
 const ORIGIN = 'https://emr.example';
 const PAGE_URL = `${ORIGIN}/carlos/billing/CA/ON/billingONHistory`;
 const SERVLET_JS = 'var masterTokenValue = "SERVLET-TOKEN";';
@@ -371,7 +374,7 @@ function loadHelper(options = {}) {
     context[name] = window[name];
   });
 
-  return { dom, window, alerts, warnings, errors, fetches, opened, openedWindows };
+  return { dom, window, context, alerts, warnings, errors, fetches, opened, openedWindows };
 }
 
 /** Lets queued microtasks and setTimeout(..., 0) callbacks run. */
@@ -502,6 +505,28 @@ test('an un-awaited failed submission raises no unhandled rejection', async () =
 
   assert.deepEqual(unhandled, []);
   assert.equal(helper.alerts.length, 2, 'each failure is still reported to the user');
+});
+
+test('a form re-pointed to GET while csrfTokenFetch.js fills the page is left without a token', async () => {
+  // The real bootstrap writes the token into every CSRF-TOKEN input on the
+  // page, including one in a form that changed to GET while it was loading.
+  let releaseFetch;
+  const gate = new Promise((resolve) => { releaseFetch = resolve; });
+  const helper = loadHelper({
+    fetchImpl: async () => { await gate; return { ok: true, text: async () => SERVLET_JS }; },
+  });
+  vm.runInContext(fs.readFileSync(BOOTSTRAP_PATH, 'utf8'), helper.context);
+  const form = buildForm(helper.dom, { action: '/carlos/x', inputs: [['CSRF-TOKEN', '']] });
+  helper.dom.document.body.appendChild(form);
+  helper.window.csrfTokenReady = vm.runInContext("fetchCsrfToken('/carlos')", helper.context);
+
+  const injected = helper.window.CarlosCsrf.injectIntoForms(form);
+  form.method = 'get';
+  releaseFetch();
+  await injected;
+
+  assert.equal(form.querySelectorAll('input[name="CSRF-TOKEN"]')[0].value, '',
+    'a native submit() of this GET form must not put the token in its URL');
 });
 
 test('a failed lookup is retried on the next attempt rather than replayed', async () => {

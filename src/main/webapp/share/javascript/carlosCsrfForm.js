@@ -357,12 +357,17 @@
         var apply = function (value) {
             // Re-checked at write time: while the token was being fetched a
             // form's method or action may have changed to GET or another
-            // origin, and such a form must not receive it.
+            // origin, and such a form must not receive it. It is blanked, not
+            // just skipped: csrfTokenFetch.js fills every CSRF-TOKEN input on
+            // the page before this runs, and a later native submit() would
+            // bypass the submit guard and carry that token into a URL.
             var given = 0;
             forms.forEach(function (form) {
                 if (isSameOriginPostForm(form)) {
                     setFormToken(form, value);
                     given++;
+                } else {
+                    clearFormToken(form);
                 }
             });
             return given;
