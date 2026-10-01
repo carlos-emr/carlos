@@ -170,6 +170,48 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should write the read audit before any PDF header is set")
+    void shouldAuditRead_beforeSettingPdfHeaders() throws Exception {
+        grantAll();
+        matchToPatient();
+        storeLab(PathL7EmbeddedDocumentMessage.message());
+        List<String> typeAtAudit = new java.util.ArrayList<>();
+        logActionMock.when(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+                        anyString(), anyString()))
+                .thenAnswer(invocation -> {
+                    typeAtAudit.add(String.valueOf(response.getContentType()));
+                    typeAtAudit.add(String.valueOf(response.getHeader("Content-Disposition")));
+                    return null;
+                });
+
+        assertThat(action().execute()).isEqualTo("none");
+
+        assertThat(typeAtAudit).containsExactly("null", "null");
+        assertThat(response.getContentAsByteArray()).isEqualTo(PathL7EmbeddedDocumentMessage.PDF);
+    }
+
+    @Test
+    @DisplayName("should answer a deliberate 500 with no PDF headers or bytes when the audit fails")
+    void shouldSendError_whenReadAuditFails() throws Exception {
+        grantAll();
+        matchToPatient();
+        storeLab(PathL7EmbeddedDocumentMessage.message());
+        logActionMock.when(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+                        anyString(), anyString()))
+                .thenThrow(new IllegalStateException("synthetic audit failure"));
+
+        assertThat(action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getErrorMessage()).isNull();
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getHeader("Content-Security-Policy")).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+    }
+
+    @Test
     @DisplayName("should check the matched patient's lab and demographic read privileges")
     void shouldCheckPatientScopedPrivileges_whenLabIsMatched() throws Exception {
         grantAll();
