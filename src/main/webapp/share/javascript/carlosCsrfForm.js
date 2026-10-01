@@ -220,7 +220,10 @@
             return submitter && submitter.getAttribute && submitter.hasAttribute
                 && submitter.hasAttribute(name) ? submitter.getAttribute(name) : null;
         };
-        var method = (override('formmethod') || form.getAttribute('method') || 'get').toLowerCase();
+        // An override that is present but empty or invalid means GET, as the
+        // browser treats it; only an ABSENT formmethod defers to the form.
+        var formMethod = override('formmethod');
+        var method = (formMethod !== null ? formMethod : (form.getAttribute('method') || 'get')).toLowerCase();
         if (method !== 'post') {
             return false;
         }
@@ -262,6 +265,13 @@
         hidden.name = TOKEN_NAME;
         hidden.value = value;
         form.appendChild(hidden);
+    }
+
+    function clearFormToken(form) {
+        var inputs = form.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].value = '';
+        }
     }
 
     function hasToken(form) {
@@ -328,7 +338,11 @@
      */
     function submitForm(form) {
         if (!isSameOriginPostForm(form)) {
-            // GET or cross-origin: nothing to protect and nothing to attach.
+            // GET or cross-origin: nothing to protect, and a token already in
+            // the form (its method or action changed after it was tokenised)
+            // would go into a URL or to another host. A native submit() fires
+            // no submit event, so the guard below never sees this one.
+            clearFormToken(form);
             HTMLFormElement.prototype.submit.call(form);
             return Promise.resolve();
         }
@@ -434,12 +448,7 @@
                 // form). A token CSRFGuard or this script put in the form
                 // would end up in a URL or at another host, so blank it; a
                 // later same-origin submission is re-tokenised by this guard.
-                if (isSameOriginPostForm(form)) {
-                    var carried = form.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
-                    for (var k = 0; k < carried.length; k++) {
-                        carried[k].value = '';
-                    }
-                }
+                clearFormToken(form);
                 return;
             }
             if (hasToken(form)) {

@@ -783,6 +783,30 @@ test('a submitter with formmethod="get" carries no token into the URL', async ()
   assert.deepEqual(helper.dom.submissions()[0].fields['CSRF-TOKEN'], ['']);
 });
 
+test('a submitter with an empty formmethod means GET and carries no token', async () => {
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/y', inputs: [['CSRF-TOKEN', 'PAGE-TOKEN']] });
+  const emptyMethod = submitButton(helper, form, { formmethod: '' });
+  helper.dom.document.body.appendChild(form);
+
+  form.requestSubmit(emptyMethod);
+
+  assert.deepEqual(helper.dom.submissions()[0].fields['CSRF-TOKEN'], ['']);
+});
+
+test('carlosSubmitForm blanks a token already in a form that now goes by GET or abroad', async () => {
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
+  const toGet = buildForm(helper.dom, { method: 'get', action: '/carlos/y', inputs: [['CSRF-TOKEN', 'PAGE-TOKEN']] });
+  const abroad = buildForm(helper.dom, { action: 'https://elsewhere.example/x', inputs: [['CSRF-TOKEN', 'PAGE-TOKEN']] });
+  [toGet, abroad].forEach((form) => helper.dom.document.body.appendChild(form));
+
+  await helper.window.carlosSubmitForm(toGet);
+  await helper.window.carlosSubmitForm(abroad);
+
+  helper.dom.submissions().forEach((submission) => assert.deepEqual(submission.fields['CSRF-TOKEN'], ['']));
+});
+
 test('after a blanked override, an ordinary submit of the same form is re-tokenised', async () => {
   const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
   await settle();

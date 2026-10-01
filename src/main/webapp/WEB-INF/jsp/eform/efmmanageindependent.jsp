@@ -160,7 +160,10 @@
                         <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
                         <%-- Sort order the post-delete redirect restores (RemEForm2Action#getRedirectTarget). --%>
                         <input type="hidden" name="orderby" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(orderByRequest) %>"/>
-                        <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"
+                        <%-- carlosSubmitForm (efmFooter.jspf loads it): in the Administration
+                             panel this form arrives by .load(), and a native .submit() fires no
+                             submit event, so it would post without waiting for the token (#4130). --%>
+                        <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){var f=this.closest('form');if(window.carlosSubmitForm){carlosSubmitForm(f);}else{f.submit();}}"
                            class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
                     </form>
                 </td>
