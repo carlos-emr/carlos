@@ -150,8 +150,9 @@ public class FullPathReWrite extends TagSupport {
      * {@code /WEB-INF} base falls back to the context root, so the tag never emits a
      * {@code WEB-INF} URL.
      * <p>
-     * Null request or URI values return the JSP page unchanged. A null JSP page is
-     * treated as an empty string.
+     * A null request returns the JSP page unchanged; so does a null request URI for a
+     * page-relative target (a context-relative target never reads the URI). A null JSP page
+     * is treated as an empty string.
      *
      * @param request the current request, or {@code null}
      * @param jspPage the target route or JSP page, or {@code null}
