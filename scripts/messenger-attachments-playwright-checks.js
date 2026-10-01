@@ -123,7 +123,13 @@ async function workflow(s) {
   let attach;
   let main;
   const openAttachments = async () => {
-    attach = await s.popup(compose, compose.locator('input[name="attachDemo"]'), 'messenger-attachments');
+    // A frameset has no body text, so the generic popup helper's blank-page guard
+    // cannot judge it; the main frame's form is asserted instead.
+    [attach] = await Promise.all([
+      s.context.waitForEvent('page', { timeout: TIMEOUT }),
+      compose.locator('input[name="attachDemo"]').click(),
+    ]);
+    h.wireStrictPage(attach, 'messenger-attachments', s.recorder);
     await attach.waitForLoadState('domcontentloaded');
     h.assert(new URL(attach.url()).pathname.endsWith('/messenger/attachmentFrameset'), 'Attach Patient did not open the attachment frameset');
     main = attach.frame({ name: 'main' });
