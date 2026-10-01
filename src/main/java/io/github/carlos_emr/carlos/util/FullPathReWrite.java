@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.util;
 
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,6 +61,8 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 public class FullPathReWrite extends TagSupport {
 
     private static final String DEFAULT_CONTEXT = "html";
+
+    private static final Pattern LEADING_SEPARATORS = Pattern.compile("^[/\\\\]+");
 
     /**
      * Legacy server attribute retained for tag compatibility.
@@ -161,7 +164,10 @@ public class FullPathReWrite extends TagSupport {
         }
         String contextPath = request.getContextPath() == null ? "" : request.getContextPath();
         if (safeJspPage.startsWith("/")) {
-            return contextPath + safeJspPage;
+            // Collapse the leading separators: under the root context "//host/x" (or "/\host/x",
+            // which browsers treat the same) would otherwise be a protocol-relative URL to
+            // another host, breaking the host-free guarantee.
+            return contextPath + "/" + LEADING_SEPARATORS.matcher(safeJspPage).replaceFirst("");
         }
 
         String requestUri = browserRequestUri(request);

@@ -17,6 +17,8 @@ import jakarta.servlet.jsp.PageContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,6 +72,32 @@ class FullPathReWriteUnitTest {
 
         assertThat(FullPathReWrite.buildRelativeUrl(request, "/prevention/printPrevention"))
                 .isEqualTo("/prevention/printPrevention");
+    }
+
+    @Test
+    @DisplayName("should ignore the forward URI for leading-slash targets")
+    void shouldStayContextRelative_whenForwardUriIsSetForLeadingSlashJspPage() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST",
+                "/carlos/WEB-INF/jsp/prevention/index.jsp");
+        request.setContextPath("/carlos");
+        request.setAttribute(RequestDispatcher.FORWARD_REQUEST_URI,
+                "/carlos/prevention/ViewPreventionIndex");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "/billing/CA/BC/ViewBillingCodeNewSearch"))
+                .isEqualTo("/carlos/billing/CA/BC/ViewBillingCodeNewSearch");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"//attacker.example/path", "///attacker.example/path", "/\\attacker.example/path",
+            "\\/attacker.example/path"})
+    @DisplayName("should never emit a protocol-relative URL under the root context")
+    void shouldCollapseLeadingSeparators_forProtocolRelativeJspPage(String jspPage) {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/prevention/index.jsp");
+        request.setContextPath("");
+
+        String url = FullPathReWrite.buildRelativeUrl(request, jspPage);
+
+        assertThat(url).startsWith("/").doesNotStartWith("//").doesNotStartWith("/\\");
     }
 
     @Test

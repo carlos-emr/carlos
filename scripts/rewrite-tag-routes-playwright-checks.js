@@ -77,6 +77,7 @@ async function workflow(s) {
   const filename = `${marker}-combine.pdf`;
   const file = path.join(store, filename);
   let documentNo;
+  let createdFile = false;
   s.cleanup(() => {
     if (documentNo) {
       assert(sql.value(`SELECT COUNT(*) FROM document WHERE document_no=${documentNo} AND docdesc=${sqlString(marker)}`) === '1',
@@ -84,9 +85,12 @@ async function workflow(s) {
       sql.execute(`DELETE FROM ctl_document WHERE document_no=${documentNo} AND module='demographic' AND module_id=${patient};
         DELETE FROM document WHERE document_no=${documentNo} AND docdesc=${sqlString(marker)}`);
     }
-    fs.rmSync(file, { force: true });
+    // Only a file this run created is removed: 'wx' refuses an existing path, and that
+    // pre-existing file is not ours to delete.
+    if (createdFile) fs.rmSync(file, { force: true });
   });
   fs.writeFileSync(file, fixturePdf(marker), { flag: 'wx', mode: 0o644 });
+  createdFile = true;
   documentNo = sql.value(`INSERT INTO document
     (doctype,docdesc,docfilename,doccreator,responsible,status,contenttype,public1,number_of_pages,restrictToProgram,observationdate,updatedatetime,contentdatetime)
     VALUES ('lab',${sqlString(marker)},${sqlString(filename)},${sqlString(provider)},${sqlString(provider)},
