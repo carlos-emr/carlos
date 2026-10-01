@@ -3736,7 +3736,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails on 2026.08: the Add eForm list throws a TypeError on unload (unguarded window.opener), and the group mutators answer 405 / 403 (forward to a GET-only gate; missing CSRF token in the Administration panel).",
+      "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel (eform_groups.group_name is varchar(20)); only these rows are removed."
     },
     {
       "name": "measurement-type-group-admin",
@@ -4103,7 +4104,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails on 2026.08: Restore posts a JavaScript-built form without a CSRF token (403); independent Delete is also rejected for a missing token.",
+      "fixtures": "A patient-bound and a patient-independent marker template, the patient eForm saved through the UI and two seeded independent instances; those fdids, their eform_values rows and the templates are removed."
     },
     {
       "name": "patient-photo-upload",
