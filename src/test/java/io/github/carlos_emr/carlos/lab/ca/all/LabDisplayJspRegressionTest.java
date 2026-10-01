@@ -113,6 +113,26 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should encode the preview's localised text and count only rendered frames")
+    void shouldEncodePreviewMessages_andCountOnlyRenderedFrames() throws IOException {
+        String fragment = Files.readString(Path.of("src/main/webapp/WEB-INF/jspf/lab-embedded-pdf-preview.jspf"),
+                StandardCharsets.UTF_8);
+
+        assertThat(fragment)
+                .contains("title=\"<carlos:encode value=\"${labEmbeddedPdfFrameTitle}\" context=\"htmlAttribute\"/>\"")
+                .contains("<carlos:encode value=\"${labEmbeddedPdfTooLarge}\"/>")
+                .contains("<carlos:encode value=\"${labEmbeddedPdfPreview}\"/>")
+                .contains("<carlos:encode value=\"${labEmbeddedPdfFallback}\"/>")
+                // Every message is resolved into a variable, never written straight into the page.
+                .doesNotContainPattern("<fmt:message key=\"[^\"]+\"\\s*/>");
+        // An over-limit PDF shows a note, not a frame, so it must not use up an expanded slot.
+        int tooLargeBranch = fragment.indexOf("EmbeddedLabDocumentLoader.Status.TOO_LARGE");
+        int frameBranch = fragment.indexOf("<% } else {", tooLargeBranch);
+        assertThat(fragment.indexOf("labPdfPreviewCount++")).isGreaterThan(frameBranch);
+        assertThat(frameBranch).isGreaterThan(tooLargeBranch);
+    }
+
+    @Test
     @DisplayName("should close inboxhub iframe after successful lab macro")
     void shouldCloseInboxhubIframe_afterSuccessfulLabMacro() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
