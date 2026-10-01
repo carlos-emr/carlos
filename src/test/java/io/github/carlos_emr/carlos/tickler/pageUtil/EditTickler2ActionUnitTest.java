@@ -203,6 +203,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("error");
     }
+
     @Test
     @DisplayName("should not update the tickler at all when a document attachment is refused")
     void shouldNotUpdateTickler_whenAttachmentAuthorizationDenied() {
