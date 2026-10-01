@@ -50,6 +50,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
 
@@ -86,7 +87,7 @@
                 // orderby: sort order the post-restore redirect restores (UnRemEForm2Action#getRedirectTarget).
                 // carlosPostForm attaches the CSRF token, which CSRFGuard cannot
                 // inject into a runtime-built form in time (#4130).
-                carlosPostForm('<%=request.getContextPath()%>/eform/unRemoveEForm', {callpage: 'independent', fdid: fdid,
+                carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/eform/unRemoveEForm', {callpage: 'independent', fdid: fdid,
                     orderby: '<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(orderByRequest) %>'});
             }
         </script>

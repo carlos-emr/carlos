@@ -392,8 +392,8 @@
                 // Open the popup inside the click handler (popup blockers), then
                 // post into it. carlosPostForm attaches the CSRF token, which
                 // CSRFGuard cannot inject into a runtime-built form in time (#4130).
-                window.open('', 'oscar_appt', 'height=10,width=10,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0');
-                carlosPostForm("<%= request.getContextPath() %>/provider/providercontrol?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>", fields, {target: 'oscar_appt'});
+                var popup = window.open('', 'oscar_appt', 'height=10,width=10,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0');
+                carlosPostForm("${carlos:forJavaScript(pageContext.request.contextPath)}/provider/providercontrol?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>", fields, {target: 'oscar_appt', popup: popup});
             }
 
             //<!--messenger code block-->

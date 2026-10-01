@@ -175,7 +175,7 @@
 				// appointment/orderby: list state the post-restore redirect restores (UnRemEForm2Action#getRedirectTarget).
 				// carlosPostForm attaches the CSRF token, which CSRFGuard cannot
 				// inject into a runtime-built form in time (#4130).
-				carlosPostForm('${pageContext.request.contextPath}/eform/unRemoveEForm', {fdid: fdid, demographic_no: demographicNo, parentAjaxId: parentAjaxId,
+				carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/eform/unRemoveEForm', {fdid: fdid, demographic_no: demographicNo, parentAjaxId: parentAjaxId,
 					appointment: '<carlos:encode value='<%= appointment %>' context="javaScript"/>', orderby: '<carlos:encode value='<%= orderByRequest %>' context="javaScript"/>'});
 			}
 		</script>

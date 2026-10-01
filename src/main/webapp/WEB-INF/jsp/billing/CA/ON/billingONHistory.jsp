@@ -66,10 +66,10 @@
                 // Open the popup inside the click handler (popup blockers), then
                 // post into it. carlosPostForm attaches the CSRF token: a
                 // runtime-built form leaves before CSRFGuard can inject one (#4130).
-                window.open('', 'unbill_popup', 'height=700,width=720,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes');
-                carlosPostForm('${pageContext.request.contextPath}/billing/CA/ON/BillingDeleteNoAppt',
+                var popup = window.open('', 'unbill_popup', 'height=700,width=720,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes');
+                carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/billing/CA/ON/BillingDeleteNoAppt',
                     {billing_no: billingNo, billCode: billCode, dboperation: 'delete_bill', hotclick: '0'},
-                    {target: 'unbill_popup'});
+                    {target: 'unbill_popup', popup: popup});
             }
         }
 

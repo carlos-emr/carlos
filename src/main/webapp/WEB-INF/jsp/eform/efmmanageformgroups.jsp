@@ -63,6 +63,10 @@
     // mutator form carries it so the success redirect can return there (EFormGroupRedirect).
     String scheduleNavField = io.github.carlos_emr.carlos.utility.ScheduleNav.isActive(request)
             ? "<input type=\"hidden\" name=\"scheduleNav\" value=\"1\"/>" : "";
+    // The group and sort links reload this page into the panel; they carry the flag
+    // too, or the next mutator form would render without it.
+    String scheduleNavQuery = io.github.carlos_emr.carlos.utility.ScheduleNav.isActive(request)
+            ? "&scheduleNav=1" : "";
     String orderBy = "";
     if (orderByRequest == null) orderBy = EFormUtil.DATE;
     else if (orderByRequest.equals("form_subject")) orderBy = EFormUtil.SUBJECT;
@@ -157,7 +161,7 @@
                                     class="fa-solid fa-trash"></i></a>
                         </form></td>
                     <td title="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"><a
-                            href='<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%>'
+                            href='<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%><%= scheduleNavQuery %>'
                             class="contentLink"><carlos:encode value='<%= groupName %>' context="html"/>
                     </a></td>
                     <td><carlos:encode value='<%= (String) curhash.get("count") %>' context="html"/>
@@ -184,14 +188,14 @@
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/>"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/><%= scheduleNavQuery %>"
                            class="contentLink">
                             <fmt:message key="eform.uploadhtml.btnFormName"/>
                         </a>
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/>"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/><%= scheduleNavQuery %>"
                            class="contentLink">
                             <fmt:message key="eform.uploadhtml.btnDate"/>
                         </a>
@@ -323,6 +327,9 @@
             }
 
 
+            // Guarded like efmFooter.jspf: if jQuery could not be loaded the page
+            // degrades to its plain forms instead of stopping at a ReferenceError.
+            if (window.jQuery) {
             $(function () {
                 document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
             });
@@ -340,6 +347,7 @@
                 $(".check").change(validate).keyup(validate);
 
             });
+            }
 
             function validate() {
                 var v = $(this).val();

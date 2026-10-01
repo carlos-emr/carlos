@@ -36,7 +36,8 @@
  *       array form for repeated names). options.target names a window/frame;
  *       open a popup with window.open('', name) BEFORE calling this, inside the
  *       click handler, so popup blockers see a user gesture even when the
- *       token has to be fetched first.
+ *       token has to be fetched first, and pass it as options.popup: if
+ *       nothing can be sent, the helper closes it while it is still blank.
  *
  *   carlosSubmitForm(form)
  *       Attaches the token to an existing form element and submits it. Use
@@ -430,7 +431,10 @@
      *
      * @param {string} action URL to post to (same origin)
      * @param {Object|Array} [fields] object or array of [name, value] pairs
-     * @param {{target?: string, method?: string}} [options]
+     * @param {{target?: string, method?: string, popup?: Window}} [options]
+     *        popup: the window the caller opened for `target`; closed on
+     *        failure only while it still shows about:blank, so a reused named
+     *        window that already holds a page is never closed
      * @returns {Promise<void>}
      */
     function postForm(action, fields, options) {
@@ -474,13 +478,25 @@
         document.body.appendChild(form);
         return handled(submitFormInternal(form).catch(function (err) {
             // Nothing was sent: close the blank window this helper opened so it
-            // does not linger beside the alert. A window the caller opened (a
-            // named popup target) is the caller's to manage, and is left alone.
+            // does not linger beside the alert. A window the caller opened is
+            // closed only when passed as options.popup and still blank.
             if (openedHere && typeof openedHere.close === 'function') {
                 openedHere.close();
             }
+            closeIfBlank(options.popup);
             throw err;
         }));
+    }
+
+    function closeIfBlank(win) {
+        try {
+            if (win && !win.closed && typeof win.close === 'function'
+                && win.location && win.location.href === 'about:blank') {
+                win.close();
+            }
+        } catch (e) {
+            // A window that navigated cross-origin cannot be inspected; leave it.
+        }
     }
 
     function warnInjectionFailure(err) {

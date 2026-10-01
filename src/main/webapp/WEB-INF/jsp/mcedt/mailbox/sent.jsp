@@ -157,6 +157,18 @@
         }
 
         function reSubmit(resourceId, control) {
+            // Without the token helper the POST would only be refused (403): say so,
+            // and undo any busy state the click set, so the button is not left stuck (#4130).
+            if (typeof carlosPostForm !== 'function') {
+                alert('This page did not finish loading. Please reload it and try again.');
+                if (control) {
+                    control.disabled = false;
+                }
+                if (typeof HideSpin === 'function') {
+                    HideSpin();
+                }
+                return false;
+            }
             if (control) {
                 control.disabled = true;
             }
@@ -166,7 +178,7 @@
             // resourceId before it is sent. carlosPostForm attaches the CSRF
             // token, which CSRFGuard cannot inject into a runtime-built form
             // in time (#4130).
-            carlosPostForm("<%= request.getContextPath() %>/mcedt/reSubmit",
+            carlosPostForm("${carlos:forJavaScript(pageContext.request.contextPath)}/mcedt/reSubmit",
                 {resourceId: resourceId, serviceId: jQuery("#serviceId").val()}).catch(function () {
                 // No token, so nothing was sent and the page stays: undo the busy state.
                 if (control) {

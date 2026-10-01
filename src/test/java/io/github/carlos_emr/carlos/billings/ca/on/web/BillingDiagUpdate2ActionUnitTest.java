@@ -141,6 +141,23 @@ class BillingDiagUpdate2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReadFullCodeDescription_whenCodeHasFourCharacters() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(mockPersister.updateDescription(anyString(), any())).thenReturn(true);
+        when(mockAssembler.assembleUpdate(false)).thenReturn(mock(BillingDiagCodeUpdateViewModel.class));
+        mockRequest.setParameter("update", "Update 2740");
+        mockRequest.setParameter("desc_2740", "Gout");
+        mockRequest.setParameter("desc_740", "Unrelated row");
+
+        BillingDiagUpdate2Action action = new BillingDiagUpdate2Action(
+                mockSecurityInfoManager, mockAssembler, mockPersister);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockPersister).updateDescription("Update 2740", "Gout");
+    }
+
+    @Test
     void shouldPreferPrefixedDescription_whenBothPrefixedAndLegacyNamesArePresent() throws Exception {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);

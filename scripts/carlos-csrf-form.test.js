@@ -593,6 +593,24 @@ test('a caller-named popup target is never closed by the helper on failure', asy
   assert.equal(helper.openedWindows.length, 0, 'the helper opened nothing of its own to close');
 });
 
+test('a blank caller-opened popup passed as options.popup is closed on failure', async () => {
+  const helper = loadHelper({ fetchImpl: async () => ({ ok: false, status: 500 }) });
+  const popup = { closed: false, location: { href: 'about:blank' }, close() { this.closed = true; } };
+
+  await assert.rejects(helper.window.carlosPostForm('/carlos/x', {}, { target: 'unbill_popup', popup }));
+
+  assert.equal(popup.closed, true);
+});
+
+test('a caller popup that already holds a page is never closed on failure', async () => {
+  const helper = loadHelper({ fetchImpl: async () => ({ ok: false, status: 500 }) });
+  const popup = { closed: false, location: { href: `${ORIGIN}/carlos/schedule` }, close() { this.closed = true; } };
+
+  await assert.rejects(helper.window.carlosPostForm('/carlos/x', {}, { target: 'oscar_appt', popup }));
+
+  assert.equal(popup.closed, false, 'a reused named window keeps the page the user had open');
+});
+
 test('a _blank target is left alone when the token is already on the page', async () => {
   const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
 

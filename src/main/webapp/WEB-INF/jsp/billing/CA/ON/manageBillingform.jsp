@@ -107,8 +107,8 @@
                 // Open the popup inside the click handler (popup blockers), then
                 // post into it. carlosPostForm attaches the CSRF token, which
                 // CSRFGuard cannot inject into a runtime-built form in time (#4130).
-                window.open('', winName, 'width=' + w + ',height=' + h);
-                carlosPostForm(action, params, {target: winName});
+                var popup = window.open('', winName, 'width=' + w + ',height=' + h);
+                carlosPostForm(action, params, {target: winName, popup: popup});
             }
 
             function onUnbilled(servicetype) {

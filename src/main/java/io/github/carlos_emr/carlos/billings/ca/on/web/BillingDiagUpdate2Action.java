@@ -79,14 +79,17 @@ public class BillingDiagUpdate2Action extends ActionSupport {
             return NONE;
         }
 
-        // Cleave the last 3 chars off the "update X" submit value (legacy
-        // behavior). The new description is the input named desc_<code>.
-        // The search page used to name it with the bare 3-digit code, which
-        // broke CSRFGuard's client-side token injection (issue #4130); the bare
-        // name is still accepted so a page rendered before an upgrade works.
+        // The code is read from the "Update <code>" submit value the same way
+        // the persister reads it, so both name the same row (four-character
+        // codes included). The new description is the input named desc_<code>.
+        // The search page used to name it with the bare code, which broke
+        // CSRFGuard's client-side token injection (issue #4130); the bare name
+        // is still accepted so a page rendered before an upgrade works.
         String submitValue = request.getParameter("update");
-        String code = (submitValue == null || submitValue.length() < 3)
-                ? "" : submitValue.substring(submitValue.length() - 3);
+        String code = DiagCodeDescriptionPersister.codeFromSubmitValue(submitValue);
+        if (code == null) {
+            code = "";
+        }
         String newDescription = request.getParameter(DESCRIPTION_PARAM_PREFIX + code);
         if (newDescription == null) {
             newDescription = request.getParameter(code);

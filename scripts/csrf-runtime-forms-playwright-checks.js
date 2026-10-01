@@ -219,20 +219,25 @@ async function resubmitDxDescription(context, config, recorder, sql, timeout) {
   wireStrictPage(page, 'dx-search', recorder);
   let code = '';
   let before = null;
+  let suffixCode = '';
+  let suffixBefore = null;
   try {
     await gotoApp(page, config.baseUrl,
       `/billing/CA/ON/ViewBillingDigSearch?coderange=&codedesc=${encodeURIComponent(search)}`);
     await page.locator('#diagcode input[name^="desc_"]').first().waitFor({ state: 'visible', timeout });
-    // BillingDiagUpdate2Action takes the code from the last three characters of
-    // the Update button's value, so only a three-character code round-trips.
-    // Pick the first row whose desc_<code> input carries one (ICD-9 codes such
-    // as 2740 also appear in results).
-    const names = await page.locator('#diagcode input[name^="desc_"]').evaluateAll(
+    // Prefer a code longer than three characters (ICD-9 codes such as 2740):
+    // the update once read only the last three characters of the button value,
+    // so it looked up desc_740 and blanked code 740 instead of updating 2740.
+    const names = (await page.locator('#diagcode input[name^="desc_"]').evaluateAll(
       (inputs) => inputs.map((input) => input.getAttribute('name')),
-    );
-    const name = names.find((candidate) => /^desc_[0-9A-Z]{3}$/i.test(candidate || ''));
-    assert(name, `dx-search: no result row has a three-character dx code (searched for "${search}")`);
+    )).filter((candidate) => /^desc_[0-9A-Z]{3,}$/i.test(candidate || ''));
+    const name = names.find((candidate) => candidate.length > 'desc_'.length + 3) || names[0];
+    assert(name, `dx-search: no result row has a dx code (searched for "${search}")`);
     code = name.slice('desc_'.length);
+    if (code.length > 3) {
+      suffixCode = code.slice(-3);
+      suffixBefore = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(suffixCode)} LIMIT 1`);
+    }
     const row = page.locator('#diagcode tbody tr', { has: page.locator(`input[name="${name}"]`) }).first();
     const updateButton = row.locator('input[type="submit"][name="update"]');
     before = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(code)} LIMIT 1`);
@@ -255,7 +260,18 @@ async function resubmitDxDescription(context, config, recorder, sql, timeout) {
     // The cleanup below still restores the row byte-for-byte.
     assert(String(after).trimEnd() === String(before).trimEnd(),
       `dx-search: resubmitting the unchanged description changed the stored text for ${code}`);
+    if (suffixCode) {
+      const suffixAfter = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(suffixCode)} LIMIT 1`);
+      assert(suffixAfter === suffixBefore,
+        `dx-search: updating ${code} changed the description of code ${suffixCode}`);
+    }
   } finally {
+    if (suffixCode && suffixBefore) {
+      const current = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(suffixCode)} LIMIT 1`);
+      if (current !== suffixBefore) {
+        sql.execute(`UPDATE diagnosticcode SET description = ${sqlString(suffixBefore)} WHERE diagnostic_code = ${sqlString(suffixCode)}`);
+      }
+    }
     if (code && before !== null) {
       const current = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(code)} LIMIT 1`);
       if (current !== before) {

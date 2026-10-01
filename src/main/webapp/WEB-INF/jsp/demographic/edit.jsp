@@ -717,9 +717,9 @@
                 // Open the popup inside the change handler (popup blockers), then
                 // post into it. carlosPostForm attaches the CSRF token, which
                 // CSRFGuard cannot inject into a runtime-built form in time (#4130).
-                window.open('', 'addpsetwin', 'width=50,height=50');
-                carlosPostForm('<%= request.getContextPath() %>/demographic/ViewAddDemoToPatientSet',
-                    {demoNo: demoNo, patientSet: patientSet}, {target: 'addpsetwin'});
+                var popup = window.open('', 'addpsetwin', 'width=50,height=50');
+                carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/demographic/ViewAddDemoToPatientSet',
+                    {demoNo: demoNo, patientSet: patientSet}, {target: 'addpsetwin', popup: popup});
             }
 
             </security:oscarSec>
