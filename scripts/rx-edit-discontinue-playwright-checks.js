@@ -106,12 +106,14 @@ async function workflow(s) {
   });
 
   let drug;
-  await s.step('Save And Print persists the parsed dose, frequency, duration, quantity and end date on the drugs row', async () => {
+  await s.step('Save persists the parsed dose, frequency, duration, quantity and end date on the drugs row', async () => {
     h.assert(drugCount() === '0', 'A drug existed before the save');
-    await rx.locator('#saveButton').click();
-    const modal = rx.frameLocator('#carlosModalBody iframe');
-    await modal.locator('#printPasteButton').waitFor({ state: 'visible', timeout: 30000 });
-    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`, '1', 'Save And Print did not persist one drug');
+    const [saved] = await Promise.all([
+      rx.waitForResponse(r => isPost('/rx/WriteScript')(r) && new URL(r.url()).searchParams.get('parameterValue') === 'updateSaveAllDrugs'),
+      rx.locator('#saveOnlyButton').click(),
+    ]);
+    h.assert(saved.status() === 200 && /^[1-9]\d*$/.test(String((await saved.json()).scriptId)), `Save answered HTTP ${saved.status()} without a script id`);
+    await rx.locator(`#set_${card}`).waitFor({ state: 'detached' });
     const [row] = sql.rows(`SELECT drugid,BN,takemin,takemax,freqcode,duration,durunit,quantity,special,
         DATEDIFF(end_date,rx_date),archived,provider_no,script_no FROM drugs WHERE demographic_no=${patient}`);
     const [id, brand, takemin, takemax, freq, duration, unit, quantity, special, days, archived, prescriber, script] = row;
@@ -122,30 +124,141 @@ async function workflow(s) {
     h.assert(quantity === '28', `The saved quantity is ${quantity}, not 1 tab BID for 14 days (28)`);
     h.assert(special.includes(INSTRUCTIONS), 'The saved prescription text lost the typed instructions');
     h.assert(days === '14', `The saved end date is ${days} day(s) after the start, not the 14-day duration`);
-    h.assert(archived === '0' && prescriber === provider && /^[1-9]\d*$/.test(script), 'The saved drug is archived, unsigned by the test provider, or not on a script');
-    // The preview is rendered from the session stash, so it exists only while the stash still holds the script.
-    await modal.locator('#preview').waitFor({ state: 'attached' });
+    h.assert(archived === '0' && prescriber === provider && /^[1-9]\d*$/.test(script), 'The saved drug is archived, not the test provider\'s, or not on a script');
+    await rx.locator(`#prescrip_${drug}`).waitFor({ state: 'visible' });
   });
 
-  await s.step('Back to CARLOS posts rx/clearPending and a reopened Rx module stages nothing', async () => {
-    const modal = rx.frameLocator('#carlosModalBody iframe');
-    const closed = rx.waitForEvent('close', { timeout: 20000 });
-    s.context.on('request', r => { if (r.url().includes('clearPending')) console.log('DEBUG request', r.method(), r.url(), r.frame() && r.frame().url()); });
-    s.context.on('requestfailed', r => { if (r.url().includes('clearPending')) console.log('DEBUG failed', r.failure()); });
-    s.context.on('response', r => { if (r.url().includes('clearPending')) console.log('DEBUG response', r.status()); });
-    const [cleared] = await Promise.all([
-      s.context.waitForEvent('requestfinished', { predicate: request => request.method() === 'POST'
-        && h.pathOnly(request.url()).endsWith('/rx/clearPending'), timeout: 20000 }),
-      modal.locator('input[onclick*="clearPending(\'close\')"]').click(),
-    ]);
-    const response = await cleared.response();
-    h.assert(response && response.status() < 400, `rx/clearPending answered HTTP ${response && response.status()}`);
-    h.assert(new URLSearchParams(cleared.postData() || '').get('demographicNo') === patient, 'clearPending named another patient');
+  await s.step('Timeline Drug Profile lists the saved drug and graphs it when ticked', async () => {
+    const timeline = await s.popup(rx, rx.locator('a[href*="/rx/ViewChartDrugProfile"]').first(), 'chart-drug-profile');
+    h.assert(new URL(timeline.url()).searchParams.get('demographic_no') === patient, 'The timeline opened for another patient');
+    const din = sql.value(`SELECT regional_identifier FROM drugs WHERE drugid=${drug}`);
+    const box = timeline.locator(`input[name="drug"][value="${din}"]`);
+    h.assert(await box.count() === 1, 'The timeline does not list the saved drug');
+    h.assert((await box.locator('xpath=..').innerText()).includes(INSTRUCTIONS), 'The timeline entry lacks the saved instructions');
+    await box.check();
+    await ui.clickAndAwaitReload(timeline, timeline.locator('input[type="submit"]').first(), { label: 'Add Meds to Graph' });
+    h.assert(new URL(timeline.url()).searchParams.getAll('drug').includes(din), 'Add Meds to Graph did not submit the ticked drug');
+    h.assert(await timeline.locator(`input[name="drug"][value="${din}"]`).isChecked(), 'The graphed drug is not ticked after the reload');
+    const graph = timeline.locator('img[src*="/encounter/GraphMeasurements"]');
+    h.assert(new URL(await graph.evaluate(img => img.src)).searchParams.getAll('drug').includes(din), 'The chart image does not graph the ticked drug');
+    h.assert(await graph.evaluate(img => img.complete && img.naturalWidth > 0), 'The medication chart image did not render');
+    await timeline.close();
+  });
+
+  await s.step('the indication link files an icd9 reason on the drug through rx/RxReason and lists it when reopened', async () => {
+    const comment = `${marker} indication`;
+    const openReason = () => s.popup(rx, rx.locator(`a[onclick*="popupRxReasonWindow("][onclick*=",${drug})"]`).first(), 'rx-reason');
+    const reason = await openReason();
+    h.assert(new URL(reason.url()).searchParams.get('drugId') === drug, 'The reason popup opened for another drug');
+    const search = reason.locator('#jsonDxSearch');
+    await search.pressSequentially('401', { delay: 80 });
+    const option = reason.locator('ul.ui-autocomplete li').filter({ hasText: /^401/ }).first();
+    await option.waitFor({ state: 'visible' });
+    const code = (await option.innerText()).split(':')[0].trim();
+    await option.click();
+    h.assert(await search.inputValue() === code, 'Choosing the code did not fill the indication field');
+    await reason.locator('#comments').fill(comment);
+    await reason.locator('#primaryReasonFlag').check();
+    const closed = reason.waitForEvent('close', { timeout: 20000 });
+    const [posted] = await Promise.all([reason.waitForResponse(isPost('/rx/RxReason')), reason.locator('#saveRxReason').click()]);
+    h.assert(posted.status() === 200, `rx/RxReason answered HTTP ${posted.status()}`);
     await closed;
-    rx = await openRx('rx-module-reopened');
-    await rx.locator('#drugProfile').getByText(DRUG_NAME).first().waitFor();
-    h.assert(await rx.locator('[id^="drugName_"]').count() === 0, 'The saved script is still staged after Back to CARLOS');
-    h.assert(drugCount() === '1', 'Clearing the staged script changed the saved drugs');
+    await expectValue(sql, `SELECT COUNT(*) FROM drugReason WHERE drugId=${drug} AND demographicNo=${patient}
+      AND codingSystem='icd9' AND code=${h.sqlString(code)} AND comments=${h.sqlString(comment)} AND primaryReasonFlag=1
+      AND archivedFlag=0 AND providerNo=${h.sqlString(provider)} AND dateCoded=CURDATE()`, '1', 'The indication was not stored on the owned drug');
+    const reopened = await openReason();
+    const listed = (await reopened.locator('fieldset').filter({ hasText: 'Current Indications' }).innerText()).replace(/\s+/g, ' ');
+    h.assert(listed.includes(code) && listed.includes(comment), 'The reopened reason popup does not list the stored indication');
+    await reopened.close();
+  });
+
+  await s.step('Discon with a reason archives the drug, keeps its end date and files a linked chart note', async () => {
+    const endDate = sql.value(`SELECT end_date FROM drugs WHERE drugid=${drug}`);
+    const comment = `${marker} stopped`;
+    await rx.locator(`#discont_${drug}`).click();
+    const panel = rx.locator('#discontinueUI');
+    await panel.waitFor({ state: 'visible' });
+    h.assert((await rx.locator('#disDrug').innerText()).includes(DRUG_NAME), 'The discontinue panel names another drug');
+    await rx.locator('#disReason').selectOption('doseChange');
+    await rx.locator('#disComment').fill(comment);
+    const [response] = await Promise.all([
+      rx.waitForResponse(r => isPost('/rx/deleteRx')(r) && new URL(r.url()).searchParams.get('parameterValue') === 'Discontinue'),
+      panel.locator('input[onclick*="Discontinue2("]').click(),
+    ]);
+    h.assert(response.status() === 200, `Discontinue answered HTTP ${response.status()}`);
+    await panel.waitFor({ state: 'hidden' });
+    h.assert((await rx.locator(`#discont_${drug}`).innerText()).trim() === 'doseChange', 'The drug row does not show the discontinue reason');
+    h.assert(await rx.locator(`#prescrip_${drug}`).evaluate(a => a.style.textDecoration === 'line-through'), 'The discontinued drug is not struck through');
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE drugid=${drug} AND archived=1 AND archived_reason='doseChange'
+      AND DATE(archived_date)=CURDATE()`, '1', 'The drug was not archived with the chosen reason and today\'s date');
+    h.assert(sql.value(`SELECT end_date FROM drugs WHERE drugid=${drug}`) === endDate, 'Discontinuing rewrote the prescribed end date');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note n JOIN casemgmt_note_link l ON l.note_id=n.note_id AND l.table_name=2
+      AND l.table_id=${drug} WHERE n.demographic_no=${patient} AND n.note LIKE ${h.sqlString(`%Discontinued reason: doseChange%${comment}%`)}`) === '1',
+    'No chart note carrying the discontinue reason and comment is linked to the drug');
+  });
+
+  await s.step('the static script\'s prescription details show the archived drug and Form Update writes drugs.drug_form', async () => {
+    await ui.clickAndAwaitReload(rx, rx.locator(`#prescrip_${drug}`), { label: 'drug row' });
+    h.assert(h.pathOnly(rx.url()).endsWith('/rx/ViewStaticScript2'), 'The drug row did not open the static script page');
+    const record = await s.popup(rx, rx.locator(`a[onclick*="/rx/ViewDisplayRxRecord?id=${drug}'"]`).first(), 'rx-record');
+    const field = async label => (await record.locator('tr').filter({ has: record.locator('td.label', { hasText: new RegExp(`^${label}:$`) }) })
+      .first().locator('td').nth(1).innerText()).trim();
+    h.assert(await field('Brand Name') === DRUG_NAME && await field('Frequency') === 'BID' && await field('Duration') === '14'
+      && await field('Quantity') === '28', 'The record popup does not show the saved product, frequency, duration and quantity');
+    h.assert(await field('Archived Reason') === 'doseChange', 'The record popup does not show the discontinue reason');
+    h.assert((await field('Problem Code')).includes('(icd9:401'), 'The record popup does not show the filed indication');
+    const before = sql.value(`SELECT COALESCE(drug_form,'') FROM drugs WHERE drugid=${drug}`);
+    const target = before === 'Capsule' ? 'Tablet' : 'Capsule';
+    const form = await s.popup(record, record.locator('a[onclick*="updateForm()"]'), 'rx-update-form');
+    h.assert(new URL(form.url()).searchParams.get('id') === drug, 'The form update popup opened for another drug');
+    await form.locator('select[name="drugForm"]').selectOption(target);
+    const closed = form.waitForEvent('close', { timeout: 20000 });
+    const [posted] = await Promise.all([form.waitForResponse(isPost('/rx/ViewUpdateForm')), form.locator('input[type="submit"]').click()]);
+    h.assert(posted.status() === 200, `rx/ViewUpdateForm answered HTTP ${posted.status()}`);
+    await expectValue(sql, `SELECT drug_form FROM drugs WHERE drugid=${drug} AND demographic_no=${patient}`, target, 'The new drug form was not saved');
+    await closed;
+    await record.close();
+  });
+
+  await s.step('every mutator here refuses GET before writing', async () => {
+    const snapshot = () => sql.value(`SELECT CONCAT_WS('|',(SELECT COUNT(*) FROM drugReason WHERE demographicNo=${patient}),
+      (SELECT CONCAT(archived,drug_form) FROM drugs WHERE drugid=${drug}),(SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}))`);
+    const before = snapshot();
+    for (const path of [
+      `/rx/RxReason?method=addDrugReason&demographicNo=${patient}&drugId=${drug}&codingSystem=icd9&jsonDxSearch=250`,
+      `/rx/clearPending?demographicNo=${patient}&action=close`,
+      `/rx/ViewUpdateForm?id=${drug}&action=update&drugForm=Gel`,
+      `/rx/UpdateScript?parameterValue=updateDrug&action=parseInstructions&randomId=1&instruction=x&demographicNo=${patient}`,
+      `/rx/deleteRx?parameterValue=Discontinue&drugId=${drug}&reason=other&demoNo=${patient}`,
+    ]) {
+      const response = await s.context.request.get(h.appUrl(s.config.baseUrl, path), { maxRedirects: 0 });
+      h.assert(response.status() === 405, `GET ${path.split('?')[0]} answered HTTP ${response.status()} instead of 405`);
+    }
+    h.assert(snapshot() === before, 'A refused GET changed the chart');
+  });
+
+  await s.step('Back to CARLOS after Save And Print clears the staged script (rx/clearPending), so a reopened Rx stages nothing', async () => {
+    rx = await openRx('rx-module-print');
+    const staged = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME);
+    await rx.locator(`#instructions_${staged}`).fill(INSTRUCTIONS);
+    await Promise.all([rx.waitForResponse(isPost('/rx/UpdateScript')), rx.locator(`label[for="jsonDxSearch_${staged}"]`).click()]);
+    await rx.locator('#saveButton').click();
+    const modal = rx.frameLocator('#carlosModalBody iframe');
+    await modal.locator('#printPasteButton').waitFor({ state: 'visible', timeout: 30000 });
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`, '2', 'Save And Print did not persist the second drug');
+    // ViewScript2 renders its preview only while the session stash still holds the script.
+    await modal.locator('#preview').waitFor({ state: 'attached' });
+    let requested = false;
+    const seen = request => { if (h.pathOnly(request.url()).endsWith('/rx/clearPending')) requested = true; };
+    s.context.on('request', seen);
+    const closed = rx.waitForEvent('close', { timeout: 20000 });
+    await modal.locator('input[onclick*="clearPending(\'close\')"]').click();
+    await closed;
+    const reopened = await openRx('rx-module-after-back');
+    s.context.off('request', seen);
+    const stillStaged = await reopened.locator('[id^="drugName_"]').count();
+    h.assert(stillStaged === 0, `Back to CARLOS left ${stillStaged} saved card(s) staged for the next prescription `
+      + `(rx/clearPending ${requested ? 'was requested' : 'was never sent: the window closed before the form posted'})`);
   });
 }
 

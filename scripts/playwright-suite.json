@@ -3558,8 +3558,13 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "Fails on 2026.08: clicking a job name raises a page error (javascript:void() link); later steps would fail on the schedule dialog, stored XSS in job names and a DataTables reinitialise alert.",
+      "fixtures": "Seeds one DISABLED OscarJobType whose class name is a nonexistent class in the CARLOS package (never schedulable). Creates a disabled job and a disabled type through the UI, all marker-named; no job is ever enabled. Removes marker rows above the pre-run id high-water marks."
     },
     {
       "name": "admin-lookup-lists",
@@ -3777,8 +3782,13 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "Fails at its last step on 2026.08: the Key Manager buttons post to /admin/... without the context path (404).",
+      "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row. Removes the client, the key and the key's PublicKey read-audit log rows."
     },
     {
       "name": "admin-email-config",
@@ -3825,6 +3835,76 @@
     {
       "name": "report-daysheet-labs",
       "script": "scripts/report-daysheet-labs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "antenatal-annual-review-planner",
+      "script": "scripts/antenatal-annual-review-planner-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "lab-forwarding-rules",
+      "script": "scripts/lab-forwarding-rules-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "messenger-demographic-link",
+      "script": "scripts/messenger-demographic-link-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "prevention-admin",
+      "script": "scripts/prevention-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "schedule-admin-settings",
+      "script": "scripts/schedule-admin-settings-playwright-checks.js",
       "tiers": [
         "core"
       ],

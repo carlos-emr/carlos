@@ -4,16 +4,17 @@
  * eForm group management, from the administrator's panel to the clinician's chart filter.
  *
  * User path: Schedule > Administration > Forms > eForm Groups (panel in #dynamic-content):
- * Add Group, Add eForm (modal), then E-Chart > eForms "+" (Add eForm list) and E-Chart > eForms
+ * the owned group's contents, then E-Chart > eForms "+" (Add eForm list) and E-Chart > eForms
  * heading (patient eForm list), each filtered by the group in "View Group", and finally back in
- * the panel: remove the eForm from the group and delete the group.
+ * the panel: Add Group, Add eForm (modal), remove from group and delete group for a second group.
  * Asserts eform_groups rows after every mutation (eform/addGroup, eform/addToGroup,
  * eforms/removeFromGroup, eforms/delGroup) and that both chart lists (eform/efmformslistadd,
  * eform/efmpatientformlist) show the grouped eForm and hide the ungrouped one.
  * Fixtures: two owned eForm templates named with the run marker, one saved instance of each for
- * the owned synthetic patient, and an owned group named PW<marker hex> (eform_groups.group_name is
- * varchar(20)). Cleanup deletes only those group rows, instances and templates and asserts each gone.
- * Implements coverage plan section 2.6 eform-groups.
+ * the owned synthetic patient, an owned group PW<marker hex> seeded with one eForm, and a second
+ * group PV<marker hex> the panel creates (eform_groups.group_name is varchar(20)). Cleanup deletes
+ * only those group rows, instances and templates and asserts each gone.
+ * Implements coverage plan section 4.1 eForms, eform-groups-independent (the groups half).
  */
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates, clickInjectsPanel, clickAndAwaitReload} = require('./lib/playwright-ui');
@@ -26,15 +27,16 @@ const TEMPLATE_HTML = '<html><head><title>eForm group fixture</title></head><bod
 
 async function workflow(s) {
   const group = `PW${s.marker.slice(-16)}`;
+  const addedGroup = `PV${s.marker.slice(-16)}`;
   const grouped = `${s.marker} Grouped`;
   const loose = `${s.marker} Loose`;
   const fids = [];
   const fdids = [];
-  const groupRows = (fid = null) => s.sql.value(`SELECT COUNT(*) FROM eform_groups
-    WHERE group_name=${h.sqlString(group)}${fid === null ? '' : ` AND fid=${fid}`}`);
+  const groupRows = (name, fid = null) => s.sql.value(`SELECT COUNT(*) FROM eform_groups
+    WHERE group_name=${h.sqlString(name)}${fid === null ? '' : ` AND fid=${fid}`}`);
   s.cleanup(() => {
-    s.sql.execute(`DELETE FROM eform_groups WHERE group_name=${h.sqlString(group)}`);
-    h.assert(groupRows() === '0', 'Owned eForm group rows were not removed');
+    s.sql.execute(`DELETE FROM eform_groups WHERE group_name IN (${h.sqlString(group)},${h.sqlString(addedGroup)})`);
+    h.assert(groupRows(group) === '0' && groupRows(addedGroup) === '0', 'Owned eForm group rows were not removed');
     for (const fdid of fdids) {
       s.sql.execute(`DELETE FROM eform_values WHERE fdid=${fdid};
         DELETE FROM eform_data WHERE fdid=${fdid} AND demographic_no=${s.patient}`);
@@ -62,36 +64,26 @@ async function workflow(s) {
     fdids.push(fdid);
   }
   const [groupedFid, looseFid] = fids;
+  // The group itself is a fixture: fid 0 is the group's own marker row, as AddGroup2Action writes it.
+  s.sql.execute(`INSERT INTO eform_groups(fid,group_name) VALUES(0,${h.sqlString(group)}),(${groupedFid},${h.sqlString(group)})`);
+  h.assert(groupRows(group) === '2', 'eForm group fixture was not created');
 
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     {context: s.context, recorder: s.recorder, label: 'eform-groups-admin', timeout: 20000});
   const panel = admin.locator('#dynamic-content');
-  async function postPanel(control, path) {
-    const [response] = await Promise.all([
-      admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(path)),
-      control.click(),
-    ]);
-    h.assert(response.status() === 200, `${path} answered HTTP ${response.status()}`);
-    await panel.locator('#groupListTbl').waitFor();
-  }
+  const contents = panel.locator('.card').nth(1);
 
-  await s.step('the Groups panel opens from Administration > Forms', async () => {
+  await s.step('Administration > Forms > eForm Groups lists the owned group and its one eForm', async () => {
     await admin.locator('button[data-bs-target="#collapseForms"]').first().click();
     await clickInjectsPanel(admin, admin.locator('a.defaultFormsGroups').first(), {marker: '#dynamic-content #groupListTbl'});
-    h.assert(await panel.locator('#groupListTbl td[title]').filter({hasText: group}).count() === 0,
-      'The owned group existed before it was added');
-  });
-
-  await s.step('Add Group stores the group marker row and selects the new group', async () => {
-    const name = panel.locator('#addGroupForm input[name="groupName"]');
-    await name.pressSequentially(group);
-    const add = panel.locator('#addGroupForm input.groupAdd');
-    h.assert(await add.isEnabled(), 'Add Group stayed disabled for a new group name');
-    await postPanel(add, '/eform/addGroup');
-    await expectValue(s.sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(group)} AND fid=0`, '1',
-      'Add Group did not store the group');
+    const row = panel.locator('#groupListTbl tbody tr').filter({has: admin.locator(`td[title="${group}"]`)});
+    h.assert(await row.count() === 1 && (await row.locator('td').nth(2).innerText()).trim() === '1',
+      'The Groups panel does not list the owned group with one eForm');
+    await clickInjectsPanel(admin, row.locator('a.contentLink'), {marker: '#dynamic-content #groupListTbl tr.table-success'});
     h.assert(await panel.locator('#groupListTbl tr.table-success td[title]').getAttribute('title') === group,
-      'The new group is not the selected group after Add Group');
+      'Clicking the group did not select it');
+    h.assert(await contents.getByText(grouped, {exact: true}).count() === 1
+      && await contents.getByText(loose, {exact: true}).count() === 0, 'The group contents do not list exactly the grouped eForm');
   });
 
   await s.step('a duplicate group name is refused by the form before any POST', async () => {
@@ -101,20 +93,7 @@ async function workflow(s) {
     h.assert(await panel.locator('#addGroupForm input.groupAdd').isDisabled(), 'Add Group was enabled for a duplicate name');
     await name.fill('');
     await name.press('Backspace');
-    h.assert(groupRows() === '1', 'Typing a duplicate group name wrote a row');
-  });
-
-  await s.step('Add eForm to Group stores exactly the chosen eForm in the group', async () => {
-    await panel.locator('#addEform-btn').click();
-    await admin.locator('#myModal').waitFor();
-    await admin.locator('#eformSelect').selectOption(groupedFid);
-    await postPanel(admin.locator('#eformToGroup-btn'), '/eform/addToGroup');
-    await expectValue(s.sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(group)} AND fid=${groupedFid}`,
-      '1', 'Add eForm to Group did not store the eForm');
-    h.assert(groupRows(looseFid) === '0' && groupRows() === '2', 'Add eForm to Group stored an eForm that was not chosen');
-    const contents = panel.locator('.card').nth(1);
-    h.assert(await contents.getByText(grouped, {exact: true}).count() === 1
-      && await contents.getByText(loose, {exact: true}).count() === 0, 'The group contents panel does not list exactly the added eForm');
+    h.assert(groupRows(group) === '2', 'Typing a duplicate group name wrote a row');
   });
 
   const chart = await s.chart();
@@ -154,35 +133,57 @@ async function workflow(s) {
     await list.close();
   });
 
-  async function confirmPanelDelete(row, path) {
-    await row.locator('a[data-confirm]').click();
-    const confirm = admin.locator('#confirmModal #dataConfirmed');
-    await confirm.waitFor();
+  // The mutators come last: on 2026.08 every one of them fails in the panel (see the report).
+  async function submitInPanel(control, path) {
     const [response] = await Promise.all([
       admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(path)),
-      confirm.click(),
+      control.click(),
     ]);
-    h.assert(response.status() === 200, `${path} answered HTTP ${response.status()}`);
+    h.assert(response.status() === 200, `${path} answered HTTP ${response.status()} to the panel's own submit`);
     await admin.waitForLoadState('networkidle').catch(() => {});
     await h.assertNotErrorPage(admin, path);
+    await admin.locator('#groupListTbl').waitFor();
+  }
+
+  await s.step('Add Group stores the group and the panel selects it', async () => {
+    await panel.locator('#addGroupForm input[name="groupName"]').pressSequentially(addedGroup);
+    await submitInPanel(panel.locator('#addGroupForm input.groupAdd'), '/eform/addGroup');
+    await expectValue(s.sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(addedGroup)} AND fid=0`, '1',
+      'Add Group did not store the group');
+    h.assert(await panel.locator('#groupListTbl tr.table-success td[title]').getAttribute('title') === addedGroup,
+      'The new group is not the selected group after Add Group');
+  });
+
+  await s.step('Add eForm to Group stores exactly the chosen eForm', async () => {
+    await panel.locator('#addEform-btn').click();
+    await admin.locator('#eformSelect').selectOption(looseFid);
+    await submitInPanel(admin.locator('#eformToGroup-btn'), '/eform/addToGroup');
+    await expectValue(s.sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(addedGroup)} AND fid=${looseFid}`,
+      '1', 'Add eForm to Group did not store the eForm');
+    h.assert(groupRows(addedGroup) === '2', 'Add eForm to Group stored an eForm that was not chosen');
+    h.assert(await contents.getByText(loose, {exact: true}).count() === 1, 'The group contents do not list the added eForm');
+  });
+
+  async function confirmDelete(row, path) {
+    await row.locator('a[data-confirm]').click();
+    await admin.locator('#confirmModal #dataConfirmed').waitFor();
+    await submitInPanel(admin.locator('#confirmModal #dataConfirmed'), path);
   }
 
   await s.step('remove from group deletes only the eForm membership row', async () => {
-    const row = panel.locator('.card').nth(1).locator('tr', {hasText: grouped});
-    await confirmPanelDelete(row, '/eforms/removeFromGroup');
-    await expectValue(s.sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(group)} AND fid=${groupedFid}`,
+    await confirmDelete(admin.locator('.card').nth(1).locator('tr', {hasText: loose}), '/eforms/removeFromGroup');
+    await expectValue(s.sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(addedGroup)} AND fid=${looseFid}`,
       '0', 'Remove from group left the membership row');
-    h.assert(groupRows() === '1', 'Remove from group also removed the group itself');
-    h.assert(await admin.getByText(grouped, {exact: true}).count() === 0, 'The page still lists the removed eForm');
+    h.assert(groupRows(addedGroup) === '1', 'Remove from group also removed the group itself');
   });
 
-  await s.step('delete group removes the group and the lists stop offering it', async () => {
-    await admin.locator('#groupListTbl').waitFor();
-    const row = admin.locator('#groupListTbl tbody tr').filter({has: admin.locator(`td[title="${group}"]`)});
-    await confirmPanelDelete(row, '/eforms/delGroup');
-    await expectValue(s.sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(group)}`, '0',
+  await s.step('delete group removes the group from the list', async () => {
+    await confirmDelete(admin.locator('#groupListTbl tbody tr').filter({has: admin.locator(`td[title="${addedGroup}"]`)}),
+      '/eforms/delGroup');
+    await expectValue(s.sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(addedGroup)}`, '0',
       'Delete group left rows behind');
-    h.assert(await admin.locator(`#groupListTbl td[title="${group}"]`).count() === 0, 'The deleted group is still listed');
+    h.assert(await admin.locator(`#groupListTbl td[title="${addedGroup}"]`).count() === 0, 'The deleted group is still listed');
+    h.assert(groupRows(group) === '2', 'Deleting one group changed another');
   });
 }
 

@@ -238,19 +238,27 @@ async function workflow(s) {
       'CSV export did not quote the comma/quote-bearing value back to the SQL row');
   });
 
-  await s.step('a template whose SQL is a write statement is refused at run time and writes nothing', async () => {
+  await s.step('Edit Template saves textarea XML; a write statement is then refused at run time', async () => {
     await leaveResult(frame.getByRole('link', {name: 'Template Library', exact: true}), 'Template Library (write)');
     const writeTitle = `${s.marker} RBT write`;
+    const select = 'SELECT templateid FROM reportTemplates WHERE templateid = 0';
     const write = `UPDATE reportTemplates SET templatedescription = 'FAKE-PW-written' WHERE templateid = ${templateId}`;
-    const writeId = await uploadTemplate(templateXml(writeTitle, `${s.marker} write probe`, write), writeTitle);
-    const before = JSON.stringify(templateRow());
+    const writeId = await uploadTemplate(templateXml(writeTitle, `${s.marker} write probe`, select), writeTitle);
     await openFromLibrary(writeTitle, writeId);
+    await frameClick(frame.getByRole('link', {name: 'Edit Template', exact: true}), 'Edit Template (write)');
+    const textarea = frame.locator('textarea#xmltext');
+    h.assert((await textarea.inputValue()).includes(select), 'Edit page did not load the stored XML');
+    await textarea.fill(templateXml(writeTitle, `${s.marker} write probe`, write));
+    await frameClick(frame.locator('input[type="submit"][name="done"]'), 'Edit Done (write)');
+    await frame.locator('input[type="submit"][value="Run Query"]').waitFor();
+    h.assert(s.sql.value(`SELECT templatesql FROM reportTemplates WHERE templateid=${writeId}`) === write,
+      'Edit Template did not persist the textarea XML');
+    const before = JSON.stringify(templateRow());
     await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Result report (write)');
     await frame.locator('.alert-danger', {hasText: 'Only SELECT statements are allowed'}).waitFor();
     h.assert(await frame.locator('table#report2').count() === 0, 'A write statement produced a result table');
     h.assert(JSON.stringify(templateRow()) === before, 'Running the write-statement template changed the database');
     await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (write)');
-    await deleteFromConfiguration(writeId, writeTitle);
   });
 
   await s.step('Delete Template asks for confirmation and removes the template row', async () => {
@@ -261,8 +269,9 @@ async function workflow(s) {
     h.assert(templateRow().length === 1, 'Deleting one template removed another');
   });
 
-  // Last: behind the packaged WAF this step is refused (see the report); everything above is
-  // proven first.
+  // The last two steps assert correct behaviour the 2026.08 install does not yet deliver (the
+  // Delete Template form is posted without a CSRF token; the WAF refuses XML carrying <param>),
+  // so everything provable is proven above them.
   await s.step('Edit Template saves the parameterised textarea XML and Done returns to the configuration', async () => {
     await openFromLibrary(title, templateId);
     await frameClick(frame.getByRole('link', {name: 'Edit Template', exact: true}), 'Edit Template');

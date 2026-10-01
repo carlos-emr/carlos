@@ -244,7 +244,12 @@
     "test:admin-email-config-playwright": "node scripts/admin-email-config-playwright-checks.js",
     "test:admin-role-management-playwright": "node scripts/admin-role-management-playwright-checks.js",
     "test:document-refile-combine-playwright": "node scripts/document-refile-combine-playwright-checks.js",
-    "test:report-daysheet-labs-playwright": "node scripts/report-daysheet-labs-playwright-checks.js"
+    "test:report-daysheet-labs-playwright": "node scripts/report-daysheet-labs-playwright-checks.js",
+    "test:antenatal-annual-review-planner-playwright": "node scripts/antenatal-annual-review-planner-playwright-checks.js",
+    "test:lab-forwarding-rules-playwright": "node scripts/lab-forwarding-rules-playwright-checks.js",
+    "test:messenger-demographic-link-playwright": "node scripts/messenger-demographic-link-playwright-checks.js",
+    "test:prevention-admin-playwright": "node scripts/prevention-admin-playwright-checks.js",
+    "test:schedule-admin-settings-playwright": "node scripts/schedule-admin-settings-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

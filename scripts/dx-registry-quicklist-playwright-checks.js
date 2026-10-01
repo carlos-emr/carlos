@@ -31,10 +31,12 @@ async function workflow(s) {
   s.cleanup(() => {
     sql.execute(`DELETE FROM quickList WHERE quickListName=${sqlString(name)};
       DELETE FROM quickListUser WHERE quickListName=${sqlString(name)};
-      DELETE FROM dxresearch WHERE demographic_no=${patient}`);
+      DELETE FROM dxresearch WHERE demographic_no=${patient};
+      DELETE FROM dx_associations WHERE code=${sqlString(marker)}`);
     assert(sql.value(`SELECT (SELECT COUNT(*) FROM quickList WHERE quickListName=${sqlString(name)})
       + (SELECT COUNT(*) FROM quickListUser WHERE quickListName=${sqlString(name)})
-      + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient})`) === '0', 'Owned quick-list fixtures were not removed');
+      + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM dx_associations WHERE code=${sqlString(marker)})`) === '0', 'Owned quick-list fixtures were not removed');
   });
 
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
@@ -143,6 +145,46 @@ async function workflow(s) {
     await bill.close();
   });
 
+  await s.step('Edit Associations appends an owned issue-to-registry mapping and lists it', async () => {
+    const owned = `SELECT COUNT(*) FROM dx_associations WHERE codetype='icd10' AND code=${sqlString(marker)} AND dx_codetype='icd9' AND dx_code='250'`;
+    const open = () => s.popup(admin, frame.getByRole('button', { name: 'Edit Associations', exact: true }), 'dx-associations');
+    let associations = await open();
+    await associations.locator('#associations thead').waitFor({ state: 'attached' });
+    assert(await associations.locator('#associations td', { hasText: marker }).count() === 0, 'Owned association exists before upload');
+    await associations.locator('#file').setInputFiles({ name: 'associations.csv', mimeType: 'text/csv',
+      buffer: Buffer.from(`Issue List Code Type,Issue List Code,Disease Registry Code Type,Disease Registry Code\r\nicd10,${marker},icd9,250\r\n`) });
+    // Append, never Replace: the association table is clinic-wide.
+    await associations.locator('#appendRadio').check();
+    await clickAndAwaitReload(associations, associations.locator('input[type="submit"][name="submit"]'));
+    await expectValue(sql, owned, '1', 'Appending the uploaded association did not store exactly the owned row');
+    await associations.close();
+    associations = await open();
+    const row = associations.locator('#associations tbody tr', { has: associations.locator('td', { hasText: marker }) });
+    await row.waitFor({ state: 'visible' });
+    assert((await row.innerText()).includes('DIABETES MELLITUS'), 'Listed association lost its registry description');
+    await associations.close();
+  });
+
+  await s.step('registry sidebar switches to the owned list and its add link registers the code', async () => {
+    const chart = await s.chart();
+    const registry = await s.popup(chart, chart.locator('a[onclick*="setupDxResearch"]').first(), 'dx-quicklist-registry');
+    const sidebar = registry.locator('#dxCodeQuicklist');
+    const switched = registry.waitForResponse(r => r.request().isNavigationRequest()
+      && new URL(r.url()).searchParams.get('quickList') === name);
+    await sidebar.locator('select[name="quickList"]').selectOption(name);
+    const response = await switched;
+    assert(response.status() === 200, `Choosing a named quick list in the registry sidebar answered HTTP ${response.status()}`);
+    await registry.waitForLoadState('networkidle').catch(() => {});
+    await assertNotErrorPage(registry, 'quick-list sidebar switch');
+    assert(await registry.locator('#dxCodeQuicklist select[name="quickList"]').inputValue() === name, 'Sidebar did not keep the chosen quick list');
+    const add = registry.locator('#dxCodeQuicklist a[title="250"]');
+    await add.waitFor({ state: 'visible' });
+    await clickAndAwaitReload(registry, add);
+    await expectValue(sql, `SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient} AND dxresearch_code='250'
+      AND coding_system='icd9' AND status='A'`, '1', 'Sidebar add did not register the quick-list code');
+    await registry.locator('#displayDxCodeTable td', { hasText: 'DIABETES MELLITUS' }).first().waitFor({ state: 'visible' });
+    await registry.close();
+  });
   await s.step('removing every item retires the owned list from the chooser', async () => {
     const chooser = await s.popup(admin, frame.getByRole('button', { name: 'Edit Quick List', exact: true }), 'dx-quicklist-retire');
     await chooser.locator('select[name="quickListName"]').selectOption(name);
@@ -158,24 +200,6 @@ async function workflow(s) {
     await again.close();
   });
 
-  await s.step('registry sidebar switches to the owned list and its add link registers the code', async () => {
-    const chart = await s.chart();
-    const registry = await s.popup(chart, chart.locator('a[onclick*="setupDxResearch"]').first(), 'dx-quicklist-registry');
-    const sidebar = registry.locator('#dxCodeQuicklist');
-    const reloaded = registry.waitForEvent('framenavigated', { predicate: f => f === registry.mainFrame() });
-    await sidebar.locator('select[name="quickList"]').selectOption(name);
-    await reloaded;
-    await registry.waitForLoadState('networkidle').catch(() => {});
-    await assertNotErrorPage(registry, 'quick-list sidebar switch');
-    assert(await registry.locator('#dxCodeQuicklist select[name="quickList"]').inputValue() === name, 'Sidebar did not keep the chosen quick list');
-    const add = registry.locator('#dxCodeQuicklist a[title="250"]');
-    await add.waitFor({ state: 'visible' });
-    await clickAndAwaitReload(registry, add);
-    await expectValue(sql, `SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient} AND dxresearch_code='250'
-      AND coding_system='icd9' AND status='A'`, '1', 'Sidebar add did not register the quick-list code');
-    await registry.locator('#displayDxCodeTable td', { hasText: 'DIABETES MELLITUS' }).first().waitFor({ state: 'visible' });
-    await registry.close();
-  });
 }
 
 if (require.main === module) runWorkflow('dx-registry-quicklist', workflow);

@@ -100,12 +100,12 @@ async function workflow(s) {
     `SELECT COUNT(*) FROM log WHERE action='${action}' AND content='${content}' AND contentId=${h.sqlString(contentId)}`;
 
   // A fresh throwaway session each time: the menu's oscarSec tags read roles captured at login.
-  async function throwawaySession(label) {
+  async function throwawaySession(label, openPanel = true) {
     const ctx = await h.newContext(context.browser(), config);
     ctx.on('page', page => h.wireStrictPage(page, label, recorder));
     const schedule = await h.login(ctx, { ...config, testUser: fixture.username }, recorder, { label });
-    const admin = await openAdmin(schedule, ctx, recorder, `${label}-administration`);
-    return { ctx, admin };
+    const admin = openPanel ? await openAdmin(schedule, ctx, recorder, `${label}-administration`) : null;
+    return { ctx, schedule, admin };
   }
   async function refused(ctx, route) {
     const response = await ctx.request.get(h.appUrl(config.baseUrl, `/admin/${route}`), { maxRedirects: 0 });
@@ -120,6 +120,20 @@ async function workflow(s) {
     if (!matched.length) return;
     recorder.pageErrors.splice(0, recorder.pageErrors.length, ...recorder.pageErrors.filter(entry => !matched.includes(entry)));
     defects.push(description);
+  }
+  // Take one HTTP failure on `label` out of the strict recorder as a deferred defect; false if none.
+  function deferFailure(label, urlPattern, status, description) {
+    const index = recorder.badResponses.findIndex(entry => entry.label === label && entry.status === status && urlPattern.test(entry.url));
+    if (index < 0) return false;
+    recorder.badResponses.splice(index, 1);
+    for (let i = recorder.consoleIssues.length - 1; i >= 0; i--) {
+      const entry = recorder.consoleIssues[i];
+      if (entry.label === label && urlPattern.test(entry.location.url || '') && entry.text.includes(`status of ${status} (`)) {
+        recorder.consoleIssues.splice(i, 1);
+      }
+    }
+    defects.push(description);
+    return true;
   }
 
   const admin = await openAdmin(s.schedule, context, recorder, 'role-administration');
@@ -174,10 +188,22 @@ async function workflow(s) {
       'The role filter does not list exactly the owned grant with read checked');
   });
   await s.step('before the role is assigned the throwaway doctor has no Add A Role and is refused it', async () => {
-    const { ctx, admin: own } = await throwawaySession('role-throwaway-before');
+    const { ctx, schedule } = await throwawaySession('role-throwaway-before', false);
     try {
-      h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderAddRole"]').count() === 0, 'A plain doctor was offered Add A Role');
       h.assert(await refused(ctx, 'ProviderAddRole') === 403, 'A plain doctor was not refused Add A Role');
+      // The doctor role holds _admin.flowsheet, which shows the Administration link on the day sheet.
+      if (await schedule.locator('#admin-panel').count()) {
+        const label = 'role-throwaway-before-administration';
+        const { page: own } = await clickOpensPopupOrNavigates(schedule, schedule.locator('#admin-panel'),
+          { context: ctx, recorder, label, timeout: TIMEOUT });
+        await own.waitForLoadState('load');
+        const forbidden = deferFailure(label, /\/administration(\?|$)/, 403, 'Schedule ▸ Administration is offered to a plain doctor '
+          + '(day-sheet gate includes _admin.flowsheet) but /administration answers 403 (ViewAdministrationIndex2Action omits it)');
+        if (!forbidden) {
+          await own.locator('#adminNav').waitFor({ state: 'attached', timeout: TIMEOUT });
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderAddRole"]').count() === 0, 'A plain doctor was offered Add A Role');
+        }
+      }
     } finally { await ctx.close(); }
   });
   await s.step('Assign Role to Provider adds the owned role to the throwaway alongside doctor', async () => {
@@ -209,9 +235,9 @@ async function workflow(s) {
     h.assert(grant().length === 0, 'The grant is still stored');
     h.assert(sql.value(`SELECT COUNT(*) FROM recyclebin WHERE table_name='secObjPrivilege' AND keyword=${h.sqlString(`${role}|${OBJECT}`)}
       AND table_content LIKE '%<privilege>r</privilege>%'`) === '1', 'The deleted grant was not copied to the recycle bin');
-    const { ctx, admin: own } = await throwawaySession('role-throwaway-revoked');
+    // The plain doctor's Administration panel itself answers 403 (deferred above), so the refusal is probed directly.
+    const { ctx } = await throwawaySession('role-throwaway-revoked', false);
     try {
-      h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderAddRole"]').count() === 0, 'The revoked grant still offers Add A Role');
       h.assert(await refused(ctx, 'ProviderAddRole') === 403, 'The revoked grant still opens Add A Role');
     } finally { await ctx.close(); }
   });

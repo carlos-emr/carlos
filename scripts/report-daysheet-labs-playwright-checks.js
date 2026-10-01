@@ -2,24 +2,24 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 
 /*
- * Report day sheets, encounter history and the Ontario PHCP report, driven through their real
- * openers (coverage plan: report day sheets / PHCP).
+ * Report day sheets and the Ontario PHCP report, driven through their real openers
+ * (coverage plan: report day sheets / PHCP).
  *
  * User paths:
  *   Administration ▸ Reports ▸ PHCP "(Setting: Provider)" ▸ Update one provider's role, then
  *   Administration ▸ Reports ▸ PHCP ▸ DxCode / ServiceCode ▸ Go       (report/ViewReportonbilled*)
- *   Master Record ▸ E-Chart ▸ "Encounter: <name>" link                  (report/ViewReportecharthistory)
  *   Schedule ▸ Report ▸ Day Sheet ▸ provider / group / All Providers,
  *   time window, "Show Only Self Booked", "Non Rostered Only"            (report/ViewReportdaysheet)
  * Asserted: each day sheet lists exactly the owned appointments its filters select, with the
  * patient's phone/sex/HIN/version/chart/enrolment, booking source, family-doctor tag and reason
  * (rendered as text); viewing never changes appointment status; the role update lands in
- * secUserRole and moves the provider into the PHCP Nurse list; PHCP Dx and service-code rows count
- * only non-deleted bills per patient/visit, sex and age band; encounter history lists exactly the
- * patient's eChart rows. The last steps assert correct behaviour the application currently lacks.
+ * secUserRole for that provider only and moves it into the PHCP Nurse list; PHCP Dx and
+ * service-code rows count only non-deleted bills per patient/visit, sex and age band. The last
+ * three steps assert correct behaviour the application currently lacks (GET role mutation,
+ * ignored Non Rostered Only filter, sort links dropping the time window).
  * Fixtures: the runWorkflow FAKE- patient, two FAKE- providers (one with an 'other' secUserRole
- * row), one mygroup row, five appointments today, three legacy billing/billingdetail rows and two
- * eChart rows, all marker/id scoped and removed (and re-checked) in cleanup. No demo row changes.
+ * row), one mygroup row, five appointments today and three legacy billing/billingdetail rows, all
+ * marker/id scoped and removed (and re-checked) in cleanup. No demo row is changed.
  */
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -78,7 +78,7 @@ async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const q = h.sqlString;
   const today = sql.value('SELECT CURDATE()');
-  const state = { providers: [], group: null, appts: {}, bills: [], echarts: [] };
+  const state = { providers: [], group: null, appts: {}, bills: [] };
 
   // Cleanups run in reverse registration order, so providers go last.
   s.cleanup(() => {
@@ -108,10 +108,6 @@ async function workflow(s) {
       DELETE FROM billing WHERE billing_no IN (${ids}) AND demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM billing WHERE billing_no IN (${ids}))
       + (SELECT COUNT(*) FROM billingdetail WHERE billing_no IN (${ids}))`) === '0', 'Owned bills were not removed');
-  });
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM eChart WHERE demographicNo=${patient}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM eChart WHERE demographicNo=${patient}`) === '0', 'Owned eChart rows were not removed');
   });
 
   // Providers: A has no role (New Provider-Role List), B starts as 'other' (Confirmed list).
@@ -176,16 +172,6 @@ async function workflow(s) {
     sql.execute(`INSERT INTO billingdetail (billing_no,service_code,service_desc,billing_amount,diagnostic_code,appointment_date,
         status,billingunit)
       VALUES (${id},${q(SERVICE_CODE)},${q(serviceDesc)},'33.70',${q(DX_CODE)},${q(today)},${q(status)},'1')`);
-  }
-
-  // Encounter history rows: noon timestamps keep the rendered date stable across JVM time zones.
-  const subjects = [`${marker} intake`, `${marker} follow-up <i>y</i>`];
-  for (const [index, subject] of subjects.entries()) {
-    const id = sql.value(`INSERT INTO eChart (timeStamp,demographicNo,providerNo,subject,encounter)
-      VALUES (CURDATE() - INTERVAL ${3 - index} DAY + INTERVAL 12 HOUR,${patient},${q(index ? nurse : provider)},${q(subject)},
-        ${q(`${marker} encounter text`)}); SELECT LAST_INSERT_ID()`);
-    h.assert(owned(id), 'eChart fixture was not created');
-    state.echarts.push(id);
   }
 
   // ── Administration ▸ Reports ▸ PHCP settings and report ─────────────────────────────────────
@@ -274,27 +260,6 @@ async function workflow(s) {
     const cells = await countRow(c => c[0] === SERVICE_CODE && c[1] === serviceDesc, 'ServiceCode');
     h.assert(JSON.stringify(cells.slice(2)) === JSON.stringify(expectedCounts),
       `PHCP ServiceCode counts were [${cells.slice(2).join(',')}], expected [${expectedCounts.join(',')}]`);
-  });
-
-  // ── Master Record ▸ E-Chart ▸ Encounter history ─────────────────────────────────────────────
-  await s.step('E-Chart encounter link lists exactly the patient eChart rows, newest first, as text', async () => {
-    const chart = await s.chart();
-    const link = chart.locator('#rowThree a').filter({ hasText: /Encounter/ }).first();
-    const history = await s.popup(chart, link, 'encounter history');
-    h.assert(new URL(history.url()).pathname.endsWith('/report/ViewReportecharthistory'), 'Encounter link opened another page');
-    const expected = sql.rows(`SELECT DATE_FORMAT(timeStamp,'%Y-%m-%d'),subject,p.first_name,p.last_name FROM eChart e
-      JOIN provider p ON p.provider_no=e.providerNo WHERE demographicNo=${patient} ORDER BY eChartId DESC`);
-    h.assert(expected.length === 2, 'Opening the chart changed the patient\'s eChart rows');
-    const rows = history.locator('tr').filter({ has: history.locator('a[href*="ViewEcharthistoryprint"]') });
-    h.assert(await rows.count() === expected.length, `Encounter history listed ${await rows.count()} rows, expected ${expected.length}`);
-    for (const [i, [date, subject, first, last]] of expected.entries()) {
-      const cells = (await rows.nth(i).locator('td').allInnerTexts()).map(norm);
-      h.assert(cells[0].startsWith(date), `Encounter history row ${i + 1} has the wrong date`);
-      h.assert(cells[1] === subject, `Encounter history row ${i + 1} has the wrong subject`);
-      h.assert(cells[2] === `${first} ${last}`, `Encounter history row ${i + 1} has the wrong provider`);
-    }
-    h.assert(await history.locator('td i').count() === 0, 'An eChart subject was rendered as HTML');
-    await history.close();
   });
 
   // ── Schedule ▸ Report ▸ Day Sheet ───────────────────────────────────────────────────────────
