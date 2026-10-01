@@ -132,6 +132,14 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests[0].get('recipient'),'Typed Recipient Corrected');
     assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0177');
+    // Reverting a typed number to the eForm's own number makes it the eForm's again.
+    await open();
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxNumber').fill('416-555-0166');
+    await page.locator('#remoteFaxFromForm').selectOption('');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0123');
+    await page.locator('#remoteFaxRecipient').fill('Reverted Recipient');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'');
     await open();
     await page.setViewportSize({width:600,height:800});
     await page.locator('#remoteFaxOptions summary').click();
