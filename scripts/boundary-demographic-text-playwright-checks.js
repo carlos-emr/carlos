@@ -119,6 +119,7 @@ async function workflow(s) {
     await add.close();
   });
 
+  const limitMismatches = [];
   await s.step('the add form limits each text box to its column length (client maxlength equals the database VARCHAR)', async () => {
     add = await openAddForm(s, tag + 'M');
     const mapping = [['last_name', 'last_name'], ['first_name', 'first_name'], ['middleNames', 'middleNames'], ['address', 'address'],
@@ -134,7 +135,8 @@ async function workflow(s) {
       else if (Number(limit) !== declared) mismatched.push(`${input} maxlength=${limit} but column ${column} holds ${declared}`);
     }
     await add.close();
-    h.assert(mismatched.length === 0, `Add form limits disagree with the database columns: ${mismatched.join('; ')}`);
+    // Reported in the last step, so the storage checks below still run when the form limits are wrong.
+    limitMismatches.push(...mismatched);
   });
 
   await s.step('a surname of exactly the column length is stored whole and one more character is visibly limited', async () => {
@@ -178,6 +180,9 @@ async function workflow(s) {
     h.assert(problems.length === 0, problems.join(' || '));
   });
 
+  await s.step('the add form limits agree with the database columns', async () => {
+    h.assert(limitMismatches.length === 0, `Add form limits disagree with the database columns: ${limitMismatches.join('; ')}`);
+  });
 }
 
 if (require.main === module) runWorkflow('boundary-demographic-text', workflow, { openPatient: false });

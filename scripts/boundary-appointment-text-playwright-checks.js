@@ -18,7 +18,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
-const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
+const { createUnbookedThrowaway, registerAppointmentCleanup } = require('./lib/gap-provider-fixture');
 
 /** A string whose UTF-16 length is exactly `units` built from the special-character parts, padded with 'x'. */
 function fillUnits(units, parts, pad = 'x') {
@@ -43,20 +43,10 @@ async function pollFor(sql, query, predicate, message) {
 
 async function workflow(s) {
   const { sql, config, recorder, marker, patient } = s;
-  const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: config.testUser });
-  s.cleanup(() => fixture.cleanup());
-  fixture.create();
+  // A throwaway login whose provider number owns no appointment row, so the by-number cleanup removes only this run's rows.
+  const fixture = createUnbookedThrowaway(s);
+  registerAppointmentCleanup(s, fixture);
   const owner = h.sqlString(fixture.providerNo);
-  // The fixture picks a number that is free of provider, security, log and preference rows but not of appointment rows. The cleanup
-  // below deletes by provider number, so refuse to run (and to delete anything) if a leftover row already carries this number.
-  h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE provider_no=${owner})
-    + (SELECT COUNT(*) FROM appointmentArchive WHERE provider_no=${owner})`) === '0',
-  'The throwaway provider number already has appointment rows from an earlier provider; re-run to draw another number');
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM appointmentArchive WHERE provider_no=${owner}; DELETE FROM appointment WHERE provider_no=${owner}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE provider_no=${owner})
-      + (SELECT COUNT(*) FROM appointmentArchive WHERE provider_no=${owner})`) === '0', 'Owned appointment rows were not removed');
-  });
   const context = await h.newContext(s.context.browser(), config);
   context.setDefaultTimeout(20000);
   context.on('page', page => h.wireStrictPage(page, 'throwaway', recorder));

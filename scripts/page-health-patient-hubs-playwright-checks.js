@@ -29,7 +29,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { closeBrowserWithChartCleanup, releaseChartLocks } = require('./lib/chart-lock-cleanup');
-const { assertHealthy, crawl, judgePage, startSession } = require('./lib/page-health-engine');
+const { assertHealthy, beginEntry, crawl, entryFailures, judgePage, startSession } = require('./lib/page-health-engine');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 // Applies to every hub: a destructive control must never be clicked by a read-only crawl.
@@ -68,16 +68,20 @@ async function main() {
   const failures = [];
   let opened = 0;
   try {
+    // Opening the Master Record and each hub is judged too: their startup errors and failed resources are reported.
+    const masterEntry = beginEntry(session);
     const { masterPage } = await openMasterRecord(session.context, session.schedulePage, session.recorder, {
       searchTerm: process.env.MASTER_RECORD_SEARCH || 'FAKE-',
       preferredDemographicNo: process.env.MASTER_RECORD_DEMOGRAPHIC_NO || '2',
       timeout,
     });
+    failures.push(...entryFailures(session, masterEntry, 'master-record (entry)'));
     for (const hub of HUBS) {
       const entry = masterPage.locator('a').filter({ hasText: new RegExp(`^\\s*${hub.name}\\s*$`) }).first();
       h.assert(await entry.count() > 0, `The Master Record offers no "${hub.name}" link`);
       let hubPage;
       let isPopup = true;
+      const hubEntry = beginEntry(session);
       try {
         ({ page: hubPage, isPopup } = await ui.clickOpensPopupOrNavigates(masterPage, entry, {
           context: session.context, label: hub.name, recorder: session.recorder, timeout,
@@ -89,6 +93,7 @@ async function main() {
         const result = await crawl({
           context: session.context, hostPage: hubPage, items, recorder: session.recorder, probe: session.probe,
           labelPrefix: hub.name, timeout, skipRules: [...DESTRUCTIVE_SKIP, ...hub.skip], ledger: session.ledger, tolerateReshuffle: true,
+          entry: { window: hubEntry, label: `${hub.name} (entry)` },
           beforePopupClose: page => releaseChartLocks(session.context, config.baseUrl, [page]),
         });
         console.log(`  ${hub.name}: opened ${result.opened.length}, skipped ${result.skipped}`);

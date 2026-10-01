@@ -149,7 +149,8 @@ async function workflow(s) {
     } else if (after === original) {
       // Refused: the row must be unchanged and the page must say the save did not happen.
       const page = (await frame.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
-      h.assert(!/Update a Provider Record Successfully/i.test(page) && /too long|exceed|maximum|limit|invalid|error|could not|unable|failed|refus/i.test(page),
+      // A crash page ("Data too long" 500) also leaves the row unchanged, so only a length-specific message counts.
+      h.assert(!/Update a Provider Record Successfully/i.test(page) && b.lengthRefusal(page),
         `The e-mail box accepted ${b.cpLength(shown)} characters (provider.email holds ${column}) and the save changed nothing, but the page gave no visible refusal`);
     } else {
       b.assertNotSilentlyTruncated(sql, 'provider', 'email', providerRow, shown, 'Provider e-mail past the column');

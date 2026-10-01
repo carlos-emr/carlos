@@ -141,14 +141,14 @@ function snippet(text, index, length) {
 /**
  * The part of a hit that is safe to print: the defect token itself, never its neighbours.
  * The tokens the rules look for are code-shaped (null, NaN, ???key???, [object X], an
- * entity, a Java class name). A template expression's inner text is free text on a page,
- * so unless it is a plain identifier path it is reduced to its delimiters.
+ * entity, a Java class name). A template expression's inner text can be free text on a page,
+ * so it is always reduced to its delimiters.
  */
 function needle(kind, matched) {
   const token = String(matched).replace(/\s+/g, ' ').trim();
   if (kind === 'unresolved-el' || kind === 'unresolved-ognl') {
-    const open = token.slice(0, 2);
-    return /^[%$]\{[A-Za-z_][\w.[\]]{0,60}\}$/.test(token) ? token : `${open}...}`;
+    // Always reduced to its delimiters: even an identifier-shaped body ("${Smith}") can be a patient's own text.
+    return `${token.slice(0, 2)}...}`;
   }
   if (kind === 'unresolved-scriptlet') return token;
   return token.length > 80 ? `${token.slice(0, 77)}...` : token;
@@ -335,6 +335,18 @@ function createLedger() {
       }
       map.set(key, { kind, detail, why: why || '', count: 1, pages: [page] });
     },
+    /**
+     * Drop text findings recorded only on pages matching `pattern` (the body of an already-filed error page,
+     * e.g. its exception class names), counting them as known; a finding also seen on any other page stays.
+     */
+    forgetPage(pattern, reason) {
+      for (const [key, entry] of map) {
+        if (entry.pages.every(page => pattern.test(page)) && entry.count === entry.pages.length) {
+          map.delete(key);
+          this.known(reason);
+        }
+      }
+    },
     list() { return [...map.values()]; },
     lines() {
       return this.list().map(f => `[${f.kind}] ${f.detail} -- on ${f.pages.join(', ')}${f.count > 1 ? ` (${f.count} pages)` : ''}${f.why ? `; ${f.why}` : ''}`);
@@ -498,7 +510,8 @@ async function clickFooterLinks(context, page, label, timeout, ledger) {
     }
     // The popup event fires while the window is still about:blank, where "domcontentloaded"
     // is already true; a link that never navigates must not pass as a working footer link.
-    const navigated = await popup.waitForURL(url => String(url) !== 'about:blank', { timeout })
+    // 'commit' only: a popup that has navigated but whose load event is slow is still a working link.
+    const navigated = await popup.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'commit' })
       .then(() => true, () => false);
     if (navigated) await popup.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
     else ledger.add(label, 'dead-footer-link', `the "${text}" footer link opened a window that never navigated`);
@@ -633,13 +646,18 @@ async function crawl(options) {
   }
   // Failures already filed elsewhere are counted, not failed again.
   const known = options.knownFailures || [];
+  const matchedRules = new Set();
   for (let i = failures.length - 1; i >= 0; i -= 1) {
     const rule = known.find(candidate => candidate.match.test(failures[i]));
     if (rule) {
       ledger.known(rule.reason);
       failures.splice(i, 1);
+      matchedRules.add(rule);
     }
   }
+  // When the filed failure really happened, the error page it rendered (now read through in-scope frames too) may
+  // carry text findings of its own; those belong to the same filed defect. A rule opts in with `page`.
+  for (const rule of matchedRules) if (rule.page) ledger.forgetPage(rule.page, rule.reason);
   if (hidden.length) console.log(`  not clickable (hidden in the page): ${hidden.length} link(s)`);
   if (reshuffled.length) console.log(`  not opened (the module re-rendered under the crawl): ${reshuffled.join(', ')}`);
   return { opened, skipped, failures, ledger };

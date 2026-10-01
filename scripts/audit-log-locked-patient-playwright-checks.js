@@ -29,7 +29,7 @@ const { auditProbe, label } = require('./lib/audit-log-helpers');
 async function workflow(s) {
   const { sql, marker, patient, provider, config } = s;
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
-  const probe = auditProbe({ sql, patient });
+  const probe = auditProbe({ sql, patient, provider });
   let doctor;
   s.cleanup(() => cleanupAll(() => fixture.cleanup(), () => probe.cleanup()));
   let attemptedAfter;
@@ -62,7 +62,13 @@ async function workflow(s) {
     doctor.context.off('response', onResponse);
     const text = await page.locator('body').innerText().catch(() => '');
     h.assert(!text.includes(marker), 'The locked patient\'s record was shown to the locked doctor');
-    const popupResponses = navigations.filter(r => r.request().frame()?.page() === page);
+    // Request.frame() throws (rather than returning null) for a navigation issued before its frame exists, which is the
+    // popup's first document request; such a response is attributed by the patient it asked for instead.
+    const pageOf = r => { try { return r.request().frame().page(); } catch { return null; } };
+    const popupResponses = navigations.filter(r => {
+      const owner = pageOf(r);
+      return owner ? owner === page : new URL(r.url()).searchParams.get('demographic_no') === String(patient);
+    });
     const asked = popupResponses.find(r => new URL(r.url()).searchParams.get('demographic_no') === String(patient)) || popupResponses[0];
     h.assert(asked, 'The Master Record window made no document request that could be inspected');
     const answer = { status: asked.status(), fromApp: Object.prototype.hasOwnProperty.call(asked.headers(), 'x-permitted-cross-domain-policies'),

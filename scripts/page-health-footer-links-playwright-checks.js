@@ -65,7 +65,8 @@ async function main() {
   // Footer ReferenceErrors are reported per link above; everything else the browser recorded
   // while getting here and clicking is asserted at the end.
   const reported = [];
-  const ledger = createLedger();
+  // The session's ledger: it already holds the login/schedule off-host findings startSession() recorded.
+  const ledger = session.ledger || createLedger();
   const entry = beginEntry(session);
   try {
     const { masterPage } = await openMasterRecord(session.context, session.schedulePage, session.recorder, {

@@ -26,7 +26,7 @@ const VALUE = '128/82';
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
-  const probe = auditProbe({ sql, patient });
+  const probe = auditProbe({ sql, patient, provider });
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
   s.cleanup(() => {

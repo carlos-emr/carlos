@@ -18,8 +18,6 @@ const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
 
-/** Wording a refusal on the Messenger page would use; a long subject that is not stored must be explained to the user. */
-const REFUSAL_TEXT = /could not|cannot|too long|exceed|maximum|limit|invalid|failed|unable|refus/i;
 
 function fillCodePoints(length, parts, pad = 'x') {
   let value = '';
@@ -206,7 +204,9 @@ async function workflow(s) {
     } else if (!rows.length) {
       // Not stored is only acceptable when the user is told: an alert, or a refusal on the page.
       const pageText = (await inbox.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
-      if (!seen.length && !REFUSAL_TEXT.test(pageText)) problems.push('subject: a subject past the column was not sent and nothing told the user');
+      // An alert must name the length too, and an error page is a crash, not a refusal.
+      const told = seen.some(dialog => b.lengthRefusal(dialog.text)) || b.lengthRefusal(pageText);
+      if (!told) problems.push('subject: a subject past the column was not sent and the user was not told its length was the problem');
     }
     await leave(inbox);
     const textBytes = 65535;

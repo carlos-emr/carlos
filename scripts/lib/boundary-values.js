@@ -101,7 +101,21 @@ function removeTaggedPatients(sql, tag, marker, removeMarkedPatients) {
   removeMarkedPatients(sql, marker);
 }
 
+/** Wording a deliberate length refusal uses (an alert or the re-rendered form). */
+const LENGTH_REFUSAL = /too long|exceed|maximum|max(?:imum)? length|at most \d+|characters? (?:allowed|max)|limit/i;
+/** Signatures of a crash or block page; a page showing one is not a deliberate refusal even if it says "error". */
+const ERROR_PAGE = /unexpected error|exception|stack ?trace|HTTP Status [45]\d\d|CARLOS Error|Data too long|internal server error|Request Rejected|Forbidden/i;
+
+/**
+ * True when page or alert text is a deliberate, length-specific refusal: it names the length problem and is not a
+ * server error or WAF page (a "Data too long" 500 also leaves the row unchanged, which must not pass as validation).
+ */
+function lengthRefusal(text) {
+  const value = String(text || '');
+  return LENGTH_REFUSAL.test(value) && !ERROR_PAGE.test(value);
+}
+
 module.exports = {
   TOKENS, cpLength, hex, exactly, columnLength, readStored, explainMismatch, assertStored,
-  assertNotSilentlyTruncated, sameText, removeTaggedPatients,
+  assertNotSilentlyTruncated, sameText, removeTaggedPatients, lengthRefusal,
 };

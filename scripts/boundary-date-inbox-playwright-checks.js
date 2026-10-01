@@ -9,8 +9,9 @@
  * Start Date through the whole End Date is listed and nothing dated before the Start Date or after the End Date.
  * Fixtures: two documents with ctl_document links and routing rows for the owned patient; five labs (hl7TextMessage
  * + hl7TextInfo + providerLabRouting) carrying the run marker as patient surname; cleanup removes every row by id
- * and asserts none remain. The inbox date preference must be the default service/observation date; it is only touched (snapshot, set, restore) when an install
- * has it on "received", in which case run the check with EXCLUSIVE=1.
+ * and asserts none remain. The inbox date preference must be the default service/observation date (absent, NULL or empty
+ * count as that default); on an install set to another mode the check SKIPs unless INBOX_DATE_EXCLUSIVE=1 is given under
+ * the EXCLUSIVE=1 wrapper, in which case it snapshots, switches and restores the clinic-wide row.
  * Implements the wave-6 "boundary values" pattern, Part 2 (lab/inbox/document date filters, end-date inclusivity).
  */
 const h = require('./lib/playwright-harness');
@@ -50,15 +51,26 @@ async function workflow(s) {
   // date filter for a preference. Make sure observation mode is in force; touch the global row only when it is not.
   const preferenceName = "name='inboxDateSearchType'";
   const previous = sql.rows(`SELECT id, IFNULL(HEX(value),''), value IS NULL FROM SystemPreferences WHERE ${preferenceName}`);
-  const inObservationMode = previous.length === 0 || (previous[0][2] === '0' && Buffer.from(previous[0][1] || '', 'hex').toString('utf8') === 'serviceObservation');
+  // The DAOs fall back to serviceObservation when the row is absent, NULL or empty, so all of those are observation mode.
+  const storedMode = previous.length && previous[0][2] === '0' ? Buffer.from(previous[0][1] || '', 'hex').toString('utf8') : '';
+  const inObservationMode = storedMode === '' || storedMode === 'serviceObservation';
+  // Any other mode is a clinic-wide setting other inbox, lab and HRM checks read; switching it while they run would change
+  // their results, so only do it when the operator confirms this check runs alone.
+  if (!inObservationMode && process.env.INBOX_DATE_EXCLUSIVE !== '1') {
+    throw new h.SkipCheck(`inboxDateSearchType is "${storedMode}"; re-run with INBOX_DATE_EXCLUSIVE=1 under the EXCLUSIVE=1 wrapper so the check may switch it to serviceObservation and restore it`);
+  }
+  let switched = false;
   s.cleanup(() => {
-    if (inObservationMode) return;
+    if (!switched) return;
     for (const [id, hex, isNull] of previous) {
       h.assert(/^\d+$/.test(id) && /^[0-9A-F]*$/i.test(hex || '') && (isNull === '0' || isNull === '1'), 'Unexpected preference snapshot');
       sql.execute(`UPDATE SystemPreferences SET value=${isNull === '1' ? 'NULL' : `UNHEX('${hex || ''}')`} WHERE id=${id} AND ${preferenceName}`);
     }
   });
-  if (!inObservationMode) sql.execute(`UPDATE SystemPreferences SET value='serviceObservation' WHERE ${preferenceName}`);
+  if (!inObservationMode) {
+    switched = true;
+    sql.execute(`UPDATE SystemPreferences SET value='serviceObservation' WHERE ${preferenceName}`);
+  }
 
   // UI-created patients carry an empty health number; the runWorkflow fixture leaves it NULL, which the Inbox patient filter
   // (d.hin like ...) never matches (known, ISSUES L207). Give the owned patient the empty HIN so this check judges dates only.

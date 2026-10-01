@@ -28,24 +28,29 @@ async function workflow(s) {
   const { sql, patient, marker } = s;
   const like = h.sqlString(`${marker}-%`);
   const ids = () => sql.rows(`SELECT requestId FROM consultationRequests WHERE demographicNo=${patient} AND reason LIKE ${like}`).map(([id]) => id);
+  const extTables = ['consultdocs', 'consultationRequestExt', 'consultationRequestExtArchive'];
   s.cleanup(() => {
+    let verifyTables = [];
     const list = ids();
     for (const id of list) h.assert(/^[1-9]\d*$/.test(id), 'Owned request id is invalid');
     if (list.length) {
       const csv = list.join(',');
       // The form always files an ext_ row per request (ext_appNo); the extension tables have no cascading foreign key.
-      for (const table of ['consultdocs', 'consultationRequestExt', 'consultationRequestExtArchive']) {
-        try { sql.execute(`DELETE FROM ${table} WHERE requestId IN (${csv})`); } catch (error) { /* absent */ }
+      // Only tables this install has are cleaned and verified (consultdocs and the archive table are optional).
+      const present = new Set(sql.rows(`SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE()
+        AND table_name IN ('consultdocs','consultationRequestExt','consultationRequestExtArchive')`).map(([name]) => name));
+      for (const table of extTables.filter(name => present.has(name))) {
+        sql.execute(`DELETE FROM ${table} WHERE requestId IN (${csv})`);
       }
+      verifyTables = ['consultationRequestExt', 'consultationRequestExtArchive'].filter(name => present.has(name));
       sql.execute(`DELETE FROM consultationRequests WHERE requestId IN (${csv}) AND demographicNo=${patient}`);
     }
     // The consultation form files one stamp row per submit for the patient (FK to demographic).
     sql.execute(`DELETE FROM DigitalSignature WHERE demographicId=${patient} AND ModuleType='CONSULTATION'`);
     h.assert(ids().length === 0, 'Owned consultation requests were not removed');
-    if (list.length) {
-      const orphans = sql.value(`SELECT (SELECT COUNT(*) FROM consultationRequestExt WHERE requestId IN (${list.join(',')}))
-        + (SELECT COUNT(*) FROM consultationRequestExtArchive WHERE requestId IN (${list.join(',')}))`);
-      h.assert(orphans === '0', 'Owned consultation request extension rows were not removed');
+    for (const table of verifyTables) {
+      h.assert(sql.value(`SELECT COUNT(*) FROM ${table} WHERE requestId IN (${list.join(',')})`) === '0',
+        `Owned ${table} rows were not removed`);
     }
   });
   const chart = await s.chart();

@@ -60,7 +60,8 @@ async function workflow(s) {
     VALUES (${q(type.type)},${q(type.display)},${q(`FAKEPW ${hex} type`)},${q(`FAKEPW ${hex} instr`)},'5',NOW())`);
   // B's style row must sit AT the style sheet's key, so a mishandled merge can only damage the owned row, never a demo
   // group: take a style sheet id whose key is free in measurementGroupStyle (another id is drawn if a demo group has it).
-  for (let attempt = 0; attempt < 10 && css === null; attempt++) {
+  // Each collision consumes an id, so keep drawing; the cap only stops a runaway loop on a corrupt table.
+  for (let attempt = 0; attempt < 10000 && css === null; attempt++) {
     const id = sql.value(`INSERT INTO measurementCSSLocation(location) VALUES (${q(cssName)}); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'The style sheet fixture was not created');
     if (sql.value(`SELECT COUNT(*) FROM measurementGroupStyle WHERE groupID=${id}`) === '0') css = Number(id);

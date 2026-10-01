@@ -33,8 +33,9 @@ function createUnbookedThrowaway(s) {
     const booked = sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE provider_no=${owner})
       + (SELECT COUNT(*) FROM appointmentArchive WHERE provider_no=${owner})`);
     if (booked === '0') return fixture;
-    active = false;
+    // Disarm the registered callback only once the immediate cleanup succeeded, so a failed one is retried at teardown.
     fixture.cleanup();
+    active = false;
   }
   throw new Error('No throwaway provider number free of appointment rows was found');
 }

@@ -53,9 +53,11 @@ const PATIENT_KEYED_CONTENT = ['demographic', 'eChart'];
  * @param patient    owned demographic_no (string of digits), or null for checks about no patient
  * @param ownedRows  mutable list of {content, id} the check adds to as it creates rows (note id, appointment id, ...)
  */
-function auditProbe({ sql, patient = null }) {
+function auditProbe({ sql, patient = null, provider = null }) {
   const owned = [];
   if (patient !== null) assert(/^[1-9]\d*$/.test(String(patient)), 'The audit probe needs the owned demographic_no');
+  // Rows above this id were written while the probe's check ran; see ownedPredicate().
+  const start = Number(sql.value('SELECT COALESCE(MAX(id),0) FROM log'));
 
   function aboutPredicate() {
     const parts = [];
@@ -88,6 +90,14 @@ function auditProbe({ sql, patient = null }) {
     }
     for (const { content, id } of owned) {
       parts.push(`(content=${sqlString(content)} AND contentId=${sqlString(String(id))})`);
+    }
+    // The wider matches (a bare numeric data value, contentId under any content type) are this run's own when they were
+    // written during the run (and, when known, by the run's provider): the patient did not exist before the check made
+    // it, so such a row cannot be older history. Without this the manager-layer rows the check caused would pile up.
+    if (patient !== null) {
+      const byRun = [`id>${start}`];
+      if (provider) byRun.push(`provider_no=${sqlString(String(provider))}`);
+      parts.push(`(${byRun.join(' AND ')} AND ${aboutPredicate()})`);
     }
     assert(parts.length, 'The audit probe has nothing to scope to');
     return `(${parts.join(' OR ')})`;

@@ -125,3 +125,19 @@ test('entryFailures reports what the browser recorded since the entry began, and
   assert.deepEqual(entryFailures({ recorder, probe, ledger }, entry, 'entry', ['uncaught ReferenceError: boom']),
     ['entry: HTTP 500 on a document']);
 });
+
+test('forgetPage drops findings seen only on the filed page and keeps any also seen elsewhere', () => {
+  const ledger = createLedger();
+  ledger.add('admin:Unlock Account', 'java-leak', 'visible text: "java.lang.NullPointerException"');
+  ledger.add('admin:Unlock Account', 'unresolved-el', 'visible text: "${...}"');
+  ledger.add('admin:Other Page', 'unresolved-el', 'visible text: "${...}"');
+  ledger.forgetPage(/^admin:Unlock Account$/, 'filed');
+  assert.deepEqual(ledger.list().map(entry => entry.kind), ['unresolved-el']);
+  assert.deepEqual(ledger.suppressedSummary(), ['x1 (known: filed)']);
+});
+
+test('an identifier-shaped template expression is still reduced to its delimiters', () => {
+  const findings = scanText({ text: 'Allergy note ${Smith} recorded', values: [], title: '' });
+  assert.ok(findings.some(f => f.kind === 'unresolved-el'), 'the rule still fires');
+  assert.ok(!JSON.stringify(findings).includes('Smith'), 'the expression body must not reach a finding');
+});

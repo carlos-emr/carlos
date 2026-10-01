@@ -28,7 +28,7 @@ const { stageCustomDrug, clearOwnedPrescriptionRows } = require('./rx-stash-pati
 
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
-  const probe = auditProbe({ sql, patient });
+  const probe = auditProbe({ sql, patient, provider });
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
   const drugName = `${marker}-drug`;
@@ -70,7 +70,12 @@ async function workflow(s) {
     for (const r of rows) {
       const problems = incomplete([r], { provider, patient });
       expect(!problems.length, `${what}: the audit row ${label(r)} is incomplete (${problems.join(', ')})`);
-      if (contentId) expect(r.contentId === String(contentId), `${what}: the audit row ${label(r)} does not name the written row`);
+    }
+    // The action may write companion rows (discontinuing also files a reason note), so the written row must be named
+    // by at least one of them rather than by each.
+    if (contentId && rows.length) {
+      expect(rows.some(r => r.contentId === String(contentId)),
+        `${what}: no audit row names the written row (${rows.map(r => label(r)).join(', ')})`);
     }
     return rows;
   }

@@ -45,6 +45,25 @@ test('cleanup predicate still removes rows of an owned entity registered with ow
   assert.deepEqual(db.prepare('SELECT id FROM log').all().map(row => row.id), [2]);
 });
 
+test('cleanup also removes the wider-matched rows this run wrote, and only those', { skip: !DatabaseSync }, () => {
+  const db = new DatabaseSync(':memory:');
+  db.function('regexp', (pattern, value) => 0);
+  db.exec('CREATE TABLE log (id INTEGER PRIMARY KEY, provider_no TEXT, action TEXT, content TEXT, contentId TEXT, demographic_no INTEGER, data TEXT)');
+  const insert = db.prepare('INSERT INTO log (id, provider_no, action, content, contentId, demographic_no, data) VALUES (?,?,?,?,?,?,?)');
+  insert.run(1, '999', 'read', 'document', '777', null, null);        // older history: a document id equal to the patient id
+  const sql = {
+    execute(statement) { db.exec(statement); },
+    value(query) { return String(Object.values(db.prepare(query).get())[0]); },
+    rows(query) { return db.prepare(query).all().map(row => Object.values(row).map(String)); },
+  };
+  const probe = auditProbe({ sql, patient: '777', provider: '999' });
+  insert.run(2, '999', 'DemographicManager.get', null, null, null, '777'); // a manager row this run caused (bare data)
+  insert.run(3, '999', 'add', 'Prevention', '777', null, null);            // keyed by the patient under another content type
+  insert.run(4, '111', 'read', 'document', '777', null, null);             // another login's colliding row during the run
+  probe.cleanup();
+  assert.deepEqual(db.prepare('SELECT id FROM log ORDER BY id').all().map(row => row.id), [1, 4]);
+});
+
 test('phiLeaks never echoes the content column that carried the patient text', () => {
   const secret = 'FAKE-PWsecret';
   const leaks = phiLeaks([{ action: 'add', content: `note ${secret}`, contentId: '1', data: null }], [secret]);

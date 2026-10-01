@@ -63,6 +63,8 @@ async function main() {
       // uncaught error, another failed request or a text finding on the same link still fails.
       knownFailures: [{
         match: /^admin:Unlock Account: (?:HTTP 500\b|console error: Failed to load resource: the server responded with a status of 500|rendered an error page)/,
+        // The 500 page's own text (exception names read through the panel iframe) is the same filed defect.
+        page: /^admin:Unlock Account$/,
         reason: 'Unlock Account 500, ISSUES.md L1 / finding 71',
       }],
     });

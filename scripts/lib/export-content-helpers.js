@@ -234,7 +234,14 @@ function xlsCells(buffer) {
     else if (id === 0x00BD) {
       const first = body.readUInt16LE(2);
       for (let i = 0; i < (body.length - 6) / 6; i++) cell(body.readUInt16LE(0), first + i, 'number', rkNumber(body.readUInt32LE(4 + i * 6 + 2)));
-    } else if (id === 0x0204) cell(body.readUInt16LE(0), body.readUInt16LE(2), 'text', body.subarray(8, 8 + body.readUInt16LE(6)).toString('latin1'));
+    } else if (id === 0x0204) {
+      // LABEL: row, col, xf, then an XLUnicodeString: cch (2 bytes), fHighByte (1 byte), then cch characters,
+      // one byte each (compressed latin1) or two bytes each (UTF-16LE) when bit 0 of fHighByte is set.
+      const count = body.readUInt16LE(6);
+      const wide = (body[8] & 0x01) === 1;
+      const chars = body.subarray(9, 9 + count * (wide ? 2 : 1));
+      cell(body.readUInt16LE(0), body.readUInt16LE(2), 'text', chars.toString(wide ? 'utf16le' : 'latin1'));
+    }
   }
   const rows = [];
   for (const { row, col, type, value } of cells.values()) {

@@ -30,7 +30,7 @@ const { auditProbe } = require('./lib/audit-log-helpers');
 async function workflow(s) {
   const { sql, marker, patient, provider, config, schedule } = s;
   const q = h.sqlString;
-  const probe = auditProbe({ sql, patient });
+  const probe = auditProbe({ sql, patient, provider });
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
   const reason = `${marker} reason`;

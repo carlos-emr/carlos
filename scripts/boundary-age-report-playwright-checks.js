@@ -36,8 +36,10 @@ async function workflow(s) {
     if (list.length) {
       // Patients first: the report regeneration rebuilds the cache from `demographic`, so once they are gone nothing
       // (this run or a parallel one) can write a cache row for them again.
-      sql.execute(`DELETE FROM demographic WHERE demographic_no IN (${list.join(',')}) AND last_name LIKE ${q(`${marker}-A%`)};
-        DELETE FROM reportagesex WHERE demographic_no IN (${list.join(',')})`);
+      sql.execute(`START TRANSACTION;
+        DELETE FROM demographic WHERE demographic_no IN (${list.join(',')}) AND last_name LIKE ${q(`${marker}-A%`)};
+        DELETE FROM reportagesex WHERE demographic_no IN (${list.join(',')});
+        COMMIT`);
     }
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE last_name LIKE ${q(`${marker}-A%`)}`) === '0', 'Owned patients were not removed');
     if (list.length) {

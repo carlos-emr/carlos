@@ -100,7 +100,7 @@ async function workflow(s) {
     if (found.length === 0) {
       // Nothing stored is a valid answer only when the page names the length as the problem; any other failed save
       // (a duplicate-name refusal, a write error) is not evidence that the length was checked.
-      h.assert(/too long|exceed|maximum|characters|length|limit/i.test(text),
+      h.assert(b.lengthRefusal(text),
         `The ${b.cpLength(shown)}-character description was not saved but the page gave no length-related refusal (page said: "${text.slice(0, 160)}")`);
       return;
     }
