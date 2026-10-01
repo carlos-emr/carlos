@@ -80,6 +80,37 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldSupplyNewFormFlag_whenOnlyDifferentlyCasedNameOrIdExists() {
+        EForm form = new EForm();
+        form.setFormHtml("<form><input type='hidden' name='newform' value='x'>"
+                + "<input type='hidden' id='NEWFORM' value='y'></form>");
+        form.ensureNewFormInput();
+        form.ensureNewFormInput();
+        var document = Jsoup.parse(form.getFormHtml());
+        var fields = document.select("form > input").stream()
+                .filter(input -> "newForm".equals(input.attr("name"))).toList();
+        assertThat(fields).hasSize(1);
+        assertThat(fields.get(0).id()).isEqualTo("newForm");
+        assertThat(fields.get(0).val()).isEqualTo("true");
+        assertThat(document.select("form > input")).hasSize(3);
+    }
+
+    @Test
+    void shouldSupplyNewFormFlag_whenOnlyNonSubmittingElementsUseTheName() {
+        EForm form = new EForm();
+        form.setFormHtml("<form><a name='newForm'></a><img name='newForm'>"
+                + "<input type='button' name='newForm' value='Start'></form>");
+        form.ensureNewFormInput();
+        form.ensureNewFormInput();
+        var document = Jsoup.parse(form.getFormHtml());
+        var fields = document.select("input[type=hidden]").stream()
+                .filter(input -> "newForm".equals(input.attr("name"))).toList();
+        assertThat(fields).hasSize(1);
+        assertThat(fields.get(0).id()).isEqualTo("newForm");
+        assertThat(fields.get(0).val()).isEqualTo("true");
+    }
+
+    @Test
     void shouldSupplyNewFormFlag_whenTemplateHasNone() {
         EForm form = new EForm();
         form.setFormHtml("<form></form>");

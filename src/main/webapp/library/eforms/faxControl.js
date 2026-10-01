@@ -27,6 +27,13 @@
     document.addEventListener('change', function (event) {
         if (['faxnumList', 'otherFaxSelect'].includes(event.target.id)) selectedSource = event.target.id;
     });
+    // A number the clinician types into the form's own other-fax field is a new explicit choice.
+    // Only trusted typing counts: AddOtherFax/AddOtherFaxProvider copy values in programmatically
+    // and must not make a copied list value authoritative. The field becomes the source (rather
+    // than clearing the source) so an older list choice cannot win over what was just typed.
+    document.addEventListener('input', function (event) {
+        if (event.isTrusted && event.target.id === 'otherFaxInput') selectedSource = 'otherFaxInput';
+    });
 
     function selectedOption(id) {
         var select = document.getElementById(id);
@@ -41,6 +48,9 @@
         // through to the other list (or to the otherFaxInput value AddOtherFax/AddOtherFaxProvider
         // copied from it) would fax a recipient they had just deselected, so fail closed with no
         // number rather than misroute the document.
+        if (selectedSource === 'otherFaxInput') {
+            return {name: '', fax: input ? input.value.trim() : ''};
+        }
         if (selectedSource) {
             option = selectedOption(selectedSource);
             return option

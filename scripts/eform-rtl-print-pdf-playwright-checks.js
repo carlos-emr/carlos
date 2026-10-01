@@ -115,14 +115,19 @@ function editorFrame(page) {
 
 async function typeLetter(page, text = LETTER_TEXT) {
   const frame = editorFrame(page);
+  // Contenteditable can render typed spaces as non-breaking ones, so compare as plain text.
+  const plainText = () => frame.evaluate(() => document.body.innerText.replace(/\u00a0/g, ' '));
+  const before = await plainText();
   await frame.locator('body').click();
   await page.keyboard.press('End');
   await page.keyboard.type(text);
   const html = await frame.evaluate(() => document.body.innerHTML);
+  const landed = await plainText();
   // Check the text this call typed, not a marker an earlier save may already have put in the
-  // letter. Contenteditable can render typed spaces as non-breaking ones, so compare as plain text.
-  const landed = await frame.evaluate(() => document.body.innerText.replace(/\u00a0/g, ' '));
-  assert(landed.includes(text), `typed text did not land in the editor: ${html.slice(0, 200)}`);
+  // letter: the editor must have grown by the typed text and hold one more copy of it.
+  const occurrences = (haystack) => haystack.split(text).length - 1;
+  assert(landed.length >= before.length + text.length && occurrences(landed) === occurrences(before) + 1,
+    `typed text did not land in the editor (${before.length} -> ${landed.length} chars): ${html.slice(0, 200)}`);
   return html;
 }
 

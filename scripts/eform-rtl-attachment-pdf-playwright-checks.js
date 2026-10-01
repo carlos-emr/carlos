@@ -369,7 +369,7 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
       }
       for (const [needle, what, loggable] of expected) {
         record(family.key, `PDF text contains the ${what}`,
-          toolbar.text.includes(needle) && printAlias.text != null && printAlias.text.includes(needle),
+          [toolbar, savePdf, printAlias].every((pdf) => pdf.text != null && pdf.text.includes(needle)),
           loggable ? needle : `${needle.length} chars`);
       }
       // The packet is letter first, attachments after: every family-specific text must come after
@@ -380,10 +380,10 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
       }
     }
 
-    // The two re-saves the downloads performed must not have detached it.
+    // The re-saves the downloads performed must not have detached it.
     await settleSavedView(saved);
     const fetched = await invokeFetchAttached(saved);
-    record(family.key, 'still attached after both downloads', panelEntry.test(fetched.text || ''), `entries=${panelEntries(fetched.text).length}`);
+    record(family.key, 'still attached after every download', panelEntry.test(fetched.text || ''), `entries=${panelEntries(fetched.text).length}`);
     // The downloads saved newer instances; hand the current one to the eForm family so it attaches
     // a letter the popup still lists.
     const currentFdid = await saved.locator('#fdid').inputValue().catch(() => fdid);
