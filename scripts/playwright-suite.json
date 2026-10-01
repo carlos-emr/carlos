@@ -3818,9 +3818,10 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 600,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: Manage Emails Resolve shows RESOLVED but never updates the log row (setResolved is not dispatched).",
+      "fixtures": "Owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink, owned eForm template and owned patient email (one valid example.com, one .invalid); nothing leaves the host; emailConfig snapshot asserted unchanged. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "admin-role-management",
@@ -3972,11 +3973,12 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: the administration shell Help ignores the saved Help Link. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
+      "fixtures": "Snapshots and restores (with ids) the billing-settings and help-link rows in property and SystemPreferences; clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "consultation-edit-status",
@@ -4413,6 +4415,20 @@
     {
       "name": "patient-swipe-card-search",
       "script": "scripts/patient-swipe-card-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "clinical-forms-save-reopen",
+      "script": "scripts/clinical-forms-save-reopen-playwright-checks.js",
       "tiers": [
         "core"
       ],

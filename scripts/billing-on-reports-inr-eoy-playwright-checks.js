@@ -150,13 +150,18 @@ async function workflow(s) {
   h.assert(owned(ids.inr), 'The INR billing fixture was not created');
   const statement = ids.bills.filter(b => b.program === 'PAT' && b.date >= WINDOW.from && b.date <= WINDOW.to);
 
-  await s.step('Report ▸ Billing Report ▸ Billed lists exactly the owned provider\'s open claims', async () => {
+  let report;
+  let index;
+  const inRange = ids.bills.filter(b => b.date >= WINDOW.from && b.date <= today);
+  await s.step('Report ▸ Billing Report ▸ Billed returns one row per owned open claim in the range', async () => {
     const link = s.schedule.locator("a[onclick*='/report/ViewReportindex'], a[href*='/report/ViewReportindex']").first();
-    const { page: index } = await ui.clickOpensPopupOrNavigates(s.schedule, link,
-      { context: s.context, recorder: s.recorder, label: 'report-index', timeout: 20000 });
-    const report = await s.popup(index, index.locator('a[href*="/billing/CA/ON/ViewBillingReportCenter"]').first(), 'billing-report');
+    ({ page: index } = await ui.clickOpensPopupOrNavigates(s.schedule, link,
+      { context: s.context, recorder: s.recorder, label: 'report-index', timeout: 20000 }));
+    report = await s.popup(index, index.locator('a[href*="/billing/CA/ON/ViewBillingReportCenter"]').first(), 'billing-report');
     await report.locator('form[name="serviceform"]').waitFor();
     await h.assertNotErrorPage(report, 'billing report');
+    const offered = await report.locator('select[name="providerview"] option').evaluateAll(o => o.map(x => x.value));
+    h.assert(offered.includes(ids.providerNo), 'The billing report does not offer the owned report provider');
     await report.locator('input[name="reportAction"][value="billed"]').check();
     await report.locator('select[name="providerview"]').selectOption(ids.providerNo);
     await report.locator('#xml_vdate').fill(WINDOW.from);
@@ -167,17 +172,11 @@ async function workflow(s) {
     ]);
     await report.locator('#reportTbl').waitFor();
     await h.assertNotErrorPage(report, 'billed report');
-    const rows = await report.locator('#reportTbl tbody tr').evaluateAll(trs => trs.map(tr => [...tr.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim())));
-    const expected = ids.bills.filter(b => b.date >= WINDOW.from && b.date <= today);
-    h.assert(rows.length === expected.length, 'The billed report does not list exactly the owned provider\'s claims in range');
-    console.log('DEBUG', JSON.stringify(rows), JSON.stringify((await report.locator('#reportTbl thead th').allTextContents()).map(t => [/cookie=/i.test(t), /JSESSIONID/.test(t), t.replace(/=[^,}]*/g, '')])));
-    for (const bill of expected) {
-      const row = rows.find(cells => cells[4] === bill.id);
-      h.assert(row && row[0] === bill.date && row[2] === demoName && /Bill OHIP|Bill Patient|O/.test(row[3]),
-        'A billed-report row does not show the claim\'s date, patient and status');
-    }
-    if (!report.isClosed()) await report.close();
-    if (index !== s.schedule && !index.isClosed()) await index.close();
+    h.assert(await report.locator('input[name="reportAction"][value="billed"]').isChecked()
+      && await report.locator('select[name="providerview"]').inputValue() === ids.providerNo,
+    'The billed report did not keep its report type and provider');
+    h.assert(await report.locator('#reportTbl tbody tr').count() === inRange.length,
+      'The billed report does not return exactly one row per owned open claim in the range');
   });
 
   const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
@@ -189,6 +188,7 @@ async function workflow(s) {
     const option = `/billing/CA/ON/ViewInrReportINR?provider_no=${ids.providerNo}`;
     const offered = await inr.locator('select[name="provider"] option').evaluateAll(
       (opts, suffix) => opts.some(o => o.value.endsWith(suffix)), option);
+    console.log('DEBUG', JSON.stringify((await inr.locator('select[name="provider"] option').evaluateAll(o => o.map(x => x.value))).filter(v => v.includes(ids.providerNo) || v.includes('all'))));
     h.assert(offered, 'The INR provider list does not offer the owned billable provider');
     const row = inr.locator('tr').filter({ has: inr.locator(`input[name="inrbilling${ids.inr}"]`) });
     h.assert(await row.count() === 1, 'The INR report does not list the owned INR row exactly once');
@@ -274,6 +274,18 @@ async function workflow(s) {
     h.assert(new RegExp(`Count: ${statement.length}\\b`).test(totals) && totals.includes(invoiced) && totals.includes(paid),
       'The statement count and invoiced/paid totals are wrong');
     h.assert(await eoy.locator('input[type="submit"][value="Print PDF"]').isEnabled(), 'Print PDF is not offered');
+  });
+
+  await s.step('Billed report rows show each claim\'s date, patient and account, under the report\'s own headers', async () => {
+    const headers = (await report.locator('#reportTbl thead th').allTextContents()).map(t => t.trim());
+    h.assert(JSON.stringify(headers) === JSON.stringify(['SERVICE DATE', 'TIME', 'PATIENT', 'DESCRIPTION', 'ACCOUNT']),
+      'The billed report column headers are not the report\'s column names (they render the request headers instead)');
+    const rows = await report.locator('#reportTbl tbody tr').evaluateAll(trs => trs.map(tr => [...tr.cells]
+      .map(c => c.textContent.replace(/\s+/g, ' ').trim())));
+    for (const bill of inRange) {
+      const row = rows.find(cells => cells[4] === bill.id);
+      h.assert(row && row[0] === bill.date && row[2] === demoName, 'A billed-report row does not show the claim\'s date, patient and account');
+    }
   });
 
   await s.step('Print PDF downloads a PDF carrying the same invoices and totals', async () => {

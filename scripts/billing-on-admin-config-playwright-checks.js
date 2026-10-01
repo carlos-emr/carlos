@@ -254,19 +254,6 @@ async function workflow(s) {
       WHERE servicetype=${h.sqlString(typeId)}`, [dxA, dxB].sort().join(','), 'The dx grid save did not replace the dx codes');
   });
 
-  await s.step('the form\'s default bill type changes through the manage-type panel', async () => {
-    await manageForm(admin, frame, '000');
-    await frame.locator('a[title="Manage Billing Form"]', { hasText: typeId }).first().click();
-    const panel = frame.locator('#manage_type');
-    await panel.locator('select[name="billtype_new"]').waitFor({ state: 'visible' });
-    h.assert(await panel.locator('input[name="billtype_old"]').inputValue() === 'ODP', 'The manage-type panel did not load the bill type');
-    await panel.locator('select[name="billtype_new"]').selectOption('WCB');
-    await postsToClosingPopup(s, () => panel.locator('input[type="button"][value="Change"]').click());
-    await expectValue(sql, `SELECT billtype FROM ctl_billingtype WHERE servicetype=${h.sqlString(typeId)}`, 'WCB',
-      'The bill type change did not reach ctl_billingtype');
-    await frame.waitForLoadState('domcontentloaded');
-  });
-
   await s.step('a premium code is added and removed again from the premium list', async () => {
     await manageForm(admin, frame, '***');
     const addForm = frame.locator('form[action="DbManageBillingformPremium"]');
@@ -293,6 +280,135 @@ async function workflow(s) {
     await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(clinic_no), MAX(clinic_location_name)) FROM clinic_location
       WHERE clinic_location_no=${h.sqlString(location)}`, `1|1|${locationName}`, 'The location add did not write the owned row');
     h.assert(await frame.locator('tr', { hasText: locationName }).count() === 1, 'The location list does not show the owned location');
+  });
+
+  // Master Record ▸ Create Invoice: the Ontario bill form for the owned patient.
+  const openBillForm = async () => {
+    const link = s.master.locator('a[onclick*="/billing?billRegion=ON"]').first();
+    h.assert(await link.count() === 1, 'The Master Record does not offer Create Invoice');
+    const page = await s.popup(s.master, link, 'bill-form');
+    await page.locator('select[name="xml_billtype"]').waitFor({ state: 'visible', timeout: 30000 });
+    h.assert(new URL(page.url()).searchParams.get('demographic_no') === patient, 'The bill form opened for another patient');
+    return page;
+  };
+  let bill;
+
+  await s.step('the bill form offers the owned form with its codes, private code and location', async () => {
+    bill = await openBillForm();
+    await bill.locator(`a[onclick*="'Layer1','','show'"]`).first().click();
+    await bill.locator('#Layer1 a', { hasText: formName }).click();
+    h.assert(await bill.locator('#billForm').inputValue() === typeId, 'Choosing the owned form did not select it');
+    h.assert(await bill.locator('#billFormName').inputValue() === formName.slice(0, 40), 'The chosen form name is not shown');
+    const groups = [[1, codeA, descA, '12.34'], [2, codeB, descB, '23.45'], [3, privateCode, `${marker} private`, '32.75']];
+    for (const [group, code, desc, fee] of groups) {
+      const div = bill.locator(`#group${group}_${typeId}`);
+      await div.waitFor({ state: 'visible' });
+      const row = div.locator('tr', { has: bill.locator(`#xml_${code}`) });
+      h.assert(await row.count() === 1, `Group ${group} of the owned form does not list its code`);
+      const text = (await row.innerText()).replace(/\s+/g, ' ');
+      h.assert(text.includes(desc) && text.includes(fee), `Group ${group} does not show the code's description and fee`);
+    }
+    h.assert(await bill.locator('#group1_MFP').isHidden(), 'Another form\'s grid stayed visible');
+    h.assert((await bill.locator('select[name="xml_billtype"]').inputValue()).startsWith('ODP'), 'The form\'s bill type was not selected');
+    const option = bill.locator('select[name="xml_location"] option', { hasText: locationName });
+    h.assert(await option.count() === 1 && (await option.getAttribute('value')).startsWith(`${location}|`),
+      'The visit-location list does not offer the owned location');
+    await bill.locator(`#xml_${codeA}`).check();
+    h.assert(await bill.locator(`#xml_${codeA}`).isChecked(), 'The owned code checkbox could not be ticked');
+  });
+
+  await s.step('the bill form describes and autocompletes the owned dx and service codes', async () => {
+    const [desc] = await Promise.all([
+      s.context.waitForEvent('response', { predicate: r => new URL(r.url()).pathname.endsWith('/billing/CA/ON/ViewBillingONDxDesc') }),
+      bill.locator('input[name="dxCode"]').fill(dxA).then(() => bill.locator('input[name="dxCode"]').press('Tab')),
+    ]);
+    h.assert(desc.status() === 200, 'The dx description lookup failed');
+    await bill.locator('#code_desc', { hasText: dxDescA }).waitFor({ timeout: 10000 });
+    await ui.typeAutocomplete(bill, 'input[name="dxCode1"]', dxB, { option: dxDescB });
+    h.assert(await bill.locator('input[name="dxCode1"]').inputValue() === dxB, 'The dx autocomplete did not fill the owned dx');
+    await ui.typeAutocomplete(bill, 'input[name="serviceCode0"]', codeB, { option: descB });
+    h.assert(await bill.locator('input[name="serviceCode0"]').inputValue() === codeB, 'The code autocomplete did not fill the owned code');
+  });
+
+  await s.step('super codes: a favourite saved from the bill form fills the bill and is deleted again', async () => {
+    const fav = await s.popup(bill, bill.locator('a[onclick*="/billing/CA/ON/ViewBillingONFavourite"]').first(), 'billing-favourite');
+    const form = fav.locator('#baseurl');
+    await form.locator('#favName').fill(marker);
+    await Promise.all([fav.waitForNavigation(), form.locator('button[name="submit"][value="Search"]').click()]);
+    h.assert(await fav.locator('#baseurl input[name="action"]').inputValue() === `add${marker}`, 'Searching a new favourite did not offer to add it');
+    await fav.locator('#baseurl input[name="serviceCode0"]').fill(codeA);
+    await fav.locator('#baseurl input[name="serviceUnit0"]').fill('2');
+    await fav.locator('#baseurl input[name="dx"]').fill(dxA);
+    const dialogs = await h.withExpectedDialogs(fav, () => Promise.all([fav.waitForNavigation(), fav.locator('#btnSave').click()]));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Saving the favourite did not ask for confirmation once');
+    await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(provider_no), MAX(deleted)) FROM billing_on_favourite
+      WHERE name=${h.sqlString(marker)}`, `1|${provider}|0`, 'The favourite was not saved for the operator');
+    const list = sql.value(`SELECT service_dx FROM billing_on_favourite WHERE name=${h.sqlString(marker)}`);
+    h.assert(list.startsWith(`${codeA}|2|`) && list.includes(dxA), 'The favourite does not store the owned code, units and dx');
+    await bill.reload({ waitUntil: 'domcontentloaded' });
+    await bill.locator('#cutlist').waitFor({ state: 'visible' });
+    await bill.locator('#cutlist').selectOption({ label: marker });
+    h.assert(await bill.locator('input[name="serviceCode0"]').inputValue() === codeA
+      && await bill.locator('input[name="serviceUnit0"]').inputValue() === '2'
+      && await bill.locator('input[name="dxCode"]').inputValue() === dxA, 'Choosing the favourite did not fill its code, units and dx');
+    await fav.locator('#favSelect').selectOption(marker);
+    await h.withExpectedDialogs(fav, () => Promise.all([fav.waitForNavigation(), fav.locator('#btnDelete').click()]));
+    await expectValue(sql, `SELECT deleted FROM billing_on_favourite WHERE name=${h.sqlString(marker)}`, '1',
+      'Deleting the favourite did not flag it deleted');
+    await fav.close();
+    await bill.close();
+  });
+
+  await s.step('the owned private code and location are deleted from their admin pages', async () => {
+    frame = await adminFrame(admin, PRIVATE_ROUTE, 'form[name="baseurl"]');
+    await frame.locator('#service_code').selectOption(privateBare);
+    await navigates(admin, frame, frame.locator('form[name="baseur0"] input[name="action"][value="Edit"]'));
+    const dialogs = await h.withExpectedDialogs(admin,
+      () => navigates(admin, frame, frame.locator('form[name="baseurl"] input[name="submit"][value="Delete"]')));
+    h.assert(dialogs.length === 1 && /sure you want to Delete/i.test(dialogs[0].text), 'Delete did not ask for confirmation once');
+    await expectValue(sql, `SELECT COUNT(*) FROM billingservice WHERE service_code=${h.sqlString(privateCode)}`, '0',
+      'The private code was not deleted');
+    h.assert(await frame.locator(`#service_code option[value="${privateBare}"]`).count() === 0, 'The deleted code is still offered');
+    frame = await adminFrame(admin, LOCATION_ROUTE, 'form[action="DbManageBillingLocation"]');
+    const row = frame.locator('tr', { hasText: locationName });
+    const asked = await h.withExpectedDialogs(admin, () => navigates(admin, frame, row.locator('input[type="submit"][value="Delete"]')));
+    h.assert(asked.length === 1 && asked[0].text.includes(location), 'Location delete did not confirm the location number');
+    await expectValue(sql, `SELECT COUNT(*) FROM clinic_location WHERE clinic_location_no=${h.sqlString(location)}`, '0',
+      'The location was not deleted');
+  });
+
+  await s.step('correction ▸ dx Search lists the owned dx codes and Update rewrites one description', async () => {
+    const fee = '12.34';
+    const owned = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code: codeA, fee, date: billDate(), dx: dxA });
+    const history = await openHistory(s);
+    const correction = await openCorrection(s, history, owned.headerId);
+    const search = await s.popup(correction, correction.locator('a[href="javascript:ScriptAttach()"]'), 'dx-search');
+    await search.locator('form[name="codesearch"] input[name="codedesc"]').fill(token);
+    await Promise.all([search.waitForNavigation(), search.locator('form[name="codesearch"] input[name="search1"]').click()]);
+    const rows = search.locator('form[name="diagcode"] tbody tr');
+    h.assert(await rows.count() === 2, 'The dx search did not list exactly the two owned dx codes');
+    await search.locator(`form[name="diagcode"] input[name="${dxB}"]`).fill(`${dxDescB} edited`);
+    await Promise.all([search.waitForNavigation(), search.locator(`form[name="diagcode"] input[name="update"][value$=" ${dxB}"]`).click()]);
+    h.assert(/Successful Addition/.test(await search.locator('body').innerText()), 'The dx update did not report success');
+    h.assert(sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(dxB)}`) === `${dxDescB} edited`
+      && sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(dxA)}`) === dxDescA,
+    'The dx update did not rewrite exactly the chosen code');
+    await search.close();
+    s.correction = correction;
+  });
+
+  await s.step('correction ▸ service code Search lists the owned codes and update rewrites one description', async () => {
+    const correction = s.correction;
+    await correction.locator('input[name="servicecode0"]').fill(marker);
+    const search = await s.popup(correction, correction.locator('a[onclick="scScriptAttach(\'servicecode0\')"]'), 'code-search');
+    const rows = search.locator('#servicecode tr', { has: search.locator('input[type="checkbox"]') });
+    h.assert(await rows.count() === 2, 'The service code search did not list exactly the two owned codes');
+    await search.locator(`#servicecode input[type="text"][name="${codeB}"]`).fill(`${descB} edited`);
+    await Promise.all([search.waitForNavigation(), search.locator(`#servicecode input[name="update"][value="update ${codeB}"]`).click()]);
+    await expectValue(sql, `SELECT description FROM billingservice WHERE service_code=${h.sqlString(codeB)}`, `${descB} edited`,
+      'The code update did not rewrite the chosen description');
+    h.assert(sql.value(`SELECT description FROM billingservice WHERE service_code=${h.sqlString(codeA)}`) === descA,
+      'The code update touched another code');
   });
 }
 

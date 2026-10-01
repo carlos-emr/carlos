@@ -107,8 +107,8 @@ async function workflow(s) {
     { searchTerm: marker, preferredDemographicNo: patient, timeout: 20000 });
   h.assert(new URL(master.url()).searchParams.get('demographic_no') === patient, 'Search opened a patient other than the owned one');
   await searchPage.close();
-  await master.locator('#editBtn').click();
-  await master.locator('#editDemographic').waitFor({ state: 'visible' });
+  // Swipe Card sits in the record's view-mode toolbar (Edit hides it); Confirm writes the card
+  // into the record's edit form, which the clinician then opens and saves.
   let swipe;
 
   await s.step('the Swipe Card popup refuses a malformed track without asking the server', async () => {
@@ -143,6 +143,8 @@ async function workflow(s) {
     const seen = await h.withExpectedDialogs(swipe, () => swipe.getByRole('button', { name: 'Confirm' }).click());
     await closed;
     h.assert(seen.length === 1 && /replace the existing patient/.test(seen[0].text), 'Confirm did not ask before replacing');
+    await master.locator('#editBtn').click();
+    await master.locator('#editDemographic').waitFor({ state: 'visible' });
     h.assert(await master.locator('#hinBox').inputValue() === hin && await master.locator('#verBox').inputValue() === 'AB',
       'The card was not copied into the edit form');
     await ui.clickAndAwaitReload(master, master.locator('#updateButton input[type="submit"]').first(), { label: 'Update Record' });
