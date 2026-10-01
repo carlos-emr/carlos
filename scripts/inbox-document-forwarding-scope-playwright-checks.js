@@ -48,8 +48,10 @@
  * the run's unique file name.
  *
  * CLEANUP (pass or fail): this run's document rows and their routing, the fixture rules and the
- * fixture providers. The uploaded PDF files stay in the document directory (harmless synthetic
- * content on a disposable install). Nothing this check prints carries patient data.
+ * fixture providers. The uploaded PDF files are deleted too when FORWARDING_SCOPE_DOCUMENT_STORE
+ * names the server's document directory (for example
+ * /var/lib/carlos-emr/CarlosDocument/carlos/document on a packaged install); otherwise they stay
+ * there as harmless synthetic content. Nothing this check prints carries patient data.
  *
  * Environment: the common contract in lib/playwright-harness.js readConfig() (BASE_URL,
  * TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH, MYSQL_*). The account must hold _edoc write.
@@ -63,6 +65,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {
+  appUrl,
   assert,
   assertNotErrorPage,
   createRecorder,
@@ -150,6 +153,7 @@ function deleteRules(sql, fixture) {
 
 /** Uploads one PDF through the HTML5 uploader with the owner as "Send to Provider". */
 async function upload(context, config, recorder, fixture, file, label) {
+  const uploadPath = new URL(appUrl(config.baseUrl, '/documentManager/addEditDocument')).pathname;
   const page = await context.newPage();
   wirePage(page, label, recorder);
   try {
@@ -162,7 +166,7 @@ async function upload(context, config, recorder, fixture, file, label) {
     await page.locator('input[type="file"][name="filedata"]').setInputFiles(file);
     const [response] = await Promise.all([
       page.waitForResponse((r) => r.request().method() === 'POST'
-        && new URL(r.url()).pathname.endsWith('/documentManager/addEditDocument'), { timeout: 60000 }),
+        && new URL(r.url()).pathname === uploadPath, { timeout: 60000 }),
       page.locator('#noswfuploadSubmit').click(),
     ]);
     const posted = new URL(response.url()).searchParams;
@@ -199,12 +203,40 @@ function sameRouting(actual, expected, message) {
   assert(a === e, `${message}: expected ${e}, got ${a}`);
 }
 
+/**
+ * Deletes this run's stored PDFs when FORWARDING_SCOPE_DOCUMENT_STORE names the server's mounted
+ * document directory; without it the files are retained and reported. Only plain file names that
+ * end in one of this run's unique upload names, resolving directly inside the store, are removed.
+ */
+function removeOwnedFiles(storedNames, names) {
+  const store = process.env.FORWARDING_SCOPE_DOCUMENT_STORE;
+  if (!store) {
+    if (storedNames.length) {
+      console.warn('Fixture PDFs retained: set FORWARDING_SCOPE_DOCUMENT_STORE for complete local teardown');
+    }
+    return;
+  }
+  const root = fs.realpathSync(store);
+  for (const stored of storedNames) {
+    assert(stored && path.basename(stored) === stored && names.some((name) => stored.endsWith(name)),
+      'Refusing to remove a document file this run did not upload');
+    // root comes from realpathSync and stored is a checked basename owned by this run.
+    const file = path.join(root, stored); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+    assert(path.dirname(file) === root, 'Document file resolved outside the document store');
+    fs.rmSync(file, { force: true });
+  }
+}
+
 /** Removes this run's documents and routing, then the fixture rules and providers. */
 function cleanupFixture(sql, fixture, names) {
   const patterns = names.map((name) => `docfilename LIKE ${sqlString(`%${name}`)}`).join(' OR ');
-  const ids = sql.rows(`SELECT document_no FROM document WHERE ${patterns}`).map(([id]) => Number(id));
+  const rows = sql.rows(`SELECT document_no, docfilename FROM document WHERE ${patterns}`);
+  const ids = rows.map(([id]) => Number(id));
   if (ids.length) {
+    assert(ids.every((id) => Number.isInteger(id) && id > 0), 'Fixture cleanup returned an invalid document id');
+    removeOwnedFiles(rows.map(([, file]) => file), names);
     const list = ids.join(',');
+    sql.execute(`DELETE FROM document_storage WHERE documentNo IN (${list})`);
     sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${list})`);
     sql.execute(`DELETE FROM queue_document_link WHERE document_id IN (${list})`);
     sql.execute(`DELETE FROM ctl_document WHERE document_no IN (${list})`);

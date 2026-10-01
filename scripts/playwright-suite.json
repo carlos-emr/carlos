@@ -3062,7 +3062,9 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": []
+      "env": [
+        "FORWARDING_SCOPE_DOCUMENT_STORE"
+      ]
     },
     {
       "name": "provider-linking-rules",
