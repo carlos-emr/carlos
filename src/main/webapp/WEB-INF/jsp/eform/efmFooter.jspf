@@ -47,6 +47,9 @@
 
 
 
+<%-- Token handling for the confirm modal's POSTs; idempotent when the
+     Administration shell has already loaded it. --%>
+<script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
 <script>
 // Everything below is jQuery-based, and five of the seven eForm pages that
 // include this footer load no jQuery of their own -- they work only because the
@@ -82,7 +85,20 @@ $(document).ready(function() {
         e.stopPropagation(); // Stop the contentLink handler from also firing
         var confirmForm = $(this).data('confirmForm');
         if (confirmForm && confirmForm.length) {
-            confirmForm.submit();
+            if (typeof window.carlosSubmitForm === 'function') {
+                // Run the form's own jQuery submit handlers exactly as
+                // .submit() did, then let the helper post it: it waits for
+                // the CSRF token when the panel's lookup is still pending, and
+                // refuses (with an alert) rather than sending a token-less
+                // POST that CSRFGuard would answer with 403 (#4130).
+                var submitEvent = jQuery.Event('submit');
+                confirmForm.triggerHandler(submitEvent);
+                if (!submitEvent.isDefaultPrevented()) {
+                    window.carlosSubmitForm(confirmForm[0]);
+                }
+            } else {
+                confirmForm.submit();
+            }
         }
         bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).hide();
     });

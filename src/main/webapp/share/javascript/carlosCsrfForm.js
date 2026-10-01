@@ -203,8 +203,13 @@
             return false;
         }
         try {
-            // A missing or empty action posts back to the current document.
-            var url = new URL(action || global.location.href, global.location.href);
+            // Resolve exactly as the browser will: against document.baseURI,
+            // which honours a <base href> (several MCEDT and BC pages set one).
+            // Resolving against location instead would hand the token to a
+            // form whose base points at another origin. A missing or empty
+            // action posts back to the current document.
+            var base = document.baseURI || global.location.href;
+            var url = new URL(action || global.location.href, base);
             return url.origin === global.location.origin;
         } catch (e) {
             return false;
@@ -383,6 +388,36 @@
             return; // already installed by an earlier copy of this script
         }
         global.__carlosCsrfAutoInjection = true;
+
+        // A user can submit a panel form (a native submit button, or
+        // requestSubmit()) while the token lookup for it is still pending or
+        // after it failed. Hold such a submission until a token is attached,
+        // then replay it with the same submitter so its name=value is kept;
+        // if no token can be had, stop it and say so rather than letting a
+        // doomed POST go out. Capture phase, so page handlers see the replay.
+        document.addEventListener('submit', function (event) {
+            var form = event.target;
+            if (!form || !form.tagName || form.tagName.toLowerCase() !== 'form'
+                    || !isSameOriginPostForm(form) || hasToken(form)) {
+                return;
+            }
+            var existing = currentToken();
+            if (existing) {
+                setFormToken(form, existing);
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            var submitter = event.submitter || null;
+            token().then(function (value) {
+                setFormToken(form, value);
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit(submitter && submitter.form === form ? submitter : undefined);
+                } else {
+                    HTMLFormElement.prototype.submit.call(form);
+                }
+            }, reportFailure);
+        }, true);
 
         var observeInsertions = function () {
             if (typeof global.MutationObserver !== 'function') {

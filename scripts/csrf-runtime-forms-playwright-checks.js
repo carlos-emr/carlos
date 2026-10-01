@@ -83,8 +83,9 @@ async function assertAccepted(label, request) {
 /** Every POST form inside `scope` carries a populated CSRF-TOKEN input. */
 async function assertFormsTokenised(label, page, scope) {
   const report = await page.evaluate((selector) => Array.from( // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed selector constant
-    document.querySelectorAll(`${selector} form`),
-  ).filter((form) => (form.getAttribute('method') || '').toLowerCase() === 'post')
+    // The scope may itself be the form (#diagcode is), or contain forms.
+    document.querySelectorAll(`${selector}, ${selector} form`),
+  ).filter((element) => element.tagName === 'FORM').filter((form) => (form.getAttribute('method') || '').toLowerCase() === 'post')
     .map((form) => ({
       action: form.getAttribute('action') || '',
       token: Array.from(form.querySelectorAll('input[name="CSRF-TOKEN"]')).map((input) => input.value).find(Boolean) || '',

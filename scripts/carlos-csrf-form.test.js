@@ -160,7 +160,21 @@ function makeDom() {
   });
 
   class HTMLFormElement extends Element {}
-  HTMLFormElement.prototype.submit = function submit() {
+  HTMLFormElement.prototype.requestSubmit = function requestSubmit(submitter) {
+    // Like the browser: dispatch a cancelable submit event, then submit.
+    const event = {
+      target: this,
+      submitter: submitter || null,
+      defaultPrevented: false,
+      preventDefault() { this.defaultPrevented = true; },
+      stopImmediatePropagation() {},
+    };
+    document.fire('submit', event);
+    if (!event.defaultPrevented) {
+      HTMLFormElement.prototype.submit.call(this, submitter);
+    }
+  };
+  HTMLFormElement.prototype.submit = function submit(submitter) {
     const fields = {};
     this.querySelectorAll('input').forEach((input) => {
       if (fields[input.name] === undefined) {
@@ -168,6 +182,9 @@ function makeDom() {
       }
       fields[input.name].push(input.value);
     });
+    if (submitter && submitter.name) {
+      fields[submitter.name] = [submitter.value];
+    }
     submissions.push({
       method: this.method,
       action: this.action,
@@ -195,8 +212,8 @@ function makeDom() {
     addEventListener(type, handler) {
       (this.listeners[type] = this.listeners[type] || []).push(handler);
     },
-    fire(type) {
-      (this.listeners[type] || []).forEach((handler) => handler());
+    fire(type, event) {
+      (this.listeners[type] || []).forEach((handler) => handler(event));
     },
   };
 
@@ -273,6 +290,9 @@ function loadHelper(options = {}) {
   }
   if (options.scriptSrc) {
     dom.document.currentScript = { src: options.scriptSrc };
+  }
+  if (options.baseURI) {
+    dom.document.baseURI = options.baseURI;
   }
   if (options.readyState) {
     dom.document.readyState = options.readyState;
@@ -623,6 +643,87 @@ test('a failed automatic injection warns but never alerts', async () => {
 
   assert.equal(helper.alerts.length, 0, 'nobody clicked anything');
   assert.ok(helper.warnings.some((line) => /could not be added/.test(line)));
+});
+
+test('a <base href> on another origin keeps the token off a root-relative action', async () => {
+  // Resolution must follow the browser's: '/carlos/mcedt/update' under a
+  // cross-origin <base> goes to that origin, so it must not get the token.
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN', baseURI: 'https://elsewhere.example/carlos/' });
+  const form = buildForm(helper.dom, { action: '/carlos/mcedt/update' });
+  helper.dom.document.body.appendChild(form);
+
+  await helper.window.carlosSubmitForm(form);
+
+  assert.equal(helper.dom.submissions()[0].fields['CSRF-TOKEN'], undefined);
+});
+
+test('a same-origin <base href> still gets the token', async () => {
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN', baseURI: `${ORIGIN}/carlos/` });
+  const form = buildForm(helper.dom, { action: 'mcedt/update' });
+  helper.dom.document.body.appendChild(form);
+
+  await helper.window.carlosSubmitForm(form);
+
+  assert.deepEqual(helper.dom.submissions()[0].fields['CSRF-TOKEN'], ['PAGE-TOKEN']);
+});
+
+/* ------------------------------------------------------------------------ */
+/* Native submissions while the lookup is pending                           */
+/* ------------------------------------------------------------------------ */
+
+test('a native submit during a pending lookup is held, then replayed with its submitter', async () => {
+  let release;
+  const helper = loadHelper({
+    fetchImpl: () => new Promise((resolve) => {
+      release = () => resolve({ ok: true, text: async () => SERVLET_JS });
+    }),
+  });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/billing/CA/BC/ViewBillingDigUpdate' });
+  const button = helper.dom.document.createElement('input');
+  button.setAttribute('type', 'submit');
+  button.setAttribute('name', 'update');
+  button.value = 'Update 250';
+  button.form = form;
+  form.appendChild(button);
+  helper.dom.document.body.appendChild(form);
+
+  // The user clicks before any token exists.
+  form.requestSubmit(button);
+  assert.equal(helper.dom.submissions().length, 0, 'the token-less POST was held back');
+
+  release();
+  await settle();
+  const [submission] = helper.dom.submissions();
+  assert.ok(submission, 'the held submission went out once the token arrived');
+  assert.deepEqual(submission.fields['CSRF-TOKEN'], ['SERVLET-TOKEN']);
+  assert.deepEqual(submission.fields.update, ['Update 250'], 'the clicked button\'s value survives the replay');
+});
+
+test('a native submit whose lookup fails is stopped and the user is told', async () => {
+  const helper = loadHelper({ fetchImpl: async () => ({ ok: false, status: 503 }) });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/eforms/delGroup' });
+  helper.dom.document.body.appendChild(form);
+
+  form.requestSubmit();
+  await settle();
+
+  assert.equal(helper.dom.submissions().length, 0);
+  assert.equal(helper.alerts.length, 1);
+});
+
+test('a native submit with a token on the page goes straight through', async () => {
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/eforms/removeFromGroup' });
+  helper.dom.document.body.children.push(form);
+  form.parentNode = helper.dom.document.body; // inserted without the observer seeing it
+
+  form.requestSubmit();
+
+  assert.deepEqual(helper.dom.submissions()[0].fields['CSRF-TOKEN'], ['PAGE-TOKEN']);
+  assert.equal(helper.fetches.length, 0);
 });
 
 /* ------------------------------------------------------------------------ */
