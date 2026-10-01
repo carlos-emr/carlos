@@ -188,6 +188,11 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(group)} AND fid=${fid}`, '0',
       'the eForm was not removed from the group');
     await h.assertNotErrorPage(admin, 'after remove from group');
+    // The redirect returns to the same group with the sort order the group link set.
+    const landed = new URL(admin.url());
+    h.assert(landed.pathname.endsWith('/eform/efmmanageformgroups')
+      && landed.searchParams.get('group_view') === group && landed.searchParams.get('orderby') === 'form_name',
+      `remove from group did not return to the group's sorted view (${h.pathOnly(admin.url())})`);
     await h.gotoApp(admin, s.config.baseUrl, '/administration?show=FormsGroups');
     await admin.waitForLoadState('networkidle').catch(() => {});
     await admin.locator('#groupListTbl tr', { hasText: group }).locator('a[title="delete this group"]').click();

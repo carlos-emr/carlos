@@ -63,6 +63,19 @@
     else if (orderByRequest.equals("form_subject")) orderBy = EFormUtil.SUBJECT;
     else if (orderByRequest.equals("form_name")) orderBy = EFormUtil.NAME;
     else if (orderByRequest.equals("file_name")) orderBy = EFormUtil.FILE_NAME;
+    // Carried into every group-changing POST so the redirect back (EFormListRedirect.toGroup)
+    // keeps this sort order and the schedule-navigation shell (issue #4130). Only the
+    // recognised sort keys are echoed.
+    StringBuilder groupListContextFields = new StringBuilder();
+    if ("form_subject".equals(orderByRequest) || "form_name".equals(orderByRequest) || "file_name".equals(orderByRequest)) {
+        groupListContextFields.append("<input type=\"hidden\" name=\"orderby\" value=\"")
+                .append(io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(orderByRequest)).append("\">");
+    }
+    if (io.github.carlos_emr.carlos.utility.ScheduleNav.isActive(request)) {
+        groupListContextFields.append("<input type=\"hidden\" name=\"")
+                .append(io.github.carlos_emr.carlos.utility.ScheduleNav.PARAM).append("\" value=\"")
+                .append(io.github.carlos_emr.carlos.utility.ScheduleNav.ENABLED).append("\">");
+    }
 %>
 <!DOCTYPE html>
 <html>
@@ -108,7 +121,7 @@
 
             <!--ADD GROUP-->
             <form action="<%= request.getContextPath() %>/eform/addGroup" method="post" id="addGroupForm"
-                  class="d-flex flex-wrap align-items-center gap-2">
+                  class="d-flex flex-wrap align-items-center gap-2"><%= groupListContextFields %>
                 <div>
                     <div class="input-group">
                         <input type="text" name="groupName" class="check"
@@ -151,7 +164,7 @@
                 <tr>
                     <%}%>
                     <td>
-                        <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup" style="display:inline;">
+                        <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup" style="display:inline;"><%= groupListContextFields %>
                             <input type="hidden" name="group_name" value="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"/>
                             <a href="javascript:void(0);"
                                class="btn btn-sm btn-secondary" title="delete this group"
@@ -219,7 +232,7 @@
                     data-bs-trigger="hover" data-bs-placement="bottom">
 
                     <td>
-                        <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup" style="display:inline;">
+                        <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup" style="display:inline;"><%= groupListContextFields %>
                             <input type="hidden" name="fid" value="<carlos:encode value='<%= (String) curForm.get("fid") %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="groupName" value="<carlos:encode value='<%= groupView %>' context="htmlAttribute"/>"/>
                             <a href="javascript:void(0);"
@@ -261,7 +274,7 @@
         </div>
         <!--modal-->
                 <% if (!groupView.equals("")) { %>
-        <form action="${pageContext.request.contextPath}/eform/addToGroup" method="post" id="eformToGroupForm">
+        <form action="${pageContext.request.contextPath}/eform/addToGroup" method="post" id="eformToGroupForm"><%= groupListContextFields %>
         <div id="myModal" class="modal fade" tabindex="-1" aria-labelledby="myModalLabel"
              aria-hidden="true">
             <div class="modal-dialog"><div class="modal-content">
