@@ -85,17 +85,17 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         // "newest id" nor "first row" is therefore reliably the number the provider last saved.
         // Faxes carry patient information, so fail closed: offer a provider only when every one
         // of their faxnumber rows holds the same nonblank number (a cleared or conflicting row
-        // excludes them, and the clinician can still type a number), and return one row per
-        // provider (the highest id) so the limit counts providers, not rows.
+        // excludes them, and the clinician can still type a number). The rows are grouped once
+        // per provider in a derived table rather than by correlated subqueries: property has no
+        // index on provider_no, so a per-candidate subquery could rescan the table for each
+        // provider. One row per provider also makes the limit count providers, not rows.
         return entityManager().createQuery(
-                "SELECT p, u.value FROM Provider p, UserProperty u "
-                + "WHERE u.providerNo = p.providerNo AND u.name = 'faxnumber' "
-                + "AND p.status = '1' AND u.value IS NOT NULL AND TRIM(u.value) <> '' "
-                + "AND u.id = (SELECT MAX(u2.id) FROM UserProperty u2 WHERE u2.providerNo = p.providerNo "
-                + "AND u2.name = 'faxnumber') "
-                + "AND NOT EXISTS (SELECT u3.id FROM UserProperty u3 WHERE u3.providerNo = p.providerNo "
-                + "AND u3.name = 'faxnumber' AND (u3.value IS NULL OR TRIM(u3.value) = '' "
-                + "OR TRIM(u3.value) <> TRIM(u.value))) "
+                "SELECT p, f.fax FROM Provider p JOIN ("
+                + "SELECT u.providerNo AS providerNo, MAX(TRIM(u.value)) AS fax FROM UserProperty u "
+                + "WHERE u.name = 'faxnumber' GROUP BY u.providerNo "
+                + "HAVING MIN(CASE WHEN u.value IS NULL OR TRIM(u.value) = '' THEN 0 ELSE 1 END) = 1 "
+                + "AND MIN(TRIM(u.value)) = MAX(TRIM(u.value))) f ON f.providerNo = p.providerNo "
+                + "WHERE p.status = '1' "
                 + "AND (LOWER(p.lastName) LIKE :term ESCAPE '!' OR LOWER(p.firstName) LIKE :term ESCAPE '!') "
                 + "ORDER BY p.lastName, p.firstName, p.providerNo", Object[].class)
                 .setParameter("term", "%" + literalTerm + "%")
