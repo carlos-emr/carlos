@@ -41,6 +41,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -48,12 +49,14 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -477,6 +480,121 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
         when(properties.getProperty("DOCUMENT_DIR")).thenReturn(directory.toString());
         return propertiesMock;
+    }
+
+    @Test
+    @DisplayName("keeps an unavailable attachment a reopened form no longer lists, and the print and fax still warn")
+    void shouldKeepUnavailableAttachmentAttached_whenUpdateOmitsIt() throws Exception {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+
+        // The form was opened after document 80 was deleted, so it lists, and submits, no documents.
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        String warning = "Document attachment 80 is unavailable and was not included.";
+        // The fax cover page and the "Update And Print Preview" render read the same active row.
+        assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(warning);
+        assertThat(renderConsultationWarnings()).asList().containsExactly(warning);
+    }
+
+    @Test
+    @DisplayName("still detaches an available attachment the user removed, with no warning")
+    void shouldDetachRemovedAvailableAttachment_withoutWarning() throws Exception {
+        ConsultDocs removedDocument = attachedRow(2, 81, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(removedDocument), List.of());
+
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
+
+        assertThat(removedDocument.getDeleted()).isEqualTo("Y");
+        verify(consultDocsDao).merge(removedDocument);
+        assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).isEmpty();
+        assertThat(renderConsultationWarnings()).asList().isEmpty();
+    }
+
+    @Test
+    @DisplayName("keeps and warns for unavailable attachments while detaching removed available ones in the same save")
+    void shouldKeepUnavailableAndDetachRemovedAttachments_withMixedUpdate() throws Exception {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        ConsultDocs removedDocument = attachedRow(2, 81, ConsultDocs.DOCTYPE_DOC);
+        ConsultDocs keptDocument = attachedRow(3, 82, ConsultDocs.DOCTYPE_DOC);
+        ConsultDocs movedLab = attachedRow(4, 20, ConsultDocs.DOCTYPE_LAB);
+        // Shares its number with the unavailable document 80, but is an available lab: detached.
+        ConsultDocs removedLab = attachedRow(5, 80, ConsultDocs.DOCTYPE_LAB);
+        ConsultDocs movedEform = attachedRow(6, 915, ConsultDocs.DOCTYPE_EFORM);
+        stubConsultAttachments(
+                List.of(deletedDocument, removedDocument, keptDocument, movedLab, removedLab, movedEform),
+                List.of(deletedDocument, movedLab, movedEform));
+
+        // The reopened form lists document 82 only; the user unticked document 81 and lab 80.
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"82"}, "999998", 9, 1);
+        manager.attachToConsult(loggedInInfo, DocumentType.LAB, new String[0], "999998", 9, 1);
+        manager.attachToConsult(loggedInInfo, DocumentType.EFORM, new String[0], "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        assertThat(keptDocument.getDeleted()).isNull();
+        assertThat(movedLab.getDeleted()).isNull();
+        assertThat(movedEform.getDeleted()).isNull();
+        assertThat(removedDocument.getDeleted()).isEqualTo("Y");
+        assertThat(removedLab.getDeleted()).isEqualTo("Y");
+        verify(consultDocsDao, never()).persist(any());
+        List<String> expectedWarnings = List.of(
+                "Document attachment 80 is unavailable and was not included.",
+                "Lab attachment 20 is unavailable and was not included.",
+                "eForm attachment 915 is unavailable and was not included.");
+        assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactlyElementsOf(expectedWarnings);
+        assertThat(renderConsultationWarnings()).asList().containsExactlyElementsOf(expectedWarnings);
+    }
+
+    /**
+     * Serves {@code rows} the way the DAO does: only rows not yet detached, so a row this save
+     * detaches drops out of every later lookup, the unavailable-attachment one included.
+     */
+    private void stubConsultAttachments(List<ConsultDocs> rows, List<ConsultDocs> unavailableRows) {
+        registerMock(ConsultDocsDao.class, consultDocsDao);
+        registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
+        OutboundEmailArchiveDao outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(any())).thenReturn(Set.of());
+        ReflectionTestUtils.setField(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 1)).thenReturn(true);
+
+        when(consultDocsDao.findByRequestIdDocType(eq(9), anyString())).thenAnswer(invocation -> rows.stream()
+                .filter(row -> row.getDeleted() == null && row.getDocType().equals(invocation.getArgument(1)))
+                .toList());
+        when(consultDocsDao.findByRequestIdDocNoDocType(eq(9), any(Integer.class), anyString()))
+                .thenAnswer(invocation -> rows.stream()
+                        .filter(row -> row.getDeleted() == null
+                                && row.getDocumentNo() == (Integer) invocation.getArgument(1)
+                                && row.getDocType().equals(invocation.getArgument(2)))
+                        .toList());
+        when(consultDocsDao.findUnavailableActiveConsultAttachments(9)).thenAnswer(invocation -> rows.stream()
+                .filter(row -> row.getDeleted() == null
+                        && unavailableRows.stream().anyMatch(unavailable -> unavailable == row))
+                .toList());
+    }
+
+    private Object renderConsultationWarnings() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            // Without the preview's skip permission: the print and fax render.
+            assertThat(manager.renderConsultationFormWithAttachments(request, response)).isEqualTo(outputPdf);
+        }
+        return request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE);
+    }
+
+    private ConsultDocs attachedRow(int id, int documentNo, String docType) {
+        ConsultDocs row = new ConsultDocs(9, documentNo, docType, "999998");
+        row.setId(id);
+        return row;
     }
 
     private MockedConstruction<CommonLabResultData> mockCommonLabResultData(List<LabResultData> labs) {

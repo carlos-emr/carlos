@@ -123,6 +123,11 @@ public interface DocumentAttachmentManager {
      * allowing healthcare providers to include relevant medical records, laboratory results,
      * imaging reports, and other clinical information as part of the referral process.</p>
      *
+     * <p>The submitted ids replace the consultation's attachments of this type, so an attachment
+     * left out is detached. The exception is an attachment whose target is no longer available
+     * (see {@link #getUnavailableConsultAttachmentWarnings(Integer)}): the form cannot list it, so
+     * it stays attached and later renders keep warning about it.</p>
+     *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param documentType DocumentType the type of documents being attached
      * @param attachments String[] array of document identifiers to attach to the consultation
