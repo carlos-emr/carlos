@@ -197,15 +197,13 @@ async function workflow(s) {
     return {header, rows};
   }
 
-  let csvFields;
   await s.step('Run Query for Female shows exactly the SQL rows for the owned patient', async () => {
     const result = await runReport('F', 'Result report (F)');
     const expected = expectedRows('F');
     h.assert(expected.length === 1 && expected[0][0] === s.patient, 'SQL fixture for the owned patient is missing');
     h.assert(result.header.join('|') === 'demographic_no|last_name|first_name|sex', 'Result header differs from the SELECT');
     h.assert(JSON.stringify(result.rows) === JSON.stringify(expected), 'Result table differs from the SQL rows');
-    csvFields = await frame.locator('input[name="csv"]').count();
-    h.assert(csvFields === 1, 'Result page did not carry one CSV export form');
+    h.assert(await frame.locator('input[name="csv"]').count() === 1, 'Result page did not carry one CSV export form');
   });
 
   async function download(button) {

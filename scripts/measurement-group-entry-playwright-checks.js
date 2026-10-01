@@ -72,8 +72,11 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`) === '2',
       'Blank group rows were stored as readings');
     const note = chart.locator('textarea[name="caseNote_note"]').first();
-    await h.expectPoll?.(() => note.inputValue());
-    const text = await note.inputValue();
+    let text = '';
+    for (const deadline = Date.now() + 10000; Date.now() < deadline && !text.includes(marker);) {
+      text = await note.inputValue();
+      if (!text.includes(marker)) await chart.waitForTimeout(200);
+    }
     h.assert(text.includes(`BP    ${VALUES.BP} ${instruction} ${marker}`) && text.includes(`HR    ${VALUES.HR}`),
       'The saved readings were not written into the open encounter note');
     h.assert(notes() === notesBefore, 'The group save created a separate note although the popup skips it');
