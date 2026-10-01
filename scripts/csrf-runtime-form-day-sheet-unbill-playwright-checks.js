@@ -35,6 +35,20 @@ async function workflow(s) {
   if (!/^\d+(\.\d+)?$/.test(fee) || Number(fee) <= 0) throw new h.SkipCheck(`service code ${code} has no positive fee`);
 
   const name = `${marker},Workflow`;
+  // A free slot inside the provider's own schedule hours: a fixed time can fall outside them
+  // or overlap another booking, which shortens the row and hides the "-B" link.
+  const providerKey = h.sqlString(provider);
+  const [[startHour, endHour, everyMin]] = sql.rows(`SELECT COALESCE(MAX(startHour),8),COALESCE(MAX(endHour),18),
+    COALESCE(MAX(everyMin),15) FROM ProviderPreference WHERE providerNo=${providerKey}`);
+  let start = null;
+  let end = null;
+  for (let candidate = Number(startHour) + 1; candidate < Number(endHour) && !start; candidate++) {
+    const from = `${String(candidate).padStart(2, '0')}:00:00`;
+    const to = sql.value(`SELECT ADDTIME(${h.sqlString(from)}, SEC_TO_TIME(${Number(everyMin) * 60 - 1}))`);
+    if (sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${providerKey} AND appointment_date=CURDATE()
+      AND start_time<=${h.sqlString(to)} AND end_time>=${h.sqlString(from)}`) === '0') [start, end] = [from, to];
+  }
+  if (!start) throw new h.SkipCheck('No free slot inside the provider schedule hours today');
   let appointment = null;
   s.cleanup(() => {
     if (!appointment) return;
@@ -47,7 +61,7 @@ async function workflow(s) {
   appointment = sql.value(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name,
       demographic_no, program_id, notes, reason, location, resources, type, style, billing, status, createdatetime,
       updatedatetime, creator, remarks, urgency)
-    VALUES (${h.sqlString(provider)}, CURDATE(), '13:45:00', '13:59:00', ${h.sqlString(name)}, ${patient},
+    VALUES (${h.sqlString(provider)}, CURDATE(), ${h.sqlString(start)}, ${h.sqlString(end)}, ${h.sqlString(name)}, ${patient},
       0, '', 'Unbill workflow', '', '', '', '', '', 'B', NOW(), NOW(), ${h.sqlString(provider)}, '', '');
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(appointment), 'The appointment fixture was not created');
