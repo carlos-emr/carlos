@@ -359,23 +359,24 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     /**
      * Keeps attached a consultation's attachments whose target is no longer available.
      *
-     * <p>The consultation form does not list an attachment whose document, lab or eForm was
+     * <p>The consultation form does not list an attachment whose document, lab, eForm or HRM report was
      * deleted or moved to another patient, so an Update submits a set without it, and the
      * whole-set replace in {@link DocumentAttach} would detach it with no warning. It is folded
      * back into the submitted set instead, as archive eDocs are: it stays attached, so the
      * preview, print, fax cover page and confirmation pages keep naming it as left out. An
      * attachment the user removed that is still available is not in this set, and is detached
-     * as before. HRM and form attachments are outside the unavailable-attachment check, so they
-     * keep the old behaviour.</p>
+     * as before. Form attachments remain outside the unavailable-attachment check.</p>
      */
     private String[] preserveUnavailableConsultAttachments(
             DocumentType documentType, String[] submittedAttachments, Integer requestId) {
         if (requestId == null
                 || (documentType != DocumentType.DOC && documentType != DocumentType.LAB
-                        && documentType != DocumentType.EFORM)) {
+                        && documentType != DocumentType.EFORM && documentType != DocumentType.HRM)) {
             return submittedAttachments;
         }
-        List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
+        List<ConsultDocs> unavailableAttachments = documentType == DocumentType.HRM
+                ? findUnavailableConsultAttachments(requestId)
+                : consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
         if (unavailableAttachments == null || unavailableAttachments.isEmpty()) {
             return submittedAttachments;
         }
@@ -1154,51 +1155,42 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             logger.warn("Skipped unavailable consult attachment lookup for invalid requestId={}", LogSafe.sanitize(requestId));
             return;
         }
-        List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(consultRequestId);
-        Set<Integer> handledHrmIds = new HashSet<>();
-        if (unavailableAttachments != null) {
-            for (ConsultDocs consultDoc : unavailableAttachments) {
-                if (consultDoc == null) {
-                    continue;
-                }
-                recordSkippedAttachment(attachmentWarnings, documentTypeFromConsultDoc(consultDoc),
-                        consultDoc.getDocumentNo(), "unavailable consult attachment target");
-                if (ConsultDocs.DOCTYPE_HRM.equals(consultDoc.getDocType())) {
-                    handledHrmIds.add(consultDoc.getDocumentNo());
-                }
-            }
+        for (ConsultDocs consultDoc : findUnavailableConsultAttachments(consultRequestId)) {
+            recordSkippedAttachment(attachmentWarnings, documentTypeFromConsultDoc(consultDoc),
+                    consultDoc.getDocumentNo(), "unavailable consult attachment target");
         }
-        recordUnreadableHrmReportWarnings(consultRequestId, handledHrmIds, attachmentWarnings);
     }
 
     /**
-     * Warns for each attached HRM report that is still on file and matched to the patient, but whose
-     * report file is missing or cannot be read. The render lists HRM reports through
-     * {@link HRMUtil#listHRMDocuments}, which leaves out any report {@link HRMReportParser} cannot
-     * parse. This check runs the same parse, so it names the reports the render leaves out because
-     * they are missing or unreadable. It does not cover the other ways {@code listHRMDocuments}
-     * returns nothing: a user without {@code _hrm} read, or an install outside the Ontario billing
-     * region. Those reports are still left out without a warning.
-     *
-     * @param handledHrmIds HRM ids already warned about; each id is added as it is checked, so an HRM
-     *        report attached twice is read and named once
+     * Finds unavailable targets using both the patient-match query and the parser used by
+     * {@link HRMUtil#listHRMDocuments}. Sharing this check with saves keeps an unreadable HRM
+     * attached when the reopened form omits it, so the later print or fax still warns.
+     * Permission and billing-region filtering remain outside this availability check.
      */
-    private void recordUnreadableHrmReportWarnings(Integer requestId, Set<Integer> handledHrmIds,
-            List<String> attachmentWarnings) {
+    private List<ConsultDocs> findUnavailableConsultAttachments(Integer requestId) {
+        List<ConsultDocs> unavailable = new ArrayList<>();
+        Set<Integer> handledHrmIds = new HashSet<>();
+        List<ConsultDocs> missingTargets = consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
+        if (missingTargets != null) {
+            for (ConsultDocs attachment : missingTargets) {
+                if (attachment != null) {
+                    if (!ConsultDocs.DOCTYPE_HRM.equals(attachment.getDocType())
+                            || handledHrmIds.add(attachment.getDocumentNo())) {
+                        unavailable.add(attachment);
+                    }
+                }
+            }
+        }
         List<ConsultDocs> attachedHrms = consultDocsDao.findByRequestIdDocType(requestId, ConsultDocs.DOCTYPE_HRM);
-        if (attachedHrms == null) {
-            return;
-        }
-        for (ConsultDocs attachedHrm : attachedHrms) {
-            if (attachedHrm == null || !handledHrmIds.add(attachedHrm.getDocumentNo())) {
-                continue;
-            }
-            int hrmId = attachedHrm.getDocumentNo();
-            String failure = hrmReportReadFailure(hrmId);
-            if (failure != null) {
-                recordSkippedAttachment(attachmentWarnings, DocumentType.HRM, hrmId, failure);
+        if (attachedHrms != null) {
+            for (ConsultDocs attachment : attachedHrms) {
+                if (attachment != null && handledHrmIds.add(attachment.getDocumentNo())
+                        && hrmReportReadFailure(attachment.getDocumentNo()) != null) {
+                    unavailable.add(attachment);
+                }
             }
         }
+        return unavailable;
     }
 
     /** @return why the HRM report cannot be read, or {@code null} when it parses */

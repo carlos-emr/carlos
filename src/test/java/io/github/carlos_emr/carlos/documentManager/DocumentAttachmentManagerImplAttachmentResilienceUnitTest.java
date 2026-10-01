@@ -414,8 +414,9 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     @DisplayName("warns once, from the database check, for an attached HRM report whose record is gone")
     void shouldWarnOnceForHrmAttachment_whenHrmRecordIsMissing() {
         ConsultDocs missingRecord = consultDoc(990006, "H");
-        when(consultDocsDao.findUnavailableActiveConsultAttachments(9)).thenReturn(List.of(missingRecord));
-        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM)).thenReturn(List.of(missingRecord));
+        ConsultDocs duplicate = consultDoc(990006, "H");
+        when(consultDocsDao.findUnavailableActiveConsultAttachments(9)).thenReturn(List.of(missingRecord, duplicate));
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM)).thenReturn(List.of(missingRecord, duplicate));
 
         assertThat(manager.getUnavailableConsultAttachmentWarnings(9))
                 .containsExactly("HRM attachment 990006 is unavailable and was not included.");
@@ -545,6 +546,46 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
                 "eForm attachment 915 is unavailable and was not included.");
         assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactlyElementsOf(expectedWarnings);
         assertThat(renderConsultationWarnings()).asList().containsExactlyElementsOf(expectedWarnings);
+    }
+
+    @Test
+    @DisplayName("keeps a missing or rematched HRM attached when a reopened consultation omits it")
+    void shouldKeepUnavailableHrmAttached_whenUpdateOmitsIt() throws Exception {
+        ConsultDocs missingReport = attachedRow(1, 12, ConsultDocs.DOCTYPE_HRM);
+        stubConsultAttachments(List.of(missingReport), List.of(missingReport));
+
+        manager.attachToConsult(loggedInInfo, DocumentType.HRM, new String[0], "999998", 9, 1);
+
+        assertThat(missingReport.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(HRM_12_WARNING);
+        assertThat(renderConsultationWarnings()).asList().containsExactly(HRM_12_WARNING);
+        verifyNoInteractions(hrmDocumentDao);
+    }
+
+    @Test
+    @DisplayName("keeps an unreadable HRM attached but detaches a readable report the user removed")
+    void shouldKeepUnreadableHrmAndDetachReadableHrm_whenUpdateOmitsBoth() throws Exception {
+        Files.copy(DEMO_HRM_REPORT, documentDir.resolve("readable-hrm.xml"));
+        HRMDocument readable = new HRMDocument();
+        readable.setReportFile("readable-hrm.xml");
+        when(hrmDocumentDao.find(Integer.valueOf(13))).thenReturn(readable);
+        HRMDocument unreadable = new HRMDocument();
+        unreadable.setReportFile("missing-hrm.xml");
+        when(hrmDocumentDao.find(Integer.valueOf(12))).thenReturn(unreadable);
+        ConsultDocs missingFile = attachedRow(1, 12, ConsultDocs.DOCTYPE_HRM);
+        ConsultDocs removedReport = attachedRow(2, 13, ConsultDocs.DOCTYPE_HRM);
+        stubConsultAttachments(List.of(missingFile, removedReport), List.of());
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            manager.attachToConsult(loggedInInfo, DocumentType.HRM, new String[0], "999998", 9, 1);
+
+            assertThat(missingFile.getDeleted()).isNull();
+            assertThat(removedReport.getDeleted()).isEqualTo("Y");
+            verify(consultDocsDao).merge(removedReport);
+            assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(HRM_12_WARNING);
+            assertThat(renderConsultationWarnings()).asList().containsExactly(HRM_12_WARNING);
+        }
     }
 
     /**
