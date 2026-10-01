@@ -46,7 +46,7 @@ import static org.mockito.Mockito.mockStatic;
 @Tag("integration")
 @Tag("eform")
 @Tag("delete")
-class RemoveFromGroup2ActionTest extends CarlosWebTestBase {
+class RemoveFromGroup2ActionIntegrationTest extends CarlosWebTestBase {
 
     private RemoveFromGroup2Action action;
 
