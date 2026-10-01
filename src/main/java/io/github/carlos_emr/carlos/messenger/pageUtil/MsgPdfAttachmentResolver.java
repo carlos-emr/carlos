@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.Optional;
@@ -109,23 +107,6 @@ public class MsgPdfAttachmentResolver {
 
     public MsgPdfAttachmentResolver(EChartDao eChartDao) {
         this.eChartDao = eChartDao;
-    }
-
-    /**
-     * Lists every item available for a patient, in the order the chooser shows them. The
-     * encounter item exists only when the patient has an encounter (eChart) record.
-     *
-     * @param demographicNo the patient
-     * @param patientName display name used in the demographic item's title (may be empty)
-     * @param labels the chooser's message bundle for the viewer's locale
-     * @return available attachments, never {@code null}
-     */
-    public List<Attachment> available(int demographicNo, String patientName, ResourceBundle labels) {
-        List<Attachment> attachments = new ArrayList<>();
-        for (Item item : Item.values()) {
-            resolve(item, demographicNo, patientName, labels).ifPresent(attachments::add);
-        }
-        return attachments;
     }
 
     /**

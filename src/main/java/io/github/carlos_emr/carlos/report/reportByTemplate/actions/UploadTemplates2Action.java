@@ -57,6 +57,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Locale;
 
 public class UploadTemplates2Action extends ActionSupport implements UploadedFilesAware {
     private final SecurityInfoManager securityInfoManager;
@@ -109,6 +110,9 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
                 // Read the file content
                 byte[] bytes = Files.readAllBytes(validatedTemplateFile.toPath());
                 xml = new String(bytes);
+                if (xml.isBlank()) {
+                    message = "Error: The uploaded template file is empty";
+                }
             } catch (SecurityException se) {
                 MiscUtils.getLogger().warn("SecurityException during file upload: " + se.getMessage(), se);
                 message = "Error: File upload failed due to security policy violation.";
@@ -125,9 +129,9 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
         ReportManager reportManager = new ReportManager();
         // An empty xml means nothing readable was uploaded: keep the message set above instead
         // of handing an empty document to the parser.
-        if (!xml.isEmpty() && "add".equals(action)) {
+        if (!xml.isBlank() && "add".equals(action)) {
             message = reportManager.addTemplate(null, xml, loggedInInfo);
-        } else if (!xml.isEmpty() && "edit".equals(action)) {
+        } else if (!xml.isBlank() && "edit".equals(action)) {
             String templateId = request.getParameter("templateid");
             message = reportManager.updateTemplate(null, templateId, xml, loggedInInfo);
         }
@@ -135,6 +139,12 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
         request.setAttribute("action", action);
         request.setAttribute("templateid", request.getParameter("templateid"));
         request.setAttribute("opentext", request.getParameter("opentext"));
+        String outcome = message.toLowerCase(Locale.ROOT);
+        if (!xml.isBlank() && (outcome.startsWith("error") || outcome.startsWith("exception"))) {
+            // As in the editor: a refused upload is shown in the textarea, so the author can
+            // fix the statement the message names instead of starting over.
+            request.setAttribute("submittedXml", xml);
+        }
         return SUCCESS;
     }
 

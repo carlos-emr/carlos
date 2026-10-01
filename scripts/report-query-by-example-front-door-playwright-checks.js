@@ -26,33 +26,9 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { csrfToken, watchFrontDoor } = require('./lib/front-door-checks');
 
 const TIMEOUT = 30000;
-
-async function csrfToken(page, baseUrl) {
-  const token = await page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is a Playwright argument built by appUrl from the validated base URL
-    const response = await fetch(tokenUrl, { credentials: 'same-origin' });
-    const match = (await response.text()).match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
-    return match ? match[1] : '';
-  }, h.appUrl(baseUrl, '/csrfguard'));
-  // Without a token CSRFGuard itself answers 403, which would let a refusal probe "pass"
-  // without ever reaching the WAF.
-  h.assert(token, 'No CSRF token could be read for this session');
-  return token;
-}
-
-/**
- * With EXPECT_FRONT_DOOR=true the run must actually go through the packaged nginx front door
- * (an nginx Server header), or a green run against bare Tomcat would say nothing about the WAF.
- */
-function watchFrontDoor(s) {
-  const seen = { nginx: false };
-  s.context.on('response', response => {
-    if (/nginx/i.test(response.headers()['server'] || '')) seen.nginx = true;
-  });
-  return () => h.assert(!s.config.expectFrontDoor || seen.nginx,
-    'EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the front door');
-}
 
 async function workflow(s) {
   const assertFrontDoor = watchFrontDoor(s);
@@ -88,7 +64,9 @@ async function workflow(s) {
     const response = await runQuery(query);
     h.assert(response.status() === 200, `Running the query answered HTTP ${response.status()} (403 is the WAF refusing the SQL)`);
     const refusal = page.locator('#queryForm .alert-danger');
-    h.assert(await refusal.count() === 0, `The query was refused by the application: ${await refusal.first().innerText().catch(() => '')}`);
+    if (await refusal.count() > 0) {
+      h.assert(false, `The query was refused by the application: ${await refusal.first().innerText()}`);
+    }
     h.assert((await page.locator('body').innerText()).includes(s.marker), 'The results do not show the owned patient');
     await expectValue(s.sql, `SELECT COUNT(*) FROM reportByExamples WHERE query=${h.sqlString(query)} AND providerNo=${h.sqlString(s.provider)}`,
       '1', 'The run was not recorded in the query history');

@@ -40,6 +40,7 @@
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
@@ -126,11 +127,11 @@
                 <td align="center"><%=String.valueOf(i + 1)%>
                 </td>
                 <td><a style="display:block;outline:none;"
-                       href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<%=curReport.getTemplateId()%>"><%=curReport.getTitle()%>
+                       href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<carlos:encode value='<%= curReport.getTemplateId() %>' context="uriComponent"/>"><carlos:encode value='<%= curReport.getTitle() %>'/>
                 </a></td>
-                <td><%=curReport.getDescription()%>
+                <td><carlos:encode value='<%= curReport.getDescription() %>'/>
                 </td>
-                <td style="display:none;" id="<%=curReport.getTemplateId()%>"></td>
+                <td style="display:none;" id="<carlos:encode value='<%= curReport.getTemplateId() %>' context="htmlAttribute"/>"></td>
             </tr>
             <% } %>
 

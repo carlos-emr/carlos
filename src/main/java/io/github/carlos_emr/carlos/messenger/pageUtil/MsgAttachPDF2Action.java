@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.A
 import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.Item;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.util.Doc2PDF;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -158,12 +159,14 @@ public class MsgAttachPDF2Action extends ActionSupport {
     public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
-            logger.warn("MsgAttachPDF2Action denied: caller lacks _msg write");
+            logger.warn("MsgAttachPDF2Action denied: provider {} lacks _msg write", providerNo(loggedInInfo));
             throw new SecurityException("missing required sec object (_msg)");
         }
 
         // Preview streams PHI and attach mutates the compose session, so both are POST-only.
         if (!"POST".equals(request.getMethod())) {
+            logger.warn("MsgAttachPDF2Action refused {} from provider {}",
+                    LogSafe.sanitize(request.getMethod()), providerNo(loggedInInfo));
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -251,8 +254,9 @@ public class MsgAttachPDF2Action extends ActionSupport {
         // to tell the stored PDFs apart; it is reset once the set is complete, as before.
         bean.nullPDFAttachment();
         for (String[] entry : rendered) {
-            // A failed render is still recorded (status BAD, "(N/A)" title) so the sender sees it.
-            bean.setAppendPDFAttachment(entry[0], entry[1]);
+            // A failed render is still recorded (status BAD, "(N/A)" title) so the sender sees it;
+            // empty content, not null, or the stored <CONTENT> would read "null".
+            bean.setAppendPDFAttachment(entry[0] == null ? "" : entry[0], entry[1]);
             bean.setCurrentAttachmentCount(bean.getCurrentAttachmentCount() + 1);
         }
         bean.setCurrentAttachmentCount(0);
@@ -357,6 +361,11 @@ public class MsgAttachPDF2Action extends ActionSupport {
             String[] values = parameters.get(name);
             return values == null ? null : values.clone();
         }
+    }
+
+    /** The acting provider's number for a security log line, sanitized; "unknown" without a session. */
+    private static String providerNo(LoggedInInfo loggedInInfo) {
+        return loggedInInfo == null ? "unknown" : LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo());
     }
 
     private static int parsePositiveInt(String value) {

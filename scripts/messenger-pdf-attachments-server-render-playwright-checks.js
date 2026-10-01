@@ -33,6 +33,7 @@
 const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { csrfToken, watchFrontDoor } = require('./lib/front-door-checks');
 
 const TIMEOUT = 30000;
 const compact = text => text.replace(/\s+/g, '');
@@ -51,31 +52,6 @@ function assertPdf(label, status, type, bytes) {
 }
 
 /** The CSRFGuard master token for this session, read the way the page's own script does. */
-async function csrfToken(page, baseUrl) {
-  const token = await page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is a Playwright argument built by appUrl from the validated base URL
-    const response = await fetch(tokenUrl, { credentials: 'same-origin' });
-    const match = (await response.text()).match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
-    return match ? match[1] : '';
-  }, h.appUrl(baseUrl, '/csrfguard'));
-  // Without a token CSRFGuard itself answers 403, which would let a refusal probe "pass"
-  // without ever reaching the WAF.
-  h.assert(token, 'No CSRF token could be read for this session');
-  return token;
-}
-
-/**
- * With EXPECT_FRONT_DOOR=true the run must actually go through the packaged nginx front door
- * (an nginx Server header), or a green run against bare Tomcat would say nothing about the WAF.
- */
-function watchFrontDoor(s) {
-  const seen = { nginx: false };
-  s.context.on('response', response => {
-    if (/nginx/i.test(response.headers()['server'] || '')) seen.nginx = true;
-  });
-  return () => h.assert(!s.config.expectFrontDoor || seen.nginx,
-    'EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the front door');
-}
-
 async function workflow(s) {
   const assertFrontDoor = watchFrontDoor(s);
   try { execFileSync('pdftotext', ['-v'], { stdio: 'pipe', timeout: 5000 }); } catch {
@@ -94,7 +70,7 @@ async function workflow(s) {
   s.cleanup(() => {
     const ids = s.sql.rows(`SELECT messageid FROM messagetbl WHERE thesubject LIKE ${like}`).map(([id]) => Number(id));
     const list = ids.length ? ids.join(',') : '-1';
-    s.sql.execute(`DELETE FROM msgDemoMap WHERE (messageID IN (${list}) AND id > ${demoMapMark}) OR demographic_no=${s.patient};
+    s.sql.execute(`DELETE FROM msgDemoMap WHERE (messageID IN (${list}) AND id > ${demoMapMark}) OR (demographic_no=${s.patient} AND id > ${demoMapMark});
       DELETE FROM messagelisttbl WHERE message IN (${list}) AND id > ${listMark};
       DELETE FROM messagetbl WHERE messageid IN (${list}) AND thesubject LIKE ${like}`);
     if (groupId) {
@@ -234,6 +210,9 @@ async function workflow(s) {
         main.locator('button[name="Attach"]').click(),
       ]);
     } finally { s.context.off('request', onRequest); }
+    // Wait for the refreshed compose page first: by then the closed window's request events
+    // have all been delivered, so the clean-up below cannot miss a late abort.
+    await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible', timeout: TIMEOUT });
     // The result page closes its own window at once, which cancels that page's csrfguard
     // script load; consume exactly those aborts, nothing else.
     for (let i = s.recorder.requestFailures.length - 1; i >= since; i--) {
@@ -245,7 +224,6 @@ async function workflow(s) {
     const body = new URLSearchParams(posts[0]);
     h.assert(JSON.stringify(body.getAll('item')) === JSON.stringify(['demographic', 'prescriptions'])
       && body.get('isPreview') === 'false' && !body.has('srcText'), 'Attach did not post exactly the two ticked item keys');
-    await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible', timeout: TIMEOUT });
   });
 
   await s.step('with an encounter record, the encounter item is offered and previews as a PDF of that record', async () => {

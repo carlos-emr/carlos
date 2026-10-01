@@ -414,7 +414,8 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(bean.getPDFAttachment())
                     .contains("<STATUS>BAD</STATUS>")
-                    .contains("(N/A)");
+                    .contains("(N/A)")
+                    .contains("<CONTENT></CONTENT>");
         }
 
         @Test

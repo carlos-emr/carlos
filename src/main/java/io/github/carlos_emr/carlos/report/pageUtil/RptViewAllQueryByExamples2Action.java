@@ -77,7 +77,6 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 
     String sql;
-    String selectedRecentSearch;
     DateUtils dateUtils = new DateUtils();
     String startDate = dateUtils.NextDay(curDay, curMonth, curYear - 1);
     String endDate = dateUtils.NextDay(curDay, curMonth, curYear);
@@ -89,15 +88,6 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
     @StrutsParameter
     public void setSql(String sql) {
         this.sql = sql;
-    }
-
-    public String getSelectedRecentSearch() {
-        return selectedRecentSearch;
-    }
-
-    @StrutsParameter
-    public void setSelectedRecentSearch(String selectedRecentSearch) {
-        this.selectedRecentSearch = selectedRecentSearch;
     }
 
     public String getStartDate() {

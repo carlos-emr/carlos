@@ -19,6 +19,8 @@
  *     template is unchanged, and the editor keeps what the author typed;
  *   - markup stored inside a template (a choice label reading "</textarea><b id=...>") is
  *     shown as text in the editor, never as page markup;
+ *   - a stored title and description carrying markup are listed as text on the template
+ *     home page and the template list (no element is created from them);
  *   - add/edit/delete refuse GET (405) and the template survives a GET delete;
  *   - with EXPECT_FRONT_DOOR=true, markup in xmltext on any OTHER operation is still refused (403).
  *
@@ -27,33 +29,9 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { csrfToken, watchFrontDoor } = require('./lib/front-door-checks');
 
 const TIMEOUT = 30000;
-
-async function csrfToken(page, baseUrl) {
-  const token = await page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is a Playwright argument built by appUrl from the validated base URL
-    const response = await fetch(tokenUrl, { credentials: 'same-origin' });
-    const match = (await response.text()).match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
-    return match ? match[1] : '';
-  }, h.appUrl(baseUrl, '/csrfguard'));
-  // Without a token CSRFGuard itself answers 403, which would let a refusal probe "pass"
-  // without ever reaching the WAF.
-  h.assert(token, 'No CSRF token could be read for this session');
-  return token;
-}
-
-/**
- * With EXPECT_FRONT_DOOR=true the run must actually go through the packaged nginx front door
- * (an nginx Server header), or a green run against bare Tomcat would say nothing about the WAF.
- */
-function watchFrontDoor(s) {
-  const seen = { nginx: false };
-  s.context.on('response', response => {
-    if (/nginx/i.test(response.headers()['server'] || '')) seen.nginx = true;
-  });
-  return () => h.assert(!s.config.expectFrontDoor || seen.nginx,
-    'EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the front door');
-}
 
 function templateXml(title, description, { paramQuery = 'SELECT provider_no, last_name FROM provider' } = {}) {
   return `<report title="${title}" description="${description}" active="1">`
@@ -139,6 +117,28 @@ async function workflow(s) {
     h.assert((await editor.inputValue()) === probe, 'The editor did not show the stored text verbatim');
   });
 
+  await s.step('a stored title and description with markup are listed as text on the template pages', async () => {
+    // xmltext is exempt from the XSS family at the front door, so every page that lists a
+    // template's title or description must encode it. Seeded directly (the column copy is what
+    // the lists read), keeping the run marker so clean-up still finds the row.
+    const markupTitle = `${title} <img id="rbt-title-injected" src="x">`;
+    const markupDescription = `${s.marker} <b id="rbt-description-injected">FAKE</b>`;
+    s.sql.execute(`UPDATE reportTemplates SET templatetitle=${h.sqlString(markupTitle)},
+      templatedescription=${h.sqlString(markupDescription)} WHERE templateid=${templateId}`);
+    try {
+      for (const route of ['/oscarReport/reportByTemplate/ViewHomePage', '/oscarReport/reportByTemplate/ViewListTemplates']) {
+        await h.gotoApp(page, s.config.baseUrl, route);
+        h.assert(await page.locator('#rbt-title-injected, #rbt-description-injected').count() === 0,
+          `A stored template title or description rendered as markup on ${route}`);
+        h.assert((await page.locator('body').innerText()).includes(markupTitle),
+          `${route} does not list the template title as literal text`);
+      }
+    } finally {
+      s.sql.execute(`UPDATE reportTemplates SET templatetitle=${h.sqlString(title)},
+        templatedescription=${h.sqlString(`${s.marker} edited roster`)} WHERE templateid=${templateId}`);
+    }
+  });
+
   await s.step('add, edit and delete refuse GET, and a GET delete leaves the template', async () => {
     const url = h.appUrl(s.config.baseUrl, '/oscarReport/reportByTemplate/addEditTemplatesAction');
     for (const params of [{ action: 'delete', templateid: templateId }, { action: 'edit', templateid: templateId, xmltext: 'x' },
@@ -159,7 +159,7 @@ async function workflow(s) {
     // test deployment and never rendered by this script.
     const probe = '<script>alert(document.cookie)</script>';
     const route = h.appUrl(s.config.baseUrl, '/oscarReport/reportByTemplate/addEditTemplatesAction');
-    const response = await s.context.request.post(route, { // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- deliberate WAF probe payload posted to the local test deployment; the check asserts it is refused (403) and never renders it
+    const response = await s.context.request.post(route, { // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- deliberate WAF probe payload posted to the configured test target; the check asserts it is refused (403) and never renders it
       headers: { 'CSRF-TOKEN': token }, maxRedirects: 0,
       form: { 'CSRF-TOKEN': token, action: 'delete', templateid: '0', xmltext: probe } });
     h.assert(response.status() === 403, `Markup on action=delete answered HTTP ${response.status()}, not 403`);

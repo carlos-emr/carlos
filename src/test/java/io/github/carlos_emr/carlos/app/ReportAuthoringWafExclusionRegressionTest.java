@@ -146,8 +146,14 @@ class ReportAuthoringWafExclusionRegressionTest {
         int idPosition = exclusions.indexOf("\"id:" + ruleId + ",");
         assertThat(idPosition).as("exclusion %s is present", ruleId).isGreaterThanOrEqualTo(0);
         int ruleStart = exclusions.lastIndexOf("SecRule REQUEST_URI", idPosition);
+        assertThat(ruleStart).as("exclusion %s starts with a REQUEST_URI match", ruleId).isGreaterThanOrEqualTo(0);
         int ruleEnd = exclusions.indexOf("\n\n", idPosition);
-        return exclusions.substring(ruleStart, ruleEnd < 0 ? exclusions.length() : ruleEnd);
+        String rule = exclusions.substring(ruleStart, ruleEnd < 0 ? exclusions.length() : ruleEnd);
+        // The slice must be this rule alone: a second REQUEST_URI inside it would mean the
+        // blank-line boundary was lost and another rule's actions are being read as this one's.
+        assertThat(rule.indexOf("SecRule REQUEST_URI", 1)).as("exclusion %s is read on its own", ruleId).isLessThan(0);
+        assertThat(rule).as("exclusion %s is chained to a method match", ruleId).contains("SecRule REQUEST_METHOD");
+        return rule;
     }
 
     private static String read() throws IOException {

@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
 
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -74,7 +75,7 @@
 	                if (templateId.equals(templateViewId)) selectedTemplate = "selectedTemplate";%>
 
         <li class="<%=selectedTemplate%>"><%=String.valueOf(i + 1)%>. <a
-                href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<%=templateId%>"><%=templateTitle%>
+                href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<carlos:encode value='<%= templateId %>' context="uriComponent"/>"><carlos:encode value='<%= templateTitle %>'/>
         </a></li>
         <% } %>
     </ul>

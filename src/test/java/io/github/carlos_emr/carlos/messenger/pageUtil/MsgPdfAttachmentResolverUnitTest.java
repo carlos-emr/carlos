@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import java.util.Date;
 import java.util.ListResourceBundle;
 import java.util.ResourceBundle;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -64,8 +65,9 @@ class MsgPdfAttachmentResolverUnitTest {
         chart.setTimestamp(new Date(0));
         when(eChartDao.getLatestChart(12)).thenReturn(chart);
 
-        assertThat(resolver.available(12, "FAKE-Doe, Pat", LABELS))
-                .extracting(Attachment::route)
+        assertThat(Stream.of(Item.values())
+                .map(item -> resolver.resolve(item, 12, "FAKE-Doe, Pat", LABELS).orElseThrow())
+                .map(Attachment::route))
                 .containsExactly(
                         "/demographic/DemographicPdfLabel?demographic_no=12",
                         "/encounter/ViewEcharthistoryprint?echartid=9&demographic_no=12",
@@ -95,8 +97,8 @@ class MsgPdfAttachmentResolverUnitTest {
         when(eChartDao.getLatestChart(12)).thenReturn(null);
 
         assertThat(resolver.resolve(Item.ENCOUNTER, 12, "", LABELS)).isEmpty();
-        assertThat(resolver.available(12, "", LABELS)).extracting(Attachment::item)
-                .containsExactly(Item.DEMOGRAPHIC, Item.PRESCRIPTIONS);
+        assertThat(resolver.resolve(Item.DEMOGRAPHIC, 12, "", LABELS)).isPresent();
+        assertThat(resolver.resolve(Item.PRESCRIPTIONS, 12, "", LABELS)).isPresent();
     }
 
     @Test

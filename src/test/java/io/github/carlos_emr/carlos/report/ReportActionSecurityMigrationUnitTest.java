@@ -411,7 +411,41 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class)) {
             assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
             assertThat(reportManagers.constructed()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates names an empty file instead of parsing nothing")
+    void shouldReportEmptyUpload_whenTemplateFileIsEmpty() throws Exception {
+        authorizeTemplateUpload();
+        request.setParameter("action", "add");
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class)) {
+            UploadTemplates2Action upload = new UploadTemplates2Action();
+            upload.setTemplateFile(uploadedTemplate(""));
+            assertThat(upload.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("message")).isEqualTo("Error: The uploaded template file is empty");
+            assertThat(request.getAttribute("submittedXml")).isNull();
+            verifyNoInteractions(reportManagers.constructed().toArray());
+        }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates shows a refused upload in the editor so it can be fixed")
+    void shouldReshowUploadedXml_whenUploadRefused() throws Exception {
+        authorizeTemplateUpload();
+        String xml = "<report title=\"FAKE\" description=\"FAKE\"><query>DELETE FROM demographic</query></report>";
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class, (mock, context) ->
+                when(mock.addTemplate(null, xml, loggedInInfo))
+                        .thenReturn("Error: The <query> was refused: Only SELECT statements are allowed"))) {
+            request.setParameter("action", "add");
+            UploadTemplates2Action upload = new UploadTemplates2Action();
+            upload.setTemplateFile(uploadedTemplate(xml));
+            assertThat(upload.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("submittedXml")).isEqualTo(xml);
         }
     }
 

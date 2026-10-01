@@ -143,7 +143,7 @@
 
         <div style="margin-bottom:15px;" class="d-flex gap-2">
             <input type="button" class="btn btn-primary" value="Back"
-                   onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=${ reportobject.templateId }'">
+                   onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=${carlos:forUriComponent(reportobject.templateId)}'">
             <input type="button" class="btn btn-primary" value="Print" onclick="window.print();">
 
             <%
@@ -170,7 +170,7 @@
             <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="w">
             <a href="javascript:void(0)" class="edit result-btn"
                style="padding-left: 5px;border-left:#0088cc 2px solid;"
-               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=${ reportobject.templateId }&opentext=1'">
+               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=${carlos:forUriComponent(reportobject.templateId)}&opentext=1'">
                 Edit Template
             </a>
             </security:oscarSec>
