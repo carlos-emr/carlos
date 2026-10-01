@@ -156,5 +156,7 @@ class CombinePDF2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("Transfer-Encoding")).isNull();
         assertThat(response.getContentLengthLong()).isEqualTo(PDF.length);
         assertThat(response.getHeader("Content-Disposition")).startsWith("attachment;");
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getContentAsByteArray()).isEqualTo(PDF);
     }
 }
