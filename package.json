@@ -296,7 +296,14 @@
     "test:get-reject-inbox-queue-playwright": "node scripts/get-reject-inbox-queue-playwright-checks.js",
     "test:detached-delete-hrm-playwright": "node scripts/detached-delete-hrm-playwright-checks.js",
     "test:detached-delete-forward-favourites-playwright": "node scripts/detached-delete-forward-favourites-playwright-checks.js",
-    "test:detached-delete-eform-report-tool-playwright": "node scripts/detached-delete-eform-report-tool-playwright-checks.js"
+    "test:detached-delete-eform-report-tool-playwright": "node scripts/detached-delete-eform-report-tool-playwright-checks.js",
+    "test:popup-opener-master-record-playwright": "node scripts/popup-opener-master-record-playwright-checks.js",
+    "test:popup-opener-colour-picker-playwright": "node scripts/popup-opener-colour-picker-playwright-checks.js",
+    "test:popup-opener-rx-drug-search-playwright": "node scripts/popup-opener-rx-drug-search-playwright-checks.js",
+    "test:popup-opener-echart-measurements-playwright": "node scripts/popup-opener-echart-measurements-playwright-checks.js",
+    "test:popup-opener-echart-forms-playwright": "node scripts/popup-opener-echart-forms-playwright-checks.js",
+    "test:popup-opener-dx-registry-back-playwright": "node scripts/popup-opener-dx-registry-back-playwright-checks.js",
+    "test:popup-opener-day-sheet-playwright": "node scripts/popup-opener-day-sheet-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

@@ -4731,6 +4731,111 @@
       "env": [],
       "notes": "Fails at step 2 on 2026.08: Administration > EForm Report Tool's list (ws/rs/reporting/eformReportTool/list) answers 500 once any report tool exists (ClassCastException Long -> BigInteger at EFormReportToolDaoImpl.getNumRecords:192), so the new tool never shows and its (Remove) cannot be driven; the Remove steps (dismissed and accepted confirm, row deleted by id, ERT_ table dropped) run once that is fixed.",
       "fixtures": "Creates one EFormReportTool row named FAKEPW<hex> and its ERT_FAKEPW<hex>... table through the UI (for a demo eForm, read-only); cleanup drops any ERT_FAKEPW<hex>% table and deletes the row by name, verified gone."
+    },
+    {
+      "name": "popup-opener-master-record",
+      "script": "scripts/popup-opener-master-record-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "notes": "Fails at its last (collected) step on 2026.08: the Manage Contacts professional Specialist search (professionalSpecialistSearch.jsp:182), the professional External contact search (procontactSearch.jsp:252) and the Master Record Referral Doctor 'Search #' picker (searchRefDoc.jsp:128 + ViewSearchRefDoc2Action jsLit) all render their row onclick JavaScript-encoded twice ('\\x27' outside a string), so clicking a result throws 'Invalid or unexpected token' and nothing reaches the parent form (window.opener is live: not a COOP failure). The four working pickers (patient, external contact, provider, and the Submit close+reload) pass first.",
+      "fixtures": "Owns the synthetic patient, a second FAKE- patient, one marker Contact and one marker ProfessionalContact row, one marker professionalSpecialists row with an unused 6-digit referral number; cleanup deletes the DemographicContact rows of both owned patients (and reciprocal rows pointing at them), the owned Contact/specialist rows and the second patient, and asserts they are gone. demographic.family_doctor of the owned patient only."
+    },
+    {
+      "name": "popup-opener-colour-picker",
+      "script": "scripts/popup-opener-colour-picker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: admin/picker.html is a static file served with no Cross-Origin-Opener-Policy while the administration page carries same-origin, so Chromium opens the picker in a new browsing-context group, window.opener is null, picker.html:40 throws 'Cannot read properties of null (reading TCP)' and no palette renders; Manage Code Styles colours can only be typed.",
+      "fixtures": "Read-only (opens Administration ▸ Billing ▸ Manage Code Styles; saves nothing)."
+    },
+    {
+      "name": "popup-opener-rx-drug-search",
+      "script": "scripts/popup-opener-rx-drug-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Passes on 2026.08. Optional RX_EDIT_DRUG_TERM / RX_EDIT_DRUG_NAME (default LIPITOR 20 / LIPITOR 20MG) pick the DrugRef product; needs carlos-emr-drugref.",
+      "fixtures": "Owns the synthetic patient only; staging is session-only and the check asserts no drugs row is written."
+    },
+    {
+      "name": "popup-opener-echart-measurements",
+      "script": "scripts/popup-opener-echart-measurements-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Passes on 2026.08 (E-Chart ▸ Measurements ▸ Vitals ▸ Submit posts the reading into the open note through window.opener.postMessage, chart not reloaded).",
+      "fixtures": "Owns the synthetic patient; cleanup deletes its measurements (and measurementsExt) rows and asserts they are gone."
+    },
+    {
+      "name": "popup-opener-echart-forms",
+      "script": "scripts/popup-opener-echart-forms-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: after Save and Exit of a Rourke2017 form started from the E-Chart Forms menu (formRourke2017 row written, popup closed) the chart's Forms module never lists it. Two causes: form/* (ViewForm2Action forwards inside the action) is served with no COOP, so the form opens with window.opener null and the chart's openWindows handle reads .closed at once; and LeftNavBarDisplay.jsp registers no reloadWindows entry for popup-menu items (a control run with the COOP header restored still never refreshed).",
+      "fixtures": "Owns the synthetic patient; cleanup deletes its formRourke2017 rows and asserts they are gone."
+    },
+    {
+      "name": "popup-opener-dx-registry-back",
+      "script": "scripts/popup-opener-dx-registry-back-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: after Disease Registry ▸ Add, Back neither closes the registry nor reloads the chart (window.opener null). dxResearch2Action answers the Add with response.sendRedirect before the Struts COOP PreResultListener runs, so the 302 carries no Cross-Origin-Opener-Policy and Chromium moves the popup to a new browsing-context group. The control step (Back before any Add closes it and reloads the chart) passes.",
+      "fixtures": "Owns the synthetic patient; cleanup deletes its dxresearch rows and asserts they are gone."
+    },
+    {
+      "name": "popup-opener-day-sheet",
+      "script": "scripts/popup-opener-day-sheet-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Passes on 2026.08 (Add and Delete Appointment popups close and the day sheet refreshes itself through self.opener.refresh(); markOpener proves no manual reload).",
+      "fixtures": "Owns the synthetic patient plus one admission row in the test login's first program (the booking typeahead only finds admitted patients); cleanup deletes its appointment, appointmentArchive and admission rows and asserts they are gone. Books on the last open slot of today's day sheet."
     }
   ]
 }
