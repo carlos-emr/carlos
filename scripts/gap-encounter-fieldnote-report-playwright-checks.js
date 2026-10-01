@@ -50,7 +50,7 @@ async function workflow(s) {
   const residentName = `${sql.value(`SELECT last_name FROM provider WHERE provider_no=${q(resident)}`)}, ${sql.value(`SELECT first_name FROM provider WHERE provider_no=${q(resident)}`)}`;
   const today = new Date();
   const longAgo = '2000-01-01';
-  const propertySnapshot = sql.rows(`SELECT id, value FROM property WHERE name='fieldNoteEform' AND provider_no IS NULL`);
+  const propertySnapshot = sql.rows(`SELECT id, value, (value IS NULL) FROM property WHERE name='fieldNoteEform' AND provider_no IS NULL`);
   const propertyCount = () => sql.value(`SELECT COUNT(*) FROM property WHERE name='fieldNoteEform'`);
   const propertyValue = () => sql.value(`SELECT COALESCE(value,'') FROM property WHERE name='fieldNoteEform'`);
   h.assert(propertySnapshot.length <= 1, 'The fieldNoteEform property is ambiguous; refusing to change it');
@@ -71,8 +71,10 @@ async function workflow(s) {
     if (fid) sql.execute(`DELETE FROM eform WHERE fid=${fid} AND form_name=${q(templateName)}`);
     // Restore the clinic-wide property exactly as found.
     if (propertySnapshot.length) {
-      const [id, value] = propertySnapshot[0];
-      sql.execute(`UPDATE property SET value=${value === 'NULL' ? 'NULL' : q(value)} WHERE id=${id} AND name='fieldNoteEform'`);
+      // The harness reads a SQL NULL and the text 'NULL' alike as null, so the companion flag (column 3, a
+      // literal 1/0 from the query) decides whether SQL NULL is restored rather than the text 'null'.
+      const [id, value, wasNull] = propertySnapshot[0];
+      sql.execute(`UPDATE property SET value=${wasNull === '1' ? 'NULL' : q(value === null ? 'NULL' : value)} WHERE id=${id} AND name='fieldNoteEform'`);
     } else {
       sql.execute(`DELETE FROM property WHERE name='fieldNoteEform' AND (value IS NULL OR value='' OR value=${q(String(fid || 0))})`);
     }

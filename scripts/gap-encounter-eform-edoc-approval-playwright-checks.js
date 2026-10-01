@@ -74,6 +74,7 @@ async function workflow(s) {
   let form;
   let fdid;
   let approvalToken;
+  let csrfToken;
 
   await s.step('Add to Documents on an eForm whose script throws saves it but files nothing and shows the missing-content page', async () => {
     const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'eform-add-list');
@@ -94,6 +95,10 @@ async function workflow(s) {
     h.assert(await form.locator('input[name="fdid"]').inputValue() === fdid, 'The approval page does not carry the saved fdid');
     approvalToken = await form.locator('input[name="renderApproval"]').inputValue();
     h.assert(approvalToken.length > 20, 'The approval page carries no one-time approval token');
+    // CSRFGuard injects the session token into the approval form; the replay probe below reuses it so the
+    // POST reaches the action instead of being turned away by the CSRF filter.
+    csrfToken = await form.locator('form:has(input[name="renderApproval"]) input[name="CSRF-TOKEN"]').first().inputValue();
+    h.assert(csrfToken.length > 8, 'The approval form carries no CSRF token for the replay probe');
     h.assert(/eform\/saveEFormAsEDoc$/.test(await form.locator('form:has(input[name="renderApproval"])').getAttribute('action')),
       'The approval form does not post to the save-as-eDocument route');
     const text = (await form.locator('body').innerText()).replace(/\s+/g, ' ');
@@ -124,14 +129,16 @@ async function workflow(s) {
 
   await s.step('replaying the same approval files nothing more', async () => {
     const before = documents().length;
-    // Negative probe after the real path: the same token, posted again through the session's own request context.
-    const page = await s.context.newPage();
-    await h.gotoApp(page, config.baseUrl, `/eform/efmpatientformlist?demographic_no=${patient}`);
-    const token = (await page.locator('input[name="CSRF-TOKEN"]').first().inputValue().catch(() => '')) || '';
+    // Negative probe after the real path: the same one-time token, posted again with the session's valid CSRF
+    // token, so the rejection under test is the action's own and not the CSRF filter's.
     const response = await s.context.request.post(`${String(config.baseUrl).replace(/\/$/, '')}/eform/saveEFormAsEDoc`,
-      { form: { fdid, demographicNo: patient, parentAjaxId: 'eforms', renderApproval: approvalToken, 'CSRF-TOKEN': token }, headers: token ? { 'CSRF-TOKEN': token } : {} });
+      { form: { fdid, demographicNo: patient, parentAjaxId: 'eforms', renderApproval: approvalToken, 'CSRF-TOKEN': csrfToken }, headers: { 'CSRF-TOKEN': csrfToken } });
+    const status = response.status();
+    const body = await response.text();
     await response.dispose();
-    await page.close();
+    h.assert(status === 200, `The replayed approval was answered HTTP ${status} (a CSRF or gateway refusal, not the action's own answer)`);
+    h.assert(/approvalExpired|no longer valid/i.test(body.replace(/&[a-z#0-9]+;/gi, ' ')),
+      'The replayed approval was not answered with the approval-expired response');
     h.assert(documents().length === before && before === 1, 'A replayed approval token filed another document');
     consumeScriptErrors();
   });

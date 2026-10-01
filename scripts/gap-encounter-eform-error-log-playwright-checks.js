@@ -62,7 +62,7 @@ async function workflow(s) {
     const request = await reported;
     h.assert(request.method() === 'POST', 'The script error was reported with a method other than POST');
     const response = await request.response();
-    h.assert(response && response.status() < 400, 'The script error report was refused');
+    h.assert(response && response.status() === 200, `The script error report was answered HTTP ${response ? response.status() : 'none'}, not 200`);
     await expectValue(sql, `SELECT stable FROM eform WHERE fid=${ids.broken}`, '0', 'The failing eForm was not flagged unstable');
     h.assert(consumeScriptErrors() >= 1, 'The fixture script error was not raised by the eForm page');
     h.assert(stable('clean') === '1', 'Another eForm was flagged by the report');

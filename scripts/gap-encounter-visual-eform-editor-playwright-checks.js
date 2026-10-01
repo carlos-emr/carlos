@@ -96,6 +96,15 @@ async function workflow(s) {
     const block = route => { externalHosts.add(new URL(route.request().url()).host); return route.abort('blockedbyclient'); };
     const isExternal = url => new URL(url).host === 'code.jquery.com';
     await s.context.route(isExternal, block);
+    // Label the one window the checkbox opens, synchronously on the page event (after the harness's own wiring,
+    // before its first script runs), so its errors can be told apart from every other page's below.
+    let tagReferenceLabelled = false;
+    const labelTagReference = page => {
+      if (tagReferenceLabelled) return;
+      tagReferenceLabelled = true;
+      h.relabelStrictPage(page, 'tag-reference');
+    };
+    s.context.on('page', labelTagReference);
     try {
       const [tags] = await Promise.all([s.context.waitForEvent('page', { timeout: 20000 }), editor.locator('#toggleGOscarDbCheckbox').check()]);
       await tags.waitForLoadState('domcontentloaded');
@@ -104,9 +113,12 @@ async function workflow(s) {
       h.assert(/patient_nameF/.test(await tags.locator('body').innerText()), 'The database tag reference does not list the patient_nameF tag');
       await tags.close();
     } finally {
+      s.context.off('page', labelTagReference);
       await s.context.unroute(isExternal, block).catch(() => {});
     }
-    const mine = entry => /\$ is not defined/.test(entry.text || '') || /jquery-3\.6\.4|code\.jquery\.com/.test(entry.url || '') || /jquery-3\.6\.4|code\.jquery\.com/.test(entry.text || '')
+    // Only what the tag-reference window itself raised about jQuery is moved out of the strict recorder: the
+    // "$ is not defined" error counts only when it came from that window, so an unrelated one elsewhere still fails.
+    const mine = entry => (entry.label === 'tag-reference' && /\$ is not defined/.test(entry.text || '')) || /jquery-3\.6\.4|code\.jquery\.com/.test(entry.url || '') || /jquery-3\.6\.4|code\.jquery\.com/.test(entry.text || '')
       || /jquery-3\.6\.4|code\.jquery\.com/.test((entry.location && entry.location.url) || '');
     for (const list of ['badResponses', 'consoleIssues', 'requestFailures', 'pageErrors']) {
       for (let i = s.recorder[list].length - 1; i >= 0; i--) {
@@ -131,6 +143,8 @@ async function workflow(s) {
     await editor.locator('#eformNameInput').fill(formName);
     await editor.locator('#eformNameInput').blur();
     const [source] = await Promise.all([s.context.waitForEvent('page', { timeout: 20000 }).catch(() => null), editor.locator('#showSource').click()]);
+    // The source opens as a Blob URL in a new window: wait for it to load before reading the body.
+    if (source) await source.waitForLoadState('domcontentloaded');
     const text = source ? await source.locator('body').innerText().catch(() => '') : await editor.locator('.ui-dialog:visible, textarea:visible').first().innerText().catch(() => '');
     h.assert(text.includes(fieldName) && text.includes(firstDefault), 'The source view does not contain the generated field and its default text');
     h.assert(text.includes(formName), 'The source view does not carry the eForm name as its title');

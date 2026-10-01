@@ -10,8 +10,9 @@
  * and form_data, eform_values field), one document row (doctype eForm, the subject as description,
  * application/pdf, active, filed under the patient in ctl_document, responsible provider), a stored
  * file in the document directory that is a real PDF carrying the eForm's text, and that the E-Chart
- * Documents report lists the filed document and opens it. Saving the same page again must not file a
- * second copy under the first one's identity (the page offers the saved instance, not a new row).
+ * Documents report lists the filed document and opens it. The save's result page replaces the form and
+ * closes its window, so the same page cannot be submitted a second time from the UI (AddEForm2Action's
+ * "same form, not saved" guard is dead code); a second fill is a new instance and is not asserted here.
  * Fixtures: one marker-named eForm template, the owned synthetic patient. Cleanup deletes the saved
  * instance, the document row, its ctl_document link, its stored file and the template, and asserts it.
  * Needs DOCUMENT_DIR (the server's document store, readable by the check). Implements gap-encounter
