@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.report.reportByTemplate;
 import java.sql.SQLException;
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import org.jdom2.Element;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
@@ -68,9 +70,10 @@ public final class ReportTemplateSqlValidator {
             return null;
         }
         String query = report.getChildText("query");
-        if (query != null && query.isBlank() && runsAsSql(report)) {
-            // SQLReporter refuses a blank statement at run time; refuse it here too rather than
-            // store a SQL template that can never run.
+        if ((query == null || query.isBlank()) && runsAsSql(report)) {
+            // SQLReporter refuses a missing or blank statement at run time; refuse it here too
+            // rather than store a SQL template that can never run. (ReportManager's own check
+            // only catches this when <type>sql</type> is explicit, not for the default type.)
             return "Error: The <query> was refused: SQL query must not be empty";
         }
         if (query != null && !query.isBlank()) {
@@ -112,6 +115,8 @@ public final class ReportTemplateSqlValidator {
     }
 
     /** A blank or {@code sql} type is run by SQLReporter (see ReportFactory). */
+    // FindSecBugs IMPROPER_UNICODE: the same case-insensitive match of the report type keyword that ReportFactory.getReporter uses to pick SQLReporter, so the two cannot disagree; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "mirrors ReportFactory.getReporter's case-insensitive report type match; not a security or authorization decision")
     private static boolean runsAsSql(Element report) {
         String type = report.getChildTextTrim("type");
         return type == null || type.isEmpty() || ReportFactory.SQL_TYPE.equalsIgnoreCase(type);

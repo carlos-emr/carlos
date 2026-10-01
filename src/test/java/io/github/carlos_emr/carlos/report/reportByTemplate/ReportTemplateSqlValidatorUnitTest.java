@@ -133,11 +133,20 @@ class ReportTemplateSqlValidatorUnitTest {
     }
 
     @Test
-    @DisplayName("should accept a non-SQL report type that carries no query")
-    void shouldAccept_whenTemplateHasNoQuery() throws Exception {
+    @DisplayName("should accept a non-SQL report type with a blank query")
+    void shouldAccept_whenNonSqlTypeHasBlankQuery() throws Exception {
         Element report = report("<report title='FAKE' description='FAKE'><type>inr</type><query> </query></report>");
 
         assertThat(ReportTemplateSqlValidator.validateReport(report)).isNull();
+    }
+
+    @Test
+    @DisplayName("should refuse a default-type template with no <query> element, which SQLReporter would run")
+    void shouldRefuseMissingQuery_forDefaultTypeTemplate() throws Exception {
+        Element report = report("<report title='FAKE' description='FAKE'></report>");
+
+        assertThat(ReportTemplateSqlValidator.validateReport(report))
+                .isEqualTo("Error: The <query> was refused: SQL query must not be empty");
     }
 
     @Test
