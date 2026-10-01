@@ -389,5 +389,6 @@ async function workflow(s) {
 
 if (require.main === module) runWorkflow('lab-embedded-pdf', workflow, { openMaster: false });
 module.exports = {
-  workflow, buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD, PDF_SEGMENT, HTML_SEGMENT,
+  workflow, buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, ownPreferences, PDF, HTML_PAYLOAD,
+  PDF_SEGMENT, HTML_SEGMENT,
 };

@@ -49,7 +49,8 @@
  * by the run's accession and stamped file name, pass or fail; the uploader's
  * archived copy is handled as in lab-upload-playwright-checks.js
  * (LAB_UPLOAD_DOCUMENT_STORE). All names and identifiers are fictitious
- * (FAKE-/PW4124 prefixes). Use a disposable database.
+ * (FAKE-/PW4124 prefixes). The two Lab Display Settings preferences are set to the shipped
+ * defaults for the run and restored exactly afterwards. Use a disposable database.
  *
  * Environment: the common contract in lib/playwright-harness.js (BASE_URL,
  * CHROME_PATH, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*), plus
@@ -62,6 +63,7 @@ const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { ownPreferences } = require('./lab-embedded-pdf-playwright-checks');
 
 const TIMEOUT = 60000;
 
@@ -226,6 +228,12 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
     'The synthetic Epsilon lab rows were not all removed');
   });
+
+  // The preview row depends on the persisted Lab Display Settings: start from the shipped
+  // defaults (preview on, 10 MiB) and restore this database's values afterwards.
+  const preferences = ownPreferences(s);
+  preferences.set('lab_pdf_inline_preview', 'true');
+  preferences.set('lab_pdf_max_size', String(10 * 1024 * 1024));
 
   let labNo;
   await s.step('the Epsilon file uploads, one lab per patient, routed to the owned patient', async () => {

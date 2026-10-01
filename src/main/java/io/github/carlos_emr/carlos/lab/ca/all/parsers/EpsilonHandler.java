@@ -29,6 +29,8 @@ package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -78,8 +80,9 @@ public class EpsilonHandler extends DefaultGenericHandler {
      * truncated to the precision sent), which is what the lab views show and what
      * {@code MessageUploader} and {@link #getDOB()} expect. Fractional seconds and a timezone
      * offset, which v2.3 allows after the date and time, are dropped first (see
-     * {@link #timestampDigits(String)}). A value the shared formatter still cannot read is returned
-     * trimmed rather than dropped, as this handler always returned it raw.
+     * {@link #timestampDigits(String)}). A value that is not a valid {@code TS}, or that the shared
+     * formatter still cannot read, is returned trimmed rather than dropped, as this handler always
+     * returned it raw.
      */
     @Override
     public String formatDateTime(String s) {
@@ -99,21 +102,24 @@ public class EpsilonHandler extends DefaultGenericHandler {
     }
 
     /**
-     * The {@code YYYY[MM[DD[HHMM[SS]]]]} digits that lead an HL7 v2.3 {@code TS} value, without
-     * the fractional seconds ({@code .S[S[S[S]]]}) and offset ({@code +/-ZZZZ}) the shared
-     * {@code yyyyMMddHHmmss} pattern cannot read; empty when the value does not start with at
-     * least a four-digit year.
+     * HL7 v2.3 {@code TS}: {@code YYYY[MM[DD[HH[MM[SS[.S[S[S[S]]]]]]]]][+/-ZZZZ]}. Only a value that
+     * matches it whole is normalised, so a malformed one ({@code 201204garbage}) is never read as
+     * a valid prefix date.
+     */
+    private static final Pattern HL7_TIMESTAMP =
+            Pattern.compile("(\\d{4}(?:\\d{2}){0,5})(?:\\.\\d{1,4})?(?:[+-]\\d{4})?");
+
+    /**
+     * The {@code YYYY[MM[DD[HH[MM[SS]]]]]} digits of an HL7 v2.3 {@code TS} value, without the
+     * fractional seconds and offset the shared {@code yyyyMMddHHmmss} pattern cannot read; empty
+     * when the whole value is not a valid {@code TS}, so callers keep it as sent.
      */
     static String timestampDigits(String ts) {
         if (ts == null) {
             return "";
         }
-        String value = ts.trim();
-        int end = 0;
-        while (end < value.length() && end < 14 && Character.isDigit(value.charAt(end))) {
-            end++;
-        }
-        return end >= 4 ? value.substring(0, end) : "";
+        Matcher matcher = HL7_TIMESTAMP.matcher(ts.trim());
+        return matcher.matches() ? matcher.group(1) : "";
     }
 
     @Override

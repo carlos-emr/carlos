@@ -225,6 +225,18 @@ class EpsilonHandlerUnitTest {
         }
 
         @Test
+        @DisplayName("should keep a malformed timestamp as sent instead of reading a valid prefix")
+        void shouldKeepRawValue_whenTimestampHasInvalidSuffix() {
+            EpsilonHandler handler = new EpsilonHandler();
+
+            assertThat(handler.formatDateTime("20120404160400invalid")).isEqualTo("20120404160400invalid");
+            assertThat(handler.formatDateTime("201204garbage")).isEqualTo("201204garbage");
+            assertThat(handler.formatDateTime("2012040")).isEqualTo("2012040"); // odd precision
+            assertThat(EpsilonHandler.timestampDigits("20120404160400.12345")).isEmpty();
+            assertThat(EpsilonHandler.timestampDigits("20120404160400-05")).isEmpty();
+        }
+
+        @Test
         @DisplayName("should parse the message date when MSH-7 carries a timezone offset")
         void shouldParseMessageDate_whenMsh7HasOffset() {
             EpsilonHandler handler = (EpsilonHandler) handler(String.join("\r\n",
