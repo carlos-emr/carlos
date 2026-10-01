@@ -66,7 +66,9 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
         q.setParameter("labType", labType);
         q.setParameter("lastName", patientLastName + "%");
         q.setParameter("firstName", patientFirstName + "%");
-        q.setParameter("hin", patientHealthNumber);
+        // A blank HIN field means "any HIN", as the other Inbox searches bind it; a non-blank one
+        // keeps its exact-match meaning, which a patient without a HIN never satisfies.
+        q.setParameter("hin", patientHealthNumber == null || patientHealthNumber.isEmpty() ? "%" : patientHealthNumber);
         return q.getResultList();
     }
 

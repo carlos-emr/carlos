@@ -241,6 +241,9 @@ async function openLabFromInbox(s, labNo, label) {
 
 async function workflow(s) {
   // The owned fixture patient has no HIN (NULL): the Inbox patient search must still find it.
+  // Assert that premise, or this check would silently stop covering the NULL-HIN search.
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${s.patient} AND hin IS NULL`) === '1',
+    'The fixture patient must have a NULL HIN for the Inbox search check');
   const labNo = seedLab(s);
   const preferences = ownPreferences(s);
   // Start from the shipped defaults whatever this database holds.

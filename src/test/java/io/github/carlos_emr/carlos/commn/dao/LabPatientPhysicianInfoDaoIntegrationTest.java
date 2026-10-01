@@ -115,11 +115,15 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
         private static final String LAB_TYPE = "CML";
 
         private int routeLabWithoutHin(String lastName) throws Exception {
+            return routeLab(lastName, null);
+        }
+
+        private int routeLab(String lastName, String hin) throws Exception {
             LabPatientPhysicianInfo info = new LabPatientPhysicianInfo();
             EntityDataGenerator.generateTestDataForModelClass(info);
             info.setPatientLastName(lastName);
             info.setPatientFirstName("Fixture");
-            info.setPatientHin(null);
+            info.setPatientHin(hin);
             labPatientPhysicianInfoDao.persist(info);
 
             ProviderLabRoutingModel routing = new ProviderLabRoutingModel();
@@ -140,6 +144,30 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
 
             List<Object[]> results = labPatientPhysicianInfoDao.findByPatientName("N", LAB_TYPE, PROVIDER,
                     "Nullhincml", "", "");
+
+            assertThat(results).extracting(row -> ((LabPatientPhysicianInfo) row[0]).getId()).containsExactly(labNo);
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should find a lab by name when the patient has a HIN and the HIN field is blank")
+        void shouldFindLab_whenHinFieldIsBlank() throws Exception {
+            int labNo = routeLab("Withhincml", "9876543210");
+
+            List<Object[]> results = labPatientPhysicianInfoDao.findByPatientName("N", LAB_TYPE, PROVIDER,
+                    "Withhincml", "", "");
+
+            assertThat(results).extracting(row -> ((LabPatientPhysicianInfo) row[0]).getId()).containsExactly(labNo);
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should find a lab when its exact HIN is searched")
+        void shouldFindLab_whenExactHinIsSearched() throws Exception {
+            int labNo = routeLab("Exacthincml", "9876543211");
+
+            List<Object[]> results = labPatientPhysicianInfoDao.findByPatientName("N", LAB_TYPE, PROVIDER,
+                    "Exacthincml", "", "9876543211");
 
             assertThat(results).extracting(row -> ((LabPatientPhysicianInfo) row[0]).getId()).containsExactly(labNo);
         }
