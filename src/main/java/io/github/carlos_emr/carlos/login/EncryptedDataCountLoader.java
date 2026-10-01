@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
-import io.github.carlos_emr.carlos.utility.ImageMagicNumbers;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
@@ -65,11 +64,12 @@ import java.util.StringJoiner;
  *   <li>{@code DigitalSignature.signatureImage} ({@code DigitalSignatureManagerImpl}).</li>
  * </ul>
  *
- * <p>How ciphertext is recognised, so plaintext is not counted: string values must pass
+ * <p>String values must pass
  * {@link EncryptionUtils#isWellFormedCiphertext(String)} (the {@code {ENC}} marker plus Base64 of at
- * least an IV and a GCM tag). Signature images carry no marker, so a stored image counts as
- * ciphertext when it is long enough to be one and does not start like a real image, the same test
- * {@code DigitalSignatureManagerImpl} uses when a decrypt fails.</p>
+ * least an IV and a GCM tag). Signature images carry no marker, and their random IV can start
+ * with any image magic bytes. Every signature long enough to be ciphertext is therefore counted
+ * conservatively, including legacy plaintext images: without the key they cannot be safely
+ * distinguished. Only byte lengths are fetched; image contents are not loaded or decoded.</p>
  *
  * <p>A table or column that this schema does not have (an empty schema before Flyway runs, an older
  * or partial schema) counts as holding nothing. Any other failure is reported in the result, never swallowed,
@@ -107,7 +107,7 @@ final class EncryptedDataCountLoader {
         MFA_SECRETS("users with an MFA secret",
                 "reset MFA for each of those users, who cannot log in until it is reset"),
         DIGITAL_SIGNATURES("stored digital signature images",
-                "those signature images cannot be recovered");
+                "signature images encrypted with the old key cannot be recovered; legacy plaintext images are unaffected");
 
         private final String label;
         private final String remedy;
@@ -152,12 +152,12 @@ final class EncryptedDataCountLoader {
             failures = List.copyOf(failures);
         }
 
-        /** @return records holding ciphertext, across all kinds */
+        /** @return records that may hold ciphertext, across all kinds */
         int total() {
             return counts.values().stream().mapToInt(Integer::intValue).sum();
         }
 
-        /** @return true when every place was read, so the counts are exact */
+        /** @return true when every place was checked; signature counts remain conservative */
         boolean complete() {
             return failures.isEmpty();
         }
@@ -228,14 +228,13 @@ final class EncryptedDataCountLoader {
                     "SELECT security_no, mfaSecret FROM security WHERE mfaSecret LIKE ?",
                     List.of(STARTS_WITH_MARKER),
                     row -> EncryptionUtils.isWellFormedCiphertext(row.getString(2))),
-            // Only the first ImageMagicNumbers.PREFIX_BYTES (4) bytes of each image are fetched:
-            // enough to recognise an image, and a large signature table is not pulled over the wire.
+            // A markerless ciphertext IV can match any image header. Do not infer plaintext
+            // from that prefix and silently generate a replacement key over encrypted signatures.
             new Probe(Kind.DIGITAL_SIGNATURES, "DigitalSignature.signatureImage",
-                    "SELECT id, SUBSTRING(signatureImage, 1, 4), OCTET_LENGTH(signatureImage)"
+                    "SELECT id, OCTET_LENGTH(signatureImage)"
                             + " FROM DigitalSignature WHERE signatureImage IS NOT NULL",
                     List.of(),
-                    row -> row.getLong(3) >= EncryptionUtils.MIN_CIPHERTEXT_BYTES
-                            && !ImageMagicNumbers.isKnownRasterImage(row.getBytes(2))));
+                    row -> row.getLong(2) >= EncryptionUtils.MIN_CIPHERTEXT_BYTES));
 
     private final ConnectionSource connectionSource;
 
@@ -293,6 +292,7 @@ final class EncryptedDataCountLoader {
                                  List<String> failures) {
         Set<Long> ids = found.computeIfAbsent(probe.kind(), kind -> new HashSet<>());
         try (PreparedStatement statement = connection.prepareStatement(probe.sql())) {
+            statement.setQueryTimeout(30);
             for (int i = 0; i < probe.parameters().size(); i++) {
                 statement.setString(i + 1, probe.parameters().get(i));
             }
@@ -363,6 +363,7 @@ final class EncryptedDataCountLoader {
             // An unreachable host would otherwise hang startup until the OS gives up on TCP;
             // this check only runs when the key is missing, and it fails closed either way.
             connection.setProperty("connectTimeout", CONNECT_TIMEOUT_MILLIS);
+            connection.setProperty("socketTimeout", "30000");
         }
         return DriverManager.getConnection(url, connection);
     }

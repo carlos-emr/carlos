@@ -174,7 +174,7 @@ class StartupEncryptionKeyGuardUnitTest {
                     .isInstanceOf(RuntimeException.class)
                     .hasCauseInstanceOf(IllegalStateException.class)
                     .cause()
-                    .hasMessageContaining(KEY + " is missing or blank, but 1 items in the database are encrypted")
+                    .hasMessageContaining(KEY + " is missing or blank, but 1 items in the database may be encrypted")
                     .hasMessageContaining(kind.label() + ": 1")
                     .hasMessageContaining("restore the original " + KEY + " from backup")
                     .hasMessageContaining(ACK + "=true");
@@ -184,7 +184,7 @@ class StartupEncryptionKeyGuardUnitTest {
             assertThat(savedPropertiesFile()).doesNotExist();
             assertThat(logs.errors()).hasSize(1);
             assertThat(logs.errors().get(0))
-                    .startsWith(KEY + " is missing or blank, but 1 items in the database are encrypted")
+                    .startsWith(KEY + " is missing or blank, but 1 items in the database may be encrypted")
                     .contains(kind.label() + ": 1", kind.remedy());
             assertThat(logs.startupMessages()).doesNotContain("Unexpected error.", "New Secret Key generated...");
             logs.assertNoSecretMaterial(secretMaterial);
@@ -207,9 +207,9 @@ class StartupEncryptionKeyGuardUnitTest {
                     .isInstanceOf(RuntimeException.class);
 
             assertThat(logs.errors()).containsExactly(KEY + " is missing or blank, but 5 items in the database"
-                    + " are encrypted with the original key (email sender accounts: 1, fax accounts: 1,"
+                    + " may be encrypted with the original key (email sender accounts: 1, fax accounts: 1,"
                     + " Teleplan passwords: 1, users with an MFA secret: 1, stored digital signature images: 1)."
-                    + " Refusing to start: a new key cannot decrypt them."
+                    + " Refusing to start: a new key cannot decrypt data encrypted with the original key."
                     + " Fix: restore the original " + KEY + " from backup into the properties file, then restart."
                     + " Only if the original key is lost for good: set " + ACK + "=true and restart."
                     + " CARLOS then generates a new key and everything encrypted with the old key stays unreadable"
@@ -217,7 +217,7 @@ class StartupEncryptionKeyGuardUnitTest {
                     + " re-enter each fax account's password in Administration > Faxes > Configure Fax;"
                     + " re-enter the Teleplan password;"
                     + " reset MFA for each of those users, who cannot log in until it is reset;"
-                    + " those signature images cannot be recovered).");
+                    + " signature images encrypted with the old key cannot be recovered; legacy plaintext images are unaffected).");
             logs.assertNoSecretMaterial(secretMaterial);
         }
     }
@@ -239,13 +239,14 @@ class StartupEncryptionKeyGuardUnitTest {
             assertThat(generated).isNotBlank().isNotEqualTo(EncryptedDataTestDatabase.SYNTHETIC_KEY);
             assertThat(Files.readString(savedPropertiesFile())).contains(KEY + "=" + generated);
             assertThat(logs.errors()).containsExactly(ACK + " is set: generated a new " + KEY
-                    + " over 5 encrypted items that are now unreadable (email sender accounts: 1, fax accounts: 1,"
+                    + " over 5 possibly encrypted items (email sender accounts: 1, fax accounts: 1,"
                     + " Teleplan passwords: 1, users with an MFA secret: 1, stored digital signature images: 1)."
+                    + " Any data encrypted with the old key is now unreadable."
                     + " Now: re-enter the SMTP password or API key of each email sender account;"
                     + " re-enter each fax account's password in Administration > Faxes > Configure Fax;"
                     + " re-enter the Teleplan password;"
                     + " reset MFA for each of those users, who cannot log in until it is reset;"
-                    + " those signature images cannot be recovered."
+                    + " signature images encrypted with the old key cannot be recovered; legacy plaintext images are unaffected."
                     + " Then remove " + ACK + " from the properties file.");
             assertThat(logs.startupMessages()).doesNotContain("New Secret Key generated...");
             secretMaterial.add(generated);
@@ -410,7 +411,39 @@ class StartupEncryptionKeyGuardUnitTest {
         assertThatThrownBy(() -> startup.contextInitialized(event))
                 .isInstanceOf(RuntimeException.class)
                 .cause()
-                .hasMessageContaining("but 1 items in the database are encrypted with the original key (fax accounts: 1)");
+                .hasMessageContaining("but 1 items in the database may be encrypted with the original key (fax accounts: 1)");
+    }
+
+    @Test
+    void shouldRefuseToReplaceMissingKey_whenCiphertextLooksLikeBitmap() throws Exception {
+        database.withAllTables();
+        database.insertDigitalSignature(1, EncryptedDataTestDatabase.encryptWithIvPrefix(new byte[] {0x42, 0x4d}));
+        loseKey();
+
+        assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
+                .isInstanceOf(RuntimeException.class)
+                .cause().hasMessageContaining("stored digital signature images: 1");
+        assertThat(props.getProperty(KEY)).isBlank();
+        assertThat(savedPropertiesFile()).doesNotExist();
+    }
+
+    @Test
+    void shouldRequireDeliberateOverride_whenLegacySignatureHasNoKey() throws Exception {
+        database.withAllTables();
+        byte[] legacy = EncryptedDataTestDatabase.plaintextPng();
+        database.insertDigitalSignature(1, legacy);
+        loseKey();
+
+        assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
+                .isInstanceOf(RuntimeException.class)
+                .cause().hasMessageContaining("may be encrypted");
+        assertThat(savedPropertiesFile()).doesNotExist();
+        props.setProperty(ACK, "true");
+        new Startup().contextInitialized(newStartupEvent());
+        assertThat(props.getProperty(KEY)).isNotBlank();
+        assertThat(savedPropertiesFile()).exists();
+        // The startup probe only reads lengths; no signature bytes are rewritten.
+        assertThat(database.loader().load().counts()).containsEntry(Kind.DIGITAL_SIGNATURES, 1);
     }
 
     /** Stores one record of the given kind, encrypted under the synthetic key. */

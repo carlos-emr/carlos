@@ -124,7 +124,7 @@ class EncryptedDataCountLoaderUnitTest {
     }
 
     @Test
-    @DisplayName("should not count plaintext, near-miss markers or real images as ciphertext")
+    @DisplayName("should not count plaintext credentials, near-miss markers or too-short signature values")
     void shouldCountNothing_whenValuesAreOnlyPlaintext() throws Exception {
         try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withAllTables()) {
             // Legacy plaintext credentials, an unauthenticated relay, and the #3132 collision shapes:
@@ -144,8 +144,6 @@ class EncryptedDataCountLoaderUnitTest {
             database.insertProperty(2, "some_other_setting", encryptText(PLAINTEXT_SECRET));
             database.insertSecurity(1, "synthetic-user-1", null);
             database.insertSecurity(2, "synthetic-user-2", "JBSWY3DPEHPK3PXP");
-            database.insertDigitalSignature(1, EncryptedDataTestDatabase.plaintextJpeg());
-            database.insertDigitalSignature(2, EncryptedDataTestDatabase.plaintextPng());
             // Too short to be ciphertext (less than an IV plus a GCM tag).
             database.insertDigitalSignature(3, new byte[]{1, 2, 3, 4, 5});
 
@@ -154,6 +152,33 @@ class EncryptedDataCountLoaderUnitTest {
             assertThat(result.complete()).isTrue();
             assertThat(result.counts()).isEmpty();
             assertThat(result.total()).isZero();
+        }
+    }
+
+    @Test
+    void shouldCountCiphertext_whenItsIvMatchesAnImageHeader() throws Exception {
+        byte[][] prefixes = {{0x42, 0x4d}, {(byte) 0xff, (byte) 0xd8, (byte) 0xff},
+                {(byte) 0x89, 0x50, 0x4e, 0x47}, {0x47, 0x49, 0x46, 0x38}};
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withAllTables()) {
+            for (int i = 0; i < prefixes.length; i++) {
+                byte[] encrypted = EncryptedDataTestDatabase.encryptWithIvPrefix(prefixes[i]);
+                assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo(EncryptedDataTestDatabase.plaintextPng());
+                database.insertDigitalSignature(i + 1, encrypted);
+            }
+            assertThat(database.loader().load().counts()).containsEntry(Kind.DIGITAL_SIGNATURES, 4);
+        }
+    }
+
+    @Test
+    void shouldCountAmbiguousSignatures_whenLongEnoughForCiphertext() throws Exception {
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withAllTables()) {
+            database.insertDigitalSignature(1, EncryptedDataTestDatabase.plaintextPng());
+            database.insertDigitalSignature(2, EncryptedDataTestDatabase.plaintextJpeg());
+            database.insertDigitalSignature(3, new byte[28]);
+            database.insertDigitalSignature(4, new byte[27]);
+            database.insertDigitalSignature(5, new byte[0]);
+
+            assertThat(database.loader().load().counts()).containsEntry(Kind.DIGITAL_SIGNATURES, 3);
         }
     }
 

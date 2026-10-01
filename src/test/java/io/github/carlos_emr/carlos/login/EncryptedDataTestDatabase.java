@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
-import io.github.carlos_emr.carlos.utility.ImageMagicNumbers;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -194,15 +193,21 @@ final class EncryptedDataTestDatabase implements AutoCloseable {
         return EncryptionUtils.encrypt(plaintext);
     }
 
-    /** Encrypts bytes under the prepared key; output starts with a random IV, never image magic. */
+    /** Encrypts bytes under the prepared key, retaining every possible random IV. */
     static byte[] encryptBytes(byte[] plaintext) throws Exception {
-        byte[] encrypted;
-        do {
-            // A random IV starts with 'BM' (a BMP magic number) about once in 65,536 tries; retry so
-            // the fixture is always recognisable as ciphertext.
-            encrypted = EncryptionUtils.encrypt(plaintext);
-        } while (ImageMagicNumbers.isKnownRasterImage(encrypted));
-        return encrypted;
+        return EncryptionUtils.encrypt(plaintext);
+    }
+
+    /** Valid synthetic ciphertext with a chosen IV prefix, reproducing image-magic collisions. */
+    static byte[] encryptWithIvPrefix(byte[] prefix) throws Exception {
+        byte[] iv = new byte[12];
+        System.arraycopy(prefix, 0, iv, 0, prefix.length);
+        javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE,
+                new javax.crypto.spec.SecretKeySpec(Base64.getDecoder().decode(SYNTHETIC_KEY), "AES"),
+                new javax.crypto.spec.GCMParameterSpec(128, iv));
+        byte[] sealed = cipher.doFinal(plaintextPng());
+        return java.nio.ByteBuffer.allocate(iv.length + sealed.length).put(iv).put(sealed).array();
     }
 
     @Override

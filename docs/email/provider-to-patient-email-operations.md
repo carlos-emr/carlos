@@ -90,16 +90,17 @@ data encrypted with a previous key (#3939):
 | What the check finds | What CARLOS does |
 |---|---|
 | Nothing encrypted (a fresh install) | Generates a key and appends it to `<context>.properties` in the Tomcat user's home directory (for example `~/carlos.properties`), as before. |
-| Encrypted data | Refuses to start, rather than generate a key that cannot decrypt it. One ERROR names what is encrypted, with counts only, and the fix. |
+| Possibly encrypted data | Refuses to start, rather than risk losing access. One ERROR names the kinds of data, conservative counts, and the fix. |
 | It cannot read the database | Refuses to start, because it cannot show that nothing would be lost. The ERROR names what could not be read. |
 
 CARLOS also refuses to start with an invalid key. The refusal reads, for
 example:
 
 ```text
-encryption.util.secret.key is missing or blank, but 3 items in the database are
+encryption.util.secret.key is missing or blank, but 3 items in the database may be
 encrypted with the original key (email sender accounts: 2, fax accounts: 1).
-Refusing to start: a new key cannot decrypt them. Fix: restore the original
+Refusing to start: a new key cannot decrypt data encrypted with the original key.
+Fix: restore the original
 encryption.util.secret.key from backup into the properties file, then restart.
 Only if the original key is lost for good: set
 encryption.util.secret.key.acknowledge_loss=true and restart. ...
@@ -113,7 +114,8 @@ encryption.util.secret.key.acknowledge_loss=true and restart. ...
 2. Only if the original key cannot be recovered, add
    `encryption.util.secret.key.acknowledge_loss=true` (`yes` and `on` also work)
    and restart. CARLOS generates a new key and logs one ERROR giving the number
-   of items that are now unreadable. Then:
+   of possibly encrypted items. Values encrypted with the lost key are unreadable;
+   legacy plaintext signatures are unaffected. Then:
    - re-enter the password or API key of every email sender account, and the
      password of every fax account;
    - re-enter the Teleplan password (BC);
@@ -130,10 +132,14 @@ Logs never contain the key, a credential or stored ciphertext. The messages
 carry kinds of data and counts only.
 
 **Limits of the check.** It recognises an encrypted value by the `{ENC}` marker
-followed by well-formed Base64 long enough to hold the IV and tag, and an
-encrypted signature image by not starting like a real image. A plaintext value
-shaped exactly like that would be counted (see #3132); if that is the only
-thing blocking startup, the override is the way through. The check runs only
+followed by well-formed Base64 long enough to hold the IV and tag. Digital signatures
+have no encryption marker: random ciphertext can start with a valid image header.
+Every signature of at least 28 bytes is therefore treated as possibly encrypted,
+including legacy plaintext images. This can refuse startup on an older installation
+holding only plaintext signatures when its key is absent. Restore the original key
+first; if you have confirmed the signatures were never encrypted, use the deliberate
+override above to create the first key. Plaintext signatures remain unchanged.
+Plaintext strings shaped like ciphertext are also counted (see #3132). The check runs only
 when the key is missing: a valid but wrong key, such as a new one pasted in by
 hand, is not detected at startup.
 

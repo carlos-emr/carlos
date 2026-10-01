@@ -100,7 +100,8 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
     /**
      * True when the bytes look like a real image, so a legacy plaintext signature is told apart from
      * undecryptable ciphertext on the decrypt-failure path and a broken signature is never streamed
-     * as a valid image. Shared with the startup check for data a missing key would orphan.
+     * as a possible legacy image. This heuristic is not safe for startup key-loss checks:
+     * random ciphertext IV bytes may match an image header.
      */
     private static boolean looksLikeImage(byte[] bytes) {
         return ImageMagicNumbers.isKnownRasterImage(bytes);

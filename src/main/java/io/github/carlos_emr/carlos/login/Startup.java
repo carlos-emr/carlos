@@ -265,9 +265,9 @@ public class Startup implements ServletContextListener {
         StringBuilder message = new StringBuilder(key).append(" is missing or blank, ");
         if (existing.complete()) {
             message.append("but ").append(existing.total())
-                    .append(" items in the database are encrypted with the original key (")
+                    .append(" items in the database may be encrypted with the original key (")
                     .append(existing.describeCounts())
-                    .append("). Refusing to start: a new key cannot decrypt them.");
+                    .append("). Refusing to start: a new key cannot decrypt data encrypted with the original key.");
         } else {
             message.append("and CARLOS could not check whether the database holds data encrypted with the original key")
                     .append(" (could not read ").append(existing.describeFailures())
@@ -293,8 +293,8 @@ public class Startup implements ServletContextListener {
         StringBuilder message = new StringBuilder(ACKNOWLEDGE_KEY_LOSS_PROPERTY).append(" is set: generated a new ")
                 .append(EncryptionUtils.SECRET_KEY_ENV_VAR);
         if (existing.complete()) {
-            message.append(" over ").append(existing.total()).append(" encrypted items that are now unreadable (")
-                    .append(existing.describeCounts()).append(").");
+            message.append(" over ").append(existing.total()).append(" possibly encrypted items (")
+                    .append(existing.describeCounts()).append("). Any data encrypted with the old key is now unreadable.");
         } else {
             message.append(". Any data encrypted with the old key is now unreadable. Found ").append(existing.total())
                     .append(" items (").append(existing.describeCounts()).append("), but could not read ")

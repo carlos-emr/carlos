@@ -26,8 +26,9 @@ package io.github.carlos_emr.carlos.utility;
  *
  * <p>{@code DigitalSignature.signatureImage} holds either a legacy plaintext image or raw
  * {@link EncryptionUtils#encrypt(byte[])} output, which carries no marker. The runtime decrypt
- * fallback and the startup check for data a missing key would orphan both tell the two apart with
- * this one test, so they cannot drift apart.</p>
+ * fallback uses this heuristic after a decrypt fails. It cannot establish that data is plaintext:
+ * a random ciphertext IV may start with these same bytes. In particular, startup key-loss checks
+ * must never use it to justify creating a replacement key.</p>
  *
  * @since 2026-09-29
  */
