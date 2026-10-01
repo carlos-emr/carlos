@@ -3992,7 +3992,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owned patient, service, specialist, referral and active drug; cleanup also removes archive/ext rows and the stamp DigitalSignature. The fax boundary needs no active fax_config sender while it runs (asserted), so it must not run concurrently with fax checks (live wrapper: EXCLUSIVE=1). Needs pdftotext."
+      "fixtures": "Owned patient, service, specialist, referral and active drug; cleanup also removes archive/ext rows and the stamp DigitalSignature. The fax boundary needs no active fax_config sender while it runs (with one configured the check reports SKIP at that step), so it must not run concurrently with fax checks (live wrapper: EXCLUSIVE=1). Needs pdftotext."
     },
     {
       "name": "dashboard-display",

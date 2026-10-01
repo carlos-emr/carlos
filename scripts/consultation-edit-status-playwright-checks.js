@@ -12,18 +12,15 @@
 // Fixtures: FAKE- patient (runWorkflow), FAKE- service, specialist, service link, referral and
 // drug seeded by SQL. Cleanup deletes the referral with its archive/ext rows, the consultation
 // stamp signature the update records for the owned patient (DigitalSignature), and every owned row.
-// EXCLUSIVE: the fax boundary requires that no active fax sender account exists while it runs.
+// EXCLUSIVE: the fax boundary requires that no active fax sender account exists while it runs;
+// with one configured, the fax step reports SKIP before touching anything.
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
-function insertId(sql, statement, what) {
-  const id = sql.value(`${statement}; SELECT LAST_INSERT_ID()`);
-  h.assert(/^[1-9]\d*$/.test(id), `The owned ${what} fixture was not created`);
-  return id;
-}
+const { insertId } = h;
 
 function pdfText(bytes) {
   h.assert(bytes.subarray(0, 4).toString('latin1') === '%PDF', 'The print preview download is not a PDF');
@@ -48,16 +45,20 @@ async function workflow(s) {
   let serviceId;
   let specId;
   s.cleanup(() => {
-    if (requestId) {
-      h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequests WHERE requestId=${requestId}
+    // If the INSERT committed but its id was not read back, the owned patient and the run's
+    // unique reason still find the referral.
+    const requests = requestId ? [requestId] : sql.rows(`SELECT requestId FROM consultationRequests
+      WHERE demographicNo=${patient} AND reason=${h.sqlString(reason)}`).map(([id]) => id).filter(id => /^[1-9]\d*$/.test(id));
+    for (const id of requests) {
+      h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequests WHERE requestId=${id}
         AND demographicNo=${patient}`) === '1', 'Referral fixture ownership changed');
-      sql.execute(`DELETE FROM consultationRequestExtArchive WHERE requestId=${requestId};
-        DELETE FROM consultationRequestsArchive WHERE requestId=${requestId} AND demographicNo=${patient};
-        DELETE FROM consultationRequestExt WHERE requestId=${requestId};
-        DELETE FROM consultationRequests WHERE requestId=${requestId} AND demographicNo=${patient};
+      sql.execute(`DELETE FROM consultationRequestExtArchive WHERE requestId=${id};
+        DELETE FROM consultationRequestsArchive WHERE requestId=${id} AND demographicNo=${patient};
+        DELETE FROM consultationRequestExt WHERE requestId=${id};
+        DELETE FROM consultationRequests WHERE requestId=${id} AND demographicNo=${patient};
         DELETE FROM DigitalSignature WHERE demographicId=${patient} AND ModuleType='CONSULTATION'`);
-      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM consultationRequests WHERE requestId=${requestId})
-        + (SELECT COUNT(*) FROM consultationRequestsArchive WHERE requestId=${requestId})
+      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM consultationRequests WHERE requestId=${id})
+        + (SELECT COUNT(*) FROM consultationRequestsArchive WHERE requestId=${id})
         + (SELECT COUNT(*) FROM DigitalSignature WHERE demographicId=${patient})`) === '0',
       'The owned referral, its history or its stamped signature was not removed');
     }
@@ -161,8 +162,11 @@ async function workflow(s) {
   });
 
   await s.step('Update And Fax stops at the cover page and Send is refused without queueing', async () => {
-    h.assert(sql.value('SELECT COUNT(*) FROM fax_config WHERE active=1') === '0',
-      'An active fax sender exists; the fax boundary cannot be driven without risk of queueing (run with EXCLUSIVE=1)');
+    // An active sender is an environment prerequisite, not a defect: the boundary cannot be driven
+    // without risk of transmitting, so report SKIP before this step touches anything.
+    if (sql.value('SELECT COUNT(*) FROM fax_config WHERE active=1') !== '0') {
+      throw new h.SkipCheck('An active fax sender account exists; the no-sender fax boundary cannot be driven safely');
+    }
     form = await openRequest('consultation-fax');
     await clickAndAwaitReload(form, form.locator('#fax_button'));
     const cover = form.locator('#coverPageForm');

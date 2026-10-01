@@ -48,7 +48,9 @@ function unusedNumber(sql, column) {
 /**
  * Removes every row an uploaded or form-created HL7 lab writes (routing, measurements, the
  * message and its checksum) for the given lab numbers, plus the archived upload file named by
- * the lab's own fileUploadCheck row, and asserts nothing remains.
+ * each of the lab's fileUploadCheck rows, and asserts nothing remains. A checksum row whose
+ * filename is not an archive name the uploader generates is still deleted, but its file is not
+ * guessed at: cleanup fails and names it, so a changed naming scheme never leaks silently.
  */
 function removeOwnedHl7Labs(sql, labNos) {
   const labs = [...new Set(labNos.map(String))].filter((labNo) => /^[1-9]\d*$/.test(labNo));
@@ -56,7 +58,10 @@ function removeOwnedHl7Labs(sql, labNos) {
   const list = labs.join(',');
   const checks = sql.rows(`SELECT DISTINCT f.id, f.filename FROM fileUploadCheck f
     JOIN hl7TextMessage m ON m.fileUploadCheck_id=f.id WHERE m.lab_id IN (${list})`)
-    .filter(([id, name]) => /^[1-9]\d*$/.test(id) && ARCHIVE_NAME.test(name));
+    .filter(([id]) => /^[1-9]\d*$/.test(id));
+  const checkIds = checks.map(([id]) => id).join(',');
+  const archives = checks.map(([, name]) => name).filter((name) => ARCHIVE_NAME.test(name));
+  const unexpected = checks.map(([, name]) => name).filter((name) => !ARCHIVE_NAME.test(name));
   const measurements = sql.rows(`SELECT measurement_id FROM measurementsExt
     WHERE keyval='lab_no' AND val IN (${labs.map((labNo) => h.sqlString(labNo)).join(',')})`)
     .map(([id]) => id).filter((id) => /^\d+$/.test(id));
@@ -69,25 +74,51 @@ function removeOwnedHl7Labs(sql, labNos) {
     DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
     DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
     DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
-  if (checks.length) sql.execute(`DELETE FROM fileUploadCheck WHERE id IN (${checks.map(([id]) => id).join(',')})`);
-  const store = process.env.LAB_UPLOAD_DOCUMENT_STORE;
-  if (store) {
-    const root = fs.realpathSync(store);
-    for (const [, name] of checks) {
-      // name matched ARCHIVE_NAME (no separators) and is joined to the resolved store root.
-      const file = path.join(root, name); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
-      if (fs.existsSync(file)) fs.unlinkSync(file);
-      h.assert(!fs.existsSync(file), 'An archived synthetic lab upload was not removed');
-    }
-  } else if (checks.length) {
-    console.warn(`    archived lab upload retained: set LAB_UPLOAD_DOCUMENT_STORE to remove ${checks.map(([, name]) => name).join(', ')}`);
-  }
+  if (checkIds) sql.execute(`DELETE FROM fileUploadCheck WHERE id IN (${checkIds})`);
+  removeArchiveFiles(archives);
   h.assert(sql.value(`SELECT
       (SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
     + (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
     + (SELECT COUNT(*) FROM hl7TextInfo WHERE lab_no IN (${list}))
-    + (SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id IN (${list}))`) === '0',
+    + (SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id IN (${list}))
+    + ${checkIds ? `(SELECT COUNT(*) FROM fileUploadCheck WHERE id IN (${checkIds}))` : '0'}`) === '0',
   'The synthetic lab rows were not all removed');
+  h.assert(!unexpected.length,
+    `Archived lab upload(s) not removed: the stored name is not a generated archive name: ${JSON.stringify(unexpected)}`);
+}
+
+/**
+ * Deletes the named archives (each already matched ARCHIVE_NAME, so no separators) from
+ * LAB_UPLOAD_DOCUMENT_STORE and asserts they are gone; without the store it warns and keeps them.
+ */
+function removeArchiveFiles(names) {
+  if (!names.length) return;
+  const store = process.env.LAB_UPLOAD_DOCUMENT_STORE;
+  if (!store) {
+    console.warn(`    archived lab upload retained: set LAB_UPLOAD_DOCUMENT_STORE to remove ${names.join(', ')}`);
+    return;
+  }
+  const root = fs.realpathSync(store);
+  for (const name of names) {
+    h.assert(ARCHIVE_NAME.test(name), 'Refusing to remove a file that is not a generated lab archive name');
+    // name matched ARCHIVE_NAME (no separators) and is joined to the resolved store root.
+    const file = path.join(root, name); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+    h.assert(!fs.existsSync(file), 'An archived synthetic lab upload was not removed');
+  }
+}
+
+/**
+ * The run's own archives found by the known upload name (LabUpload.<fileName>.<millis>), so a
+ * file the uploader saved before a rejected or rolled-back upload (no committed lab row to
+ * discover it through) is still found. Empty when the store is not configured.
+ */
+function archivesNamed(fileName) {
+  const store = process.env.LAB_UPLOAD_DOCUMENT_STORE;
+  if (!store) return [];
+  const prefix = `LabUpload.${fileName}.`;
+  return fs.readdirSync(fs.realpathSync(store))
+    .filter((name) => name.startsWith(prefix) && /^\d+$/.test(name.slice(prefix.length)) && ARCHIVE_NAME.test(name));
 }
 
 /**
@@ -171,6 +202,12 @@ async function workflow(s) {
     const labs = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`).map(([id]) => id);
     if (labNo) labs.push(labNo);
     removeOwnedHl7Labs(sql, labs);
+    // A rejected or failed upload leaves its archive (and possibly a checksum row) without any
+    // lab row; the run's unique upload name still identifies both.
+    sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(`LabUpload.${fileName}.%`)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(`LabUpload.${fileName}.%`)}`) === '0',
+      'The run\'s lab upload checksum row was not removed');
+    removeArchiveFiles(archivesNamed(fileName));
     if (fixture.providerNo) {
       // Types cascade from their rule (FOREIGN KEY ... ON DELETE CASCADE).
       sql.execute(`DELETE FROM incomingLabRules WHERE ${ownedRules()}`);

@@ -73,8 +73,15 @@ async function workflow(s) {
     h.assert((await detail.locator('div').first().innerText()).includes(`Workflow ${marker}`),
       'Guideline detail is not headed with the owned patient');
     const rows = await conditionRows(detail);
-    h.assert(JSON.stringify(rows.map(row => [row[0], row[1], row[3], row[4]])) === JSON.stringify([
-      ['dxcodes', 'any', `icd9:${DX_CODE}`, 'Passed'], ['sex', 'any', 'F', 'Passed'],
+    // Columns: type, operator, Expected (the guideline's configured values, rendered as a list
+    // of quoted values such as [icd9:'2700']), Actual (what the owned patient carries: its only
+    // diagnosis is the seeded one), result.
+    const expected = row => row[2].replace(/[[\]']/g, '');
+    h.assert(JSON.stringify(rows.map(row => [row[0], row[1], expected(row)])) === JSON.stringify([
+      ['dxcodes', 'any', `icd9:${DX_CODE}`], ['sex', 'any', 'F'],
+    ]), `Guideline detail does not list the configured condition values as expected: ${JSON.stringify(rows.map(row => row[2]))}`);
+    h.assert(JSON.stringify(rows.map(row => [row[3], row[4]])) === JSON.stringify([
+      [`icd9:${DX_CODE}`, 'Passed'], ['F', 'Passed'],
     ]), 'Guideline detail did not evaluate both conditions as passed with the patient\'s actual values');
   });
 

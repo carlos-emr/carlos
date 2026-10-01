@@ -19,21 +19,25 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const FLAGS = ['consultRequestEnabled', 'consultResponseEnabled'];
 const REFERRING = 'Referring Doctor';
+const { insertId } = h;
 
-function insertId(sql, statement, what) {
-  const id = sql.value(`${statement}; SELECT LAST_INSERT_ID()`);
-  h.assert(/^[1-9]\d*$/.test(id), `The owned ${what} fixture was not created`);
-  return id;
-}
-
-/** Snapshot of the clinic-wide request/response switch: two property rows and one service. */
+/**
+ * Snapshot of the clinic-wide request/response switch: two property rows and one service.
+ * Each value is selected with an explicit IS NULL flag: `mysql -B` prints SQL NULL and the
+ * text 'NULL' alike, so only the flag can tell the restore which one to write back.
+ */
 function snapshotSwitch(sql) {
   const names = FLAGS.map(h.sqlString).join(',');
   return {
-    properties: sql.rows(`SELECT id,name,IFNULL(value,'<NULL>') FROM property WHERE name IN (${names}) ORDER BY id`),
-    services: sql.rows(`SELECT serviceId,IFNULL(active,'<NULL>') FROM consultationServices
+    properties: sql.rows(`SELECT id,name,value,value IS NULL FROM property WHERE name IN (${names}) ORDER BY id`),
+    services: sql.rows(`SELECT serviceId,active,active IS NULL FROM consultationServices
       WHERE serviceDesc=${h.sqlString(REFERRING)} ORDER BY serviceId`),
   };
+}
+
+/** SQL literal for a snapshotted value: the flag decides NULL; a parsed null beside flag 0 was the text 'NULL'. */
+function restoredLiteral(value, isNull) {
+  return isNull === '1' ? 'NULL' : h.sqlString(value === null ? 'NULL' : value);
 }
 
 function restoreSwitch(sql, before) {
@@ -42,14 +46,14 @@ function restoreSwitch(sql, before) {
   const keepServices = before.services.map(row => row[0]);
   sql.execute(`DELETE FROM property WHERE name IN (${names})
     ${keepProps.length ? `AND id NOT IN (${keepProps.join(',')})` : ''}`);
-  for (const [id, , value] of before.properties) {
-    sql.execute(`UPDATE property SET value=${value === '<NULL>' ? 'NULL' : h.sqlString(value)} WHERE id=${id}`);
+  for (const [id, , value, isNull] of before.properties) {
+    sql.execute(`UPDATE property SET value=${restoredLiteral(value, isNull)} WHERE id=${id}`);
   }
   // A Referring Doctor row that did not exist before was created by this check's toggle.
   sql.execute(`DELETE FROM consultationServices WHERE serviceDesc=${h.sqlString(REFERRING)}
     ${keepServices.length ? `AND serviceId NOT IN (${keepServices.join(',')})` : ''}`);
-  for (const [id, active] of before.services) {
-    sql.execute(`UPDATE consultationServices SET active=${active === '<NULL>' ? 'NULL' : h.sqlString(active)} WHERE serviceId=${id}`);
+  for (const [id, active, isNull] of before.services) {
+    sql.execute(`UPDATE consultationServices SET active=${restoredLiteral(active, isNull)} WHERE serviceId=${id}`);
   }
   const after = snapshotSwitch(sql);
   h.assert(JSON.stringify(after) === JSON.stringify(before),
@@ -135,8 +139,9 @@ async function workflow(s) {
     await clickAndAwaitReload(config, config.locator('input[type="submit"]'));
     h.assert((await config.locator('.alert-success').innerText()).includes(serviceName),
       'Add Service did not confirm the new service');
-    serviceId = sql.value(`SELECT serviceId FROM consultationServices WHERE serviceDesc=${h.sqlString(serviceName)}`);
-    h.assert(/^[1-9]\d*$/.test(serviceId), 'Add Service did not persist exactly one service row');
+    const serviceRows = sql.rows(`SELECT serviceId FROM consultationServices WHERE serviceDesc=${h.sqlString(serviceName)}`);
+    h.assert(serviceRows.length === 1 && /^[1-9]\d*$/.test(serviceRows[0][0]), 'Add Service did not persist exactly one service row');
+    serviceId = serviceRows[0][0];
     h.assert(sql.value(`SELECT active FROM consultationServices WHERE serviceId=${serviceId}`) === '1',
       'The added service is not active');
   });
