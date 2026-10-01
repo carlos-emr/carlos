@@ -112,6 +112,35 @@ class ManageFirstNationsModuleAssetRegressionTest {
                 .doesNotContain("if (!document.getElementById('fNationCom').value) {");
     }
 
+    /**
+     * The blank {@code --} community option makes an empty community a deliberate choice.
+     *
+     * <p>Before that option existed the select could never be empty, so the status-number
+     * auto-fill's empty-community guard was dead code. With it, choosing {@code --} and then
+     * entering or editing a 10-digit status number would silently write the band prefix back
+     * into the community. The auto-fill must still fill a never-set community, but must honour
+     * an explicit clear made through the select.
+     */
+    @Test
+    @DisplayName("should not auto-fill a community the user deliberately cleared")
+    void shouldPreserveDeliberateCommunityClear_whenStatusNumberAutoFills() throws IOException {
+        String jsp = Files.readString(MANAGE_FIRST_NATIONS_MODULE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("<option value=\"\">--</option>")
+                .contains("var communityClearedByUser = false;")
+                .contains("communityClearedByUser = !communitySelect.value;");
+
+        int guard = jsp.indexOf("if (communityField && !communityField.value) {");
+        int clearCheck = jsp.indexOf("if (!communityClearedByUser) {", guard);
+        int fill = jsp.indexOf("communityField.value = band;", guard);
+        assertThat(guard).as("empty-community guard").isGreaterThanOrEqualTo(0);
+        assertThat(clearCheck).as("deliberate-clear check inside the auto-fill guard").isGreaterThan(guard);
+        assertThat(fill).as("band auto-fill only after the deliberate-clear check").isGreaterThan(clearCheck);
+        assertThat(countOccurrences(jsp, "communityField.value = band;"))
+                .as("no second, unguarded band auto-fill").isEqualTo(1);
+    }
+
     private static int countOccurrences(String haystack, String needle) {
         int count = 0;
         for (int at = haystack.indexOf(needle); at >= 0; at = haystack.indexOf(needle, at + needle.length())) {
