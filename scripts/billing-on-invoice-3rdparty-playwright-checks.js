@@ -5,19 +5,19 @@
  * Ontario 3rd-party (private) invoice, bill-to address and payment workflow check.
  *
  * User path: Schedule ▸ Search ▸ Master Record ▸ Billing History (popup) ▸ Edit
- * (billingONCorrection) ▸ Payer ▸ ViewOnSearch3rdBillAddr ▸ pick address ▸ Save;
- * Correction ▸ Payments List (billingON3rdPayments) ▸ partial then full payment;
- * Billing History ▸ Print (ViewBillingON3rdInv) ▸ Print PDF (BillingInvoicePrint);
- * Schedule ▸ Administration ▸ Billing ▸ Invoice Reports ▸ Bill Patient ▸ tick ▸
- * Print (BillingInvoiceListPrint); Payer search ▸ Add/Edit Address (OnAddEdit3rdAddr).
+ * (billingONCorrection) ▸ bill-to ▸ Save; Correction ▸ Payments List (billingON3rdPayments)
+ * ▸ partial then full payment; Billing History ▸ Print (ViewBillingON3rdInv) ▸ Print PDF
+ * (BillingInvoicePrint); Schedule ▸ Administration ▸ Billing ▸ Invoice Reports ▸ Bill
+ * Patient ▸ tick ▸ Print (BillingInvoiceListPrint); Correction ▸ Payer
+ * (ViewOnSearch3rdBillAddr) ▸ Add/Edit Address (OnAddEdit3rdAddr) ▸ Edit; Payer ▸ pick.
  *
- * Asserts against MariaDB: the picked address lands in billing_on_ext billTo; each
- * payment writes billing_on_payment / billing_on_item_payment / billing_on_transaction
- * rows and moves billing_on_cheader1.paid and the ext payment key, with the balance
- * the popup and invoice show; both PDFs are real PDFs whose text carries the invoice
- * number and amounts, and printing appends the "Printed" note to comment1; a GET
- * against the payment save is refused and writes nothing; a new address saved via
- * Add/Edit Address persists.
+ * Asserts against MariaDB: the bill-to lands in billing_on_ext; each payment writes
+ * billing_on_payment / billing_on_item_payment / billing_on_transaction rows and moves
+ * billing_on_cheader1.paid and the ext payment key, with the balance the popup and the
+ * invoice show; both PDFs are real PDFs whose text carries the invoice number and total,
+ * and printing appends the "Printed" note to comment1; a GET against the payment save is
+ * refused and writes nothing; Add/Edit Address loads the owned address; picking it in the
+ * Payer search fills and saves the bill-to (last: fails on a known defect, see report).
  *
  * Fixtures: one owned PAT bill (header + one private-code item, comment1 = marker) for
  * the owned FAKE- patient, one owned bill-to address (company = marker), the billing

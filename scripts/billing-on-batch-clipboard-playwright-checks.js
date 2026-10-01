@@ -227,12 +227,15 @@ async function workflow(s) {
     const ra = await openAdminFrame(admin, '/billing/CA/ON/ViewGenRA', 'table');
     const row = ra.locator('tr').filter({ hasText: marker });
     h.assert(await row.count() === 1, 'The reconciliation list does not show the owned RA row');
-    const [report] = await Promise.all([
+    const [report, answer] = await Promise.all([
       s.context.waitForEvent('page', { timeout: 20000 }),
+      s.context.waitForEvent('response', { timeout: 20000, predicate: r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/billing/CA/ON/ViewGenRADesc') }),
       row.locator('a', { hasText: 'Report' }).click(),
     ]);
     h.wireStrictPage(report, 'ra-report', s.recorder);
     await report.waitForLoadState('domcontentloaded');
+    h.assert(answer.status() === 200, `Billing Reconciliation ▸ Report answered HTTP ${answer.status()}`);
     await h.assertNotErrorPage(report, 'RA report');
     const clipboard = await s.popup(report, report.locator('input[type="button"][value="Clipboard"]'), 'billing-clipboard');
     await clipboard.locator('textarea[name="textfield"]').waitFor();

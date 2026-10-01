@@ -4291,9 +4291,13 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "timeoutSec": 420,
+      "env": [
+        "BILLING_PRIVATE_CODE",
+        "INVOICE_DIR"
+      ],
+      "notes": "Fails at its last step on 2026.08: picking a payer address throws a JavaScript syntax error (double-encoded handler).",
+      "fixtures": "Owned private bill for an owned patient, its payments, an owned bill-to address and the invoice PDFs it prints under INVOICE_DIR; all removed."
     },
     {
       "name": "billing-on-ohip-simulation-report",
@@ -4335,9 +4339,13 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "timeoutSec": 420,
+      "env": [
+        "BILLING_PRIVATE_CODE",
+        "BILLING_CORRECTION_CODE"
+      ],
+      "notes": "Fails at its last step on 2026.08: Payment Received omits payments dated on the End Date (< instead of <=), so today's payments never appear with the default range.",
+      "fixtures": "Owned bills (one PAT, one with an owned error-report row) for an owned patient and appointment; all removed."
     },
     {
       "name": "billing-on-ra-import",
@@ -4356,6 +4364,20 @@
     {
       "name": "billing-on-batch-clipboard",
       "script": "scripts/billing-on-batch-clipboard-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "billing-on-admin-config",
+      "script": "scripts/billing-on-admin-config-playwright-checks.js",
       "tiers": [
         "core"
       ],
