@@ -300,7 +300,10 @@ test('a cross-origin <base href> does not make a relative action count as same-o
   const page = loadPage();
   page.setBase('https://example.invalid/');
   page.form({action: 'collect'}).submit();
-  assert.deepEqual(page.submitted.map(tokensIn), [[]]);
+  // A form with no action posts to the document URL whatever <base> says, so it keeps the token.
+  page.form({}).submit();
+  page.form({action: ''}).submit();
+  assert.deepEqual(page.submitted.map(tokensIn), [[], [TOKEN], [TOKEN]]);
 });
 
 test('Owasp.CsrfGuard.properties serves the patched template', () => {

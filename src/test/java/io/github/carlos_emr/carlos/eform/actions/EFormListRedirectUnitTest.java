@@ -107,7 +107,16 @@ class EFormListRedirectUnitTest {
         when(request.getParameter("groupName")).thenReturn("ignored: not echoed by name");
 
         assertThat(EFormListRedirect.toGroup(request, "Intake & ${1+1}"))
-                .isEqualTo("/eform/efmmanageformgroups?orderby=form_name&scheduleNav=1&group_view=Intake+%26+%24%7B1%2B1%7D");
+                .isEqualTo("/eform/efmmanageformgroups?orderby=form_name&group_view=Intake+%26+%24%7B1%2B1%7D&scheduleNav=1");
+    }
+
+    @Test
+    @DisplayName("should drop a non-canonical schedule nav value rather than echo it")
+    void shouldDropScheduleNav_whenValueNotCanonical() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getParameter("scheduleNav")).thenReturn("true&x=1");
+
+        assertThat(EFormListRedirect.toGroup(request, "G")).isEqualTo("/eform/efmmanageformgroups?group_view=G");
     }
 
     @Test

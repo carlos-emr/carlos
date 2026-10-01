@@ -80,11 +80,12 @@ final class EFormListRedirect {
      * @return the redirect location, never null
      */
     static String toGroup(HttpServletRequest request, String groupName) {
-        String target = to("/eform/efmmanageformgroups", request, "orderby", ScheduleNav.PARAM);
-        if (groupName == null || groupName.isEmpty()) {
-            return target;
+        String target = to("/eform/efmmanageformgroups", request, "orderby");
+        if (groupName != null && !groupName.isEmpty()) {
+            target += (target.indexOf('?') < 0 ? '?' : '&') + "group_view="
+                    + URLEncoder.encode(groupName, StandardCharsets.UTF_8);
         }
-        return target + (target.indexOf('?') < 0 ? '?' : '&') + "group_view="
-                + URLEncoder.encode(groupName, StandardCharsets.UTF_8);
+        // ScheduleNav.append() adds the flag only for its canonical value, never an echo.
+        return ScheduleNav.append(target, request);
     }
 }

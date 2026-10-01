@@ -281,6 +281,19 @@ async function captureSubmission(page, urlPart, action) {
       assert.equal(sent.body.has('CSRF-TOKEN'), false);
     });
 
+    await check('an action-less form under a cross-origin <base href> still posts back with the token', async () => {
+      await page.goto(`${base}/based`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own 127.0.0.1 fixture server
+      const sent = await captureSubmission(page, '/based', () => page.evaluate(() => {
+        const form = document.createElement('form');
+        form.method = 'post';
+        document.body.appendChild(form);
+        form.submit();
+      }));
+      assert.equal(sent.method, 'POST');
+      assert.equal(new URL(sent.url).hostname, '127.0.0.1');
+      assert.equal(sent.body.get('CSRF-TOKEN'), TOKEN);
+    });
+
     await check('a cross-origin POST action never receives the token', async () => {
       const crossOrigin = `http://localhost:${server.address().port}/post/cross`;
       const sent = await captureSubmission(page, '/post/cross', () => page.evaluate(action => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- action is a literal loopback fixture URL

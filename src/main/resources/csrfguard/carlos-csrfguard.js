@@ -433,7 +433,9 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
             var action = submitter && submitter.hasAttribute && submitter.hasAttribute('formaction')
                 ? submitter.getAttribute('formaction') : form.getAttribute('action');
             if (action === null || action.trim() === '') {
-                action = location.pathname + location.search;
+                // A form without an action posts to the document's own URL, whatever
+                // <base> says, so use it absolute rather than resolving it again.
+                action = location.href;
             }
             return {
                 method: method ? method.trim().toLowerCase() : 'get',
