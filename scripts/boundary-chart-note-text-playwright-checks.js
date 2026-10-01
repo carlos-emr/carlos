@@ -67,8 +67,14 @@ async function workflow(s) {
     h.assert(typed.startsWith('\n') && typed.endsWith('\n'), 'The textarea dropped the boundary blank lines before Sign & Save');
     // The application signs the note and may trim the typed text's outer blank lines; the body between them (internal
     // whitespace, special characters, the long line) must be stored exactly, and the signature must come after it.
-    h.assert(storedLf.includes(body),
-      `The stored note differs from what was typed: ${b.explainMismatch(body, { hex: stored.hex, chars: stored.chars })}`);
+    // The stored note is the typed body, optionally preceded by blank lines the application may keep, and followed only by
+    // the application's own signature line: nothing else may be added or lost (line endings normalised, nothing more).
+    const at = storedLf.indexOf(body);
+    const prefix = at < 0 ? null : storedLf.slice(0, at);
+    const suffix = at < 0 ? null : storedLf.slice(at + body.length);
+    h.assert(at >= 0 && /^\s*$/.test(prefix) && /^\s*(\[Signed on [^\]]*\])?\s*$/.test(suffix),
+      `The stored note is not the typed text plus the application's signature: ${b.explainMismatch(body, { hex: stored.hex, chars: stored.chars })}`
+      + (suffix === null ? '' : ` (prefix ${JSON.stringify(prefix)}, suffix ${JSON.stringify(suffix)})`));
     console.log(`    (boundary blank lines: leading ${storedLf.startsWith('\n') ? 'kept' : 'trimmed'}, `
       + `trailing ${storedLf.slice(storedLf.indexOf(body) + body.length).startsWith('\n\n') ? 'kept' : 'trimmed'} by the application)`);
     if (!chart.isClosed()) await chart.close().catch(() => {});

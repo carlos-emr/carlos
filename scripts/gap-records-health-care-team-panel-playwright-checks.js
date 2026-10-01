@@ -21,7 +21,9 @@ async function workflow(s) {
   const { sql, patient, provider, master } = s;
   const owned = `demographicNo=${patient} AND contactId=${h.sqlString(provider)} AND type=0 AND category='professional'`;
   s.cleanup(() => {
-    sql.execute(`DELETE FROM DemographicContact WHERE ${owned}`);
+    // Every contact row of this patient: the fixture starts with none, and an Add defect can leave a row that does not
+    // match the expected provider / type / category, which would otherwise block the patient's own cleanup.
+    sql.execute(`DELETE FROM DemographicContact WHERE demographicNo=${patient}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${patient}`) === '0', 'The owned team association was not removed');
   });
   h.assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${patient}`) === '0', 'The owned patient already has contacts');
@@ -46,7 +48,12 @@ async function workflow(s) {
   });
 
   await s.step('the panel shows translated labels, not unresolved message keys', async () => {
-    const html = await master.locator('#editDemographic').evaluate(node => node.innerHTML);
+    // Only the panel's own nodes (the list, the add/edit table) and the search box's rendered placeholder value
+    // (set from a message key by the panel's script); an unresolved key elsewhere in the form is not this panel's.
+    const parts = await master.locator('#listHealthCareTeam, #addEditHealthCareTeam').evaluateAll(nodes => nodes.map(node => node.innerHTML));
+    h.assert(parts.length >= 2, 'The Health Care Team list and add/edit panel are not both rendered');
+    parts.push(await master.locator('#searchHealthCareTeamInput').inputValue());
+    const html = parts.join('\n');
     const keys = html.match(/\?\?\?[A-Za-z0-9_.]+\?\?\?/g) || [];
     h.assert(keys.length === 0, `The Health Care Team panel prints ${keys.length} unresolved message key(s), e.g. ${[...new Set(keys)].slice(0, 3).join(', ')}`);
   });

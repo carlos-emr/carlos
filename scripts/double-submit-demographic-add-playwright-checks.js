@@ -27,10 +27,15 @@ async function workflow(s) {
     for (const id of ids) h.assert(/^[1-9]\d*$/.test(id), 'Owned demographic id is invalid');
     if (ids.length) {
       const list = ids.join(',');
-      for (const [table, column] of [['admission', 'client_id'], ['demographicArchive', 'demographic_no'],
-        ['demographicExt', 'demographic_no'], ['demographiccust', 'cust_demographic_no'],
-        ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no']]) {
-        try { sql.execute(`DELETE FROM ${table} WHERE ${column} IN (${list})`); } catch (error) { /* table or column absent */ }
+      // Every child table the Add action writes, by its real key column (demographiccust and its archives key on
+      // demographic_no; the add action also writes demographicExtArchive rows).
+      const children = [['admission', 'client_id'], ['demographicArchive', 'demographic_no'],
+        ['demographicExt', 'demographic_no'], ['demographicExtArchive', 'demographic_no'],
+        ['demographiccust', 'demographic_no'], ['demographiccustArchive', 'demographic_no'],
+        ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no']];
+      for (const [table, column] of children) sql.execute(`DELETE FROM ${table} WHERE ${column} IN (${list})`);
+      for (const [table, column] of children) {
+        h.assert(sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${column} IN (${list})`) === '0', `Child rows remain in ${table}`);
       }
       sql.execute(`DELETE FROM demographic WHERE demographic_no IN (${list}) AND last_name LIKE ${like}`);
     }
@@ -58,10 +63,15 @@ async function workflow(s) {
       const route = /\/demographic\/DemographicAddRecord$/;
       const posts = watchPosts(search.context(), route);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
-      await rapid(mode.key, search.locator('input[type="submit"][value="Add Record"]').first(),
-        { textField: form.locator('input[name="postal"]') });
-      const count = await settledCount(sql, `SELECT COUNT(*) FROM demographic WHERE last_name=${h.sqlString(lastName)}`,
-        { min: mode.key === 'doubleEnter' ? 0 : 1 });
+      // A second activation can reach the form's own "other patients with the same first and last name" confirm once the
+      // first record exists. Dismissing it (Cancel) is the correct user response and creates nothing, so it is expected here.
+      let count;
+      await h.withExpectedDialogs(search, async () => {
+        await rapid(mode.key, search.locator('input[type="submit"][value="Add Record"]').first(),
+          { textField: form.locator('input[name="postal"]') });
+        count = await settledCount(sql, `SELECT COUNT(*) FROM demographic WHERE last_name=${h.sqlString(lastName)}`,
+          { min: mode.key === 'doubleEnter' ? 0 : 1 });
+      }, { accept: false });
       if (disarm) await disarm();
       posts.stop();
       console.log(`    (${posts.seen.length} add-record POST(s))`);

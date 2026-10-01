@@ -30,10 +30,11 @@ async function workflow(s) {
   const { sql, patient } = s;
   const owned = createBillingFixture(s);
   g.registerOwnedBillCleanup(s);
-  const fee = g.money(g.scheduleFee(sql, 'A007A'));
   // The 1st of the previous month: never in the future, never today.
   const month = sql.value("SELECT DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m')");
   const target = `${month}-01`;
+  // The form prices the code as of the service date, so the expected fee is the one effective on `target`.
+  const fee = g.money(g.scheduleFee(sql, 'A007A', target));
   let form;
 
   await s.step('Create Invoice opens the bill form for appointment 0 with an editable service date', async () => {

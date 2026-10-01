@@ -107,7 +107,8 @@ async function workflow(s) {
       'The A007A item does not carry 2 units at twice the schedule fee');
     h.assert(k.service_code === 'K030A' && Number(k.fee) === Number(g.money(feeK * 0.5)),
       'The K030A item does not carry the 0.5 percent factor');
-    h.assert(a.dx === '250' && a.dx1 === '401' && a.dx2 === '493', 'The item does not carry the three diagnostic codes');
+    h.assert([a, k].every(item => item.dx === '250' && item.dx1 === '401' && item.dx2 === '493'),
+      'Each item does not carry the three diagnostic codes');
     h.assert(Number(header.total) === Number(g.money(Number(a.fee) + Number(k.fee))), 'The header total is not the sum of the items');
     h.assert(/B/.test(sql.value(`SELECT status FROM appointment WHERE appointment_no=${appointment}`)),
       'The appointment was not marked billed');

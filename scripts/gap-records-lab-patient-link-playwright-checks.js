@@ -29,6 +29,27 @@ const { removeOwnedHl7Labs } = require('./lab-forwarding-rules-playwright-checks
 
 const TIMEOUT = 30000;
 
+/**
+ * Removes the run's own archived upload(s), found by the known upload name in LAB_UPLOAD_DOCUMENT_STORE, and asserts
+ * they are gone. Without the store it warns (as removeOwnedHl7Labs does) and keeps them.
+ */
+function removeNamedArchives(fileName) {
+  const store = process.env.LAB_UPLOAD_DOCUMENT_STORE;
+  if (!store) {
+    console.warn(`    archived lab upload may be retained: set LAB_UPLOAD_DOCUMENT_STORE to remove LabUpload.${fileName}.*`);
+    return;
+  }
+  const root = fs.realpathSync(store);
+  const prefix = `LabUpload.${fileName}.`;
+  for (const name of fs.readdirSync(root)) {
+    if (!name.startsWith(prefix) || !/^\d+$/.test(name.slice(prefix.length))) continue;
+    // name is the run's generated archive name (prefix + digits, no separators) joined to the resolved store root.
+    const file = path.join(root, name); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+    fs.unlinkSync(file);
+    h.assert(!fs.existsSync(file), 'An archived synthetic lab upload was not removed');
+  }
+}
+
 async function workflow(s) {
   const { sql, marker, patient, context, recorder } = s;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
@@ -39,8 +60,13 @@ async function workflow(s) {
   s.cleanup(() => {
     fs.rmSync(workDir, { recursive: true, force: true });
     removeOwnedHl7Labs(sql, sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`).map(row => row[0]));
-    sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(`LabUpload.${fileName}.%`)}`);
+    // A failed or partial upload can leave its archive (and a checksum row) with no hl7TextInfo row to find them
+    // through; the run's unique upload name (LabUpload.<fileName>.<millis>) identifies both.
+    const uploadName = `LabUpload.${fileName}.%`;
+    sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(uploadName)}`);
+    removeNamedArchives(fileName);
     h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '0', 'The synthetic lab was not removed');
+    h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(uploadName)}`) === '0', 'The run\'s lab upload checksum row was not removed');
   });
   sql.execute(`UPDATE demographic SET hin='' WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
   const file = path.join(workDir, fileName);

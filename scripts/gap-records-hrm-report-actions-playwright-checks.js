@@ -25,9 +25,11 @@ const TIMEOUT = 30000;
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
+  // The provider autocomplete only searches from three characters, so the second provider needs a surname of at least
+  // three letters (the check types its first letters).
   const other = sql.value(`SELECT provider_no FROM provider WHERE status='1' AND provider_no REGEXP '^[1-9][0-9]*$'
     AND provider_no<>${h.sqlString(provider)} AND COALESCE(last_name,'')<>'' AND last_name NOT LIKE 'FAKE-PW%'
-    AND last_name REGEXP '^[A-Za-z-]+$' AND (SELECT COUNT(*) FROM provider p2 WHERE p2.last_name=provider.last_name)=1
+    AND last_name REGEXP '^[A-Za-z]{3}[A-Za-z-]*$' AND (SELECT COUNT(*) FROM provider p2 WHERE p2.last_name=provider.last_name)=1
     ORDER BY provider_no LIMIT 1`);
   if (!other) throw new h.SkipCheck('The database has no second active provider to assign the report to');
   const otherName = sql.rows(`SELECT last_name, first_name FROM provider WHERE provider_no=${h.sqlString(other)}`)[0];
@@ -111,7 +113,9 @@ async function workflow(s) {
   await s.step('(remove) unlinks the patient and the patient autocomplete links them again', async () => {
     await viewer.locator(`#demostatus${reportId} a`, { hasText: '(remove)' }).click();
     await expectValue(sql, `SELECT COUNT(*) FROM HRMDocumentToDemographic WHERE hrmDocumentId=${key}`, '0', '(remove) did not delete the patient link');
-    h.assert(await viewer.locator(`#mainMaster_${reportId}`).isDisabled(), 'The patient buttons stay enabled after the patient was unlinked');
+    // The unlink is committed before the page's async callback disables the buttons, so wait for that, not just the row.
+    await viewer.locator(`#mainMaster_${reportId}:disabled`).waitFor({ state: 'attached', timeout: TIMEOUT })
+      .catch(() => h.assert(false, 'The patient buttons stay enabled after the patient was unlinked'));
     const input = viewer.locator(`#autocompletedemo${reportId}hrm`);
     await input.waitFor({ state: 'visible', timeout: TIMEOUT });
     await input.click();

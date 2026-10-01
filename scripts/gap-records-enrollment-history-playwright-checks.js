@@ -105,7 +105,7 @@ async function workflow(s) {
     await setDate(master, 'roster_date', ['2024', '03', '05'], 'day');
     await refused(/enrol to/i, 'RO with no enrolled-to provider');
     await chooseRoster(master, recorder, 'TE', scriptErrors);
-    await refused(/./, 'TE with no termination date or reason');
+    await refused(/Enrolment Termination (Date|Reason)/i, 'TE with no termination date or reason');
     h.assert(sql.value(`SELECT roster_status FROM ${row}`) === 'NR' && sql.value(`SELECT COUNT(*) FROM ${archived}`) === '0',
       'A refused roster change still reached the database');
     await master.locator('[name="roster_date_year"], [name="roster_date_month"], [name="roster_date_day"]')

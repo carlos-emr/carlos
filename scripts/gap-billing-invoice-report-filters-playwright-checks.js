@@ -60,10 +60,13 @@ async function workflow(s) {
   // Owned RA rows: the first claim paid in part, the second rejected.
   const claimOne = `9${String(Math.floor(Math.random() * 1e10)).padStart(10, '0')}`;
   const claimTwo = `8${String(Math.floor(Math.random() * 1e10)).padStart(10, '0')}`;
+  // Scope both the delete and its verification to this fixture's RA header: a generated claim number could
+  // collide with an unowned remittance row, which must never be removed.
+  const ownedRa = `SELECT raheader_no FROM raheader WHERE payable=${q(marker)}`;
   s.cleanup(() => {
-    sql.execute(`DELETE FROM radetail WHERE claim_no IN (${q(claimOne)}, ${q(claimTwo)});
+    sql.execute(`DELETE FROM radetail WHERE raheader_no IN (${ownedRa});
       DELETE FROM raheader WHERE payable=${q(marker)}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM radetail WHERE claim_no IN (${q(claimOne)}, ${q(claimTwo)}))
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM radetail WHERE raheader_no IN (${ownedRa}))
       + (SELECT COUNT(*) FROM raheader WHERE payable=${q(marker)})`) === '0', 'Owned RA rows were not removed');
   });
   const raNo = sql.value(`INSERT INTO raheader (filename, paymentdate, payable, totalamount, records, claims, status, readdate)
@@ -150,6 +153,7 @@ async function workflow(s) {
 
   await s.step('the footer counts the rows and totals billed, paid and adjustments', async () => {
     const text = (await frame.locator('table.table-warning, tr.table-warning').last().innerText()).replace(/\s+/g, ' ');
+    h.assert(new RegExp(`Count:\\s*${all.length}(?!\\d)`).test(text), 'The footer count is not the number of listed claims');
     const billed = Number(feeA) + Number(feeB) + Number(feeK);
     h.assert(text.includes(`Total: $${money(billed)}`), 'The footer billed total is not the sum of the rows');
     h.assert(text.includes('Paid: $30.00'), 'The footer paid total is not the sum of the RA payments');

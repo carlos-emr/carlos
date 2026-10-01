@@ -6,11 +6,6 @@
  */
 const h = require('./playwright-harness');
 
-/** Today plus `offset` days as YYYY-MM-DD, in the clock the database uses for CURDATE(). */
-function appointmentDay(sql) {
-  return sql.value('SELECT CURDATE()');
-}
-
 /**
  * An appointment today for the operator, owned by the run, so the day sheet offers its "B" link.
  * Cleanup is registered before the INSERT and asserts the row is gone. Returns the appointment id.
@@ -35,15 +30,18 @@ function seedAppointment(s, { time = '14:15:00', tag = 'Billing' } = {}) {
 }
 
 /**
- * Remove every billing row the browser wrote for the owned patient (header, items, ext, payments,
+ * Remove every billing row the browser wrote for the owned patient or the owned billing provider (header, items, ext, payments,
  * transactions, audit snapshots), by id, and assert nothing is left. Register it AFTER the billing
  * fixture so it runs BEFORE the fixture removes the owned provider.
  */
 function registerOwnedBillCleanup(s) {
-  const { sql, patient } = s;
+  const { sql, patient, marker } = s;
   s.cleanup(() => {
-    const ids = sql.rows(`SELECT id FROM billing_on_cheader1 WHERE demographic_no=${patient}`).map(row => row[0]);
-    // Bonus claims are saved without the patient: they are found through the run's marker below.
+    const ids = new Set(sql.rows(`SELECT id FROM billing_on_cheader1 WHERE demographic_no=${patient}`).map(row => row[0]));
+    // Bonus claims are saved without the patient: they are found through the run's owned billing provider,
+    // which carries the run marker as its last name (the fixture's cleanup only knows claims with a marked note).
+    for (const row of sql.rows(`SELECT c.id FROM billing_on_cheader1 c JOIN provider p ON p.provider_no=c.provider_no
+        WHERE p.last_name=${h.sqlString(marker)}`)) ids.add(row[0]);
     for (const id of ids) removeBill(sql, id);
   });
 }
@@ -140,10 +138,14 @@ function itemsOf(sql, headerId) {
   }));
 }
 
-/** The latest schedule fee on or before today for a code. */
-function scheduleFee(sql, code) {
+/**
+ * The latest schedule fee on or before a date (default today, in the database clock) for a code. Pass the
+ * service date when the bill is dated otherwise: the form prices a code as of the service date.
+ */
+function scheduleFee(sql, code, date = null) {
+  const bound = date ? h.sqlString(date) : 'CURDATE()';
   const fee = sql.value(`SELECT value FROM billingservice WHERE service_code=${h.sqlString(code)}
-    AND billingservice_date<=CURDATE() ORDER BY billingservice_date DESC LIMIT 1`);
+    AND billingservice_date<=${bound} ORDER BY billingservice_date DESC LIMIT 1`);
   if (!/^\d+(\.\d+)?$/.test(fee) || Number(fee) <= 0) throw new h.SkipCheck(`service code ${code} has no positive fee`);
   return fee;
 }
@@ -151,6 +153,6 @@ function scheduleFee(sql, code) {
 const money = value => (Math.round(Number(value) * 100) / 100).toFixed(2);
 
 module.exports = {
-  appointmentDay, seedAppointment, registerOwnedBillCleanup, removeBill, showSeededAppointments, openBillForm, chooseBillingPhysician,
+  seedAppointment, registerOwnedBillCleanup, removeBill, showSeededAppointments, openBillForm, chooseBillingPhysician,
   nextToReview, headersOf, itemsOf, scheduleFee, money,
 };

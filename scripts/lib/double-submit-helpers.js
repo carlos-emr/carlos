@@ -132,12 +132,21 @@ function recorderMark(recorder) {
  * `pattern` and only console errors that say the fetch failed, both recorded since `since`.
  */
 function forgiveAbortedSecondRequest(recorder, since, pattern) {
+  let forgiven = 0;
   for (let i = recorder.requestFailures.length - 1; i >= since.failures; i--) {
     const failure = recorder.requestFailures[i];
-    if (/ERR_ABORTED/.test(failure.errorText || '') && pattern.test(failure.url || '')) recorder.requestFailures.splice(i, 1);
+    if (/ERR_ABORTED/.test(failure.errorText || '') && pattern.test(failure.url || '')) {
+      recorder.requestFailures.splice(i, 1);
+      forgiven += 1;
+    }
   }
-  for (let i = recorder.consoleIssues.length - 1; i >= since.issues; i--) {
-    if (/Failed to fetch|ERR_ABORTED/.test(recorder.consoleIssues[i].text || '')) recorder.consoleIssues.splice(i, 1);
+  // Console errors are only consumed when tied to an aborted request just forgiven, one per aborted request,
+  // so an unrelated "Failed to fetch" from the page stays strict and fails the check.
+  for (let i = recorder.consoleIssues.length - 1; i >= since.issues && forgiven > 0; i--) {
+    if (/Failed to fetch|ERR_ABORTED/.test(recorder.consoleIssues[i].text || '')) {
+      recorder.consoleIssues.splice(i, 1);
+      forgiven -= 1;
+    }
   }
 }
 

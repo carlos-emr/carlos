@@ -145,7 +145,8 @@ async function workflow(s) {
     const items = g.itemsOf(sql, headers[0].id);
     h.assert(items.length === 1 && Number(items[0].fee) === 12.34 && Number(headers[0].total) === 12.34,
       'The edited fee was not saved as the item fee and the claim total');
-    h.assert(sql.value("SELECT value FROM billingservice WHERE service_code='A007A' ORDER BY billingservice_date DESC LIMIT 1") === fee,
+    // Same effective-date bound as g.scheduleFee(): a future-dated fee is not the one the bill was priced with.
+    h.assert(sql.value("SELECT value FROM billingservice WHERE service_code='A007A' AND billingservice_date<=CURDATE() ORDER BY billingservice_date DESC LIMIT 1") === fee,
       'Editing a line fee changed the schedule of benefits');
     h.assert(!problems.length, problems.join('; '));
   });

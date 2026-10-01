@@ -73,8 +73,13 @@ async function workflow(s) {
     await button.waitFor({ state: 'visible', timeout: TIMEOUT });
     annotate = await ui.clickOpensPopup(viewer, button, { context, recorder, label: 'annotate-viewer', timeout: TIMEOUT });
     h.assert(new URL(annotate.url()).searchParams.get('docId') === source.id, 'The viewer opened another document');
-    await annotate.locator('img').nth(1).waitFor({ state: 'visible', timeout: TIMEOUT });
-    h.assert(await annotate.locator('img').count() === 2, 'The viewer does not show one image per page of the two-page document');
+    // The page scaffolding shows a placeholder <img> per page at once; the marks below are positioned on the rendered
+    // page, so wait until both page images have really loaded (complete with a decoded size), not just exist.
+    await annotate.waitForFunction(() => {
+      const images = document.querySelectorAll('#pages img');
+      return images.length === 2 && [...images].every(img => img.complete && img.naturalWidth > 0);
+    }, null, { timeout: TIMEOUT });
+    h.assert(await annotate.locator('#pages img').count() === 2, 'The viewer does not show one image per page of the two-page document');
     h.assert(!(await annotate.locator('#btnSave').isEnabled()), 'Save as new document is enabled before any mark exists');
   });
 
@@ -106,8 +111,14 @@ async function workflow(s) {
       { accept: true, promptText: note });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'prompt', 'Add text must ask for the note exactly once');
     await annotate.waitForFunction(() => !document.getElementById('btnSave').disabled, null, { timeout: 5000 });
+    // The viewer retries an explicit, retryable 503 ("busy", nothing filed) by itself; only the terminal answer counts.
     const [response] = await Promise.all([
-      annotate.waitForResponse(candidate => new URL(candidate.url()).pathname.endsWith('/documentManager/SaveAnnotatedDocument')),
+      annotate.waitForResponse(async candidate => {
+        if (!new URL(candidate.url()).pathname.endsWith('/documentManager/SaveAnnotatedDocument')) return false;
+        if (candidate.status() !== 503) return true;
+        const busy = await candidate.json().catch(() => null);
+        return !(busy && busy.success === false && busy.retryable === true);
+      }, { timeout: 60000 }),
       annotate.locator('#btnSave').click(),
     ]);
     h.assert(response.status() === 200, `Save answered HTTP ${response.status()}`);

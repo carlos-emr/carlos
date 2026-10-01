@@ -32,15 +32,21 @@ async function workflow(s) {
     for (const item of CASES) {
       const before = await rx.locator('[id^="drugName_"]').evaluateAll(nodes => nodes.map(node => node.id));
       await rx.locator('#searchString').fill('');
-      await Promise.all([
-        rx.waitForResponse(isPost('/rx/searchDrug'), { timeout: 60000 }),
+      // The search fires per typed prefix; wait for the response to the COMPLETE term, and require it succeeded.
+      const [searched] = await Promise.all([
+        rx.waitForResponse(r => isPost('/rx/searchDrug')(r)
+          && decodeURIComponent((r.request().postData() || '').replace(/\+/g, ' ')).includes(item.term), { timeout: 60000 }),
         rx.locator('#searchString').pressSequentially(item.term, { delay: 40 }),
       ]);
+      h.assert(searched.ok(), `The DrugRef search for "${item.term}" answered HTTP ${searched.status()}`);
+      await rx.locator('ul.ui-autocomplete').first().waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
       const option = rx.locator('ul.ui-autocomplete li.ui-menu-item').filter({ hasText: item.pick }).first();
       if (await option.count() === 0) {
         const offered = (await rx.locator('ul.ui-autocomplete li.ui-menu-item').allInnerTexts()).slice(0, 6).map(text => text.replace(/\s+/g, ' ').trim());
         // Report a mismatch already recorded for an earlier product before skipping an unavailable one.
         h.assert(problems.length === 0, `${problems.join('; ')} (RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava before rx.setDrugPrescribed)`);
+        // SKIP only for a product that is genuinely absent: a page error while searching is a failure, not an absence.
+        h.assert(s.recorder.pageErrors.length === 0, `The product search raised a script error: ${s.recorder.pageErrors.map(e => e.text).join(' | ')}`);
         throw new h.SkipCheck(`DrugRef offers no "${item.pick}" for "${item.term}" on this install (offered: ${offered.join(' | ')})`);
       }
       await option.waitFor({ state: 'visible' });

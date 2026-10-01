@@ -42,6 +42,18 @@ async function workflow(s) {
   const other = `${marker}-B`;
   const otherHin = freshOntarioHin(sql);
   s.cleanup(() => removeMarkedPatients(sql, other));
+  // The harness's own parent cleanup removes the owned patient's demographicExt and demographicArchive rows only; the
+  // update this check drives also writes demographiccust and demographicExtArchive (keyed by archive id), so remove those
+  // here, before the generic cleanup deletes the archive rows they hang from.
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM demographicExtArchive WHERE archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient})
+      OR demographic_no=${patient};
+      DELETE FROM demographiccust WHERE demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient}
+        OR archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient}))`) === '0',
+    'The owned patient\'s custom-field and extension archive rows were not removed');
+  });
   const row = `demographic WHERE demographic_no=${patient}`;
   const archived = `demographicArchive WHERE demographic_no=${patient}`;
   const typed = {

@@ -71,6 +71,17 @@ async function workflow(s) {
     h.assert(blocks[0].top === 30, 'The first label does not start at the typed Top offset');
     const tops = blocks.map(block => block.top);
     h.assert(tops.every((top, index) => index === 0 || top > tops[index - 1]), 'Label blocks are not stacked downward without overlap');
+    // The sheet's own layout rule (demographicprintdemographic.jsp): the copies of one type step by height + gap/2 and each
+    // later type starts at Top + (copies of the earlier types) * (height + gap). Top 30, height 150, gap 10, copies 2 / 3 / 1.
+    const typed = { top: 30, height: 150, gap: 10 };
+    const expectedTops = [];
+    let before = 0;
+    for (const copies of [2, 3, 1]) {
+      for (let i = 0; i < copies; i++) expectedTops.push(typed.top + before * (typed.height + typed.gap) + i * (typed.height + typed.gap / 2));
+      before += copies;
+    }
+    h.assert(JSON.stringify(tops) === JSON.stringify(expectedTops),
+      `The label blocks start at Top ${JSON.stringify(tops)} instead of ${JSON.stringify(expectedTops)} for the typed Top / Height / Gap`);
     h.assert(blocks.every(block => block.text.includes(marker)), 'A label block does not carry the patient\'s name');
     h.assert(blocks.slice(0, 2).every(block => block.text.includes(hin) && !block.text.includes('9 Label Lane')),
       'Label type 1 must carry the health number and no address');

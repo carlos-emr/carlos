@@ -98,6 +98,9 @@ async function workflow(s) {
     return { frame, status: response.status() };
   }
   const text = frame => frame.locator('body').innerText().then(t => t.replace(/\s+/g, ' '));
+  /** The data rows of a report table: the trimmed texts of each row's td.dataTable cells. */
+  const dataRows = frame => frame.locator('tr').filter({ has: frame.locator('td.dataTable') }).evaluateAll(rows =>
+    rows.map(row => Array.from(row.querySelectorAll('td.dataTable')).map(cell => cell.innerText.trim())));
 
   const obec = [obecLine(owned.hin, 'ZZ', '60'), obecLine(owned.hin, 'ZZ', '55'), obecLine(strangerHin, 'ZZ', '60')].join('\r\n') + '\r\n';
 
@@ -114,6 +117,11 @@ async function workflow(s) {
     h.assert(/1 demographic record\(s\) were updated/.test(body) && /skipped 2 row/i.test(body),
       'The R report does not state one applied update and two skipped rows');
     h.assert(body.includes('does not require an update') && body.includes('no demographic match'), 'The R report does not give the skip reasons');
+    // Each row shows its own health number, version and response code (Health #, Ver, Response Code columns).
+    const rRows = (await dataRows(first.frame)).map(cells => cells.slice(0, 3).join(' '));
+    const expectedRows = [`${owned.hin} ZZ 60`, `${owned.hin} ZZ 55`, `${strangerHin} ZZ 60`];
+    h.assert(rRows.length === 3 && rRows.slice().sort().join('|') === expectedRows.slice().sort().join('|'),
+      'The R report rows do not show the expected health number, version and response code of each of the three file rows');
     h.assert(fs.existsSync(path.join(documentDir, obecName)), 'The R file was not stored in DOCUMENT_DIR');
 
     const [ver, ...alertParts] = patientState().split('|');
@@ -134,7 +142,11 @@ async function workflow(s) {
       provider: owned.ohipNo, claims: '00001', records: '000001', processed: '20260102', reason: 'SYNTHETIC BATCH REJECT REASON' });
     const acked = await upload(ackName, `${ack}\r\n`);
     const ackBody = acked.status === 200 ? await text(acked.frame) : '';
-    if (acked.status !== 200 || !ackBody.includes(owned.ohipNo) || !ackBody.includes('SYNTHETIC BATCH REJECT REASON')) {
+    // Batch #, Oper.#, Provider #, Group#, Create Date, Seq#, Rec Start/End/Type, Claims, Records, Process Date, Reason.
+    const ackRows = acked.status === 200 ? await dataRows(acked.frame) : [];
+    const ackRow = ackRows.find(cells => cells[2] === owned.ohipNo) || [];
+    if (acked.status !== 200 || !ackBody.includes(owned.ohipNo) || !ackBody.includes('SYNTHETIC BATCH REJECT REASON')
+      || ackRow[0] !== '00001' || ackRow[3] !== owned.groupNo || ackRow[11] !== '20260102' || ackRow[12] !== 'SYNTHETIC BATCH REJECT REASON') {
       problems.push(`the Batch Acknowledgement report page answered HTTP ${acked.status} instead of listing its batch row`);
     }
     h.assert(!problems.length, problems.join('; '));

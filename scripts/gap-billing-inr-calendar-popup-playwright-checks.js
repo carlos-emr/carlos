@@ -67,6 +67,7 @@ async function workflow(s) {
     target = `${year}-${month.padStart(2, '0')}-01`;
     await popup.locator('td a', { hasText: /^1$/ }).first().click();
     await popup.waitForEvent('close', { timeout: 10000 }).catch(() => {});
+    h.assert(popup.isClosed(), 'The calendar popup stayed open after a day was picked');
   });
 
   await s.step('the chosen day fills the service date field of the INR page', async () => {

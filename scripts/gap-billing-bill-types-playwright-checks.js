@@ -85,6 +85,12 @@ async function workflow(s) {
       await form.locator('input[name="serviceCode0"]').fill(code);
       await form.locator('input[name="dxCode"]').fill('250');
       await g.nextToReview(form);
+      // A third-party bill carries the bill-to typed on the review page: type a known one to read it back.
+      const billTo = `${s.marker} ${prefix} Payer`;
+      if (thirdParty) {
+        h.assert(await form.locator('#billTo').count() === 1, `The review page of bill type ${prefix} offers no bill-to`);
+        await form.locator('#billTo').fill(billTo);
+      }
       await Promise.all([
         form.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/billing/CA/ON/BillingONSave'),
           { timeout: 30000 }),
@@ -101,10 +107,14 @@ async function workflow(s) {
       const items = g.itemsOf(sql, id);
       h.assert(items.length === 1 && items[0].service_code === code && Number(items[0].fee) === Number(expectedFee)
         && Number(total) === Number(expectedFee) && items[0].dx === '250', `Bill type ${prefix} saved the wrong item or total`);
-      const ext = sql.value(`SELECT COUNT(*) FROM billing_on_ext WHERE billing_no=${id}`);
       const trans = sql.value(`SELECT COUNT(*) FROM billing_on_transaction WHERE ch1_id=${id}`);
-      h.assert(thirdParty ? Number(ext) > 0 : Number(trans) > 0,
-        `Bill type ${prefix} did not write its ${thirdParty ? 'third-party bill-to rows' : 'transaction row'}`);
+      if (thirdParty) {
+        const ext = sql.rows(`SELECT key_val, value FROM billing_on_ext WHERE billing_no=${id}`);
+        h.assert(ext.some(([key, value]) => key === 'billTo' && value === billTo),
+          `Bill type ${prefix} did not write its billTo row with the typed bill-to`);
+      } else {
+        h.assert(Number(trans) > 0, `Bill type ${prefix} did not write its transaction row`);
+      }
       h.assert(/B/.test(sql.value(`SELECT status FROM appointment WHERE appointment_no=${appointment}`)),
         `Bill type ${prefix} did not mark the appointment billed`);
     });

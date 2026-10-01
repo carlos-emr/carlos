@@ -55,6 +55,7 @@ async function workflow(s) {
   const claim = appointment => sql.rows(`SELECT id, status, paid, total, comment1 FROM billing_on_cheader1
     WHERE demographic_no=${patient} AND appointment_no=${appointment}`);
   const billTo = `${marker} Payer\n1 Fake Street\nHamilton ON`;
+  const remitTo = `${marker} Remit\n2 Fake Street\nHamilton ON`;
 
   await s.step('Back to Edit returns the bill form with the typed code and writes nothing', async () => {
     const form = await privateReview(s, owned, appointments[0]);
@@ -73,7 +74,12 @@ async function workflow(s) {
   await s.step('Save & Print Invoice saves the unpaid claim with its bill-to and opens the invoice for it', async () => {
     const form = await privateReview(s, owned, appointments[1]);
     await form.locator('#billTo').fill(billTo);
+    await form.locator('#remitTo').fill(remitTo);
     await form.locator('textarea[name="comment"]').fill(`${marker} private note`);
+    // Count every page the context opens during the save: a duplicated popup must not go unnoticed.
+    const opened = [];
+    const onPage = page => opened.push(page);
+    s.context.on('page', onPage);
     const invoice = s.context.waitForEvent('page', { timeout: 30000 });
     const [response] = await Promise.all([
       form.waitForResponse(SAVE, { timeout: 30000 }),
@@ -83,6 +89,10 @@ async function workflow(s) {
     const popup = await invoice;
     await popup.waitForURL(/ViewBillingON3rdInv/, { timeout: 20000 });
     await popup.waitForLoadState('domcontentloaded');
+    // Give a second (duplicate) invoice popup time to appear before counting.
+    await s.schedule.waitForTimeout(1500);
+    s.context.off('page', onPage);
+    h.assert(opened.length === 1, `Save & Print opened ${opened.length} pages instead of exactly one invoice popup`);
     const rows = claim(appointments[1]);
     h.assert(rows.length === 1, 'Save & Print did not save exactly one claim');
     const [id, status, paid, rowTotal, comment] = rows[0];
@@ -91,9 +101,12 @@ async function workflow(s) {
       'Save & Print did not save an unpaid private claim with its note');
     const ext = sql.rows(`SELECT key_val, value FROM billing_on_ext WHERE billing_no=${id}`);
     h.assert(ext.some(([key, value]) => key === 'billTo' && value.includes(`${marker} Payer`)), 'The bill-to was not saved');
+    h.assert(ext.some(([key, value]) => key === 'remitTo' && value.includes(`${marker} Remit`)), 'The remit-to was not saved');
     h.assert(popup.url().includes(`billingNo=${id}`), `The invoice popup is not for the saved bill (${new URL(popup.url()).search})`);
     const text = (await popup.locator('body').innerText()).replace(/\s+/g, ' ');
     h.assert(text.includes(`${marker} Payer`) && text.includes(total), 'The invoice does not show the bill-to and the total');
+    // The invoice's Remit To block shows the clinic address instead when useDemoClinicInfoOnInvoice is on, so the
+    // typed remit-to is asserted in billing_on_ext above, not on the invoice.
     await popup.close();
   });
 

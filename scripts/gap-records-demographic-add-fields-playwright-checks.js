@@ -102,6 +102,12 @@ async function workflow(s) {
     await form.locator('input[name="r_doctor"]').fill(typed.doc);
     await form.locator('input[name="r_doctor_ohip"]').fill(typed.ohip);
     await form.locator('select[name="roster_status"]').selectOption('FS');
+    await form.locator('select[name="roster_enrolled_to"]').selectOption(provider);
+    // A PHU from the install's own lookup list (the first real option, whichever the default preselects not being chosen).
+    const phus = await form.locator('select[name="PHU"] option').evaluateAll(options => options.map(option => option.value).filter(Boolean));
+    h.assert(phus.length > 0, 'The add form offers no Public Health Unit to choose from');
+    const phu = phus[phus.length - 1];
+    await form.locator('select[name="PHU"]').selectOption(phu);
     await form.locator('input[name="chart_no"]').fill(typed.chart);
     await form.locator('select[name="patient_status"]').selectOption('IN');
     const before = sql.value(`SELECT COUNT(*) FROM log WHERE action='add' AND content='demographic' AND provider_no=${h.sqlString(provider)}`);
@@ -128,6 +134,9 @@ async function workflow(s) {
     const ext = Object.fromEntries(sql.rows(`SELECT key_val, value FROM demographicExt WHERE demographic_no=${id}`));
     h.assert(ext.demo_cell === typed.cell && ext.hPhoneExt === typed.ext && ext.wPhoneExt === typed.wext
       && ext.phoneComment === typed.comment && ext.aboriginal === 'No', 'The extension keys (cell, extensions, comment, aboriginal) were not stored');
+    h.assert(sql.value(`SELECT roster_enrolled_to FROM demographic WHERE demographic_no=${id}`) === provider,
+      'The roster "enrolled to" provider was not stored');
+    h.assert(ext.PHU === phu, 'The chosen Public Health Unit was not stored');
     h.assert(sql.value(`SELECT cust2 FROM demographiccust WHERE demographic_no=${id}`) === provider,
       'The resident staff selection was not stored');
     h.assert(sql.value(`SELECT COUNT(*) FROM demographicArchive WHERE demographic_no=${id}`) === '1',
