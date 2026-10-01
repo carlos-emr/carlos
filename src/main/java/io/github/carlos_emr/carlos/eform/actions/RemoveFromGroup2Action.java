@@ -39,6 +39,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -60,6 +63,23 @@ public class RemoveFromGroup2Action extends ActionSupport {
         EFormUtil.remEFormFromGroup(groupName, fid);
         request.setAttribute("group_view", groupName);
         return SUCCESS;
+    }
+
+    /**
+     * Where the success redirect lands: the group the form was removed from. The
+     * result is a redirect, not a forward, because a forward keeps the POST and the
+     * groups page gate (ViewEFormPage2Action) refuses POST there, so a successful
+     * removal ended on "CARLOS Error: 405" (#4130). The group name is URL-encoded,
+     * so request data cannot change the path or add parameters.
+     *
+     * @return the application-relative groups page for this group, never null
+     */
+    public String getRedirectTarget() {
+        String groupName = request.getParameter("groupName");
+        if (groupName == null || groupName.isEmpty()) {
+            return "/eform/efmmanageformgroups";
+        }
+        return "/eform/efmmanageformgroups?group_view=" + URLEncoder.encode(groupName, StandardCharsets.UTF_8);
     }
 
 }

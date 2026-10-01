@@ -180,10 +180,15 @@
             <result name="success">/eform/efmmanageformgroups</result>
         </action>
         <action name="eforms/removeFromGroup" class="io.github.carlos_emr.carlos.eform.actions.RemoveFromGroup2Action">
-            <result name="success">/eform/efmmanageformgroups</result>
+            <!-- REDIRECT, not a forward: same 405-after-success defect and fix as
+                 delEForm above. These buttons POST, a forward keeps the POST, and the
+                 groups page gate refuses POST, so a successful removal ended on
+                 "CARLOS Error: 405" (#4130). getRedirectTarget() keeps the group open. -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eforms/delGroup" class="io.github.carlos_emr.carlos.eform.actions.DeleteGroup2Action">
-            <result name="success">/eform/efmmanageformgroups</result>
+            <!-- REDIRECT, not a forward: see removeFromGroup above. -->
+            <result name="success" type="redirect">/eform/efmmanageformgroups</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
         <!-- LEGACY BACKWARD-COMPATIBILITY ALIAS (keep): the eForm corpus and saved eform_data
