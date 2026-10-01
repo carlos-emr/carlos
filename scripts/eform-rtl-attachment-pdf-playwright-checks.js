@@ -16,11 +16,11 @@
  * Rich Text Letter attachment families end to end: each family the letter's Attach popup offers
  * (documents, labs, HRM reports, other eForms, encounter forms) is attached to its own saved
  * letter, must SHOW on the saved letter (the "Attached Files" panel, the hidden attachment input
- * the toolbar re-submits, the toolbar badge) and must APPEAR in the PDF from both download paths:
- * the toolbar's Download (saveAndDownloadEForm) and printControl.js's PDF button (print=true,
- * the legacy alias AddEForm2Action folds into the same download). Appearing is proven by page
- * count: the merged PDF must carry more pages than the same letter downloaded before the
- * attachment, and both paths must agree. When poppler's pdftotext is on PATH the letter's typed
+ * the toolbar re-submits, the toolbar badge) and must APPEAR in the PDF from every download path:
+ * the toolbar's Download (saveAndDownloadEForm), its Save PDF Only menu item, and printControl.js's
+ * PDF button (print=true, the legacy alias AddEForm2Action folds into the same download). Appearing
+ * is proven by page count: the merged PDF must carry more pages than the same letter downloaded
+ * before the attachment, and all paths must agree. When poppler's pdftotext is on PATH the letter's typed
  * marker (and, for labs/HRM/eForms, a family-specific text) is also required in the PDF text.
  *
  * Page counts are read without any PDF library: the merged file's page dictionaries live inside
@@ -200,14 +200,17 @@ async function typeIntoLetter(page, text) {
   await page.keyboard.type(text);
 }
 
-async function downloadPdf(page, locator, label) {
+// `trigger` defaults to a real click. The legacy printControl.js buttons are hidden behind the
+// floating toolbar but remain the supported path for forms that call them, so they are driven with
+// a dispatched click, which runs their handlers without the visibility a user click needs.
+async function downloadPdf(page, locator, label, trigger = (target) => target.click()) {
   const file = buildArtifactPath(config.screenshotDir, `rtl-attachment-pdf-${label}-${Date.now()}`, '.pdf');
   const downloadPromise = page.waitForEvent('download', { timeout: 120000 });
   const responsePromise = page.waitForResponse(
     (response) => response.url().includes('/eform/addEForm') && response.request().method() === 'POST',
     { timeout: 120000 },
   );
-  await locator.click();
+  await trigger(locator);
   const response = await responsePromise;
   const download = await downloadPromise;
   try {
@@ -224,7 +227,7 @@ async function downloadPdf(page, locator, label) {
   }
 }
 
-// Both download paths re-render the saved view; wait for it to settle before the next click.
+// Every download path re-renders the saved view; wait for it to settle before the next click.
 async function settleSavedView(page) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await waitForEditor(page);
@@ -330,15 +333,21 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     record(family.key, 'toolbar Attach badge counts it', Number(badge) >= 1, `badge=${badge}`);
     await screenshot(saved, config.screenshotDir, `rtl-attachment-pdf-${family.key}-saved`);
 
-    // The attachment must APPEAR in the PDF from both download paths.
+    // The attachment must APPEAR in the PDF from every download path.
     const toolbar = await downloadPdf(saved, saved.locator('#remoteDownloadButton'), `${family.key}-toolbar`);
     record(family.key, 'toolbar Download PDF gains the attachment pages',
       toolbar.status === 200 && toolbar.pages > baseline.pages,
       `pages=${toolbar.pages} (baseline ${baseline.pages}) size=${toolbar.size}`);
     await settleSavedView(saved);
     await saved.locator("#remotePrintOptions summary").click();
-    const printAlias = await downloadPdf(saved, saved.locator("#remoteSavePdfButton"), `${family.key}-save-pdf`);
+    const savePdf = await downloadPdf(saved, saved.locator("#remoteSavePdfButton"), `${family.key}-save-pdf`);
     record(family.key, 'Save PDF Only matches the toolbar Download packet',
+      savePdf.status === 200 && savePdf.pages === toolbar.pages,
+      `pages=${savePdf.pages} size=${savePdf.size}`);
+    await settleSavedView(saved);
+    const printAlias = await downloadPdf(saved, saved.locator('input[name="pdfButton"]'), `${family.key}-print-alias`,
+      (target) => target.dispatchEvent('click'));
+    record(family.key, 'form PDF button (print=true alias) PDF matches the toolbar PDF',
       printAlias.status === 200 && printAlias.pages === toolbar.pages,
       `pages=${printAlias.pages} size=${printAlias.size}`);
 
