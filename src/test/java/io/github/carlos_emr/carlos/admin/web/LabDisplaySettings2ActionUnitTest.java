@@ -145,7 +145,7 @@ class LabDisplaySettings2ActionUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"0", "101", "-1", "abc", "2.5", ""})
+    @ValueSource(strings = {"0", "101", "-1", "abc", "2.5", "", "99999999999999999999"})
     @DisplayName("should save nothing and flag the field for an invalid size")
     void shouldRejectInvalidSize_withoutSaving(String size) {
         request.setMethod("POST");
