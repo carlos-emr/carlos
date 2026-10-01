@@ -98,7 +98,7 @@ async function workflow(s) {
     await group.close();
   });
 
-  await s.step('the old measurement index from history lists both stored types', async () => {
+  await s.step('the old measurement index opened from history lists every stored type', async () => {
     const index = await s.popup(history, history.locator('input[onclick*="SetupHistoryIndex"]'), 'vitals-index');
     for (const type of Object.keys(VALUES)) {
       await index.locator('#measurementsHistoryTbl tbody td:first-child', { hasText: new RegExp(`^\\s*${type}\\s*$`) })
@@ -136,16 +136,27 @@ async function workflow(s) {
     const frame = admin.frameLocator('#dynamic-content iframe').first();
     const types = await s.popup(admin, frame.getByRole('link', { name: 'View All Measurement Types' }), 'measurement-types');
     const row = types.locator('tr.data').filter({ has: types.locator('a[href*="ViewExportMeasurement"]', { hasText: /^\s*BP\s*$/ }) });
+    const exported = s.context.waitForEvent('response', { timeout: 20000,
+      predicate: r => new URL(r.url()).pathname.endsWith('/encounter/oscarMeasurements/ViewExportMeasurement') });
+    exported.catch(() => {});
     const exportPage = await s.popup(types, row.locator('a[href*="ViewExportMeasurement"]'), 'measurement-export');
-    const response = await exportPage.waitForEvent('response', r => r.url() === exportPage.url()).catch(() => null);
-    console.log(exportPage.url(), response && response.status());
+    const response = await exported;
+    h.assert(response.status() === 200 && /^text\/xml/.test(response.headers()['content-type'] || ''),
+      'The type export did not answer with an XML document');
+    const xml = (await response.body()).toString('utf8').trim();
+    h.assert(/^<measurement type="BP" typeDesc="[^"]*" typeDisplayName="BP" measuringInstrc="[^"]*">/.test(xml)
+      && /<validationRule [^>]*name="Blood Pressure"/.test(xml) && xml.endsWith('</measurement>'),
+    'The type export does not describe the BP measurement type and its validation rule');
+    await exportPage.close();
+    await types.close();
   });
 
   await s.step('the group page shows the last value of every stored type', async () => {
     const group = await openGroup('vitals-last-values');
     const last = group.locator('tr.note').filter({ has: group.locator('i.fa-clock[onclick*="type=HR"]') });
     h.assert(await last.count() === 1,
-      'The group page hides the last Heart Rate reading because that reading has no measuring instruction');
+      'The group page does not show the last Heart Rate reading; its last-value line is gated on a non-empty'
+      + ' measuring instruction, which Heart Rate readings do not have');
     h.assert((await last.innerText()).includes(VALUES.HR), 'The group page shows the wrong last Heart Rate value');
     await group.close();
   });

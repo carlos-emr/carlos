@@ -129,6 +129,17 @@ async function workflow(s) {
     h.assert((await rev.innerText()).trim() === '3', 'The note editor does not show revision 3 after two edits');
   });
 
+  let history;
+  await s.step('The rev link opens the Note Revision History with the current revision', async () => {
+    const rev = chart.locator('#encMainDiv a[onclick^="return showHistory("]').first();
+    history = await s.popup(chart, rev, 'note-history');
+    h.assert(new URL(history.url()).searchParams.get('method') === 'notehistory'
+      && new URL(history.url()).searchParams.get('noteId') === noteId, 'The rev link opened the history of another note');
+    await history.locator('h3', { hasText: 'Note Revision History' }).waitFor();
+    h.assert(await history.locator('h3', { hasText: marker }).count() === 1, 'The history popup does not name the owned patient');
+    h.assert((await history.locator('body').innerText()).includes(texts[2]), 'The history popup does not show the current revision');
+  });
+
   let browser;
   await s.step('Browse Notes lists both owned PDFs and the note, and previews the latest revision', async () => {
     browser = await s.popup(chart, chart.locator('#note-control-panel button', { hasText: 'Browse Notes' }), 'note-browser');
@@ -211,17 +222,6 @@ async function workflow(s) {
     h.assert(code === 405, `GET NoteBrowserDocumentDelete answered HTTP ${code}, expected 405`);
     h.assert(status(docA) === 'A', 'GET NoteBrowserDocumentDelete deleted the document');
     await browser.close();
-  });
-
-  let history;
-  await s.step('The rev link opens the Note Revision History with the current revision', async () => {
-    const rev = chart.locator('#encMainDiv a[onclick^="return showHistory("]').first();
-    history = await s.popup(chart, rev, 'note-history');
-    h.assert(new URL(history.url()).searchParams.get('method') === 'notehistory'
-      && new URL(history.url()).searchParams.get('noteId') === noteId, 'The rev link opened the history of another note');
-    await history.locator('h3', { hasText: 'Note Revision History' }).waitFor();
-    h.assert(await history.locator('h3', { hasText: marker }).count() === 1, 'The history popup does not name the owned patient');
-    h.assert((await history.locator('body').innerText()).includes(texts[2]), 'The history popup does not show the current revision');
   });
 
   await s.step('The Note Revision History lists both earlier revisions', async () => {

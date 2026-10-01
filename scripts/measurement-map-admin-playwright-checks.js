@@ -37,6 +37,17 @@ async function landOn(page, route, act) {
   await h.assertNotErrorPage(page, route);
 }
 
+// newMeasurementMap.jsp and remapMeasurementMap.jsp call window.close() from an inline
+// script once the save succeeds, while the CSRFGuard script injected after it is still
+// loading; Chromium reports that one request as net::ERR_ABORTED. Consume exactly that
+// entry after the close was observed; any other failure stays strict.
+function consumeSelfCloseAbort(recorder, label, since) {
+  const added = recorder.requestFailures.slice(since);
+  const index = added.findIndex(entry => entry.label === label && entry.resourceType === 'script'
+    && entry.errorText === 'net::ERR_ABORTED' && /\/csrfguard$/.test(new URL(entry.url).pathname));
+  if (index >= 0) recorder.requestFailures.splice(since + index, 1);
+}
+
 async function workflow(s) {
   const {sql, marker, provider} = s;
   const q = h.sqlString;
@@ -89,11 +100,13 @@ async function workflow(s) {
       throw error;
     }
   }
-  const codeRow = (page, code) => page.locator('tr').filter({has: page.locator('td', {hasText: new RegExp(`^\\s*${code}\\s*$`)})});
+  // The pages nest their tables, so a row is the parent of the cell holding the code.
+  const codeRow = (page, code) => page.locator('td', {hasText: new RegExp(`^\\s*(${code})\\s*$`)}).locator('xpath=..');
   async function addLoinc(host, code, expected) {
     const popup = await s.popup(host, host.getByRole('button', {name: 'Add New Loinc Code', exact: true}), 'new-loinc-code');
     await popup.locator('input[name="loinc_code"]').fill(code.loinc);
     await popup.locator('input[name="name"]').fill(code.name);
+    const since = s.recorder.requestFailures.length;
     const closed = expected === 'success' ? popup.waitForEvent('close', {timeout: 20000}) : null;
     // A successful add reloads the opener before the popup closes itself.
     const reloaded = closed && host.waitForEvent('framenavigated', {timeout: 20000, predicate: f => f === host.mainFrame()});
@@ -110,10 +123,18 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'alert' && dialogs[0].text === message,
       `Add New Loinc Code did not answer "${message}" exactly once`);
     if (closed) {
+      consumeSelfCloseAbort(s.recorder, 'new-loinc-code', since);
       await reloaded;
       await host.waitForLoadState('load');
     } else await popup.close();
   }
+
+  await s.step('View Mapping lists the existing codes without a JavaScript error', async () => {
+    const view = await open('View Mapping', 'view-mapping-list');
+    h.assert(await view.getByRole('link', {name: 'map', exact: true}).count() > 0, 'View Mapping lists no unmapped code to map');
+    h.assert(await codeRow(view, first.loinc).count() === 0, 'The owned code exists before it was added');
+    await view.close();
+  });
 
   await s.step('Add New Loinc Code stores two owned codes and refuses a duplicate', async () => {
     const view = await open('View Mapping', 'view-mapping');
@@ -171,17 +192,19 @@ async function workflow(s) {
     const oldId = sql.value(`SELECT id FROM measurementMap WHERE loinc_code=${q(first.loinc)} AND lab_type='FLOWSHEET'`);
     await page.locator('input[name="searchstring"]').fill(display);
     await landOn(page, 'ViewRemoveMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
-    const row = page.locator('tr').filter({has: page.locator('td', {hasText: new RegExp(`^\\s*${first.loinc}\\s*$`)})});
+    const row = codeRow(page, first.loinc);
     h.assert(await row.count() === 1, 'The owned FLOWSHEET mapping is not listed once');
     const remap = await s.popup(page, row.getByRole('button', {name: 'REMAP', exact: true}), 'remap-measurement-mapping');
     await remap.locator('input[name="searchstring"]').fill(marker);
     await landOn(remap, 'ViewRemapMeasurementMap', () => remap.getByRole('button', {name: 'Search', exact: true}).click());
     await remap.locator('select[name="loinc_code"]').selectOption(second.loinc);
+    const since = s.recorder.requestFailures.length;
     const closed = remap.waitForEvent('close', {timeout: 20000});
     const dialogs = await h.withExpectedDialogs(remap, async () => {
       await remap.getByRole('button', {name: 'Remap Measurement', exact: true}).click();
       await closed;
     });
+    consumeSelfCloseAbort(s.recorder, 'remap-measurement-mapping', since);
     h.assert(dialogs.length === 1 && dialogs[0].text === 'Successfully remapped the measurement', 'Remap did not report success once');
     h.assert(JSON.stringify(mapRows().filter(r => r[3] === 'FLOWSHEET')) === JSON.stringify([[second.loinc, type, display, 'FLOWSHEET']]),
       'The type is not mapped to exactly the second code');
@@ -196,7 +219,7 @@ async function workflow(s) {
       await page.locator('input[name="searchstring"]').fill(term);
       await landOn(page, 'ViewRemoveMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
       for (;;) {
-        const row = page.locator('tr').filter({has: page.locator('td', {hasText: new RegExp(`^\\s*(${codes.map(c => c.loinc).join('|')})\\s*$`)})}).first();
+        const row = codeRow(page, codes.map(c => c.loinc).join('|')).first();
         if (!await row.count()) break;
         const before = mapRows().length;
         const dialogs = await h.withExpectedDialogs(page, () => landOn(page, 'RemoveMeasurementMap',

@@ -233,6 +233,8 @@ async function workflow(s) {
       { context: other, recorder, label: 'fwd-lab-display', timeout: TIMEOUT });
     const label = `FAKE ${stamp}`;
     await report.locator(`#acklabel_${labNo}`).fill(label);
+    const cdp = await other.newCDPSession(report); await cdp.send('Network.enable');
+    for (const ev of ['Network.loadingFailed', 'Network.responseReceived', 'Network.loadingFinished', 'Network.dataReceived']) cdp.on(ev, (p) => console.log('DBG', ev, JSON.stringify(p).slice(0, 600)));
     const [response] = await Promise.all([
       report.waitForResponse((r) => r.request().method() === 'POST'
         && new URL(r.url()).pathname.endsWith('/lab/CA/ALL/createLabLabel'), { timeout: TIMEOUT }),
@@ -240,8 +242,6 @@ async function workflow(s) {
     ]);
     h.assert(response.status() === 200, `createLabLabel answered HTTP ${response.status()}`);
     console.log('DBG', JSON.stringify(await response.allHeaders()));
-    report.on('requestfailed', (r) => console.log('DBG failed', r.url(), r.failure() && r.failure().errorText, Date.now()));
-    console.log('DBG t', Date.now());
     await expectValue(sql, `SELECT label FROM hl7TextInfo WHERE lab_no=${labNo}`, label,
       'hl7TextInfo.label does not hold the typed label');
     await report.waitForFunction(({ id, text }) => document.querySelector(`#labelspan_${id} i`)?.textContent.trim() === text,

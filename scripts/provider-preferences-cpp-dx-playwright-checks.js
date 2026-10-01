@@ -30,6 +30,25 @@ const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwrigh
 const PREF_TABLES = ['ProviderPreferenceAppointmentScreenForm', 'ProviderPreferenceAppointmentScreenEForm',
   'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
 
+// A save page that carries self.close() in its <head> closes while the CSRFGuard script tag
+// injected after it is still loading; Chromium reports that one request as net::ERR_ABORTED.
+// Consume exactly that entry for the closing page, after the close was observed.
+function consumeSelfCloseAbort(recorder, since) {
+  const added = recorder.requestFailures.slice(since);
+  const index = added.findIndex(entry => entry.resourceType === 'script' && entry.errorText === 'net::ERR_ABORTED'
+    && /\/csrfguard$/.test(new URL(entry.url).pathname));
+  if (index >= 0) recorder.requestFailures.splice(since + index, 1);
+}
+
+/** Click a submit whose result page closes the window, and wait for the close. */
+async function submitAndClose(recorder, page, locator) {
+  const closed = page.waitForEvent('close', { timeout: 20000 });
+  const since = recorder.requestFailures.length;
+  await locator.click({ noWaitAfter: true });
+  await closed;
+  consumeSelfCloseAbort(recorder, since);
+}
+
 async function workflow(s) {
   const { sql, config, recorder, patient, marker } = s;
   const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: config.testUser });
@@ -89,9 +108,7 @@ async function workflow(s) {
     await cpp.locator('select[name="cpp.preventions.display"]').selectOption('');
     await cpp.locator('input[name="cpp.allergy.start_date"]').check();
     await cpp.locator('input[name="cpp.allergy.severity"]').check();
-    const closed = cpp.waitForEvent('close', { timeout: 20000 });
-    await cpp.locator('input[type="submit"]').click({ noWaitAfter: true });
-    await closed;
+    await submitAndClose(recorder, cpp, cpp.locator('input[type="submit"]'));
     await expectValue(sql, `SELECT COALESCE(value,'') FROM property WHERE provider_no=${owner} AND name='cpp.pref.enable'`, 'on',
       'The custom-chart switch was not saved');
     h.assert(property('cpp.preventions.display') === '' && property('cpp.allergies.display') === 'SHOW'
@@ -131,9 +148,7 @@ async function workflow(s) {
     const field = prefs.locator('#dxCode');
     await revealAuditLink(prefs, field, 20000);
     await field.fill(dxCode);
-    const closed = prefs.waitForEvent('close', { timeout: 20000 });
-    await prefs.locator('.footer-bar button[type="submit"]').click({ noWaitAfter: true });
-    await closed;
+    await submitAndClose(recorder, prefs, prefs.locator('.footer-bar button[type="submit"]'));
     await expectValue(sql, `SELECT COALESCE(defaultDxCode,'') FROM ProviderPreference WHERE providerNo=${owner}`, dxCode,
       'The default dx code did not reach ProviderPreference');
     await schedule.waitForLoadState('networkidle').catch(() => {});

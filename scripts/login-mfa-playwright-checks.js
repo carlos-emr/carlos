@@ -90,11 +90,24 @@ async function workflow(s) {
 
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context, recorder, label: 'mfa-admin', timeout: TIMEOUT });
+  // KNOWN DEFECT, ASSERTED LAST: securityupdatesecurity.jsp links a relative
+  // bcArStyle.css that resolves to the missing admin/bcArStyle.css (an HTML answer the
+  // browser refuses as a stylesheet; see the security-record-admin manifest note). The
+  // entries are set aside here so every MFA step is still proven, and the final step
+  // fails on them until the page is fixed.
+  const stylesheetDefect = [];
+  function setAsideStylesheetDefect() {
+    const broken = entry => /\/admin\/bcArStyle\.css/.test(`${entry.url || ''} ${entry.text || ''}`);
+    for (const list of [recorder.consoleIssues, recorder.requestFailures]) {
+      for (let i = list.length - 1; i >= 0; i--) if (broken(list[i])) stylesheetDefect.push(...list.splice(i, 1));
+    }
+  }
   async function openRecord() {
     const frame = await openSection(admin, 'input[name="keyword"]');
     await searchByUserName(admin, frame, login.username);
     await navigateFrame(admin, frame, frame.getByRole('link', { name: login.username, exact: true }));
     h.assert(new URL(frame.url()).searchParams.get('keyword') === securityNo, 'The edit page opened a record other than the throwaway login');
+    setAsideStylesheetDefect();
     return frame;
   }
   async function saveRecord(frame) {
@@ -198,8 +211,7 @@ async function workflow(s) {
     h.assert(response.status() === 200, `Reset MFA answered HTTP ${response.status()}`);
     await frame.locator('#mfaNote').waitFor({ state: 'visible', timeout: TIMEOUT });
     h.assert(!(await reset.isVisible()), 'The Reset MFA link stayed visible after the reset');
-    await expectValue(sql, `SELECT CONCAT(usingMfa,'|',COALESCE(mfaSecret,'NULL')) FROM security WHERE security_no=${securityNo}`,
-      '1|none', 'Reset MFA did not clear the stored secret');
+    await expectValue(sql, mfaStateQuery, '1|none', 'Reset MFA did not clear the stored secret');
   });
 
   await s.step('after the reset, sign-in asks to enrol again with a new secret', async () => {
@@ -224,6 +236,12 @@ async function workflow(s) {
       'The login with MFA cleared did not reach the schedule');
     h.assert(audits('mfa_success') === '2', 'A sign-in without MFA was audited as an MFA success');
     await ctx.close();
+  });
+
+  await s.step('the security record edit page loads its stylesheet', async () => {
+    setAsideStylesheetDefect();
+    h.assert(stylesheetDefect.length === 0, `The security record edit page requested the missing admin/bcArStyle.css `
+      + `(${stylesheetDefect.length} console/network report(s)): the relative link in securityupdatesecurity.jsp is broken`);
   });
 }
 

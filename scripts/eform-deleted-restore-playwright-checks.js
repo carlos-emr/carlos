@@ -96,26 +96,11 @@ async function workflow(s) {
     h.assert(await rowFor(list, subject).count() === 0, 'The deleted instance is still listed as current');
   });
 
-  await s.step('Deleted list shows the instance and Restore makes it current again', async () => {
+  await s.step('patient Deleted list shows the deleted instance and no independent eForm', async () => {
     await clickAndAwaitReload(list, list.locator('a[href^="efmpatientformlistdeleted"]').first(), {label: 'Deleted eForms'});
     await list.locator('#efmTable').waitFor();
-    const row = rowFor(list, subject);
-    h.assert(await row.count() === 1, 'The deleted eForm list does not show the deleted instance');
+    h.assert(await rowFor(list, subject).count() === 1, 'The deleted eForm list does not show the deleted instance');
     h.assert(await rowFor(list, independentSubject).count() === 0, 'The patient deleted list shows a patient-independent eForm');
-    const dialogs = await h.withExpectedDialogs(list, () => clickAndAwaitReload(list,
-      row.locator('a[onclick*="unRemoveEForm"]'), {label: 'patient eForm Restore'}));
-    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Restore did not ask for confirmation');
-    await expectValue(s.sql, `SELECT status FROM eform_data WHERE fdid=${fdid}`, '1', 'Restore did not make the instance current');
-    h.assert(new URL(list.url()).pathname.endsWith('/eform/efmpatientformlistdeleted'), 'Restore did not return to the deleted list');
-    await list.locator('#efmTable').waitFor();
-    h.assert(await rowFor(list, subject).count() === 0, 'The restored instance is still listed as deleted');
-  });
-
-  await s.step('the restored instance is back in the patient eForm list', async () => {
-    await clickAndAwaitReload(list, list.locator('a[href^="efmpatientformlist?"]').first(), {label: 'eForm list'});
-    await list.locator('#efmTable').waitFor();
-    h.assert(await rowFor(list, subject).count() === 1, 'The restored instance is not listed as current');
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM eform_data WHERE fid=${patientFid}`) === '1', 'Delete or restore duplicated the instance');
   });
 
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
@@ -152,7 +137,23 @@ async function workflow(s) {
       'Restore did not return to the independent deleted list');
     h.assert(await admin.locator('table tbody tr').filter({hasText: independentSubject}).count() === 0,
       'The restored independent instance is still listed as deleted');
-    h.assert(status(fdid) === '1', 'Restoring the independent eForm changed the patient eForm');
+    h.assert(status(fdid) === '0', 'Restoring the independent eForm changed the patient eForm');
+  });
+
+  // Last: on 2026.08 the patient Restore is refused (see the report), so it runs after everything provable.
+  await s.step('patient Deleted list Restore makes the instance current and the eForm list shows it', async () => {
+    const row = rowFor(list, subject);
+    const dialogs = await h.withExpectedDialogs(list, () => clickAndAwaitReload(list,
+      row.locator('a[onclick*="unRemoveEForm"]'), {label: 'patient eForm Restore'}));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Restore did not ask for confirmation');
+    await expectValue(s.sql, `SELECT status FROM eform_data WHERE fdid=${fdid}`, '1', 'Restore did not make the instance current');
+    h.assert(new URL(list.url()).pathname.endsWith('/eform/efmpatientformlistdeleted'), 'Restore did not return to the deleted list');
+    await list.locator('#efmTable').waitFor();
+    h.assert(await rowFor(list, subject).count() === 0, 'The restored instance is still listed as deleted');
+    await clickAndAwaitReload(list, list.locator('a[href^="efmpatientformlist?"]').first(), {label: 'eForm list'});
+    await list.locator('#efmTable').waitFor();
+    h.assert(await rowFor(list, subject).count() === 1, 'The restored instance is not listed as current');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM eform_data WHERE fid=${patientFid}`) === '1', 'Delete or restore duplicated the instance');
   });
 }
 

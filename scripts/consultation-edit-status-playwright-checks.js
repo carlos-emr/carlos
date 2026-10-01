@@ -108,7 +108,10 @@ async function workflow(s) {
     await form.locator('#appointmentDate').fill(apptDate);
     await form.locator('#appointmentTimeDisplay').fill('14:30');
     await form.locator('textarea[name="appointmentNotes"]').fill(notes);
+    console.log('DEBUG0', await form.evaluate(() => !!window.opener));
+    form.on('response', r => { const c = r.headers()['cross-origin-opener-policy']; if (c || r.status() >= 300 && r.status() < 400) console.log('DEBUGR', r.status(), new URL(r.url()).pathname, c || '', r.headers()['location'] || ''); });
     await clickAndAwaitReload(form, form.locator('input[name="update"]'));
+    console.log('DEBUG1', await form.evaluate(() => !!window.opener), new URL(form.url()).pathname);
     h.assert(/has been\s+Updated/i.test(await form.locator('body').innerText()), 'The update was not confirmed');
     h.assert(field('status') === '3' && field('urgency') === '1', 'Status and urgency were not saved');
     h.assert(field('appointmentDate') === apptDate && field('appointmentTime') === '14:30:00',
