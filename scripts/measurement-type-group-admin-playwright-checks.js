@@ -17,7 +17,8 @@
 //
 // Fixtures: FAKEPW<hex> type codes, display names, group names and style-sheet name
 // (the admin validator rejects '-'); cleanup deletes only those rows and asserts it.
-// Optional MEASUREMENT_CSS_UPLOAD_DIR lets cleanup remove an uploaded style sheet.
+// MEASUREMENT_CSS_UPLOAD_DIR (the server's oscarMeasurement_css_upload_path, readable and
+// writable by the check) is required so the uploaded file is asserted and removed.
 // Implements coverage plan §3.7 admin-misc (Customize Measurements).
 const fs = require('node:fs');
 const os = require('node:os');
@@ -57,7 +58,8 @@ async function workflow(s) {
   const editedGroup = `FAKEPW ${hex} edited group`;
   const createdGroup = `FAKEPW ${hex} new group`;
   const cssName = `FAKEPW${hex}.css`;
-  const cssUploadDir = process.env.MEASUREMENT_CSS_UPLOAD_DIR || '';
+  const cssUploadDir = process.env.MEASUREMENT_CSS_UPLOAD_DIR;
+  const uploadedFile = path.join(cssUploadDir, cssName);
   const types = [seeded, peer, created];
   const codes = types.map(t => q(t.type)).join(',');
   const displays = types.map(t => q(t.display)).join(',');
@@ -77,17 +79,14 @@ async function workflow(s) {
 
   s.cleanup(() => {
     fs.rmSync(cssDir, {recursive: true, force: true});
-    const uploaded = sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE location=${q(cssName)}`) !== '0';
     sql.execute(`DELETE FROM measurementGroup WHERE name IN (${groups}) OR typeDisplayName IN (${displays});
       DELETE FROM measurementGroupStyle WHERE groupName IN (${groups});
       DELETE FROM measurementType WHERE type IN (${codes}) AND typeDisplayName IN (${displays});
       DELETE FROM measurementTypeDeleted WHERE type IN (${codes});
       DELETE FROM measurementCSSLocation WHERE location=${q(cssName)}`);
     h.assert(ownedCount() === '0', 'Owned measurement admin rows were not removed');
-    if (uploaded) {
-      h.assert(cssUploadDir, `Style sheet ${cssName} was uploaded; set MEASUREMENT_CSS_UPLOAD_DIR so cleanup can remove it`);
-      fs.rmSync(path.join(cssUploadDir, cssName), {force: true});
-    }
+    fs.rmSync(uploadedFile, {force: true});
+    h.assert(!fs.existsSync(uploadedFile), 'The uploaded style-sheet file was not removed');
   });
   h.assert(ownedCount() === '0', 'Per-run measurement admin names already exist');
   sql.execute(types.slice(0, 2).map(t => `INSERT INTO measurementType
@@ -267,7 +266,9 @@ async function workflow(s) {
     await landOn(popup, 'AddMeasurementStyleSheet', () => popup.getByRole('button', {name: 'Continue', exact: true}).click());
     const errors = popup.locator('.action-errors');
     h.assert(await errors.count() === 0, `Uploading a valid style sheet was refused: ${(await errors.allInnerTexts()).join(' ').trim()}`);
-    await popup.getByText(`Style Sheet ${cssName} added successfully!`).waitFor();
+    await popup.getByText(/^Style Sheet .* added successfully!$/).waitFor();
+    h.assert(fs.existsSync(uploadedFile) && fs.readFileSync(uploadedFile, 'utf8') === fs.readFileSync(file, 'utf8'),
+      'The uploaded style sheet was not stored byte-for-byte in the upload directory');
     h.assert(sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE location=${q(cssName)}`) === '1',
       'The uploaded style sheet has no measurementCSSLocation row');
     await popup.close();
@@ -280,5 +281,12 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('measurement-type-group-admin', workflow, {openPatient: true});
+if (require.main === module) runWorkflow('measurement-type-group-admin', workflow, {
+  openPatient: true,
+  preflight() {
+    const dir = process.env.MEASUREMENT_CSS_UPLOAD_DIR;
+    if (!dir) throw new h.SkipCheck('MEASUREMENT_CSS_UPLOAD_DIR is not set; this check needs it (see scripts/playwright-suite.json)');
+    h.assert(path.isAbsolute(dir) && fs.statSync(dir).isDirectory(), 'MEASUREMENT_CSS_UPLOAD_DIR must be an existing absolute directory');
+  },
+});
 module.exports = {workflow};

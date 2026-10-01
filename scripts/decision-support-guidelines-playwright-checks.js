@@ -52,7 +52,6 @@ async function workflow(s) {
   const module = () => chart.locator('#Guidelines');
   const alert = () => module().locator(`a.links[onclick*="method=detail&guidelineId=${guideline}&"]`);
   const heading = () => module().locator('.nav-menu-title a');
-  const listRow = page => page.locator('table.dsTable tr').filter({ hasText: title });
 
   await s.step('chart nav renders the owned guideline warning for the matching patient', async () => {
     await heading().filter({ hasText: 'Decision Support Alerts' }).waitFor({ state: 'visible' });

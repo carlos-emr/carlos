@@ -71,8 +71,13 @@ async function workflow(s) {
   let main;
   let preview;
   await s.step('Attach lists this patient\'s Demographic information for preview', async () => {
-    chooser = await s.popup(compose, compose.locator('input[name="attachDemo"]'), 'attach-chooser');
+    // A <frameset> page has no body text, which the shared popup helper reads as
+    // blank; the chooser's real content is asserted in its 'main' frame instead.
+    const opened = s.context.waitForEvent('page', { timeout: TIMEOUT });
+    await compose.locator('input[name="attachDemo"]').click();
+    chooser = await opened;
     await chooser.waitForLoadState('domcontentloaded');
+    h.assert(new URL(chooser.url()).pathname.endsWith('/messenger/attachmentFrameset'), 'Attach opened something other than the chooser');
     main = chooser.frame({ name: 'main' });
     h.assert(main, 'The attachment chooser has no document frame');
     preview = main.locator('button[data-preview-uri*="/demographic/DemographicPdfLabel?"]');

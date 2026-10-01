@@ -169,18 +169,6 @@ async function workflow(s) {
     await again.close();
   });
 
-  await s.step('Edit Associations lists the owned mapping with its registry description', async () => {
-    const jsonResp = s.context.waitForEvent('response', r => r.url().includes('getAllAssociations'));
-    const associations = await s.popup(admin, frame.getByRole('button', { name: 'Edit Associations', exact: true }), 'dx-associations');
-    const jr = await jsonResp; const body = await jr.text();
-    console.log('DEBUG', jr.status(), jr.headers()['content-type'], body.length, body.slice(0, 400).replace(/FAKE-PW[0-9a-f]+/g,'MARK'));
-    const row = associations.locator('#associations tbody tr', { has: associations.locator('td', { hasText: `${marker}S` }) });
-    await row.waitFor({ state: 'visible' });
-    const cells = await row.locator('td').allInnerTexts();
-    assert(cells[0] === 'icd10' && cells[3] === 'icd9' && cells[4] === '250' && cells[5].startsWith('DIABETES MELLITUS'),
-      'The association list does not match the stored mapping');
-    await associations.close();
-  });
   await s.step('registry sidebar switches to the owned list and its add link registers the code', async () => {
     const chart = await s.chart();
     const registry = await s.popup(chart, chart.locator('a[onclick*="setupDxResearch"]').first(), 'dx-quicklist-registry');
@@ -200,6 +188,15 @@ async function workflow(s) {
       AND coding_system='icd9' AND status='A'`, '1', 'Sidebar add did not register the quick-list code');
     await registry.locator('#displayDxCodeTable td', { hasText: 'DIABETES MELLITUS' }).first().waitFor({ state: 'visible' });
     await registry.close();
+  });
+  await s.step('Edit Associations lists the owned mapping with its registry description', async () => {
+    const associations = await s.popup(admin, frame.getByRole('button', { name: 'Edit Associations', exact: true }), 'dx-associations');
+    const row = associations.locator('#associations tbody tr', { has: associations.locator('td', { hasText: `${marker}S` }) });
+    await row.waitFor({ state: 'visible' });
+    const cells = await row.locator('td').allInnerTexts();
+    assert(cells[0] === 'icd10' && cells[3] === 'icd9' && cells[4] === '250' && cells[5].startsWith('DIABETES MELLITUS'),
+      'The association list does not match the stored mapping');
+    await associations.close();
   });
   await s.step('Edit Associations appends an uploaded CSV mapping and lists it', async () => {
     const owned = `SELECT COUNT(*) FROM dx_associations WHERE codetype='icd10' AND code=${sqlString(`${marker}U`)} AND dx_codetype='icd9' AND dx_code='250'`;

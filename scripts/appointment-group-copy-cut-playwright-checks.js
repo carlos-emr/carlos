@@ -40,6 +40,8 @@ function toRow([id, provider, date, start, end, demographic, status, reason, not
   return {id, provider, date, start, end, demographic, status, reason, notes, name};
 }
 
+const minutes = time => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+
 async function waitClosed(page, label) {
   if (!page.isClosed()) await page.waitForEvent('close', {timeout: 20000}).catch(() => {});
   h.assert(page.isClosed(), `${label}: the popup did not close itself, so its save did not complete`);
@@ -257,8 +259,9 @@ async function workflow(s) {
     await waitClosed(popup, `${label} Add Appointment`);
     const rows = ownedRows(`provider_no=${h.sqlString(providerNo)} AND start_time=${h.sqlString(`${time}:00`)}`);
     h.assert(rows.length === 1 && rows[0].date === date && rows[0].demographic === patient && rows[0].reason === `${marker} copy`
-      && rows[0].notes === `${marker} copy notes` && rows[0].name === source.name,
-    `${label}: the pasted appointment did not keep the patient, reason, notes and name`);
+      && rows[0].notes === `${marker} copy notes` && rows[0].name === source.name
+      && minutes(rows[0].end) - minutes(rows[0].start) === minutes(source.end) - minutes(source.start),
+    `${label}: the pasted appointment did not keep the patient, reason, notes, name and duration`);
     await apptLink(rows[0].id).waitFor({timeout: 20000});
     return rows[0];
   }

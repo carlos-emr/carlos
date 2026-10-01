@@ -107,21 +107,6 @@ async function workflow(s) {
   });
 
   const chart = await s.chart();
-  await s.step('E-Chart Add eForm list filtered by the group offers only the grouped eForm', async () => {
-    const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'eform-add-list');
-    await list.locator('#efmTable').waitFor();
-    h.assert(await list.locator('#efmTable').getByText(loose, {exact: true}).count() === 1,
-      'The unfiltered Add eForm list does not offer the ungrouped eForm');
-    const groupLink = list.locator('.grouplist li a').filter({hasText: group});
-    h.assert(/\(\s*1\s*\)/.test(await groupLink.innerText()), 'The Add eForm group list does not count one eForm in the group');
-    await viewGroup(list, groupLink, group);
-    await list.locator('#efmTable').waitFor();
-    h.assert(await list.locator('#efmTable').getByText(grouped, {exact: true}).count() === 1
-      && await list.locator('#efmTable').getByText(loose, {exact: true}).count() === 0,
-    'The group-filtered Add eForm list does not offer exactly the grouped eForm');
-    await list.close();
-  });
-
   await s.step('E-Chart patient eForm list filtered by the group shows only the grouped instance', async () => {
     const list = await s.popup(chart, chart.locator('a[onclick*="/eform/efmpatientformlist?"]').first(), 'eform-patient-list');
     const table = list.locator('#efmTable');
@@ -139,6 +124,21 @@ async function workflow(s) {
     h.assert(await table.getByText(loose, {exact: true}).count() === 1, 'Show All did not clear the group filter');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM eform_data WHERE fdid IN (${fdids.join(',')}) AND status=1`) === '2',
       'Viewing the patient eForm list changed the saved instances');
+    await list.close();
+  });
+
+  await s.step('E-Chart Add eForm list filtered by the group offers only the grouped eForm', async () => {
+    const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'eform-add-list');
+    await list.locator('#efmTable').waitFor();
+    h.assert(await list.locator('#efmTable').getByText(loose, {exact: true}).count() === 1,
+      'The unfiltered Add eForm list does not offer the ungrouped eForm');
+    const groupLink = list.locator('.grouplist li a').filter({hasText: group});
+    h.assert(/\(\s*1\s*\)/.test(await groupLink.innerText()), 'The Add eForm group list does not count one eForm in the group');
+    await viewGroup(list, groupLink, group);
+    await list.locator('#efmTable').waitFor();
+    h.assert(await list.locator('#efmTable').getByText(grouped, {exact: true}).count() === 1
+      && await list.locator('#efmTable').getByText(loose, {exact: true}).count() === 0,
+    'The group-filtered Add eForm list does not offer exactly the grouped eForm');
     await list.close();
   });
 
