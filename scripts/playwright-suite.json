@@ -3349,7 +3349,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Seeds and removes one marker-named provider, its security row (hash/PIN copied from the test login) and a doctor role; edits, deletes and re-logs-in through Administration > User Management."
+      "fixtures": "Seeds and removes one marker-named provider, its security row (hash/PIN copied from the test login) and a doctor role; edits, deletes and re-logs-in through Administration > User Management.",
+      "notes": "Fails on 2026.08: the edit page loads a missing admin/bcArStyle.css (console MIME error) and Delete Record throws DetachedObjectException, leaving the login in place."
     },
     {
       "name": "provider-record-admin",
