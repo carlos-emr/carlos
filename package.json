@@ -293,7 +293,10 @@
     "test:get-reject-eform-editor-playwright": "node scripts/get-reject-eform-editor-playwright-checks.js",
     "test:get-reject-contact-directory-playwright": "node scripts/get-reject-contact-directory-playwright-checks.js",
     "test:get-reject-measurement-groups-playwright": "node scripts/get-reject-measurement-groups-playwright-checks.js",
-    "test:get-reject-inbox-queue-playwright": "node scripts/get-reject-inbox-queue-playwright-checks.js"
+    "test:get-reject-inbox-queue-playwright": "node scripts/get-reject-inbox-queue-playwright-checks.js",
+    "test:detached-delete-hrm-playwright": "node scripts/detached-delete-hrm-playwright-checks.js",
+    "test:detached-delete-forward-favourites-playwright": "node scripts/detached-delete-forward-favourites-playwright-checks.js",
+    "test:detached-delete-eform-report-tool-playwright": "node scripts/detached-delete-eform-report-tool-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
