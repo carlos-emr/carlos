@@ -47,8 +47,14 @@ async function workflow(s) {
         const offered = (await rx.locator('ul.ui-autocomplete li.ui-menu-item').allInnerTexts()).slice(0, 6).map(text => text.replace(/\s+/g, ' ').trim());
         // Report a mismatch already recorded for an earlier product before skipping an unavailable one.
         h.assert(problems.length === 0, `${problems.join('; ')} (RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava before rx.setDrugPrescribed)`);
-        // SKIP only for a product that is genuinely absent: a page error while searching is a failure, not an absence.
-        h.assert(s.recorder.pageErrors.length === 0, `The product search raised a script error: ${s.recorder.pageErrors.map(e => e.text).join(' | ')}`);
+        // SKIP only for a product that is genuinely absent: any browser problem while searching (script error, console error,
+        // failed or bad response) is a failure, and so is a completed search whose JSON lists the product that the menu lacks.
+        for (const list of ['pageErrors', 'consoleIssues', 'requestFailures', 'badResponses']) {
+          h.assert((s.recorder[list] || []).length === 0, `The product search recorded ${list}: ${JSON.stringify(s.recorder[list]).slice(0, 300)}`);
+        }
+        const searchedBody = await searched.text().catch(() => '');
+        h.assert(!searchedBody.toUpperCase().includes(item.pick.toUpperCase()),
+          `The DrugRef search response lists "${item.pick}" but the autocomplete menu does not show it`);
         throw new h.SkipCheck(`DrugRef offers no "${item.pick}" for "${item.term}" on this install (offered: ${offered.join(' | ')})`);
       }
       await option.waitFor({ state: 'visible' });
