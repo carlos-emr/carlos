@@ -260,6 +260,28 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0142');
     assert.equal(requests[0].get('recipient'),'Clinic Two');
+    // The template's subject is required; hiding it must not let an empty toolbar subject save.
+    await open();
+    await page.locator('#remote_eform_subject').fill('');
+    const blockedUrl = page.url();
+    await page.locator('#remoteSubmitButton').click();
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'remote_eform_subject');
+    assert.equal(await page.evaluate(() => document.getElementById('remote_eform_subject').validity.valueMissing), true);
+    assert.equal(page.url(), blockedUrl);
+    assert.equal(requests.length, 0);
+    await page.locator('#remote_eform_subject').fill('Toolbar subject');
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('subject'), 'Toolbar subject');
+    // A template subject without the constraint still saves with an empty subject.
+    await open();
+    await page.evaluate(() => { document.getElementById('subject').required = false; });
+    await page.locator('#remote_eform_subject').fill('');
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('subject'), '');
     await open();
     await page.locator('#lastField').fill('Current unsaved content');
     await page.evaluate(() => {

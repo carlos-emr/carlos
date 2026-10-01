@@ -186,6 +186,22 @@ function editorStillLoading() {
  */
 function eFormValidationBlocked() {
 	const ef = getEForm();
+	// moveSubjectReverse() turns the template's subject input into type="hidden", which the browser
+	// excludes from constraint validation, and the toolbar's own subject lives in a separate form
+	// that is never submitted. Enforce the template's required subject on the field the clinician
+	// actually edits, so hiding the original does not silently drop the author's constraint.
+	const templateSubject = ef && ef.elements ? ef.elements["subject"] : null;
+	const toolbarSubject = document.getElementById("remote_eform_subject");
+	if (templateSubject && templateSubject.required === true && toolbarSubject
+			&& typeof toolbarSubject.checkValidity === "function") {
+		toolbarSubject.required = true;
+		if (!toolbarSubject.checkValidity()) {
+			toolbarSubject.reportValidity();
+			HideSpin();
+			clearWorkflowFlags();
+			return true;
+		}
+	}
 	// No resolvable form, or a browser/form without the constraint API: nothing can be asserted, so
 	// never block on it — the pre-existing submit paths stay exactly as they were.
 	if (!ef || typeof ef.checkValidity !== "function" || ef.checkValidity()) {
