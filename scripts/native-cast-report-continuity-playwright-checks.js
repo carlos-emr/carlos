@@ -137,7 +137,10 @@ async function workflow(s) {
   await s.step('the report lists the owned patient\'s Dx code row and the visit with the billing code', async () => {
     const dxRows = rows.filter(r => r[0] === s.patient && r[2] === DX);
     const visit = rows.filter(r => r[0] === s.patient && r[3] === VISIT_DATE);
-    h.assert(dxRows.length === 1 && dxRows[0][1] === VISIT_DATE && visit.length === 1 && visit[0][6] === SERVICE_CODE,
+    // Provider Seen is the appointment provider's "first last" name as the report's SQL concatenates it.
+    const seen = sql.value(`SELECT CONCAT(first_name,' ',last_name) FROM provider WHERE provider_no=${h.sqlString(s.provider)}`);
+    h.assert(dxRows.length === 1 && dxRows[0][1] === VISIT_DATE && visit.length === 1 && visit[0][6] === SERVICE_CODE
+      && visit[0][4] === seen,
       `The report lists ${dxRows.length} Dx row(s) and ${visit.length} visit row(s) for the owned patient, expected 1 and 1: `
       + 'DepressionContinuityReporter.addAppt() casts the native query\'s DATE column (a.appointment_date) to java.util.Date, '
       + 'Hibernate 7 returns LocalDate, the ClassCastException is logged and swallowed by generateReport(), and every patient row is dropped');

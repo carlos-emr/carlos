@@ -40,13 +40,15 @@ async function workflow(s) {
   await settle(inbox, TIMEOUT);
 
   // Snapshot the global preference BEFORE touching it; restore the exact bytes (or delete our insert).
-  const previous = sql.rows(`SELECT id, IFNULL(HEX(value),'NULL') FROM SystemPreferences WHERE ${PREFERENCE}`);
+  // sql.rows() reads the text 'NULL' as JavaScript null, so a SQL NULL value is carried by a separate
+  // `value IS NULL` flag rather than a 'NULL' sentinel in the hex column.
+  const previous = sql.rows(`SELECT id, IFNULL(HEX(value),''), value IS NULL FROM SystemPreferences WHERE ${PREFERENCE}`);
   let insertedPreference;
   s.cleanup(() => {
     if (insertedPreference) sql.execute(`DELETE FROM SystemPreferences WHERE id=${insertedPreference} AND ${PREFERENCE}`);
-    for (const [id, hex] of previous) {
-      h.assert(/^\d+$/.test(id) && (hex === 'NULL' || /^[0-9A-F]*$/i.test(hex)), 'Unexpected preference snapshot');
-      sql.execute(`UPDATE SystemPreferences SET value=${hex === 'NULL' ? 'NULL' : `UNHEX('${hex}')`} WHERE id=${id} AND ${PREFERENCE}`);
+    for (const [id, hex, isNull] of previous) {
+      h.assert(/^\d+$/.test(id) && /^[0-9A-F]*$/i.test(hex || '') && (isNull === '0' || isNull === '1'), 'Unexpected preference snapshot');
+      sql.execute(`UPDATE SystemPreferences SET value=${isNull === '1' ? 'NULL' : `UNHEX('${hex || ''}')`} WHERE id=${id} AND ${PREFERENCE}`);
     }
   });
   if (!previous.length) {
