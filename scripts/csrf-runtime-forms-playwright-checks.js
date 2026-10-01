@@ -208,8 +208,10 @@ async function workflow(s) {
     let code;
     for (let i = 0; i < 20 && !code; i += 1) {
       const candidate = `Z${Math.random().toString(36).slice(2, 4).toUpperCase()}`;
-      if (/^Z[A-Z0-9]{2}$/.test(candidate)
-        && sql.value(`SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(candidate)}`) === '0') code = candidate;
+      // Free in every table the cleanup below deletes from, so it can only remove this run's rows.
+      if (/^Z[A-Z0-9]{2}$/.test(candidate) && sql.value(['ctl_billingservice', 'ctl_diagcode', 'ctl_billingtype']
+        .map(table => `(SELECT COUNT(*) FROM ${table} WHERE servicetype=${h.sqlString(candidate)})`).join('+')
+        .replace(/^/, 'SELECT ')) === '0') code = candidate;
     }
     h.assert(code, 'no free three-character billing form code');
     s.cleanup(() => sql.execute(['ctl_billingservice', 'ctl_diagcode', 'ctl_billingtype']
@@ -275,14 +277,15 @@ async function workflow(s) {
       VALUES(0,${patient},${h.sqlString(provider)},0,CURDATE(),CURTIME(),'33.70','0.00','O','HCP',${h.sqlString(marker)});
       SELECT LAST_INSERT_ID()`);
     h.assert(NUMERIC_ID.test(billNo), 'RA bill fixture was not created');
+    // Registered before the next insert, so a failure there cannot strand the bill.
+    s.cleanup(() => sql.execute(`DELETE FROM billing_on_proc WHERE object=${h.sqlString(billNo)};
+      DELETE FROM billing_on_cheader1 WHERE id=${billNo} AND comment1=${h.sqlString(marker)}`));
     const raNo = sql.value(`INSERT INTO raheader(filename,paymentdate,payable,totalamount,records,claims,status,readdate,content)
       VALUES(${h.sqlString(filename)},DATE_FORMAT(CURDATE(),'%Y%m%d'),'CSRF CHECK','33.70','1','1','N',CURDATE(),'');
       SELECT LAST_INSERT_ID()`);
     h.assert(NUMERIC_ID.test(raNo), 'RA fixture was not created');
     s.cleanup(() => sql.execute(`DELETE FROM radetail WHERE raheader_no=${raNo};
-      DELETE FROM raheader WHERE raheader_no=${raNo} AND filename=${h.sqlString(filename)};
-      DELETE FROM billing_on_proc WHERE object=${h.sqlString(billNo)};
-      DELETE FROM billing_on_cheader1 WHERE id=${billNo} AND comment1=${h.sqlString(marker)}`));
+      DELETE FROM raheader WHERE raheader_no=${raNo} AND filename=${h.sqlString(filename)}`));
     sql.execute(`INSERT INTO radetail(raheader_no,providerohip_no,billing_no,service_code,service_count,hin,amountclaim,
         amountpay,service_date,error_code,billtype,claim_no)
       VALUES(${raNo},${h.sqlString(ohip || '')},${billNo},'A007A','1','','3370','3370',DATE_FORMAT(CURDATE(),'%Y%m%d'),'','HCP','')`);

@@ -106,8 +106,8 @@
     // Same split as efmformmanager.jsp.
     if (!io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request)) {
 %>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <script type="text/javascript" src="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath()) %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script type="text/javascript" src="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath()) %>/library/jquery/jquery-compat.js"></script>
 <% } %>
 <%@ include file="eformBootstrapScript.jspf" %>
     </head>

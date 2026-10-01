@@ -37,7 +37,8 @@ function renderCsrfGuardTemplate({host, token, contextPath = '', templatePath = 
   // fixtures only ever pass plain values, and anything else is refused rather than
   // rendered into a script.
   for (const [name, value] of Object.entries({host, token, contextPath})) {
-    if (!/^[A-Za-z0-9._:\/-]*$/.test(String(value))) {
+    if (typeof value !== 'string' || (name !== 'contextPath' && value.length === 0)
+      || !/^[A-Za-z0-9._:\/-]*$/.test(value)) {
       throw new Error(`renderCsrfGuardTemplate: ${name} must be a plain host, token or path`);
     }
   }
