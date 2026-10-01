@@ -30,14 +30,32 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const TIMEOUT = 30000;
 
 async function csrfToken(page, baseUrl) {
-  return page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is a Playwright argument built by appUrl from the validated base URL
+  const token = await page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is a Playwright argument built by appUrl from the validated base URL
     const response = await fetch(tokenUrl, { credentials: 'same-origin' });
     const match = (await response.text()).match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
     return match ? match[1] : '';
   }, h.appUrl(baseUrl, '/csrfguard'));
+  // Without a token CSRFGuard itself answers 403, which would let a refusal probe "pass"
+  // without ever reaching the WAF.
+  h.assert(token, 'No CSRF token could be read for this session');
+  return token;
+}
+
+/**
+ * With EXPECT_FRONT_DOOR=true the run must actually go through the packaged nginx front door
+ * (an nginx Server header), or a green run against bare Tomcat would say nothing about the WAF.
+ */
+function watchFrontDoor(s) {
+  const seen = { nginx: false };
+  s.context.on('response', response => {
+    if (/nginx/i.test(response.headers()['server'] || '')) seen.nginx = true;
+  });
+  return () => h.assert(!s.config.expectFrontDoor || seen.nginx,
+    'EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the front door');
 }
 
 async function workflow(s) {
+  const assertFrontDoor = watchFrontDoor(s);
   const like = h.sqlString(`%${s.marker}%`);
   const favouriteName = `${s.marker} roster`;
   s.cleanup(() => {
@@ -136,13 +154,16 @@ async function workflow(s) {
     const token = await csrfToken(page, s.config.baseUrl);
     const url = h.appUrl(s.config.baseUrl, '/oscarReport/RptByExample');
     const probe = await s.context.request.post(url, { headers: { 'CSRF-TOKEN': token }, maxRedirects: 0, form: {
-      'CSRF-TOKEN': token, sql: 'select 1', selectedRecentSearch: "1' or '1'='1' union select password from security--" } });
+      // Marker-bearing, so if the WAF ever let this through, the history row it would write is
+      // one this run's cleanup removes.
+      'CSRF-TOKEN': token, sql: `select '${s.marker}'`, selectedRecentSearch: "1' or '1'='1' union select password from security--" } });
     h.assert(probe.status() === 403, `An injection payload in another argument answered HTTP ${probe.status()}, not 403`);
     const viaGet = await s.context.request.get(url, { maxRedirects: 0,
       params: { sql: `select demographic_no from demographic where last_name = '${s.marker}'` } });
     h.assert(viaGet.status() === 403, `SQL on a GET answered HTTP ${viaGet.status()}, not 403`);
   });
   await page.close();
+  assertFrontDoor();
 }
 
 if (require.main === module) runWorkflow('report-query-by-example-front-door', workflow, { openPatient: true, openMaster: false });

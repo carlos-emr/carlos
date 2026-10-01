@@ -194,7 +194,7 @@
             <div class="row">
                 <div class="card card-body bg-body-tertiary">
                     <textarea id="xmltext" name="xmltext"
-                              style="width:99%;height:300px;overflow-y:scroll;">${carlos:forHtml(templatexml)}</textarea>
+                              style="width:99%;height:300px;overflow-y:scroll;">${carlos:forHtmlContent(templatexml)}</textarea>
                     <input type="hidden" name="action" value="${carlos:forHtmlAttribute(action)}">
                     <input type="hidden" name="opentext" value="${carlos:forHtmlAttribute(empty opentext ? param.opentext : opentext)}">
                     <input type="hidden" name="templateid" value="${carlos:forHtmlAttribute(templateid)}">

@@ -404,8 +404,10 @@ REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf, ids 1200-1399, one rule per
 save route and form class). The two report-authoring tools whose input IS SQL
 -- Query By Example (and its favourites) and the Report by Template editor --
 are exempted from the SQLi family on that one argument each (ids 1400-1402;
-the template document from the XSS family too); the application validates the
-statement shape itself before running or storing it. Two things are left
+the template document from the XSS family too). The application checks the
+statement shape itself: before any QBE query runs (a favourite is stored text
+that only ever runs through that same check), and when a template is saved as
+well as before it runs. Two things are left
 inspected ON PURPOSE. The
 survey rules (1100-1199) and the generated form rules (1200-1399) keep the XSS
 family ON every argument they exempt, so raw HTML markup pasted into a

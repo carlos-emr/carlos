@@ -143,10 +143,18 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
     private void allow(String object, String privilege) {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq(object), eq(privilege), isNull()))
                 .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq(object), eq(privilege), eq(PATIENT)))
+                .thenReturn(true);
     }
 
     private void deny(String object, String privilege) {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq(object), eq(privilege), isNull()))
+                .thenReturn(false);
+    }
+
+    /** Global read stays; only this patient is restricted for the module. */
+    private void denyForPatient(String object) {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq(object), eq("r"), eq(PATIENT)))
                 .thenReturn(false);
     }
 
@@ -331,6 +339,45 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should number the stored PDFs 0, 1, ... and leave the counters reset")
+        void shouldAssignDistinctFileIds_whenAttachingSeveralItems() throws Exception {
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "encounter", "prescriptions"});
+
+            action.execute();
+
+            assertThat(bean.getPDFAttachment())
+                    .contains("<FILE_ID>0</FILE_ID>", "<FILE_ID>1</FILE_ID>", "<FILE_ID>2</FILE_ID>");
+            assertThat(bean.getCurrentAttachmentCount()).isZero();
+            assertThat(bean.getTotalAttachmentCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("should refuse an item whose module is restricted for this patient, before rendering")
+        void shouldThrowSecurityException_whenItemRestrictedForPatient() {
+            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            denyForPatient("_rx");
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "prescriptions"});
+
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class).hasMessageContaining("_rx");
+            assertThat(renderedRoutes).isEmpty();
+            assertThat(bean.getPDFAttachment()).contains("FAKE earlier attachment");
+        }
+
+        @Test
+        @DisplayName("should keep the existing PDFs when building the replacement fails part-way")
+        void shouldKeepExistingAttachments_whenReplacementFailsMidway() {
+            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            when(eChartDao.getLatestChart(PATIENT)).thenThrow(new IllegalStateException("FAKE lookup failure"));
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "encounter"});
+
+            assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
+            assertThat(bean.getPDFAttachment()).contains("FAKE earlier attachment");
+        }
+
+        @Test
         @DisplayName("should keep a non-PDF attachment on the message when replacing the chart PDFs")
         void shouldKeepTransferredAttachment_whenAttachingChartPdfs() throws Exception {
             bean.setAttachment("<root><table name=\"FAKE\"/></root>");
@@ -390,6 +437,8 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(bean.getPDFAttachment()).isNull();
+            assertThat(bean.getCurrentAttachmentCount()).isZero();
+            assertThat(bean.getTotalAttachmentCount()).isZero();
             assertThat(renderedRoutes).isEmpty();
         }
 

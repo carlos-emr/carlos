@@ -52,14 +52,32 @@ function assertPdf(label, status, type, bytes) {
 
 /** The CSRFGuard master token for this session, read the way the page's own script does. */
 async function csrfToken(page, baseUrl) {
-  return page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is a Playwright argument built by appUrl from the validated base URL
+  const token = await page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is a Playwright argument built by appUrl from the validated base URL
     const response = await fetch(tokenUrl, { credentials: 'same-origin' });
     const match = (await response.text()).match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
     return match ? match[1] : '';
   }, h.appUrl(baseUrl, '/csrfguard'));
+  // Without a token CSRFGuard itself answers 403, which would let a refusal probe "pass"
+  // without ever reaching the WAF.
+  h.assert(token, 'No CSRF token could be read for this session');
+  return token;
+}
+
+/**
+ * With EXPECT_FRONT_DOOR=true the run must actually go through the packaged nginx front door
+ * (an nginx Server header), or a green run against bare Tomcat would say nothing about the WAF.
+ */
+function watchFrontDoor(s) {
+  const seen = { nginx: false };
+  s.context.on('response', response => {
+    if (/nginx/i.test(response.headers()['server'] || '')) seen.nginx = true;
+  });
+  return () => h.assert(!s.config.expectFrontDoor || seen.nginx,
+    'EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the front door');
 }
 
 async function workflow(s) {
+  const assertFrontDoor = watchFrontDoor(s);
   try { execFileSync('pdftotext', ['-v'], { stdio: 'pipe', timeout: 5000 }); } catch {
     throw new h.SkipCheck('PDF content validation requires Poppler pdftotext');
   }
@@ -166,7 +184,9 @@ async function workflow(s) {
     const post = new URLSearchParams(captured.post);
     h.assert(post.get('isPreview') === 'true' && post.get('previewItem') === 'demographic'
       && post.get('demographic_no') === s.patient, 'Preview did not post the patient and the demographic item key');
-    h.assert(!post.has('srcText') && captured.post.length < 2000, 'Preview still posts page content');
+    const allowed = new Set(['CSRF-TOKEN', 'demographic_no', 'isPreview', 'previewItem', 'item']);
+    h.assert([...post.keys()].every(name => allowed.has(name)),
+      `Preview posted fields beyond the item key: ${[...post.keys()].join(', ')}`);
     assertPdf('Demographic preview', captured.status, captured.type, captured.body);
     previewText = pdfText(captured.body);
     h.assert(compact(previewText).includes(compact(`${s.marker},`)) && previewText.includes('Workflow'),
@@ -266,6 +286,9 @@ async function workflow(s) {
     const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${id}`);
     const entries = stored.match(/<PDF>.*?<\/PDF>/gs) || [];
     h.assert(entries.length === 2, `The message stored ${entries.length} PDF entries instead of 2`);
+    const fileIds = entries.map(entry => (entry.match(/<FILE_ID>([^<]*)<\/FILE_ID>/) || [])[1]);
+    h.assert(JSON.stringify(fileIds) === JSON.stringify(['0', '1']),
+      `The stored PDFs do not carry distinct FILE_IDs: ${JSON.stringify(fileIds)}`);
     const titles = entries.map(entry => (entry.match(/<TITLE>([^<]*)<\/TITLE>/) || [])[1] || '');
     h.assert(titles[0].includes(s.marker) && /information/i.test(titles[0]) && /prescriptions/i.test(titles[1]),
       `The stored titles are not the server-computed ones: ${JSON.stringify(titles)}`);
@@ -275,6 +298,7 @@ async function workflow(s) {
         'An attached item was not stored as a rendered PDF');
     }
   });
+  assertFrontDoor();
 }
 
 if (require.main === module) runWorkflow('messenger-pdf-attachments-server-render', workflow);

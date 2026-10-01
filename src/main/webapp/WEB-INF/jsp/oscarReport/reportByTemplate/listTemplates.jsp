@@ -51,7 +51,10 @@
 </security:oscarSec>
 
 <div class="templatelist">
+    <%-- Template changes need _report write (ManageTemplates2Action); readers do not get controls that would only end in a security error. --%>
+    <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="w">
     <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate" style="color: #226d55; font-size: 10px;">Add Template</a>
+    </security:oscarSec>
     <div class="templatelistHeader">Select a template:</div>
     <ul class="templatelist">
         <li><a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage"><b>Main Page</b></a> <%

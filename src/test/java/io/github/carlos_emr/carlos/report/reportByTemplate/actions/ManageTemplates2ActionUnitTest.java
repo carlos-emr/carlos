@@ -159,6 +159,30 @@ class ManageTemplates2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should save a new template and stay on the editor with the outcome")
+    void shouldStayOnEditor_whenAddSaved() throws Exception {
+        when(reportManager.addTemplate(null, XML, loggedInInfo)).thenReturn("Saved Successfully");
+        request.setParameter("action", "add");
+        request.setParameter("xmltext", XML);
+
+        assertThat(newAction().execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(reportManager).addTemplate(null, XML, loggedInInfo);
+        assertThat(request.getAttribute("message")).isEqualTo("Saved Successfully");
+        assertThat(request.getAttribute("submittedXml")).isNull();
+    }
+
+    @Test
+    @DisplayName("should stay on the editor with the message when the delete fails")
+    void shouldReportFailure_whenDeleteFails() throws Exception {
+        when(reportManager.deleteTemplate("7", loggedInInfo)).thenReturn("Error: Template not found");
+        request.setParameter("action", "delete");
+        request.setParameter("templateid", "7");
+
+        assertThat(newAction().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("message")).isEqualTo("Error: Template not found");
+    }
+
+    @Test
     @DisplayName("should pass the acting user to delete and land on the template home page")
     void shouldDeleteWithLoggedInInfo_whenPosted() throws Exception {
         when(reportManager.deleteTemplate("7", loggedInInfo)).thenReturn("");

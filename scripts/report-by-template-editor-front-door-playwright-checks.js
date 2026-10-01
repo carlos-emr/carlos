@@ -31,11 +31,28 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const TIMEOUT = 30000;
 
 async function csrfToken(page, baseUrl) {
-  return page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is a Playwright argument built by appUrl from the validated base URL
+  const token = await page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is a Playwright argument built by appUrl from the validated base URL
     const response = await fetch(tokenUrl, { credentials: 'same-origin' });
     const match = (await response.text()).match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
     return match ? match[1] : '';
   }, h.appUrl(baseUrl, '/csrfguard'));
+  // Without a token CSRFGuard itself answers 403, which would let a refusal probe "pass"
+  // without ever reaching the WAF.
+  h.assert(token, 'No CSRF token could be read for this session');
+  return token;
+}
+
+/**
+ * With EXPECT_FRONT_DOOR=true the run must actually go through the packaged nginx front door
+ * (an nginx Server header), or a green run against bare Tomcat would say nothing about the WAF.
+ */
+function watchFrontDoor(s) {
+  const seen = { nginx: false };
+  s.context.on('response', response => {
+    if (/nginx/i.test(response.headers()['server'] || '')) seen.nginx = true;
+  });
+  return () => h.assert(!s.config.expectFrontDoor || seen.nginx,
+    'EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the front door');
 }
 
 function templateXml(title, description, { paramQuery = 'SELECT provider_no, last_name FROM provider' } = {}) {
@@ -51,6 +68,7 @@ function templateXml(title, description, { paramQuery = 'SELECT provider_no, las
 }
 
 async function workflow(s) {
+  const assertFrontDoor = watchFrontDoor(s);
   const title = `${s.marker} RBT`;
   const like = h.sqlString(`%${s.marker}%`);
   s.cleanup(() => {
@@ -148,6 +166,7 @@ async function workflow(s) {
     h.assert(stored().length === 1, 'The probe changed the template');
   });
   await page.close();
+  assertFrontDoor();
 }
 
 if (require.main === module) runWorkflow('report-by-template-editor-front-door', workflow, { openPatient: false, openMaster: false });

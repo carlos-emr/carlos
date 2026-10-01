@@ -59,8 +59,8 @@ class ReportAuthoringWafExclusionRegressionTest {
     private static final Path EXCLUSIONS = resolveProjectPath(
             Path.of("debian", "assets", "modsecurity", "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"));
 
-    private static final Pattern CTL_TARGET = Pattern.compile(
-            "ctl:ruleRemoveTargetByTag=([a-z-]+);ARGS:([A-Za-z0-9_]+)");
+    /** Every ctl action in a rule, whatever its kind (ruleEngine, ruleRemoveById, ...). */
+    private static final Pattern CTL_ACTION = Pattern.compile("ctl:([^,\"\\\\\\s]+)");
 
     /** id, route, exempted {@code tag;argument} pairs (exactly), phase. */
     static Stream<Arguments> reportAuthoringRules() {
@@ -85,17 +85,19 @@ class ReportAuthoringWafExclusionRegressionTest {
                 .contains("SecRule REQUEST_URI \"@rx ^" + route + "(?:[;?]|$)\"")
                 .contains("\"id:" + ruleId + ",phase:" + phase + ",pass,nolog,chain\"")
                 .contains("SecRule REQUEST_METHOD \"@streq POST\"")
-                // Per-argument only: nothing here may drop a signature for the whole request.
-                .doesNotContain("ctl:ruleRemoveById=")
-                .doesNotContain("ctl:ruleRemoveByTag=");
+                .doesNotContain("ruleEngine");
 
+        // Per-argument tag removal only, and exactly the listed pairs: any other ctl action
+        // (ruleEngine=Off, ruleRemoveById, ruleRemoveTargetById, ...) fails here.
         List<String> found = new ArrayList<>();
-        Matcher matcher = CTL_TARGET.matcher(rule);
+        Matcher matcher = CTL_ACTION.matcher(rule);
         while (matcher.find()) {
-            found.add(matcher.group(1) + ";" + matcher.group(2));
+            found.add(matcher.group(1));
         }
-        assertThat(found).as("rule %s removes exactly the listed tag/argument pairs", ruleId)
-                .containsExactlyInAnyOrderElementsOf(targets);
+        assertThat(found).as("rule %s carries exactly the listed ctl target removals", ruleId)
+                .containsExactlyInAnyOrderElementsOf(targets.stream()
+                        .map(pair -> "ruleRemoveTargetByTag=" + pair.replace(";", ";ARGS:"))
+                        .toList());
     }
 
     @Test

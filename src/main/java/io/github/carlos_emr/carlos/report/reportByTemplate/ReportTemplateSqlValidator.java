@@ -68,6 +68,11 @@ public final class ReportTemplateSqlValidator {
             return null;
         }
         String query = report.getChildText("query");
+        if (query != null && query.isBlank() && runsAsSql(report)) {
+            // SQLReporter refuses a blank statement at run time; refuse it here too rather than
+            // store a SQL template that can never run.
+            return "Error: The <query> was refused: SQL query must not be empty";
+        }
         if (query != null && !query.isBlank()) {
             boolean sequence = Boolean.parseBoolean(report.getAttributeValue("sequence"));
             List<String> statements = sequence
@@ -104,6 +109,12 @@ public final class ReportTemplateSqlValidator {
      */
     public static boolean isAllowedStatement(String sql) {
         return refusalFor(sql) == null;
+    }
+
+    /** A blank or {@code sql} type is run by SQLReporter (see ReportFactory). */
+    private static boolean runsAsSql(Element report) {
+        String type = report.getChildTextTrim("type");
+        return type == null || type.isEmpty() || ReportFactory.SQL_TYPE.equalsIgnoreCase(type);
     }
 
     private static String refusalFor(String sql) {

@@ -33,9 +33,11 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ResourceBundle;
@@ -197,7 +199,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown attachment item");
             return NONE;
         }
-        requireItemPrivilege(loggedInInfo, attachment.get().item());
+        requireItemPrivilege(loggedInInfo, attachment.get().item(), demographicNo);
         String html = render(attachment.get(), demographicNo, loggedInInfo);
         if (html == null) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
@@ -227,12 +229,12 @@ public class MsgAttachPDF2Action extends ActionSupport {
             }
         }
         for (Item item : selected) {
-            requireItemPrivilege(loggedInInfo, item);
+            requireItemPrivilege(loggedInInfo, item, demographicNo);
         }
 
-        // Attach replaces the message's chart-PDF set with exactly what is ticked now (ticking
-        // nothing clears it). Only the PDFs: transferred chart items attached another way stay.
-        bean.nullPDFAttachment();
+        // Render every item first and only then replace the set, so a failure part-way through
+        // (an exception from a lookup, say) leaves the message's existing attachments as they were.
+        List<String[]> rendered = new ArrayList<>();
         for (Item item : selected) {
             Optional<Attachment> attachment = resolver.resolve(item, demographicNo, patientName, labels);
             if (attachment.isEmpty()) {
@@ -240,14 +242,32 @@ public class MsgAttachPDF2Action extends ActionSupport {
             }
             String html = render(attachment.get(), demographicNo, loggedInInfo);
             String pdf = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
-            // A failed render is still recorded (status BAD, "(N/A)" title) so the sender sees it.
-            bean.setAppendPDFAttachment(pdf, attachment.get().title());
+            rendered.add(new String[]{pdf, attachment.get().title()});
         }
+
+        // Attach replaces the message's chart-PDF set with exactly what is ticked now (ticking
+        // nothing clears it). Only the PDFs: transferred chart items attached another way stay.
+        // The counter numbers each entry's FILE_ID (0, 1, ...), which the recipient's viewer uses
+        // to tell the stored PDFs apart; it is reset once the set is complete, as before.
+        bean.nullPDFAttachment();
+        for (String[] entry : rendered) {
+            // A failed render is still recorded (status BAD, "(N/A)" title) so the sender sees it.
+            bean.setAppendPDFAttachment(entry[0], entry[1]);
+            bean.setCurrentAttachmentCount(bean.getCurrentAttachmentCount() + 1);
+        }
+        bean.setCurrentAttachmentCount(0);
         return SUCCESS;
     }
 
-    private void requireItemPrivilege(LoggedInInfo loggedInInfo, Item item) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ, null)) {
+    /**
+     * Read on the item's module, both globally and for this patient (a patient-specific
+     * restriction on, say, {@code _rx} must refuse the item here rather than surface as a failed
+     * render once the included gate redirects).
+     */
+    private void requireItemPrivilege(LoggedInInfo loggedInInfo, Item item, int demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ, null)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ,
+                        demographicNo)) {
             throw new SecurityException("missing required sec object (" + item.securityObject() + ")");
         }
     }

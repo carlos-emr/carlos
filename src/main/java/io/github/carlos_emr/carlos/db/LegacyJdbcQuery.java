@@ -373,7 +373,9 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Unsafe SQL detected: comment or statement separator");
         }
 
-        if (containsFileAccessClause(normalized)) {
+        // Quoted literals are data ("SELECT 'load_file' AS label" reads no file), as in the
+        // generic validator; the control-token scan above already refused anything ambiguous.
+        if (containsFileAccessClause(stripQuotedSqlSections(sql).toLowerCase(Locale.ROOT))) {
             throw new SQLException("Unsafe SQL detected: prohibited keyword");
         }
     }

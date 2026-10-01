@@ -115,9 +115,27 @@ class ReportTemplateSqlValidatorUnitTest {
     }
 
     @Test
+    @DisplayName("should refuse a blank query on a SQL template, which could never run")
+    void shouldRefuseBlankQuery_forSqlTemplate() throws Exception {
+        Element report = report("<report title='FAKE' description='FAKE'><query>   </query></report>");
+
+        assertThat(ReportTemplateSqlValidator.validateReport(report))
+                .isEqualTo("Error: The <query> was refused: SQL query must not be empty");
+    }
+
+    @Test
+    @DisplayName("should accept file-access words that are only quoted text")
+    void shouldAcceptFileAccessWords_whenInsideQuotedLiterals() throws Exception {
+        Element report = report("<report title='FAKE' description='FAKE'>"
+                + "<query>SELECT 'load_file' AS label, 'into outfile' AS other FROM demographic</query></report>");
+
+        assertThat(ReportTemplateSqlValidator.validateReport(report)).isNull();
+    }
+
+    @Test
     @DisplayName("should accept a non-SQL report type that carries no query")
     void shouldAccept_whenTemplateHasNoQuery() throws Exception {
-        Element report = report("<report title='FAKE' description='FAKE'><type>inr</type></report>");
+        Element report = report("<report title='FAKE' description='FAKE'><type>inr</type><query> </query></report>");
 
         assertThat(ReportTemplateSqlValidator.validateReport(report)).isNull();
     }

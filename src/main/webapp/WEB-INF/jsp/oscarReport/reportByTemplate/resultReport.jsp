@@ -166,11 +166,14 @@
             <a href="#" class="showhidequery result-btn" onclick="showHideItem('sqlDiv')">
                 Show/Hide Query
             </a>
+            <%-- Template changes need _report write (ManageTemplates2Action); readers do not get controls that would only end in a security error. --%>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="w">
             <a href="javascript:void(0)" class="edit result-btn"
                style="padding-left: 5px;border-left:#0088cc 2px solid;"
                onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=${ reportobject.templateId }&opentext=1'">
                 Edit Template
             </a>
+            </security:oscarSec>
             <div class="sqlBorderDiv" id="sqlDiv" style="display:none;background-color:white;padding:5px;">
                 <samp style="font-size: 11px;">
                     <%

@@ -82,14 +82,15 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%!
     /*
-     * Every patient field below is written into HTML through this helper. The page is also the
+     * Every patient field below is written into HTML body text through this helper (the one
+     * attribute, the record's title, uses SafeEncode.forHtmlAttribute). The page is also the
      * source the Messenger "Demographic information" PDF is rendered from, so an unencoded field
      * (an address typed as "O'Neil & <Fixture> Lane", say) was lost from the PDF or, worse,
      * interpreted as markup (stored HTML injection, finding L61 / #4133). Null renders as empty
      * rather than the literal "null" a bare expression printed.
      */
     private static String h(Object value) {
-        return SafeEncode.forHtml(value == null ? "" : String.valueOf(value));
+        return SafeEncode.forHtmlContent(value == null ? "" : String.valueOf(value));
     }
 %>
 <%
@@ -203,7 +204,7 @@
             </tr>
             <tr>
                 <td align="left"
-                    title='<%=h(d.getDemographicNo())%>'><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><%=h(d.getLastName())%>
+                    title='<%=SafeEncode.forHtmlAttribute(String.valueOf(d.getDemographicNo()))%>'><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><%=h(d.getLastName())%>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>: </b></td>
                 <td align="left"><%=h(d.getFirstName())%>

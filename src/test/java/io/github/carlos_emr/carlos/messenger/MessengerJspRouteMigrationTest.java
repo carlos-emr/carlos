@@ -78,7 +78,7 @@ class MessengerJspRouteMigrationTest {
         // srcText. It now names items; MsgPdfAttachmentResolver owns the routes.
         assertThat(jsp)
                 .doesNotContain("<<<<<<<", "=======", ">>>>>>>")
-                .contains("/messenger/Doc2PDF")
+                .contains("<form id=\"attachForm\" action=\"${pageContext.request.contextPath}/messenger/Doc2PDF\" method=\"post\">")
                 .contains("name=\"item\" value=\"demographic\"")
                 .contains("name=\"item\" value=\"encounter\"")
                 .contains("name=\"item\" value=\"prescriptions\"")
