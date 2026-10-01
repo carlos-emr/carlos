@@ -33,7 +33,7 @@ async function workflow(s) {
   assert(snapshot.length <= 1, 'hide_prevention_item is duplicated; refusing to change it');
   s.cleanup(() => {
     if (snapshot.length) {
-      sql.execute(`UPDATE property SET value=${snapshot[0][1] === 'NULL' ? 'NULL' : sqlString(snapshot[0][1])}
+      sql.execute(`UPDATE property SET value=${snapshot[0][1] === null ? 'NULL' : sqlString(snapshot[0][1])}
         WHERE id=${snapshot[0][0]}; DELETE FROM property WHERE name=${sqlString(HIDE_PROPERTY)} AND id<>${snapshot[0][0]}`);
     } else sql.execute(`DELETE FROM property WHERE name=${sqlString(HIDE_PROPERTY)}`);
     assert(JSON.stringify(sql.rows(`SELECT id, value FROM property WHERE name=${sqlString(HIDE_PROPERTY)} ORDER BY id`))

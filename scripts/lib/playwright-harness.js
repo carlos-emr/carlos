@@ -919,14 +919,18 @@ async function login(context, config, recorder, options = {}) {
       assert(typeof options.mfaCode === 'function',
         `${config.testUser} is enrolled in MFA; pass options.mfaCode to supply the challenge response`);
       const code = String(await options.mfaCode());
-      const landed = page.waitForURL(/providercontrol|appointment|forcepasswordreset|select_facility|loginMfa/i,
-        { timeout: 30000 });
+      // Wait for the main frame to navigate, not for a URL pattern: the challenge
+      // itself can already sit on /mfa/loginMfa or /forcepasswordresetSubmit, and a
+      // URL wait that matches the current address returns before the page's own
+      // six-digit auto-submit lands, so the loop would type the code a second time.
+      const landed = page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame(), timeout: 30000 });
       landed.catch(() => {});
       await page.locator(MFA_CODE_INPUT).first().fill(code);
       // The page submits its own form once six digits are typed; press Verify only
       // when that did not happen, so the one-time challenge is never posted twice.
       if (!/^\d{6}$/.test(code)) await page.locator('#verifyButton, input[type="submit"], button[type="submit"]').first().click();
       await landed;
+      await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
       continue;
     }

@@ -52,7 +52,7 @@ async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const q = h.sqlString;
   const group = `PW${marker.slice(-8)}`;
-  const reportProviders = `SELECT provider_no,team,status FROM reportprovider WHERE action='visitreport' ORDER BY provider_no,team,status`;
+  const reportProviders = `SELECT id,provider_no,team,status FROM reportprovider WHERE action='visitreport' ORDER BY id`;
   const originalReportProviders = sql.rows(reportProviders);
   let insidePatient;
   let appointment;
@@ -65,8 +65,11 @@ async function workflow(s) {
     if (headers.length) sql.execute(`DELETE FROM billing_on_cheader1 WHERE id IN (${headers.join(',')}) AND demographic_name=${q(marker)}`);
     if (appointment) sql.execute(`DELETE FROM appointment WHERE appointment_no=${appointment} AND name=${q(marker)}`);
     const statements = [`DELETE FROM reportprovider WHERE action='visitreport'`];
-    for (const [providerNo, team, status] of originalReportProviders) {
-      statements.push(`INSERT INTO reportprovider(provider_no,team,action,status) VALUES (${q(providerNo)},${q(team)},'visitreport',${q(status)})`);
+    // Restore the exact rows: original ids, and SQL NULL where the snapshot read NULL
+    // (the runner returns NULL as JS null, which q() would write as the text 'null').
+    const literal = (value) => (value === null ? 'NULL' : q(value));
+    for (const [id, providerNo, team, status] of originalReportProviders) {
+      statements.push(`INSERT INTO reportprovider(id,provider_no,team,action,status) VALUES (${Number(id)},${literal(providerNo)},${literal(team)},'visitreport',${literal(status)})`);
     }
     sql.execute(`START TRANSACTION;${statements.join(';')};COMMIT`);
     h.assert(JSON.stringify(sql.rows(reportProviders)) === JSON.stringify(originalReportProviders),
@@ -199,8 +202,9 @@ async function workflow(s) {
     const reloaded = admin.waitForURL(url => url.pathname.endsWith('/administration') && url.searchParams.get('show') === 'visitreport');
     await Promise.all([popup.waitForEvent('close'), popup.locator('form[name="form1"] input[type="submit"]').click()]);
     await reloaded;
-    const rows = sql.rows(reportProviders);
-    const expected = [...originalReportProviders, [provider, group, 'A']]
+    // The save rewrites the list, so ids change; compare the rows by content only.
+    const rows = sql.rows(reportProviders).map(([, ...columns]) => columns);
+    const expected = [...originalReportProviders.map(([, ...columns]) => columns), [provider, group, 'A']]
       .sort((a, b) => a.join('|').localeCompare(b.join('|')));
     h.assert(JSON.stringify(rows.slice().sort((a, b) => a.join('|').localeCompare(b.join('|')))) === JSON.stringify(expected),
       'The visit-report provider list does not hold exactly the ticked rows');

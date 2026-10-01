@@ -4069,7 +4069,8 @@
       ],
       "timeoutSec": 300,
       "env": [
-        "DOCUMENT_DIR"
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
       ],
       "notes": "Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization).",
       "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files and their rows; all removed."
@@ -4279,7 +4280,8 @@
       ],
       "timeoutSec": 240,
       "env": [
-        "DOCUMENT_DIR"
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
       ],
       "notes": "Fails at its last step on 2026.08: the patient tickler list (ticklerDemoMain) answers 500 for a patient with a tickler (LazyInitializationException). The WorkFlow step skips while WORKFLOW is off.",
       "fixtures": "One owned patient with its suggestion, tickler and one PDF document (row, ctl_document link and file); pre-existing suggestions asserted unchanged."

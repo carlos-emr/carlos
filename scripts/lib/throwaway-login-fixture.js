@@ -79,8 +79,18 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
       // provider_no is varchar(6); pick an unused number well away from the seeded range.
       for (let attempt = 0; attempt < 20 && !state.providerNo; attempt++) {
         const candidate = String(randomInt(800000, 899999));
-        const taken = sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${sqlString(candidate)})
-          + (SELECT COUNT(*) FROM security WHERE provider_no=${sqlString(candidate)})`);
+        // Free means free everywhere cleanup deletes by provider number, not just in
+        // provider/security: leftovers from a deleted provider (audit log, archive,
+        // preferences) must never be swept up by this run's cleanup.
+        const c = sqlString(candidate);
+        const taken = sql.value(`SELECT ${[
+          `(SELECT COUNT(*) FROM provider WHERE provider_no=${c})`,
+          `(SELECT COUNT(*) FROM security WHERE provider_no=${c})`,
+          `(SELECT COUNT(*) FROM log WHERE provider_no=${c})`,
+          `(SELECT COUNT(*) FROM SecurityArchive WHERE provider_no=${c})`,
+          ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`),
+          ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`),
+        ].join('+')}`);
         if (taken === '0') state.providerNo = candidate;
       }
       assert(state.providerNo, 'No unused provider number was found for the throwaway login');
