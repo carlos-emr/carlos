@@ -3608,11 +3608,12 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails on 2026.08: choosing a named quick list in the registry sidebar answers 500; the later association steps hit the JSON+JSP response and the silently ignored CSV upload.",
+      "fixtures": "Owns a FAKE- patient, a UI-created and a seeded quick list (FAKE-<hex>, at most 10 chars), and dx_associations rows whose code starts with the run marker; never saves a bill; removes only owned rows."
     },
     {
       "name": "flowsheet-patient-customization",
@@ -4070,7 +4071,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: choosing a quick list in the Disease Registry report adds none of its codes (quicklistname/quickListName mismatch).",
+      "fixtures": "Owns a FAKE- patient with its dxresearch and partial_date rows and a seeded FAKE-<hex> quick list; removes only owned rows."
     },
     {
       "name": "eform-deleted-restore",
@@ -4131,6 +4133,34 @@
     {
       "name": "measurement-map-admin",
       "script": "scripts/measurement-map-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "provider-preferences-cpp-dx",
+      "script": "scripts/provider-preferences-cpp-dx-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "rx-interactions-renal-luc",
+      "script": "scripts/rx-interactions-renal-luc-playwright-checks.js",
       "tiers": [
         "core"
       ],

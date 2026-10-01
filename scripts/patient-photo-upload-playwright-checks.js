@@ -123,28 +123,6 @@ async function workflow(s) {
     h.assert(sha(await image.body()) === sha(gif), 'The chart photo bytes differ from the uploaded GIF');
   });
 
-  await s.step('A non-image upload is refused with an error and the stored photo is unchanged', async () => {
-    const before = JSON.stringify(stored());
-    const manager = await openManager();
-    await manager.locator('#clientImage').setInputFiles({
-      name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from(`${s.marker} not an image\n`),
-    });
-    const [post] = await Promise.all([
-      manager.waitForResponse(r => new URL(r.url()).pathname.endsWith('/ClientImage') && r.request().method() === 'POST'),
-      manager.waitForEvent('load'),
-      manager.locator('button[type="submit"]', { hasText: 'Upload' }).click(),
-    ]);
-    h.assert(post.status() === 200, `The refused upload answered HTTP ${post.status()}`);
-    console.log('ZZDEBUG', manager.url(), JSON.stringify((await manager.locator('body').innerText()).slice(0, 600)), JSON.stringify(stored()));
-    const error = manager.locator('.alert-danger');
-    await error.waitFor({ state: 'visible' });
-    h.assert((await error.innerText()).trim().length > 0, 'The refused upload showed an empty error');
-    h.assert(!manager.isClosed() && await manager.locator('#clientImage').count() === 1,
-      'The refused upload did not keep the image manager open for another try');
-    h.assert(JSON.stringify(stored()) === before, 'The refused upload changed the stored photo');
-    await manager.close();
-  });
-
   await s.step('Clear Photo asks to confirm, removes the row and the chart shows the placeholder', async () => {
     const manager = await openManager();
     const since = s.recorder.requestFailures.length;
@@ -172,6 +150,34 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`) === '1',
       'A GET request deleted the patient photo (ClientImage mutates on GET)');
     h.assert(status === 405, `GET ClientImage deleteImage answered HTTP ${status}, expected 405`);
+  });
+
+  let refused;
+  await s.step('A non-image upload is refused: the manager stays open and the stored photo is unchanged', async () => {
+    const before = JSON.stringify(stored());
+    const manager = await openManager();
+    await manager.locator('#clientImage').setInputFiles({
+      name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from(`${s.marker} not an image\n`),
+    });
+    const [post] = await Promise.all([
+      manager.waitForResponse(r => new URL(r.url()).pathname.endsWith('/ClientImage') && r.request().method() === 'POST'),
+      manager.waitForEvent('load'),
+      manager.locator('button[type="submit"]', { hasText: 'Upload' }).click(),
+    ]);
+    h.assert(post.status() === 200, `The refused upload answered HTTP ${post.status()}`);
+    h.assert(!manager.isClosed() && await manager.locator('#clientImage').count() === 1,
+      'The refused upload did not keep the image manager open for another try');
+    h.assert(JSON.stringify(stored()) === before, 'The refused upload changed the stored photo');
+    refused = manager;
+  });
+
+  await s.step('The refused upload tells the user why', async () => {
+    // The multipart interceptor rejects the part (logged "Content-Type not allowed") and lands
+    // on the "input" result; uploadimage.jsp promises to show that rejection.
+    const error = refused.locator('.alert-danger');
+    h.assert(await error.count() === 1 && (await error.innerText()).trim().length > 0,
+      'The refused upload re-rendered the form with no error message');
+    await refused.close();
   });
 }
 

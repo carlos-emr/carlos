@@ -133,11 +133,8 @@ async function workflow(s) {
     const link = admin.getByRole('link', { name: 'Customize Measurements', exact: true, includeHidden: true });
     await revealAuditLink(admin, link, 20000);
     await link.click();
-    await admin.waitForTimeout(3000);
-    console.log(admin.url(), (await admin.locator('#dynamic-content').innerHTML()).slice(0, 1500));
-    for (const f of admin.frames()) console.log('frame', f.url());
     const frame = admin.frameLocator('#dynamic-content iframe').first();
-    const types = await s.popup(admin, frame.getByRole('link', { name: 'View Measurement Types' }), 'measurement-types');
+    const types = await s.popup(admin, frame.getByRole('link', { name: 'View All Measurement Types' }), 'measurement-types');
     const row = types.locator('tr.data').filter({ has: types.locator('a[href*="ViewExportMeasurement"]', { hasText: /^\s*BP\s*$/ }) });
     const exportPage = await s.popup(types, row.locator('a[href*="ViewExportMeasurement"]'), 'measurement-export');
     const response = await exportPage.waitForEvent('response', r => r.url() === exportPage.url()).catch(() => null);

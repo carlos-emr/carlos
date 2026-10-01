@@ -37,7 +37,9 @@ async function workflow(s) {
   login.create();
   const securityNo = login.securityNo;
   const credentials = { ...config, testUser: login.username };
-  const mfaState = () => sql.rows(`SELECT usingMfa,COALESCE(mfaSecret,'NULL') FROM security WHERE security_no=${securityNo}`)[0].join('|');
+  // mysql -B prints SQL NULL as NULL, which the runner reads back as null: spell it out.
+  const mfaStateQuery = `SELECT CONCAT(usingMfa,'|',IF(mfaSecret IS NULL,'none',mfaSecret)) FROM security WHERE security_no=${securityNo}`;
+  const mfaState = () => sql.value(mfaStateQuery);
   const audits = content => sql.value(`SELECT COUNT(*) FROM log WHERE provider_no=${h.sqlString(login.providerNo)}
     AND action='login' AND content=${h.sqlString(content)}`);
   const contexts = [];
@@ -101,7 +103,7 @@ async function workflow(s) {
   }
 
   await s.step('Enable MFA on the security record sets usingMfa and stores no secret yet', async () => {
-    h.assert(mfaState() === '0|NULL', 'The throwaway login did not start without MFA');
+    h.assert(mfaState() === '0|none', 'The throwaway login did not start without MFA');
     const frame = await openRecord();
     const enable = frame.locator('input[name="enableMfa"]');
     h.assert(!(await enable.isChecked()) && await frame.locator('#resetMfaLink').count() === 0, 'The record showed MFA state it does not have');
@@ -111,7 +113,7 @@ async function workflow(s) {
     console.log('DEBUG before', sql.value(dbgq));
     await saveRecord(frame);
     console.log('DEBUG after', sql.value(dbgq));
-    h.assert(mfaState() === '1|NULL', 'Enabling MFA did not set usingMfa without a secret');
+    h.assert(mfaState() === '1|none', 'Enabling MFA did not set usingMfa without a secret');
   });
 
   let secret;
@@ -130,7 +132,7 @@ async function workflow(s) {
     secret = otpauth.secret;
     h.assert(await sessionValid(enrolContext) === false && await scheduleRefused(enrolContext),
       'Password and PIN alone produced an authenticated session for an MFA login');
-    h.assert(mfaState() === '1|NULL', 'Showing the enrolment QR stored a secret');
+    h.assert(mfaState() === '1|none', 'Showing the enrolment QR stored a secret');
   });
 
   await s.step('a wrong enrolment code is refused: same QR, no session, no secret, audited', async () => {
@@ -138,7 +140,7 @@ async function workflow(s) {
     await expectRefusedCode(enrolPage, enrolContext);
     h.assert(parseOtpauthUrl(decodeQrPng(await enrolPage.locator(QR).getAttribute('src'))).secret === secret,
       'The retry did not keep the same enrolment secret');
-    h.assert(mfaState() === '1|NULL', 'A refused enrolment code stored a secret');
+    h.assert(mfaState() === '1|none', 'A refused enrolment code stored a secret');
     await expectValue(sql, `SELECT COUNT(*) FROM log WHERE provider_no=${h.sqlString(login.providerNo)} AND action='login' AND content='mfa_failed'`,
       '1', 'The refused code was not audited as mfa_failed');
   });
@@ -197,7 +199,7 @@ async function workflow(s) {
     await frame.locator('#mfaNote').waitFor({ state: 'visible', timeout: TIMEOUT });
     h.assert(!(await reset.isVisible()), 'The Reset MFA link stayed visible after the reset');
     await expectValue(sql, `SELECT CONCAT(usingMfa,'|',COALESCE(mfaSecret,'NULL')) FROM security WHERE security_no=${securityNo}`,
-      '1|NULL', 'Reset MFA did not clear the stored secret');
+      '1|none', 'Reset MFA did not clear the stored secret');
   });
 
   await s.step('after the reset, sign-in asks to enrol again with a new secret', async () => {
