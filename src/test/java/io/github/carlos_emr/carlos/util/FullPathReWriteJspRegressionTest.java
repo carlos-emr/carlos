@@ -44,10 +44,12 @@ class FullPathReWriteJspRegressionTest {
     private static final Path WEBAPP = Path.of("src/main/webapp");
     private static final Path STRUTS_CONFIG_DIR = Path.of("src/main/webapp/WEB-INF/classes");
 
-    private static final Pattern REWRITE_TAG = Pattern.compile(
-            "<rewrite:reWrite\\s+jspPage=\"([^\"]*)\"");
+    /** Whole start tag, so {@code jspPage} is found whatever its attribute position. */
+    private static final Pattern REWRITE_TAG = Pattern.compile("<rewrite:reWrite\\b([^>]*)>");
+    private static final Pattern JSP_PAGE_ATTRIBUTE = Pattern.compile(
+            "\\bjspPage\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')");
     private static final Pattern STRUTS_ACTION_NAME = Pattern.compile(
-            "<action\\s+name=\"([^\"]+)\"");
+            "<action\\b[^>]*?\\bname=\"([^\"]+)\"");
     private static final Pattern JSP_COMMENT = Pattern.compile("<%--.*?--%>", Pattern.DOTALL);
 
     /**
@@ -70,7 +72,12 @@ class FullPathReWriteJspRegressionTest {
                 String source = JSP_COMMENT.matcher(read(jsp)).replaceAll("");
                 Matcher matcher = REWRITE_TAG.matcher(source);
                 while (matcher.find()) {
-                    String target = matcher.group(1);
+                    Matcher attribute = JSP_PAGE_ATTRIBUTE.matcher(matcher.group(1));
+                    if (!attribute.find()) {
+                        problems.add(jsp + ": rewrite tag without a literal jspPage: " + matcher.group());
+                        continue;
+                    }
+                    String target = attribute.group(1) != null ? attribute.group(1) : attribute.group(2);
                     targets.add(target);
                     if (!target.startsWith("/")) {
                         problems.add(jsp + ": page-relative target '" + target + "'");
