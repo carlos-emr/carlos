@@ -250,6 +250,19 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @Test
+        @DisplayName("should refuse a request that omits a chooser instead of widening it to every")
+        void shouldRefuseWithoutSaving_whenChooserIsMissing() {
+            Form form = new Form().param("scheduleJobId", "5")
+                .param("minute_chooser", "1").param("minute", "15")
+                .param("hour_chooser", "0").param("day_chooser", "0").param("month_chooser", "0");
+
+            Response response = post(form);
+
+            assertThat(response.getStatus()).isLessThan(500);
+            verify(mockOscarJobManager, never()).updateJob(any(LoggedInInfo.class), any(OscarJob.class));
+        }
+
+        @Test
         @DisplayName("should refuse a chosen part with no values without saving or failing")
         void shouldRefuseWithoutSaving_whenChosenPartHasNoValues() {
             Response response = post(everyPartExcept("minute"));
