@@ -570,9 +570,10 @@ function remoteFax() {
         return;
     }
     clearWorkflowFlags();
-    setHiddenFormInput("faxAction", "faxEForm", "true");
-
+    // Resolve the recipient before declaring the fax intent, so a failure here cannot leave
+    // faxEForm=true on the form for a later plain Save to ride into the fax workflow.
     const chosen = selectedEformFaxRecipient();
+    setHiddenFormInput("faxAction", "faxEForm", "true");
     // Include empty overrides too: clearing a recipient must not resurrect a template's old number.
     setHiddenFormInput("recipient", "recipient", chosen.name);
     setHiddenFormInput("recipientFaxNumber", "recipientFaxNumber", chosen.fax);
@@ -1046,7 +1047,9 @@ function positionToolbarAfterForm(wrapper) {
 function selectedEformFaxRecipient() {
     const fax = document.getElementById('remoteFaxNumber');
     const name = document.getElementById('remoteFaxRecipient');
-    if (fax && fax.dataset.edited === 'true') return {name: name.value.trim(), fax: fax.value.trim()};
+    // The edited number wins even when the name field is missing: falling through to the eForm's
+    // own recipient would fax a number the clinician had replaced.
+    if (fax && fax.dataset.edited === 'true') return {name: name ? name.value.trim() : '', fax: fax.value.trim()};
     const chosen = window.carlosEformFax ? window.carlosEformFax.recipient() : {name: '', fax: ''};
     if (name && name.dataset.edited === 'true') chosen.name = name.value.trim();
     return chosen;

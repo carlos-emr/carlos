@@ -205,6 +205,17 @@ const server = http.createServer((req, res) => {
     // An absolutely positioned page can grow without resizing its containing form.
     await page.evaluate(() => { document.getElementById('lastPage').style.height = '800px'; });
     await page.waitForFunction(() => document.getElementById('toolbarWrapper').getBoundingClientRect().top >= document.getElementById('lastPage').getBoundingClientRect().bottom);
+    // A typed number still wins if a customized toolbar has no recipient name field.
+    await open();
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxNumber').fill('416-555-0144');
+    await page.evaluate(() => document.getElementById('remoteFaxRecipient').remove());
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0144');
+    assert.equal(requests[0].get('recipient'), '');
     // A missing directory script must leave manual fax entry and toolbar layout usable.
     await page.route('**/js/faxRecipientAutocomplete.js', route => route.fulfill({status:200,body:''}));
     await open();
