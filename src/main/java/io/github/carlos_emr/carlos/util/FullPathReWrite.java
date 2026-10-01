@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.util;
 
 import java.io.IOException;
 
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspWriter;
@@ -41,7 +42,12 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 
 /**
- * JSP tag handler that rewrites a target JSP page into a request-path-relative URL.
+ * JSP tag handler that rewrites a target route into a host-free URL.
+ * <p>
+ * A target starting with {@code /} is resolved against the context path; any other target
+ * is resolved against the directory of the browser-visible request URL (see
+ * {@link #buildRelativeUrl(HttpServletRequest, String)}). New call sites should pass the
+ * context-relative route, for example {@code jspPage="/prevention/printPrevention"}.
  * <p>
  * The tag deliberately avoids request scheme, server name, and server port values so
  * untrusted Host header data cannot affect generated links. Use the optional
@@ -120,29 +126,84 @@ public class FullPathReWrite extends TagSupport {
     }
 
     /**
-     * Builds a relative URL from the request URI directory and the configured JSP page.
+     * Builds a host-free URL for the configured target.
+     * <p>
+     * Two target shapes are supported:
+     * <ul>
+     *   <li><b>Context-relative</b> — a {@code jspPage} starting with {@code /} (for example
+     *       {@code /billing/CA/BC/support/Icd9}) is appended to the context path. This is the
+     *       preferred form: it does not depend on which URL rendered the page.</li>
+     *   <li><b>Page-relative</b> — any other value is resolved against the directory of the
+     *       URL the <em>browser</em> requested.</li>
+     * </ul>
+     * Pages are now rendered by a gate action that forwards to an internal
+     * {@code /WEB-INF/jsp/...} view, so after the forward {@link HttpServletRequest#getRequestURI()}
+     * is the internal JSP path. Resolving against it produced links such as
+     * {@code /carlos/WEB-INF/jsp/prevention/printPrevention}, which the container never serves
+     * (issue #4132). The browser-visible URI is therefore taken from the
+     * {@link RequestDispatcher#FORWARD_REQUEST_URI} attribute when it is set. As a last line of
+     * defence, a base directory that still lies under {@code /WEB-INF/jsp} is mapped to the
+     * matching route directory (view JSPs mirror their route paths), and any other
+     * {@code /WEB-INF} base falls back to the context root, so the tag never emits a
+     * {@code WEB-INF} URL.
      * <p>
      * Null request or URI values return the JSP page unchanged. A null JSP page is
-     * treated as an empty string. The method intentionally preserves the historical
-     * path-joining shape used by legacy JSP call sites.
+     * treated as an empty string.
      *
      * @param request the current request, or {@code null}
-     * @param jspPage the JSP page value to append, or {@code null}
-     * @return a request-path-relative URL, never {@code null}
+     * @param jspPage the target route or JSP page, or {@code null}
+     * @return a URL without scheme, host, or port, never {@code null}
      */
     static String buildRelativeUrl(HttpServletRequest request, String jspPage) {
         String safeJspPage = jspPage == null ? "" : jspPage;
         if (request == null) {
             return safeJspPage;
         }
-        String temp = request.getRequestURI();
-        if (temp == null) {
+        String contextPath = request.getContextPath() == null ? "" : request.getContextPath();
+        if (safeJspPage.startsWith("/")) {
+            return contextPath + safeJspPage;
+        }
+
+        String requestUri = browserRequestUri(request);
+        if (requestUri == null) {
             return safeJspPage;
         }
-        int last = temp.lastIndexOf('/');
-        String path = last >= 0 ? temp.substring(0, last) : "";
+        int last = requestUri.lastIndexOf('/');
+        String path = last >= 0 ? requestUri.substring(0, last) : "";
 
-        return path + "/" + safeJspPage;
+        return withoutWebInf(path, contextPath) + "/" + safeJspPage;
+    }
+
+    /**
+     * Returns the URI the browser requested: the original URI of a forwarded request, or the
+     * request URI itself when the page was not reached through a forward.
+     */
+    private static String browserRequestUri(HttpServletRequest request) {
+        Object forwardUri = request.getAttribute(RequestDispatcher.FORWARD_REQUEST_URI);
+        if (forwardUri instanceof String forwarded && !forwarded.isEmpty()) {
+            return forwarded;
+        }
+        return request.getRequestURI();
+    }
+
+    /**
+     * Maps a base directory inside {@code WEB-INF} (never browser-reachable) to a servable one.
+     * {@code <ctx>/WEB-INF/jsp/<dir>} becomes {@code <ctx>/<dir>}; any other {@code WEB-INF}
+     * directory becomes the context root.
+     */
+    private static String withoutWebInf(String path, String contextPath) {
+        String webInfJsp = contextPath + "/WEB-INF/jsp";
+        if (path.equals(webInfJsp)) {
+            return contextPath;
+        }
+        if (path.startsWith(webInfJsp + "/")) {
+            return contextPath + path.substring(webInfJsp.length());
+        }
+        String webInf = contextPath + "/WEB-INF";
+        if (path.equals(webInf) || path.startsWith(webInf + "/")) {
+            return contextPath;
+        }
+        return path;
     }
 
     /**
