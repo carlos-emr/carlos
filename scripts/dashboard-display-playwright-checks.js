@@ -10,7 +10,9 @@
  * lists exactly the owned patients with their stored status, the Export
  * (ExportResults) downloads CSV bytes equal to the SQL rows, the drilldown bulk
  * actions (AssignTickler, BulkPatientAction) write tickler/dxresearch rows only for
- * the checked owned patients, and the mutators refuse GET.
+ * the checked owned patients, and the mutators refuse GET. Application defects met on the way are
+ * recorded (their exact HTTP failure/console error consumed) and asserted together in the last
+ * step, so every provable step is proven first; the check fails while any of them stands.
  *
  * Fixtures: no dashboard ships with the demo data and the Dashboard Manager the
  * Administration menu links to has no route, so the dashboard and one indicator

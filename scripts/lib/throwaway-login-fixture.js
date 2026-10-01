@@ -23,6 +23,11 @@ const { assert, gotoApp, pathOnly, sqlString } = require('./playwright-harness')
 const { settleOperations } = require('../graceful-signal-cancellation');
 
 const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'property', 'secUserRole'];
+// Logging in creates a ProviderPreference row (keyed providerNo, not provider_no),
+// and the preferences popup can add its appointment-screen children. Leaving them
+// behind accumulated orphan preference rows for providers that no longer exist.
+const PROVIDER_PREFERENCE_TABLES = ['ProviderPreferenceAppointmentScreenEForm', 'ProviderPreferenceAppointmentScreenForm',
+  'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
 
 /**
  * English text of a bundle key, read from the source tree so a reworded
@@ -122,6 +127,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
         `DELETE FROM log WHERE ${ownedLogPredicate()}`,
         `DELETE FROM SecurityArchive WHERE user_name=${user} OR provider_no=${providerNo}`,
         ...PROVIDER_LINKED_TABLES.map(table => `DELETE FROM ${table} WHERE provider_no=${providerNo}`),
+        ...PROVIDER_PREFERENCE_TABLES.map(table => `DELETE FROM ${table} WHERE providerNo=${providerNo}`),
         `DELETE FROM security WHERE user_name=${user} AND provider_no=${providerNo}`,
         `DELETE FROM provider WHERE provider_no=${providerNo} AND last_name=${sqlString(marker)}`,
       ];
@@ -130,6 +136,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
         `(SELECT COUNT(*) FROM log WHERE ${ownedLogPredicate()})`,
         `(SELECT COUNT(*) FROM SecurityArchive WHERE user_name=${user} OR provider_no=${providerNo})`,
         ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${providerNo})`),
+        ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${providerNo})`),
         `(SELECT COUNT(*) FROM security WHERE user_name=${user} OR provider_no=${providerNo})`,
         `(SELECT COUNT(*) FROM provider WHERE provider_no=${providerNo})`,
       ];

@@ -2,26 +2,24 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
  * User path: Schedule > Search > Master Record > Tickler > New Tickler > Suggested Text
- *   (tickler/ViewTicklerSuggestedText) > Add Text > Save (tickler/EditTicklerTextSuggest);
- *   the reloaded New Tickler offers it > Save; E-Chart > Documents > owned PDF (showDocument) >
- *   "open ticklers" (ticklerDemoMain) > Complete (tickler/DbTicklerDemoMain); Suggested Text >
- *   ">>" (inactive) > Save; Schedule > Tickler > Save Settings (saveWorkView) as a throwaway
- *   login; Schedule > WorkFlow (oscarWorkflow/WorkFlowList) only when WORKFLOW=yes.
+ *   (tickler/ViewTicklerSuggestedText) > Add Text > Save (tickler/EditTicklerTextSuggest); the
+ *   reloaded New Tickler offers it > Save; Suggested Text > ">>" (inactive) > Save; Schedule >
+ *   WorkFlow (oscarWorkflow/WorkFlowList) only when WORKFLOW=yes; E-Chart > Documents > owned PDF
+ *   (showDocument) > "open ticklers" (ticklerDemoMain) > Complete (tickler/DbTicklerDemoMain).
  * Asserts the owned suggestion row (active, creator), that saving the suggestion page leaves every
- * pre-existing suggestion untouched, the tickler saved from the suggestion, the Complete status
- * change, deactivation removing the offer, the saved tickler view rows and their round trip, and
- * that EditTicklerTextSuggest and saveWorkView refuse GET.
- * Fixtures: owned FAKE- patient, its suggestion, tickler, one PDF document (row, link, file) and
- * a throwaway login whose view rows are its own; all removed and verified gone.
+ * pre-existing suggestion untouched, the tickler saved from the suggestion, deactivation removing
+ * the offer, that EditTicklerTextSuggest refuses GET, and the Complete status change.
+ * saveWorkView (Tickler > Save Settings) is covered by provider-preferences-cpp-dx, not here.
+ * Fixtures: owned FAKE- patient, its suggestion, tickler and one PDF document (row, link, file);
+ * all removed and verified gone. No demo row is changed.
  * Coverage plan: workflow-tickler-suggested-text (tickler suggested text, patient tickler list,
- * tickler view settings, WorkFlow). Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR).
+ * WorkFlow). Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR).
  */
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
 const TIMEOUT = 20000;
 
@@ -54,9 +52,6 @@ async function workflow(s) {
   const S = h.sqlString(suggestion);
   const store = documentStore();
   const docFile = path.join(store, `20260101000000${marker}-tickler.pdf`);
-  const fixture = throwawayLoginFixture({ sql, marker, provider, testUser: s.config.testUser });
-  s.cleanup(() => fixture.cleanup());
-  let documentNo;
   s.cleanup(() => {
     const ticklers = `SELECT tickler_no FROM tickler WHERE demographic_no=${patient}`;
     sql.execute([
@@ -68,15 +63,13 @@ async function workflow(s) {
       `DELETE FROM ctl_document WHERE module='demographic' AND module_id=${patient}`,
       `DELETE FROM document WHERE docdesc=${h.sqlString(marker)}`,
       `DELETE FROM eChart WHERE demographicNo=${patient}`,
-      ...(fixture.providerNo ? [`DELETE FROM view WHERE providerNo=${h.sqlString(fixture.providerNo)}`] : []),
     ].join(';'));
     if (fs.existsSync(docFile)) fs.unlinkSync(docFile);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM tickler WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM tickler_text_suggest WHERE suggested_text=${S})
       + (SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${patient})
-      + (SELECT COUNT(*) FROM document WHERE docdesc=${h.sqlString(marker)})
-      + (SELECT COUNT(*) FROM view WHERE providerNo=${h.sqlString(fixture.providerNo || '')})`) === '0'
-      && !fs.existsSync(docFile), 'Owned tickler, suggestion, document or view rows were not removed');
+      + (SELECT COUNT(*) FROM document WHERE docdesc=${h.sqlString(marker)})`) === '0'
+      && !fs.existsSync(docFile), 'Owned tickler, suggestion or document rows were not removed');
   });
 
   // Saving the suggestion page re-posts every listed suggestion; none of the existing ones may change.
@@ -169,38 +162,6 @@ async function workflow(s) {
     h.assert(sql.value(ownedSuggestion) === '1:0' && existing() === before, 'A refused GET changed suggestions');
   });
 
-  await s.step('Tickler > Save Settings stores the throwaway user\'s view and the list reopens with it', async () => {
-    fixture.create();
-    const P = h.sqlString(fixture.providerNo);
-    const ctx = await h.newContext(s.context.browser(), s.config);
-    ctx.setDefaultTimeout(TIMEOUT);
-    ctx.on('page', page => h.wireStrictPage(page, 'tickler-view-user', recorder));
-    const schedule = await h.login(ctx, { ...s.config, testUser: fixture.username }, recorder, { label: 'tickler-view-schedule' });
-    const open = () => ui.clickOpensPopup(schedule, schedule.locator('#oscar_new_tickler'),
-      { context: ctx, recorder, label: 'tickler-main', timeout: TIMEOUT });
-    let main = await open();
-    await main.locator('#ticklerview').waitFor();
-    await main.locator('#ticklerview').selectOption('C');
-    const [response] = await Promise.all([
-      main.waitForResponse(r => new URL(r.url()).pathname.endsWith('/saveWorkView') && r.request().method() === 'POST'),
-      main.locator('#saveViewButton').click(),
-    ]);
-    h.assert(response.status() === 200, `Save Settings answered HTTP ${response.status()}`);
-    await main.locator('#saveViewButton.btn-success').waitFor();
-    await expectValue(sql, `SELECT value FROM view WHERE providerNo=${P} AND view_name='tickler' AND name='ticklerview'`, 'C',
-      'The saved tickler view was not stored for the user');
-    const rows = () => JSON.stringify(sql.rows(`SELECT name,value FROM view WHERE providerNo=${P} ORDER BY name`));
-    const saved = rows();
-    await main.close();
-    main = await open();
-    h.assert(await main.locator('#ticklerview').inputValue() === 'C', 'The reopened tickler list ignored the saved view');
-    const refused = await ctx.request.get(h.appUrl(s.config.baseUrl,
-      '/saveWorkView?method=save&view_name=tickler&ticklerview=D'), { maxRedirects: 0 });
-    h.assert(refused.status() === 405, `GET saveWorkView answered HTTP ${refused.status()}`);
-    h.assert(rows() === saved, 'A refused GET changed the saved view');
-    await ctx.close();
-  });
-
   const workflowLink = s.schedule.locator('a', { hasText: /^\s*WorkFlow\s*$/ });
   if (await workflowLink.count() === 0) {
     console.log('  SKIP workflow-tickler-suggested-text: WorkFlow list (WORKFLOW property is off; no top-bar entry)');
@@ -217,7 +178,7 @@ async function workflow(s) {
     const owner = fs.statSync(store);
     fs.writeFileSync(docFile, textPdf(marker), { flag: 'wx', mode: 0o640 });
     fs.chownSync(docFile, owner.uid, owner.gid);
-    documentNo = sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,
+    const documentNo = sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,
         status,contenttype,contentdatetime,public1,observationdate,number_of_pages,restrictToProgram,abnormal)
       VALUES ('others',${h.sqlString(marker)},${h.sqlString(path.basename(docFile))},${h.sqlString(provider)},${h.sqlString(provider)},
         '',NOW(),'A','application/pdf',NOW(),0,CURDATE(),1,0,0); SELECT LAST_INSERT_ID()`);

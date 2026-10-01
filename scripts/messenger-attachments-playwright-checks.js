@@ -226,6 +226,7 @@ async function workflow(s) {
     await expandItem(items);
     // Save Attachments keeps the selection in the session and hands over to the
     // patient search (AdjustAttachments redirects to DemographicLinkMsg).
+    console.log('DEBUG opener', await items.evaluate(() => String(!!window.opener) + ' ' + (window.opener && window.opener.location.pathname)));
     const [adjust] = await Promise.all([
       items.waitForResponse(r => new URL(r.url()).pathname.endsWith('/messenger/AdjustAttachments'), { timeout: TIMEOUT }),
       items.locator('form[action$="/messenger/AdjustAttachments"] input[type="submit"]').click(),
@@ -233,6 +234,12 @@ async function workflow(s) {
     h.assert(adjust.status() === 302 && /\/demographic\/DemographicLinkMsg$/.test(adjust.headers().location || ''),
       'Save Attachments did not hand over to the patient search');
     adjustedItems = true;
+    // Let the hand-over page finish its own scripts before the window goes away:
+    // closing it mid-load nulls window.opener under msgSearchDemo.jsp's inline script.
+    await Promise.race([
+      items.waitForEvent('close', { timeout: TIMEOUT }),
+      items.waitForURL(/\/demographic\/DemographicLinkMsg/, { timeout: TIMEOUT, waitUntil: 'load' }),
+    ]).catch(() => {});
     if (!items.isClosed()) await items.close();
   });
 

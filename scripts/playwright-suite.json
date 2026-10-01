@@ -4000,9 +4000,10 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 240,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: Assign Tickler 404s on a doubled context path, Add To Disease Registry writes nothing, BulkPatientAction writes on GET, and Drill Down 403s without _dashboardChgUser.",
+      "fixtures": "SQL-seeded dashboard and indicator template (no shipped dashboard, no working import UI), a throwaway login holding the dashboard privileges and three owned patients; all removed."
     },
     {
       "name": "measurement-group-entry",
@@ -4158,8 +4159,13 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "Fails at its last step on 2026.08: the security record edit page loads a missing admin/bcArStyle.css. Enabling MFA also wipes the PIN (reported, not asserted).",
+      "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration ▸ Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed."
     },
     {
       "name": "measurement-map-admin",
@@ -4184,11 +4190,11 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 600,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "fixtures": "Throwaway login plus an owned FAKE- patient and allergy; the shared test provider's preferences are never touched."
     },
     {
       "name": "rx-interactions-renal-luc",
@@ -4248,9 +4254,13 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "timeoutSec": 600,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned patient, an owned suggested-text row and a throwaway read-only tickler login; the session is ended from a second context sharing the cookie."
     },
     {
       "name": "workflow-tickler-suggested-text",
@@ -4262,9 +4272,12 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Fails at its last step on 2026.08: the patient tickler list (ticklerDemoMain) answers 500 for a patient with a tickler (LazyInitializationException). The WorkFlow step skips while WORKFLOW is off.",
+      "fixtures": "One owned patient with its suggestion, tickler and one PDF document (row, ctl_document link and file); pre-existing suggestions asserted unchanged."
     },
     {
       "name": "billing-on-invoice-3rdparty",
@@ -4275,6 +4288,34 @@
       "assertsDatabase": true,
       "provinces": [
         "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "billing-on-ohip-simulation-report",
+      "script": "scripts/billing-on-ohip-simulation-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "provider-signature-contact",
+      "script": "scripts/provider-signature-contact-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
       ],
       "timeoutSec": 300,
       "env": [],

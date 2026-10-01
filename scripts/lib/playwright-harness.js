@@ -960,6 +960,10 @@ async function login(context, config, recorder, options = {}) {
 
   assert(await page.locator(MFA_CODE_INPUT).count() === 0,
     `login is still on the MFA challenge (${pathOnly(page.url())}): the one-time code is being refused`);
+  // Accepting a /login landing (the MFA forward) must not turn a refused
+  // password into a silent success: a re-rendered login form is a refusal.
+  assert(await page.locator('#username, input[name="password"]').count() === 0,
+    `login is still on the login form (${pathOnly(page.url())}): the credentials were refused`);
   assert(!/loginMfa|forcepasswordreset/i.test(page.url()),
     `login is still on ${pathOnly(page.url())} after working through the authentication stages, so the `
     + 'credentials or the OTP are being refused rather than the flow having more steps');

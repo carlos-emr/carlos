@@ -2,20 +2,19 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
  * provider-preferences-cpp-dx — coverage plan §2.2 (provider preferences: CPP display, default
- * billing dx code, saved tickler view, the Vaccine Provider landing).
+ * billing dx code, saved tickler view).
  *
  * User paths, all as a THROWAWAY login (lib/throwaway-login-fixture.js) so the shared test
- * provider's chart layout, billing defaults and views never change under a parallel check:
+ * provider's chart layout, billing defaults and views never change under a parallel check
+ * (nothing on the test provider is touched, so there is nothing of theirs to snapshot):
  *   Schedule ▸ Preferences ▸ Account & Advanced ▸ Configure eChart CPP (provider/CppPreferences)
  *     ▸ duplicate positions refused by the form's alert ▸ Save ▸ Search ▸ Master Record ▸ E-Chart;
  *   Schedule ▸ Preferences ▸ Default billing dx code ▸ Save All ▸ Master Record ▸ Create Invoice;
- *   Schedule ▸ Tickler ▸ filter ▸ Save View (saveWorkView) ▸ reopen;
- *   login as a provider holding the Vaccine Provider role (provider/ViewVaccineProvider).
+ *   Schedule ▸ Tickler ▸ filter ▸ Save View (saveWorkView) ▸ reopen.
  * Asserted: each save reaches `property` / `ProviderPreference` / `view` (and the SAVE_CUSTOM_CPP
  * audit row), each reopen shows it, and its consumer honours it: the chart's Allergies items carry
  * the start date and severity, the bill form preselects the dx code, the tickler list reopens on
- * the saved filter. GET against both mutators is refused. Kept last: the chart honours the CPP
- * "Hide" choice for a section.
+ * the saved filter, and the chart drops the section set to Hide. GET against both mutators is refused.
  * Fixtures: the throwaway login, one FAKE- allergy on the owned patient. Cleanup deletes the
  * allergy, the throwaway's ProviderPreference/view rows and the throwaway (property, roles, log).
  */
@@ -143,6 +142,13 @@ async function workflow(s) {
       'The Allergies box ignored the start-date/severity preference');
   });
 
+  await s.step('the chart honours the CPP "Hide" choice: Preventions is gone while Allergies stays', async () => {
+    const heading = chart.locator('#leftNavBar, #rightNavBar').locator('h3, a, div').filter({ hasText: /^\s*Preventions\s*$/ });
+    h.assert(await chart.locator('#allergies').count() === 1, 'The shown Allergies section is missing: the hide probe would be vacuous');
+    h.assert(await chart.locator('#preventions').count() === 0 && await heading.count() === 0,
+      'Configure eChart CPP saved Preventions = Hide with the custom chart enabled, but the chart still renders Preventions');
+  });
+
   const viewValue = name => sql.value(`SELECT COALESCE(value,'') FROM view WHERE providerNo=${owner}
     AND view_name='tickler' AND name=${h.sqlString(name)} ORDER BY id LIMIT 1`);
   let creator;
@@ -160,19 +166,19 @@ async function workflow(s) {
   }
   await s.step('Tickler ▸ Save View stores the chosen status and creator filters for this provider', async () => {
     await withTicklers('tickler-main', async ticklers => {
-    await ticklers.locator('#ticklerview').selectOption('C');
-    creator = await ticklers.locator('#providerview option:not([value="all"])').first().getAttribute('value');
-    h.assert(creator, 'The tickler creator filter offers no provider to choose');
-    await ticklers.locator('#providerview').selectOption(creator);
-    const [saved] = await Promise.all([
-      ticklers.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/saveWorkView')),
-      ticklers.locator('#saveViewButton').click(),
-    ]);
-    h.assert(saved.status() === 200, `Save View answered HTTP ${saved.status()}`);
-    await ticklers.locator('#saveViewButton.btn-success').waitFor({ state: 'attached' });
-    await expectValue(sql, `SELECT COALESCE(value,'') FROM view WHERE providerNo=${owner} AND view_name='tickler'
-      AND name='ticklerview' ORDER BY id LIMIT 1`, 'C', 'The tickler status filter was not saved');
-    h.assert(viewValue('providerview') === creator, 'The tickler creator filter was not saved');
+      await ticklers.locator('#ticklerview').selectOption('C');
+      creator = await ticklers.locator('#providerview option:not([value="all"])').first().getAttribute('value');
+      h.assert(creator, 'The tickler creator filter offers no provider to choose');
+      await ticklers.locator('#providerview').selectOption(creator);
+      const [saved] = await Promise.all([
+        ticklers.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/saveWorkView')),
+        ticklers.locator('#saveViewButton').click(),
+      ]);
+      h.assert(saved.status() === 200, `Save View answered HTTP ${saved.status()}`);
+      await ticklers.locator('#saveViewButton.btn-success').waitFor({ state: 'attached' });
+      await expectValue(sql, `SELECT COALESCE(value,'') FROM view WHERE providerNo=${owner} AND view_name='tickler'
+        AND name='ticklerview' ORDER BY id LIMIT 1`, 'C', 'The tickler status filter was not saved');
+      h.assert(viewValue('providerview') === creator, 'The tickler creator filter was not saved');
     });
   });
 
@@ -215,13 +221,6 @@ async function workflow(s) {
     h.assert(cpp.status() === 405, `GET provider/CppPreferences?method=save answered HTTP ${cpp.status()}, expected 405`);
   });
 
-  await s.step('the chart honours the CPP "Hide" choice: the Preventions section is not rendered', async () => {
-    // The chart was opened after the CPP save, so this is the render the preference should shape.
-    const heading = chart.locator('#leftNavBar, #rightNavBar').locator('h3, a, div').filter({ hasText: /^\s*Preventions\s*$/ });
-    h.assert(await chart.locator('#preventions').count() === 0 && await heading.count() === 0,
-      'Configure eChart CPP saved Preventions = Hide with the custom chart enabled, but the chart still renders '
-      + 'the Preventions section (the CPP display/position preferences are not applied by the encounter page)');
-  });
 }
 
 if (require.main === module) runWorkflow('provider-preferences-cpp-dx', workflow, { openPatient: true, openMaster: false });

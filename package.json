@@ -271,7 +271,9 @@
     "test:lab-manual-entry-cumulative-playwright": "node scripts/lab-manual-entry-cumulative-playwright-checks.js",
     "test:session-heartbeat-timeout-playwright": "node scripts/session-heartbeat-timeout-playwright-checks.js",
     "test:workflow-tickler-suggested-text-playwright": "node scripts/workflow-tickler-suggested-text-playwright-checks.js",
-    "test:billing-on-invoice-3rdparty-playwright": "node scripts/billing-on-invoice-3rdparty-playwright-checks.js"
+    "test:billing-on-invoice-3rdparty-playwright": "node scripts/billing-on-invoice-3rdparty-playwright-checks.js",
+    "test:billing-on-ohip-simulation-report-playwright": "node scripts/billing-on-ohip-simulation-report-playwright-checks.js",
+    "test:provider-signature-contact-playwright": "node scripts/provider-signature-contact-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

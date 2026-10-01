@@ -161,14 +161,18 @@ async function workflow(s) {
   context.setDefaultTimeout(20000);
   context.on('page', page => h.wireStrictPage(page, 'schedule-admin', recorder));
   const schedule = await h.login(context, {...s.config, testUser: fixture.username}, recorder, {label: 'throwaway-login'});
+  const landing = schedule.url();
   const {page: admin, isPopup} = await ui.clickOpensPopupOrNavigates(schedule, schedule.locator('#admin-panel,#admin2').first(),
     {context, recorder, label: 'administration', timeout: 20000});
   let daySheet = schedule;
   if (!isPopup) {
     // The schedule navigation preference opened Administration in this tab; the day sheet
     // is the login landing route, so reopen it in a tab of its own (as my-groups does).
+    // providercontrol renders an empty document without the landing parameters, so reuse the
+    // exact URL the login landed on.
     daySheet = await context.newPage();
-    await h.gotoApp(daySheet, s.config.baseUrl, '/provider/providercontrol');
+    await daySheet.goto(landing, {waitUntil: 'domcontentloaded'});
+    await daySheet.locator('a.adhour').first().waitFor({timeout: 20000});
     await h.assertNotErrorPage(daySheet, 'day sheet');
   }
   const scheduleSetting = () => openAdminSection(admin, '/schedule/TemplateSetting', 'select[name="provider_no"]');
