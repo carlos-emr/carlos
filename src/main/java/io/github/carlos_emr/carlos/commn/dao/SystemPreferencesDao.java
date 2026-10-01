@@ -55,12 +55,24 @@ public interface SystemPreferencesDao extends AbstractDao<SystemPreferences> {
      * <p>{@code SystemPreferences.name} has no unique key, so a find-then-insert can create a
      * duplicate when two first saves race, after which reads return an arbitrary row. This updates
      * every row with the name first (so pre-existing duplicates converge on the new value) and
-     * inserts only when none exists. Under InnoDB's default REPEATABLE READ the update's locking
-     * scan of the unindexed {@code name} column serializes a concurrent first save behind this
-     * one (or, on an otherwise empty table, fails one of them with a deadlock) instead of letting
-     * both insert. Must run inside a transaction. The caller owns recovery from that deadlock:
-     * it must retry the whole transaction from outside it (the victim's transaction is already
-     * rolled back), as {@code LabDisplaySettings2Action} does with a bounded retry.</p>
+     * inserts only when a count finds none. Must run inside a transaction.</p>
+     *
+     * <p><b>Concurrency guarantee, and its limits.</b> It depends on the caller's transaction
+     * running at InnoDB REPEATABLE READ (or stricter). There, the UPDATE's locking scan of the
+     * unindexed {@code name} column takes next-key locks on every row and gap it scans:</p>
+     * <ul>
+     *   <li>on a table with at least one row, a concurrent save blocks on those locks until this
+     *       transaction commits, then its UPDATE sees the committed row and no second row is
+     *       inserted;</li>
+     *   <li>on an empty table both scans can hold the shared supremum gap lock, and the two
+     *       inserts then deadlock: InnoDB rolls one back rather than letting both insert. The
+     *       caller owns that recovery and must retry the whole transaction from outside it, as
+     *       {@code LabDisplaySettings2Action} does with a bounded retry.</li>
+     * </ul>
+     * <p>At READ COMMITTED those gap locks are off and duplicates are possible; callers therefore
+     * request REPEATABLE READ explicitly (see {@code LabPdfPreviewSettingsService#save}) instead
+     * of relying on the server default. Even then duplicates already present are only repaired,
+     * not prevented, and a unique key on {@code name} remains the only schema-level guarantee.</p>
      *
      * @param name the preference key
      * @param value the value to store

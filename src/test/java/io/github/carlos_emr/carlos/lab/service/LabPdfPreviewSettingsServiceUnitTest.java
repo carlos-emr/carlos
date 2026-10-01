@@ -38,6 +38,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Unit tests for {@link LabPdfPreviewSettingsService}.
@@ -105,5 +107,16 @@ class LabPdfPreviewSettingsServiceUnitTest {
 
         verify(dao).upsertPreference(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_inline_preview, "true");
         verify(dao).upsertPreference(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_max_size, "1024");
+    }
+
+    @Test
+    @DisplayName("should save at REPEATABLE READ, which the race-free upsert depends on")
+    void shouldRequestRepeatableRead_forSave() throws Exception {
+        Transactional transactional = LabPdfPreviewSettingsService.class
+                .getMethod("save", LabPdfPreviewSettings.class).getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.isolation()).isEqualTo(Isolation.REPEATABLE_READ);
+        assertThat(transactional.readOnly()).isFalse();
     }
 }

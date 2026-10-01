@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -62,9 +63,15 @@ public class LabPdfPreviewSettingsService {
     /**
      * Saves both settings, creating the preference rows when they do not exist yet.
      *
+     * <p>Runs at REPEATABLE READ explicitly, whatever the server default: the race-free upsert
+     * relies on InnoDB's next-key locks, which READ COMMITTED does not take (see
+     * {@link SystemPreferencesDao#upsertPreference}). Call it outside any existing transaction,
+     * where a joined transaction would keep the outer isolation, and retry a lock conflict from
+     * outside it.</p>
+     *
      * @param settings the settings to store; {@code maxBytes} is stored as a plain byte count
      */
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void save(LabPdfPreviewSettings settings) {
         upsert(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_inline_preview, Boolean.toString(settings.inlinePreviewEnabled()));
         upsert(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_max_size, Long.toString(settings.maxBytes()));
