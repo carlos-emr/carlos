@@ -4836,6 +4836,36 @@
       "env": [],
       "notes": "Passes on 2026.08 (Add and Delete Appointment popups close and the day sheet refreshes itself through self.opener.refresh(); markOpener proves no manual reload).",
       "fixtures": "Owns the synthetic patient plus one admission row in the test login's first program (the booking typeahead only finds admitted patients); cleanup deletes its appointment, appointmentArchive and admission rows and asserts they are gone. Books on the last open slot of today's day sheet."
+    },
+    {
+      "name": "native-cast-report-continuity",
+      "script": "scripts/native-cast-report-continuity-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns a synthetic FAKE- patient, one appointment, one Ontario OHIP claim header and item (dx 311) and one report template titled with the run marker, all created through SQL/UI and deleted (asserted gone) in cleanup; read-only otherwise.",
+      "notes": "Fails at the last step ('The report lists 0 Dx row(s) and 0 visit row(s) for the owned patient') while DepressionContinuityReporter.addAppt():193 casts a native DATE column (LocalDate under Hibernate 7) to java.util.Date and generateReport() swallows the ClassCastException; passes once the cast is fixed."
+    },
+    {
+      "name": "native-cast-inbox-lab-dates",
+      "script": "scripts/native-cast-inbox-lab-dates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "EXCLUSIVE=1: snapshots and restores the global SystemPreferences row inboxDateSearchType (changes every user's Inbox date mode while it runs). Owns one synthetic HL7 lab (hl7TextMessage, hl7TextInfo, providerLabRouting, patientLabRouting) routed to a FAKE- patient; cleanup deletes only rows carrying the run's lab number and asserts they are gone.",
+      "notes": "Fails at the last step ('Received-date mode shows the lab date as \"2026-03-04T12:34:56\"') while Hl7textResultsData.java:783 renders message.created (LocalDateTime under Hibernate 7) with String.valueOf; passes once the date is formatted as 'yyyy-MM-dd HH:mm:ss'."
     }
   ]
 }

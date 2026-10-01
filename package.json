@@ -303,7 +303,9 @@
     "test:popup-opener-echart-measurements-playwright": "node scripts/popup-opener-echart-measurements-playwright-checks.js",
     "test:popup-opener-echart-forms-playwright": "node scripts/popup-opener-echart-forms-playwright-checks.js",
     "test:popup-opener-dx-registry-back-playwright": "node scripts/popup-opener-dx-registry-back-playwright-checks.js",
-    "test:popup-opener-day-sheet-playwright": "node scripts/popup-opener-day-sheet-playwright-checks.js"
+    "test:popup-opener-day-sheet-playwright": "node scripts/popup-opener-day-sheet-playwright-checks.js",
+    "test:native-cast-report-continuity-playwright": "node scripts/native-cast-report-continuity-playwright-checks.js",
+    "test:native-cast-inbox-lab-dates-playwright": "node scripts/native-cast-inbox-lab-dates-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
