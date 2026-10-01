@@ -258,7 +258,10 @@
     "test:report-by-template-groups-playwright": "node scripts/report-by-template-groups-playwright-checks.js",
     "test:report-cdm-playwright": "node scripts/report-cdm-playwright-checks.js",
     "test:hrm-report-print-download-playwright": "node scripts/hrm-report-print-download-playwright-checks.js",
-    "test:demographic-relations-pdf-labels-playwright": "node scripts/demographic-relations-pdf-labels-playwright-checks.js"
+    "test:demographic-relations-pdf-labels-playwright": "node scripts/demographic-relations-pdf-labels-playwright-checks.js",
+    "test:dx-registry-status-update-playwright": "node scripts/dx-registry-status-update-playwright-checks.js",
+    "test:eform-deleted-restore-playwright": "node scripts/eform-deleted-restore-playwright-checks.js",
+    "test:patient-photo-upload-playwright": "node scripts/patient-photo-upload-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

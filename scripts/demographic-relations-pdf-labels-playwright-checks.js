@@ -78,8 +78,7 @@ async function workflow(s) {
     chooser = await opened;
     await chooser.waitForLoadState('domcontentloaded');
     h.assert(new URL(chooser.url()).pathname.endsWith('/messenger/attachmentFrameset'), 'Attach opened something other than the chooser');
-    main = chooser.frame({ name: 'main' });
-    h.assert(main, 'The attachment chooser has no document frame');
+    main = chooser.frameLocator('frame[name="main"]');
     preview = main.locator('button[data-preview-uri*="/demographic/DemographicPdfLabel?"]');
     await preview.waitFor({ timeout: TIMEOUT });
     const uri = new URL(await preview.getAttribute('data-preview-uri'), s.config.baseUrl);
@@ -87,15 +86,33 @@ async function workflow(s) {
     h.assert((await main.locator('body').innerText()).includes(s.marker), 'The attachment chooser does not name the patient');
   });
 
-  let text;
-  await s.step('Preview renders DemographicPdfLabel into a complete PDF carrying the patient', async () => {
+  let pdfResponse;
+  let download;
+  await s.step('Preview loads DemographicPdfLabel for the owned patient into the source frame', async () => {
     const label = chooser.waitForResponse(r => pathIs(r, '/demographic/DemographicPdfLabel'), { timeout: TIMEOUT });
-    const pdf = chooser.waitForResponse(r => pathIs(r, '/messenger/Doc2PDF') && r.request().method() === 'POST',
+    pdfResponse = chooser.waitForResponse(r => pathIs(r, '/messenger/Doc2PDF') && r.request().method() === 'POST',
       { timeout: 60000 });
-    const download = chooser.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    pdfResponse.catch(() => {});
+    download = chooser.waitForEvent('download', { timeout: 60000 }).catch(() => null);
     await preview.click();
-    h.assert((await label).status() === 200, 'DemographicPdfLabel did not render for the preview');
-    const response = await pdf;
+    const rendered = await label;
+    h.assert(rendered.status() === 200, 'DemographicPdfLabel did not render for the preview');
+    h.assert(new URL(rendered.url()).searchParams.get('demographic_no') === s.patient, 'The preview rendered another patient');
+    const source = chooser.frameLocator('frame[name="srcFrame"]').locator('body');
+    await source.getByText(s.marker).first().waitFor({ timeout: TIMEOUT });
+    h.assert((await source.innerText()).includes(city), 'The rendered patient information omits the city');
+  });
+
+  await s.step('previewing sends nothing and links nothing to the patient', async () => {
+    h.assert(persisted() === '0', 'Previewing an attachment persisted a message or patient link');
+  });
+
+  let text;
+  await s.step('the preview answers with a complete PDF carrying the patient', async () => {
+    const response = await pdfResponse;
+    // The page posts the captured HTML (its <script> blocks included) as srcText;
+    // a front-door WAF that refuses that body leaves the clinician with no preview.
+    h.assert(response.status() === 200, `messenger/Doc2PDF answered HTTP ${response.status()} instead of the preview PDF`);
     let bytes = await response.body().catch(() => null);
     if (!bytes || !bytes.length) {
       // A headless browser without a PDF viewer turns the frame's PDF into a download.
@@ -108,10 +125,6 @@ async function workflow(s) {
     h.assert(compact(text).includes(compact(`${s.marker},`)) && text.includes('Workflow'),
       'The preview PDF does not carry the owned patient\'s name');
     h.assert(text.includes(city) && text.includes('K1A0B1'), 'The preview PDF does not carry the patient\'s city and postal code');
-  });
-
-  await s.step('previewing sends nothing and links nothing to the patient', async () => {
-    h.assert(persisted() === '0', 'Previewing an attachment persisted a message or patient link');
   });
 
   // Last on purpose: the open encoding defect must not hide the facts above.

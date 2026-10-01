@@ -256,33 +256,11 @@ async function workflow(s) {
   });
 
   // ---------------------------------------------------------------- Provider Service Report
-  async function exportServiceReport() {
-    await ui.clickInjectsPanel(admin, await menu(admin, 'a[href$="/oscarReport/ViewProviderServiceReportForm"]'),
-      { marker: '#psrForm' });
-    await admin.locator('#psrForm #startDate').fill(SERVICE_MONTH);
-    await admin.locator('#psrForm #endDate').fill(SERVICE_MONTH);
-    const outcome = await ui.clickDownloadsOrOpens(admin, admin.locator('#psrForm button[type="submit"]'),
-      { context: s.context, recorder: s.recorder, label: 'provider-service-export', timeout: 30000 });
-    h.assert(outcome.kind === 'download', 'Provider Service Report Export did not download a file');
-    h.assert(/^provider_service_.*_02\/1953_02\/1953\.csv$|^provider_service_.*\.csv$/.test(outcome.download.suggestedFilename()),
-      'The Provider Service Report download is not a provider_service_*.csv file');
-    const text = fs.readFileSync(await outcome.download.path(), 'utf8');
-    const lines = text.trim().split('\n');
-    h.assert(lines[0] === 'Agency Name,Program Name,Program Type,Date,total encounters face to face,total encounters by phone,'
-      + 'total encounters with out client,unique client encountered face to face,unique clients encountered by phone,'
-      + 'unique clients encountered with out client,total unique clients encountered', 'The Provider Service CSV header changed');
-    const row = lines.map(line => line.split(',')).find(cells => cells[1] === 'all programs' && cells[3] === '1953-02');
-    h.assert(row, 'The Provider Service CSV has no all-programs row for the owned month');
-    return row.slice(4).map(Number);
-  }
-
-  let serviceBefore;
-  await s.step('Provider Service Report exports a CSV with an all-programs row for the owned month', async () => {
-    serviceBefore = await exportServiceReport();
-  });
-
+  // The owned month holds no other note (asserted), so the exported row must equal the fixture.
   const role = sql.value("SELECT role_no FROM secRole WHERE role_name='doctor'");
   h.assert(/^\d+$/.test(role), 'This install has no doctor role');
+  const monthNotes = `SELECT COUNT(*) FROM casemgmt_note WHERE observation_date >= '1953-02-01' AND observation_date < '1953-03-01'`;
+  h.assert(sql.value(monthNotes) === '0', 'Another note already occupies the Provider Service fixture month');
   for (const [type, demographic] of [['face to face encounter with client', patient], ['face to face encounter with client', patient],
     ['face to face encounter with client', insidePatient], ['telephone encounter with client', patient]]) {
     const id = sql.value(`INSERT INTO casemgmt_note (update_date,observation_date,demographic_no,provider_no,note,signed,
@@ -293,12 +271,33 @@ async function workflow(s) {
     notes.push(id);
   }
 
-  await s.step('Provider Service Report counts the owned encounters and unique patients for the owned month', async () => {
-    const after = await exportServiceReport();
-    const delta = after.map((value, index) => value - serviceBefore[index]);
+  // Last: the export form's month validation is where this report has failed (see the report).
+  await s.step('Provider Service Report exports a CSV whose owned-month row counts the owned encounters', async () => {
+    await ui.clickInjectsPanel(admin, await menu(admin, 'a[href$="/oscarReport/ViewProviderServiceReportForm"]'),
+      { marker: '#psrForm' });
+    for (const field of ['#startDate', '#endDate']) {
+      await admin.locator(`#psrForm ${field}`).fill(SERVICE_MONTH);
+      // Click away, as a reader does, so the month picker closes before the next control.
+      await admin.locator('#psrForm h4').click();
+    }
+    await admin.locator('.flatpickr-calendar.open').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+    h.assert(await admin.locator('.flatpickr-calendar.open').count() === 0, 'The month picker stayed open over the Export button');
+    const outcome = await ui.clickDownloadsOrOpens(admin, admin.locator('#psrForm button[type="submit"]'),
+      { context: s.context, recorder: s.recorder, label: 'provider-service-export', timeout: 30000 });
+    h.assert(outcome.kind === 'download' && /^provider_service_.*\.csv$/.test(outcome.download.suggestedFilename()),
+      'Provider Service Report Export did not download a provider_service_*.csv file');
+    const lines = fs.readFileSync(await outcome.download.path(), 'utf8').trim().split('\n');
+    h.assert(lines[0] === 'Agency Name,Program Name,Program Type,Date,total encounters face to face,total encounters by phone,'
+      + 'total encounters with out client,unique client encountered face to face,unique clients encountered by phone,'
+      + 'unique clients encountered with out client,total unique clients encountered', 'The Provider Service CSV header changed');
+    const rows = lines.map(line => line.split(','));
     // face-to-face 3 notes / 2 patients, telephone 1 note / 1 patient, 2 unique patients overall.
-    h.assert(JSON.stringify(delta) === JSON.stringify([3, 1, 0, 2, 1, 0, 2]),
-      `Provider Service Report moved by ${JSON.stringify(delta)}; expected [3,1,0,2,1,0,2]`);
+    for (const date of ['1953-02', '1953-02 to 1953-03']) {
+      const row = rows.find(cells => cells[1] === 'all programs' && cells[3] === date);
+      h.assert(row, `The Provider Service CSV has no all-programs row for ${date}`);
+      h.assert(row.slice(4).join(',') === '3,1,0,2,1,0,2',
+        `Provider Service Report ${date} reads ${row.slice(4).join(',')}; the owned notes give 3,1,0,2,1,0,2`);
+    }
   });
 }
 

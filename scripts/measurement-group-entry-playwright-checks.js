@@ -21,7 +21,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const GROUP = 'Vitals';
 const OBSERVED = '2026-03-04';
-const VALUES = { BP: '128/82', HR: '72' };
+const VALUES = { BP: '128/82', HR: '72', TEMP: '36.8' };
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
@@ -69,7 +69,7 @@ async function workflow(s) {
     }
     h.assert(sql.value(`SELECT measuringInstruction FROM measurements WHERE id=${ids.BP}`) === instruction,
       'The BP reading lost the measuring instruction chosen on the form');
-    h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`) === '2',
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`) === '3',
       'Blank group rows were stored as readings');
     const note = chart.locator('textarea[name="caseNote_note"]').first();
     let text = '';
@@ -77,7 +77,8 @@ async function workflow(s) {
       text = await note.inputValue();
       if (!text.includes(marker)) await chart.waitForTimeout(200);
     }
-    h.assert(text.includes(`BP    ${VALUES.BP} ${instruction} ${marker}`) && text.includes(`HR    ${VALUES.HR}`),
+    h.assert(text.includes(`BP    ${VALUES.BP} ${instruction} ${marker}`) && text.includes(`HR    ${VALUES.HR}`)
+      && text.includes(`TEMP    ${VALUES.TEMP}`),
       'The saved readings were not written into the open encounter note');
     h.assert(notes() === notesBefore, 'The group save created a separate note although the popup skips it');
   });
@@ -114,14 +115,15 @@ async function workflow(s) {
       AND type='BP' AND dataField=${h.sqlString(VALUES.BP)} AND measuringInstruction=${h.sqlString(instruction)}
       AND comments=${h.sqlString(marker)} AND DATE(dateObserved)=${h.sqlString(OBSERVED)}
       AND providerNo=${h.sqlString(provider)}`) === '1', 'The archived reading does not match what was deleted');
-    h.assert(sql.value(`SELECT COUNT(*) FROM (${reading('HR')}) r`) === '1', 'Delete touched the unselected HR reading');
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`) === '2'
+      && sql.value(`SELECT COUNT(*) FROM (${reading('HR')}) r`) === '1', 'Delete touched an unselected reading');
     h.assert(await history.locator(`input[name="deleteCheckbox"][value="${ids.BP}"]`).count() === 0,
       'The deleted reading is still listed in history');
     await history.close();
     const group = await openGroup('vitals-after-delete');
     h.assert(await group.locator('i.fa-clock[onclick*="type=BP"]').count() === 0,
       'The group page still offers the deleted BP reading as the last value');
-    await group.locator('i.fa-clock[onclick*="type=HR"]').waitFor({ state: 'visible' });
+    await group.locator('i.fa-clock[onclick*="type=TEMP"]').waitFor({ state: 'visible' });
     await group.close();
   });
 
@@ -136,6 +138,15 @@ async function workflow(s) {
     const exportPage = await s.popup(types, row.locator('a[href*="ViewExportMeasurement"]'), 'measurement-export');
     const response = await exportPage.waitForEvent('response', r => r.url() === exportPage.url()).catch(() => null);
     console.log(exportPage.url(), response && response.status());
+  });
+
+  await s.step('the group page shows the last value of every stored type', async () => {
+    const group = await openGroup('vitals-last-values');
+    const last = group.locator('tr.note').filter({ has: group.locator('i.fa-clock[onclick*="type=HR"]') });
+    h.assert(await last.count() === 1,
+      'The group page hides the last Heart Rate reading because that reading has no measuring instruction');
+    h.assert((await last.innerText()).includes(VALUES.HR), 'The group page shows the wrong last Heart Rate value');
+    await group.close();
   });
 }
 

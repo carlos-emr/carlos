@@ -3847,11 +3847,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "Fails after its positive steps on 2026.08: report/ViewReportonbilledvisitprovider changes security roles on a tokenless GET; later steps assert the ignored Non Rostered filter and the sort links that drop the time window.",
+      "fixtures": "Owned patient; two marker providers (800000-899999) with one secUserRole and one providersite row; one mygroup row; six appointments today; three legacy billing/billingdetail rows; all id/marker scoped and removed."
     },
     {
       "name": "antenatal-annual-review-planner",
@@ -4042,6 +4045,48 @@
     {
       "name": "demographic-relations-pdf-labels",
       "script": "scripts/demographic-relations-pdf-labels-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "dx-registry-status-update",
+      "script": "scripts/dx-registry-status-update-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "eform-deleted-restore",
+      "script": "scripts/eform-deleted-restore-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "patient-photo-upload",
+      "script": "scripts/patient-photo-upload-playwright-checks.js",
       "tiers": [
         "core"
       ],

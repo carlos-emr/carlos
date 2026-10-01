@@ -187,8 +187,9 @@ async function workflow(s) {
   // ── Administration ▸ Reports ▸ PHCP settings and report ─────────────────────────────────────
   const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context: s.context, recorder: s.recorder, label: 'administration', timeout: 20000 });
-  const roleRows = () => sql.rows(`SELECT id,provider_no,role_name FROM secUserRole WHERE provider_no NOT IN
-    (${state.providers.map(q).join(',')}) ORDER BY id`).map(r => r.join(':')).join(',');
+  // Scoped to the test login's own roles: other checks create throwaway logins concurrently.
+  const roleRows = () => sql.rows(`SELECT id,role_name FROM secUserRole WHERE provider_no=${q(provider)}
+    ORDER BY id`).map(r => r.join(':')).join(',');
   const otherRolesBefore = roleRows();
 
   let settings;
@@ -213,7 +214,7 @@ async function workflow(s) {
     h.assert(await settings.locator(`select[name="name${nurse}"]`).inputValue() === 'nurse', 'The saved role was not redisplayed');
     h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(roleless)}`) === '0',
       'Updating one provider also created a role for the role-less provider');
-    h.assert(roleRows() === otherRolesBefore, 'Updating one provider changed another provider\'s roles');
+    h.assert(roleRows() === otherRolesBefore, 'Updating one provider changed the test login\'s roles');
   });
 
   let phcp;
@@ -351,6 +352,19 @@ async function workflow(s) {
   });
 
   // ── Correct behaviour the application does not have yet (asserted last) ────────────────────
+  await s.step('a GET carrying the PHCP role-update parameters does not change secUserRole', async () => {
+    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider'
+      + `?buttonUpdate=Update&providerId=${nurse}&name${nurse}=doctor`), { maxRedirects: 0 });
+    await response.dispose();
+    h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${q(nurse)}`) === 'nurse',
+      'A tokenless GET changed a security role (report/ViewReportonbilledvisitprovider mutates on GET)');
+  });
+  await s.step('Non Rostered Only leaves the rostered patient off the day sheet', async () => {
+    const sheet = await daySheet('day sheet non-rostered', { providerNo: provider, nonRostered: true });
+    const found = await listed(sheet);
+    await sheet.close();
+    h.assert(found.length === 0, `Non Rostered Only still listed the rostered patient's appointments [${found}]`);
+  });
   await s.step('sorting a time-windowed day sheet keeps its time window', async () => {
     const sheet = await daySheet('day sheet sort', { providerNo: provider });
     await Promise.all([sheet.waitForNavigation({ waitUntil: 'domcontentloaded' }),
@@ -358,12 +372,6 @@ async function workflow(s) {
     const found = await listed(sheet);
     await sheet.close();
     h.assert(same(found, ['visit', 'self']), `Sorting dropped the 8 am-8 pm window and listed [${found}]`);
-  });
-  await s.step('Non Rostered Only leaves the rostered patient off the day sheet', async () => {
-    const sheet = await daySheet('day sheet non-rostered', { providerNo: provider, nonRostered: true });
-    const found = await listed(sheet);
-    await sheet.close();
-    h.assert(found.length === 0, `Non Rostered Only still listed the rostered patient's appointments [${found}]`);
   });
 }
 

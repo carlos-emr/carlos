@@ -239,6 +239,7 @@ async function workflow(s) {
       report.locator(`#createLabel_${labNo}`).click(),
     ]);
     h.assert(response.status() === 200, `createLabLabel answered HTTP ${response.status()}`);
+    console.log('DBG', JSON.stringify(await response.allHeaders()), String(await response.finished()));
     await expectValue(sql, `SELECT label FROM hl7TextInfo WHERE lab_no=${labNo}`, label,
       'hl7TextInfo.label does not hold the typed label');
     await report.waitForFunction(({ id, text }) => document.querySelector(`#labelspan_${id} i`)?.textContent.trim() === text,

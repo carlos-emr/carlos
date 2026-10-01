@@ -190,7 +190,12 @@ async function workflow(s) {
     await registry.close();
   });
   await s.step('Edit Associations lists the owned mapping with its registry description', async () => {
+    const listed = s.context.waitForEvent('response', r => new URL(r.url()).searchParams.get('method') === 'getAllAssociations');
     const associations = await s.popup(admin, frame.getByRole('button', { name: 'Edit Associations', exact: true }), 'dx-associations');
+    const body = await (await listed).text();
+    let parsed = null;
+    try { parsed = JSON.parse(body); } catch { /* asserted below */ }
+    assert(Array.isArray(parsed), 'The association list endpoint did not answer a JSON array (the page cannot render it)');
     const row = associations.locator('#associations tbody tr', { has: associations.locator('td', { hasText: `${marker}S` }) });
     await row.waitFor({ state: 'visible' });
     const cells = await row.locator('td').allInnerTexts();
