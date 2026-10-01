@@ -17,7 +17,8 @@
  * (login_lock unset), the entry this run created is unlocked before the check fails. Any failure
  * from the first probe through the unlock step first releases this run's lock (the username and
  * the client address its own failures were audited from) with a direct POST from the admin page,
- * because the Unlock page itself can answer 500 and the browser is closed before cleanups run.
+ * because the Unlock page itself can answer 500 and the browser is closed before cleanups run;
+ * the release is then proven by a correct-password attempt that must not meet the lockout.
  * Fixtures: the throwaway provider/security/secUserRole rows (lib/throwaway-login-fixture.js);
  * cleanup deletes every owned row, including its audit rows, and asserts they are gone.
  */
@@ -92,13 +93,20 @@ async function workflow(s) {
         xhr.onloadend = () => resolve(xhr.status);
         xhr.send(new URLSearchParams({ userName: key, submit: 'Unlock' }).toString());
       }), { url, key });
-      console.log(`  Released lock entry for ${key === username ? 'the throwaway username' : 'this run\'s client address'} (HTTP ${status})`);
+      console.log(`  Release POST for ${key === username ? 'the throwaway username' : 'this run\'s client address'} answered HTTP ${status}`);
     }
     // Address unlocks are audited against the address, outside the fixture's owned-log predicate.
     if (addresses.length) {
       sql.execute(`DELETE FROM log WHERE id > ${logMark} AND action='unlock' AND content='adminUnlock'
         AND provider_no=${h.sqlString(s.provider)} AND contentId IN (${addresses.map(h.sqlString).join(',')})`);
     }
+    // The status alone proves nothing (a CSRF or privilege refusal also completes), so prove the
+    // release the way the lock is observed: the throwaway's correct password from this runner must
+    // no longer meet the lockout message, whether the lock was keyed by username or by address.
+    const verify = await probe(config.testPassword);
+    await verify.page.close();
+    h.assert(verify.outcome !== 'locked', 'The lock is still in place after the release POSTs; this runner or the'
+      + ' throwaway username stays blocked until login_max_duration expires');
   }
 
   let frame = await openUnlock();
@@ -193,7 +201,11 @@ async function workflow(s) {
         AND provider_no=${h.sqlString(s.provider)}`, '1', 'The unlock was not audited against the administrator');
     });
   } catch (error) {
-    await releaseOwnLocks().catch(release => console.log(`  Failure-safe lock release failed: ${release.message}`));
+    // A failed release is reported with the original failure, not just logged, so a lock left
+    // behind is never mistaken for a clean run of the cleanup.
+    await releaseOwnLocks().catch(release => {
+      error.message = `${error.message} [and the failure-safe lock release FAILED: ${release.message}]`;
+    });
     throw error;
   }
 
