@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
+import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
@@ -421,7 +422,7 @@ public class AddEForm2Action extends ActionSupport {
                     attachedHRMDocuments,
                     attachedForms
                 );
-                addEmailAttachmentsToSession(request, settings);
+                addEmailAttachmentsToSession(request, fid, settings);
                 redirectToEmailCompose(fid);
                 return NONE;
             }
@@ -484,7 +485,7 @@ public class AddEForm2Action extends ActionSupport {
                     attachedHRMDocuments,
                     attachedForms
                 );
-                addEmailAttachmentsToSession(request, settings);
+                addEmailAttachmentsToSession(request, fid, settings);
                 redirectToEmailCompose(fid);
                 return NONE;
             }
@@ -737,7 +738,7 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     /**
-     * Stores email attachment data in session for use after redirect.
+     * Stores one immutable email draft in session for use after redirect.
      * Session attributes survive redirects, unlike request attributes.
      *
      * <p>All boolean values are pre-validated via {@code "true".equals()} in
@@ -745,30 +746,13 @@ public class AddEForm2Action extends ActionSupport {
      * via {@link EmailAttachmentSettings#of} before storage.</p>
      *
      * @param request HTTP request
+     * @param fid saved eForm template identifier, kept with the draft rather than the redirect URL
      * @param settings EmailAttachmentSettings containing all attachment configuration
      */
-    private void addEmailAttachmentsToSession(HttpServletRequest request, EmailAttachmentSettings settings) {
-        // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- all values are validated booleans, sanitized strings,
-        // or document ID arrays sourced from the eForm save workflow. Output encoding is in EmailCompose2Action.
-        HttpSession session = request.getSession();
-        session.setAttribute("deleteEFormAfterEmail", settings.deleteEFormAfterEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("isEmailEncrypted", settings.isEmailEncrypted()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("isEmailAttachmentEncrypted", settings.isEmailAttachmentEncrypted()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("isEmailAutoSend", settings.isEmailAutoSend()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("openEFormAfterEmail", settings.openAfterEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("attachEFormItSelf", settings.attachEFormItSelf()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("fdid", settings.fdid()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("demographicId", settings.demographicNo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("attachedEForms", settings.attachedEForms()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("attachedDocuments", settings.attachedDocuments()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("attachedLabs", settings.attachedLabs()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("attachedHRMDocuments", settings.attachedHRMDocuments()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("attachedForms", settings.attachedForms()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("senderEmail", settings.senderEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("subjectEmail", settings.subjectEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("bodyEmail", settings.bodyEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+    private void addEmailAttachmentsToSession(HttpServletRequest request, String fid, EmailAttachmentSettings settings) {
+        // Publish the template, patient, message and selections together; separate session writes
+        // can mix two patients when saves overlap. The settings own their attachment ID arrays.
+        EmailComposeStaging.stage(request.getSession(), fid, settings);
     }
 
     /**

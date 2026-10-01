@@ -45,6 +45,24 @@ class EmailAttachmentSettingsUnitTest {
     private static final String MAX_LENGTH_EMAIL = "a".repeat(64) + "@" + "b".repeat(63)
             + "." + "c".repeat(63) + "." + "d".repeat(61);
 
+    @Test
+    void attachmentArraysRemainDetachedAcrossConstructionAndAccess() {
+        String[] ids = {"30001"};
+        EmailAttachmentSettings settings = EmailAttachmentSettings.of(
+                new MockHttpServletRequest(), "20001", "10001", ids, ids, ids, ids, ids);
+        ids[0] = "30002";
+        for (String[] copy : new String[][]{settings.attachedEForms(), settings.attachedDocuments(),
+                settings.attachedLabs(), settings.attachedHRMDocuments(), settings.attachedForms()}) {
+            assertThat(copy).containsExactly("30001");
+            copy[0] = "30003";
+        }
+        assertThat(settings.attachedEForms()).containsExactly("30001");
+        assertThat(settings.attachedDocuments()).containsExactly("30001");
+        assertThat(settings.attachedLabs()).containsExactly("30001");
+        assertThat(settings.attachedHRMDocuments()).containsExactly("30001");
+        assertThat(settings.attachedForms()).containsExactly("30001");
+    }
+
     @Nested
     @DisplayName("request factory")
     class RequestFactory {

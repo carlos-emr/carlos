@@ -172,6 +172,64 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void modernSnapshotKeepsPatientTemplateContentAndAttachmentsTogetherAcrossRefresh() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        HttpSession session = request.getSession();
+        var settings = new io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings(
+                "20001", "10001", new String[]{"21001"}, new String[]{"30001"}, new String[]{"31001"},
+                new String[]{"32001"}, new String[]{"33001"}, true, true, false, false, false, true,
+                "fake-a@example.com", "FAKE subject A", "FAKE message A", null, "FULL");
+        io.github.carlos_emr.carlos.email.core.EmailComposeStaging.stage(session, "40001", settings);
+        // Generic patient navigation and an older window's redirect must not alter the draft tuple.
+        session.setAttribute("demographicId", 10002);
+        session.setAttribute("fdid", "20002");
+        session.setAttribute("subjectEmail", "FAKE subject B");
+        request.setParameter("fid", "40002");
+        EmailCompose2Action.cleanupEmailSessionAttributes(request);
+        session.setAttribute("demographicId", 10002);
+        when(mocks.emailComposeManager().prepareEFormAttachments(any(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    assertThat(Thread.holdsLock(org.springframework.web.util.WebUtils.getSessionMutex(session))).isFalse();
+                    assertThat((String) invocation.getArgument(1)).isEqualTo("20001");
+                    assertThat((String[]) invocation.getArgument(2)).containsExactly("21001");
+                    return List.of();
+                });
+        when(mocks.emailComposeManager().prepareFormAttachments(any(), any(), any(), anyInt(), any()))
+                .thenAnswer(invocation -> {
+                    assertThat(Thread.holdsLock(org.springframework.web.util.WebUtils.getSessionMutex(session))).isFalse();
+                    assertThat((Integer) invocation.getArgument(3)).isEqualTo(10001);
+                    return List.of();
+                });
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            String id = prepare(servlet, request, new MockHttpServletResponse());
+            Object token = null;
+            for (int i = 0; i < 2; i++) {
+                MockHttpServletRequest rendered = view(servlet, session, id, new MockHttpServletResponse(), "compose");
+                assertThat(rendered.getAttribute("demographicId")).isEqualTo("10001");
+                assertThat(rendered.getAttribute("fdid")).isEqualTo("20001");
+                assertThat(rendered.getAttribute("fid")).isEqualTo("40001");
+                assertThat(rendered.getAttribute("subjectEmail")).isEqualTo("FAKE subject A");
+                assertThat(rendered.getAttribute("message")).isEqualTo("FAKE message A");
+                assertThat(rendered.getAttribute("senderEmail")).isEqualTo("fake-a@example.com");
+                assertThat(rendered.getAttribute("openEFormAfterEmail")).isEqualTo(true);
+                assertThat(rendered.getAttribute("deleteEFormAfterEmail")).isEqualTo(true);
+                if (i == 0) token = rendered.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
+                else assertThat(rendered.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM)).isEqualTo(token);
+            }
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            assertThat(new EmailCompose2Action().prepareComposeEFormMailer()).isEqualTo("composeExpired");
+        }
+        verify(mocks.emailComposeManager()).prepareEFormAttachments(any(), eq("20001"), eq(new String[]{"21001"}), any());
+        verify(mocks.emailComposeManager()).prepareEDocAttachments(any(), eq(new String[]{"30001"}), any());
+        verify(mocks.emailComposeManager()).prepareLabAttachments(any(), eq(new String[]{"31001"}), any());
+        verify(mocks.emailComposeManager()).prepareHRMAttachments(any(), eq(new String[]{"32001"}), any());
+        verify(mocks.emailComposeManager()).prepareFormAttachments(any(), any(), eq(new String[]{"33001"}), eq(10001), any());
+        verify(mocks.emailPdfPasswordService()).generatePassphrase();
+    }
+
+    @Test
     @DisplayName("should reject invalid fid and sanitize value for logging")
     void shouldRejectFid_whenInvalidValueProvided() throws Exception {
         DemographicManager demographicManager = mock(DemographicManager.class);
