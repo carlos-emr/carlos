@@ -250,6 +250,17 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.equal(requests[0].get('recipientFaxNumber'), '');
+    // A number typed into the form's own other-fax field after clearing a list is used, not
+    // the cleared list and not the older designer choice.
+    await open(true, true);
+    await page.locator('#designerAddFax').click();
+    await page.locator('#faxnumList').selectOption('416-555-0102');
+    await page.locator('#faxnumList').selectOption('');
+    await page.locator('#otherFaxInput').fill('416-555-0133');
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0133');
     await open();
     await page.locator('#remoteFaxOptions summary').click();
     await page.locator('#remoteFaxNumber').fill('');
