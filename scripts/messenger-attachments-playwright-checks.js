@@ -275,6 +275,8 @@ async function workflow(s) {
     const post = new URLSearchParams(captured.post);
     h.assert(post.get('isPreview') === 'true' && (post.get('srcText') || '').length > 0, 'Preview did not post the rendered patient page');
     h.assert(sent(pdfSubject).length === 0, 'Previewing wrote a message');
+    // Let the frames finish loading so closing the window aborts nothing.
+    await attach.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
     await attach.close();
   });
 

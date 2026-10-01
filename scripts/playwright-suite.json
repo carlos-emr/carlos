@@ -3895,11 +3895,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "Fails at its last step on 2026.08: the Administration Lab Forwarding Rules page binds its provider selector to the wrong id, so no provider's rules can be loaded or saved.",
+      "fixtures": "Logs in as a throwaway provider with its own OHIP number and an owned forward target; uploads an owned synthetic CML lab; owned rules, routing rows, labs and archived upload files removed."
     },
     {
       "name": "messenger-demographic-link",
@@ -4221,11 +4224,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "Fails at its last step on 2026.08: Row Display throws ReferenceError (scanDOM) and loads a missing spinner image.",
+      "fixtures": "Owned patient; a two-test lab created through Inbox ▸ Create Lab under an owned accession; lab, routing and measurement rows removed."
     },
     {
       "name": "session-heartbeat-timeout",

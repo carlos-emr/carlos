@@ -172,10 +172,16 @@ async function workflow(s) {
   });
 
   await s.step('the next heartbeat reports the expiry; the chart closes itself and the schedule returns to login', async () => {
+    const failuresBefore = recorder.requestFailures.length;
     const chartClosed = chart.isClosed() ? Promise.resolve() : chart.waitForEvent('close', { timeout: HEARTBEAT_WAIT + TIMEOUT });
     const beat = await heartbeats.next({ after: ended });
     h.assert(beat.status === 200 && beat.body && beat.body.valid === false, 'The first heartbeat after the session ended did not report it expired');
     await chartClosed;
+    // The chart releases its note lock with a sendBeacon on pagehide, which Chromium aborts
+    // as the window closes. Consume only that ping from this close; all else stays strict.
+    const added = recorder.requestFailures.splice(failuresBefore);
+    recorder.requestFailures.push(...added.filter(entry => !(entry.resourceType === 'ping'
+      && entry.errorText === 'net::ERR_ABORTED' && h.pathOnly(entry.url).endsWith('/CaseManagementEntry'))));
     await onLoginForm(s.schedule);
     h.assert(await s.schedule.locator('a.adhour').count() === 0, 'The schedule still showed the day sheet after session loss');
   });

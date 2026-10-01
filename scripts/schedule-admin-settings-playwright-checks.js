@@ -249,7 +249,15 @@ async function workflow(s) {
 
   let settingFrame;
   await s.step('the week-setting template list previews the owned template in the owned code\'s colour and description', async () => {
+    // ProviderDao.getActiveProviders() is a five-minute Spring cache evicted only by provider
+    // admin writes, so a provider row seeded by SQL appears once the entry expires.
+    const deadline = Date.now() + 330000;
     settingFrame = await scheduleSetting();
+    while (await settingFrame.locator(`select[name="provider_no"] option[value="${owner}"]`).count() === 0) {
+      h.assert(Date.now() < deadline, 'Schedule Setting never offered the owned provider');
+      await new Promise(resolve => setTimeout(resolve, 15000));
+      settingFrame = await scheduleSetting();
+    }
     await frameNavigation(admin, settingFrame, () => settingFrame.locator('select[name="provider_no"]').selectOption(owner));
     h.assert(/\/schedule\/TemplateApplying/.test(settingFrame.url()), 'Selecting the provider did not open the week setting step');
     const option = settingFrame.locator(`select[name="mytemplate"] option[value="${templateName}"]`);
