@@ -359,7 +359,7 @@ public class CategoryData {
                     + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
                     + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
                     + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                    + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? SQL_IS_NOT_NULL : " like ? ")
+                    + hinFilter("like ?")
                     + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
                     + (providerSearch ? "AND plr.provider_no = ? " : "")
                     + " AND plr.lab_type = 'HL7' "
@@ -422,7 +422,7 @@ public class CategoryData {
                 + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : "  like ? ")
                 + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? SQL_IS_NOT_NULL : " like ? ")
+                + hinFilter("like ?")
                 + " AND plr.lab_type = 'HL7' "
                 + " AND cd.lab_type = 'HL7' "
                 + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
@@ -514,7 +514,7 @@ public class CategoryData {
                 + "LEFT JOIN providerLabRouting plr ON cd.document_no = plr.lab_no "
                 + documentJoinSql
                 + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
-                + " AND d.hin" + (StringUtils.isEmpty(patientHealthNumber) ? SQL_IS_NOT_NULL : " like ? ")
+                + hinFilter("like ?")
                 + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
                 + " AND plr.lab_type = 'DOC' "
                 + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
@@ -555,6 +555,16 @@ public class CategoryData {
         return rs.next() ? rs.getInt(COUNT_COLUMN) : 0;
     }
 
+    /**
+     * The HIN condition of a patient search. A blank HIN field adds none: {@code d.hin} is nullable
+     * (uninsured, newborn, out-of-province or imported patients), and {@code d.hin IS NOT NULL}
+     * would leave those patients out of the Inbox counts and patient list while the result rows,
+     * which treat a NULL HIN as empty, still show their labs and documents.
+     */
+    private String hinFilter(String condition) {
+        return StringUtils.isEmpty(patientHealthNumber) ? "" : " AND d.hin " + condition + " ";
+    }
+
     private void addPatientSearchParams(List<Object> params) {
         if (!StringUtils.isEmpty(patientLastName)) params.add("%" + patientLastName + "%");
         if (!StringUtils.isEmpty(patientFirstName)) params.add("%" + patientFirstName + "%");
@@ -579,7 +589,7 @@ public class CategoryData {
            .append(" JOIN demographic d ON hd.demographicNo = d.demographic_no ")
            .append(" WHERE 1=1 ")
            .append(" AND d.last_name ").append(StringUtils.isNotEmpty(patientLastName) ? "LIKE :patientLastName " : SQL_IS_NOT_NULL_NO_PREFIX)
-           .append(" AND d.hin ").append(StringUtils.isNotEmpty(patientHealthNumber) ? "LIKE :patientHealthNumber " : SQL_IS_NOT_NULL_NO_PREFIX)
+           .append(hinFilter("LIKE :patientHealthNumber"))
            .append(" AND d.first_name ").append(StringUtils.isNotEmpty(patientFirstName) ? "LIKE :patientFirstName " : SQL_IS_NOT_NULL_NO_PREFIX)
            .append(hrmSignedOff).append(hrmDateSql).append(hrmProviderSql)
            .append(" GROUP BY d.demographic_no ");
