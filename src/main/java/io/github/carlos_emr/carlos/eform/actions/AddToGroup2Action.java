@@ -61,6 +61,16 @@ public class AddToGroup2Action extends ActionSupport {
         request.setAttribute("group_view", groupName);
         return SUCCESS;
     }
+
+    /**
+     * Where the success redirect lands: the group just changed. A redirect, not a forward:
+     * the groups page gate refuses POST, so the forward ended on "CARLOS Error: 405" (#4130).
+     *
+     * @return the application-relative groups page for this group, never null
+     */
+    public String getRedirectTarget() {
+        return EFormGroupRedirect.toGroup(groupName);
+    }
     private String fid;
     private String groupName;
 

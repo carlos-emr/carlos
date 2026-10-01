@@ -39,9 +39,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -75,11 +72,7 @@ public class RemoveFromGroup2Action extends ActionSupport {
      * @return the application-relative groups page for this group, never null
      */
     public String getRedirectTarget() {
-        String groupName = request.getParameter("groupName");
-        if (groupName == null || groupName.isEmpty()) {
-            return "/eform/efmmanageformgroups";
-        }
-        return "/eform/efmmanageformgroups?group_view=" + URLEncoder.encode(groupName, StandardCharsets.UTF_8);
+        return EFormGroupRedirect.toGroup(request.getParameter("groupName"));
     }
 
 }

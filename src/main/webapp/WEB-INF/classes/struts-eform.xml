@@ -174,10 +174,12 @@
             <result name="success" type="redirect">/eform/efmformmanagerdeleted</result>
         </action>
         <action name="eform/addGroup" class="io.github.carlos_emr.carlos.eform.actions.AddGroup2Action">
-            <result name="success">/eform/efmmanageformgroups</result>
+            <!-- REDIRECT, not a forward: see removeFromGroup below (#4130). -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eform/addToGroup" class="io.github.carlos_emr.carlos.eform.actions.AddToGroup2Action">
-            <result name="success">/eform/efmmanageformgroups</result>
+            <!-- REDIRECT, not a forward: see removeFromGroup below (#4130). -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eforms/removeFromGroup" class="io.github.carlos_emr.carlos.eform.actions.RemoveFromGroup2Action">
             <!-- REDIRECT, not a forward: same 405-after-success defect and fix as
