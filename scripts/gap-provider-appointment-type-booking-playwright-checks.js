@@ -17,19 +17,20 @@
  * the edit popup shows the same type, reason and duration. The stacking assertion comes last.
  * Fixtures: two SEEDED appointmentType rows chosen at run time and never modified (the Type menu reads
  * a 30-minute AppointmentTypeDao cache that SQL-inserted types would miss), the throwaway login
- * (lib/throwaway-login-fixture.js) and the owned FAKE- patient. Cleanup deletes the owned appointment
+ * (lib/gap-provider-fixture.js, a number owning no appointment rows) and the owned FAKE- patient. Cleanup deletes the owned appointment
  * and archive rows, then the throwaway, and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
+const { createUnbookedThrowaway, registerAppointmentCleanup } = require('./lib/gap-provider-fixture');
 
 async function workflow(s) {
   const { sql, config, recorder, marker, patient } = s;
-  const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: config.testUser });
-  s.cleanup(() => fixture.cleanup());
-  fixture.create();
+  // createUnbookedThrowaway refuses a provider number that already owns appointment rows, so the
+  // by-provider-number cleanup can only remove rows this run created.
+  const fixture = createUnbookedThrowaway(s);
+  registerAppointmentCleanup(s, fixture);
   const owner = h.sqlString(fixture.providerNo);
   // The popup's Type menu reads AppointmentTypeDao's 30-minute cache, which only the app's own writes evict,
   // so types seeded by SQL would not be offered. Use two seeded (demo) types and never modify them.
@@ -43,11 +44,6 @@ async function workflow(s) {
     if (types.length === 2) break;
   }
   if (types.length < 2) throw new h.SkipCheck('Fewer than two seeded appointment types with distinct durations');
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM appointmentArchive WHERE provider_no=${owner}; DELETE FROM appointment WHERE provider_no=${owner}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE provider_no=${owner})
-      + (SELECT COUNT(*) FROM appointmentArchive WHERE provider_no=${owner})`) === '0', 'Owned appointment rows were not removed');
-  });
   const context = await h.newContext(s.context.browser(), config);
   context.setDefaultTimeout(20000);
   context.on('page', page => h.wireStrictPage(page, 'throwaway', recorder));
@@ -108,6 +104,7 @@ async function workflow(s) {
     const [row] = sql.rows(`SELECT type,reason,notes,resources,location,start_time,end_time,demographic_no FROM appointment WHERE provider_no=${owner}`);
     h.assert(row[0] === types[0].name && row[1] === types[0].reason && row[2] === types[0].notes && row[3] === types[0].resources && row[7] === patient,
       'The saved booking does not carry the type, reason, notes and resources of type A for the owned patient');
+    h.assert(String(row[5]).startsWith(slotStart.slice(0, 5)), `The saved start time ${row[5]} does not match the clicked slot ${slotStart}`);
     h.assert(minutes(row[6]) - minutes(row[5]) === types[0].duration - 1, `The saved end time ${row[6]} is not start ${row[5]} + the type's ${types[0].duration} minutes - 1`);
     h.assert(row[4] === types[0].location, `The saved location "${row[4]}" is not the type's location`);
     await popup.close().catch(() => {});
@@ -117,6 +114,7 @@ async function workflow(s) {
     await edit.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
     h.assert(await edit.locator('#reason').inputValue() === types[0].reason, 'The edit popup does not show the saved reason');
     h.assert(await edit.locator('[name="type"]').first().inputValue() === types[0].name, 'The edit popup does not show the saved type');
+    h.assert(await edit.locator('#duration').inputValue() === String(types[0].duration), 'The edit popup does not show the saved duration');
     await edit.close();
   });
 

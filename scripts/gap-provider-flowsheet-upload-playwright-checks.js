@@ -18,15 +18,18 @@
  * any well-formed XML (a NULL-named Flowsheet row is stored) and manageFlowsheets.jsp never renders the
  * flashError the upload action sets, so a refused upload looks like a successful one that added nothing.
  * Fixtures: one flowsheet definition and one measurement type, both named with the run marker's hex
- * tail; cleanup deletes only those rows and asserts they are gone. The in-memory flowsheet registry is
- * refreshed by the next flowsheet admin action; the dx trigger matches no patient so nothing else sees it.
+ * tail; cleanup deletes only those rows and asserts they are gone. The upload loaded the flowsheet and its
+ * measurement type into two in-memory registries (MeasurementTemplateFlowSheetConfig, MeasurementTypes), so
+ * after the SQL delete the check asks the application to reload both (POST admin/Flowsheet method=reload; POST
+ * DeleteMeasurementTypes with nothing ticked, which only re-reads the table) and asserts the flowsheet is no
+ * longer listed; the dx trigger matches no patient so nothing else sees the rows in the meantime.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
-async function workflow(s) {
+async function body(s, state) {
   const { sql, marker } = s;
   const hex = marker.replace(/^FAKE-PW/, '');
   const name = `pw${hex.slice(0, 12)}`;
@@ -52,12 +55,31 @@ async function workflow(s) {
   });
   const flowsheetRow = () => sql.rows(`SELECT enabled,external FROM Flowsheet WHERE name=${nameSql}`)[0];
   const defects = [];
+  // Delete the owned rows, then make the running application forget them (both registries are in memory). Runs from the
+  // wrapper's finally, while the browser context is still open; the s.cleanup above remains the database safety net.
+  state.purge = async () => {
+    sql.execute(`DELETE FROM Flowsheet WHERE name=${nameSql} OR content LIKE ${h.sqlString(`%${marker}%`)};
+      DELETE FROM measurementType WHERE type=${h.sqlString(type)}`);
+    if (!state.uploaded) return;
+    h.assert(state.token, 'Cannot reload the flowsheet registries without a CSRF token');
+    const post = async (route, form) => {
+      const answer = await s.context.request.post(`${s.config.baseUrl}${route}`, {
+        headers: { 'CSRF-TOKEN': state.token }, form: { ...form, 'CSRF-TOKEN': state.token }, maxRedirects: 0, timeout: 30000 });
+      h.assert(answer.status() < 400, `Reloading the registries through ${route} answered HTTP ${answer.status()}`);
+    };
+    await post('/admin/Flowsheet', { method: 'reload' });
+    await post('/encounter/oscarMeasurements/DeleteMeasurementTypes', {});
+    const listing = await s.context.request.get(`${s.config.baseUrl}/admin/ManageFlowsheets`);
+    h.assert(listing.status() === 200 && !(await listing.text()).includes(display), 'The reloaded flowsheet registry still lists the removed flowsheet');
+  };
 
   const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context: s.context, recorder: s.recorder, label: 'flowsheet-upload-admin', timeout: 20000 });
   let frame;
   async function submitUpload(file) {
     await frame.locator('input[name="flowsheet_file"]').setInputFiles(file);
+    state.uploaded = true;
+    state.token = await frame.locator('form[action$="/admin/ManageFlowsheetsUpload"] input[name="CSRF-TOKEN"]').first().inputValue().catch(() => '') || state.token;
     const [answer] = await Promise.all([
       admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/admin/ManageFlowsheetsUpload')),
       frame.locator('form[action$="/admin/ManageFlowsheetsUpload"] input[type="submit"]').click(),
@@ -133,6 +155,25 @@ async function workflow(s) {
   await s.step('a non-flowsheet file is refused and a refused upload tells the user why', async () => {
     h.assert(defects.length === 0, defects.join('; '));
   });
+}
+
+async function workflow(s) {
+  const state = { uploaded: false, token: '', purge: null };
+  let failed = false;
+  try {
+    await body(s, state);
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    try {
+      if (state.purge) await state.purge();
+    } catch (error) {
+      // Do not hide the check's own failure behind a cleanup problem; the s.cleanup safety net still asserts the rows are gone.
+      if (!failed) throw error;
+      console.error(`Registry reload after the failure also failed: ${error.message}`);
+    }
+  }
 }
 
 if (require.main === module) runWorkflow('gap-provider-flowsheet-upload', workflow, { openPatient: false });

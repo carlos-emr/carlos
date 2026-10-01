@@ -14,24 +14,21 @@
  * updatedatetime): the link opens the edit popup without an error page, it shows the saved reason, and
  * it offers Update and Delete. The failures are collected and asserted together as the last step so
  * both shapes are reported.
- * Fixtures: the throwaway login (lib/throwaway-login-fixture.js), one owned FAKE- patient and the two
+ * Fixtures: the throwaway login (lib/gap-provider-fixture.js, a number owning no appointment rows), one owned FAKE- patient and the two
  * appointments, seeded by SQL (the shape other writers leave). Cleanup deletes the appointment and
  * archive rows, then the throwaway, and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
-const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
+const { createUnbookedThrowaway, registerAppointmentCleanup } = require('./lib/gap-provider-fixture');
 
 async function workflow(s) {
   const { sql, config, recorder, marker, patient } = s;
-  const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: config.testUser });
-  s.cleanup(() => fixture.cleanup());
-  fixture.create();
+  // createUnbookedThrowaway refuses a provider number that already owns appointment rows, so the
+  // by-provider-number cleanup can only remove rows this run created.
+  const fixture = createUnbookedThrowaway(s);
+  registerAppointmentCleanup(s, fixture);
   const owner = h.sqlString(fixture.providerNo);
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM appointmentArchive WHERE provider_no=${owner}; DELETE FROM appointment WHERE provider_no=${owner}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${owner}`) === '0', 'The owned appointments were not removed');
-  });
   const today = new Date();
   const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const shapes = [

@@ -128,6 +128,9 @@ async function workflow(s) {
 
   await s.step('the message itself is unchanged and still linked', async () => {
     h.assert(ownedState() === before, 'Writing the message to the chart changed or duplicated the message');
+    // Still delivered: the provider's delivery row remains (its status is not asserted, opening the message marks it read).
+    h.assert(sql.value(`SELECT COUNT(*) FROM messagelisttbl WHERE message=${messageId} AND provider_no=${provider}`) === '1',
+      'Writing the message to the chart removed its delivery row');
   });
 }
 

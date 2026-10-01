@@ -31,11 +31,23 @@ async function workflow(s) {
   const hex = marker.replace(/^FAKE-PW/, '');
   const badName = `bad_${hex.slice(0, 10)}`;
   const probeName = `pwprobe${hex.slice(0, 12)}`;
-  const probeProvider = String(randomInt(700000, 799999));
+  // Free means free everywhere cleanup deletes by this number (provider, security, SecurityArchive AND the
+  // audit log), so history left by a deleted provider is never swept up by this run's cleanup.
+  const unused = candidate => {
+    const c = h.sqlString(candidate);
+    return sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${c})
+      + (SELECT COUNT(*) FROM security WHERE provider_no=${c})
+      + (SELECT COUNT(*) FROM SecurityArchive WHERE provider_no=${c})
+      + (SELECT COUNT(*) FROM log WHERE provider_no=${c})`) === '0';
+  };
+  let probeProvider = null;
+  for (let attempt = 0; attempt < 20 && !probeProvider; attempt++) {
+    const candidate = String(randomInt(700000, 799999));
+    if (unused(candidate)) probeProvider = candidate;
+  }
+  h.assert(probeProvider, 'No unused probe provider number was found');
   const providerSql = h.sqlString(probeProvider);
   const names = [badName, probeName].map(h.sqlString).join(',');
-  h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${providerSql})
-    + (SELECT COUNT(*) FROM security WHERE provider_no=${providerSql})`) === '0', 'The probe provider number is already in use');
   s.cleanup(() => {
     sql.execute(`DELETE FROM SecurityArchive WHERE user_name IN (${names});
       DELETE FROM security WHERE user_name IN (${names}) OR provider_no=${providerSql};
@@ -47,6 +59,8 @@ async function workflow(s) {
   sql.execute(`INSERT INTO provider (provider_no,last_name,first_name,provider_type,specialty,sex,status,lastUpdateUser,lastUpdateDate)
     SELECT ${providerSql},${h.sqlString(marker)},'Probe',provider_type,specialty,sex,'1',${h.sqlString(s.provider)},NOW()
     FROM provider WHERE provider_no=${h.sqlString(s.provider)}`);
+  // The attempted user names are unique to this run, so any audit row carrying one was written by it.
+  const auditRows = () => sql.value(`SELECT COUNT(*) FROM log WHERE contentId IN (${names})`);
   const securityRows = () => sql.value(`SELECT COUNT(*) FROM security WHERE user_name IN (${names}) OR provider_no=${providerSql}`);
   const message = (key, fallback) => bundleMessage(key, fallback);
   const GOOD = 'Aa1!Good-Pass-9';
@@ -100,6 +114,7 @@ async function workflow(s) {
     dialogs = await alerts(async () => { await fill(provider, '', GOOD, GOOD); await submit(); });
     h.assert(dialogs.length === 1, `A missing user name raised ${dialogs.length} alert(s), not one`);
     h.assert(posts.length === 0 && securityRows() === '0', 'A refused form posted or created a login');
+    h.assert(auditRows() === '0', 'A refused form wrote an audit row for the attempted user name');
   });
 
   await s.step('a user name with an underscore is refused by the server with its reason', async () => {
@@ -109,6 +124,7 @@ async function workflow(s) {
     const heading = (await frame.locator('h1').innerText()).trim();
     h.assert(heading === message('admin.securityaddsecurity.msgUserNameInvalid', 'User Name must be 1-30 letters or numbers.')
       && securityRows() === '0', `The invalid user name was not refused with its reason (saw "${heading}")`);
+    h.assert(auditRows() === '0', 'The refused user name wrote an audit row');
   });
 
   await s.step('the user name of an existing login is refused as already in use and creates nothing', async () => {

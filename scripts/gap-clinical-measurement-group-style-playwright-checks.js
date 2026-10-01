@@ -19,10 +19,11 @@
  * row has that key and the chosen group's style never changes.)
  *
  * Fixtures: FAKEPW<hex> groups A and B (each with a type member and a style row), one FAKEPW
- * measurementCSSLocation row whose id is a large explicit number, and B's style row sits AT THAT KEY so
- * a mishandled merge can only ever damage the owned row, never a demo group. Cleanup deletes only those
- * rows (by name and by key), asserts it, and puts both tables' AUTO_INCREMENT counters (advanced by the
- * explicit keys) back to their pre-run values. Coverage plan §3.7 admin-misc.
+ * measurementCSSLocation row whose id comes from the table's own AUTO_INCREMENT (re-drawn until no
+ * demo group's style row has that key), and B's style row sits AT THAT KEY so a mishandled merge can only
+ * ever damage the owned row, never a demo group. Cleanup deletes only those rows (by their FAKEPW names)
+ * and asserts it; the shared AUTO_INCREMENT counters are deliberately never rewound, because a rewind could
+ * reissue an id that another session had used and deleted. Coverage plan §3.7 admin-misc.
  */
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
@@ -36,41 +37,39 @@ async function workflow(s) {
   const gA = `FAKEPW ${hex} style A`;
   const gB = `FAKEPW ${hex} style B`;
   const type = {type: `PW${hex}S`, display: `FAKEPW${hex}S`};
-  const css = 8000000 + Math.floor(Math.random() * 900000);
   const cssName = `FAKEPW-${hex}.css`;
+  // The style sheet id is allocated by the table's own AUTO_INCREMENT (an ordinary insert, as the application's upload
+  // does); no explicit large key and no rewinding of the shared counters, which could hand an id another session
+  // already used and deleted to the next row. It stays null until the fixture insert below.
+  let css = null;
   const owned = () => sql.value(`SELECT (SELECT COUNT(*) FROM measurementGroup WHERE name IN (${q(gA)},${q(gB)}))
-    + (SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN (${q(gA)},${q(gB)}) OR groupID=${css})
-    + (SELECT COUNT(*) FROM measurementCSSLocation WHERE cssID=${css})
+    + (SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN (${q(gA)},${q(gB)}))
+    + (SELECT COUNT(*) FROM measurementCSSLocation WHERE location=${q(cssName)})
     + (SELECT COUNT(*) FROM measurementType WHERE typeDisplayName=${q(type.display)})`);
-  // The explicit 8,xxx,xxx keys below push both tables' AUTO_INCREMENT counters up and deleting the
-  // rows does not rewind them, so every run would leave the clinic's counters further ahead. Snapshot
-  // them first and put them back after the delete. ALTER ... AUTO_INCREMENT never goes below
-  // MAX(id)+1 on InnoDB, so a row another session inserts meanwhile can never be handed a duplicate key.
-  const counterOf = table => sql.value(`SELECT AUTO_INCREMENT FROM information_schema.TABLES
-    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${q(table)}`);
-  const counters = {measurementCSSLocation: counterOf('measurementCSSLocation'), measurementGroupStyle: counterOf('measurementGroupStyle')};
   s.cleanup(() => {
+    // Group B's style row sits at the style sheet's key, so it is removed by its owned group name; nothing is deleted
+    // by a bare numeric key.
     sql.execute(`DELETE FROM measurementGroup WHERE name IN (${q(gA)},${q(gB)});
-      DELETE FROM measurementGroupStyle WHERE groupName IN (${q(gA)},${q(gB)}) OR groupID=${css};
-      DELETE FROM measurementCSSLocation WHERE cssID=${css} AND location=${q(cssName)};
+      DELETE FROM measurementGroupStyle WHERE groupName IN (${q(gA)},${q(gB)});
+      DELETE FROM measurementCSSLocation WHERE location=${q(cssName)};
       DELETE FROM measurementType WHERE typeDisplayName=${q(type.display)} AND type=${q(type.type)}`);
     h.assert(owned() === '0', 'Owned measurement style rows were not removed');
-    for (const [table, next] of Object.entries(counters)) {
-      if (!/^\d+$/.test(next || '')) continue;
-      try {
-        sql.execute(`ALTER TABLE ${table} AUTO_INCREMENT=${Number(next)}`);
-      } catch (error) {
-        // A database account without ALTER rights cannot restore the counter; the rows are gone, which is what matters.
-      }
-    }
   });
-  h.assert(owned() === '0' && sql.value(`SELECT COUNT(*) FROM measurementGroupStyle WHERE groupID=${css}`) === '0',
-    'The per-run measurement style rows already exist');
+  h.assert(owned() === '0', 'The per-run measurement style rows already exist');
   sql.execute(`INSERT INTO measurementType(type,typeDisplayName,typeDescription,measuringInstruction,validation,createDate)
-      VALUES (${q(type.type)},${q(type.display)},${q(`FAKEPW ${hex} type`)},${q(`FAKEPW ${hex} instr`)},'5',NOW());
-    INSERT INTO measurementCSSLocation(cssID,location) VALUES (${css},${q(cssName)});
+    VALUES (${q(type.type)},${q(type.display)},${q(`FAKEPW ${hex} type`)},${q(`FAKEPW ${hex} instr`)},'5',NOW())`);
+  // B's style row must sit AT the style sheet's key, so a mishandled merge can only damage the owned row, never a demo
+  // group: take a style sheet id whose key is free in measurementGroupStyle (another id is drawn if a demo group has it).
+  for (let attempt = 0; attempt < 10 && css === null; attempt++) {
+    const id = sql.value(`INSERT INTO measurementCSSLocation(location) VALUES (${q(cssName)}); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'The style sheet fixture was not created');
+    if (sql.value(`SELECT COUNT(*) FROM measurementGroupStyle WHERE groupID=${id}`) === '0') css = Number(id);
+    else sql.execute(`DELETE FROM measurementCSSLocation WHERE cssID=${id} AND location=${q(cssName)}`);
+  }
+  h.assert(css !== null, 'No style sheet id with a free measurementGroupStyle key was drawn');
+  // B first: its explicit key may equal the counter A would otherwise draw.
+  sql.execute(`INSERT INTO measurementGroupStyle(groupID,groupName,cssID) VALUES (${css},${q(gB)},0);
     INSERT INTO measurementGroupStyle(groupName,cssID) VALUES (${q(gA)},0);
-    INSERT INTO measurementGroupStyle(groupID,groupName,cssID) VALUES (${css},${q(gB)},0);
     INSERT INTO measurementGroup(name,typeDisplayName) VALUES (${q(gA)},${q(type.display)}),(${q(gB)},${q(type.display)})`);
   const idA = sql.value(`SELECT groupID FROM measurementGroupStyle WHERE groupName=${q(gA)}`);
 

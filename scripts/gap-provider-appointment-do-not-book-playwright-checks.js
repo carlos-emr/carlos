@@ -22,19 +22,15 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
+const { createUnbookedThrowaway, registerAppointmentCleanup } = require('./lib/gap-provider-fixture');
 
 async function workflow(s) {
   const { sql, config, recorder, marker } = s;
-  const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: config.testUser });
-  s.cleanup(() => fixture.cleanup());
-  fixture.create();
+  // createUnbookedThrowaway refuses a provider number that already owns appointment rows, so the
+  // by-provider-number cleanup below can only remove rows this run created.
+  const fixture = createUnbookedThrowaway(s);
+  registerAppointmentCleanup(s, fixture);
   const owner = h.sqlString(fixture.providerNo);
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM appointmentArchive WHERE provider_no=${owner}; DELETE FROM appointment WHERE provider_no=${owner}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE provider_no=${owner})
-      + (SELECT COUNT(*) FROM appointmentArchive WHERE provider_no=${owner})`) === '0', 'Owned appointment rows were not removed');
-  });
   const context = await h.newContext(s.context.browser(), config);
   context.setDefaultTimeout(20000);
   context.on('page', page => h.wireStrictPage(page, 'throwaway', recorder));

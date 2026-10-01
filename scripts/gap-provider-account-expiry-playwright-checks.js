@@ -50,7 +50,9 @@ async function workflow(s) {
   }
 
   await s.step('inside the 10-day window the day sheet shows the days remaining and offers Change Password', async () => {
-    setExpiry('DATE_ADD(NOW(), INTERVAL 132 HOUR)'); // 5.5 days: five whole days remain
+    // date_ExpireDate is a DATE (midnight), and LoginCheckLoginBean floors (midnight - now) / 24h, so an expiry six
+    // date boundaries away leaves between five and six days at any time of day: five whole days remain.
+    setExpiry('DATE_ADD(CURDATE(), INTERVAL 6 DAY)');
     const { context, schedule } = await signIn('expiring-login');
     const banner = schedule.locator('#password-expiry-warning');
     await banner.waitFor({ state: 'visible' });

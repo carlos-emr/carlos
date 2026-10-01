@@ -110,6 +110,9 @@ async function workflow(s) {
   await s.step('Repeat every 1 week for three weeks creates the four appointments, the first included', async () => {
     const popup = await openBooking(0, reasonA);
     const start = await popup.locator('form#addappt input[name="start_time"]').inputValue();
+    // The status the booking form submits (a select in the default configuration), read before Repeat reloads the form.
+    const submittedStatus = await popup.locator('form#addappt [name="status"]').first().inputValue();
+    h.assert(submittedStatus !== '', 'The booking form carries no status to compare the series against');
     await openRepeat(popup);
     await popup.locator('select[name="everyNum"]').selectOption('1');
     await popup.locator('#dateUnitWeek').check();
@@ -121,10 +124,13 @@ async function workflow(s) {
       'The weekly series is not on today and the three following weeks');
     h.assert(rows.every(r => r[1].startsWith(start.slice(0, 5)) && r[1] === rows[0][1] && r[2] === rows[0][2]),
       'The series appointments do not share the clicked slot\'s times');
-    h.assert(rows.every(r => r[3] === patient && r[4] === fixture.providerNo && r[5] === rows[0][5] && r[6] === fixture.providerNo),
-      'The series appointments do not share the patient, provider, status and creator');
-    await popup.getByRole('button', { name: /close/i }).click();
-    await popup.waitForEvent('close').catch(() => {});
+    h.assert(rows.every(r => r[3] === patient && r[4] === fixture.providerNo && r[5] === submittedStatus && r[6] === fixture.providerNo),
+      'The series appointments do not carry the owned patient, provider, the status the booking form submitted and creator');
+    // A Close that leaves the popup open must fail here, so the day-sheet step below proves the advertised close flow.
+    await Promise.all([
+      popup.waitForEvent('close', { timeout: 20000 }),
+      popup.getByRole('button', { name: /close/i }).click(),
+    ]);
   });
 
   await s.step('the day sheet shows the new booking after the popup closes', async () => {

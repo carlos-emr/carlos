@@ -56,7 +56,9 @@ async function workflow(s) {
   }
 
   await s.step('Alt+V flips between the all-providers and scheduled-providers view, and back', async () => {
-    const viewall = () => new URL(schedule.url()).searchParams.get('viewall');
+    // The default day sheet carries no viewall parameter, while Alt+V writes viewall=0 explicitly when it flips back;
+    // a missing parameter is the same view as viewall=0.
+    const viewall = () => new URL(schedule.url()).searchParams.get('viewall') || '0';
     const start = viewall();
     await Promise.all([schedule.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: TIMEOUT }), pressShortcut(schedule, 'Alt+KeyV')]);
     const flipped = viewall();

@@ -14,26 +14,24 @@
  * reason toggle "*" (the JSP gives TOGGLE_REASON_BY_PROVIDER defaultVal="yes", but
  * CarlosPropertiesCheck only honours a defaultVal of "true", so with the property unset the toggle
  * is never rendered and a front desk cannot reveal reasons for one provider). The toggle assertion
- * is the last step; the show/hide/tooltip behaviour behind it cannot be driven until it is reachable.
- * Fixtures: the throwaway login (lib/throwaway-login-fixture.js), one owned FAKE- patient and one
+ * and the tooltip exposure (it carries the notes and the free-text reason, ISSUES L329) are asserted together in the last
+ * step; the show/hide behaviour behind the toggle cannot be driven until it is reachable.
+ * Fixtures: the throwaway login (lib/gap-provider-fixture.js, a number owning no appointment rows), one owned FAKE- patient and one
  * appointment on the throwaway's own schedule today. Cleanup removes the appointment, then the
  * throwaway, and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
-const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
+const { createUnbookedThrowaway, registerAppointmentCleanup } = require('./lib/gap-provider-fixture');
 
 async function workflow(s) {
   const { sql, config, recorder, marker, patient } = s;
-  const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: config.testUser });
-  s.cleanup(() => fixture.cleanup());
-  fixture.create();
+  // createUnbookedThrowaway refuses a provider number that already owns appointment rows, so the
+  // by-provider-number cleanup can only remove rows this run created.
+  const fixture = createUnbookedThrowaway(s);
+  registerAppointmentCleanup(s, fixture);
   const owner = h.sqlString(fixture.providerNo);
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM appointmentArchive WHERE provider_no=${owner}; DELETE FROM appointment WHERE provider_no=${owner}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${owner}`) === '0', 'The owned appointment was not removed');
-  });
   const reason = `${marker} SECRETREASON`;
   const notes = `${marker} SECRETNOTES`;
   const today = new Date();
@@ -47,8 +45,9 @@ async function workflow(s) {
   context.on('page', page => h.wireStrictPage(page, 'throwaway', recorder));
   const schedule = await h.login(context, { ...config, testUser: fixture.username }, recorder, { label: 'throwaway-login' });
   const link = schedule.locator('a.apptLink').first();
+  const defects = [];
 
-  await s.step('the day sheet lists the appointment without its reason or notes in the grid (the hover tooltip is reported, not asserted)', async () => {
+  await s.step('the day sheet lists the appointment without its reason or notes in the grid (the hover tooltip is collected for the last step)', async () => {
     await link.waitFor({ state: 'attached' });
     const exposure = await schedule.evaluate(({ reasonText, notesText }) => {
       const visible = [...document.querySelectorAll('body *')].filter(el => el.children.length === 0
@@ -65,10 +64,12 @@ async function workflow(s) {
         notesInTooltip: titles.includes(notesText) };
     }, { reasonText: reason, notesText: notes });
     h.assert(!exposure.visible, 'The default day sheet shows the appointment reason or notes in the grid');
-    // The hover tooltip (name, time, type, reason, notes, warnings: appointmentprovideradminday.jsp appointmentTooltipFull, shown
-    // unconditionally because SHOW_APPT_REASON_TOOLTIP is hard-coded on) discloses both by design, so it is reported, not
-    // asserted; Bootstrap moves `title` into data-bs-original-title, which is why a plain [title] scan never saw it.
-    console.log(`    (the hover tooltip ${exposure.titles ? 'carries' : 'does not carry'} the reason text and ${exposure.notesInTooltip ? 'carries' : 'does not carry'} the notes)`);
+    // The hover tooltip (appointmentprovideradminday.jsp appointmentTooltipFull, shown unconditionally because
+    // SHOW_APPT_REASON_TOOLTIP is hard-coded on) must not disclose the free-text reason or notes either; Bootstrap moves
+    // `title` into data-bs-original-title, which is why a plain [title] scan never saw it. The exposure is collected
+    // here and asserted in the last step, so the grid/popup proofs and the toggle check all run first.
+    if (exposure.titles) defects.push('the hover tooltip carries the appointment\'s free-text reason');
+    if (exposure.notesInTooltip) defects.push('the hover tooltip carries the appointment\'s notes');
   });
 
   await s.step('the appointment\'s own link opens the edit popup, which does show the reason and notes', async () => {
@@ -79,9 +80,11 @@ async function workflow(s) {
     await edit.close();
   });
 
-  await s.step('the provider column header offers the "*" reason toggle', async () => {
-    h.assert(await schedule.locator('a.expand-reason-btn').count() >= 1,
-      'The day sheet column header has no reason toggle "*": TOGGLE_REASON_BY_PROVIDER defaultVal="yes" is not honoured by CarlosPropertiesCheck (only "true" is), so it is hidden while the property is unset');
+  await s.step('the provider column header offers the "*" reason toggle, and the tooltip keeps the reason and notes out', async () => {
+    if (await schedule.locator('a.expand-reason-btn').count() < 1) {
+      defects.push('the day sheet column header has no reason toggle "*": TOGGLE_REASON_BY_PROVIDER defaultVal="yes" is not honoured by CarlosPropertiesCheck (only "true" is), so it is hidden while the property is unset');
+    }
+    h.assert(defects.length === 0, defects.join('; '));
   });
 }
 

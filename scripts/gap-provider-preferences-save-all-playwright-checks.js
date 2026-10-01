@@ -142,7 +142,7 @@ async function workflow(s) {
     await (await field(prefs, 'appointmentScreenFormsNameDisplayLength')).fill('12');
     await (await field(prefs, 'schedule.week_view_weekends')).uncheck();
     for (const [name, value] of Object.entries(VALUES)) await (await field(prefs, name)).fill(value);
-    await (await field(prefs, 'rx_page_size')).selectOption({ index: 1 });
+    await (await field(prefs, 'rx_page_size')).selectOption('PageSize.A4');
     await (await field(prefs, 'default_sex')).selectOption('F');
     await (await field(prefs, 'HC_Type')).selectOption('ON');
     await (await field(prefs, 'cpp_single_line')).check();
@@ -154,6 +154,7 @@ async function workflow(s) {
     h.assert(JSON.stringify(prefRow()) === JSON.stringify(['9', '17', '30', '12']), 'ProviderPreference does not hold the saved range, period and link length');
     for (const [name, value] of Object.entries(VALUES)) h.assert(property(name) === value, `Preference ${name} was not stored as entered`);
     h.assert(property('default_sex') === 'F' && property('HC_Type') === 'ON', 'The clinical defaults were not stored');
+    h.assert(property('rx_page_size') === 'PageSize.A4', 'The Rx page size preference was not stored');
     h.assert(property('cpp_single_line') === 'yes' && property('rx_show_patient_dob') === 'yes' && property('lab_ack_comment') === 'yes',
       'The checkbox preferences were not stored');
     h.assert(sql.value(`SELECT printQrCodeOnPrescriptions FROM ProviderPreference WHERE providerNo=${owner}`) === '1', 'The Rx QR code preference was not stored');
@@ -183,6 +184,7 @@ async function workflow(s) {
       && await value('appointmentScreenFormsNameDisplayLength') === '12', 'The reopened form lost the schedule settings');
     for (const [name, expected] of Object.entries(VALUES)) h.assert(await value(name) === expected, `The reopened form lost ${name}`);
     h.assert(await value('default_sex') === 'F' && await value('HC_Type') === 'ON', 'The reopened form lost the clinical defaults');
+    h.assert(await value('rx_page_size') === 'PageSize.A4', 'The reopened form lost the Rx page size');
     h.assert(!await (await field(prefs, 'schedule.week_view_weekends')).isChecked(), 'The weekends switch came back on');
     h.assert(await (await field(prefs, 'cpp_single_line')).isChecked() && await (await field(prefs, 'prescriptionQrCodes')).isChecked(),
       'The reopened form lost the checkbox settings');
