@@ -41,9 +41,11 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Reads and saves the SMS settings from Administration &gt; SMS ({@link SmsConfig}).
@@ -52,9 +54,11 @@ import java.util.Set;
  * provider comes from {@code sms.provider.default} and the scheduler from
  * {@code sms.queue.scheduler.enabled}. Once saved, the stored values win.
  * <p>
- * Secrets are write-only: a blank webhook secret or credential keeps what is stored. Only the
- * credential fields the chosen provider declares are kept; others (for example from a previously
- * chosen provider) are removed so no stale secret lingers. Saving publishes
+ * Secrets are write-only: a blank webhook secret or credential keeps what is stored. Credentials are
+ * kept per provider, and a save changes only the chosen provider's: switching provider never removes
+ * another provider's credentials, so switching back finds them again. Within the chosen provider, names
+ * its client no longer declares are removed so no stale secret lingers, and
+ * {@link SmsConfigUpdateDto#clearCredentials()} removes all of them. Saving publishes
  * {@link SmsConfigChangedEvent} so the queue scheduler can start or stop without a restart.
  *
  * @since 2026-09-24
@@ -171,8 +175,9 @@ public class SmsConfigService {
      * Writes the row now, inside this transaction, so a save that raced another administrator's fails
      * here. On MariaDB with snapshot isolation (the default since 11.6) both races fail with error 1020,
      * "Record has changed since last read". Where that is off, and on H2, a second first save hits the
-     * fixed id and a second update fails the version check. The exception rolls the transaction back. Any other database failure passes through unchanged, so a
-     * real defect is never reported as "someone else saved".
+     * fixed id and a second update fails the version check. The exception rolls the transaction back.
+     * Any other database failure passes through unchanged, so a real defect is never reported as
+     * "someone else saved".
      */
     private void flushOrReportConflict() {
         try {
@@ -208,17 +213,34 @@ public class SmsConfigService {
         return false;
     }
 
+    /**
+     * Changes only the chosen provider's credentials; every other provider's stay as they are. When asked,
+     * the chosen provider's stored credentials are removed first, so values typed in the same save are
+     * all that remain.
+     */
     private void applyCredentials(SmsConfig config, SmsConfigUpdateDto update) {
-        Set<String> declared = new HashSet<>(credentialFields(update.providerType()));
-        for (String stored : config.credentialNames()) {
+        // The provider as set on the row, so a missing choice means STUB here as it does there.
+        SmsProviderType provider = config.getProviderType();
+        // Named removals target the displayed provider explicitly, even if it is no longer installed.
+        for (SmsProviderType removed : update.removeProviderCredentials()) {
+            config.removeCredentials(removed);
+        }
+        if (provider != update.credentialsProvider()) {
+            return;
+        }
+        if (update.clearCredentials()) {
+            config.removeCredentials(provider);
+        }
+        Set<String> declared = new HashSet<>(credentialFields(provider));
+        for (String stored : config.credentialNames(provider)) {
             if (!declared.contains(stored)) {
-                config.setCredential(stored, null);
+                config.setCredential(provider, stored, null);
             }
         }
         for (String field : declared) {
             String value = update.credentials().get(field);
             if (!isBlank(value)) {
-                config.setCredential(field, value);
+                config.setCredential(provider, field, value);
             }
         }
     }
@@ -229,13 +251,17 @@ public class SmsConfigService {
 
     /**
      * What the audit record compares: values for the plain settings, and only fingerprints of the stored
-     * (encrypted) secret and credentials, so a change can be named without reading any secret.
+     * (encrypted) secret and credentials, so a change can be named without reading any secret. A credential
+     * change is named with its provider, such as {@code credentials:VOIPMS}; provider names are not secret.
+     * When the credentials stored before or after cannot be read, it is named plain {@code credentials}.
      */
     private record Snapshot(boolean stored, SmsProviderType providerType, boolean enabled, boolean schedulerEnabled,
-                            String senderNumber, String webhookSecretStored, String credentialsStored) {
+                            String senderNumber, String webhookSecretStored, String credentialsStored,
+                            boolean credentialsReadable, Map<String, String> credentialsByProvider) {
         static Snapshot of(SmsConfig config, boolean stored) {
             return new Snapshot(stored, config.getProviderType(), config.isEnabled(), config.isSchedulerEnabled(),
-                    config.getSenderNumber(), config.storedWebhookSecret(), config.storedCredentials());
+                    config.getSenderNumber(), config.storedWebhookSecret(), config.storedCredentials(),
+                    config.credentialsReadable(), config.credentialFingerprints());
         }
 
         List<String> changedFields(Snapshot after) {
@@ -258,10 +284,26 @@ public class SmsConfigService {
             if (!Objects.equals(webhookSecretStored, after.webhookSecretStored)) {
                 changed.add("webhookSecret");
             }
-            if (!Objects.equals(credentialsStored, after.credentialsStored)) {
+            if (credentialsReadable && after.credentialsReadable) {
+                // Compared by provider, so regrouping credentials from the earlier flat shape is no change.
+                Set<String> providers = new TreeSet<>(credentialsByProvider.keySet());
+                providers.addAll(after.credentialsByProvider.keySet());
+                for (String provider : providers) {
+                    if (!Objects.equals(credentialsByProvider.get(provider),
+                            after.credentialsByProvider.get(provider))) {
+                        changed.add("credentials:" + provider);
+                    }
+                }
+            } else if (!Objects.equals(credentialsStored, after.credentialsStored)) {
                 changed.add("credentials");
             }
             return changed;
+        }
+
+        /** Redacted: the generated toString would print the encrypted secret and credentials. */
+        @Override
+        public String toString() {
+            return "Snapshot[redacted]";
         }
     }
 }

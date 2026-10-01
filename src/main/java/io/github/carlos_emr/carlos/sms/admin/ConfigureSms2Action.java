@@ -42,6 +42,9 @@ import org.apache.struts2.ServletActionContext;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +57,11 @@ import java.util.Map;
  * administrator types; both are POST-only (405 before any check or write, so a GET cannot slip past CSRF
  * protection) and need {@code _admin.sms} write. Both redirect back to the page with a fixed result
  * code, so a refresh does not repeat them. Secrets are write-only: they are never read back into the page.
+ * <p>
+ * Typed credentials are saved only under the provider whose credential fields the page showed, which the
+ * form names in a hidden field. If another provider was chosen in the list before saving, or the field is
+ * missing, the typed credentials and the "remove the stored credentials" checkbox are ignored, the other
+ * settings are saved, and the page says the credentials were not saved.
  *
  * @since 2026-09-24
  */
@@ -62,6 +70,11 @@ public class ConfigureSms2Action extends ActionSupport {
     static final String METHOD_SEND_SYSTEM_TEST = "sendSystemTest";
     private static final String SECURITY_OBJECT = "_admin.sms";
     private static final String CREDENTIAL_PARAMETER_PREFIX = "credential.";
+    private static final String CLEAR_CREDENTIALS_PARAMETER = "clearCredentials";
+    /** Hidden form field naming the provider whose credential fields the page showed. */
+    private static final String CREDENTIALS_PROVIDER_PARAMETER = "credentialsProvider";
+    static final String RESULT_SAVED = "saved";
+    static final String RESULT_SAVED_WITHOUT_CREDENTIALS = "savedWithoutCredentials";
     static final String CONCURRENT_SAVE_ERROR = "sms.config.error.concurrentSave";
 
     private final SecurityInfoManager securityInfoManager;
@@ -104,13 +117,22 @@ public class ConfigureSms2Action extends ActionSupport {
     private String configure(HttpServletRequest request, HttpServletResponse response, LoggedInInfo loggedInInfo)
             throws IOException {
         SmsProviderType providerType = parseProvider(request.getParameter("providerType"));
+        // The credential inputs belong to the provider the page showed. Under any other provider (or when the
+        // form does not say which it showed) they are dropped, never guessed at.
+        boolean credentialsForChosenProvider = providerType != null
+                && providerType.name().equals(request.getParameter(CREDENTIALS_PROVIDER_PARAMETER));
         Map<String, String> credentials = new HashMap<>();
-        for (String field : configService.credentialFields(providerType)) {
-            String value = request.getParameter(CREDENTIAL_PARAMETER_PREFIX + field);
-            if (value != null) {
-                credentials.put(field, value);
+        if (credentialsForChosenProvider) {
+            for (String field : configService.credentialFields(providerType)) {
+                String value = request.getParameter(CREDENTIAL_PARAMETER_PREFIX + field);
+                if (value != null) {
+                    credentials.put(field, value);
+                }
             }
         }
+        boolean clearCredentialsChecked = isChecked(request, CLEAR_CREDENTIALS_PARAMETER);
+        boolean credentialsIgnored = !credentialsForChosenProvider
+                && (clearCredentialsChecked || anyCredentialTyped(request));
         SmsConfigUpdateDto update = new SmsConfigUpdateDto(
                 providerType,
                 isChecked(request, "enabled"),
@@ -118,12 +140,18 @@ public class ConfigureSms2Action extends ActionSupport {
                 trimToEmpty(request.getParameter("senderNumber")),
                 request.getParameter("webhookSecret"),
                 isChecked(request, "clearWebhookSecret"),
-                credentials
+                credentials,
+                credentialsForChosenProvider && clearCredentialsChecked,
+                parseProvider(request.getParameter(CREDENTIALS_PROVIDER_PARAMETER)),
+                providersToRemove(request)
         );
-        List<String> errors = validator.validate(update, configService.installedProviders());
+        List<String> errors = new ArrayList<>(validator.validate(update, configService.installedProviders()));
         if (!errors.isEmpty()) {
             // Re-displayed with 200: CARLOS's ResponseSanitizationFilter mishandles a JSP body rendered
             // under a 4xx status ("committed mid-chain"), which left the admin a blank page.
+            if (credentialsIgnored) {
+                errors.add("sms.config.error.credentialsIgnored");
+            }
             request.setAttribute("smsConfig", assembler.assembleRejected(update, errors));
             return SUCCESS;
         }
@@ -134,7 +162,7 @@ public class ConfigureSms2Action extends ActionSupport {
             request.setAttribute("smsConfig", assembler.assemble(null, List.of(CONCURRENT_SAVE_ERROR)));
             return SUCCESS;
         }
-        return redirect(request, response, "saved");
+        return redirect(request, response, credentialsIgnored ? RESULT_SAVED_WITHOUT_CREDENTIALS : RESULT_SAVED);
     }
 
     private String sendSystemTest(HttpServletRequest request, HttpServletResponse response,
@@ -178,8 +206,23 @@ public class ConfigureSms2Action extends ActionSupport {
                 .orElse(null);
     }
 
+    private static Set<SmsProviderType> providersToRemove(HttpServletRequest request) {
+        String[] values = request.getParameterValues("removeProviderCredentials");
+        return values == null ? Set.of() : Arrays.stream(values)
+                .map(ConfigureSms2Action::parseProvider).filter(java.util.Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
     private static boolean isChecked(HttpServletRequest request, String name) {
         return "true".equals(request.getParameter(name));
+    }
+
+    /** @return whether any credential input, for whichever provider, holds a value; the values are not kept */
+    private static boolean anyCredentialTyped(HttpServletRequest request) {
+        return request.getParameterMap().entrySet().stream()
+                .filter(parameter -> parameter.getKey().startsWith(CREDENTIAL_PARAMETER_PREFIX))
+                .flatMap(parameter -> Arrays.stream(parameter.getValue()))
+                .anyMatch(value -> value != null && !value.isBlank());
     }
 
     // IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name, not user-identity folding.

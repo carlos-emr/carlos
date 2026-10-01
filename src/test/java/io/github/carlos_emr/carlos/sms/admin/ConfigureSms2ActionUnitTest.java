@@ -26,14 +26,21 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.assembler.SmsConfigViewModelAssembler;
+import io.github.carlos_emr.carlos.sms.dao.SmsConfigDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
+import io.github.carlos_emr.carlos.sms.model.SmsConfig;
+import io.github.carlos_emr.carlos.sms.service.SmsConfigAuditRecorder;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigConflictException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
+import io.github.carlos_emr.carlos.sms.service.SmsProviderClient;
+import io.github.carlos_emr.carlos.sms.service.SmsProviderClientResolver;
 import io.github.carlos_emr.carlos.sms.service.SmsSendService;
+import io.github.carlos_emr.carlos.sms.service.StubSmsProviderClient;
 import io.github.carlos_emr.carlos.sms.validator.SmsConfigValidator;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsConfigViewModel;
+import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
@@ -44,17 +51,21 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -66,8 +77,9 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("security")
 class ConfigureSms2ActionUnitTest {
-    // Plain placeholder kept in a constant so secret scanners do not read a literal as a password.
+    // Plain placeholders kept in constants so secret scanners do not read a literal as a password.
     private static final String FIELD_INPUT = "entered";
+    private static final String TYPED_CREDENTIAL = "typed-for-other-provider";
 
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
     private final SmsConfigService configService = mock(SmsConfigService.class);
@@ -175,6 +187,7 @@ class ConfigureSms2ActionUnitTest {
         request.setParameter("enabled", "true");
         request.setParameter("senderNumber", "416-555-1212");
         request.setParameter("webhookSecret", "webhook-value");
+        request.setParameter("credentialsProvider", "STUB");
         request.setParameter("credential.field_two", FIELD_INPUT);
         when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("field_two"));
         when(validator.validate(any(), any())).thenReturn(List.of());
@@ -189,9 +202,147 @@ class ConfigureSms2ActionUnitTest {
                 .extracting(SmsConfigUpdateDto::providerType, SmsConfigUpdateDto::enabled,
                         SmsConfigUpdateDto::schedulerEnabled, SmsConfigUpdateDto::senderNumber,
                         SmsConfigUpdateDto::webhookSecret, SmsConfigUpdateDto::clearWebhookSecret,
-                        SmsConfigUpdateDto::credentials)
+                        SmsConfigUpdateDto::credentials, SmsConfigUpdateDto::clearCredentials)
                 .containsExactly(SmsProviderType.STUB, true, false, "416-555-1212", "webhook-value", false,
-                        Map.of("field_two", FIELD_INPUT));
+                        Map.of("field_two", FIELD_INPUT), false);
+    }
+
+    @Test
+    @DisplayName("saving stores typed credentials when the page showed the fields of the provider being saved")
+    void shouldSaveTypedCredentials_whenShownProviderIsSaved() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "VOIPMS");
+        request.setParameter("credentialsProvider", "VOIPMS");
+        request.setParameter("credential.field_one", FIELD_INPUT);
+        request.setParameter("clearCredentials", "true");
+        when(configService.credentialFields(SmsProviderType.VOIPMS)).thenReturn(List.of("field_one"));
+        when(validator.validate(any(), any())).thenReturn(List.of());
+
+        action().execute();
+
+        SmsConfigUpdateDto update = savedUpdate();
+        assertThat(update.credentials()).containsExactly(Map.entry("field_one", FIELD_INPUT));
+        assertThat(update.clearCredentials()).isTrue();
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=saved");
+    }
+
+    @Test
+    @DisplayName("saving after switching provider ignores the typed credentials, saves the rest, and says so")
+    void shouldIgnoreTypedCredentials_whenProviderWasSwitched() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "CLOUDLI");
+        request.setParameter("credentialsProvider", "VOIPMS");
+        request.setParameter("enabled", "true");
+        request.setParameter("schedulerEnabled", "true");
+        request.setParameter("senderNumber", "416-555-1212");
+        request.setParameter("webhookSecret", "webhook-value");
+        // Same field name as the new provider declares, so only the provider check keeps it out.
+        request.setParameter("credential.field_one", FIELD_INPUT);
+        request.setParameter("clearCredentials", "true");
+        when(configService.credentialFields(SmsProviderType.CLOUDLI)).thenReturn(List.of("field_one"));
+        when(validator.validate(any(), any())).thenReturn(List.of());
+
+        action().execute();
+
+        assertThat(savedUpdate())
+                .extracting(SmsConfigUpdateDto::providerType, SmsConfigUpdateDto::enabled,
+                        SmsConfigUpdateDto::schedulerEnabled, SmsConfigUpdateDto::senderNumber,
+                        SmsConfigUpdateDto::webhookSecret, SmsConfigUpdateDto::credentials,
+                        SmsConfigUpdateDto::clearCredentials)
+                .containsExactly(SmsProviderType.CLOUDLI, true, true, "416-555-1212", "webhook-value", Map.of(),
+                        false);
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo("/carlos/admin/ConfigureSms?result=savedWithoutCredentials");
+    }
+
+    @Test
+    @DisplayName("saving without the field that names the shown provider ignores typed credentials rather than guessing")
+    void shouldIgnoreTypedCredentials_whenShownProviderIsMissing() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "VOIPMS");
+        request.setParameter("credential.field_one", FIELD_INPUT);
+        request.setParameter("clearCredentials", "true");
+        when(configService.credentialFields(SmsProviderType.VOIPMS)).thenReturn(List.of("field_one"));
+        when(validator.validate(any(), any())).thenReturn(List.of());
+
+        action().execute();
+
+        SmsConfigUpdateDto update = savedUpdate();
+        assertThat(update.providerType()).isEqualTo(SmsProviderType.VOIPMS);
+        assertThat(update.credentials()).isEmpty();
+        assertThat(update.clearCredentials()).isFalse();
+        assertThat(update.credentialsProvider()).isNull();
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo("/carlos/admin/ConfigureSms?result=savedWithoutCredentials");
+    }
+
+    @Test
+    @DisplayName("saving after switching provider ignores the remove-credentials checkbox, and says so")
+    void shouldIgnoreClearCredentials_whenProviderWasSwitched() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "CLOUDLI");
+        request.setParameter("credentialsProvider", "VOIPMS");
+        request.setParameter("clearCredentials", "true");
+        when(validator.validate(any(), any())).thenReturn(List.of());
+
+        action().execute();
+
+        assertThat(savedUpdate().clearCredentials()).isFalse();
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo("/carlos/admin/ConfigureSms?result=savedWithoutCredentials");
+    }
+
+    @Test
+    @DisplayName("saving after switching provider with no credential typed is an ordinary save")
+    void shouldReportSaved_whenProviderWasSwitchedWithNothingTyped() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "CLOUDLI");
+        request.setParameter("credentialsProvider", "VOIPMS");
+        request.setParameter("credential.field_one", " ");
+        when(validator.validate(any(), any())).thenReturn(List.of());
+
+        action().execute();
+
+        assertThat(savedUpdate().providerType()).isEqualTo(SmsProviderType.CLOUDLI);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=saved");
+    }
+
+    @Test
+    @DisplayName("a switched-provider save stores no typed credential, and none reaches the redirect or the audit")
+    void shouldKeepTypedCredentialOutOfStoreAndAudit_whenProviderWasSwitched() throws Exception {
+        String originalKey = EncryptionKeyTestSupport.seedFreshKey();
+        try {
+            SmsConfigDao dao = mock(SmsConfigDao.class);
+            SmsConfigAuditRecorder auditRecorder = mock(SmsConfigAuditRecorder.class);
+            SmsConfig stored = new SmsConfig();
+            stored.setProviderType(SmsProviderType.VOIPMS);
+            when(dao.findCurrent()).thenReturn(Optional.of(stored));
+            SmsConfigService realService = new SmsConfigService(dao, installed(),
+                    mock(ApplicationEventPublisher.class), auditRecorder);
+            allowWrite();
+            request.setParameter("method", "configure");
+            request.setParameter("providerType", "CLOUDLI");
+            request.setParameter("credentialsProvider", "VOIPMS");
+            request.setParameter("credential.field_one", TYPED_CREDENTIAL);
+
+            new ConfigureSms2Action(securityInfoManager, realService, new SmsConfigValidator(), assembler, sendService)
+                    .execute();
+
+            assertThat(stored.getProviderType()).isEqualTo(SmsProviderType.CLOUDLI);
+            assertThat(stored.storedCredentials()).isNull();
+            assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=savedWithoutCredentials");
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<String>> changed = ArgumentCaptor.forClass(List.class);
+            verify(auditRecorder).recordSaved(same(stored), eq("999998"), changed.capture());
+            assertThat(changed.getValue()).containsExactly("providerType");
+        } finally {
+            EncryptionKeyTestSupport.restoreKey(originalKey);
+        }
     }
 
     @Test
@@ -304,9 +455,61 @@ class ConfigureSms2ActionUnitTest {
         verify(validator, never()).validate(any(), any());
     }
 
+    private SmsConfigUpdateDto savedUpdate() {
+        ArgumentCaptor<SmsConfigUpdateDto> update = ArgumentCaptor.forClass(SmsConfigUpdateDto.class);
+        verify(configService).save(update.capture(), eq("999998"));
+        return update.getValue();
+    }
+
+    /** STUB plus VOIPMS and CLOUDLI clients that both declare {@code field_one}. */
+    private static SmsProviderClientResolver installed() {
+        List<SmsProviderClient> clients = new ArrayList<>();
+        clients.add(new StubSmsProviderClient());
+        for (SmsProviderType providerType : List.of(SmsProviderType.VOIPMS, SmsProviderType.CLOUDLI)) {
+            clients.add(new StubSmsProviderClient() {
+                @Override
+                public SmsProviderType providerType() {
+                    return providerType;
+                }
+
+                @Override
+                public List<String> credentialFields() {
+                    return List.of("field_one");
+                }
+            });
+        }
+        return new SmsProviderClientResolver(clients);
+    }
+
     private void allowWrite() {
         request.setMethod("POST");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "w", null)).thenReturn(true);
+    }
+
+    @Test
+    void shouldAcceptOnlyKnownProviderRemovals_whenSubmitted() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "STUB");
+        request.setParameter("credentialsProvider", "STUB");
+        request.setParameter("removeProviderCredentials", new String[] {"CLOUDLI", "RETIRED", "<script>", "voipms"});
+        when(validator.validate(any(), any())).thenReturn(List.of());
+        action().execute();
+        assertThat(savedUpdate().removeProviderCredentials()).containsExactly(SmsProviderType.CLOUDLI);
+    }
+
+    @Test
+    void shouldExplainIgnoredCredentials_whenSwitchedProviderSaveIsRejected() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "CLOUDLI");
+        request.setParameter("credentialsProvider", "VOIPMS");
+        request.setParameter("clearCredentials", "true");
+        when(validator.validate(any(), any())).thenReturn(List.of("sms.config.error.senderNumber"));
+        action().execute();
+        verify(assembler).assembleRejected(any(), eq(List.of("sms.config.error.senderNumber",
+                "sms.config.error.credentialsIgnored")));
+        verify(configService, never()).save(any(), any());
     }
 
     private ConfigureSms2Action action() {

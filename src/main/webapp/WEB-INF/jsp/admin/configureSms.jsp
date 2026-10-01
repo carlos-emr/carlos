@@ -30,7 +30,10 @@
     ConfigureSms2Action sets after checking _admin.sms read.
 
     Security: secrets are write-only. Their inputs are always empty; the page only says whether a
-    value is stored, and leaving an input blank keeps the stored value. Both forms are real POST
+    value is stored, and leaving an input blank keeps the stored value. Credentials are kept per
+    provider. A hidden field names the provider whose credential fields are shown; the action saves
+    typed credentials, and honours the checkbox that removes them, only when that is the provider
+    being saved, so they never land on (or remove) another provider's. Both forms are real POST
     forms with an action URL, so CSRFGuard injects their token; the action checks _admin.sms write.
     Every value is encoded with the carlos encoder.
 
@@ -127,6 +130,8 @@
 
         <fieldset class="mb-3" id="credentialFields">
             <legend class="fs-6"><fmt:message key="sms.config.credentials"/></legend>
+            <input type="hidden" name="credentialsProvider"
+                   value="<carlos:encode value='${smsConfig.providerType}' context='htmlAttribute'/>"/>
             <c:choose>
                 <c:when test="${empty smsConfig.credentialFields}">
                     <p class="text-muted"><fmt:message key="sms.config.noCredentials"/></p>
@@ -149,6 +154,24 @@
                     </c:forEach>
                 </c:otherwise>
             </c:choose>
+            <c:if test="${smsConfig.credentialsStored}">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="clearCredentials" name="clearCredentials"
+                           value="true"/>
+                    <label class="form-check-label" for="clearCredentials"><fmt:message key="sms.config.clearCredentials"/></label>
+                </div>
+            </c:if>
+            <c:forEach items="${smsConfig.otherCredentialProviders}" var="provider">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="removeProviderCredentials"
+                           id="removeCredentials-<carlos:encode value='${provider}' context='htmlAttribute'/>"
+                           value="<carlos:encode value='${provider}' context='htmlAttribute'/>"/>
+                    <label class="form-check-label"
+                           for="removeCredentials-<carlos:encode value='${provider}' context='htmlAttribute'/>">
+                        <fmt:message key="sms.config.removeProviderCredentials"/> <carlos:encode value="${provider}"/>
+                    </label>
+                </div>
+            </c:forEach>
         </fieldset>
 
         <button type="submit" class="btn btn-primary" id="smsConfigSave"><fmt:message key="sms.config.save"/></button>

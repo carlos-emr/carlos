@@ -42,8 +42,8 @@ public class SmsConfigValidator {
     /** Longest webhook secret, in UTF-8 bytes, that still fits {@code sms_config.webhook_secret} (512) once encrypted. */
     static final int MAX_WEBHOOK_SECRET_LENGTH = 256;
     /**
-     * Longest single credential, in UTF-8 bytes. All credentials share one {@code TEXT} column (65,535 bytes)
-     * after encryption, so this leaves room for a provider that declares many fields.
+     * Longest single credential, in UTF-8 bytes. Every provider's credentials share one {@code TEXT} column
+     * (65,535 bytes) after encryption, so this leaves room for several providers that declare many fields.
      */
     static final int MAX_CREDENTIAL_LENGTH = 1024;
 
