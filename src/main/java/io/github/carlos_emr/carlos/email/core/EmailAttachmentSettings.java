@@ -129,8 +129,8 @@ public record EmailAttachmentSettings(
             truncate(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
             truncate(req.getParameter("encryptedMessageEmail"), MAX_BODY_LENGTH),
             validateChartOption(req.getParameter("emailPatientChartOption")),
-            // Truncated like the body; the send action rejects anything longer outright.
-            truncate(req.getParameter("footerEmail"), EmailData.FOOTER_MAX_LENGTH)
+            // Match the compose footer limit without splitting a character or counting CRLF twice.
+            truncateFooter(req.getParameter("footerEmail"))
         );
     }
 
@@ -179,6 +179,23 @@ public record EmailAttachmentSettings(
             subject = subject.substring(0, MAX_SUBJECT_LENGTH);
         }
         return subject;
+    }
+
+    /** Uses the compose footer's textarea length rules, preserving complete Unicode characters. */
+    private static String truncateFooter(String footer) {
+        if (footer == null) {
+            return null;
+        }
+        String normalized = footer.replace("\r\n", "\n");
+        if (normalized.length() <= EmailData.FOOTER_MAX_LENGTH) {
+            return footer;
+        }
+        int end = EmailData.FOOTER_MAX_LENGTH;
+        if (Character.isHighSurrogate(normalized.charAt(end - 1))
+                && Character.isLowSurrogate(normalized.charAt(end))) {
+            end--;
+        }
+        return normalized.substring(0, end);
     }
 
     /**

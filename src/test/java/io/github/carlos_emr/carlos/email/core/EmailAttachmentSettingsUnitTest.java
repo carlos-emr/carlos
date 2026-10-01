@@ -81,6 +81,23 @@ class EmailAttachmentSettingsUnitTest {
         }
 
         @Test
+        void shouldKeepWholeCharacters_whenFooterLimitSplitsEmoji() {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setParameter("footerEmail", "f".repeat(1999) + "\uD83D\uDE00");
+
+            assertThat(fromRequest(request).footerEmail()).isEqualTo("f".repeat(1999));
+        }
+
+        @Test
+        void shouldKeepCompleteFooter_whenNormalizedLineBreaksFitLimit() {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            String footer = "f\r\n".repeat(1000);
+            request.setParameter("footerEmail", footer);
+
+            assertThat(fromRequest(request).footerEmail()).isEqualTo(footer);
+        }
+
+        @Test
         @DisplayName("should sanitize untrusted email fields before creating attachment settings")
         void shouldSanitizeEmailFields_whenBuildingFromRequest() {
             MockHttpServletRequest request = new MockHttpServletRequest();
