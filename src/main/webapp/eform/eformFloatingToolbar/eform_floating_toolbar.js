@@ -1066,6 +1066,7 @@ function initializeFaxRecipient() {
     }
     fromForm.addEventListener('change', () => {
         const option = fromForm.options[fromForm.selectedIndex];
+        delete fax.dataset.cleared;
         if (option && option.value) {
             fax.value = option.value;
             name.value = option.dataset.recipientName;
@@ -1079,7 +1080,8 @@ function initializeFaxRecipient() {
         }
     });
     ['input', 'change'].forEach(event => {
-        fax.addEventListener(event, () => { fax.dataset.edited = 'true'; });
+        // Any number entered or chosen in the field itself replaces the pending cleared state.
+        fax.addEventListener(event, () => { fax.dataset.edited = 'true'; delete fax.dataset.cleared; });
         name.addEventListener(event, () => { name.dataset.edited = 'true'; });
     });
     // A number the clinician typed is theirs; one filled in from the directory, the eForm or the
@@ -1090,15 +1092,25 @@ function initializeFaxRecipient() {
     // Typing a different recipient name must not keep the previous recipient's number: the fax
     // would go there under the new name. Clear it (as an explicit empty override, so the eForm's
     // number is not resurrected either) until a directory row or a typed number supplies one.
+    // The clear is marked separately from a number the clinician chose, so a later explicit choice
+    // on the eForm itself can still fill the number for the newly typed recipient.
     name.addEventListener('input', event => {
         if (!event.isTrusted || fax.dataset.typed === 'true') return;
         fax.value = '';
         fax.dataset.edited = 'true';
+        fax.dataset.cleared = 'true';
         fromForm.value = '';
     });
     document.getElementById('remoteFaxOptions').addEventListener('toggle', () => { refreshOptions(); refresh(); });
     document.addEventListener('change', event => {
-        if (['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) refresh();
+        if (!['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) return;
+        // A list or designer selection made after the name was retyped is a new, explicit source:
+        // lift only the pending clear (never a typed or menu-chosen number) and let it fill in.
+        if (fax.dataset.cleared === 'true') {
+            delete fax.dataset.cleared;
+            delete fax.dataset.edited;
+        }
+        refresh();
     });
     if (typeof setupFaxRecipientAutocomplete === 'function') {
         setupFaxRecipientAutocomplete({contextPath: document.getElementById('context').value,
