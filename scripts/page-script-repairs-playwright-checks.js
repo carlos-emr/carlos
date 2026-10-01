@@ -296,14 +296,17 @@ async function workflow(s) {
       if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/casemgmt/ViewNoteBrowser')) posted = true;
     };
     s.context.on('request', listener);
+    let popup;
     try {
-      const [popup] = await Promise.all([s.context.waitForEvent('page', { timeout: TIMEOUT }), notes.locator('#imgPrintEncounter').click()]);
+      [popup] = await Promise.all([s.context.waitForEvent('page', { timeout: TIMEOUT }), notes.locator('#imgPrintEncounter').click()]);
       const download = await popup.waitForEvent('download', { timeout: TIMEOUT });
       h.assert(!(await download.failure()), 'The note print download failed');
       const file = await download.path();
       h.assert(fs.readFileSync(file).subarray(0, 5).toString('latin1') === '%PDF-', 'The note print is not a PDF');
-      if (!popup.isClosed()) await popup.close();
-    } finally { s.context.off('request', listener); }
+    } finally {
+      s.context.off('request', listener);
+      if (popup && !popup.isClosed()) await popup.close().catch(() => {});
+    }
     await notes.locator('#encounterlist').waitFor({ state: 'attached', timeout: TIMEOUT });
     h.assert(!posted, 'Print submitted the note browser form to the GET-only gate');
     h.assert(notes.url() === before, 'Printing navigated the note browser away');

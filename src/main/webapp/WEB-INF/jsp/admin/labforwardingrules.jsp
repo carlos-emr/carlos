@@ -285,14 +285,22 @@
             window.location.href = url;
             return;
         }
-        panel.load(url,
-            function (response, status, xhr) {
-                if (status == "error") {
+        // Only the latest provider's response may fill the panel: switching providers quickly
+        // could otherwise let a slower, earlier response show another provider's rules. The
+        // counter lives on window because this script is re-run by every panel load.
+        var request = window.labForwardingRulesRequest = (window.labForwardingRulesRequest || 0) + 1;
+        $.ajax({ url: url, dataType: 'html' })
+            .done(function (html) {
+                if (request === window.labForwardingRulesRequest) {
+                    panel.html(html);
+                }
+            })
+            .fail(function (xhr) {
+                if (request === window.labForwardingRulesRequest) {
                     var msg = "Sorry but there was an error: ";
                     panel.text(msg + xhr.status + " " + xhr.statusText);
                 }
-            }
-        );
+            });
     });
 
 

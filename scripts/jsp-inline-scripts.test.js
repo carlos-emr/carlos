@@ -75,9 +75,12 @@ function inlineScripts(source) {
   let match;
   while ((match = pattern.exec(source))) {
     const attributes = match[1];
-    if (/\bsrc\s*=/i.test(attributes)) continue;
-    const type = /\btype\s*=\s*["']([^"']*)["']/i.exec(attributes);
-    if (type && !/^(text|application)\/javascript$|^module$/i.test(type[1].trim())) continue;
+    // Attribute-boundary match: data-src= is not an external script.
+    if (/(?:^|\s)src\s*=/i.test(attributes)) continue;
+    const type = /(?:^|\s)type\s*=\s*["']([^"']*)["']/i.exec(attributes);
+    // Classic scripts only: vm.Script cannot parse module syntax, and no JSP has an inline
+    // module today; a new one would need a module-aware parser here before it is covered.
+    if (type && !/^(text|application)\/javascript$/i.test(type[1].trim())) continue;
     scripts.push({ code: match[2], line: source.slice(0, match.index).split('\n').length });
   }
   return scripts;
