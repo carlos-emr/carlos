@@ -85,8 +85,10 @@ function loadPage({pathname = '/carlos/billing/CA/ON/history', evaluations = 1} 
     submitted.push(this.elements.map(field => [field.name, field.value]));
   };
 
+  const href = `https://${HOST}${pathname}`;
   const document = {
     domain: HOST,
+    baseURI: href,
     addEventListener(type, fn, capture) {
       (listeners[type] = listeners[type] || []).push({fn, capture});
     },
@@ -113,7 +115,8 @@ function loadPage({pathname = '/carlos/billing/CA/ON/history', evaluations = 1} 
     MutationObserver,
     window: {addEventListener() {}},
     navigator: {appName: 'Netscape'},
-    location: {hostname: HOST, pathname, search: ''},
+    location: {hostname: HOST, pathname, search: '', href, origin: `https://${HOST}`},
+    URL,
     console: {debug() {}, warn() {}, error() {}, log() {}},
   });
   const script = renderCsrfGuardTemplate({host: HOST, token: TOKEN, contextPath: '/carlos'});
@@ -171,6 +174,16 @@ test('GET forms, forms without a method and cross-origin actions never get the t
   page.form({action: '//example.invalid/collect'}).submit();
   page.form({action: 'javascript:void(0)'}).submit();
   assert.deepEqual(page.submitted.map(tokensIn), [[], [], [], [], []]);
+});
+
+test('another port or scheme on the same host is another origin and never gets the token', () => {
+  // The upstream isValidUrl() compares the hostname alone; patch 3 must not.
+  const page = loadPage();
+  page.form({action: `https://${HOST}:8443/carlos/x`}).submit();
+  page.form({action: `http://${HOST}/carlos/x`}).submit();
+  page.form({action: `https://${HOST}/carlos/x`}).submit();
+  page.form({action: `https://${HOST}:443/carlos/x`}).submit();
+  assert.deepEqual(page.submitted.map(tokensIn), [[], [], [TOKEN], [TOKEN]]);
 });
 
 test('an existing token field is filled, not duplicated', () => {

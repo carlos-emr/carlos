@@ -134,12 +134,14 @@ CARLOS serves CSRFGuard 4.5.0's unminified client template with three marked pat
 |---|-----------------|---------|-------|
 | 1 | `injectTokenForm()` found existing token fields with `Object.keys(form.elements)` and `form.elements[key].name` | A form with numerically named controls (dx code search results) threw `TypeError … reading 'name'`, and no later form on the page got a token | Walk `form.elements` by position; isolate each form's injection in `try`/`catch` |
 | 2 | The dynamic-node `MutationObserver` only injected into added nodes that are themselves `<form>` | Forms inside HTML inserted with jQuery `.load()`/`.html()` (the Administration panel) had no token | Also inject into every `<form>` nested inside each added node |
-| 3 | Injection runs at load and in a `MutationObserver` callback | A form built in script and submitted in the same task was posted before any callback ran (Unbill, Delete Template, eForm restore, RA settle, Messenger link …) | Wrap `HTMLFormElement.prototype.submit` and add a capture-phase `submit` listener that inject just before submission |
+| 3 | Injection runs at load and in a `MutationObserver` callback | A form built in script and submitted in the same task was posted before any callback ran (Unbill, Delete Template, eForm restore, RA settle, Messenger link …) | Wrap `HTMLFormElement.prototype.submit` and add a capture-phase `submit` listener; each injects the token just before submission |
 
-Patch 3 adds the token only when the effective method is `post` and the effective action is
-same-origin by the upstream `isValidUrl()`. Both honour a submit button's
+Patch 3 adds the token only when the effective method is `post` and the effective action resolves
+to exactly the page's origin (scheme, host and port). That is stricter than the upstream
+`isValidUrl()`, which compares the hostname alone. Both method and action honour a submit button's
 `formmethod`/`formaction`. A missing or empty action counts as the current page. GET forms and
-cross-origin actions are never touched, so the token does not leak into URLs, history or logs.
+actions on any other origin, including another port or scheme on the same host, are never touched,
+so the token does not leak into URLs, history or logs.
 
 **Upgrading CSRFGuard:** diff the new jar's `META-INF/csrfguard.js` against the unmarked parts
 of the CARLOS copy and re-apply the `CARLOS patch` blocks. Three checks guard the copy:

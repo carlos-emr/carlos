@@ -53,9 +53,10 @@
  *      token.
  *
  * Patch 3 adds the token at submission time (form.submit() and the submit
- * event), only for POST forms whose effective action is same-origin as judged
- * by the upstream isValidUrl(). GET forms never receive the token, so it is not
- * leaked into URLs, history or access logs.
+ * event), only for POST forms whose effective action resolves to exactly this
+ * page's origin (scheme, host and port). That is stricter than the upstream
+ * isValidUrl(), which compares the hostname alone. GET forms never receive the
+ * token, so it is not leaked into URLs, history or access logs.
  *
  * When upgrading CSRFGuard: diff the new META-INF/csrfguard.js against the
  * unmarked parts of this file, re-apply the marked patches, and update the
@@ -365,7 +366,9 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
                 if (uri === pageTokenKey) {
                     value = pageToken;
                 } else if (startsWith(pageTokenKey, '^') && endsWith(pageTokenKey, '$')) { // regex matching
-                    if (new RegExp(pageTokenKey).test(uri)) {
+                    // Upstream code. Page-token keys are patterns from the server's own
+                    // CSRFGuard configuration, never page input; TokenPerPage is off here.
+                    if (new RegExp(pageTokenKey).test(uri)) { // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
                         value = pageToken;
                     }
                 } else if (startsWith(pageTokenKey, '/*')) { // full path wildcard path matching
@@ -424,9 +427,12 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
          * Runs at submission, so it also covers forms built in script and
          * submitted before the MutationObserver could see them. The effective
          * method and action honour the submitter's formmethod/formaction. Only
-         * POST to a same-origin action is touched (a missing or empty action
-         * posts back to this page, which is same-origin); GET forms are left
-         * alone so the token never lands in a URL.
+         * POST to an action resolving to exactly this page's origin (scheme,
+         * host and port) is touched; a missing or empty action posts back to
+         * this page. Upstream isValidUrl() compares the hostname alone, which
+         * would hand the token to another port or scheme on the same host, so
+         * it is not used here. GET forms are left alone so the token never
+         * lands in a URL.
          *
          * @param form      the form being submitted
          * @param submitter the submit button, when known (submit event), else null
@@ -446,7 +452,7 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
                 action = location.pathname + location.search;
             }
             action = action.trim();
-            if (!isValidUrl(action)) {
+            if (!carlosIsSameOrigin(action)) {
                 return;
             }
             var value = calculatePageTokenForUri(pageTokenWrapper.pageTokens || {}, parseUri(action));
@@ -464,6 +470,23 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
                 fields.forEach(function (field) {
                     field.value = value;
                 });
+            }
+        }
+
+        /**
+         * CARLOS patch 3: true only when url resolves (against the document base,
+         * as the browser resolves a form action) to this page's exact origin.
+         * javascript:, data: and other opaque URLs have origin "null" and fail.
+         */
+        function carlosIsSameOrigin(url) {
+            if (typeof URL !== 'function') {
+                return false;
+            }
+            try {
+                var base = document.baseURI || location.href;
+                return new URL(url, base).origin === new URL(base).origin;
+            } catch (e) {
+                return false;
             }
         }
 
@@ -563,7 +586,8 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
                 const calculatedPageToken = calculatePageTokenForUri(pageTokens, uri);
                 const value = calculatedPageToken == null ? tokenValue : calculatedPageToken;
 
-                const tokenValueMatcher = new RegExp('(?:' + tokenName + '=)([^?|#|&]+)', 'gi');
+                // Upstream code. tokenName is the configured literal CSRF-TOKEN.
+                const tokenValueMatcher = new RegExp('(?:' + tokenName + '=)([^?|#|&]+)', 'gi'); // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
                 const tokenMatches = tokenValueMatcher.exec(location);
 
                 if (tokenMatches === null || tokenMatches.length === 0) {

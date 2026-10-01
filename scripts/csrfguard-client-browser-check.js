@@ -114,7 +114,7 @@ async function captureSubmission(page, urlPart, action) {
     page = await browser.newPage();
     page.on('pageerror', error => pageErrors.push(`${name}: ${error.message}`));
     try {
-      await page.goto(`${base}/fixture`);
+      await page.goto(`${base}/fixture`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own 127.0.0.1 fixture server
       await body();
       console.log(`ok - ${name}`);
     } catch (error) {
@@ -125,7 +125,8 @@ async function captureSubmission(page, urlPart, action) {
     }
   }
 
-  const tokenOf = selector => page.evaluate(sel => {
+  // Selectors are literals in this file; nothing external reaches evaluate().
+  const tokenOf = selector => page.evaluate(sel => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection
     const field = document.querySelector(`${sel} input[name="CSRF-TOKEN"]`);
     return field ? field.value : null;
   }, selector);
@@ -223,9 +224,27 @@ async function captureSubmission(page, urlPart, action) {
       assert.equal(new URL(sent.url).searchParams.has('CSRF-TOKEN'), false);
     });
 
+    for (const [label, target] of [
+      ['another port on the same host', `http://127.0.0.1:${server.address().port + 1}/post/port`],
+      ['another scheme on the same host', `https://127.0.0.1:${server.address().port}/post/scheme`],
+    ]) {
+      await check(`a POST to ${label} never receives the token`, async () => {
+        // Route the request so it never reaches the network; only its body matters.
+        await page.route('**/post/{port,scheme}', route => route.fulfill({status: 200, body: 'ok'}));
+        const sent = await captureSubmission(page, '/post/', () => page.evaluate(action => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- action is a literal loopback fixture URL
+          const form = document.createElement('form');
+          form.method = 'post';
+          form.action = action;
+          document.body.appendChild(form);
+          form.submit();
+        }, target));
+        assert.equal(sent.body.has('CSRF-TOKEN'), false);
+      });
+    }
+
     await check('a cross-origin POST action never receives the token', async () => {
       const crossOrigin = `http://localhost:${server.address().port}/post/cross`;
-      const sent = await captureSubmission(page, '/post/cross', () => page.evaluate(action => {
+      const sent = await captureSubmission(page, '/post/cross', () => page.evaluate(action => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- action is a literal loopback fixture URL
         const form = document.createElement('form');
         form.method = 'post';
         form.action = action;

@@ -20,13 +20,16 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import jakarta.servlet.ServletConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.owasp.csrfguard.config.PropertiesConfigurationProvider;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,6 +42,7 @@ import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.Mockito.mock;
 
 /**
  * Regression coverage for the CSRFGuard properties file.
@@ -95,6 +99,27 @@ class CsrfGuardConfigurationRegressionTest {
                 .contains("injectToElements(carlosWithNestedForms(addedNodes)")
                 .contains("carlosHookFormSubmission();")
                 .doesNotContain("Object.keys(form.elements).filter");
+    }
+
+    @Test
+    @DisplayName("should resolve the configured sourceFile through CSRFGuard's own loader")
+    void shouldResolveConfiguredSourceFile_throughCsrfGuardLoader() throws Exception {
+        String sourceFile = loadCsrfGuardProperties().getProperty(SOURCE_FILE_PROPERTY);
+
+        // The same private resolver JavaScriptServlet's configuration uses, so a
+        // spelling CSRFGuard does not understand fails here rather than as a
+        // missing /csrfguard script (and a 403 on every form) after deployment.
+        // Reflection is deliberate: the method is private upstream, and if a
+        // CSRFGuard upgrade renames it this test must be revisited with it.
+        Method resolver = PropertiesConfigurationProvider.class
+                .getDeclaredMethod("retrieveJavaScriptTemplateCode", ServletConfig.class, String.class);
+        resolver.setAccessible(true);
+        String template = (String) resolver.invoke(null, mock(ServletConfig.class), sourceFile);
+
+        assertThat(template)
+                .as("CSRFGuard must load " + sourceFile + " itself")
+                .isNotBlank()
+                .contains("function carlosHookFormSubmission()");
     }
 
     @Test
