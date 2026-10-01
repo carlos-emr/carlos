@@ -4,23 +4,25 @@
  * rx-edit-discontinue — coverage plan §3.2 (Rx edit, indication and discontinue).
  *
  * User path: Schedule ▸ Search ▸ Master Record ▸ Prescriptions (Rx module) ▸ drug search ▸
- * staged card Instructions (rx/UpdateScript parses dose/frequency/duration) ▸ Save And Print ▸
- * "Back to CARLOS" (rx/clearPending) ▸ reopen Rx ▸ drug row indication link (rx/RxReason popup) ▸
+ * staged card Instructions (rx/UpdateScript parses dose/frequency/duration) ▸ Save ▸ "Timeline
+ * Drug Profile" (rx/ViewChartDrugProfile) ▸ drug row indication link (rx/RxReason popup) ▸
  * "Discon" (rx/deleteRx Discontinue) ▸ drug row ▸ static script ▸ prescription details
- * (rx/ViewDisplayRxRecord) ▸ Form "Update" (rx/ViewUpdateForm) ▸ "Timeline Drug Profile"
- * (rx/ViewChartDrugProfile).
+ * (rx/ViewDisplayRxRecord) ▸ Form "Update" (rx/ViewUpdateForm) ▸ reopen Rx ▸ search the
+ * discontinued product again.
  *
  * Asserted: the parsed instructions reach the staged card and the saved `drugs` row (takemin/max,
- * freqcode, duration, durunit, quantity, end_date = rx_date + duration); Back to CARLOS clears
- * the staged script so a reopened Rx module stages nothing; the indication is stored as an
- * un-archived icd9 `drugReason` on the owned drug and listed when the popup is reopened; the
- * discontinue writes archived=1, the chosen archived_reason, today's archived_date, keeps the
- * prescribed end_date, and files a linked chart note; the record popup and the drug-form update
- * round-trip through `drugs`; the timeline profile lists the drug; GET is refused by every mutator.
+ * freqcode, duration, durunit, quantity, end_date = rx_date + duration); the timeline lists and
+ * graphs the drug; the indication is stored as an un-archived primary icd9 `drugReason` and listed
+ * when the popup is reopened; the discontinue writes archived=1, the chosen archived_reason and
+ * today's archived_date, keeps end_date, and links a chart note; the record popup shows the saved
+ * fields and the form update round-trips through `drugs`; GET is refused (405) by RxReason,
+ * clearPending, ViewUpdateForm, UpdateScript and Discontinue; re-choosing the discontinued product
+ * warns with its reason and declining unstages it without saving.
  *
- * Fixtures: the owned synthetic patient; everything else (prescription, drugs, drugReason,
- * casemgmt_note + links, DigitalSignature) is created through the UI for that patient and removed
- * by patient id in cleanup, which asserts nothing remains. Needs a DrugRef with RX_DRUG_TERM.
+ * Fixtures: the owned synthetic patient; prescription, drugs, drugReason, partial_date,
+ * casemgmt_note (+links) and DigitalSignature rows are created through the UI for that patient
+ * and removed by patient/drug id in cleanup, which asserts nothing remains. Needs DrugRef data
+ * for RX_EDIT_DRUG_TERM / RX_EDIT_DRUG_NAME (default LIPITOR 20MG).
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');

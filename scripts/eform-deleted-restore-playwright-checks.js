@@ -5,14 +5,14 @@
  *
  * User path: E-Chart > eForms "+" > the owned eForm > fill > toolbar Submit; E-Chart > eForms
  * heading (patient eForm list) > Delete > Deleted > Restore > back to the list; then Schedule >
- * Administration > Forms > Patient Independent eForms > Delete > Deleted > Restore.
+ * Administration > Forms > Patient Independent eForms > Deleted > Restore > Current > Delete.
  * Asserts eform_data.status 1 -> 0 -> 1 for the saved fdid after each control (eform/addEForm,
  * eform/removeEForm, eform/unRemoveEForm, with and without callpage=independent), the saved field
  * value in eform_values, and that each list (eform/efmpatientformlist, efmpatientformlistdeleted,
  * efmmanageindependent, efmmanageindependentdeleted) shows the owned row exactly where it belongs.
  * Fixtures: two owned eForm templates named with the run marker (one patient-bound, one patient
- * independent), the instance saved through the UI and one seeded independent instance for the
- * owned patient. Cleanup removes only those fdids, their eform_values and the two templates.
+ * independent), the instance saved through the UI and two seeded independent instances (one
+ * current, one deleted) for the owned patient. Cleanup removes only those fdids, their eform_values and the two templates.
  * Implements coverage plan section 4.1 eForms, eform-groups-independent (deleted lists + restore).
  */
 const h = require('./lib/playwright-harness');
@@ -31,7 +31,8 @@ async function workflow(s) {
   const patientForm = `${s.marker} Patient eForm`;
   const independentForm = `${s.marker} Independent eForm`;
   const subject = `${s.marker} restore subject`;
-  const independentSubject = `${s.marker} independent subject`;
+  const independentSubject = `${s.marker} independent current`;
+  const removedSubject = `${s.marker} independent removed`;
   const note = `${s.marker} restore note`;
   const fids = [];
 
@@ -57,11 +58,13 @@ async function workflow(s) {
     fids.push(fid);
   }
   const [patientFid, independentFid] = fids;
-  const independentFdid = s.sql.value(`INSERT INTO eform_data(fid,form_name,subject,demographic_no,status,form_date,
-    form_time,form_provider,form_data,showLatestFormOnly,patient_independent,roleType)
-    VALUES(${independentFid},${h.sqlString(independentForm)},${h.sqlString(independentSubject)},${s.patient},1,
+  const seedIndependent = (text, current) => s.sql.value(`INSERT INTO eform_data(fid,form_name,subject,demographic_no,
+    status,form_date,form_time,form_provider,form_data,showLatestFormOnly,patient_independent,roleType)
+    VALUES(${independentFid},${h.sqlString(independentForm)},${h.sqlString(text)},${s.patient},${current},
     CURDATE(),CURTIME(),${h.sqlString(s.provider)},${h.sqlString(TEMPLATE_HTML)},0,1,''); SELECT LAST_INSERT_ID()`);
-  h.assert(/^[1-9]\d*$/.test(independentFdid), 'Independent eForm instance fixture was not created');
+  const independentFdid = seedIndependent(independentSubject, 1);
+  const removedFdid = seedIndependent(removedSubject, 0);
+  h.assert(/^[1-9]\d*$/.test(independentFdid) && /^[1-9]\d*$/.test(removedFdid), 'Independent eForm instance fixtures were not created');
   const status = fdid => s.sql.value(`SELECT status FROM eform_data WHERE fdid=${fdid}`);
   let fdid;
 
@@ -105,42 +108,49 @@ async function workflow(s) {
 
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     {context: s.context, recorder: s.recorder, label: 'eform-independent-admin', timeout: 20000});
-  await s.step('Administration Patient Independent eForms lists and deletes the owned instance', async () => {
+  const independentRows = text => admin.locator('table tbody tr').filter({hasText: text});
+  await s.step('Administration Patient Independent eForms lists only the owned current independent instance', async () => {
     await admin.locator('button[data-bs-target="#collapseForms"]').first().click();
     await clickInjectsPanel(admin, admin.locator('#collapseForms a[href$="/eform/efmmanageindependent"]').first(),
       {marker: '#dynamic-content table'});
-    const row = admin.locator('#dynamic-content table tbody tr').filter({hasText: independentSubject});
-    h.assert(await row.count() === 1, 'The independent eForm list does not show the owned instance');
-    h.assert(await admin.locator('#dynamic-content table tbody tr').filter({hasText: subject}).count() === 0,
-      'The independent eForm list shows a patient-bound eForm');
+    h.assert(await independentRows(independentSubject).count() === 1, 'The independent eForm list does not show the owned instance');
+    h.assert(await independentRows(removedSubject).count() === 0, 'The independent eForm list shows a deleted instance');
+    h.assert(await independentRows(subject).count() === 0, 'The independent eForm list shows a patient-bound eForm');
+  });
+
+  await s.step('independent Deleted view lists only the owned deleted independent instance', async () => {
+    await clickInjectsPanel(admin, admin.locator('#dynamic-content a[href$="/eform/efmmanageindependentdeleted"]').first(),
+      {marker: '#dynamic-content a[onclick*="unRemoveIndependent"]'});
+    h.assert(await independentRows(removedSubject).count() === 1, 'The independent deleted list does not show the deleted instance');
+    h.assert(await independentRows(independentSubject).count() === 0, 'The independent deleted list shows a current instance');
+    h.assert(await independentRows(subject).count() === 0, 'The independent deleted list shows a patient-bound eForm');
+    h.assert(status(removedFdid) === '0' && status(independentFdid) === '1', 'Viewing the independent lists changed an instance');
+  });
+
+  // The remaining controls are refused on 2026.08 (see the report); they run after everything provable.
+  await s.step('independent Restore makes the deleted instance current again', async () => {
     const dialogs = await h.withExpectedDialogs(admin, () => clickAndAwaitReload(admin,
-      row.locator('form[action$="/eform/removeEForm"] a'), {label: 'independent eForm Delete'}));
+      independentRows(removedSubject).locator('a[onclick*="unRemoveIndependent"]'), {label: 'independent eForm Restore'}));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Restore did not ask for confirmation');
+    await expectValue(s.sql, `SELECT status FROM eform_data WHERE fdid=${removedFdid}`, '1',
+      'Restore did not make the independent instance current');
+    h.assert(new URL(admin.url()).pathname.endsWith('/eform/efmmanageindependentdeleted'),
+      'Restore did not return to the independent deleted list');
+    h.assert(await independentRows(removedSubject).count() === 0, 'The restored independent instance is still listed as deleted');
+    h.assert(status(fdid) === '0', 'Restoring the independent eForm changed the patient eForm');
+  });
+
+  await s.step('independent Delete marks the current instance deleted', async () => {
+    await clickAndAwaitReload(admin, admin.locator('a[href$="/eform/efmmanageindependent"]').first(), {label: 'independent Current'});
+    const dialogs = await h.withExpectedDialogs(admin, () => clickAndAwaitReload(admin,
+      independentRows(independentSubject).locator('form[action$="/eform/removeEForm"] a'), {label: 'independent eForm Delete'}));
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask for confirmation');
     await expectValue(s.sql, `SELECT status FROM eform_data WHERE fdid=${independentFdid}`, '0',
       'Delete did not mark the independent instance deleted');
     h.assert(new URL(admin.url()).pathname.endsWith('/eform/efmmanageindependent'), 'Delete did not return to the independent list');
-    h.assert(await admin.locator('table tbody tr').filter({hasText: independentSubject}).count() === 0,
-      'The deleted independent instance is still listed as current');
+    h.assert(await independentRows(independentSubject).count() === 0, 'The deleted independent instance is still listed as current');
   });
 
-  await s.step('independent Deleted list shows the instance and Restore makes it current again', async () => {
-    await clickAndAwaitReload(admin, admin.locator('a[href$="/eform/efmmanageindependentdeleted"]').first(),
-      {label: 'independent Deleted'});
-    const row = admin.locator('table tbody tr').filter({hasText: independentSubject});
-    h.assert(await row.count() === 1, 'The independent deleted list does not show the deleted instance');
-    const dialogs = await h.withExpectedDialogs(admin, () => clickAndAwaitReload(admin,
-      row.locator('a[onclick*="unRemoveIndependent"]'), {label: 'independent eForm Restore'}));
-    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Restore did not ask for confirmation');
-    await expectValue(s.sql, `SELECT status FROM eform_data WHERE fdid=${independentFdid}`, '1',
-      'Restore did not make the independent instance current');
-    h.assert(new URL(admin.url()).pathname.endsWith('/eform/efmmanageindependentdeleted'),
-      'Restore did not return to the independent deleted list');
-    h.assert(await admin.locator('table tbody tr').filter({hasText: independentSubject}).count() === 0,
-      'The restored independent instance is still listed as deleted');
-    h.assert(status(fdid) === '0', 'Restoring the independent eForm changed the patient eForm');
-  });
-
-  // Last: on 2026.08 the patient Restore is refused (see the report), so it runs after everything provable.
   await s.step('patient Deleted list Restore makes the instance current and the eForm list shows it', async () => {
     const row = rowFor(list, subject);
     const dialogs = await h.withExpectedDialogs(list, () => clickAndAwaitReload(list,
