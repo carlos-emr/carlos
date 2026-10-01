@@ -81,7 +81,7 @@ String demographic_no = request.getParameter("demographic_no");
     <%-- Main frame: the chooser via the gated Struts action; Preview streams the PDF into it. --%>
     <fmt:message key="messenger.ViewMessage.msgAttachments" var="attachmentsTitle"/>
     <iframe name="main" title="${carlos:forHtmlAttribute(attachmentsTitle)}"
-            src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<%= SafeEncode.forUriComponent(demographic_no) %>"></iframe>
+            src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/messenger/PreviewPDF?demographic_no=<%= SafeEncode.forUriComponent(demographic_no) %>"></iframe>
         <% } else { %>
     <%-- Error message when no demographic selected --%>
     Please select a demographic.
