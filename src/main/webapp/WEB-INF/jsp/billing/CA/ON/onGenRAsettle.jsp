@@ -33,7 +33,26 @@
      (RaHeaderDao, BillingDao, RaDetailDao) the JSP body used to perform
      are now in the assembler. This page is rendered after the mutation;
      it just closes the popup and refreshes the parent. --%>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%-- Opened as a popup (the legacy admin menu), refresh the opener and close.
+     Opened in the Administration panel's frame or a tab there is no opener,
+     the unguarded self.opener.refresh() threw and left a blank page after a
+     settle that had already succeeded (issue #4130); return to the RA list,
+     which now shows the remittance's new status. --%>
 <script LANGUAGE="JavaScript">
-    self.close();
-    self.opener.refresh();
+    (function () {
+        var opener = null;
+        try {
+            opener = self.opener && !self.opener.closed && typeof self.opener.refresh === 'function'
+                ? self.opener : null;
+        } catch (e) {
+            opener = null;
+        }
+        if (opener) {
+            opener.refresh();
+            self.close();
+        } else {
+            location.replace('${carlos:forJavaScript(pageContext.request.contextPath)}/billing/CA/ON/ViewGenRA');
+        }
+    })();
 </script>

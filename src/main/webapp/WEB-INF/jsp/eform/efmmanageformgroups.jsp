@@ -86,6 +86,16 @@
 
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+<%
+    // Loaded into the Administration panel this is an AJAX fragment and the shell
+    // already provides jQuery. Rendered standalone -- where every group change now
+    // redirects (issue #4130) -- the page and efmFooter.jspf need their own copy.
+    // Same split as efmformmanager.jsp.
+    if (!io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request)) {
+%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<% } %>
 <%@ include file="eformBootstrapScript.jspf" %>
     </head>
 
@@ -295,8 +305,13 @@
             <%@ include file="efmFooter.jspf" %>
 
         <script>
-            registerFormSubmit('addGroupForm', 'dynamic-content');
-            registerFormSubmit('eformToGroupForm', 'dynamic-content');
+            // registerFormSubmit() belongs to the Administration shell. After a group
+            // change redirects here (issue #4130) the page is standalone, where the
+            // forms post normally and the action redirects straight back.
+            if (typeof registerFormSubmit === 'function') {
+                registerFormSubmit('addGroupForm', 'dynamic-content');
+                registerFormSubmit('eformToGroupForm', 'dynamic-content');
+            }
 
 
             $(function () {
