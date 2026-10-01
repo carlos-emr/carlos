@@ -710,6 +710,23 @@ public class ExcellerisOntarioHandler implements MessageHandler {
         }
     }
 
+    /**
+     * The OBX-4 sub-ID label followed by an embedded text document, in the same
+     * {@code "<subId>) <value>"} shape as {@link #getOBXSubIdWithObservationValue(int, int)}, so a
+     * numbered or grouped ED observation declared as text (ED.4 {@code A}) keeps its
+     * {@code A)}, {@code B)} label. The value is {@link #getOBXEmbeddedDocumentText(int, int)}:
+     * ED.5 when present, otherwise the OBX-5.1 result {@code getOBXSubIdWithObservationValue}
+     * shows.
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return the labelled text, in the {@code <br />} marker form of the other result accessors
+     * @since 2026-10-01
+     */
+    public String getOBXSubIdWithEmbeddedDocumentText(int i, int j) {
+        return getOBXSubId(i, j) + ") " + getOBXEmbeddedDocumentText(i, j);
+    }
+
     //OBX-7
     public String getOBXReferenceRange(int i, int j) {
         try {

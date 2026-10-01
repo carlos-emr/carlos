@@ -1236,8 +1236,13 @@
                                                     <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
                                                     <% } else if (embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT) { %>
                                                     <%-- Sender-declared text (ED.4 A): a standards-compliant value keeps it in ED.5, which
-                                                         getOBXResult does not read; getOBXEmbeddedDocumentData falls back to it when ED.5 is empty. --%>
-                                                    <carlos:encode value='<%= handler.getOBXEmbeddedDocumentData(j, k) %>' context="htmlWithBreakMarkers"/>
+                                                         getOBXResult does not read; getOBXEmbeddedDocumentText falls back to it when ED.5 is empty
+                                                         and normalises \.br\ like getOBXResult. An Excelleris OBX-4 sub-ID keeps its "A)" label. --%>
+                                                    <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
+                                                    <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithEmbeddedDocumentText(j, k) %>' context="htmlWithBreakMarkers"/></em>
+                                                    <% } else { %>
+                                                    <carlos:encode value='<%= handler.getOBXEmbeddedDocumentText(j, k) %>' context="htmlWithBreakMarkers"/>
+                                                    <% } %>
                                                     <% } else if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                                                     <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %>' context="htmlWithBreakMarkers"/></em>
                                                     <% } else { %>

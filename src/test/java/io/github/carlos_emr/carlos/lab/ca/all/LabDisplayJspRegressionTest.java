@@ -165,6 +165,19 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should show ED text normalised and keep the Excelleris sub-ID label in both lab views")
+    void shouldRenderEmbeddedText_withExcellerisSubIdInBothViews() throws IOException {
+        for (Path view : List.of(LAB_DISPLAY_JSP, LAB_DISPLAY_AJAX_JSP)) {
+            String jsp = Files.readString(view, StandardCharsets.UTF_8);
+
+            assertThat(jsp).as(view.toString())
+                    .contains("<em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithEmbeddedDocumentText(j, k) %>' context=\"htmlWithBreakMarkers\"/></em>")
+                    .contains("<carlos:encode value='<%= handler.getOBXEmbeddedDocumentText(j, k) %>' context=\"htmlWithBreakMarkers\"/>")
+                    .doesNotContain("handler.getOBXEmbeddedDocumentData(j, k) %>");
+        }
+    }
+
+    @Test
     @DisplayName("should close inboxhub iframe after successful lab macro")
     void shouldCloseInboxhubIframe_afterSuccessfulLabMacro() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
