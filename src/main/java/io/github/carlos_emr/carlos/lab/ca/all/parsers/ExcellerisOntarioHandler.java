@@ -54,6 +54,7 @@ import java.util.Set;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
+import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.Varies;
 import ca.uhn.hl7v2.model.v231.datatype.CX;
@@ -672,16 +673,10 @@ public class ExcellerisOntarioHandler implements MessageHandler {
         }
     }
 
-    /** ED.5 for a standards-compliant ED value; see {@link EdObservationValue}. */
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
     @Override
-    public String getOBXEmbeddedDocumentData(int i, int j) {
-        return EdObservationValue.data(this, i, j, () -> msg.getPIDPD1NK1NTEPV1PV2ORCOBRNTEOBXNTECTI().getORCOBRNTEOBXNTECTI(i).getOBXNTE(j).getOBX());
-    }
-
-    /** ED.4 for a standards-compliant ED value; see {@link EdObservationValue}. */
-    @Override
-    public String getOBXDocumentEncoding(int i, int j) {
-        return EdObservationValue.encoding(this, i, j, () -> msg.getPIDPD1NK1NTEPV1PV2ORCOBRNTEOBXNTECTI().getORCOBRNTEOBXNTECTI(i).getOBXNTE(j).getOBX());
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return msg.getPIDPD1NK1NTEPV1PV2ORCOBRNTEOBXNTECTI().getORCOBRNTEOBXNTECTI(i).getOBXNTE(j).getOBX();
     }
 
     public String getOBXResult(int i, int j) {
