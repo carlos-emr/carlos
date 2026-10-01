@@ -36,19 +36,35 @@ boundary. Direct standalone review links remain available, showing all cards.
 
 This is not medication reconciliation, prescribing, ordering, ICD coding,
 automatic conflict resolution, or a complete longitudinal problem-list merger.
-Chart comparison is clinician-led; duplicate matching is only normalized text
-containment plus durable replay protection, not semantic equivalence detection.
-The comparison excludes restricted notes, other chart sections and inactive
-ticklers. Review the normal chart when needed.
+Chart comparison is clinician-led. Browser warnings use exact text and a small,
+conservative English paraphrase matcher. Server-side duplicate blocking remains
+normalized text containment plus durable replay protection. Neither establishes
+clinical equivalence. The comparison excludes restricted notes, other chart
+sections and inactive ticklers. Review the normal chart when needed.
 
-Matching text is flagged before approval, with links to existing entries. The
-browser compares the source quotation and edited draft against the authorized
-entries already on the page, ignoring case and whitespace. These advisory matches
-span both history entries and reminders; matching source text can also occur in
-an earlier entry's provenance. They do not establish clinical equivalence and do
-not automatically dismiss a suggestion. The server independently reloads the
-chart and blocks matching edited text within the same entry kind before saving;
-receipt checks prevent replaying an already accepted proposal.
+Possible duplicates show the original matching passage beside the editable draft,
+with a link to the existing entry. Comparisons update as the draft changes and span
+both history entries and reminders already authorized and displayed on the page.
+The local matcher recognizes HTN/hypertension, OA/osteoarthritis,
+COPD/chronic obstructive pulmonary disease, T2DM/type 2 diabetes mellitus,
+GP/general practitioner, physio/physiotherapy and follow-up/review/recheck wording.
+It normalizes written intervals from one to twelve and ignores common filler words;
+all remaining terms must match, allowing reordering within a simple statement.
+It compares individual sentences or explicit list items and preserves wrapped lines.
+Dates, numbers, laterality, severity and other remaining qualifiers must agree.
+
+Paraphrase matching is suppressed for recognized negation, family history,
+uncertainty, conditional or completed/resolved events, unknown heading scopes,
+conjunctions and causal statements. Identical whole entries or unblocked statements
+can still match verbatim, including their qualifiers. This intentionally misses
+some duplicates rather than treating a qualifier as disposable. The alias list is
+small, English-only, and does not infer diagnoses from symptoms. Arbitrary clinical
+paraphrases, multilingual qualifiers and complicated scope are not understood.
+
+Warnings never delete, approve or block a suggestion. The server independently
+reloads the chart and blocks matching edited text within the same entry kind before
+saving; receipt checks prevent replaying an already accepted proposal. No chart
+content leaves the browser for these comparisons and no model calls are made.
 
 Suggestions sharing at least three significant words and 60% of the smaller
 word set show an advisory comparison of the other drafts. This updates while

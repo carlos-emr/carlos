@@ -7,9 +7,9 @@
     const original = source.textContent;
     const cards = Array.from(document.querySelectorAll('article.proposal'));
     // Advisory text comparison only. The server reloads the authorized chart and enforces saves.
-    const normalize = text => text.toLowerCase().replace(/[ \t\n\v\f\r]+/g, ' ').trim();
+    const matcher = window.CarlosChartUpdateMatching;
     const entries = Array.from(document.querySelectorAll('.chart-entry')).map(element => ({
-        element, text: normalize(element.querySelector('.chart-entry-text').textContent),
+        element, facts: matcher.prepare(element.querySelector('.chart-entry-text').textContent),
         label: element.querySelector('summary').textContent.trim(),
     }));
     const matches = new Map();
@@ -54,23 +54,23 @@
     const showMatches = card => {
         const matching = matches.get(card) || [];
         entries.forEach(entry => {
-            const found = matching.includes(entry);
+            const found = matching.some(match => match.entry === entry);
             entry.element.classList.toggle('chart-entry-match', found);
             if (found) entry.element.open = true;
         });
     };
     const compare = card => {
         const input = card.querySelector('[name="entryText"]');
-        const quote = normalize(evidence(card));
-        const draft = normalize(input?.value || '');
-        const found = entries.filter(entry => (draft && entry.text.includes(draft)) || (quote && entry.text.includes(quote)));
+        const draft = matcher.prepare(input?.value ?? evidence(card));
+        const found = entries.map(entry => ({ entry, fact: matcher.find(draft, entry.facts) }))
+            .filter(match => match.fact);
         matches.set(card, found);
         const notice = card.querySelector('.chart-match-notice');
         notice.hidden = !input || !found.length;
         const links = notice.querySelector('.chart-match-links');
         links.replaceChildren();
         // Keep a common short phrase from producing an unbounded warning panel.
-        found.slice(0, 10).forEach(entry => {
+        found.slice(0, 10).forEach(({ entry, fact }) => {
             const item = document.createElement('li');
             const link = document.createElement('a');
             link.href = '#' + entry.element.id;
@@ -82,7 +82,10 @@
                 entry.element.scrollIntoView({ block: 'nearest' });
                 entry.element.querySelector('summary').focus({ preventScroll: true });
             });
-            item.append(link);
+            const passage = document.createElement('blockquote');
+            passage.className = 'source-text chart-match-passage';
+            passage.textContent = fact.passage;
+            item.append(link, passage);
             links.append(item);
         });
         if (active === card) showMatches(card);

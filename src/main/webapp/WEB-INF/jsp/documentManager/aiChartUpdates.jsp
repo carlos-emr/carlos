@@ -156,6 +156,7 @@
 </div>
 </c:if>
 </div>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-matching.js"></script>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-evidence.js"></script>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates.js"></script>
 </body>

@@ -140,6 +140,15 @@ public final class ChartUpdatesBrowserHarness {
                     fixture.entries.add(new ChartUpdateContext.Entry("note-external", "history", "Synthetic concurrent chart edit."));
                 }
                 case "/repeat-source" -> { fixture.source += "\n" + FOLLOWUP; fixture.revision++; }
+                case "/paraphrased-chart" -> {
+                    fixture.entries.add(new ChartUpdateContext.Entry("note-paraphrase", "history",
+                            "No asthma.\nLeft knee osteoarthritis.\nHTN"));
+                    fixture.entries.add(new ChartUpdateContext.Entry("note-markup", "history",
+                            "Synthetic <img src=x onerror=window.matchExecuted=true> entry"));
+                    fixture.entries.add(new ChartUpdateContext.Entry("note-family", "history", "Family history:\nHTN"));
+                    fixture.entries.add(new ChartUpdateContext.Entry("note-negated", "history", "No hypertension"));
+                    fixture.revision++;
+                }
                 case "/matching-chart" -> {
                     fixture.entries.add(new ChartUpdateContext.Entry("note-duplicate", "history",
                             HISTORY.toUpperCase(java.util.Locale.ROOT).replace(" ", "  \n")));

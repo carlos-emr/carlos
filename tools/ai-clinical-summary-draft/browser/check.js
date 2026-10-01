@@ -25,7 +25,7 @@ function copy(relative) {
   fs.copyFileSync(path.join(root, 'src/main/webapp', relative), dest);
 }
 for (const file of ['WEB-INF/jsp/documentManager/aiChartUpdates.jsp', 'WEB-INF/jspf/bootstrap-css.jspf',
-  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'share/css/global.css', 'js/ai-chart-updates.js', 'js/ai-chart-updates-evidence.js', 'js/ai-chart-updates-navigation.js', 'js/ai-chart-updates-modal.js', 'WEB-INF/jspf/chart-update-workflow-dialog.jspf', 'css/ai-chart-updates-navigation.css', 'WEB-INF/jspf/chart-update-error-dialog.jspf', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
+  'WEB-INF/carlos-tag.tld', 'css/ai-chart-updates.css', 'share/css/global.css', 'js/ai-chart-updates.js', 'js/ai-chart-updates-matching.js', 'js/ai-chart-updates-evidence.js', 'js/ai-chart-updates-navigation.js', 'js/ai-chart-updates-modal.js', 'WEB-INF/jspf/chart-update-workflow-dialog.jspf', 'css/ai-chart-updates-navigation.css', 'WEB-INF/jspf/chart-update-error-dialog.jspf', 'library/bootstrap/5.3.8/css/bootstrap.min.css']) copy(file);
 fs.writeFileSync(path.join(webroot, 'fixture-picker.jsp'), `<%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
@@ -341,6 +341,35 @@ async function run() {
     assert.equal(await reminder.locator('.chart-match-notice').isVisible(), false);
     await history.getByRole('link', { name: 'Show passage in document' }).click();
     await page.screenshot({ path: path.join(runDir, 'source-highlight-chart-match.png'), fullPage: true });
+  });
+  await scenario('paraphrased chart matches show exact passages and respect clinical qualifiers', async page => {
+    await change(page, 'paraphrased-chart');
+    await generate(page);
+    const history = card(page, 'History entry');
+    await history.locator('[name="entryText"]').fill('Hypertension');
+    assert.equal(await history.locator('.chart-match-notice').isVisible(), true);
+    assert.equal(await history.locator('.chart-match-links a').count(), 1);
+    assert.equal(await history.locator('.chart-match-passage').textContent(), 'HTN');
+    await history.locator('.chart-match-links a').click();
+    assert.equal(await page.locator('#chart-entry-note-paraphrase').evaluate(el => el.open), true);
+    for (const draft of ['OA of the left knee', 'Left knee OA']) {
+      await history.locator('[name="entryText"]').fill(draft);
+      assert.equal(await history.locator('.chart-match-passage').textContent(), 'Left knee osteoarthritis.');
+    }
+    await page.screenshot({ path: path.join(runDir, 'paraphrased-chart-match.png'), fullPage: true });
+    for (const draft of ['Right knee OA', 'Bilateral knee OA', 'No hypertension', 'Asthma']) {
+      await history.locator('[name="entryText"]').fill(draft);
+      // Identical whole-entry negation can still match; positive asthma cannot match "No asthma".
+      assert.equal(await history.locator('.chart-match-notice').isVisible(), draft === 'No hypertension');
+    }
+    const markup = 'Synthetic <img src=x onerror=window.matchExecuted=true> entry';
+    await history.locator('[name="entryText"]').fill(markup);
+    assert.equal(await history.locator('.chart-match-passage').textContent(), markup);
+    assert.equal(await history.locator('.chart-match-passage img').count(), 0);
+    assert.equal(await page.evaluate(() => window.matchExecuted), undefined);
+    assert.equal(await page.locator('[name="confirmed"]:checked').count(), 0);
+    assert.equal(await page.locator('article.proposal').count(), 2);
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
   });
   await scenario('related suggestions stay editable and comparisons display text safely', async page => {
     await generate(page);
