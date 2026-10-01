@@ -4326,9 +4326,11 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "timeoutSec": 600,
+      "env": [
+        "EFORM_IMAGE_DIR"
+      ],
+      "fixtures": "Throwaway login with its own consult_sig_<no>.png (program_provider mirrored from the test provider) plus an owned FAKE- patient and notes; EFORM_IMAGE_DIR defaults to the packaged path."
     },
     {
       "name": "billing-on-payment-status",
@@ -4359,8 +4361,12 @@
         "ON"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "RA_DOCUMENT_DIR",
+        "RA_EDT_INBOX"
+      ],
+      "notes": "Fails on 2026.08: the claims error report page answers 500 (missing bean property), and Billing Reconciliation Report/Summary/Settle post a runtime-built form without a CSRF token (403).",
+      "fixtures": "Reuses the OHIP simulation fixture; a synthetic Remittance Advice and claims error report built per run; raheader/radetail/billing_on_eareport rows and files removed."
     },
     {
       "name": "billing-on-batch-clipboard",
