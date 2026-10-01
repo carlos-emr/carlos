@@ -160,8 +160,12 @@ function removeArchivedUploads(stamp) {
   const prefix = `LabUpload.lab-epsilon-probe-${stamp}.hl7.`;
   const ownFiles = () => fs.readdirSync(root)
     .filter((name) => /^LabUpload\.lab-epsilon-probe-[0-9A-F]{8}\.hl7\.\d+$/.test(name) && name.startsWith(prefix));
+  const found = ownFiles();
   // name matched the fixed pattern above and is joined to the resolved store root.
-  for (const name of ownFiles()) fs.unlinkSync(path.join(root, name)); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+  for (const name of found) fs.unlinkSync(path.join(root, name)); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+  // The upload archives the file; finding none means the store or the archive name no longer
+  // matches, and cleanup would otherwise pass while leaving the file behind.
+  h.assert(found.length > 0, `No archived ${prefix}* file was found in LAB_UPLOAD_DOCUMENT_STORE`);
   h.assert(ownFiles().length === 0, 'The archived synthetic Epsilon uploads were not all removed');
 }
 
@@ -199,6 +203,8 @@ async function workflow(s) {
   // fileName is built from a fixed prefix and random hex, never from input.
   const filePath = path.join(workDir, fileName); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
   fs.writeFileSync(filePath, buildFeed(accession, marker), 'latin1');
+  h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`) === '0',
+    'A fileUploadCheck row already carries this run\'s stamp');
 
   cleanup(async () => {
     fs.rmSync(workDir, { recursive: true, force: true });

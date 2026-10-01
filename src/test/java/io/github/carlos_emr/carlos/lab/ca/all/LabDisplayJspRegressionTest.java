@@ -118,7 +118,8 @@ class LabDisplayJspRegressionTest {
         // ReportStatus.getProviderNo() is the routed provider's practitioner number, null for a
         // provider without one; dereferencing it made the AJAX view answer 500 for such labs (#4124).
         assertThat(jsp)
-                .contains("providerNo.equals(reportStatus.getOscarProviderNo())")
+                // providerNo is a request parameter this page never defaults, so the guard matters too.
+                .contains("if (providerNo != null && providerNo.equals(reportStatus.getOscarProviderNo()))")
                 .doesNotContain("reportStatus.getProviderNo().equals(");
     }
 
