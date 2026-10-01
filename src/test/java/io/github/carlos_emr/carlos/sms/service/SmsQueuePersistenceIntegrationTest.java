@@ -27,7 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration tests for the portable queue-claim and rate-limit DAO SQL against the H2 (MySQL-mode)
  * schema. The claim queries were rewritten from MySQL-only {@code UPDATE ... ORDER BY ... LIMIT} to a
  * pessimistic-write {@code SELECT ... FOR UPDATE} so they run on both MariaDB and H2; these tests pin
- * that behaviour and the {@code INSERT IGNORE} / {@code SELECT ... FOR UPDATE} rate-limit path.
+ * that behaviour and the {@code SELECT ... FOR UPDATE} rate-limit path, including its {@code INSERT IGNORE}
+ * fallback for a provider row that was not seeded.
  */
 @Tag("integration")
 @Tag("dao")
@@ -93,7 +94,7 @@ class SmsQueuePersistenceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("rate limiter allows up to the window cap then denies (INSERT IGNORE + FOR UPDATE on H2)")
+    @DisplayName("rate limiter allows up to the window cap then denies (unseeded row inserted, then FOR UPDATE on H2)")
     void shouldAllowUpToCapThenDeny_withinWindow() {
         Clock fixed = Clock.fixed(Instant.parse("2030-01-01T00:00:00Z"), ZoneOffset.UTC);
         JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
