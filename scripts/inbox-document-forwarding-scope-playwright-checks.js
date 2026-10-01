@@ -97,7 +97,7 @@ function writePdf(dir, name) {
   return file;
 }
 
-/** Four provider numbers that no provider and no forwarding rule uses yet. */
+/** Four provider numbers that no provider, forwarding rule or inbox route uses yet. */
 function freeProviderNumbers(sql) {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const base = 970000 + crypto.randomInt(0, 2990) * 10;
@@ -105,7 +105,8 @@ function freeProviderNumbers(sql) {
     const list = numbers.map(sqlString).join(',');
     const used = sql.value(`SELECT
         (SELECT COUNT(*) FROM provider WHERE provider_no IN (${list}))
-      + (SELECT COUNT(*) FROM incomingLabRules WHERE provider_no IN (${list}) OR frwdProvider_no IN (${list}))`);
+      + (SELECT COUNT(*) FROM incomingLabRules WHERE provider_no IN (${list}) OR frwdProvider_no IN (${list}))
+      + (SELECT COUNT(*) FROM providerLabRouting WHERE provider_no IN (${list}))`);
     if (used === '0') return numbers;
   }
   throw new Error('Could not find four unused provider numbers for the forwarding fixture');
@@ -114,11 +115,12 @@ function freeProviderNumbers(sql) {
 function createFixture(sql) {
   const [owner, p1, p2, p3] = freeProviderNumbers(sql);
   const fixture = { owner, p1, p2, p3, all: [owner, p1, p2, p3] };
-  fixture.all.forEach((providerNo, index) => {
-    sql.execute(`INSERT INTO provider (provider_no, last_name, first_name, provider_type, specialty, sex, status, lastUpdateDate)
-      VALUES (${sqlString(providerNo)}, ${sqlString(SURNAME)}, ${sqlString(['Owner', 'One', 'Two', 'Three'][index])},
-        'doctor', '', 'F', '1', NOW())`);
-  });
+  // One statement, so a failed insert leaves no provider behind: each sql call is its own client,
+  // and cleanup only learns the fixture's numbers once this returns.
+  const values = fixture.all.map((providerNo, index) => `(${sqlString(providerNo)}, ${sqlString(SURNAME)},
+    ${sqlString(['Owner', 'One', 'Two', 'Three'][index])}, 'doctor', '', 'F', '1', NOW())`).join(',');
+  sql.execute(`INSERT INTO provider (provider_no, last_name, first_name, provider_type, specialty, sex, status, lastUpdateDate)
+    VALUES ${values}`);
   return fixture;
 }
 
@@ -211,7 +213,6 @@ function cleanupFixture(sql, fixture, names) {
   if (fixture) {
     deleteRules(sql, fixture);
     const list = fixture.all.map(sqlString).join(',');
-    sql.execute(`DELETE FROM providerLabRouting WHERE provider_no IN (${list})`);
     sql.execute(`DELETE FROM provider WHERE provider_no IN (${list}) AND last_name=${sqlString(SURNAME)}`);
   }
 }
