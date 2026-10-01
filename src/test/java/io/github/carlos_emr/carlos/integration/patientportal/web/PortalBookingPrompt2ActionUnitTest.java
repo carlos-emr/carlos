@@ -35,7 +35,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptRequest;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
@@ -69,8 +68,7 @@ class PortalBookingPrompt2ActionUnitTest {
     private final MockHttpServletRequest request = new MockHttpServletRequest();
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final PatientPortalStaffContext staff = new PatientPortalStaffContext("999998", "Synthetic Provider",
-            Set.of(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE,
-                    PatientPortalStaffContext.PERMISSION_ACCOUNT_MANAGE));
+            Set.of(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE));
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> login;
     private MockedStatic<LogAction> audit;
@@ -92,11 +90,14 @@ class PortalBookingPrompt2ActionUnitTest {
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
         when(resolver.resolveForPatient(any(), any(), eq(123))).thenReturn(staff);
-        when(portal.findAccount(eq(123), same(staff))).thenReturn(account("active"));
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT),
+                anyString(), eq("123"))).thenReturn(false);
+        when(portal.isBookingEligible(eq(123), same(staff))).thenReturn(true);
     }
 
     @AfterEach
     void tearDown() {
+        verify(portal, never()).findAccount(anyInt(), any());
         login.close();
         servlet.close();
         audit.close();
@@ -106,10 +107,6 @@ class PortalBookingPrompt2ActionUnitTest {
         new PortalBookingPrompt2Action(security, portal, resolver).execute();
         assertThat(response.getContentType()).startsWith("application/json");
         assertThat(response.getHeader("Cache-Control")).contains("no-store");
-    }
-
-    private PatientPortalAccountDto account(String status) {
-        return new PatientPortalAccountDto(3, "clinic-a", 123, status, false, false, null, null);
     }
 
     private PatientPortalBookingPromptDto prompt(int patient, String state) {
@@ -125,17 +122,17 @@ class PortalBookingPrompt2ActionUnitTest {
         execute();
         assertThat(response.getStatus()).isEqualTo(405);
         verifyNoInteractions(security, resolver);
-        verify(portal, never()).findAccount(anyInt(), any());
+        verify(portal, never()).isBookingEligible(anyInt(), any());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"_demographic", "_portal.booking_prompt", "_portal.account"})
+    @ValueSource(strings = {"_demographic", "_portal.booking_prompt"})
     void shouldRejectPatientSpecificDenial_beforeSending(String object) throws Exception {
         when(security.hasPrivilege(any(), eq(object), anyString(), eq("123"))).thenReturn(false);
         execute();
         assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(resolver);
-        verify(portal, never()).findAccount(anyInt(), any());
+        verify(portal, never()).isBookingEligible(anyInt(), any());
         verify(portal, never()).createBookingPrompt(anyInt(), any(), any());
     }
 
@@ -148,16 +145,16 @@ class PortalBookingPrompt2ActionUnitTest {
     }
 
     @Test
-    void shouldRejectInvalidVocabulary_beforeAccountLookup() throws Exception {
+    void shouldRejectInvalidVocabulary_beforeEligibilityLookup() throws Exception {
         request.setParameter("urgency", "invented");
         execute();
         assertThat(response.getStatus()).isEqualTo(400);
-        verify(portal, never()).findAccount(anyInt(), any());
+        verify(portal, never()).isBookingEligible(anyInt(), any());
     }
 
     @Test
     void shouldRefuseInactiveAccount_withoutCreatingPrompt() throws Exception {
-        when(portal.findAccount(eq(123), same(staff))).thenReturn(account("disabled"));
+        when(portal.isBookingEligible(eq(123), same(staff))).thenReturn(false);
         execute();
         assertThat(response.getStatus()).isEqualTo(404);
         assertThat(response.getContentAsString()).contains("active portal account");
@@ -176,8 +173,7 @@ class PortalBookingPrompt2ActionUnitTest {
         assertThat(response.getStatus()).isEqualTo(created ? 201 : 200);
         assertThat(response.getContentAsString()).contains("\"created\":" + created)
                 .doesNotContain("untrusted browser provider");
-        verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT,
-                PortalStaffContextResolver.OBJECT_ACCOUNT)), eq(123));
+        verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT)), eq(123));
         audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
                 eq(created ? "PortalBookingPrompt2Action.create" : "PortalBookingPrompt2Action.create.confirmed"),
                 eq("PatientPortal"), eq("7"), eq("123"), eq(created ? "" : "retry")));
@@ -194,9 +190,9 @@ class PortalBookingPrompt2ActionUnitTest {
     }
 
     @Test
-    void shouldNotAuditMutation_whenAccountPrerequisiteFails() throws Exception {
-        when(portal.findAccount(anyInt(), any())).thenThrow(
-                PatientPortalException.ofTransportFailure("/internal/carlos/patients/{id}/portal-account", null));
+    void shouldNotAuditMutation_whenEligibilityPrerequisiteFails() throws Exception {
+        when(portal.isBookingEligible(anyInt(), any())).thenThrow(
+                PatientPortalException.ofTransportFailure("/internal/carlos/patients/{id}/booking-eligibility", null));
         execute();
         assertThat(response.getStatus()).isEqualTo(504);
         audit.verifyNoInteractions();
@@ -211,14 +207,14 @@ class PortalBookingPrompt2ActionUnitTest {
         execute();
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("read");
-        verify(portal, never()).findAccount(anyInt(), any());
+        verify(portal, never()).isBookingEligible(anyInt(), any());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"active", "disabled"})
     void shouldExposeEligibilityAndReadStatus_whenPanelIsRequested(String accountStatus) throws Exception {
         request.setParameter("method", "panel");
-        when(portal.findAccount(eq(123), same(staff))).thenReturn(account(accountStatus));
+        when(portal.isBookingEligible(eq(123), same(staff))).thenReturn("active".equals(accountStatus));
         when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of(prompt(123, "read")));
         execute();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -229,14 +225,14 @@ class PortalBookingPrompt2ActionUnitTest {
     }
 
     @Test
-    void shouldReportInactiveAccount_whenPortalConfirmsAccountAbsent() throws Exception {
+    void shouldRefuseUnknownEligibility_whenEndpointReturnsNotFound() throws Exception {
         request.setParameter("method", "panel");
-        when(portal.findAccount(anyInt(), any())).thenThrow(PatientPortalException.ofStatus(
-                404, "/internal/carlos/patients/{id}/portal-account", PatientPortalException.ACCOUNT_NOT_FOUND_DETAIL));
+        when(portal.isBookingEligible(anyInt(), any())).thenThrow(PatientPortalException.ofStatus(
+                404, "/internal/carlos/patients/{id}/booking-eligibility", PatientPortalException.ACCOUNT_NOT_FOUND_DETAIL));
         when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of());
         execute();
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(response.getContentAsString()).contains("\"accountActive\":false");
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getContentAsString()).doesNotContain("accountActive");
         audit.verifyNoInteractions();
     }
 
@@ -248,11 +244,11 @@ class PortalBookingPrompt2ActionUnitTest {
         execute();
         assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(resolver);
-        verify(portal, never()).findAccount(anyInt(), any());
+        verify(portal, never()).isBookingEligible(anyInt(), any());
     }
 
     @Test
-    void shouldOmitAccountLookup_whenPanelHasOnlyBookingRead() throws Exception {
+    void shouldOmitEligibilityLookup_whenPanelHasOnlyBookingRead() throws Exception {
         request.setParameter("method", "panel");
         when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT),
                 eq(SecurityInfoManager.READ), eq("123"))).thenReturn(false);
@@ -263,19 +259,29 @@ class PortalBookingPrompt2ActionUnitTest {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("\"mayCreate\":false", "\"mayWithdraw\":false")
                 .doesNotContain("accountActive");
-        verify(portal, never()).findAccount(anyInt(), any());
+        verify(portal, never()).isBookingEligible(anyInt(), any());
         verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT)), eq(123));
     }
 
     @Test
-    void shouldFailClosed_whenPanelAccountLookupIsUnavailable() throws Exception {
+    void shouldFailClosed_whenPanelEligibilityIsUnavailable() throws Exception {
         request.setParameter("method", "panel");
-        when(portal.findAccount(anyInt(), any())).thenThrow(
-                PatientPortalException.ofTransportFailure("/internal/carlos/patients/{id}/portal-account", null));
+        when(portal.isBookingEligible(anyInt(), any())).thenThrow(
+                PatientPortalException.ofTransportFailure("/internal/carlos/patients/{id}/booking-eligibility", null));
         execute();
         assertThat(response.getStatus()).isEqualTo(504);
         verify(portal, never()).listBookingPrompts(anyInt(), any());
         audit.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldDenyGeneralAccountPanel_whenStaffHasOnlyBookingPermission() throws Exception {
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_INVITE),
+                anyString(), eq("123"))).thenReturn(false);
+        new PortalPanel2Action(security, portal, resolver).execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(resolver);
+        verify(portal, never()).isBookingEligible(anyInt(), any());
     }
 
     @Test
