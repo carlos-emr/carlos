@@ -3642,7 +3642,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: schedule del/restore forms are nested and dropped by the parser, UI-created templates lose their name, and the pages link missing stylesheets.",
+      "fixtures": "Owned FAKE- patient; one template created in the UI plus one seeded template, both marker-tagged; only those rows and the patient's immunizations rows are deleted."
     },
     {
       "name": "report-by-template",
@@ -3925,7 +3926,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: Preventions Print posts to a /WEB-INF/ URL (404).",
+      "fixtures": "Owned FAKE- patient with a seeded Inf prevention and a marker lot under JE; changes the clinic-wide hide_prevention_item property (snapshot and restore), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "schedule-admin-settings",
@@ -4198,6 +4200,34 @@
     {
       "name": "messenger-attachments",
       "script": "scripts/messenger-attachments-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "lab-manual-entry-cumulative",
+      "script": "scripts/lab-manual-entry-cumulative-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "session-heartbeat-timeout",
+      "script": "scripts/session-heartbeat-timeout-playwright-checks.js",
       "tiers": [
         "core"
       ],

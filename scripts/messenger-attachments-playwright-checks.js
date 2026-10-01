@@ -214,7 +214,9 @@ async function workflow(s) {
     const items = await s.popup(inbox, inbox.locator('a[href*="ViewAttach?attachId="]'), 'messenger-items');
     await settle(items);
     h.assert(new URL(items.url()).pathname.endsWith('/messenger/ViewAttach'), 'The attachment link did not open ViewAttach');
+    await items.locator('a[href="javascript:expandAll();"]').click();
     h.assert((await items.locator('#tblRoot').innerText()).includes(itemName), 'ViewAttach did not render the transferred item');
+    h.assert((await items.locator('#tblRoot').innerText()).includes('FAKE-PW detail'), 'Expand all did not reveal the item fields');
     // Save Attachments keeps the selection in the session and hands over to the
     // patient search (AdjustAttachments redirects to DemographicLinkMsg).
     const [adjust] = await Promise.all([
@@ -229,7 +231,7 @@ async function workflow(s) {
 
   await s.step('composing after Save Attachments sends the transferred items, and the received copy renders them', async () => {
     h.assert(adjustedItems, 'No transferred items were saved');
-    await toInbox();
+    // Compose from the message view: the inbox page itself drops pending attachments.
     await clickAndLoad(inbox, inbox.locator('a[href*="/messenger/ViewCreateMessage"]:visible').first(), '/messenger/ViewCreateMessage');
     await inbox.locator('#subject').waitFor();
     h.assert(/Attachments/i.test(await inbox.locator('#scrollNumber1').innerText()), 'Compose did not show the pending attachment');
@@ -241,6 +243,7 @@ async function workflow(s) {
     await openMessage(id);
     const items = await s.popup(inbox, inbox.locator('a[href*="ViewAttach?attachId="]'), 'messenger-sent-items');
     await settle(items);
+    await items.locator('a[href="javascript:expandAll();"]').click();
     h.assert((await items.locator('#tblRoot').innerText()).includes(itemName), 'The sent message did not render the transferred item');
     await items.close();
   });

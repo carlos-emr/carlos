@@ -47,17 +47,15 @@ const LABEL = {
 async function openAdminSection(admin, relSuffix, readySelector) {
   const link = admin.locator(`a.xlink[rel$="${relSuffix}"]`).first();
   await revealAuditLink(admin, link, 20000);
+  const path = relSuffix.split('?')[0];
+  // Armed before the click: re-opening the same section must yield the NEW document.
+  const loaded = admin.waitForEvent('framenavigated', {
+    predicate: frame => frame !== admin.mainFrame() && new URL(frame.url()).pathname.endsWith(path), timeout: 20000,
+  });
+  loaded.catch(() => {});
   await link.click({timeout: 20000});
-  const iframe = admin.locator('#dynamic-content iframe').first();
-  await iframe.waitFor({timeout: 20000});
-  let frame;
-  const deadline = Date.now() + 20000;
-  do {
-    frame = await (await iframe.elementHandle()).contentFrame();
-    if (frame && frame.url().includes(relSuffix.split('?')[0])) break;
-    await new Promise(resolve => setTimeout(resolve, 150));
-  } while (Date.now() < deadline);
-  h.assert(frame && frame.url().includes(relSuffix.split('?')[0]), `${relSuffix} did not load inside the administration iframe`);
+  const frame = await loaded;
+  await frame.waitForLoadState('domcontentloaded', {timeout: 20000}).catch(() => {});
   await frame.locator(readySelector).first().waitFor({timeout: 20000});
   await h.assertNotErrorPage(frame, relSuffix);
   return frame;
@@ -181,14 +179,18 @@ async function workflow(s) {
     const frame = await scheduleSetting();
     const popup = await popupFrom(frame, 'a[onclick*="/schedule/HolidaySetting"]', 'holiday-setting');
     await popup.locator('input[name="holiday_name"]').waitFor();
-    const want = `${hYear}-${hMonth}`;
-    for (let i = 0; i < 30 && (await popup.locator('span.title').first().innerText()).trim() !== want; i++) {
-      await navigates(popup, () => popup.locator('a[href*="delta=1&bFirstDisp=0"]').first().click());
-    }
-    h.assert((await popup.locator('span.title').first().innerText()).trim() === want, 'Holiday Setting did not reach the target month');
+    await walkToMonth(popup, action => navigates(popup, action), 'Holiday Setting');
     return popup;
   }
   const [hYear, hMonth, hDay] = holidayDate.split('-').map(Number);
+  /** Both calendars step one month per "next month" link and title the month as yyyy-M. */
+  async function walkToMonth(page, navigate, label) {
+    const want = `${hYear}-${hMonth}`;
+    for (let i = 0; i < 30 && (await page.locator('span.title').first().innerText()).trim() !== want; i++) {
+      await navigate(() => page.locator('a[href*="delta=1&bFirstDisp=0"]').first().click());
+    }
+    h.assert((await page.locator('span.title').first().innerText()).trim() === want, `${label} did not reach the target month`);
+  }
   const holidayBox = popup => popup.locator(`input[type="checkbox"][name="sdate_${hMonth}_${hDay}"]`);
   const holidayRows = () => sql.rows(`SELECT holiday_name FROM scheduleholiday WHERE sdate=${q(holidayDate)}`);
 
@@ -277,6 +279,7 @@ async function workflow(s) {
     await frameNavigation(admin, f, () => f.locator('input[type="submit"]').first().click());
     h.assert(/\/schedule\/CreateDate/.test(f.url()), 'Next did not advance to the calendar step');
     h.assert(JSON.stringify(dateRows()) === JSON.stringify([['1', templateName, 'A']]), 'The week setting did not schedule the owned template on the target day');
+    await walkToMonth(f, action => frameNavigation(admin, f, action), 'The calendar step');
     const cell = f.locator(`a[onclick*="/schedule/DatePopup"][onclick*="&day=${hDay}&"]`);
     const cellText = await cell.innerText();
     h.assert(cellText.includes(holidayName) && cellText.includes(templateName), 'The calendar day does not show the owned holiday and template');

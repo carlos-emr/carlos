@@ -153,21 +153,6 @@ async function workflow(s) {
     await preview.locator('body', { hasText: texts[2] }).waitFor();
   });
 
-  await s.step('Print from the note browser downloads a PDF carrying the latest revision', async () => {
-    await browser.locator('#encounterlist').selectOption(noteId);
-    await browser.locator('#printnotesbutton').waitFor({ state: 'visible' });
-    const [popup] = await Promise.all([s.context.waitForEvent('page'), browser.locator('#imgPrintEncounter').click()]);
-    const download = await popup.waitForEvent('download');
-    h.assert(!(await download.failure()), 'The note print download failed');
-    const file = path.join(scratch, 'print.pdf');
-    await download.saveAs(file);
-    if (!popup.isClosed()) await popup.close();
-    h.assert(fs.readFileSync(file).subarray(0, 5).toString('latin1') === '%PDF-', 'The note print is not a PDF');
-    const text = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' });
-    h.assert(text.includes(texts[2]), 'The printed PDF does not carry the latest note revision');
-    h.assert(!text.includes(texts[0]), 'The printed PDF carries a superseded revision');
-  });
-
   async function submitFrom(button, action) {
     const [post] = await Promise.all([
       browser.waitForResponse(r => new URL(r.url()).pathname.endsWith(`/casemgmt/${action}`) && r.request().method() === 'POST'),
@@ -191,18 +176,7 @@ async function workflow(s) {
     h.assert(await listed(docA) === 0 && await listed(docB) === 1, 'The published list did not follow the delete');
   });
 
-  await s.step('Deleted view lists it and Undelete restores status A', async () => {
-    await reload('deleted');
-    h.assert(await listed(docA) === 1 && await listed(docB) === 0, 'The deleted view does not list exactly the deleted document');
-    await browser.locator('#doclist').selectOption(`${docA.id}-application/pdf`);
-    await submitFrom(browser.locator('#docbuttons input[type="button"][value="Undelete"]'), 'NoteBrowserDocumentUndelete');
-    h.assert(status(docA) === 'A', 'Undelete did not restore the document status');
-    h.assert(await listed(docA) === 0, 'The deleted view still lists the restored document');
-  });
-
   await s.step('Refile copies the selected PDF byte-for-byte into the default queue', async () => {
-    await reload('active');
-    h.assert(await listed(docA) === 1 && await listed(docB) === 1, 'The published list did not return both documents');
     await browser.locator('#doclist').selectOption(`${docB.id}-application/pdf`);
     await browser.locator('#refilebutton').waitFor({ state: 'visible' });
     await browser.locator('#queueList').selectOption('1');
@@ -214,12 +188,42 @@ async function workflow(s) {
 
   await s.step('NoteBrowserDocumentDelete refuses GET and changes nothing', async () => {
     const url = new URL(`${s.config.baseUrl}/casemgmt/NoteBrowserDocumentDelete`);
-    url.search = new URLSearchParams({ delDocumentNo: docA.id, demographicNo: patient }).toString();
+    url.search = new URLSearchParams({ delDocumentNo: docB.id, demographicNo: patient }).toString();
     const response = await s.context.request.get(url.href, { maxRedirects: 0, failOnStatusCode: false });
     const code = response.status();
     await response.dispose();
     h.assert(code === 405, `GET NoteBrowserDocumentDelete answered HTTP ${code}, expected 405`);
-    h.assert(status(docA) === 'A', 'GET NoteBrowserDocumentDelete deleted the document');
+    h.assert(status(docB) === 'A', 'GET NoteBrowserDocumentDelete deleted the document');
+  });
+
+  await s.step('View status Deleted lists the deleted document and Undelete restores status A', async () => {
+    await reload('deleted');
+    h.assert(await listed(docA) === 1 && await listed(docB) === 0, 'The deleted view does not list exactly the deleted document');
+    await browser.locator('#doclist').selectOption(`${docA.id}-application/pdf`);
+    await submitFrom(browser.locator('#docbuttons input[type="button"][value="Undelete"]'), 'NoteBrowserDocumentUndelete');
+    h.assert(status(docA) === 'A', 'Undelete did not restore the document status');
+    h.assert(await listed(docA) === 0, 'The deleted view still lists the restored document');
+    await reload('active');
+    h.assert(await listed(docA) === 1 && await listed(docB) === 1, 'The published view does not list both documents again');
+  });
+
+  await s.step('Print from the note browser downloads a PDF carrying the latest revision', async () => {
+    await browser.locator('#encounterlist').selectOption(noteId);
+    await browser.locator('#printnotesbutton').waitFor({ state: 'visible' });
+    const [popup] = await Promise.all([s.context.waitForEvent('page'), browser.locator('#imgPrintEncounter').click()]);
+    const download = await popup.waitForEvent('download');
+    h.assert(!(await download.failure()), 'The note print download failed');
+    const file = path.join(scratch, 'print.pdf');
+    await download.saveAs(file);
+    if (!popup.isClosed()) await popup.close();
+    // The print control is an <input type="image"> inside the page's form: the note browser
+    // itself must still be there afterwards, not replaced by that form's submission.
+    await browser.locator('#encounterlist').waitFor({ state: 'attached' });
+    h.assert(new URL(browser.url()).pathname.endsWith('/casemgmt/ViewNoteBrowser'), 'Printing navigated the note browser away');
+    h.assert(fs.readFileSync(file).subarray(0, 5).toString('latin1') === '%PDF-', 'The note print is not a PDF');
+    const text = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' });
+    h.assert(text.includes(texts[2]), 'The printed PDF does not carry the latest note revision');
+    h.assert(!text.includes(texts[0]), 'The printed PDF carries a superseded revision');
     await browser.close();
   });
 

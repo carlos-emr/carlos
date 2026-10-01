@@ -12,6 +12,7 @@
 // number under JE whose text carries the run marker. Cleanup deletes only those rows and restores
 // the hide_prevention_item snapshot. That property is global: run with EXCLUSIVE=1.
 // lot-number-search covers the search form against a seeded lot; this check covers add/delete.
+// Print runs LAST: on release/2026.08 its form posts to /WEB-INF/jsp/prevention/printPrevention (404).
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');

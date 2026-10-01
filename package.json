@@ -267,7 +267,9 @@
     "test:measurement-map-admin-playwright": "node scripts/measurement-map-admin-playwright-checks.js",
     "test:provider-preferences-cpp-dx-playwright": "node scripts/provider-preferences-cpp-dx-playwright-checks.js",
     "test:rx-interactions-renal-luc-playwright": "node scripts/rx-interactions-renal-luc-playwright-checks.js",
-    "test:messenger-attachments-playwright": "node scripts/messenger-attachments-playwright-checks.js"
+    "test:messenger-attachments-playwright": "node scripts/messenger-attachments-playwright-checks.js",
+    "test:lab-manual-entry-cumulative-playwright": "node scripts/lab-manual-entry-cumulative-playwright-checks.js",
+    "test:session-heartbeat-timeout-playwright": "node scripts/session-heartbeat-timeout-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

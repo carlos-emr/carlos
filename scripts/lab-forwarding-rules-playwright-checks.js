@@ -291,11 +291,11 @@ async function workflow(s) {
     const rules = await openForwardingRules(inbox, recorder);
     const remove = rules.locator('ul li').filter({ hasText: marker }).getByRole('link', { name: 'Remove' });
     await confirmAndReload(rules, remove, 'Remove forward target');
-    h.assert(sql.value(`SELECT COUNT(*) FROM incomingLabRules WHERE provider_no=${h.sqlString(source)} AND archive='0'`) === '0',
+    // Remove's link is href="#" and submits the form from its handler, so the hash change can
+    // be observed before the POST's reply replaces the page: wait for the reply's content.
+    await expectValue(sql, `SELECT COUNT(*) FROM incomingLabRules WHERE provider_no=${h.sqlString(source)} AND archive='0'`, '0',
       'Removing the target left an active rule for the provider');
-    await rules.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
-    console.log('DBG', rules.url(), (await rules.locator('.py-3').innerText()).slice(0, 400));
-    h.assert(await rules.getByText('There are no forwarding rules set').count() === 1,
+    h.assert(await rules.getByText('There are no forwarding rules set').waitFor({ timeout: TIMEOUT }).then(() => true, () => false),
       'The reloaded page still shows forwarding rules');
     await rules.close();
   });
