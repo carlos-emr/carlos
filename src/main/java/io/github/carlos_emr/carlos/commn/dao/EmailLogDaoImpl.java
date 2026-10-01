@@ -4,8 +4,6 @@ import java.nio.charset.StandardCharsets;
 import org.apache.commons.codec.binary.Base64;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -230,24 +228,35 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
 
     @Override
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
-    public List<Integer> findIdsByTransactionTypeChangedBetweenWithOtherBody(EmailLog.TransactionType type,
-            Date changedSince, Date changedBefore, String body) {
-        byte[] encoded = encodeBody(Objects.requireNonNull(body, "body"));
-        List<Object[]> rows = entityManager
-                .createQuery("SELECT e.id, e.body FROM EmailLog e WHERE e.transactionType = :type "
-                        + "AND e.timestamp >= :changedSince AND e.timestamp < :changedBefore ORDER BY e.id",
-                        Object[].class)
+    public List<Integer> findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType type,
+            Date changedBefore, String body, int afterId, int limit) {
+        return entityManager.createQuery("SELECT e.id FROM EmailLog e WHERE e.transactionType = :type "
+                        + "AND e.status IN :settledStatuses AND e.timestamp < :changedBefore AND e.id > :afterId "
+                        + "AND (e.body IS NULL OR e.body <> :body) ORDER BY e.id", Integer.class)
                 .setParameter("type", type)
-                .setParameter("changedSince", changedSince)
+                .setParameter("settledStatuses", List.of(EmailLog.EmailStatus.SUCCESS,
+                        EmailLog.EmailStatus.BLOCKED))
                 .setParameter("changedBefore", changedBefore)
+                .setParameter("afterId", afterId)
+                .setParameter("body", encodeBody(Objects.requireNonNull(body, "body")))
+                .setMaxResults(limit)
                 .getResultList();
-        List<Integer> ids = new ArrayList<>();
-        for (Object[] row : rows) {
-            if (!Arrays.equals((byte[]) row[1], encoded)) {
-                ids.add((Integer) row[0]);
-            }
-        }
-        return ids;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
+            String replacement) {
+        return entityManager.createQuery("UPDATE EmailLog e SET e.body = :body WHERE e.id = :id "
+                        + "AND e.transactionType = :type AND e.status IN :settledStatuses AND e.timestamp < :changedBefore "
+                        + "AND (e.body IS NULL OR e.body <> :body)")
+                .setParameter("id", id)
+                .setParameter("type", type)
+                .setParameter("settledStatuses", List.of(EmailLog.EmailStatus.SUCCESS,
+                        EmailLog.EmailStatus.BLOCKED))
+                .setParameter("changedBefore", changedBefore)
+                .setParameter("body", encodeBody(Objects.requireNonNull(replacement, "replacement")))
+                .executeUpdate();
     }
 
     /** The stored form of a body, as {@link EmailLog#setBody(String)} writes it. */

@@ -136,13 +136,40 @@ It lives in the outbox row only between the store and the send, which is the win
 contract requires; once the send resolves either way, or staff resolve an unfinished delivery, the
 stored body is replaced with a note saying the code is not kept. When that step does not happen (CARLOS
 stops mid-send, the send fails after the email is saved but before the attempt learns which email it
-saved, or the replacement itself fails), CARLOS clears the leftover code in two places. When CARLOS
-starts, before it serves any request, every portal invitation email changed within the last 8 days (the
-code's 7-day lifetime plus a day) still holding a code has its body replaced the same way; nothing can be
-mid-send then, so a crash is cleared on the restart that follows it. Before a new invitation, at most
-once every 15 minutes, the same happens to such emails unchanged for 15 minutes, which catches a
-replacement that failed while CARLOS kept running. Only the body is written, and the log reports how
-many were cleared. An older code has already expired on the portal. The outbound email archive, a permanent patient
+saved, or the replacement itself fails), CARLOS retries cleanup for emails whose transport is known to
+have settled: `SUCCESS` (transport returned) or `BLOCKED` (consent refused dispatch). `FAILED` is
+excluded because staff abandonment can also write it while the original preparation is still running.
+It checks all ages, including expired codes, in batches of at most 200 ids. Cleanup runs
+at startup and every 15 minutes after the preceding run completes. Each run processes at most 200
+rows, continuing from the preceding batch, then starts a new pass after reaching the end. A row must have been unchanged for 15 minutes. Both selection and the atomic
+body-only update check eligibility, so a concurrent status change cannot be overwritten. Failures are
+retried on a later pass without requiring another invitation; logs contain counts and exception class
+names, never credentials.
+
+**Remaining draft limitation (#4083):** an idle timestamp does not prove that a sender on another
+server has stopped. Failed, unfinished, or manually resolved emails are excluded from automatic cleanup,
+regardless of age. This draft therefore does not promise a deadline for clearing every crash leftover,
+or that every email older than seven days is clear. These cases need a separate, verified maintenance
+procedure. Expiry of the portal token does not erase its saved body or existing database backups.
+
+Administrators with database read access can check for remaining bodies without displaying any code.
+Run this count-only query against the CARLOS database:
+
+```sql
+SELECT COUNT(*) AS invitation_bodies_remaining
+FROM emailLog
+WHERE transactionType = 'PORTAL_INVITE'
+  AND (body IS NULL OR body <> CAST(REPLACE(TO_BASE64(
+    'This invitation''s code is not kept by CARLOS. Resend the invitation to issue a new code.'
+  ), CHAR(10), '') AS BINARY));
+```
+
+The count includes every age and status. A nonzero count is conservative: it includes active sends,
+unknown outcomes, null bodies, and any body that does not exactly match the removal note. Zero verifies
+that every current invitation row has the removal note at the time of the query; it says nothing about
+older backups. Do not print the bodies to investigate the count.
+
+The outbound email archive, a permanent patient
 document, never holds it: the service names the code in
 `EmailData.setArchiveRedactions`, and `EmailManager` archives the message with it replaced by
 `[redacted]` and the artifact type suffixed `_REDACTED` (`SMTP_RFC822_REDACTED` or

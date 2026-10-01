@@ -27,7 +27,9 @@
 
 package io.github.carlos_emr.carlos.utility;
 
-import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.ScheduledFuture;
+import org.springframework.scheduling.TaskScheduler;
 
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
@@ -56,6 +58,8 @@ import io.github.carlos_emr.CarlosProperties;
 public class ContextStartupListener implements jakarta.servlet.ServletContextListener {
     private static final Logger logger = MiscUtils.getLogger();
     private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
+
+    private ScheduledFuture<?> portalInviteSweep;
 
     @Override
     public void contextInitialized(jakarta.servlet.ServletContextEvent sce) {
@@ -112,16 +116,15 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
         }
     }
 
-    /**
-     * A crash while a patient portal invitation was being sent can leave its code in the saved email; a
-     * crash always ends in this restart, so the leftovers are cleared here. No request has run yet, so
-     * no invitation can be mid-send and nothing needs to have been idle. Never stops startup.
-     */
+    /** Start cleanup independently of invitation traffic; cancel it when this webapp stops. */
     private void forgetLeftoverPortalInviteCodes() {
         try {
-            new PortalInviteCodeSweeper(SpringUtils.getBean(EmailLogDao.class)).forgetLeftoverCodes(Duration.ZERO);
+            PortalInviteCodeSweeper sweeper = new PortalInviteCodeSweeper(SpringUtils.getBean(EmailLogDao.class));
+            sweeper.run();
+            portalInviteSweep = SpringUtils.getBean(TaskScheduler.class).scheduleWithFixedDelay(
+                    sweeper, Instant.now().plus(PortalInviteCodeSweeper.INTERVAL), PortalInviteCodeSweeper.INTERVAL);
         } catch (RuntimeException e) {
-            logger.warn("patient portal invitation code sweep failed at startup: {}", e.getClass().getSimpleName());
+            logger.warn("patient portal invitation code sweep could not be scheduled: {}", e.getClass().getSimpleName());
         }
     }
 
@@ -216,6 +219,9 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
 
     @Override
     public void contextDestroyed(jakarta.servlet.ServletContextEvent sce) {
+        if (portalInviteSweep != null) {
+            portalInviteSweep.cancel(false);
+        }
         logger.info("Server processes stopping. context=" + sce.getServletContext().getContextPath());
 
         try {

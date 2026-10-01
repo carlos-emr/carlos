@@ -42,29 +42,25 @@ import org.apache.logging.log4j.Logger;
  * message), or when the removal itself fails. Database backups then keep it too. CARLOS never sends a
  * saved invitation email again, so nothing needs the code once the sending request has finished.
  *
- * <p>Two callers, with different idle times:
- * <ul>
- *   <li>At startup, with no idle time: no request is running yet, so no invitation can be mid-send in
- *       this CARLOS, and a crash is cleared on the restart that follows it however soon that is.</li>
- *   <li>Before a new invitation, with {@link PortalInviteDeliveryService#RECOVERY_MIN_AGE}: another
- *       request may be sending an invitation right now, and staff recovery treats the same idle time as
- *       the end of a send. This catches a removal that failed while CARLOS kept running.</li>
- * </ul>
- * Only emails that changed within {@link #WINDOW} are checked: an older code has expired on the portal.
- * A body already cleared is skipped by the query. The sweep changes no delivery attempt and calls
- * nothing on the portal.
+ * <p>Cleanup runs at startup and periodically, independently of invitation traffic. All callers use
+ * the same idle cutoff, including startup: another server sharing the database may still be sending.
+ * Only SUCCESS or BLOCKED emails qualify; failed, unfinished or manually resolved sends are untouched.
+ * Expired codes in settled emails are also removed. Bounded pages keep bodies out of application memory,
+ * and each write rechecks the cutoff in case the email changed after selection.
  *
  * @since 2026-09-30
  */
-public class PortalInviteCodeSweeper {
+public class PortalInviteCodeSweeper implements Runnable {
 
-    /** Emails older than this hold codes the portal has already expired. */
-    static final Duration WINDOW = PortalInviteEmailComposer.CODE_LIFETIME.plusDays(1);
+    static final int BATCH_SIZE = 200;
+    public static final Duration INTERVAL = Duration.ofMinutes(15);
 
     private static final Logger logger = MiscUtils.getLogger();
 
     private final EmailLogDao emailLogs;
     private final Clock clock;
+    /** Resume the next bounded batch; reset after reaching the end so failures are retried. */
+    private int afterId;
 
     public PortalInviteCodeSweeper(EmailLogDao emailLogs) {
         this(emailLogs, Clock.systemUTC());
@@ -75,30 +71,47 @@ public class PortalInviteCodeSweeper {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
+    /** A failed database call must not cancel future scheduled retries. */
+    @Override
+    public void run() {
+        try {
+            forgetLeftoverCodes(PortalInviteDeliveryService.RECOVERY_MIN_AGE);
+        } catch (RuntimeException exception) {
+            logger.warn("patient portal invitation code sweep failed: {}", exception.getClass().getSimpleName());
+        }
+    }
+
     /**
-     * Clears the code from every recent portal invitation email unchanged for at least {@code minIdle}.
+     * Clears one batch of settled invitation emails unchanged for at least {@code minIdle}.
      *
      * <p>Best effort: an email that cannot be rewritten is logged by its failure's class and skipped, and
-     * the next sweep tries it again.
+     * a later sweep tries it again after reaching the end of the current pass.
      *
-     * @param minIdle how long an email must be unchanged; zero only when nothing can be sending
+     * @param minIdle how long an email must be unchanged
      * @return how many saved emails were changed
      */
     public int forgetLeftoverCodes(Duration minIdle) {
         Instant now = clock.instant();
-        List<Integer> emailLogIds = emailLogs.findIdsByTransactionTypeChangedBetweenWithOtherBody(
-                TransactionType.PORTAL_INVITE, Date.from(now.minus(WINDOW)), Date.from(now.minus(minIdle)),
-                PortalInviteEmailComposer.CODE_FORGOTTEN);
+        Date cutoff = Date.from(now.minus(minIdle));
         int cleared = 0;
         int failed = 0;
+        List<Integer> emailLogIds = emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(
+                TransactionType.PORTAL_INVITE, cutoff, PortalInviteEmailComposer.CODE_FORGOTTEN,
+                afterId, BATCH_SIZE);
         for (Integer emailLogId : emailLogIds) {
             try {
-                cleared += emailLogs.replaceBody(emailLogId, PortalInviteEmailComposer.CODE_FORGOTTEN);
+                cleared += emailLogs.replaceBodyIfUnchangedBefore(emailLogId,
+                        TransactionType.PORTAL_INVITE, cutoff, PortalInviteEmailComposer.CODE_FORGOTTEN);
             } catch (RuntimeException exception) {
                 failed++;
                 logger.warn("patient portal invitation code sweep: an email could not be cleared: {}",
                         exception.getClass().getSimpleName());
             }
+            // Failed rows are retried next pass without blocking later batches.
+            afterId = emailLogId;
+        }
+        if (emailLogIds.size() < BATCH_SIZE) {
+            afterId = 0;
         }
         if (cleared > 0 || failed > 0) {
             logger.info("patient portal invitation code sweep: cleared {}, failed {}", cleared, failed);

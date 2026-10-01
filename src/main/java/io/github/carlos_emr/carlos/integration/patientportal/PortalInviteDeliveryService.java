@@ -41,7 +41,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -53,7 +52,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.logging.log4j.Logger;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -87,9 +85,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * {@link PortalInviteContact} and the email itself in {@link PortalInviteEmailComposer}.
  *
  * <p>The invite code is stored by CARLOS only in the body of the email's outbox row, and only until the
- * send settles or staff resolve the delivery, when it is replaced there. A code that step misses, after a
- * crash or an early failure, is cleared by {@link PortalInviteCodeSweeper} at the next startup or before
- * a later invitation. It is never stored on the attempt, in the archive, or on the chart. A
+ * send settles or staff resolve the delivery, when it is replaced there; a crash in the middle of a send
+ * leaves it in that row until then. {@link PortalInviteCodeSweeper} periodically retries removal for
+ * emails recorded SUCCESS or BLOCKED; ambiguous outcomes remain untouched. The code is never stored
+ * on the attempt, in the archive, or on the chart. A
  * lost prepare response is recovered by retrying with the same operation id, which the portal answers
  * with the same token.
  *
@@ -186,9 +185,6 @@ public class PortalInviteDeliveryService {
     private final PatientPortalInviteDeliveryDao deliveries;
     private final EmailLogDao emailLogs;
     private final Clock clock;
-    private final PortalInviteCodeSweeper codeSweeper;
-    /** When this service last swept, so each new invitation does not repeat a sweep that cannot find more. */
-    private final AtomicReference<Instant> lastSweep = new AtomicReference<>();
 
     public PortalInviteDeliveryService(
             PatientPortalService portal,
@@ -218,7 +214,6 @@ public class PortalInviteDeliveryService {
         this.deliveries = deliveries;
         this.emailLogs = emailLogs;
         this.clock = clock;
-        this.codeSweeper = new PortalInviteCodeSweeper(emailLogs, clock);
     }
 
     /**
@@ -351,7 +346,6 @@ public class PortalInviteDeliveryService {
 
     private PatientPortalInviteDelivery deliver(LoggedInInfo user, int demographicNo,
             PortalInviteContact contact, PatientPortalStaffContext staff, EmailData email, Long supersededInviteId) {
-        forgetLeftoverCodes();
         String operationId = OPERATION_PREFIX + UUID.randomUUID();
         PatientPortalInviteDelivery row = deliveries.claim(new PatientPortalInviteDelivery(
                 operationId, demographicNo, portalSettings.clinicId(), portalSettings.baseUrl(),
@@ -921,24 +915,6 @@ public class PortalInviteDeliveryService {
             logger.warn("patient portal invitation could not be withdrawn: kind={}, cause={}", exception.kind(),
                     exception.getCause() == null ? "none" : exception.getCause().getMessage());
             return false;
-        }
-    }
-
-    /**
-     * Clears codes an earlier attempt left in its saved email; see {@link PortalInviteCodeSweeper}. Runs at
-     * most once per {@link #RECOVERY_MIN_AGE}, because no email can become eligible any sooner. Best
-     * effort: a failed sweep must not stop a new invitation.
-     */
-    private void forgetLeftoverCodes() {
-        Instant now = clock.instant();
-        Instant last = lastSweep.get();
-        if (last != null && now.isBefore(last.plus(RECOVERY_MIN_AGE)) || !lastSweep.compareAndSet(last, now)) {
-            return;
-        }
-        try {
-            codeSweeper.forgetLeftoverCodes(RECOVERY_MIN_AGE);
-        } catch (RuntimeException exception) {
-            logger.warn("patient portal invitation code sweep failed: {}", exception.getClass().getSimpleName());
         }
     }
 

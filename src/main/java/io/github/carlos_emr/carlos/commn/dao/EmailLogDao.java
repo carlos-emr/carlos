@@ -74,15 +74,16 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
     public int replaceBody(Integer id, String replacement);
 
     /**
-     * Lists emails of one transaction type, by their {@code timestamp}, whose body is not {@code body}.
-     * The timestamp is set when the row is created and again by most status changes; a manual resolution
-     * keeps it. Bodies are compared here, without loading the emails as entities.
-     *
-     * @return the ids of emails of {@code type} with a {@code timestamp} at or after {@code changedSince}
-     *         and before {@code changedBefore} whose body differs from {@code body}, oldest id first
+     * Lists at most {@code limit} uncleared, transport-settled emails before the cutoff, after the id.
+     * SUCCESS proves transport returned; BLOCKED proves consent refused it before dispatch. FAILED
+     * can also be written by staff abandonment, so it is excluded alongside PENDING and RESOLVED.
      */
-    public List<Integer> findIdsByTransactionTypeChangedBetweenWithOtherBody(EmailLog.TransactionType type,
-            Date changedSince, Date changedBefore, String body);
+    List<Integer> findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType type,
+            Date changedBefore, String body, int afterId, int limit);
+
+    /** Rechecks type, transport-settled status and cutoff atomically before replacing only the body. */
+    int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
+            String replacement);
 
     /**
      * Atomically changes an email status only when the persisted row is still in the expected

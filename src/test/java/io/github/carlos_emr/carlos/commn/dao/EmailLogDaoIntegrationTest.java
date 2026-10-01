@@ -118,11 +118,66 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         clearedRow.setBody("code removed");
         entityManager.flush();
 
-        List<Integer> ids = emailLogDao.findIdsByTransactionTypeChangedBetweenWithOtherBody(
-                EmailLog.TransactionType.PORTAL_INVITE, since, before, "code removed");
+        List<Integer> ids = emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
+                EmailLog.TransactionType.PORTAL_INVITE, before, "code removed", 0, 200);
 
-        assertThat(ids).contains(idleInvite, atSince)
-                .doesNotContain(atBefore, busyInvite, expiredInvite, otherType, cleared);
+        assertThat(ids).contains(idleInvite, atSince, expiredInvite)
+                .doesNotContain(atBefore, busyInvite, otherType, cleared);
+        assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
+                EmailLog.TransactionType.PORTAL_INVITE, before, "code removed", idleInvite, 1))
+                .containsExactly(atSince);
+    }
+
+    @Test
+    @DisplayName("should leave unfinished and manually resolved sends untouched, regardless of age")
+    void shouldExcludeAmbiguousSends_whenSelectingCleanup() {
+        Date old = new Date(System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000);
+        Date cutoff = new Date(System.currentTimeMillis() - 15L * 60 * 1000);
+        java.util.Map<EmailLog.EmailStatus, Integer> rows = new java.util.EnumMap<>(EmailLog.EmailStatus.class);
+        for (EmailLog.EmailStatus status : EmailLog.EmailStatus.values()) {
+            Integer id = persisted(EmailLog.TransactionType.PORTAL_INVITE, old);
+            entityManager.find(EmailLog.class, id).setStatus(status);
+            rows.put(status, id);
+        }
+        entityManager.flush();
+        assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
+                EmailLog.TransactionType.PORTAL_INVITE, cutoff, "code removed", 0, 200))
+                .contains(rows.get(EmailLog.EmailStatus.SUCCESS), rows.get(EmailLog.EmailStatus.BLOCKED))
+                .doesNotContain(rows.get(EmailLog.EmailStatus.PENDING), rows.get(EmailLog.EmailStatus.RESOLVED),
+                        rows.get(EmailLog.EmailStatus.FAILED));
+    }
+
+    @Test
+    @DisplayName("should recheck status and cutoff atomically without changing other fields")
+    void shouldProtectChangedRows_whenScrubbingSelectedEmails() {
+        Date old = new Date(System.currentTimeMillis() / 1000 * 1000 - 60L * 60 * 1000);
+        Date cutoff = new Date(System.currentTimeMillis() - 15L * 60 * 1000);
+        Integer id = persisted(EmailLog.TransactionType.PORTAL_INVITE, old);
+        // The production method uses REQUIRES_NEW; invoke the target in this test's transaction so
+        // it can see the uncommitted fixture, while exercising its actual SQL against H2.
+        EmailLogDaoImpl target = (EmailLogDaoImpl) org.springframework.test.util.AopTestUtils
+                .getUltimateTargetObject(emailLogDao);
+        entityManager.find(EmailLog.class, id).setStatus(EmailLog.EmailStatus.RESOLVED);
+        entityManager.flush();
+        assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, "code removed")).isZero();
+        EmailLog row = entityManager.find(EmailLog.class, id);
+        row.setStatus(EmailLog.EmailStatus.SUCCESS);
+        row.setTimestamp(new Date());
+        entityManager.flush();
+        assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, "code removed")).isZero();
+        row.setTimestamp(old);
+        entityManager.flush();
+        assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, "code removed")).isOne();
+        entityManager.clear();
+        row = entityManager.find(EmailLog.class, id);
+        assertThat(row.getBody()).isEqualTo("code removed");
+        assertThat(row.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        assertThat(row.getTimestamp().getTime()).isEqualTo(old.getTime());
+        assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, "code removed")).isZero();
     }
 
     private Integer persisted(EmailLog.TransactionType type, Date timestamp) {
@@ -131,7 +186,7 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         log.setToEmail(new String[] {"sweep.recipient@example.org"});
         log.setSubject("Sweep window");
         log.setBody("Body");
-        log.setStatus(EmailLog.EmailStatus.PENDING);
+        log.setStatus(EmailLog.EmailStatus.SUCCESS);
         log.setTransactionType(type);
         log.setTimestamp(timestamp);
         entityManager.persist(log);
