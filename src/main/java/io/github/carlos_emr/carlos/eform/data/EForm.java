@@ -1488,10 +1488,11 @@ public class EForm extends EFormBase {
     /**
      * True when the form already submits a value named exactly {@code newForm}, i.e. it has a
      * successful control by that name (HTML forms spec): an input other than the button-like
-     * types (which submit nothing unless they are the submitter), a select or a textarea, that is
-     * not disabled (itself or through a disabled ancestor fieldset) and, for a checkbox or radio,
-     * is checked. Anything else (an {@code <a name>}, a disabled field, an unchecked box)
-     * contributes no parameter, so it must not suppress the fallback.
+     * types (which submit nothing unless they are the submitter), a select that would submit at
+     * least one option, or a textarea; not disabled (itself or through a disabled ancestor
+     * fieldset); and, for a checkbox or radio, checked. Anything else (an {@code <a name>}, a
+     * disabled field, an unchecked box, a select with nothing to submit) contributes no
+     * parameter, so it must not suppress the fallback.
      */
     private static boolean hasSubmittableNewFormControl(Element form) {
         return form.select("input[name], select[name], textarea[name]").stream()
@@ -1499,12 +1500,53 @@ public class EForm extends EFormBase {
                 .filter(control -> !control.is(
                         "input[type=button], input[type=submit], input[type=reset], input[type=image]"))
                 .filter(control -> !control.hasAttr("disabled"))
-                // A control inside a disabled fieldset's first legend stays enabled; eForm
-                // templates do not put fields there, so any disabled ancestor fieldset counts.
-                .filter(control -> control.parents().stream()
-                        .noneMatch(parent -> parent.is("fieldset[disabled]")))
-                .anyMatch(control -> !control.is("input[type=checkbox], input[type=radio]")
-                        || control.hasAttr("checked"));
+                .filter(control -> !disabledByFieldset(control))
+                .filter(control -> !control.is("input[type=checkbox], input[type=radio]")
+                        || control.hasAttr("checked"))
+                .anyMatch(control -> !"select".equals(control.normalName()) || selectSubmitsValue(control));
+    }
+
+    /**
+     * A disabled fieldset disables its descendants except those inside its first legend child;
+     * every disabled ancestor fieldset is checked, so nested fieldsets work as in the browser.
+     */
+    private static boolean disabledByFieldset(Element control) {
+        for (Element ancestor : control.parents()) {
+            if (!ancestor.is("fieldset[disabled]")) {
+                continue;
+            }
+            Element firstLegend = ancestor.children().stream()
+                    .filter(child -> "legend".equals(child.normalName()))
+                    .findFirst().orElse(null);
+            if (firstLegend == null || !control.parents().contains(firstLegend)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a select would submit at least one option: a selected option that is not disabled
+     * (an option in a disabled optgroup is disabled). A single select keeps only its last
+     * explicitly selected option and, when none is selected, defaults to its first enabled
+     * option; a multiple select with nothing selected, or an empty select, submits nothing.
+     */
+    private static boolean selectSubmitsValue(Element select) {
+        List<Element> options = select.select("option");
+        List<Element> selected = options.stream().filter(option -> option.hasAttr("selected")).toList();
+        if (select.hasAttr("multiple")) {
+            return selected.stream().anyMatch(option -> !optionDisabled(option));
+        }
+        if (!selected.isEmpty()) {
+            return !optionDisabled(selected.get(selected.size() - 1));
+        }
+        return options.stream().anyMatch(option -> !optionDisabled(option));
+    }
+
+    private static boolean optionDisabled(Element option) {
+        Element parent = option.parent();
+        return option.hasAttr("disabled")
+                || (parent != null && parent.is("optgroup[disabled]"));
     }
 
     public void addHiddenInputElement(String id, String name, String className, String value, Map<String, String> additionalProperties) {

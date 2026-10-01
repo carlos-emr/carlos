@@ -119,7 +119,18 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
             "<input type='radio' name='newForm' value='True'>",
             "<select name='newForm' disabled><option value='True' selected>True</option></select>",
             "<textarea name='newForm' disabled>True</textarea>",
-            "<fieldset disabled><input type='hidden' name='newForm' value='True'></fieldset>"})
+            "<fieldset disabled><input type='hidden' name='newForm' value='True'></fieldset>",
+            "<fieldset disabled><legend>Flags</legend><div><input type='hidden' name='newForm' value='True'></div></fieldset>",
+            "<fieldset disabled><legend>A</legend><legend><input type='hidden' name='newForm' value='True'></legend></fieldset>",
+            "<fieldset disabled><legend><fieldset disabled><legend></legend>"
+                    + "<input type='hidden' name='newForm' value='True'></fieldset></legend></fieldset>",
+            "<fieldset disabled><fieldset disabled><legend>"
+                    + "<input type='hidden' name='newForm' value='True'></legend></fieldset></fieldset>",
+            "<select name='newForm'></select>",
+            "<select name='newForm'><option value='True' selected disabled>True</option></select>",
+            "<select name='newForm'><optgroup disabled><option value='True'>True</option></optgroup></select>",
+            "<select name='newForm' multiple><option value='True'>True</option></select>",
+            "<select name='newForm'><option value='True' selected>True</option><option value='x' selected disabled>x</option></select>"})
     void shouldSupplyNewFormFlag_whenNewFormControlWouldNotBeSubmitted(String control) {
         EForm form = new EForm();
         form.setFormHtml("<form>" + control + "</form>");
@@ -135,7 +146,13 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
             "<input type='checkbox' name='newForm' value='True' checked>",
             "<input type='radio' name='newForm' value='True' checked>",
             "<input type='hidden' name='newForm' value='True'>",
-            "<select name='newForm'><option value='True' selected>True</option></select>"})
+            "<select name='newForm'><option value='True' selected>True</option></select>",
+            "<fieldset disabled><legend><input type='hidden' name='newForm' value='True'></legend></fieldset>",
+            "<fieldset disabled><legend><span><input type='hidden' name='newForm' value='True'></span></legend></fieldset>",
+            "<fieldset disabled><legend><fieldset disabled><legend>"
+                    + "<input type='hidden' name='newForm' value='True'></legend></fieldset></legend></fieldset>",
+            "<select name='newForm'><option value='x' disabled>x</option><option value='True'>True</option></select>",
+            "<select name='newForm' multiple><option value='True' selected>True</option></select>"})
     void shouldKeepTemplateNewFormFlag_whenNewFormControlIsSubmitted(String control) {
         EForm form = new EForm();
         form.setFormHtml("<form>" + control + "</form>");
