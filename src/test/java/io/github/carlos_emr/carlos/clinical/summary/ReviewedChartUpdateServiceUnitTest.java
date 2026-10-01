@@ -103,6 +103,14 @@ class ReviewedChartUpdateServiceUnitTest {
         verifyNoInteractions(notes);
     }
 
+    @Test void shouldRefuseNativeReviewItems_evenWithConfirmation() {
+        proposal = new ChartUpdateProposals.Proposal("review", "Allergies: none.", "Allergies");
+        review = new ChartUpdateReview("101", snapshot, List.of(proposal));
+        assertThatThrownBy(() -> apply(approval("Allergies: none.", "", "", "MedHistory")))
+                .hasMessageContaining("normal chart form");
+        verifyNoInteractions(context, receipts, ticklers, notes);
+    }
+
     @Test void shouldRequireConfirmation_beforePersistence() {
         assertThatThrownBy(() -> apply(new ReviewedChartUpdateService.Approval("x", "", "", "", false, "fresh")))
                 .hasMessageContaining("Confirm");
@@ -219,7 +227,7 @@ class ReviewedChartUpdateServiceUnitTest {
 
     @Test void shouldRequireLockAndDestination_whenSavingHistory() {
         prepare("history");
-        assertThatThrownBy(() -> apply(valid())).hasMessageContaining("Choose Medical history");
+        assertThatThrownBy(() -> apply(valid())).hasMessageContaining("Choose an available chart section");
         verify(receipts).requireNoteLock(user, 3001);
         doThrow(new IllegalStateException("editing lock")).when(receipts).requireNoteLock(user, 3001);
         assertThatThrownBy(() -> apply(approval("History", "", "", "MedHistory"))).hasMessageContaining("editing lock");

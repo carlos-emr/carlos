@@ -53,7 +53,8 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
     private final EntityManager em = mock(EntityManager.class);
     private final LoggedInInfo user = mock(LoggedInInfo.class);
     private final MockHttpSession session = new MockHttpSession();
-    private final ChartUpdateContext context = new ChartUpdateContext(security, documents, notes, ticklers, programs, programManager, ticklerAccess);
+    private final ChartUpdateChartRecords records = mock(ChartUpdateChartRecords.class);
+    private final ChartUpdateContext context = new ChartUpdateContext(security, documents, notes, ticklers, programs, programManager, ticklerAccess, records);
     private MockedStatic<CarlosProperties> settings;
     private MockedStatic<EDocUtil> visibility;
     private MockedStatic<ClinicalSummaryTextExtractor> reader;
@@ -198,5 +199,28 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         reader.when(() -> ClinicalSummaryTextExtractor.document("synthetic.txt", "text/plain"))
                 .thenReturn(new ClinicalSummaryTextExtractor.Extract("Truncated source", false, "Too long"));
         assertThatThrownBy(() -> context.load(user, 42)).hasMessageContaining("Complete readable");
+    }
+    @Test void shouldRequireSectionPrivileges_forEachNewDestination() {
+        when(security.hasPrivilege(user, "_eChart", "w", 3001)).thenReturn(true);
+        var section = new io.github.carlos_emr.carlos.model.security.Secobjprivilege();
+        section.setObjectname_code("_SocHistory"); section.setPrivilege_code("r");
+        when(security.getSecurityObjects(user)).thenReturn(List.of(section));
+        assertThatThrownBy(() -> context.requireSectionWrite(user, 3001, "SocHistory")).isInstanceOf(SecurityException.class);
+        section.setPrivilege_code("w");
+        assertThatCode(() -> context.requireSectionWrite(user, 3001, "SocHistory")).doesNotThrowAnyException();
+        when(security.hasPrivilege(user, "_FamHistory", "w", 3001)).thenReturn(true);
+        assertThatThrownBy(() -> context.requireSectionWrite(user, 3001, "FamHistory")).isInstanceOf(SecurityException.class);
+        when(security.hasPrivilege(user, "_newCasemgmt.familyHistory", "x", 3001)).thenReturn(true);
+        assertThatCode(() -> context.requireSectionWrite(user, 3001, "FamHistory")).doesNotThrowAnyException();
+        assertThatThrownBy(() -> context.requireSectionWrite(user, 3001, "Allergies")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test void shouldBuildOnlyAuthorizedPatientNativeLinks_withoutClinicalText() {
+        assertThat(context.nativeReviewUrl(user, 3001, "Allergies")).isEmpty();
+        when(security.hasPrivilege(user, "_allergy", "r", 3001)).thenReturn(true);
+        when(security.hasPrivilege(user, "_allergy", "w", 3001)).thenReturn(true);
+        assertThat(context.nativeReviewUrl(user, 3001, "Allergies")).isEqualTo("/rx/showAllergy?demographicNo=3001");
+        assertThat(context.nativeReviewUrl(user, 3002, "Allergies")).isEmpty();
+        assertThat(context.nativeReviewUrl(user, 3001, "Measurements")).isEmpty();
     }
 }

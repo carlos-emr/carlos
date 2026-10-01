@@ -70,12 +70,12 @@ class ChartUpdatesTest(unittest.TestCase):
                 {'kind': 'history', 'start_id': 4, 'end_id': 4}]}, parts, source)
             self.assertEqual([{'kind': 'history', 'evidence': 'Past Medical History:\n- Asthma'}], result['proposals'])
 
-    def test_caps_expanded_lists_after_deduplication(self):
-        source = 'Plan\n' + '\n'.join(f'- Arrange clinic {i} follow-up.' for i in range(25))
+    def test_rejects_expanded_lists_exceeding_budget_without_partial_output(self):
+        source = 'Plan\n' + '\n'.join(f'- Arrange clinic {i} follow-up.' for i in range(updates.MAX_PROPOSALS + 5))
         parts = updates.source_segments(source)
-        result = updates.resolve_ranges({'proposals': [
-            {'kind': 'tickler', 'start_id': 1, 'end_id': len(parts)}]}, parts, source)
-        self.assertEqual(20, len(result['proposals']))
+        with self.assertRaisesRegex(ValueError, 'Expanded proposal count'):
+            updates.resolve_ranges({'proposals': [
+                {'kind': 'tickler', 'start_id': 1, 'end_id': len(parts)}]}, parts, source)
 
     def test_followup_can_be_selected_without_neighbouring_prescription(self):
         source = 'Prescribe drug A. Advised to follow up with GP in 7 days.\r\n'
@@ -216,6 +216,33 @@ class ChartUpdatesTest(unittest.TestCase):
             updates.validate_output({'proposals': [{'kind': 'history', 'evidence': text}]}, text)
         with self.assertRaises(ValueError):
             updates.validate_output({'proposals': [{'kind': 'history', 'evidence': self.source}] * 21}, self.source)
+
+    def test_full_chart_destinations_preserve_negatives_and_family_relationships(self):
+        source = 'Social History\n- Non-smoker\n\nFamily History\n- Father: MI at 67\n\nAllergies\nNone'
+        lines = updates.source_segments(source)
+        raw = {'proposals': [
+            {'kind': 'history', 'destination': 'SocHistory', 'start_id': 1, 'end_id': 2},
+            {'kind': 'history', 'destination': 'FamHistory', 'start_id': 4, 'end_id': 5},
+            {'kind': 'review', 'destination': 'Allergies', 'start_id': 7, 'end_id': 8}]}
+        output = updates.resolve_ranges(raw, lines, source)
+        self.assertEqual(3, len(output['proposals']))
+        self.assertEqual('Allergies\nNone', output['proposals'][2]['evidence'])
+        self.assertEqual('Family History\n- Father: MI at 67', output['proposals'][1]['evidence'])
+
+    def test_native_information_cannot_be_misrouted_as_a_chart_write(self):
+        for kind, destination in [('review', 'Concerns'), ('history', 'Allergies'),
+                                  ('tickler', 'Medications'), ('history', 'arbitrary')]:
+            with self.subTest(kind=kind, destination=destination), self.assertRaises(ValueError):
+                updates.validate_output({'proposals': [{'kind': kind, 'destination': destination,
+                                                        'evidence': self.source}]}, self.source)
+
+    def test_more_than_twenty_distinct_chart_facts_can_be_selected(self):
+        source = '\n\n'.join(f'Social fact {i}.' for i in range(30))
+        lines = updates.source_segments(source)
+        rows = [{'kind': 'history', 'destination': 'SocHistory', 'start_id': i, 'end_id': i}
+                for i, line in lines.items() if line.strip()]
+        output = updates.resolve_ranges({'proposals': rows}, lines, source)
+        self.assertEqual(30, len(output['proposals']))
 
     def test_gateway_route_rejects_unknown_source_before_transport(self):
         gateway = agent.Gateway(self.config, transport=lambda *_: self.fail('Network call'))

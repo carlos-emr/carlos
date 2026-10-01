@@ -61,7 +61,7 @@ def main():
     if not 1024 <= args.port <= 65535:
         parser.error('Invalid loopback port')
     config = agent.read_config(args.config or agent.runtime_directory() / 'openrouter/config.json')
-    config.update(request_bytes=50000, max_tokens=4096)
+    config.update(request_bytes=50000, max_tokens=8192)
     gateway = Gateway(config, args.cache)
     with HTTPServer(('127.0.0.1', args.port), agent.handler_for(gateway)) as server:
         print(f'Hosted synthetic chart trial: {config["model"]}, {config["provider"]}, port {args.port}', flush=True)

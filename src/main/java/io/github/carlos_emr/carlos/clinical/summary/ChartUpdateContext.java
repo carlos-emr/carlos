@@ -68,9 +68,11 @@ public class ChartUpdateContext {
     private final ProgramProviderDAO programs;
     private final ProgramManager programManager;
     private final TicklerManager ticklerAccess;
+    private final ChartUpdateChartRecords records;
 
     public ChartUpdateContext(SecurityInfoManager security, DocumentManager documents, CaseManagementManager notes,
-            TicklerDao ticklers, ProgramProviderDAO programs, ProgramManager programManager, TicklerManager ticklerAccess) {
+            TicklerDao ticklers, ProgramProviderDAO programs, ProgramManager programManager, TicklerManager ticklerAccess,
+            ChartUpdateChartRecords records) {
         this.security = security;
         this.documents = documents;
         this.notes = notes;
@@ -78,6 +80,7 @@ public class ChartUpdateContext {
         this.programs = programs;
         this.programManager = programManager;
         this.ticklerAccess = ticklerAccess;
+        this.records = records;
     }
 
     public record Entry(String id, String kind, String text, String entryText, String dueDate, String assignee) implements Serializable {
@@ -155,9 +158,11 @@ public class ChartUpdateContext {
                 .filter(note -> note.getNote() != null && !note.getNote().isBlank())
                 .filter(note -> note.getReporter_caisi_role() != null && note.getReporter_caisi_role().matches("[1-9][0-9]{0,8}"))
                 .toList();
+        var readableSections = ChartUpdateSections.CODES.stream()
+                .filter(code -> ChartUpdateSections.accessible(security, user, patient, code, "r")).collect(java.util.stream.Collectors.toSet());
         for (CaseManagementNote note : notes.filterNotes(user, user.getLoggedInProviderNo(), candidates, program)) {
             if (note.getIssues().stream().anyMatch(issue -> issue.getIssue() != null
-                    && Set.of("MedHistory", "Concerns").contains(issue.getIssue().getCode()))) {
+                    && readableSections.contains(issue.getIssue().getCode()))) {
                 entries.add(new Entry("note-" + note.getId(), "history", note.getNote()));
             }
         }
@@ -170,6 +175,7 @@ public class ChartUpdateContext {
                     + "\nDue: " + date(tickler.getServiceDate()) + "\nAssigned to: " + tickler.getTaskAssignedTo(),
                     Objects.toString(tickler.getMessage(), ""), date(tickler.getServiceDate()), tickler.getTaskAssignedTo()));
         }
+        entries.addAll(records.load(user, patient));
         entries.sort(Comparator.comparing(Entry::id));
         String date = date(document.getObservationdate());
         String sourceHash = ChartUpdateProposals.hash(extract.text());
@@ -190,6 +196,35 @@ public class ChartUpdateContext {
 
     public void requireWrite(LoggedInInfo user, int patient, String kind) {
         if (!security.hasPrivilege(user, "tickler".equals(kind) ? "_tickler" : "_eChart", "w", patient)) deny();
+    }
+
+    public List<String> writableSections(LoggedInInfo user, int patient) {
+        return ChartUpdateSections.CODES.stream().filter(code -> ChartUpdateSections.accessible(security, user, patient, code, "w")).toList();
+    }
+
+    public void requireSectionWrite(LoggedInInfo user, int patient, String destination) {
+        if (!ChartUpdateSections.CODES.contains(destination)) throw new IllegalArgumentException("Choose an available chart section.");
+        if (!ChartUpdateSections.accessible(security, user, patient, destination, "w")) deny();
+    }
+
+    public String nativeReviewUrl(LoggedInInfo user, int patient, String destination) {
+        String permission = switch (destination) {
+            case "Medications" -> "_rx";
+            case "Allergies" -> "_allergy";
+            case "Preventions" -> "_prevention";
+            case "Demographics" -> "_demographic";
+            default -> "";
+        };
+        if (permission.isEmpty() || !security.hasPrivilege(user, permission, "r", patient)
+                || !security.hasPrivilege(user, permission, "w", patient)) return "";
+        return switch (destination) {
+            case "Medications" -> "/rx/choosePatient?demographicNo=" + patient + "&providerNo="
+                    + java.net.URLEncoder.encode(user.getLoggedInProviderNo(), java.nio.charset.StandardCharsets.UTF_8);
+            case "Allergies" -> "/rx/showAllergy?demographicNo=" + patient;
+            case "Preventions" -> "/prevention/ViewPreventionIndex?demographic_no=" + patient;
+            case "Demographics" -> "/demographic/DemographicEdit?demographic_no=" + patient;
+            default -> "";
+        };
     }
 
     private static void deny() { throw new SecurityException("Chart-update access unavailable"); }

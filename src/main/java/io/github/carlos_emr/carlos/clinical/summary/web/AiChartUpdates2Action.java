@@ -133,7 +133,8 @@ public final class AiChartUpdates2Action extends ActionSupport {
                     rememberDrafts(request, review, key);
                     if (!review.getOutcomes().containsKey(key)) {
                         if ("dismiss".equals(operation)) {
-                            review.record(key, "Dismissed. Nothing saved.");
+                            review.record(key, "review".equals(review.proposal(key).kind())
+                                    ? "Review item closed. This action did not save a record." : "Dismissed. Nothing saved.");
                         } else {
                             var approval = new ReviewedChartUpdateService.Approval(single(request, "entryText"),
                                     single(request, "dueDate"), single(request, "assignee"), single(request, "destination"),
@@ -181,6 +182,7 @@ public final class AiChartUpdates2Action extends ActionSupport {
         request.setAttribute("chartUpdateReady", true);
         request.setAttribute("chartUpdateEntries", snapshot.entries());
         request.setAttribute("chartUpdateProviders", providers.getActiveProviders());
+        request.setAttribute("chartUpdateSections", context.writableSections(user, snapshot.patientId()));
         if (review == null || review.getDocument() != snapshot.documentId()) return;
         review.authorize(user.getLoggedInProviderNo(), review.getToken());
         if (review.getPatient() != snapshot.patientId() || !review.getSourceHash().equals(snapshot.sourceHash())) {
@@ -193,6 +195,9 @@ public final class AiChartUpdates2Action extends ActionSupport {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("key", key);
             row.put("kind", proposal.kind());
+            row.put("recordDestination", proposal.destination());
+            row.put("nativeUrl", "review".equals(proposal.kind())
+                    ? context.nativeReviewUrl(user, snapshot.patientId(), proposal.destination()) : "");
             row.put("evidence", proposal.evidence());
             row.put("outcome", review.getOutcomes().getOrDefault(key, ""));
             var draft = review.draft(key);

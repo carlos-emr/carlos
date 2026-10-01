@@ -1,16 +1,52 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["proposals"],
+  "required": [
+    "proposals"
+  ],
   "properties": {
     "proposals": {
-      "type": "array", "maxItems": 20,
+      "type": "array",
+      "maxItems": 100,
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["kind", "evidence"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "evidence",
+          "destination"
+        ],
         "properties": {
-          "kind": {"type": "string", "enum": ["tickler", "history"]},
-          "evidence": {"type": "string", "minLength": 1, "maxLength": 2000}
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tickler",
+              "history",
+              "review"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "destination": {
+            "type": "string",
+            "enum": [
+              "",
+              "MedHistory",
+              "Concerns",
+              "SocHistory",
+              "FamHistory",
+              "RiskFactors",
+              "OMeds",
+              "Reminders",
+              "Medications",
+              "Allergies",
+              "Preventions",
+              "Demographics"
+            ]
+          }
         }
       }
     }

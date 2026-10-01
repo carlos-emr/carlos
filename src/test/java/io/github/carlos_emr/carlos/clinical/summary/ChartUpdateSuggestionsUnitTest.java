@@ -97,4 +97,12 @@ class ChartUpdateSuggestionsUnitTest extends CarlosUnitTestBase {
         assertThat(review.draft(proposal.key()).assignee()).isEmpty();
         assertThat(review.suggestion(proposal.key()).draft().dueDate()).isEqualTo("2026-10-26");
     }
+    @Test void shouldSuggestTheSelectedSourceSection_withoutInventingNativeFields() {
+        var social = ChartUpdateSuggestions.suggest(new ChartUpdateProposals.Proposal("history", "Non-smoker.", "SocHistory"), "2026-01-09", "101");
+        assertThat(social.draft().destination()).isEqualTo("SocHistory");
+        var allergy = ChartUpdateSuggestions.suggest(new ChartUpdateProposals.Proposal("review", "Allergies: none.", "Allergies"), "2026-01-09", "101");
+        assertThat(allergy.draft().destination()).isEqualTo("Allergies");
+        assertThat(allergy.draft().dueDate()).isEmpty();
+        assertThat(allergy.draft().assignee()).isEmpty();
+    }
 }

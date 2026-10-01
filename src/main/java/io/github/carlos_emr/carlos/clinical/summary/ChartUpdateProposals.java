@@ -40,12 +40,15 @@ import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentP
 /** The model selects source passages; the host owns identity, comparison, review and writes. */
 public final class ChartUpdateProposals {
     public static final String ENABLED = "clinical.ai_chart_updates.enabled";
+    public static final int MAX_PROPOSALS = 100;
     private static final Semaphore CAPACITY = new Semaphore(1);
     private final ClinicalSummaryAgent agent;
 
-    public record Proposal(String kind, String evidence) implements Serializable {
+    public record Proposal(String kind, String evidence, String destination) implements Serializable {
+        public Proposal(String kind, String evidence) { this(kind, evidence, ""); }
         public String getKind() { return kind; }
         public String getEvidence() { return evidence; }
+        public String getDestination() { return destination; }
         public String key() { return hash(kind + "\n" + evidence); }
     }
 
@@ -77,13 +80,14 @@ public final class ChartUpdateProposals {
     public static List<Proposal> validate(JsonNode output, String source) {
         ClinicalSummaryAgentProtocol.exactFields(output, Set.of("proposals"));
         JsonNode rows = output.path("proposals");
-        if (!rows.isArray() || rows.size() > 20) throw new IllegalArgumentException("Invalid proposals");
+        if (!rows.isArray() || rows.size() > MAX_PROPOSALS) throw new IllegalArgumentException("Invalid proposals");
         List<Proposal> result = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         var boundaries = new PassageBoundaries(source);
         for (JsonNode row : rows) {
-            ClinicalSummaryAgentProtocol.exactFields(row, Set.of("kind", "evidence"));
-            if (!row.path("kind").isTextual() || !Set.of("tickler", "history").contains(row.get("kind").asText())) {
+            ClinicalSummaryAgentProtocol.exactFields(row, row.has("destination")
+                    ? Set.of("kind", "evidence", "destination") : Set.of("kind", "evidence"));
+            if (!row.path("kind").isTextual() || !Set.of("tickler", "history", "review").contains(row.get("kind").asText())) {
                 throw new IllegalArgumentException("Unsupported proposal kind");
             }
             JsonNode excerpt = row.path("evidence");
@@ -91,7 +95,15 @@ public final class ChartUpdateProposals {
                     || !boundaries.contains(excerpt.asText()) || !seen.add(excerpt.asText())) {
                 throw new IllegalArgumentException("Invalid or duplicate source passage");
             }
-            result.add(new Proposal(row.get("kind").asText(), excerpt.asText()));
+            String kind = row.get("kind").asText();
+            String destination = row.has("destination") ? row.path("destination").asText() : "";
+            if ((row.has("destination") && !row.path("destination").isTextual())
+                    || ("review".equals(kind) && !ChartUpdateSections.NATIVE.contains(destination))
+                    || ("history".equals(kind) && !destination.isEmpty() && !ChartUpdateSections.CODES.contains(destination))
+                    || ("tickler".equals(kind) && !destination.isEmpty())) {
+                throw new IllegalArgumentException("Unsupported chart destination");
+            }
+            result.add(new Proposal(kind, excerpt.asText(), destination));
         }
         return List.copyOf(result);
     }

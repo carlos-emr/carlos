@@ -54,6 +54,17 @@ class ChartUpdateProposalsUnitTest {
         }
     }
 
+    @Test void shouldKeepFullChartDestinations_andRejectIncorrectRouting() throws Exception {
+        String source = "Social History\n- Non-smoker\n\nAllergies\nNone";
+        var output = JSON.readTree("{\"proposals\":[{\"kind\":\"history\",\"destination\":\"SocHistory\",\"evidence\":\"Social History\\n- Non-smoker\"},"
+                + "{\"kind\":\"review\",\"destination\":\"Allergies\",\"evidence\":\"Allergies\\nNone\"}]}");
+        assertThat(ChartUpdateProposals.validate(output, source)).containsExactly(
+                new ChartUpdateProposals.Proposal("history", "Social History\n- Non-smoker", "SocHistory"),
+                new ChartUpdateProposals.Proposal("review", "Allergies\nNone", "Allergies"));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) output.path("proposals").get(1)).put("destination", "Concerns");
+        assertThatThrownBy(() -> ChartUpdateProposals.validate(output, source)).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test void shouldRejectFragments_withOmittedQualification() {
         for (String[] pair : List.of(new String[]{"No asthma.", "asthma"},
                 new String[]{"No\nasthma.", "asthma."},

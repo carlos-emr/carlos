@@ -59,7 +59,7 @@
         <c:forEach items="${chartUpdateRows}" var="proposal" varStatus="position">
         <article class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}" data-proposal-key="${carlos:forHtmlAttribute(proposal.key)}">
             <div class="card-body">
-                <div class="proposal-heading"><span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/>.</span><h3 class="h5"><c:choose><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3></div>
+                <div class="proposal-heading"><span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/>.</span><h3 class="h5"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></c:when><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3></div>
                 <details class="proposal-evidence" open><summary><fmt:message key="chartUpdates.evidence"/></summary><blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote></details>
                 <p><a href="#full-source" data-show-source><fmt:message key="chartUpdates.showSource"/></a></p>
                 <div class="chart-match-notice" role="status" hidden>
@@ -79,9 +79,15 @@
                     <input type="hidden" name="reviewToken" value="${carlos:forHtmlAttribute(chartUpdateReview.token)}">
                     <input type="hidden" name="proposalKey" value="${carlos:forHtmlAttribute(proposal.key)}">
                     <input type="hidden" name="chartFingerprint" value="${carlos:forHtmlAttribute(chartUpdateReview.fingerprint)}">
-                    <label class="form-label mt-2" for="text-${carlos:forHtmlAttribute(proposal.key)}"><fmt:message key="chartUpdates.entry"/></label>
-                    <textarea id="text-${carlos:forHtmlAttribute(proposal.key)}" class="form-control" name="entryText" rows="3" maxlength="2000" required><carlos:encode value="${proposal.text}"/></textarea>
-                    <c:choose><c:when test="${proposal.kind == 'tickler'}">
+                    <label class="form-label mt-2" for="text-${carlos:forHtmlAttribute(proposal.key)}"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.nativeInformation"/></c:when><c:otherwise><fmt:message key="chartUpdates.entry"/></c:otherwise></c:choose></label>
+                    <textarea id="text-${carlos:forHtmlAttribute(proposal.key)}" class="form-control" name="entryText" rows="3" maxlength="2000" <c:if test="${proposal.kind == 'review'}">readonly</c:if> required><carlos:encode value="${proposal.text}"/></textarea>
+                    <c:choose><c:when test="${proposal.kind == 'review'}">
+                        <p><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></p>
+                        <p class="field-help"><fmt:message key="chartUpdates.nativeHelp"/></p>
+                        <c:choose><c:when test="${not empty proposal.nativeUrl}">
+                            <button type="button" class="btn btn-primary btn-sm native-review-open" data-native-url="${carlos:forHtmlAttribute(pageContext.request.contextPath)}${carlos:forHtmlAttribute(proposal.nativeUrl)}" data-native-title="${carlos:forHtmlAttribute(proposal.recordDestination)}"><fmt:message key="chartUpdates.openForm"/></button>
+                        </c:when><c:otherwise><p class="field-help"><fmt:message key="chartUpdates.nativeUnavailable"/></p></c:otherwise></c:choose>
+                    </c:when><c:when test="${proposal.kind == 'tickler'}">
                         <div class="proposal-fields"><div>
                         <label class="form-label mt-2" for="due-${carlos:forHtmlAttribute(proposal.key)}"><fmt:message key="chartUpdates.due"/></label>
                         <input id="due-${carlos:forHtmlAttribute(proposal.key)}" class="form-control" type="date" name="dueDate" aria-describedby="date-help-${carlos:forHtmlAttribute(proposal.key)}" value="${carlos:forHtmlAttribute(proposal.dueDate)}" required>
@@ -105,15 +111,16 @@
                         <label class="form-label mt-2" for="destination-${carlos:forHtmlAttribute(proposal.key)}"><fmt:message key="chartUpdates.destination"/></label>
                         <select id="destination-${carlos:forHtmlAttribute(proposal.key)}" class="form-select" name="destination" required>
                             <option value=""><fmt:message key="chartUpdates.choose"/></option>
-                            <option value="MedHistory" <c:if test="${proposal.destination == 'MedHistory'}">selected</c:if>><fmt:message key="chartUpdates.medicalHistory"/></option>
-                            <option value="Concerns" <c:if test="${proposal.destination == 'Concerns'}">selected</c:if>><fmt:message key="chartUpdates.concerns"/></option>
+                            <c:forEach items="${chartUpdateSections}" var="section">
+                                <option value="${carlos:forHtmlAttribute(section)}" <c:if test="${proposal.destination == section}">selected</c:if>><fmt:message key="chartUpdates.section.${section}"/></option>
+                            </c:forEach>
                         </select>
-                        <p class="field-help"><c:choose><c:when test="${proposal.suggestedDestination == 'MedHistory'}"><fmt:message key="chartUpdates.historySuggestion"/></c:when><c:otherwise><fmt:message key="chartUpdates.concernsSuggestion"/></c:otherwise></c:choose></p>
+                        <p class="field-help"><fmt:message key="chartUpdates.sectionHelp"/></p>
                         <p class="small mt-2"><fmt:message key="chartUpdates.signing"/></p>
                     </c:otherwise></c:choose>
-                    <label class="approval-confirmation"><input type="checkbox" name="confirmed" value="true" required> <fmt:message key="chartUpdates.confirm"/></label>
-                    <div class="proposal-actions"><button class="btn btn-primary btn-sm" type="submit"><fmt:message key="chartUpdates.accept"/></button>
-                    <button class="btn btn-secondary btn-sm" type="submit" formnovalidate formaction="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/DismissAiChartUpdate"><fmt:message key="chartUpdates.dismiss"/></button></div>
+                    <c:if test="${proposal.kind != 'review'}"><label class="approval-confirmation"><input type="checkbox" name="confirmed" value="true" required> <fmt:message key="chartUpdates.confirm"/></label></c:if>
+                    <div class="proposal-actions"><c:if test="${proposal.kind != 'review'}"><button class="btn btn-primary btn-sm" type="submit"><fmt:message key="chartUpdates.accept"/></button></c:if>
+                    <button class="btn btn-secondary btn-sm" type="submit" formnovalidate formaction="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/DismissAiChartUpdate"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.doneReviewing"/></c:when><c:otherwise><fmt:message key="chartUpdates.dismiss"/></c:otherwise></c:choose></button></div>
                 </form>
                 </c:otherwise></c:choose>
             </div>
@@ -157,6 +164,13 @@
 </div>
 </c:if>
 </div>
+<fmt:message key="chartUpdates.nativeCloseWarning" var="nativeCloseWarning"/>
+<dialog id="native-chart-review" class="native-chart-review" data-close-warning="${carlos:forHtmlAttribute(nativeCloseWarning)}">
+    <header class="page-header-bar page-header-bar--flex"><h2 class="page-header-title"><fmt:message key="chartUpdates.normalForm"/></h2><button type="button" class="btn btn-secondary btn-sm" data-native-close><fmt:message key="global.btnClose"/></button></header>
+    <p><fmt:message key="chartUpdates.patient"/>: <carlos:encode value="${chartUpdatePatientLabel}"/> (#<carlos:encode value="${chartUpdatePatient}"/>)</p>
+    <details open><summary><fmt:message key="chartUpdates.evidence"/></summary><pre class="source-text native-review-source"></pre></details>
+    <iframe title="${carlos:forHtmlAttribute(nativeCloseWarning)}" referrerpolicy="same-origin"></iframe>
+</dialog>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-matching.js"></script>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-evidence.js"></script>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates.js"></script>

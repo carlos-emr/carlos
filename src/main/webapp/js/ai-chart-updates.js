@@ -12,7 +12,7 @@
     } catch { /* Standalone review still works when framed by another origin. */ }
     window.CarlosChartUpdateReview = {
         get busy() { return submitting; },
-        get dirty() { return edited; },
+        get dirty() { return edited || !!document.getElementById('native-chart-review')?.open; },
         discard() { edited = false; },
     };
     const notifyState = () => workflowFrame?.dispatchEvent(new Event('chart-update-state'));
@@ -56,7 +56,7 @@
     });
     proposals.forEach(form => form.addEventListener('input', () => { edited = true; }));
     window.addEventListener('beforeunload', event => {
-        if (edited && !submitting) {
+        if (window.CarlosChartUpdateReview.dirty && !submitting) {
             event.preventDefault();
             event.returnValue = '';
         }
@@ -100,4 +100,32 @@
             }
         });
     });
+    const nativeDialog = document.getElementById('native-chart-review');
+    if (nativeDialog && typeof nativeDialog.showModal === 'function') {
+        const nativeFrame = nativeDialog.querySelector('iframe');
+        let nativeTrigger;
+        const closeNative = () => {
+            if (!window.confirm(nativeDialog.dataset.closeWarning)) return;
+            nativeDialog.close();
+        };
+        nativeDialog.querySelector('[data-native-close]').addEventListener('click', closeNative);
+        nativeDialog.addEventListener('cancel', event => { event.preventDefault(); closeNative(); });
+        nativeDialog.addEventListener('close', () => {
+            nativeFrame.removeAttribute('src');
+            nativeTrigger?.focus();
+            notifyState();
+        });
+        document.querySelectorAll('.native-review-open').forEach(button => {
+            button.addEventListener('click', () => {
+                const url = new URL(button.dataset.nativeUrl, location.href);
+                if (url.origin !== location.origin || submitting) return;
+                nativeTrigger = button;
+                nativeDialog.querySelector('.native-review-source').textContent =
+                    button.closest('.proposal').querySelector('.proposal-evidence blockquote').textContent;
+                nativeFrame.src = url.href;
+                nativeDialog.showModal();
+                notifyState();
+            });
+        });
+    }
 })();

@@ -185,6 +185,7 @@ public final class ChartUpdatesBrowserHarness {
                 var providers = mock(ProviderDao.class);
                 when(providers.getActiveProviders()).thenReturn(List.of(provider));
                 var chart = mock(ChartUpdateContext.class);
+                when(chart.writableSections(user, 3001)).thenReturn(ChartUpdateSections.CODES);
                 when(chart.load(user, 42)).thenAnswer(call -> {
                     if (fixture.originalMissing) throw new ChartUpdateContext.OriginalDocumentMissingException();
                     if (fixture.unavailable) throw new IllegalStateException("Document text is unavailable. Reopen the original.");

@@ -47,8 +47,12 @@ public final class ChartUpdateSuggestions {
         String evidence = proposal.evidence();
         String lower = evidence.toLowerCase(Locale.ROOT);
         if ("history".equals(proposal.kind())) {
-            String destination = HISTORICAL.matcher(lower.strip()).find() ? "MedHistory" : "Concerns";
+            String destination = proposal.destination().isEmpty()
+                    ? HISTORICAL.matcher(lower.strip()).find() ? "MedHistory" : "Concerns" : proposal.destination();
             return new Suggestion(new ChartUpdateReview.Draft(evidence, "", "", destination), "", "");
+        }
+        if ("review".equals(proposal.kind())) {
+            return new Suggestion(new ChartUpdateReview.Draft(evidence, "", "", proposal.destination()), "", "");
         }
         var date = date(lower, documentDate);
         return new Suggestion(new ChartUpdateReview.Draft(evidence, date[0], assignee, ""), date[1], date[2]);

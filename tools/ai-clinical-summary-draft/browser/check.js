@@ -133,14 +133,14 @@ async function run() {
     assert.equal(await page.locator('article').count(), 2);
     const fullSource = await page.locator('#chart-update-source').textContent();
     assert.equal(await page.locator('.source-highlight').count(), 2);
-    const historyPassage = await card(page, 'History entry').locator('.proposal-evidence blockquote').textContent();
-    await card(page, 'History entry').getByRole('link', { name: 'Show passage in document' }).click();
+    const historyPassage = await card(page, 'Chart entry').locator('.proposal-evidence blockquote').textContent();
+    await card(page, 'Chart entry').getByRole('link', { name: 'Show passage in document' }).click();
     assert.deepEqual(await page.locator('.source-highlight').allTextContents(), [historyPassage]);
     assert.equal(await page.locator('#chart-update-source').textContent(), fullSource);
     assert.equal(await page.locator('#chart-update-source script').count(), 0);
     assert.equal(await card(page, 'Follow-up reminder').locator('[name="dueDate"]').inputValue(), '');
     assert.equal(await card(page, 'Follow-up reminder').locator('[name="assignee"]').inputValue(), '101');
-    assert.equal(await card(page, 'History entry').locator('[name="destination"]').inputValue(), 'Concerns');
+    assert.equal(await card(page, 'Chart entry').locator('[name="destination"]').inputValue(), 'Concerns');
     assert(await token(page), 'CSRF token must be present');
     await card(page, 'Follow-up reminder').getByRole('button', { name: 'Accept and save', exact: true }).click();
     assert(await card(page, 'Follow-up reminder').locator('[name="dueDate"]').evaluate(input => !input.validity.valid),
@@ -169,7 +169,7 @@ async function run() {
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     await page.screenshot({ path: path.join(runDir, 'suggested-fields-mobile.png'), fullPage: true });
     await reminder.locator('[name="dueDate"]').fill('2026-11-02');
-    await click(page, card(page, 'History entry').getByRole('button', { name: 'Dismiss', exact: true }));
+    await click(page, card(page, 'Chart entry').getByRole('button', { name: 'Dismiss', exact: true }));
     await page.reload();
     assert.equal(await card(page, 'Follow-up reminder').locator('[name="dueDate"]').inputValue(), '2026-11-02');
     assert.equal(await card(page, 'Follow-up reminder').locator('[name="confirmed"]').isChecked(), false);
@@ -321,7 +321,7 @@ async function run() {
   await scenario('matching chart text is visible before approval and duplicate saves are blocked', async page => {
     await change(page, 'matching-chart');
     await generate(page);
-    const history = card(page, 'History entry');
+    const history = card(page, 'Chart entry');
     await history.locator('[name="entryText"]').focus();
     assert.equal(await history.locator('.chart-match-notice').isVisible(), true);
     await history.locator('.chart-match-links a').click();
@@ -345,7 +345,7 @@ async function run() {
   await scenario('paraphrased chart matches show exact passages and respect clinical qualifiers', async page => {
     await change(page, 'paraphrased-chart');
     await generate(page);
-    const history = card(page, 'History entry');
+    const history = card(page, 'Chart entry');
     await history.locator('[name="entryText"]').fill('Hypertension');
     assert.equal(await history.locator('.chart-match-notice').isVisible(), true);
     assert.equal(await history.locator('.chart-match-links a').count(), 1);
@@ -373,7 +373,7 @@ async function run() {
   });
   await scenario('related suggestions stay editable and comparisons display text safely', async page => {
     await generate(page);
-    const history = card(page, 'History entry');
+    const history = card(page, 'Chart entry');
     const reminder = card(page, 'Follow-up reminder');
     await history.locator('[name="entryText"]').fill('Subdural hygroma causing acute confusion.');
     const text = 'Acute confusion secondary to subdural hygroma. <img src=x onerror=window.relatedExecuted=true>';
@@ -392,7 +392,7 @@ async function run() {
   });
   await scenario('regeneration requires confirmation before discarding edited drafts', async page => {
     await generate(page);
-    const history = card(page, 'History entry');
+    const history = card(page, 'Chart entry');
     await history.locator('[name="entryText"]').fill('Keep this edited draft');
     page.once('dialog', dialog => dialog.dismiss());
     const regeneration = page.locator('details.regenerate:not([open]) > summary');
@@ -409,10 +409,10 @@ async function run() {
     await page.locator('details.regenerate:not([open]) > summary').click();
     page.once('dialog', dialog => dialog.dismiss());
     await page.getByRole('button', { name: 'Generate new proposals', exact: true }).click();
-    assert.equal(await card(page, 'History entry').locator('[name="entryText"]').inputValue(), 'Keep this edited draft');
+    assert.equal(await card(page, 'Chart entry').locator('[name="entryText"]').inputValue(), 'Keep this edited draft');
     page.once('dialog', dialog => dialog.accept());
     await generate(page);
-    assert.notEqual(await card(page, 'History entry').locator('[name="entryText"]').inputValue(), 'Keep this edited draft');
+    assert.notEqual(await card(page, 'Chart entry').locator('[name="entryText"]').inputValue(), 'Keep this edited draft');
     assert.deepEqual(await stats(page), { reminders: 1, histories: 0, receipts: 1 });
   });
   await scenario('dismiss bypasses required fields and creates no chart entry', async page => {
@@ -423,7 +423,7 @@ async function run() {
   });
   await scenario('saving one item preserves other edits without carrying approval', async page => {
     await generate(page);
-    let history = card(page, 'History entry');
+    let history = card(page, 'Chart entry');
     const edited = '<b>Clinician reviewed history</b>';
     await history.locator('[name="entryText"]').fill(edited);
     await history.locator('[name="destination"]').selectOption('Concerns');
@@ -431,7 +431,7 @@ async function run() {
     const reminder = await fillReminder(page);
     await click(page, reminder.getByRole('button', { name: 'Accept and save', exact: true }));
     assert.match(page.url(), /\/AiChartUpdates\?documentId=42$/);
-    history = card(page, 'History entry');
+    history = card(page, 'Chart entry');
     assert.equal(await history.locator('[name="entryText"]').inputValue(), edited);
     assert.equal(await history.locator('[name="destination"]').inputValue(), 'Concerns');
     assert.equal(await history.locator('[name="confirmed"]').isChecked(), false);
@@ -447,11 +447,11 @@ async function run() {
     await click(page, reminder.getByRole('button', { name: 'Accept and save', exact: true }));
     assert.match(await card(page, 'Follow-up reminder').innerText(), /Saved: tickler/);
     assert.equal(await page.evaluate(() => window.savedExecuted), undefined);
-    let history = card(page, 'History entry');
+    let history = card(page, 'Chart entry');
     await history.locator('[name="destination"]').selectOption('MedHistory');
     await history.locator('[name="confirmed"]').check();
     await click(page, history.getByRole('button', { name: 'Accept and save', exact: true }));
-    assert.match(await card(page, 'History entry').innerText(), /Saved: history/);
+    assert.match(await card(page, 'Chart entry').innerText(), /Saved: history/);
     assert.deepEqual(await stats(page), { reminders: 1, histories: 1, receipts: 2 });
     await generate(page);
     reminder = await fillReminder(page);
@@ -462,7 +462,7 @@ async function run() {
   await scenario('restored page can submit without duplicate draft fields', async page => {
     await generate(page);
     const reminder = await fillReminder(page);
-    const history = card(page, 'History entry');
+    const history = card(page, 'Chart entry');
     await history.locator('[name="entryText"]').fill('First history edit');
     // Keep the submitted DOM alive, then deliver the lifecycle event emitted when
     // a browser restores that document. This avoids browser-specific cache eligibility.
@@ -472,7 +472,7 @@ async function run() {
     await history.locator('[name="entryText"]').fill('Latest history edit');
     await click(page, reminder.getByRole('button', { name: 'Accept and save', exact: true }));
     assert.equal(await page.getByRole('alert').count(), 0);
-    assert.equal(await card(page, 'History entry').locator('[name="entryText"]').inputValue(), 'Latest history edit');
+    assert.equal(await card(page, 'Chart entry').locator('[name="entryText"]').inputValue(), 'Latest history edit');
     assert.deepEqual(await stats(page), { reminders: 1, histories: 0, receipts: 1 });
   });
   await scenario('stale chart blocks approval, preserves edits and permits rereview', async page => {

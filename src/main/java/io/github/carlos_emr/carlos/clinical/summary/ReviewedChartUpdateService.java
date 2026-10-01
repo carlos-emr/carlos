@@ -69,9 +69,13 @@ public class ReviewedChartUpdateService {
         ChartUpdateContext.requireEnabled();
         review.authorize(user.getLoggedInProviderNo(), token);
         var proposal = review.proposal(key);
+        if ("review".equals(proposal.kind())) {
+            throw new IllegalArgumentException("Use the normal chart form to review and save this information.");
+        }
         if (!approval.confirmed()) throw new IllegalArgumentException("Confirm that you reviewed the source and chart before saving.");
         context.requireWrite(user, review.getPatient(), proposal.kind());
         boolean history = "history".equals(proposal.kind());
+        if (history) context.requireSectionWrite(user, review.getPatient(), approval.destination());
         boolean legacy = !Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("AbandonOldChart", "false"));
         receipts.requireTransactionalTables(history, legacy);
         receipts.lockPatient(review.getPatient());
@@ -151,8 +155,8 @@ public class ReviewedChartUpdateService {
     }
 
     private long saveHistory(LoggedInInfo user, ChartUpdateContext.Snapshot snapshot, String text, String destination) {
-        if (!Set.of("MedHistory", "Concerns").contains(destination == null ? "" : destination)) {
-            throw new IllegalArgumentException("Choose Medical history or Ongoing concerns.");
+        if (!ChartUpdateSections.CODES.contains(destination == null ? "" : destination)) {
+            throw new IllegalArgumentException("Choose an available chart section.");
         }
         var issue = notes.getIssueByCode(destination);
         if (issue == null) throw new IllegalStateException("History destination is unavailable.");
