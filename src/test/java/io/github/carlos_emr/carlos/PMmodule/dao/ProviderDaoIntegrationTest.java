@@ -1949,37 +1949,56 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
-        @DisplayName("should return one row with the newest number when a provider has several fax rows")
+        @DisplayName("should return one row when a provider has several identical fax rows")
         void shouldReturnOneRowPerProvider_whenFaxPropertyIsDuplicated() {
             persistFaxNumber("T001", "416-555-0001");
-            persistFaxNumber("T001", "416-555-0002");
+            persistFaxNumber("T001", "416-555-0001");
             hibernateTemplate.flush();
 
             List<Object[]> rows = providerDao.searchFaxRecipients("smith", 10);
 
             assertThat(rows).hasSize(1);
             assertThat(((Provider) rows.get(0)[0]).getProviderNo()).isEqualTo("T001");
-            assertThat(rows.get(0)[1]).isEqualTo("416-555-0002");
+            assertThat(rows.get(0)[1]).isEqualTo("416-555-0001");
         }
 
         @Test
-        @DisplayName("should skip a newer blank fax row and keep the provider's nonblank number")
-        void shouldIgnoreNewerBlankRow_whenFaxPropertyIsDuplicated() {
+        @DisplayName("should exclude a provider whose newest fax row was cleared")
+        void shouldExcludeProvider_whenNewestFaxRowIsBlank() {
             persistFaxNumber("T001", "416-555-0001");
             persistFaxNumber("T001", "  ");
             hibernateTemplate.flush();
 
-            List<Object[]> rows = providerDao.searchFaxRecipients("smith", 10);
+            assertThat(providerDao.searchFaxRecipients("smith", 10)).isEmpty();
+        }
 
-            assertThat(rows).hasSize(1);
-            assertThat(rows.get(0)[1]).isEqualTo("416-555-0001");
+        @Test
+        @DisplayName("should exclude a provider whose older fax row was cleared in place")
+        void shouldExcludeProvider_whenOlderFaxRowIsBlank() {
+            // saveProp() updates whichever row an unordered lookup returns, so a clear can land on
+            // the older row and leave the removed number on the newer one.
+            persistFaxNumber("T001", "");
+            persistFaxNumber("T001", "416-555-0001");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("smith", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should exclude a provider whose fax rows hold conflicting numbers")
+        void shouldExcludeProvider_whenFaxRowsConflict() {
+            persistFaxNumber("T001", "416-555-0001");
+            persistFaxNumber("T001", "416-555-0002");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("smith", 10)).isEmpty();
         }
 
         @Test
         @DisplayName("should count providers, not duplicate property rows, toward the limit")
         void shouldApplyLimitToProviders_whenFaxPropertyIsDuplicated() {
             persistFaxNumber("T002", "416-555-0021");
-            persistFaxNumber("T002", "416-555-0022");
+            persistFaxNumber("T002", "416-555-0021");
             persistFaxNumber("T001", "416-555-0011");
             hibernateTemplate.flush();
 

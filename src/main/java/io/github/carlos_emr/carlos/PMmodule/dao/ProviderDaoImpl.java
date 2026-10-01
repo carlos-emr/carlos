@@ -79,14 +79,23 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         String literalTerm = term.toLowerCase(java.util.Locale.ROOT)
                 .replace("!", "!!").replace("%", "!%").replace("_", "!_");
         // property has no unique key on (provider_no, name), so a provider can carry several
-        // faxnumber rows. Return one canonical row per provider (the newest nonblank one) so the
-        // picker never offers a stale duplicate and the limit counts providers, not rows.
+        // faxnumber rows, and the write paths disagree about which one is current: saveProp()
+        // updates whichever row an unordered getProp() returns first, ProviderManager2 the last
+        // row it iterates, ProviderFaxUpdater every row; none inserts a second row. Neither
+        // "newest id" nor "first row" is therefore reliably the number the provider last saved.
+        // Faxes carry patient information, so fail closed: offer a provider only when every one
+        // of their faxnumber rows holds the same nonblank number (a cleared or conflicting row
+        // excludes them, and the clinician can still type a number), and return one row per
+        // provider (the highest id) so the limit counts providers, not rows.
         return entityManager().createQuery(
                 "SELECT p, u.value FROM Provider p, UserProperty u "
                 + "WHERE u.providerNo = p.providerNo AND u.name = 'faxnumber' "
                 + "AND p.status = '1' AND u.value IS NOT NULL AND TRIM(u.value) <> '' "
                 + "AND u.id = (SELECT MAX(u2.id) FROM UserProperty u2 WHERE u2.providerNo = p.providerNo "
-                + "AND u2.name = 'faxnumber' AND u2.value IS NOT NULL AND TRIM(u2.value) <> '') "
+                + "AND u2.name = 'faxnumber') "
+                + "AND NOT EXISTS (SELECT u3.id FROM UserProperty u3 WHERE u3.providerNo = p.providerNo "
+                + "AND u3.name = 'faxnumber' AND (u3.value IS NULL OR TRIM(u3.value) = '' "
+                + "OR TRIM(u3.value) <> TRIM(u.value))) "
                 + "AND (LOWER(p.lastName) LIKE :term ESCAPE '!' OR LOWER(p.firstName) LIKE :term ESCAPE '!') "
                 + "ORDER BY p.lastName, p.firstName, p.providerNo", Object[].class)
                 .setParameter("term", "%" + literalTerm + "%")

@@ -95,8 +95,12 @@ public interface ProviderDao {
     /**
      * Searches active providers with a nonblank {@code faxnumber} user property.
      *
-     * <p>A provider with several {@code faxnumber} rows is returned once, with the newest
-     * (highest id) nonblank value, so {@code limit} counts providers rather than property rows.
+     * <p>The {@code property} table has no unique key on (provider_no, name), and the existing
+     * write paths update different rows when a provider has duplicates. A provider is therefore
+     * offered only when every one of their {@code faxnumber} rows holds the same nonblank number
+     * (compared trimmed); a cleared or conflicting row excludes them, so a fax is never routed to
+     * a number the provider removed or replaced. Each provider is returned once, so
+     * {@code limit} counts providers rather than property rows.
      *
      * @param term case-insensitive literal substring matched against first or last name
      * @param limit maximum number of rows
