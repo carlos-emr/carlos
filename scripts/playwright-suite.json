@@ -7010,6 +7010,156 @@
       ],
       "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings. The browser aborts the off-host request; nothing leaves the machine.",
       "notes": "Expected to FAIL today at the final step: Administration > Help Link Setting requests https://www.google-analytics.com/collect (Toast UI editor usage statistics, resourcebaseurl.jsp:212-224 lacks usageStatistics:false)."
+    },
+    {
+      "name": "concurrency-demographic-edit",
+      "script": "scripts/concurrency-demographic-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns the synthetic FAKE- patient (given a valid postal code by SQL so the form is savable); the demographic, demographicExt and demographicArchive rows are removed by the session cleanup. Two sessions of the shared test login; no global setting touched.",
+      "notes": "Fails at its last step on 2026.08 (all earlier steps pass): session A's stale Update Record silently reverts the phone number session B saved, because DemographicUpdate2Action.java:122-200 rewrites every column from the form with no version / lastUpdateDate comparison."
+    },
+    {
+      "name": "concurrency-demographic-ext-insert",
+      "script": "scripts/concurrency-demographic-ext-insert-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns the synthetic FAKE- patient (no demographicExt rows at the start; valid postal set by SQL); rows removed by the session cleanup. Two sessions of the shared test login.",
+      "notes": "Fails at step 'session A's stale save is answered normally, not by a server error': HTTP 500 (Duplicate entry '<demographic_no>-demo_cell' for key uk_demo_ext) because A's form carries empty demographicExt ids (DemographicUpdate2Action.java:308-343,370-371) so the extension rows B's save created are INSERTed again; the whole save rolls back and A's edit is lost."
+    },
+    {
+      "name": "concurrency-appointment-edit",
+      "script": "scripts/concurrency-appointment-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Three owned appointments (marker reason, test provider, 401 days ahead) seeded by SQL for the owned FAKE- patient; cleanup deletes the appointment, appointmentArchive and other_id(appt_mc_number) rows and asserts them gone. Two sessions of the shared test login.",
+      "notes": "Controls pass (stale day-sheet status click refused with 409 + alert; stale update of a deleted appointment refused and resurrects nothing). Fails at the last step: session A's stale Update Appt un-cancels the appointment session B cancelled (AppointmentUpdateRecord2Action.java:95-135 has no findForUpdate / updatedatetime comparison, unlike AppointmentStatusTransitionService)."
+    },
+    {
+      "name": "concurrency-tickler-edit",
+      "script": "scripts/concurrency-tickler-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "One owned tickler seeded by SQL for the owned FAKE- patient; cleanup deletes the tickler with its comments and history rows and asserts it gone. Two sessions of the shared test login.",
+      "notes": "Fails at the last step: session A's stale Edit Tickler save puts the tickler session B completed back to Active (EditTickler2Action.java:165-240 applies every posted field with no comparison against the rendered state)."
+    },
+    {
+      "name": "concurrency-tickler-list-status",
+      "script": "scripts/concurrency-tickler-list-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "One owned tickler seeded by SQL for the owned FAKE- patient; cleanup deletes it with its history and asserts it gone. Two sessions of the shared test login.",
+      "notes": "Fails at the last step: a stale tickler list's Complete turns a tickler session B deleted into Completed (DbTicklerMain2Action.java:137 -> TicklerManagerImpl.java:502-509 updateStatus applies any status that differs from the current one)."
+    },
+    {
+      "name": "concurrency-allergy-amend",
+      "script": "scripts/concurrency-allergy-amend-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "One owned allergy seeded by SQL for the owned FAKE- patient; cleanup deletes every allergies row of that patient and asserts none remain. Session B takes the chart lock over with the explicit same-login confirm (accepted and counted). Two sessions of the shared test login.",
+      "notes": "Fails at the last step: two active allergies with the same description and different severities after both sessions amend the same allergy (RxAddAllergy2Action.java:127 checks ownership only, not that the allergy is still active; archiving the already-archived original is a no-op, :195)."
+    },
+    {
+      "name": "concurrency-rx-discontinue",
+      "script": "scripts/concurrency-rx-discontinue-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "One owned custom medication seeded by SQL for the owned FAKE- patient; cleanup deletes the drugs row and the discontinue chart notes with their links and asserts nothing remains. Two sessions of the shared test login.",
+      "notes": "Fails at the last step: the stale second Discontinue overwrites archived_reason/archived_date and files a second chart note (RxDeleteRx2Action.java:397-408 only checks the drug belongs to the patient)."
+    },
+    {
+      "name": "concurrency-chart-note-takeover",
+      "script": "scripts/concurrency-chart-note-takeover-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owned FAKE- patient only; the notes, drafts and note locks the two windows leave are removed by the session cleanup and the note rows by id (asserted gone). Session B takes the note lock over with the explicit same-login confirm (accepted and counted).",
+      "notes": "Fails at the last step: the stale window's Save (saveNoteAjax('save'), newCaseManagementView.js.jsp:2625-2720, ignores lostNoteLock) gets the 200 'windowCloseError' page (CaseManagementEntry2Action.java:1829-1831) and the chart replaces the notes pane with it: the editor and the typed text are gone and no alert is shown. The note itself is not written over B's (earlier steps pass)."
+    },
+    {
+      "name": "concurrency-chart-note-other-provider",
+      "script": "scripts/concurrency-chart-note-other-provider-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owned FAKE- patient, one saved note seeded by SQL, a throwaway login (lib/throwaway-login-fixture.js) given the test provider's program memberships and default program; all removed by cleanup and asserted gone. No shared login or demo row changed.",
+      "notes": "Passes on 2026.08 (control): a second provider clicking Edit on a note another provider is editing gets the 'being edited by another user' alert, no editor and no lock row."
+    },
+    {
+      "name": "concurrency-security-record",
+      "script": "scripts/concurrency-security-record-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "One marker-named provider with a security row (password hash and PIN copied from the test login) and a doctor role, seeded by SQL and removed by cleanup, which asserts them gone. No demo row touched. The edit page's known missing admin/bcArStyle.css (ISSUES L19) is consumed explicitly.",
+      "notes": "Fails at the last step: session A's stale Update Record clears the Force password reset session B had just set (securityupdate.jsp:103-123 copies every posted control onto the row with no comparison against the rendered state). Delete-while-editing is not driven because Delete Record itself fails (known, L20)."
     }
   ]
 }

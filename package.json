@@ -433,7 +433,17 @@
     "test:page-health-echart-navbar-playwright": "node scripts/page-health-echart-navbar-playwright-checks.js",
     "test:page-health-patient-hubs-playwright": "node scripts/page-health-patient-hubs-playwright-checks.js",
     "test:page-health-footer-links-playwright": "node scripts/page-health-footer-links-playwright-checks.js",
-    "test:page-health-help-link-offhost-playwright": "node scripts/page-health-help-link-offhost-playwright-checks.js"
+    "test:page-health-help-link-offhost-playwright": "node scripts/page-health-help-link-offhost-playwright-checks.js",
+    "test:concurrency-demographic-edit-playwright": "node scripts/concurrency-demographic-edit-playwright-checks.js",
+    "test:concurrency-demographic-ext-insert-playwright": "node scripts/concurrency-demographic-ext-insert-playwright-checks.js",
+    "test:concurrency-appointment-edit-playwright": "node scripts/concurrency-appointment-edit-playwright-checks.js",
+    "test:concurrency-tickler-edit-playwright": "node scripts/concurrency-tickler-edit-playwright-checks.js",
+    "test:concurrency-tickler-list-status-playwright": "node scripts/concurrency-tickler-list-status-playwright-checks.js",
+    "test:concurrency-allergy-amend-playwright": "node scripts/concurrency-allergy-amend-playwright-checks.js",
+    "test:concurrency-rx-discontinue-playwright": "node scripts/concurrency-rx-discontinue-playwright-checks.js",
+    "test:concurrency-chart-note-takeover-playwright": "node scripts/concurrency-chart-note-takeover-playwright-checks.js",
+    "test:concurrency-chart-note-other-provider-playwright": "node scripts/concurrency-chart-note-other-provider-playwright-checks.js",
+    "test:concurrency-security-record-playwright": "node scripts/concurrency-security-record-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
