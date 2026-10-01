@@ -261,7 +261,8 @@
     "test:demographic-relations-pdf-labels-playwright": "node scripts/demographic-relations-pdf-labels-playwright-checks.js",
     "test:dx-registry-status-update-playwright": "node scripts/dx-registry-status-update-playwright-checks.js",
     "test:eform-deleted-restore-playwright": "node scripts/eform-deleted-restore-playwright-checks.js",
-    "test:patient-photo-upload-playwright": "node scripts/patient-photo-upload-playwright-checks.js"
+    "test:patient-photo-upload-playwright": "node scripts/patient-photo-upload-playwright-checks.js",
+    "test:note-browser-documents-playwright": "node scripts/note-browser-documents-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

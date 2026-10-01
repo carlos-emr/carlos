@@ -76,8 +76,8 @@ async function workflow(s) {
     const opened = s.context.waitForEvent('page', { timeout: TIMEOUT });
     await compose.locator('input[name="attachDemo"]').click();
     chooser = await opened;
-    await chooser.waitForLoadState('domcontentloaded');
-    h.assert(new URL(chooser.url()).pathname.endsWith('/messenger/attachmentFrameset'), 'Attach opened something other than the chooser');
+    await chooser.waitForURL(url => url.pathname.endsWith('/messenger/attachmentFrameset'),
+      { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
     main = chooser.frameLocator('frame[name="main"]');
     preview = main.locator('button[data-preview-uri*="/demographic/DemographicPdfLabel?"]');
     await preview.waitFor({ timeout: TIMEOUT });
@@ -88,12 +88,16 @@ async function workflow(s) {
 
   let pdfResponse;
   let download;
+  let held;
   await s.step('Preview loads DemographicPdfLabel for the owned patient into the source frame', async () => {
     const label = chooser.waitForResponse(r => pathIs(r, '/demographic/DemographicPdfLabel'), { timeout: TIMEOUT });
     pdfResponse = chooser.waitForResponse(r => pathIs(r, '/messenger/Doc2PDF') && r.request().method() === 'POST',
       { timeout: 60000 });
     pdfResponse.catch(() => {});
     download = chooser.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    // Hold the page's own Doc2PDF POST (unchanged) until the source-frame facts are
+    // proven, so a failure of the conversion is reported by its own step below.
+    held = new Promise(resolve => chooser.route('**/messenger/Doc2PDF', route => resolve(route), { times: 1 }));
     await preview.click();
     const rendered = await label;
     h.assert(rendered.status() === 200, 'DemographicPdfLabel did not render for the preview');
@@ -109,6 +113,7 @@ async function workflow(s) {
 
   let text;
   await s.step('the preview answers with a complete PDF carrying the patient', async () => {
+    await (await held).continue();
     const response = await pdfResponse;
     // The page posts the captured HTML (its <script> blocks included) as srcText;
     // a front-door WAF that refuses that body leaves the clinician with no preview.

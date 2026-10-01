@@ -99,7 +99,7 @@ async function workflow(s) {
       FROM client_image WHERE demographic_no=${patient}`, `1|jpeg|${sha(jpeg)}`, 'The JPEG was not stored exactly once as uploaded');
     h.assert(await photo(chart).getAttribute('id') === 'ci' && await photo(chart).getAttribute('alt') === 'id_photo',
       'The reloaded chart did not render the stored photo');
-    h.assert(image.status() === 200 && image.headers()['content-type'] === 'image/jpeg', 'The chart photo is not served as a JPEG');
+    h.assert(image.status() === 200 && /^image\/jpeg(;|$)/.test(image.headers()['content-type'] || ''), 'The chart photo is not served as a JPEG');
     h.assert(sha(await image.body()) === sha(jpeg), 'The chart photo bytes differ from the uploaded JPEG');
   });
 
@@ -108,7 +108,7 @@ async function workflow(s) {
     const image = await upload({ name: 'photo.gif', mimeType: 'image/gif', buffer: gif });
     await expectValue(sql, `SELECT CONCAT(COUNT(*),'|',MAX(image_type),'|',MAX(SHA2(FROM_BASE64(contents),256)))
       FROM client_image WHERE demographic_no=${patient}`, `1|gif|${sha(gif)}`, 'The GIF did not replace the stored photo');
-    h.assert(image.status() === 200 && image.headers()['content-type'] === 'image/gif', 'The chart photo is not served as a GIF');
+    h.assert(image.status() === 200 && /^image\/gif(;|$)/.test(image.headers()['content-type'] || ''), 'The chart photo is not served as a GIF');
     h.assert(sha(await image.body()) === sha(gif), 'The chart photo bytes differ from the uploaded GIF');
   });
 

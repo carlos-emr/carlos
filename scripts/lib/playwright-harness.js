@@ -863,6 +863,9 @@ async function assertNotErrorPage(page, label, options = {}) {
   return text;
 }
 
+// The one-time-code field of mfa_otp_handler.jsp (the older ids kept for other skins).
+const MFA_CODE_INPUT = '#otpInput, input[name="code"][autocomplete="one-time-code"], input[name="mfaCode"], #mfaCode';
+
 /**
  * Log in, handling every branch the login page can take.
  *
@@ -887,7 +890,11 @@ async function login(context, config, recorder, options = {}) {
   assert(await page.locator('#username').inputValue() === config.testUser, 'login username field changed before submit');
   assert(await page.locator('#password').inputValue() === config.testPassword, 'login password field changed before submit');
   await settleOperations([
-    page.waitForURL(/providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i, { timeout: 30000 }),
+    // Login2Action renders the MFA challenge as a forward, not a redirect, so it
+    // arrives at the form's own /login address: that landing counts too, and the
+    // loop below recognises the challenge by its code field.
+    page.waitForURL(url => /providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i.test(String(url))
+      || /\/login$/.test(new URL(String(url)).pathname), { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -906,14 +913,20 @@ async function login(context, config, recorder, options = {}) {
   const STAGES = 4;
   for (let stage = 0; stage < STAGES; stage += 1) {
     const url = page.url();
-    if (/loginMfa/i.test(url)) {
+    // The challenge (mfa_otp_handler.jsp) is served at /login, /mfa/loginMfa or
+    // /forcepasswordresetSubmit, so it is recognised by its code field first.
+    if (/loginMfa/i.test(url) || await page.locator(MFA_CODE_INPUT).count() > 0) {
       assert(typeof options.mfaCode === 'function',
         `${config.testUser} is enrolled in MFA; pass options.mfaCode to supply the challenge response`);
-      await page.locator('input[name="mfaCode"], #mfaCode').first().fill(await options.mfaCode());
-      await settleOperations([
-        page.waitForURL(/providercontrol|appointment|forcepasswordreset|select_facility/i, { timeout: 30000 }),
-        page.locator('input[type="submit"], button[type="submit"]').first().click(),
-      ]);
+      const code = String(await options.mfaCode());
+      const landed = page.waitForURL(/providercontrol|appointment|forcepasswordreset|select_facility|loginMfa/i,
+        { timeout: 30000 });
+      landed.catch(() => {});
+      await page.locator(MFA_CODE_INPUT).first().fill(code);
+      // The page submits its own form once six digits are typed; press Verify only
+      // when that did not happen, so the one-time challenge is never posted twice.
+      if (!/^\d{6}$/.test(code)) await page.locator('#verifyButton, input[type="submit"], button[type="submit"]').first().click();
+      await landed;
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
       continue;
     }
@@ -945,6 +958,8 @@ async function login(context, config, recorder, options = {}) {
     break;
   }
 
+  assert(await page.locator(MFA_CODE_INPUT).count() === 0,
+    `login is still on the MFA challenge (${pathOnly(page.url())}): the one-time code is being refused`);
   assert(!/loginMfa|forcepasswordreset/i.test(page.url()),
     `login is still on ${pathOnly(page.url())} after working through the authentication stages, so the `
     + 'credentials or the OTP are being refused rather than the flow having more steps');

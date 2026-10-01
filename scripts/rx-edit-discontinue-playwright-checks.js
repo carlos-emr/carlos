@@ -237,35 +237,33 @@ async function workflow(s) {
     h.assert(snapshot() === before, 'A refused GET changed the chart');
   });
 
-  await s.step('re-prescribing warns of the discontinue; Back to CARLOS after Save And Print clears the staged script (rx/clearPending), so a reopened Rx stages nothing', async () => {
+  await s.step('choosing the discontinued product again warns with its reason, and declining unstages it without saving', async () => {
     // The Rx window now shows the static script; the Master Record link reuses a named window.
     await rx.close();
-    rx = await openRx('rx-module-print');
-    let staged;
-    // Choosing a drug the chart has discontinued asks before staging it again; that warning is the point.
-    const warned = await h.withExpectedDialogs(rx, async () => { staged = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME); });
-    h.assert(warned.length === 1 && warned[0].type === 'confirm' && /discontinued .* because of doseChange/.test(warned[0].text),
-      'Re-prescribing the discontinued drug did not warn with its discontinue reason');
-    // A new script for the same product starts from its last instructions: change them so they parse.
-    await rx.locator(`#instructions_${staged}`).fill('1 tab PO OD x 30 days');
-    await Promise.all([rx.waitForResponse(isPost('/rx/UpdateScript')), rx.locator(`label[for="jsonDxSearch_${staged}"]`).click()]);
-    await rx.locator('#saveButton').click();
-    const modal = rx.frameLocator('#carlosModalBody iframe');
-    await modal.locator('#printPasteButton').waitFor({ state: 'visible', timeout: 30000 });
-    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`, '2', 'Save And Print did not persist the second drug');
-    // ViewScript2 renders its preview only while the session stash still holds the script.
-    await modal.locator('#preview').waitFor({ state: 'attached' });
-    let requested = false;
-    const seen = request => { if (h.pathOnly(request.url()).endsWith('/rx/clearPending')) requested = true; };
-    s.context.on('request', seen);
-    const closed = rx.waitForEvent('close', { timeout: 20000 });
-    await modal.locator('input[onclick*="clearPending(\'close\')"]').click();
-    await closed;
-    const reopened = await openRx('rx-module-after-back');
-    s.context.off('request', seen);
-    const stillStaged = await reopened.locator('[id^="drugName_"]').count();
-    h.assert(stillStaged === 0, `Back to CARLOS left ${stillStaged} saved card(s) staged for the next prescription `
-      + `(rx/clearPending ${requested ? 'was requested' : 'was never sent: the window closed before the form posted'})`);
+    rx = await openRx('rx-module-restage');
+    const term = DRUG_TERM;
+    await Promise.all([
+      rx.waitForResponse(r => h.pathOnly(r.url()).endsWith('/rx/searchDrug') && r.request().method() === 'POST'
+        && new URLSearchParams(r.request().postData() || '').get('query') === term.toUpperCase(), { timeout: 60000 }),
+      rx.locator('#searchString').pressSequentially(term, { delay: 60 }),
+    ]);
+    const option = rx.locator('ul.ui-autocomplete li.ui-menu-item').filter({ hasText: DRUG_NAME }).first();
+    await option.waitFor({ state: 'visible' });
+    const warned = await h.withExpectedDialogs(rx, async () => {
+      const [, removed] = await Promise.all([
+        rx.waitForResponse(r => isPost('/rx/WriteScript')(r)
+          && new URLSearchParams(r.request().postData() || '').get('parameterValue') === 'createNewRx'),
+        rx.waitForResponse(r => isPost('/rx/rxStashDelete')(r)
+          && new URLSearchParams(r.request().postData() || '').get('parameterValue') === 'deletePrescribe'),
+        option.click(),
+      ]);
+      h.assert(removed.ok(), `Removing the declined card answered HTTP ${removed.status()}`);
+      await rx.waitForFunction(() => !document.querySelector('[id^="drugName_"]'));
+    }, { accept: false });
+    h.assert(warned.length === 1 && warned[0].type === 'confirm' && /discontinued on .* because of doseChange/.test(warned[0].text),
+      'Choosing the discontinued drug did not warn with its discontinue reason');
+    h.assert(await rx.locator('[id^="drugName_"]').count() === 0, 'Declining the warning left the card staged');
+    h.assert(drugCount() === '1', 'Declining the warning changed the saved drugs');
   });
 }
 

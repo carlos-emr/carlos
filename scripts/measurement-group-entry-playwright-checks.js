@@ -15,7 +15,7 @@
 // covers the index-to-history path and the graph. Fixtures: the owned FAKE-PW patient (runWorkflow);
 // readings carry the marker comment. Cleanup deletes this patient's readings and archived readings.
 const h = require('./lib/playwright-harness');
-const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
@@ -128,7 +128,8 @@ async function workflow(s) {
   });
 
   await s.step('the measurement type export link returns XML for that type', async () => {
-    const admin = await s.popup(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(), 'administration');
+    const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
+      { context: s.context, recorder: s.recorder, label: 'administration', timeout: 20000 });
     const link = admin.getByRole('link', { name: 'Customize Measurements', exact: true, includeHidden: true });
     await revealAuditLink(admin, link, 20000);
     await link.click();

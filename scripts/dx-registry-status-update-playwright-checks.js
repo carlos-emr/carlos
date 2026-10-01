@@ -156,6 +156,7 @@ async function workflow(s) {
   await s.step('status filters list exactly the owned rows with database-identical fields', async () => {
     await report.locator('#provider_no').selectOption(provider);
     const expected = { Active: ['401'], Resolved: ['496'], Deleted: ['272'], All: ['272', '401', '496'] };
+    console.log('DEBUG', await report.locator('#SearchBy_Active').evaluate(e => [e.outerHTML.slice(0,200), getComputedStyle(e).display, e.getBoundingClientRect().width, document.elementFromPoint(e.getBoundingClientRect().x+3, e.getBoundingClientRect().y+3)?.outerHTML.slice(0,200)]));
     for (const [radio, codes] of Object.entries(expected)) {
       await report.getByLabel(radio, { exact: true }).check();
       await submit(report.getByRole('button', { name: 'Search', exact: true }));
