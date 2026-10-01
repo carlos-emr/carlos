@@ -122,10 +122,7 @@ async function workflow(s) {
     h.assert(!(await enable.isChecked()) && await frame.locator('#resetMfaLink').count() === 0, 'The record showed MFA state it does not have');
     await enable.check();
     h.assert(await frame.locator('#mfaNote').isVisible(), 'Ticking Enable MFA did not show the first-login enrolment note');
-    const dbgq = `SELECT CONCAT(pin IS NULL,'|',b_LocalLockSet,'|',b_RemoteLockSet) FROM security WHERE security_no=${securityNo}`;
-    console.log('DEBUG before', sql.value(dbgq));
     await saveRecord(frame);
-    console.log('DEBUG after', sql.value(dbgq));
     h.assert(mfaState() === '1|none', 'Enabling MFA did not set usingMfa without a secret');
   });
 
@@ -200,6 +197,7 @@ async function workflow(s) {
     h.assert(await reset.isVisible() && await frame.locator('input[name="enableMfa"]').isChecked(),
       'An enrolled record did not offer Reset MFA');
     let response;
+    const failuresBefore = recorder.requestFailures.length;
     const dialogs = await h.withExpectedDialogs(admin, async () => {
       [response] = await settleOperations([
         admin.waitForResponse(r => r.url().includes('/securityRecord/mfa') && r.request().method() === 'POST', { timeout: TIMEOUT }),
@@ -209,10 +207,16 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text === bundleMessage('admin.securityAddRecord.mfa.reset.confirm',
       'User will need to re-register for MFA. Are you sure you want to reset MFA settings for the user?'), 'Reset MFA did not ask for confirmation');
     h.assert(response.status() === 200, `Reset MFA answered HTTP ${response.status()}`);
-    console.log('DEBUG reset', JSON.stringify(response.headers()), String(await response.body().then(b => b.length).catch(e => 'ERR ' + e.message)));
     await frame.locator('#mfaNote').waitFor({ state: 'visible', timeout: TIMEOUT });
     h.assert(!(await reset.isVisible()), 'The Reset MFA link stayed visible after the reset');
     await expectValue(sql, mfaStateQuery, '1|none', 'Reset MFA did not clear the stored secret');
+    // handleResetMfa() never reads the action's empty 200 reply, and Chromium cancels the
+    // unread body (net::ERR_ABORTED) after the page handled the response. Consume exactly
+    // that one entry, only once the database proved the reset; anything else stays strict.
+    const added = recorder.requestFailures.slice(failuresBefore);
+    const discarded = added.findIndex(entry => entry.label === 'mfa-admin' && entry.resourceType === 'fetch'
+      && entry.errorText === 'net::ERR_ABORTED' && new URL(entry.url).pathname.endsWith('/securityRecord/mfa'));
+    if (discarded >= 0) recorder.requestFailures.splice(failuresBefore + discarded, 1);
   });
 
   await s.step('after the reset, sign-in asks to enrol again with a new secret', async () => {

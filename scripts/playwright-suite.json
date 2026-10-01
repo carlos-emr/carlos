@@ -3707,7 +3707,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "fixtures": "Changes and restores the clinic-wide consultRequestEnabled/consultResponseEnabled properties and the Referring Doctor service, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1); every other row is FAKE-PW owned."
     },
     {
       "name": "decision-support-guidelines",
@@ -3982,7 +3982,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "fixtures": "Owned patient, service, specialist, referral and active drug; cleanup also removes archive/ext rows and the stamp DigitalSignature. The fax boundary needs no active fax_config sender while it runs (asserted), so it must not run concurrently with fax checks (live wrapper: EXCLUSIVE=1). Needs pdftotext."
     },
     {
       "name": "dashboard-display",
