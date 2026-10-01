@@ -69,6 +69,8 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettings" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettingsService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
