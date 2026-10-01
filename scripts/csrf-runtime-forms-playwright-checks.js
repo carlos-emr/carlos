@@ -134,6 +134,10 @@ async function deleteEFormGroupInAdminPanel(context, config, recorder, sql, time
     null, { timeout }).catch(() => {});
     await assertFormsTokenised('eform-groups', page, '#dynamic-content');
 
+    // efmFooter.jspf binds the confirm modal with a delegated handler once the
+    // panel's scripts have run; clicking before that opens nothing (seen on the
+    // first request after a restart, while the JSPs compile).
+    await page.waitForFunction(() => window.confirmModalInitialized === true, null, { timeout });
     await deleteGroup.locator('a[data-confirm]').first().click();
     const confirm = page.locator('#confirmModal #dataConfirmed');
     await confirm.waitFor({ state: 'visible', timeout });
