@@ -1,0 +1,432 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * This software is published under the GPL GNU General Public License.
+ * You may redistribute it and/or modify it under version 2 of the License,
+ * or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/**
+ * CSRF-safe submission for forms that CSRFGuard's client script cannot reach.
+ *
+ * WHY THIS EXISTS (issue #4130). CSRFGuard's injected script adds the hidden
+ * CSRF-TOKEN input to forms in two ways, and both miss common CARLOS patterns:
+ *
+ *   1. On DOMContentLoaded it walks the page's forms. A form built later with
+ *      document.createElement('form') is not there yet.
+ *   2. Its MutationObserver re-injects only when the ADDED NODE ITSELF is a
+ *      <form>, and the observer callback runs after the current task. So a
+ *      form that is created, appended and submit()ted in one click handler
+ *      leaves before the observer runs, and a form that arrives nested inside
+ *      a container (the Administration shell's $("#dynamic-content").load())
+ *      is never injected at all.
+ *
+ * Either way the POST arrives without a token, CarlosCsrfGuardFilter answers
+ * 403, and to the user the button does nothing.
+ *
+ * WHAT IT PROVIDES (all on window):
+ *
+ *   carlosPostForm(action, fields, options)
+ *       Builds a hidden POST form, attaches the session token, submits it.
+ *       `fields` is a plain object or an array of [name, value] pairs (use the
+ *       array form for repeated names). options.target names a window/frame;
+ *       open a popup with window.open('', name) BEFORE calling this, inside the
+ *       click handler, so popup blockers see a user gesture even when the
+ *       token has to be fetched first.
+ *
+ *   carlosSubmitForm(form)
+ *       Attaches the token to an existing form element and submits it. Use
+ *       instead of form.submit() for runtime-built POST forms.
+ *
+ *   CarlosCsrf.injectIntoForms(root)
+ *       Adds the token to every same-origin POST form inside `root` (and
+ *       `root` itself when it is a form). Call it after inserting HTML that
+ *       contains forms, e.g. in a jQuery .load() completion callback.
+ *
+ *   CarlosCsrf.token()
+ *       A Promise of the session's master token.
+ *
+ * Loading the script also keeps the page's same-origin POST forms tokenised
+ * on its own: one pass after the document is parsed, then every form inside
+ * any subtree inserted later (so HTML injected by .load() is covered without
+ * an explicit injectIntoForms call).
+ *
+ * WHERE THE TOKEN COMES FROM, in order: a populated input[name="CSRF-TOKEN"]
+ * already on the page (CSRFGuard's own injection, or csrf-token.jspf), the
+ * pending csrf-token.jspf bootstrap (window.csrfTokenReady), and finally a
+ * fetch of the CSRFGuard servlet, the same request csrfTokenFetch.js makes.
+ * Including csrf-token.jspf on a page is still worthwhile because it makes the
+ * token available synchronously in most cases.
+ *
+ * Only forms whose action resolves to this page's origin ever receive the
+ * token, so this cannot leak it to another site. GET forms are left alone.
+ *
+ * Failure is never silent: if no token can be obtained the form is NOT
+ * submitted (it would only be refused), the user is told, and the returned
+ * Promise rejects.
+ *
+ * @since 2026-10-01
+ */
+(function (global) {
+    'use strict';
+
+    var TOKEN_NAME = 'CSRF-TOKEN';
+    var SCRIPT_PATH_SUFFIX = '/share/javascript/carlosCsrfForm.js';
+    var FAILURE_MESSAGE = 'This action could not be sent because the page\'s security token '
+        + 'could not be loaded. Please reload the page and try again.';
+
+    function contextPathFromScriptUrl(src) {
+        try {
+            var path = new URL(src, global.location.href).pathname;
+            var at = path.lastIndexOf(SCRIPT_PATH_SUFFIX);
+            return at >= 0 ? path.substring(0, at) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // Captured while this script is first executing; document.currentScript
+    // is null later. It is also null when jQuery's .load() evaluates the
+    // script out of an injected fragment (the Administration shell), which is
+    // why contextPath() has further fallbacks.
+    var loadedFromPath = document.currentScript && document.currentScript.src
+        ? contextPathFromScriptUrl(document.currentScript.src)
+        : null;
+
+    /**
+     * The application context path, used only for the servlet fetch fallback.
+     * A page may pin it by setting window.carlosContextPath.
+     */
+    function contextPath() {
+        if (typeof global.carlosContextPath === 'string') {
+            return global.carlosContextPath;
+        }
+        if (loadedFromPath !== null) {
+            return loadedFromPath;
+        }
+        var scripts = document.querySelectorAll('script[src]');
+        for (var i = 0; i < scripts.length; i++) {
+            var found = contextPathFromScriptUrl(scripts[i].src);
+            if (found !== null) {
+                return found;
+            }
+        }
+        // Last resort: CARLOS is deployed under a single context segment
+        // (/carlos on packaged installs), so take the first path segment.
+        var segment = global.location.pathname.split('/')[1];
+        return segment ? '/' + segment : '';
+    }
+
+    var pendingFetch = null;
+
+    /** The first non-empty CSRF-TOKEN value on the page, or ''. */
+    function currentToken() {
+        var inputs = document.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
+        for (var i = 0; i < inputs.length; i++) {
+            if (inputs[i].value) {
+                return inputs[i].value;
+            }
+        }
+        return '';
+    }
+
+    function fetchFromServlet() {
+        return fetch(contextPath() + '/csrfguard', { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('CSRFGuard request failed with status ' + response.status);
+                }
+                return response.text();
+            })
+            .then(function (js) {
+                var match = js.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
+                if (!match) {
+                    throw new Error('Could not extract masterTokenValue from /csrfguard response');
+                }
+                return match[1];
+            });
+    }
+
+    /**
+     * Resolves to the session's CSRF token. Never resolves to an empty
+     * string: if no token can be found it rejects.
+     */
+    function token() {
+        var existing = currentToken();
+        if (existing) {
+            return Promise.resolve(existing);
+        }
+        if (!pendingFetch) {
+            var bootstrap = global.csrfTokenReady;
+            var source = bootstrap && typeof bootstrap.then === 'function'
+                ? bootstrap.then(function () {
+                    var value = currentToken();
+                    return value || fetchFromServlet();
+                }, fetchFromServlet)
+                : fetchFromServlet();
+            pendingFetch = source.then(function (value) {
+                if (!value) {
+                    throw new Error('Empty CSRF token');
+                }
+                // Seed the page's empty bootstrap inputs too, so the page's own
+                // fetch() callers and the next lookup find it synchronously.
+                var inputs = document.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
+                for (var i = 0; i < inputs.length; i++) {
+                    if (!inputs[i].value) {
+                        inputs[i].value = value;
+                    }
+                }
+                return value;
+            });
+            // A failed lookup must not be cached forever: the next attempt
+            // (e.g. after the user dismisses the alert and clicks again)
+            // should retry rather than replay the rejection.
+            pendingFetch.catch(function () {
+                pendingFetch = null;
+            });
+        }
+        return pendingFetch;
+    }
+
+    /** True for a form that posts to this page's own origin. */
+    function isSameOriginPostForm(form) {
+        var method = (form.getAttribute('method') || 'get').toLowerCase();
+        if (method !== 'post') {
+            return false;
+        }
+        var action = form.getAttribute('action');
+        if (action && /^\s*javascript:/i.test(action)) {
+            return false;
+        }
+        try {
+            // A missing or empty action posts back to the current document.
+            var url = new URL(action || global.location.href, global.location.href);
+            return url.origin === global.location.origin;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Writes the token into the form, reusing a CSRF-TOKEN input it already
+     * has. Uses querySelectorAll rather than form.elements[name]: a form whose
+     * controls are named with numbers (the dx code search results) makes
+     * form.elements resolve names as indexes.
+     */
+    function setFormToken(form, value) {
+        var inputs = form.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
+        if (inputs.length > 0) {
+            for (var i = 0; i < inputs.length; i++) {
+                inputs[i].value = value;
+            }
+            return;
+        }
+        var hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = TOKEN_NAME;
+        hidden.value = value;
+        form.appendChild(hidden);
+    }
+
+    function hasToken(form) {
+        var inputs = form.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
+        for (var i = 0; i < inputs.length; i++) {
+            if (inputs[i].value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function reportFailure(err) {
+        if (typeof console !== 'undefined' && console.error) {
+            console.error('CSRF token unavailable; form not submitted.', err);
+        }
+        global.alert(FAILURE_MESSAGE);
+    }
+
+    /**
+     * Adds the token to every same-origin POST form in `root`. Synchronous
+     * when the page already holds a token; otherwise the forms are filled in
+     * as soon as it arrives.
+     *
+     * @param {ParentNode} [root=document]
+     * @param {boolean} [onlyMissing=false] skip forms that already carry a
+     *        non-empty token, so a fully tokenised page costs no request
+     * @returns {Promise<number>} the number of forms given the token
+     */
+    function injectIntoForms(root, onlyMissing) {
+        root = root || document;
+        var forms = [];
+        if (root.tagName && root.tagName.toLowerCase() === 'form') {
+            forms.push(root);
+        }
+        if (root.querySelectorAll) {
+            var nested = root.querySelectorAll('form');
+            for (var i = 0; i < nested.length; i++) {
+                forms.push(nested[i]);
+            }
+        }
+        forms = forms.filter(function (form) {
+            return isSameOriginPostForm(form) && !(onlyMissing && hasToken(form));
+        });
+        if (forms.length === 0) {
+            return Promise.resolve(0);
+        }
+        var apply = function (value) {
+            forms.forEach(function (form) { setFormToken(form, value); });
+            return forms.length;
+        };
+        var existing = currentToken();
+        if (existing) {
+            return Promise.resolve(apply(existing));
+        }
+        return token().then(apply);
+    }
+
+    /**
+     * Attaches the token to `form` and submits it.
+     *
+     * @param {HTMLFormElement} form
+     * @returns {Promise<void>} rejects (after telling the user) if no token
+     */
+    function submitForm(form) {
+        if (!isSameOriginPostForm(form)) {
+            // GET or cross-origin: nothing to protect and nothing to attach.
+            HTMLFormElement.prototype.submit.call(form);
+            return Promise.resolve();
+        }
+        var existing = currentToken();
+        if (existing) {
+            setFormToken(form, existing);
+            HTMLFormElement.prototype.submit.call(form);
+            return Promise.resolve();
+        }
+        return token().then(function (value) {
+            setFormToken(form, value);
+            HTMLFormElement.prototype.submit.call(form);
+        }, function (err) {
+            reportFailure(err);
+            throw err;
+        });
+    }
+
+    /**
+     * Builds a hidden form, attaches the token and submits it.
+     *
+     * @param {string} action URL to post to (same origin)
+     * @param {Object|Array} [fields] object or array of [name, value] pairs
+     * @param {{target?: string, method?: string}} [options]
+     * @returns {Promise<void>}
+     */
+    function postForm(action, fields, options) {
+        options = options || {};
+        var form = document.createElement('form');
+        form.method = options.method || 'post';
+        form.action = action;
+        form.style.display = 'none';
+        var target = options.target;
+        if (target === '_blank' && !currentToken()) {
+            // The token has to be fetched first, and by the time it arrives the
+            // click's user activation may have expired, so a _blank submission
+            // would be popup-blocked. Open the window now, while the gesture is
+            // still live, and post into it by name.
+            target = 'carlosPost' + Date.now();
+            global.open('', target);
+        }
+        if (target) {
+            form.target = target;
+        }
+        var pairs = [];
+        if (Array.isArray(fields)) {
+            pairs = fields;
+        } else if (fields) {
+            Object.keys(fields).forEach(function (name) {
+                pairs.push([name, fields[name]]);
+            });
+        }
+        pairs.forEach(function (pair) {
+            var value = pair[1];
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = pair[0];
+            input.value = value === null || value === undefined ? '' : String(value);
+            form.appendChild(input);
+        });
+        // Left in the document after submitting: detaching a form in the same
+        // task as submit() has cancelled the navigation in some browsers, and
+        // one hidden form per click is harmless.
+        document.body.appendChild(form);
+        return submitForm(form);
+    }
+
+    function warnInjectionFailure(err) {
+        if (typeof console !== 'undefined' && console.warn) {
+            console.warn('CSRF token could not be added to the page\'s forms.', err);
+        }
+    }
+
+    /**
+     * Keeps every same-origin POST form on the page tokenised: once after
+     * the document is parsed, then for each subtree inserted later. This
+     * covers the two cases CSRFGuard's own pass misses: forms nested inside
+     * an inserted container (it only inspects inserted nodes that ARE forms),
+     * and pages where its pass throws part-way and stops (a form with
+     * numerically-named controls) leaving later forms without a token.
+     */
+    function installAutoInjection() {
+        if (global.__carlosCsrfAutoInjection) {
+            return; // already installed by an earlier copy of this script
+        }
+        global.__carlosCsrfAutoInjection = true;
+
+        // Deferred one task past DOMContentLoaded so CSRFGuard's own pass (a
+        // DOMContentLoaded listener too) has run first; only forms it left
+        // without a token are touched, so a healthy page makes no request.
+        var initialPass = function () {
+            setTimeout(function () {
+                injectIntoForms(document, true).catch(warnInjectionFailure);
+            }, 0);
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialPass);
+        } else {
+            initialPass();
+        }
+
+        if (typeof global.MutationObserver !== 'function') {
+            return;
+        }
+        new global.MutationObserver(function (mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+                var added = mutations[i].addedNodes;
+                for (var j = 0; j < added.length; j++) {
+                    var node = added[j];
+                    if (node.nodeType !== 1) {
+                        continue;
+                    }
+                    var isForm = node.tagName.toLowerCase() === 'form';
+                    if (isForm || (node.querySelector && node.querySelector('form'))) {
+                        injectIntoForms(node, true).catch(warnInjectionFailure);
+                    }
+                }
+            }
+        }).observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    installAutoInjection();
+
+    global.CarlosCsrf = {
+        token: token,
+        currentToken: currentToken,
+        injectIntoForms: injectIntoForms,
+        submitForm: submitForm,
+        postForm: postForm
+    };
+    global.carlosPostForm = postForm;
+    global.carlosSubmitForm = submitForm;
+})(window);

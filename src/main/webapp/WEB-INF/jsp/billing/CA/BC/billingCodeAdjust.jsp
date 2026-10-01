@@ -55,6 +55,7 @@
 
 <html>
     <head>
+        <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Adjust Billing Codes</title>
@@ -76,7 +77,9 @@
                 input.value = code;
                 form.appendChild(input);
                 document.body.appendChild(form);
-                form.submit();
+                // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+                // into a runtime-built form in time (#4130).
+                carlosSubmitForm(form);
             }
         </script>
     </head>

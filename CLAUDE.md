@@ -226,6 +226,16 @@ inline blocks actually executed, and the console logged no CSP violation.
 
 Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
 
+**Runtime-built forms and `.load()`-injected forms.** CSRFGuard's MutationObserver only
+tokenises an inserted node that is *itself* a `<form>`, and only after the current task, so
+a form built with `document.createElement('form')` and submitted in the same handler, or a
+form nested inside HTML inserted by `$(...).load()`, posts with no token and gets a 403. Load
+`share/javascript/carlosCsrfForm.js` and submit with `carlosPostForm(action, fields, {target})`
+or `carlosSubmitForm(form)` instead of `form.submit()`. The script also tokenises forms in
+inserted subtrees on its own. Do not name form controls with bare numbers: that makes
+CSRFGuard's injector throw. See `docs/csrf-protection-architecture.md` → "Runtime-built and
+injected forms" (issue #4130).
+
 ### PathValidationUtils - File Path Security
 
 **ALWAYS use PathValidationUtils** (`io.github.carlos_emr.carlos.utility.PathValidationUtils`) for file operations involving user input. It prevents path traversal attacks consistently across the codebase.

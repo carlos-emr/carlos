@@ -81,28 +81,20 @@
                 }
             }
         </script>
+        <script src="<%=request.getContextPath()%>/share/javascript/carlosCsrfForm.js"></script>
         <script>
             function unRemoveIndependent(fdid) {
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = '<%=request.getContextPath()%>/eform/unRemoveEForm';
                 // orderby: sort order the post-restore redirect restores (UnRemEForm2Action#getRedirectTarget).
-                var fields = {callpage: 'independent', fdid: fdid,
-                    orderby: '<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(orderByRequest) %>'};
-                for (var key in fields) {
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = fields[key];
-                    form.appendChild(input);
-                }
-                document.body.appendChild(form);
-                form.submit();
+                // carlosPostForm attaches the CSRF token, which CSRFGuard cannot
+                // inject into a runtime-built form in time (#4130).
+                carlosPostForm('<%=request.getContextPath()%>/eform/unRemoveEForm', {callpage: 'independent', fdid: fdid,
+                    orderby: '<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(orderByRequest) %>'});
             }
         </script>
     </head>
 
     <body>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <%@ include file="efmTopNav.jspf" %>
 
 

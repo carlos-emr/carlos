@@ -45,6 +45,7 @@
     <title><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
+    <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
 
     <script language="JavaScript">
         <!--
@@ -70,19 +71,9 @@
         }
 
         function postTo(action, rano, target) {
-            var form = document.createElement('form');
-            form.method = 'post';
-            form.action = action;
-            if (target) {
-                form.target = target;
-            }
-            var input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'rano';
-            input.value = rano;
-            form.appendChild(input);
-            document.body.appendChild(form);
-            form.submit();
+            // carlosPostForm attaches the CSRF token, which CSRFGuard cannot
+            // inject into a runtime-built form in time (#4130).
+            carlosPostForm(action, {rano: rano}, {target: target});
         }
 
         function checkReconcile(action, rano) {
@@ -98,6 +89,8 @@
 </head>
 
 <body>
+<%-- No static POST form here, so seed the token the postTo() links need. --%>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <h3><fmt:message key="admin.admin.btnBillingReconciliation"/></h3>
 
 <%-- Surface RA-import failures so the operator doesn't see a clean page

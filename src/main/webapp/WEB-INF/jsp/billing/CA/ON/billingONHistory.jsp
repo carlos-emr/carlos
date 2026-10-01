@@ -58,26 +58,18 @@
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
     <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
+    <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
 
     <script language="JavaScript">
         function onUnbilled(billingNo, billCode) {
             if (confirm("${carlos:forJavaScript(msgOnUnbilledText)}")) {
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = '${pageContext.request.contextPath}/billing/CA/ON/BillingDeleteNoAppt';
-                form.target = 'unbill_popup';
-                var fields = {billing_no: billingNo, billCode: billCode, dboperation: 'delete_bill', hotclick: '0'};
-                for (var key in fields) {
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = fields[key];
-                    form.appendChild(input);
-                }
-                document.body.appendChild(form);
+                // Open the popup inside the click handler (popup blockers), then
+                // post into it. carlosPostForm attaches the CSRF token: a
+                // runtime-built form leaves before CSRFGuard can inject one (#4130).
                 window.open('', 'unbill_popup', 'height=700,width=720,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes');
-                form.submit();
-                document.body.removeChild(form);
+                carlosPostForm('${pageContext.request.contextPath}/billing/CA/ON/BillingDeleteNoAppt',
+                    {billing_no: billingNo, billCode: billCode, dboperation: 'delete_bill', hotclick: '0'},
+                    {target: 'unbill_popup'});
             }
         }
 

@@ -258,6 +258,11 @@
 
     <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+    <%-- Panels arrive through $("#dynamic-content").load(), which inserts their
+         forms inside a container; CSRFGuard's observer only tokenises inserted
+         nodes that are themselves forms, so panel POSTs went out without a
+         token (#4130). This helper tokenises forms in any inserted subtree. --%>
+    <script src="<%=request.getContextPath()%>/share/javascript/carlosCsrfForm.js"></script>
 
     <oscar:customInterface section="main"/> <!--needs to be in header-->
 </head>

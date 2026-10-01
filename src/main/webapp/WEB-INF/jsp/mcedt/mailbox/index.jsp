@@ -42,6 +42,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils" %>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${pageContext.request.locale.language}" lang="${pageContext.request.locale.language}">
 <head>
+    <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
     <title>MCEDT</title>
@@ -146,7 +147,9 @@
             form.method = 'post';
             form.action = '<%= request.getContextPath() %>/mcedt/kaiautodl';
             document.body.appendChild(form);
-            form.submit();
+            // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+            // into a runtime-built form in time (#4130).
+            carlosSubmitForm(form);
             return false;
         }
 
@@ -159,7 +162,9 @@
             form.method = 'post';
             form.action = '<%= request.getContextPath() %>/mcedt/autoUpload';
             document.body.appendChild(form);
-            form.submit();
+            // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+            // into a runtime-built form in time (#4130).
+            carlosSubmitForm(form);
             return false;
         }
 

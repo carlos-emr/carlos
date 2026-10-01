@@ -81,6 +81,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
+    <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
     <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
@@ -131,7 +132,9 @@
                     });
                 }
                 document.body.appendChild(form);
-                form.submit();
+                // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+                // into a runtime-built form in time (#4130).
+                carlosSubmitForm(form);
             } else {
                 alert("You have cancel the action!");
             }

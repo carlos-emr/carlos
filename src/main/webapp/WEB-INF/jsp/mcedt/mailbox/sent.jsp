@@ -45,6 +45,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
+    <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <style type="text/css">
@@ -179,7 +180,9 @@
             form.action = "<%= request.getContextPath() %>/mcedt/reSubmit";
             form.elements['resourceId'].value = resourceId;
             form.elements['serviceId'].value = jQuery("#serviceId").val();
-            form.submit();
+            // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+            // into a runtime-built form in time (#4130).
+            carlosSubmitForm(form);
             return false;
 
         }

@@ -38,6 +38,7 @@
 
 <html>
     <head>
+        <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.admin.ManagePrivFrm"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -52,7 +53,9 @@
                 input.value = code;
                 form.appendChild(input);
                 document.body.appendChild(form);
-                form.submit();
+                // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+                // into a runtime-built form in time (#4130).
+                carlosSubmitForm(form);
             }
         </script>
     </head>
