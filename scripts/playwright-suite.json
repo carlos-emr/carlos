@@ -4381,8 +4381,11 @@
         "ON"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Fails on 2026.08: Billing Reconciliation ▸ Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable.",
+      "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, batch-billing queue rows, an RA with an owned radetail row and the clipboard notes; all rows and files removed."
     },
     {
       "name": "billing-on-admin-config",
@@ -4408,9 +4411,13 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "timeoutSec": 420,
+      "env": [
+        "DOCUMENT_DIR",
+        "ONEDT_INBOX"
+      ],
+      "notes": "Fails on 2026.08: the billing report renders the request headers (including the session cookie) as its column headers; the statement PDF answers 500, the INR update form 405s and the L report renders blank.",
+      "fixtures": "Owned patient, owned claims and PAT invoices, and an owned INR billing row; ONEDT_INBOX defaults to <parent of DOCUMENT_DIR>/onEDTDocs/inbox; all rows and files removed."
     },
     {
       "name": "patient-swipe-card-search",

@@ -67,7 +67,8 @@ async function workflow(s) {
   })();
   const serviceCode = `${feeCode}A`;
   const styleName = marker;
-  const styleText = `color:#${hex.slice(0, 6)};font-weight:bold;`;
+  const colour = `#${hex.slice(0, 6)}`;
+  const styleText = `font-weight:bold;color:${colour};`;
   s.cleanup(() => {
     sql.execute(`DELETE FROM billingservice WHERE service_code=${h.sqlString(serviceCode)};
       DELETE FROM cssStyles WHERE name LIKE ${h.sqlString(`${marker}%`)}`);
@@ -169,11 +170,13 @@ async function workflow(s) {
   await s.step('Manage Code Styles adds, renames and deletes the owned style, clearing it from its code', async () => {
     frame = await adminFrame(admin, STYLE_ROUTE, '#style');
     await frame.locator('#styleName').fill(styleName);
-    await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
-    await frame.locator('#styleText').fill(styleText);
+    await frame.locator('#font-weight').selectOption('bold');
+    await frame.locator('#color').fill(colour);
+    await frame.locator('#color').press('Tab');
+    h.assert(await frame.locator('#styleText').inputValue() === styleText, 'The style pickers did not compose the style text');
     await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
     await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(style), MAX(status)) FROM cssStyles WHERE name=${h.sqlString(styleName)}`,
-      `1|${styleText}|A`, `The new style was not saved ${sql.rows(`SELECT name, style, status FROM cssStyles WHERE id>3`).join(';')} ${await frame.locator('body').innerText()}`);
+      `1|${styleText}|A`, 'The new style was not saved');
     const styleId = sql.value(`SELECT id FROM cssStyles WHERE name=${h.sqlString(styleName)}`);
     h.assert(await frame.locator('.alert-success').count() === 1, 'Saving the style did not report success');
     await frame.locator('#style').selectOption({ label: styleName });
@@ -192,8 +195,19 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Deleting the style did not ask for confirmation once');
     await expectValue(sql, `SELECT status FROM cssStyles WHERE id=${Number(styleId)}`, 'D', 'The style was not marked deleted');
     h.assert(sql.value(`SELECT IFNULL(displaystyle, 'NULL') FROM billingservice WHERE service_code=${h.sqlString(serviceCode)}`) === 'NULL',
-      'Deleting the style did not clear it from the code that used it');
+      `Deleting the style did not clear it from the code that used it DEBUG ${styleId} ${sql.rows(`SELECT billingservice_no, IFNULL(displaystyle,'NULL') FROM billingservice WHERE service_code=${h.sqlString(serviceCode)}`).join(';')} ${sql.rows(`SELECT id,name,style,status FROM cssStyles WHERE name LIKE 'FAKE-PW%'`).join(';')}`);
     h.assert(await frame.locator('#style option', { hasText: styleName }).count() === 0, 'The deleted style is still offered');
+  });
+
+  await s.step('a style typed by hand (Manual Enter) is saved with the colour it was typed with', async () => {
+    frame = await adminFrame(admin, STYLE_ROUTE, '#style');
+    const typed = `color:${colour};text-decoration:underline;`;
+    await frame.locator('#styleName').fill(`${styleName} typed`);
+    await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
+    await frame.locator('#styleText').fill(typed);
+    await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
+    await expectValue(sql, `SELECT style FROM cssStyles WHERE name=${h.sqlString(`${styleName} typed`)}`, typed,
+      'Saving a hand-typed style dropped declarations the operator typed');
   });
 }
 
