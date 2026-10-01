@@ -285,7 +285,15 @@
     "test:encoder-null-document-review-playwright": "node scripts/encoder-null-document-review-playwright-checks.js",
     "test:encoder-null-eform-lists-playwright": "node scripts/encoder-null-eform-lists-playwright-checks.js",
     "test:csrf-runtime-form-day-sheet-unbill-playwright": "node scripts/csrf-runtime-form-day-sheet-unbill-playwright-checks.js",
-    "test:csrf-runtime-form-month-view-group-playwright": "node scripts/csrf-runtime-form-month-view-group-playwright-checks.js"
+    "test:csrf-runtime-form-month-view-group-playwright": "node scripts/csrf-runtime-form-month-view-group-playwright-checks.js",
+    "test:get-reject-consult-directory-playwright": "node scripts/get-reject-consult-directory-playwright-checks.js",
+    "test:get-reject-provider-groups-playwright": "node scripts/get-reject-provider-groups-playwright-checks.js",
+    "test:get-reject-rourke-form-playwright": "node scripts/get-reject-rourke-form-playwright-checks.js",
+    "test:get-reject-chart-notes-playwright": "node scripts/get-reject-chart-notes-playwright-checks.js",
+    "test:get-reject-eform-editor-playwright": "node scripts/get-reject-eform-editor-playwright-checks.js",
+    "test:get-reject-contact-directory-playwright": "node scripts/get-reject-contact-directory-playwright-checks.js",
+    "test:get-reject-measurement-groups-playwright": "node scripts/get-reject-measurement-groups-playwright-checks.js",
+    "test:get-reject-inbox-queue-playwright": "node scripts/get-reject-inbox-queue-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

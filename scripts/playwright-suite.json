@@ -4528,6 +4528,158 @@
       "env": [],
       "fixtures": "Throwaway login with its own ProviderPreference; two marker groups (PW/PX + marker hex) holding only the throwaway provider; groups and throwaway rows deleted and asserted gone. The shared test login's preferences are not touched.",
       "notes": "Fails at its second step ('choosing the other group posts with a CSRF token...') on 2026.08: appointmentprovideradminmonth.jsp postViaFormPopup() builds the updatepreference form at runtime without a CSRF-TOKEN, so providercontrol answers 403 and My Group is not saved."
+    },
+    {
+      "name": "get-reject-consult-directory",
+      "script": "scripts/get-reject-consult-directory-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Seeds two marker-named Institution, Department and professionalSpecialists rows each; deletes row A of each through the consultation directory and probes row B; cleanup deletes only the marker rows and asserts it.",
+      "notes": "Expected to FAIL at the last step 'every consultation-directory delete refused GET/HEAD and left the owned rows in place' until encounter/EditInstitutions, EditDepartments and EditSpecialists reject GET/HEAD (today each GET deletes the owned row)."
+    },
+    {
+      "name": "get-reject-provider-groups",
+      "script": "scripts/get-reject-provider-groups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Seeds one marker-named mygroup (test provider + three active demo providers, names copied from provider); uses three more demo providers as add targets; cleanup deletes every row of the marker group and asserts it.",
+      "notes": "Expected to FAIL at the last step 'every provider-group mutation refused GET/HEAD…' until providercontrol displaymode=newgroup / ViewProviderNewGroup Delete reject GET and providercontrol stops include()ing an arbitrary displaymodevariable path (today all three write)."
+    },
+    {
+      "name": "get-reject-rourke-form",
+      "script": "scripts/get-reject-rourke-form-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient; the shipped Rourke2017 Forms-menu entry (no registration change); cleanup deletes the patient's measurements and formRourke2017 rows (the form autosaves) and asserts it.",
+      "notes": "Expected to FAIL at the last step 'every encounter-form write refused GET/HEAD, stored nothing replayed, and the measurement dialog saved': form/formname (Frm2Action) GET/HEAD write a form record, and the Rourke Wt measurement dialog Save throws a TypeError and never posts."
+    },
+    {
+      "name": "get-reject-chart-notes",
+      "script": "scripts/get-reject-chart-notes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and one marker tickler seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, eChart rows and the tickler, and asserts it.",
+      "notes": "Expected to FAIL at the last step 'chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST': CaseManagementEntry method=issueNoteSave and method=ticklerSaveNote write on GET, and ticklerMain.jsp saveNoteDialog() sends its save as a GET."
+    },
+    {
+      "name": "get-reject-eform-editor",
+      "script": "scripts/get-reject-eform-editor-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Seeds one marker-named eform row by SQL; edits it through Administration ▸ Manage eForms; cleanup deletes it and asserts it.",
+      "notes": "Expected to FAIL at the last step 'the eForm editor refused GET/HEAD and the owned template is unchanged' until eform/editForm (HtmlEdit2Action) rejects GET (today a GET replaces the template HTML)."
+    },
+    {
+      "name": "get-reject-contact-directory",
+      "script": "scripts/get-reject-contact-directory-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient; the page creates one Contact row whose last name carries the run marker; cleanup deletes marker Contact rows (and any DemographicContact pointing at them) and asserts it.",
+      "notes": "Expected to FAIL at the last step 'the contact directory save refused GET/HEAD, the owned contact is unchanged, and the page ran cleanly': demographic/Contact method=saveContact writes on GET, and addEditContact.jsp's script block does not parse (unescaped quotes)."
+    },
+    {
+      "name": "get-reject-measurement-groups",
+      "script": "scripts/get-reject-measurement-groups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Seeds two FAKEPW measurement types and three marker-named measurement groups with style rows; cleanup deletes only those and asserts it.",
+      "notes": "Expected to FAIL at the last step 'every measurement-group write refused GET/HEAD, groups 2 and 3 are unchanged, and the pages loaded cleanly': EditMeasurementGroup forward=add/delete and SelectMeasurementGroup forward=delete write on GET; the pages also raise the /styles.css MIME errors of finding L87."
+    },
+    {
+      "name": "get-reject-inbox-queue",
+      "script": "scripts/get-reject-inbox-queue-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates one marker-named document queue (and its _queue.<id> secObjectName) through Administration ▸ Add New Queue; cleanup deletes queue/secObjectName rows carrying the two marker names and asserts it.",
+      "notes": "Expected to FAIL at the last step 'queue creation refused GET/HEAD and no queue carries the replayed name' until documentManager/inboxManage method=addNewQueue rejects GET (today a GET creates a queue and security object with _edoc read)."
     }
   ]
 }
