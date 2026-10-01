@@ -32,13 +32,9 @@ import static org.mockito.Mockito.mock;
  * excluded once a non-empty health number is supplied. This mirrors the list-side coverage in
  * {@code InboxResultsDaoIntegrationTest} for the abnormal, lab and document summary counts.
  *
- * <p>The Spring/H2 integration context cannot run these statements as written, so the test
- * DataSource makes two dialect-only rewrites and nothing else: it drops the MySQL-only
- * {@code SELECT HIGH_PRIORITY} scheduling hint, and qualifies the lab query's bare
- * {@code GROUP BY demographic_no} as {@code d.demographic_no} (H2 reports the bare name as
- * ambiguous between {@code patientLabRouting} and {@code demographic}; the join condition and the
- * {@code d.last_name} filter make the two equal on every counted row). Every predicate, join and
- * bound value is the production statement.
+ * <p>The test DataSource makes exactly one dialect rewrite: it drops the MySQL/MariaDB-only
+ * {@code SELECT HIGH_PRIORITY} scheduling hint, which H2 (even in MySQL mode) rejects as a syntax
+ * error. Every predicate, join, {@code GROUP BY} and bound value is the production statement.
  */
 @Tag("unit")
 @Tag("lab")
@@ -144,7 +140,7 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
         return new CategoryData("Synthetic", "Nohin", hin, true, true, PROVIDER, "N", "all", null, null);
     }
 
-    /** Opens real H2 connections whose statements carry only the dialect rewrites described above. */
+    /** Opens real H2 connections whose statements have only the MySQL priority hint removed. */
     private DataSource hintStrippingDataSource() {
         DataSource dataSource = mock(DataSource.class, invocation -> {
             if (!"getConnection".equals(invocation.getMethod().getName())) return null;
@@ -152,8 +148,8 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
             return Proxy.newProxyInstance(Connection.class.getClassLoader(), new Class<?>[] {Connection.class},
                     (proxy, method, args) -> {
                         if ("prepareStatement".equals(method.getName()) && args != null && args[0] instanceof String sql) {
-                            args[0] = sql.replace("SELECT HIGH_PRIORITY ", "SELECT ")
-                                    .replace("GROUP BY demographic_no,", "GROUP BY d.demographic_no,");
+                            // H2 cannot parse the MySQL-only priority hint; it has no effect on results.
+                            args[0] = sql.replace("SELECT HIGH_PRIORITY ", "SELECT ");
                         }
                         try {
                             return method.invoke(real, args);
