@@ -1466,10 +1466,18 @@ public class EForm extends EFormBase {
         addHiddenInputElement(id, null, null, value, null);
     }
 
-    /** Preserve a template's case-sensitive newForm flag and its submitted name. */
+    /**
+     * Preserve a template's case-sensitive newForm flag and its submitted name.
+     *
+     * <p>The fallback is added only when the template has neither a {@code newForm} id nor a
+     * {@code name=newForm} control in its form. Templates that declare the flag by name alone
+     * would otherwise submit two conflicting values, and {@code form.newForm} would become a
+     * RadioNodeList whose {@code value} no longer reads the template's own flag.
+     */
     public void ensureNewFormInput() {
         Element form = getDocument().selectFirst("form");
-        if (form != null && getDocument().getElementById("newForm") == null) {
+        if (form != null && getDocument().getElementById("newForm") == null
+                && form.selectFirst("[name=newForm]") == null) {
             form.appendElement("input").attr("type", "hidden").attr("id", "newForm")
                     .attr("name", "newForm").attr("value", "true");
         }
