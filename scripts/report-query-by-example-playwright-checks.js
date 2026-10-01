@@ -103,7 +103,10 @@ async function workflow(s) {
     h.assert(JSON.stringify(headers) === JSON.stringify(['demographic_no', 'last_name', 'first_name']), 'Result headers differ from the selected columns');
     h.assert(JSON.stringify(rows) === JSON.stringify(sql.rows(query)), 'Rendered rows differ from the SQL result');
     h.assert(rows.length === 1 && rows[0][0] === patient, 'The query did not return exactly the owned patient');
-    await frame.getByText('Returned 1 rows (limit: 1000).', {exact: true}).waitFor({timeout: TIMEOUT});
+    // MessageFormat renders the {1} limit with locale grouping ("1,000"). The line carries
+    // only counts, so it is safe to quote in a failure.
+    const summary = (await frame.locator('p.text-muted.small').first().innerText()).replace(/\s+/g, ' ').trim();
+    h.assert(/^Returned 1 rows? \(limit: 1[,.  ]?000\)\.?$/.test(summary), `The row-count summary reads "${summary}"`);
     h.assert(await visibleAlerts().count() === 0, 'A successful run rendered an alert');
     h.assert(await frame.locator('#sql').inputValue() === query, 'The submitted SQL was not echoed back into the textarea');
     h.assert(historyCount() === '1', 'The successful run was not recorded in the query history');

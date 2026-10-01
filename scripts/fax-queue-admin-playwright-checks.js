@@ -60,6 +60,29 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM faxes WHERE demographicNo=${patient}`) === '0', 'Owned fax rows were not removed');
     cleanupRxFaxAccount(sql, account);
   });
+  // The patient typeahead on this page posts no outofdomain flag, so SearchDemographic only
+  // offers patients admitted to one of the provider's programs: admit the owned patient to an
+  // owned program the way the chart checks do.
+  const programName = `${marker}-faxes`;
+  s.cleanup(() => {
+    const program = sql.value(`SELECT id FROM program WHERE name=${h.sqlString(programName)}`);
+    if (!program) return;
+    h.assert(/^[1-9]\d*$/.test(program), 'Owned program id is invalid');
+    sql.execute(`DELETE FROM admission WHERE client_id=${patient} AND program_id=${program};
+      DELETE FROM program_provider WHERE program_id=${program} AND provider_no=${h.sqlString(provider)};
+      DELETE FROM program WHERE id=${program} AND name=${h.sqlString(programName)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM program WHERE id=${program}`) === '0', 'Owned program was not removed');
+  });
+  const program = sql.value(`INSERT INTO program
+    (facilityId,name,type,maxAllowed,programStatus,transgender,firstNation,alcohol,
+     physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax)
+    SELECT id,${h.sqlString(programName)},'service',1,'active',0,0,0,0,0,0,'none',0,150
+    FROM Facility ORDER BY id LIMIT 1;
+    SELECT id FROM program WHERE name=${h.sqlString(programName)}`);
+  h.assert(/^[1-9]\d*$/.test(program), 'Owned program could not be created');
+  sql.execute(`INSERT INTO program_provider (program_id,provider_no) VALUES (${program},${h.sqlString(provider)});
+    INSERT INTO admission (client_id,program_id,provider_no,admission_date,admission_from_transfer,discharge_from_transfer,admission_status,lastUpdateDate)
+    VALUES (${patient},${program},${h.sqlString(provider)},NOW(),0,0,'current',NOW())`);
   account = stageRxFaxAccount(sql, faxNumber);
   // The fixture stages the account active; nothing owned is queued yet, so deactivate it
   // until the mutating steps need it (FaxSender only serves active accounts).
@@ -91,11 +114,22 @@ async function workflow(s) {
   const isMutation = method => response => new URL(response.url()).pathname.endsWith('/admin/ManageFaxes')
     && response.request().method() === 'POST' && (response.request().postData() || '').includes(`method=${method}`);
   async function fetchQueue({begin = day(30), end = today, status = '-1', oscarUser = '-1', team = '-1'} = {}) {
-    await queue.locator('#dateBegin').fill(begin);
-    await queue.locator('#dateEnd').fill(end);
+    // The pickers allow typing; Tab commits the typed value through flatpickr's blur handler
+    // and closes the calendar it opened on focus, which otherwise overlays the buttons.
+    for (const [selector, value] of [['#dateBegin', begin], ['#dateEnd', end]]) {
+      await queue.locator(selector).fill(value);
+      await queue.locator(selector).press('Tab');
+    }
     await queue.locator('select[name="status"]').selectOption(status);
     await queue.locator('select[name="oscarUser"]').selectOption(oscarUser);
     await queue.locator('select[name="team"]').selectOption(team);
+    const validity = await queue.locator('#reportForm').evaluate(form => ({
+      valid: form.checkValidity(),
+      dates: [form.dateBegin.value, form.dateEnd.value],
+      messages: [form.dateBegin.validationMessage, form.dateEnd.validationMessage],
+    }));
+    h.assert(validity.valid && validity.dates[0] === begin && validity.dates[1] === end,
+      `The search form would not submit (${validity.messages.join(' / ') || 'date values were rewritten'})`);
     await queue.locator('#results table').evaluateAll(tables => tables.forEach(table => table.setAttribute('data-stale', '1')));
     const [response] = await Promise.all([
       admin.waitForResponse(isMutation('fetchFaxStatus'), {timeout: TIMEOUT}),

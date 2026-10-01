@@ -185,14 +185,16 @@ async function workflow(s) {
     history = outcome.page;
     await history.waitForURL(/\/demographic\/DemographicApptHistory/, { timeout: 20000 });
     h.assert(new URL(history.url()).searchParams.get('demographic_no') === patient, 'Appt. History opened for another patient');
-    const { rows, count } = await ui.dataTableRows(history, '#apptHistoryTbl', { timeout: 20000 });
+    const { count } = await ui.dataTableRows(history, '#apptHistoryTbl', { timeout: 20000 });
     h.assert(count === 2, `Appt. History lists ${count} row(s) for a patient with two appointments`);
     const status = sql.value("SELECT description FROM appointment_status WHERE status='t'");
     const providerName = sql.value(`SELECT CONCAT(last_name, ',', first_name) FROM provider WHERE provider_no=${h.sqlString(provider)}`);
-    // Newest first: the DAO orders by appointment date then start time, descending.
+    // Rows are matched by their appt_no attribute: the page orders the table in
+    // the browser (DataTables sorts the date column), so position proves nothing.
     for (const [index, appointment] of owned.appointments.entries()) {
-      const row = rows.nth(index);
-      h.assert(await row.getAttribute('appt_no') === appointment.id, `Appt. History row ${index + 1} is not the expected owned appointment`);
+      const row = history.locator(`#apptHistoryTbl tbody tr[appt_no="${appointment.id}"]`);
+      h.assert(await history.locator(`#apptHistoryTbl tbody tr[appt_no="${appointment.id}"]`).count() === 1,
+        `Appt. History does not list owned appointment ${index + 1} exactly once`);
       const cells = (await row.locator('td').allInnerTexts()).map(text => text.replace(/ /g, ' ').trim());
       h.assert(cells[0] === appointment.date && cells[1] === appointment.start && cells[2] === appointment.end,
         `Appt. History row ${index + 1} does not show the seeded date and times`);
@@ -205,8 +207,8 @@ async function workflow(s) {
   });
 
   await s.step("each history row's date link opens the edit popup for that appointment", async () => {
-    for (const [index, appointment] of owned.appointments.entries()) {
-      const row = history.locator('#apptHistoryTbl tbody tr').nth(index);
+    for (const appointment of owned.appointments) {
+      const row = history.locator(`#apptHistoryTbl tbody tr[appt_no="${appointment.id}"]`);
       const edit = await s.popup(history, row.locator('td a').first(), 'edit-appointment');
       const url = new URL(edit.url());
       h.assert(url.pathname.endsWith('/appointment/editappointment') && url.searchParams.get('appointment_no') === appointment.id

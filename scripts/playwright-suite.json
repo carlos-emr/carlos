@@ -3273,7 +3273,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates a throwaway login (security/provider/secUserRole copied from the test login), changes its password, deletes every owned row including SecurityArchive, provider_facility and audit rows."
+      "fixtures": "Creates a throwaway login (security/provider/secUserRole copied from the test login), changes its password, deletes every owned row including SecurityArchive, provider_facility and audit rows.",
+      "notes": "Fails at its last step on 2026.08: the change-password page has no server-side password policy."
     },
     {
       "name": "account-lockout-unlock",
@@ -3291,7 +3292,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates a throwaway login, locks it with wrong passwords (never the shared test account), unlocks it via Administration > Unlock Account, deletes every owned row including audit rows. Requires login_lock=true."
+      "fixtures": "Creates a throwaway login, locks it with wrong passwords (never the shared test account), unlocks it via Administration > Unlock Account, deletes every owned row including audit rows. Requires login_lock=true.",
+      "notes": "Fails on 2026.08: Unlock Account answers 500 whenever a login is tracked (SecurityDaoImpl.findByProviderSite duplicate provider_no alias)."
     },
     {
       "name": "encounter-templates",
@@ -3309,7 +3311,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owns one PW<hex> encounter template and the synthetic patient's chart notes; create/edit/delete through Administration > eChart > Insert a Template, inserts it through the chart's Template Search and saves the note."
+      "fixtures": "Owns one PW<hex> encounter template and the synthetic patient's chart notes; create/edit/delete through Administration > eChart > Insert a Template, inserts it through the chart's Template Search and saves the note.",
+      "notes": "Fails at its last step on 2026.08: Insert a Template ▸ Delete throws DetachedObjectException and deletes nothing."
     },
     {
       "name": "admin-issue-editor",
@@ -3327,7 +3330,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owns one PW<hex>-coded issue (plus a GET-probe code) and the synthetic patient's notes/casemgmt_issue/CPP/eChart rows; adds the issue through Administration > CAISI > Issue Editor and assigns it from the chart's CPP item editor."
+      "fixtures": "Owns one PW<hex>-coded issue (plus a GET-probe code) and the synthetic patient's notes/casemgmt_issue/CPP/eChart rows; adds the issue through Administration > CAISI > Issue Editor and assigns it from the chart's CPP item editor.",
+      "notes": "Skips on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08."
     },
     {
       "name": "security-record-admin",
@@ -3428,6 +3432,64 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored."
+    },
+    {
+      "name": "waiting-list",
+      "script": "scripts/waiting-list-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned waitingListName for the provider's group (SQL) and the owned patient's waitingList rows; removed in cleanup.",
+      "notes": "Fails at its first step on 2026.08 until the Master Record stops rendering the waiting list read-only when DEMOGRAPHIC_WAITING_LIST=true (edit.jsp wLReadonly)."
+    },
+    {
+      "name": "appointment-search-history",
+      "script": "scripts/appointment-search-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned patient plus a second owned patient, one past and one future owned appointment in an offered free slot; removed in cleanup."
+    },
+    {
+      "name": "report-query-by-example",
+      "script": "scripts/report-query-by-example-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned patient queried by marker; owned reportByExamples history and favourite rows removed in cleanup.",
+      "notes": "Through the packaged front door the Run Query POST is blocked by CRS 942100; against Tomcat directly the favourite Delete answers 500 (DetachedObjectException). Both are application defects; the check asserts the correct behaviour."
+    },
+    {
+      "name": "fax-queue-admin",
+      "script": "scripts/fax-queue-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned faxes rows for an owned patient admitted to an owned program, and an owned inactive SRFax-typed fax_config activated only around the mutating steps; files never exist, so nothing is transmitted."
     }
   ]
 }

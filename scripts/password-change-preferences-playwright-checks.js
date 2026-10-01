@@ -28,6 +28,17 @@ const { bundleMessage, submitLoginForm, throwawayLoginFixture } = require('./lib
 const WEAK_PASSWORD = 'ab1';
 const UPDATE_ROUTE = /\/provider\/ViewProviderUpdatePassword$/;
 
+// The success page carries self.close() in its <head>, so the window closes while the
+// CSRFGuard script tag injected after it is still loading: Chromium reports that one
+// request as net::ERR_ABORTED. Consume exactly that entry, only after the close was
+// observed; any other failure on the page stays strict.
+function consumeSelfCloseAbort(recorder, label, since) {
+  const added = recorder.requestFailures.slice(since);
+  const index = added.findIndex(entry => entry.label === label && entry.resourceType === 'script'
+    && entry.errorText === 'net::ERR_ABORTED' && /\/csrfguard$/.test(new URL(entry.url).pathname));
+  if (index >= 0) recorder.requestFailures.splice(since + index, 1);
+}
+
 async function workflow(s) {
   const { sql, config, recorder } = s;
   const fixture = throwawayLoginFixture({ sql, marker: s.marker, provider: s.provider, testUser: config.testUser });
@@ -94,8 +105,10 @@ async function workflow(s) {
     await fillPasswords(popup, config.testPassword, newPassword);
     // The success page carries self.close(): the popup closes instead of navigating.
     const closed = popup.waitForEvent('close', { timeout: 20000 });
+    const failuresBefore = recorder.requestFailures.length;
     await popup.locator('input[type="submit"]').click({ noWaitAfter: true });
     await closed;
+    consumeSelfCloseAbort(recorder, 'change-password-good', failuresBefore);
     await expectValue(sql, `SELECT password<>${h.sqlString(originalHash)} FROM security WHERE user_name=${user}`, '1',
       'The password change did not reach the security row');
     const newHash = sql.value(hashQuery);

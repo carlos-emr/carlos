@@ -217,7 +217,11 @@
     "test:rx-print-profile-playwright": "node scripts/rx-print-profile-playwright-checks.js",
     "test:tickler-forward-preferences-playwright": "node scripts/tickler-forward-preferences-playwright-checks.js",
     "test:my-groups-playwright": "node scripts/my-groups-playwright-checks.js",
-    "test:schedule-views-playwright": "node scripts/schedule-views-playwright-checks.js"
+    "test:schedule-views-playwright": "node scripts/schedule-views-playwright-checks.js",
+    "test:waiting-list-playwright": "node scripts/waiting-list-playwright-checks.js",
+    "test:appointment-search-history-playwright": "node scripts/appointment-search-history-playwright-checks.js",
+    "test:report-query-by-example-playwright": "node scripts/report-query-by-example-playwright-checks.js",
+    "test:fax-queue-admin-playwright": "node scripts/fax-queue-admin-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

@@ -77,32 +77,43 @@ async function workflow(s) {
   const privilegeRows = () => sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup='_all'
     AND objectName=${h.sqlString(`_eChart$${dup}`)}`);
 
-  // Schedule ▸ Administration ▸ Data Management ▸ Merge Patient Records (popupPage).
+  // Schedule ▸ Administration ▸ Data Management ▸ Merge Patient Records: the shell
+  // loads the page into an iframe under #dynamic-content, so the frame is driven and
+  // its navigations and dialogs are observed on the host page.
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
     {context, recorder, label: 'merge-administration', timeout: 20000});
   const link = admin.getByRole('link', {name: 'Merge Patient Records', exact: true, includeHidden: true});
   await revealAuditLink(admin, link, 20000);
-  const merge = await s.popup(admin, link, 'merge-records');
+  await link.click();
+  const iframe = admin.locator('#dynamic-content iframe').first();
+  await iframe.waitFor();
+  const merge = await (await iframe.elementHandle()).contentFrame();
+  h.assert(merge, 'The merge records iframe did not load');
   await merge.locator('form[name="titlesearch"] #merge-keyword').waitFor();
 
+  async function navigateFrame(locator, label) {
+    const navigated = admin.waitForEvent('framenavigated', {predicate: frame => frame === merge, timeout: 20000});
+    navigated.catch(() => {});
+    await locator.click({timeout: 20000});
+    await navigated;
+    await merge.waitForLoadState('domcontentloaded', {timeout: 20000});
+    await merge.waitForLoadState('networkidle', {timeout: 20000}).catch(() => {});
+    await h.assertNotErrorPage(merge, label);
+  }
   async function search(merged = false) {
     const form = merge.locator('form[name="titlesearch"]');
     await form.locator('#merge-mode-name').check();
     await form.locator('#merge-keyword').fill(marker);
-    const button = merged ? form.locator('button[name="dboperation"][value="demographic_search_merged"]')
-      : form.locator('input[type="submit"][name="button"]');
-    await clickAndAwaitReload(merge, button, {timeout: 20000, label: merged ? 'Search Merged Records' : 'the merge search'});
-    await h.assertNotErrorPage(merge, 'merge search results');
+    await navigateFrame(merged ? form.locator('button[name="dboperation"][value="demographic_search_merged"]')
+      : form.locator('input[type="submit"][name="button"]'), merged ? 'Search Merged Records' : 'the merge search');
   }
   const rows = () => merge.locator('form[name="mergeform"] table tr').filter({hasText: marker});
   const rowFor = firstName => rows().filter({hasText: firstName});
   async function submitMerge(button, outcomeText, label) {
-    const dialogs = await h.withExpectedDialogs(merge, async () => {
-      await clickAndAwaitReload(merge, merge.locator(`form[name="mergeform"] input[type="submit"][value="${button}"]`),
-        {timeout: 20000, label});
+    const dialogs = await h.withExpectedDialogs(admin, async () => {
+      await navigateFrame(merge.locator(`form[name="mergeform"] input[type="submit"][value="${button}"]`), label);
     });
     assertMergeDialogs(dialogs, outcomeText, label);
-    await h.assertNotErrorPage(merge, label);
     return new URL(merge.url()).searchParams.get('outcome');
   }
 
@@ -136,7 +147,7 @@ async function workflow(s) {
       'The merged duplicate is still offered as a mergeable head record');
     const toHead = rowFor('Duplicate').locator(`a[href*="demographic_no=${head}"]`);
     h.assert(await toHead.count() === 1, 'The merged duplicate does not link to its head record');
-    const master = await s.popup(merge, toHead, 'merged-master-record');
+    const master = await s.popup(admin, toHead, 'merged-master-record');
     h.assert(new URL(master.url()).searchParams.get('demographic_no') === head, 'The duplicate opened a record other than its head');
     const toolbar = (await master.locator('.demo-toolbar-id').first().innerText()).replace(/\s+/g, ' ');
     h.assert(toolbar.includes(`#${head}`) && toolbar.includes(`#${dup}`), 'The head Master Record does not list the merged duplicate');

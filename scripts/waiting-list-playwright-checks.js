@@ -87,10 +87,14 @@ async function workflow(s) {
     const option = s.master.locator(`${LIST_SELECT} option[value="${listId}"]`);
     h.assert(await option.count() === 1, 'The Master Record waiting-list select does not offer the seeded list');
     h.assert((await option.textContent()).trim() === marker, 'The seeded list is offered under another name');
-    h.assert(await s.master.locator(NOTE_INPUT).first().isEditable(),
-      'The waiting-list note is read-only although a list name exists (edit.jsp sets wLReadonly whenever DEMOGRAPHIC_WAITING_LIST=true)');
-    h.assert(await s.master.locator(MASTER_LINK).count() === 1,
-      'The Master Record shows no Waiting List link although an active list name exists');
+    // Both are gated by the same wLReadonly flag; report both at once.
+    const problems = [];
+    if (await s.master.locator(MASTER_LINK).count() !== 1) problems.push('shows no Waiting List link');
+    if (!(await s.master.locator(NOTE_INPUT).first().isEditable())) problems.push('renders the waiting-list note read-only');
+    if (!(await s.master.locator(DATE_INPUT).first().isEditable())) problems.push('renders the date of request read-only');
+    h.assert(!problems.length, `The Master Record ${problems.join(', ')} although an active list name exists `
+      + `(first list option reads ${JSON.stringify((await s.master.locator(`${LIST_SELECT} option`).first().textContent()).trim())}; `
+      + 'edit.jsp and its fragments set wLReadonly whenever DEMOGRAPHIC_WAITING_LIST=true)');
   });
 
   const firstNote = `${marker} first note from the Master Record`;

@@ -50,6 +50,11 @@ async function workflow(s) {
     await iframe.waitFor();
     const frame = await (await iframe.elementHandle()).contentFrame();
     h.assert(frame, 'The Unlock Account iframe did not load');
+    // The shell appends the iframe without a src and assigns it afterwards, so wait for the
+    // real document, then name a server error on it before waiting on its controls: with a
+    // non-empty lock list the page's securityDao.findByProviderSite() call can answer 500.
+    await frame.waitForURL(/\/admin\/UnLock/, { timeout: 20000, waitUntil: 'load' });
+    h.assertStrictPage(recorder, ['administration']);
     await frame.locator('form[name="baseurl"] select[name="userName"]').waitFor({ state: 'attached', timeout: 20000 });
     await frame.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
     return frame;

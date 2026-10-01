@@ -17,7 +17,7 @@
  * Implements coverage plan §2.4 patient-set-cohort.
  */
 const h = require('./lib/playwright-harness');
-const {clickOpensPopup, clickOpensPopupOrNavigates, clickAndAwaitReload} = require('./lib/playwright-ui');
+const {clickOpensPopupOrNavigates, clickAndAwaitReload} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 
@@ -85,14 +85,18 @@ async function workflow(s) {
       {context: schedule.context(), recorder, label: 'patient-set-administration', timeout: 20000});
     const link = admin.getByRole('link', {name: 'Demographic Export', exact: true, includeHidden: true});
     await revealAuditLink(admin, link, 20000);
-    // Not s.popup: a second-session popup fires on that session's context, not the workflow's.
-    const exporter = await clickOpensPopup(admin, link, {context: admin.context(), recorder, label: 'demographic-export', timeout: 20000});
+    // The shell loads the export page into an iframe under #dynamic-content.
+    await link.click();
+    const iframe = admin.locator('#dynamic-content iframe').first();
+    await iframe.waitFor();
+    const exporter = await (await iframe.elementHandle()).contentFrame();
+    h.assert(exporter, 'The demographic export iframe did not load');
     const options = exporter.locator('select#patientSet option');
-    await options.first().waitFor();
+    await options.first().waitFor({state: 'attached'});
+    await h.assertNotErrorPage(exporter, 'demographic export');
     const named = options.filter({hasText: setName});
     h.assert(await named.count() === 1 && await named.getAttribute('value') === setName
       && (await named.innerText()).trim() === setName, 'The export page does not offer the new patient set by name');
-    await exporter.close();
     if (second) await second.close();
   });
 }
