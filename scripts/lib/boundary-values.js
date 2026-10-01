@@ -29,11 +29,13 @@ function cpLength(value) { return Array.from(String(value)).length; }
 /** Upper-case hex of the UTF-8 bytes of a value. */
 function hex(value) { return Buffer.from(String(value), 'utf8').toString('hex').toUpperCase(); }
 
-/** A string of exactly `length` code points that starts with `prefix` and is padded with `pad`. */
+/** A string of exactly `length` code points that starts with `prefix` and is padded with `pad` (one code point). */
 function exactly(length, prefix, pad = 'x') {
   const head = Array.from(prefix);
+  const padding = Array.from(String(pad));
+  if (padding.length !== 1) throw new Error('pad must be exactly one code point');
   if (head.length > length) throw new Error('prefix longer than the requested length');
-  return head.concat(Array(length - head.length).fill(pad)).join('');
+  return head.concat(Array(length - head.length).fill(padding[0])).join('');
 }
 
 /** The declared character length of a column (information_schema), as a number. */
@@ -89,7 +91,9 @@ function assertNotSilentlyTruncated(sql, table, column, where, typed, label) {
 }
 
 /** Compare a page's displayed value with what is stored, tolerant only of case where the page upper-cases. */
-function sameText(shown, expected) { return String(shown) === String(expected); }
+function sameText(shown, expected) {
+  return String(shown) === String(expected) || String(shown) === String(expected).toUpperCase();
+}
 
 /** Remove every demographic whose last name starts with the tag, by relabelling to `marker` first. */
 function removeTaggedPatients(sql, tag, marker, removeMarkedPatients) {

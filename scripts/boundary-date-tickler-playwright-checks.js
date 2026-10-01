@@ -60,7 +60,12 @@ async function workflow(s) {
       await list.locator('h3, .card-header, body').first().click({ position: { x: 2, y: 2 } }).catch(() => {});
       h.assert(await input.inputValue() === value, `${selector} did not keep ${value}`);
     }
-    await list.locator('#assignedTo').selectOption(provider).catch(() => list.locator('#assignedTo').selectOption('all'));
+    // The assignee filter is a narrowing convenience, not the subject of this check. Multisite installs leave it empty until a
+    // site is chosen (it then has neither the provider nor "all"), so a missing option is not a failure.
+    const assignee = list.locator('#assignedTo');
+    await assignee.selectOption(provider, { timeout: 3000 })
+      .catch(() => assignee.selectOption('all', { timeout: 3000 }))
+      .catch(() => {});
     const [response] = await Promise.all([
       list.waitForResponse(r => r.request().method() === 'GET' && h.pathOnly(r.url()).endsWith('/tickler/ListTicklers')
         && new URL(r.url()).searchParams.get('startDate') === from && new URL(r.url()).searchParams.get('endDate') === to, { timeout: 30000 }),

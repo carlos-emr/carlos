@@ -137,12 +137,24 @@ async function workflow(s) {
     await navigateFrame(admin, frame, frame.locator('input[name="button"], button[name="button"]').first());
     await navigateFrame(admin, frame, frame.getByRole('link', { name: providerNo, exact: true }));
     const form = frame.locator('form[name="updatearecord"]');
+    const original = b.readStored(sql, 'provider', 'email', providerRow).hex;
     await form.locator('input[name="email"]').fill(over);
     const shown = await form.locator('input[name="email"]').inputValue();
     await form.locator('#statusActive').check();
     await navigateFrame(admin, frame, form.locator('input[name="subbutton"]'));
-    b.assertNotSilentlyTruncated(sql, 'provider', 'email', providerRow, shown, 'Provider e-mail past the column');
-    h.assert(shown.length <= column, `The e-mail box accepted ${shown.length} characters but provider.email holds ${column}, and nothing refused the save`);
+    const after = b.readStored(sql, 'provider', 'email', providerRow).hex;
+    if (b.cpLength(shown) <= column) {
+      // Visibly limited: the box itself held the value to the column, so exactly that text must be stored.
+      h.assert(after === b.hex(shown), `The e-mail box limited the text to ${b.cpLength(shown)} characters but the stored value differs from it`);
+    } else if (after === original) {
+      // Refused: the row must be unchanged and the page must say the save did not happen.
+      const page = (await frame.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
+      h.assert(!/Update a Provider Record Successfully/i.test(page) && /too long|exceed|maximum|limit|invalid|error|could not|unable|failed|refus/i.test(page),
+        `The e-mail box accepted ${b.cpLength(shown)} characters (provider.email holds ${column}) and the save changed nothing, but the page gave no visible refusal`);
+    } else {
+      b.assertNotSilentlyTruncated(sql, 'provider', 'email', providerRow, shown, 'Provider e-mail past the column');
+      h.assert(false, `The e-mail box accepted ${b.cpLength(shown)} characters but provider.email holds ${column}, and nothing refused the save`);
+    }
   });
 }
 

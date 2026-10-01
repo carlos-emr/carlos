@@ -20,14 +20,9 @@ const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createBillingFixture, openAdministration } = require('./billing-on-ohip-simulation-report-playwright-checks');
 const { runInvoiceReport } = require('./billing-on-invoice-third-party-playwright-checks');
+const { scheduleFee } = require('./lib/gap-billing-support');
 
 const DAYS = { feb28: '2004-02-28', leap: '2004-02-29', mar01: '2004-03-01', before: '2004-03-07', start: '2004-03-08', end: '2004-03-12', after: '2004-03-13' };
-
-function scheduleFee(sql, code) {
-  const fee = sql.value(`SELECT value FROM billingservice WHERE service_code=${h.sqlString(code)} ORDER BY billingservice_date DESC LIMIT 1`);
-  if (!/^\d+(\.\d+)?$/.test(fee) || Number(fee) <= 0) throw new h.SkipCheck(`service code ${code} has no positive fee`);
-  return Number(fee).toFixed(2);
-}
 
 async function fillDate(scope, page, selector, value) {
   await scope.locator(selector).fill(value);
@@ -53,7 +48,7 @@ async function openAdminFrame(admin, route, ready) {
 async function workflow(s) {
   const { sql } = s;
   const owned = createBillingFixture(s);
-  const fee = scheduleFee(sql, 'A007A');
+  const fee = Number(scheduleFee(sql, 'A007A')).toFixed(2);
   const claim = {};
   for (const [name, date] of Object.entries(DAYS)) {
     claim[name] = owned.addClaim({ tag: name.toUpperCase(), date, status: 'O', items: [{ code: 'A007A', fee }] });

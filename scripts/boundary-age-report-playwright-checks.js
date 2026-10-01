@@ -34,10 +34,16 @@ async function workflow(s) {
     const list = sql.rows(`SELECT demographic_no FROM demographic WHERE last_name LIKE ${q(`${marker}-A%`)}`).map(row => row[0]);
     list.forEach(id => h.assert(/^[1-9]\d*$/.test(id), 'Owned patient id is invalid'));
     if (list.length) {
-      sql.execute(`DELETE FROM reportagesex WHERE demographic_no IN (${list.join(',')});
-        DELETE FROM demographic WHERE demographic_no IN (${list.join(',')}) AND last_name LIKE ${q(`${marker}-A%`)}`);
+      // Patients first: the report regeneration rebuilds the cache from `demographic`, so once they are gone nothing
+      // (this run or a parallel one) can write a cache row for them again.
+      sql.execute(`DELETE FROM demographic WHERE demographic_no IN (${list.join(',')}) AND last_name LIKE ${q(`${marker}-A%`)};
+        DELETE FROM reportagesex WHERE demographic_no IN (${list.join(',')})`);
     }
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE last_name LIKE ${q(`${marker}-A%`)}`) === '0', 'Owned patients were not removed');
+    if (list.length) {
+      h.assert(sql.value(`SELECT COUNT(*) FROM reportagesex WHERE demographic_no IN (${list.join(',')})`) === '0',
+        'Owned Age-Sex Report cache rows were not removed');
+    }
   });
 
   const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),

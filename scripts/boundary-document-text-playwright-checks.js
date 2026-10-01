@@ -76,8 +76,10 @@ async function workflow(s) {
     const deadline = Date.now() + 25000;
     while (Date.now() < deadline && rows().length <= before) await new Promise(resolve => setTimeout(resolve, 400));
     await new Promise(resolve => setTimeout(resolve, 1000));
+    // A refused upload leaves the add page open and re-rendered with its message; a saved one closes it.
+    const text = add.isClosed() ? '' : (await add.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
     if (!add.isClosed()) await add.close().catch(() => {});
-    return shown;
+    return { shown, text };
   }
 
   const exact = `${marker} ${'E'} ${[T.apostrophe, T.latin, T.cjk, T.emoji, T.entity, T.quotes, T.backslash, T.percent, T.plus, T.semicolon].join(' ')}`;
@@ -93,9 +95,15 @@ async function workflow(s) {
   await s.step('a description one character past the column is refused or visibly limited, never silently cut', async () => {
     const over = `${marker} O${'x'.repeat(column + 1 - b.cpLength(marker) - 2)}`;
     h.assert(b.cpLength(over) === column + 1, 'Test bug: the long description is not one past the column');
-    const shown = await upload(over, 'O');
+    const { shown, text } = await upload(over, 'O');
     const found = sql.rows(`SELECT d.document_no FROM document d JOIN ctl_document c ON c.document_no=d.document_no WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc LIKE ${q(`${marker} O%`)}`);
-    if (found.length === 0) return;
+    if (found.length === 0) {
+      // Nothing stored is a valid answer only when the page names the length as the problem; any other failed save
+      // (a duplicate-name refusal, a write error) is not evidence that the length was checked.
+      h.assert(/too long|exceed|maximum|characters|length|limit/i.test(text),
+        `The ${b.cpLength(shown)}-character description was not saved but the page gave no length-related refusal (page said: "${text.slice(0, 160)}")`);
+      return;
+    }
     b.assertNotSilentlyTruncated(sql, 'document', 'docdesc', `document_no=${found[0][0]}`, shown, 'Document description past the column');
     h.assert(b.cpLength(shown) <= column, `The description box accepted ${b.cpLength(shown)} characters but document.docdesc holds ${column}`);
   });

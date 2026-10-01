@@ -8,7 +8,7 @@
  * 31 Dec 2003 / 1 Jan 2004 year boundary: a window of one day lists every row of that day (00:00:00 through
  * 23:59:59) and no row of the day before (23:59:59) or of the day after, including the one stamped exactly at
  * 00:00:00 of the next day.
- * Fixtures: eight owned rows in `log` (contentId = run marker, far past dates nothing else writes to); cleanup
+ * Fixtures: twelve owned rows in `log` (contentId = run marker, far past dates nothing else writes to); cleanup
  * deletes only rows carrying the marker and asserts they are gone.
  * Implements the wave-6 "boundary values" pattern, Part 2 (end-date inclusivity, midnight, leap day, 31 Dec/1 Jan).
  */

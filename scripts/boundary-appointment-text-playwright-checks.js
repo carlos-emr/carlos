@@ -47,6 +47,11 @@ async function workflow(s) {
   s.cleanup(() => fixture.cleanup());
   fixture.create();
   const owner = h.sqlString(fixture.providerNo);
+  // The fixture picks a number that is free of provider, security, log and preference rows but not of appointment rows. The cleanup
+  // below deletes by provider number, so refuse to run (and to delete anything) if a leftover row already carries this number.
+  h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE provider_no=${owner})
+    + (SELECT COUNT(*) FROM appointmentArchive WHERE provider_no=${owner})`) === '0',
+  'The throwaway provider number already has appointment rows from an earlier provider; re-run to draw another number');
   s.cleanup(() => {
     sql.execute(`DELETE FROM appointmentArchive WHERE provider_no=${owner}; DELETE FROM appointment WHERE provider_no=${owner}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE provider_no=${owner})
@@ -135,8 +140,11 @@ async function workflow(s) {
   await s.step('line breaks inside a full box, and a long free-text name and resources entry, are stored whole or refused', async () => {
     const problems = [];
     // (a) a break counts one character in the box (maxlength) but travels as CR LF, so a box filled to the limit overflows the column.
-    const breakReason = `${fillUnits(reasonColumn - 2, parts)}\nZ`;
-    const breakNotes = `${fillUnits(notesColumn - 2, parts)}\nZ`;
+    // The box counts UTF-16 units but the column counts code points, so an emoji (two units, one code point) would give the
+    // submitted CR LF text one code point of slack and hide the overflow: leave it out of these probes.
+    const bmpParts = parts.filter(part => part !== T.emoji);
+    const breakReason = `${fillUnits(reasonColumn - 2, bmpParts)}\nZ`;
+    const breakNotes = `${fillUnits(notesColumn - 2, bmpParts)}\nZ`;
     const edit = await openEdit(apptNo);
     await edit.locator('form [name="reason"]').first().fill(breakReason);
     await edit.locator('form [name="notes"]').first().fill(breakNotes);

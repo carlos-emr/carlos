@@ -4,9 +4,9 @@
  * As-of date inclusivity of the Prevention Report (wave 6, boundary values, Part 2).
  * User path: Schedule > Report > Preventions report (prevention/PreventionReport) > patient set, prevention type Flu,
  * As Of date > Run Report.
- * Asserts: with an as-of date inside the flu season, a flu shot given the day before the as-of date and a flu shot
+ * Asserts: with a fixed as-of date inside the flu season, a flu shot given the day before the as-of date and a flu shot
  * given ON the as-of date are both counted ("Up to date"), and a shot dated the day after is still in the future
- * ("No Info"). A report run for today must count the shot given today.
+ * ("No Info"). The report is run for that fixed date, not for today, so the result does not depend on when it runs.
  * Fixtures: three synthetic patients aged over 65 (surname = run marker + index) with one Flu prevention each, and one
  * saved patient query naming them; cleanup removes the preventions, the query and the patients and asserts none remain.
  * Implements the wave-6 "boundary values" pattern, Part 2 (prevention reports, end-date inclusivity).

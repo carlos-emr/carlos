@@ -123,7 +123,8 @@ async function workflow(s) {
     add = await openAddForm(s, tag + 'M');
     const mapping = [['last_name', 'last_name'], ['first_name', 'first_name'], ['middleNames', 'middleNames'], ['address', 'address'],
       ['city', 'city'], ['residentialAddress', 'residentialAddress'], ['residentialCity', 'residentialCity'], ['postal', 'postal'],
-      ['phone', 'phone'], ['phone2', 'phone2'], ['email', 'email'], ['hin', 'hin'], ['sin', 'sin'], ['chart_no', 'chart_no']];
+      ['phone', 'phone'], ['phone2', 'phone2'], ['email', 'email'], ['hin', 'hin'], ['sin', 'sin'], ['chart_no', 'chart_no'],
+      ['nameUsed', 'pref_name'], ['pronouns', 'pronoun'], ['gender', 'gender']];
     const mismatched = [];
     for (const [input, column] of mapping) {
       const box = add.locator(`form[name="adddemographic"] [name="${input}"]`).first();

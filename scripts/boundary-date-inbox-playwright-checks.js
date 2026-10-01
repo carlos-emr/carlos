@@ -9,7 +9,8 @@
  * Start Date through the whole End Date is listed and nothing dated before the Start Date or after the End Date.
  * Fixtures: two documents with ctl_document links and routing rows for the owned patient; five labs (hl7TextMessage
  * + hl7TextInfo + providerLabRouting) carrying the run marker as patient surname; cleanup removes every row by id
- * and asserts none remain. The inbox date preference is not changed (default: service/observation date).
+ * and asserts none remain. The inbox date preference must be the default service/observation date; it is only touched (snapshot, set, restore) when an install
+ * has it on "received", in which case run the check with EXCLUSIVE=1.
  * Implements the wave-6 "boundary values" pattern, Part 2 (lab/inbox/document date filters, end-date inclusivity).
  */
 const h = require('./lib/playwright-harness');
@@ -43,6 +44,21 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM hl7TextInfo WHERE last_name=${q(marker.slice(0, 30))})
       + (SELECT COUNT(*) FROM hl7TextMessage WHERE type='BOUNDARY' AND message=${q(marker)})`) === '0', 'Owned inbox fixtures were not removed');
   });
+
+  // The labs below are dated by observation time (hl7TextInfo.obr_date). With the "received" mode the same query filters on
+  // hl7TextMessage.created, which these fixtures stamp NOW(), so none would fall in March 2026 and the check would blame the
+  // date filter for a preference. Make sure observation mode is in force; touch the global row only when it is not.
+  const preferenceName = "name='inboxDateSearchType'";
+  const previous = sql.rows(`SELECT id, IFNULL(HEX(value),''), value IS NULL FROM SystemPreferences WHERE ${preferenceName}`);
+  const inObservationMode = previous.length === 0 || (previous[0][2] === '0' && Buffer.from(previous[0][1] || '', 'hex').toString('utf8') === 'serviceObservation');
+  s.cleanup(() => {
+    if (inObservationMode) return;
+    for (const [id, hex, isNull] of previous) {
+      h.assert(/^\d+$/.test(id) && /^[0-9A-F]*$/i.test(hex || '') && (isNull === '0' || isNull === '1'), 'Unexpected preference snapshot');
+      sql.execute(`UPDATE SystemPreferences SET value=${isNull === '1' ? 'NULL' : `UNHEX('${hex || ''}')`} WHERE id=${id} AND ${preferenceName}`);
+    }
+  });
+  if (!inObservationMode) sql.execute(`UPDATE SystemPreferences SET value='serviceObservation' WHERE ${preferenceName}`);
 
   // UI-created patients carry an empty health number; the runWorkflow fixture leaves it NULL, which the Inbox patient filter
   // (d.hin like ...) never matches (known, ISSUES L207). Give the owned patient the empty HIN so this check judges dates only.
@@ -90,7 +106,8 @@ async function workflow(s) {
   const rows = await search();
   await s.step('documents dated on the Start Date and on the End Date are listed; the day before and the day after are not', async () => {
     const has = name => rows.includes(`DOC:${docs[name]}`);
-    h.assert(has('docStart') && has('docEnd'), `Documents dated exactly on the Start Date (${has('docStart')}) and the End Date (${has('docEnd')}) must both be listed`);
+    h.assert(has('docStart') && has('docMid') && has('docEnd'),
+      `Documents dated on the Start Date (${has('docStart')}), between the boundaries (${has('docMid')}), and on the End Date (${has('docEnd')}) must all be listed`);
     h.assert(!has('docBefore') && !has('docAfter'), 'A document outside the date window was listed');
   });
 

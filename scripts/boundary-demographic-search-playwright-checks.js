@@ -6,7 +6,7 @@
  * booking screen, Schedule > appointment slot > the name search box.
  * Asserts: a control search by the plain run tag finds the seeded patients; then a surname with an
  * apostrophe (O'Brien), a first name with an accent (René), a first name in CJK and an address with an
- * apostrophe and an ampersand are each found by the text a user would type. The patients are stored
+ * apostrophe, and the same address typed through to its ampersand, are each found by the text a user would type. The patients are stored
  * correctly (checked byte for byte first) so a miss is the search, not the data.
  * Fixtures: two synthetic patients inserted by SQL whose surname starts with the run tag; cleanup removes
  * their rows and asserts none remain.
@@ -59,6 +59,7 @@ async function workflow(s) {
       ['search_name', `${tag}A,${T.latin.split(' ')[0]}`, apostropheId, 'first name with an accent'],
       ['search_name', `${tag}B,${T.cjk.slice(0, 2)}`, cjkId, 'first name in CJK'],
       ['search_address', "12 O'Neil St", apostropheId, 'address with an apostrophe'],
+      ['search_address', "12 O'Neil St &", apostropheId, 'address with an apostrophe and an ampersand'],
     ];
     for (const [mode, term, id, label] of cases) {
       if (!await find(mode, term, id)) misses.push(label);
