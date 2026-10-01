@@ -234,6 +234,13 @@ class EpsilonHandlerUnitTest {
             assertThat(handler.formatDateTime("2012040")).isEqualTo("2012040"); // odd precision
             assertThat(EpsilonHandler.timestampDigits("20120404160400.12345")).isEmpty();
             assertThat(EpsilonHandler.timestampDigits("20120404160400-05")).isEmpty();
+            // Out-of-range fields would otherwise be rolled over into a different valid date.
+            assertThat(handler.formatDateTime("202613011200")).isEqualTo("202613011200");
+            assertThat(EpsilonHandler.timestampDigits("20230229")).isEmpty();
+            assertThat(EpsilonHandler.timestampDigits("20240229")).isEqualTo("20240229");
+            assertThat(EpsilonHandler.timestampDigits("20120404246000")).isEmpty();
+            assertThat(EpsilonHandler.timestampDigits("20120404235960")).isEmpty();
+            assertThat(EpsilonHandler.timestampDigits("20120400")).isEmpty();
         }
 
         @Test

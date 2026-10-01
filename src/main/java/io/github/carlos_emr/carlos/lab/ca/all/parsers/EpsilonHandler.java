@@ -28,6 +28,7 @@
 package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
 import java.util.ArrayList;
+import java.time.YearMonth;
 import java.util.Date;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -103,8 +104,8 @@ public class EpsilonHandler extends DefaultGenericHandler {
 
     /**
      * HL7 v2.3 {@code TS}: {@code YYYY[MM[DD[HH[MM[SS[.S[S[S[S]]]]]]]]][+/-ZZZZ]}. Only a value that
-     * matches it whole is normalised, so a malformed one ({@code 201204garbage}) is never read as
-     * a valid prefix date.
+     * matches it whole, with every field in range, is normalised, so a malformed one
+     * ({@code 201204garbage}, {@code 202613011200}) is never read as a different valid date.
      */
     private static final Pattern HL7_TIMESTAMP =
             Pattern.compile("(\\d{4}(?:\\d{2}){0,5})(?:\\.\\d{1,4})?(?:[+-]\\d{4})?");
@@ -119,7 +120,33 @@ public class EpsilonHandler extends DefaultGenericHandler {
             return "";
         }
         Matcher matcher = HL7_TIMESTAMP.matcher(ts.trim());
-        return matcher.matches() ? matcher.group(1) : "";
+        if (!matcher.matches()) {
+            return "";
+        }
+        String digits = matcher.group(1);
+        // The shared formatter parses leniently (month 13 rolls into next year), so an
+        // out-of-range field would become a different, valid-looking clinical date.
+        return isValidDateTime(digits) ? digits : "";
+    }
+
+    /** Whether each field present in {@code YYYY[MM[DD[HH[MM[SS]]]]]} is in range, the day for its month. */
+    private static boolean isValidDateTime(String digits) {
+        int year = Integer.parseInt(digits.substring(0, 4));
+        if (digits.length() >= 6) {
+            int month = Integer.parseInt(digits.substring(4, 6));
+            if (month < 1 || month > 12) {
+                return false;
+            }
+            if (digits.length() >= 8 && !YearMonth.of(year, month).isValidDay(Integer.parseInt(digits.substring(6, 8)))) {
+                return false;
+            }
+        }
+        return field(digits, 8, 23) && field(digits, 10, 59) && field(digits, 12, 59);
+    }
+
+    /** Whether the two-digit field at {@code start}, when present, is at most {@code max}. */
+    private static boolean field(String digits, int start, int max) {
+        return digits.length() < start + 2 || Integer.parseInt(digits.substring(start, start + 2)) <= max;
     }
 
     @Override
