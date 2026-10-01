@@ -213,10 +213,21 @@ async function workflow(s) {
     h.assert(new URL(form.url()).searchParams.get('id') === drug, 'The form update popup opened for another drug');
     await form.locator('select[name="drugForm"]').selectOption(target);
     const closed = form.waitForEvent('close', { timeout: 20000 });
+    const failuresBefore = s.recorder.requestFailures.length;
     const [posted] = await Promise.all([form.waitForResponse(isPost('/rx/ViewUpdateForm')), form.locator('input[type="submit"]').click()]);
     h.assert(posted.status() === 200, `rx/ViewUpdateForm answered HTTP ${posted.status()}`);
     await expectValue(sql, `SELECT drug_form FROM drugs WHERE drugid=${drug} AND demographic_no=${patient}`, target, 'The new drug form was not saved');
     await closed;
+    // The acknowledged page closes itself from its <head>, so a later subresource of that same
+    // document can be cut off (net::ERR_ABORTED). Consume only that artefact of the closed popup.
+    const aborted = s.recorder.requestFailures.slice(failuresBefore);
+    h.assert(aborted.every(entry => entry.label === 'rx-update-form' && entry.errorText === 'net::ERR_ABORTED'
+      && ['script', 'stylesheet', 'image'].includes(entry.resourceType)), 'A request other than the closing popup\'s subresources failed');
+    s.recorder.requestFailures.splice(failuresBefore, aborted.length);
+    // The update reloads its opener: the record popup now reads the new form back from drugs.
+    await record.waitForLoadState('domcontentloaded');
+    await record.waitForFunction(form => [...document.querySelectorAll('td.label')]
+      .some(td => td.textContent.trim() === 'Form:' && td.nextElementSibling.textContent.includes(form)), target);
     await record.close();
   });
 

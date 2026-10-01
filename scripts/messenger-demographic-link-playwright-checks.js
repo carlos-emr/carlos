@@ -84,7 +84,9 @@ async function workflow(s) {
     await clickAndLoad(inbox, inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${id}&"]`).first(), '/messenger/ViewMessage');
     await inbox.locator('#msgSubject').waitFor();
   };
-  const backToInbox = () => clickAndLoad(inbox, inbox.locator('a[href$="/messenger/DisplayMessages"]').first(), '/messenger/DisplayMessages');
+  // The Inbox button on a message/draft page, or the inbox tab on a box page.
+  const backToInbox = () => clickAndLoad(inbox, inbox.locator('a.btn[href*="/messenger/DisplayMessages"]:visible,'
+    + ' a.nav-link[href$="/messenger/DisplayMessages"]:visible').first(), '/messenger/DisplayMessages');
   const draft = async () => ({
     subject: await inbox.locator('#subject').inputValue(),
     demographic: await inbox.locator('input[name="demographic_no"]').inputValue(),
@@ -180,6 +182,7 @@ async function workflow(s) {
   // Link to Patient form posts without a CSRF token (see report). The step asserts
   // the correct behaviour, so it fails until both are fixed.
   await s.step('Search Patient (DemographicLinkMsg) picks the patient and Link to Patient writes the map row', async () => {
+    console.log('DEBUG', inbox.url(), JSON.stringify(await inbox.locator('a[href*="DisplayMessages"]').evaluateAll(a => a.map(x => [x.className, x.getAttribute('href'), x.offsetParent !== null]))));
     await backToInbox();
     await openMessage(controlId);
     await inbox.locator('#keyword').fill(s.marker);

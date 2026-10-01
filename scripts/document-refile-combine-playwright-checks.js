@@ -26,7 +26,6 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
-const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const PREFERENCE = 'edoc_browser_in_document_report';
@@ -152,11 +151,19 @@ async function workflow(s) {
   await s.step('Combine PDF downloads one PDF holding both owned documents (pdfinfo page count)', async () => {
     for (const doc of docs) await report.locator(`#docNo${doc.id}`).check();
     const button = report.locator('input[type="button"][onclick*="submitForm"]');
-    const outcome = await ui.clickDownloadsOrOpens(report, button, { context: s.context, recorder: s.recorder, label: 'edoc-combine' });
-    h.assert(outcome.kind === 'download', 'Combine PDF opened a page instead of downloading the combined PDF');
-    h.assert(!(await outcome.download.failure()), 'The combined PDF download failed');
+    // Settled either way so a refused click cannot leave an unhandled rejection behind.
+    const downloaded = report.waitForEvent('download').catch(error => error);
+    const [request] = await Promise.all([
+      report.waitForRequest(candidate => candidate.url().includes('combinePDFs') && candidate.method() === 'POST'),
+      button.click(),
+    ]);
+    h.assert(new URL(request.url()).pathname === new URL(`${s.config.baseUrl}/documentManager/combinePDFs`).pathname,
+      'Combine PDF posts somewhere other than the combinePDFs action');
+    const download = await downloaded;
+    if (download instanceof Error) throw download;
+    h.assert(!(await download.failure()), 'The combined PDF download failed');
     const file = path.join(scratch, 'combined.pdf');
-    await outcome.download.saveAs(file);
+    await download.saveAs(file);
     const facts = pdfFacts(file);
     h.assert(facts.pages === docA.pages + docB.pages, `The combined PDF has ${facts.pages} pages, expected ${docA.pages + docB.pages}`);
     for (const doc of docs) for (let page = 1; page <= doc.pages; page++) {

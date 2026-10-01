@@ -140,6 +140,7 @@ async function workflow(s) {
   const schedule = await h.login(ctx, { ...s.config, testUser: fixture.username }, recorder, { label: 'dashboard-schedule' });
   const [alpha, bravo, charlie] = patients;
   let dashboard;
+  let plotted;
 
   // Application defects are asserted in the LAST step so every provable step is proven first.
   const defects = [];
@@ -160,7 +161,7 @@ async function workflow(s) {
     const matched = recorder.consoleIssues.filter(entry => entry.label === label && pattern.test(entry.text));
     if (!matched.length) return false;
     recorder.consoleIssues.splice(0, recorder.consoleIssues.length, ...recorder.consoleIssues.filter(entry => !matched.includes(entry)));
-    defects.push(description);
+    if (description) defects.push(description);
     return true;
   }
   async function eventually(query, expected, timeout = 8000) {
@@ -203,7 +204,8 @@ async function workflow(s) {
     const panel = dashboard.locator(`#indicatorId_${indicatorId} .indicatorPanelContainer`);
     await panel.waitFor();
     h.assert((await panel.locator('.indicatorHeading').innerText()).trim() === `${marker} Patient status`, 'The indicator heading is wrong');
-    const plots = JSON.parse(await dashboard.locator(`#graphPlots_${indicatorId}`).inputValue());
+    plotted = await dashboard.locator(`#graphPlots_${indicatorId}`).inputValue();
+    const plots = JSON.parse(plotted);
     const [[active, inactive]] = sql.rows(`SELECT SUM(patient_status='AC'),SUM(patient_status<>'AC') FROM demographic WHERE provider_no=${P}`);
     h.assert(JSON.stringify(plots) === JSON.stringify([[['Active', Number(active)], ['Not active', Number(inactive)]]]),
       'Indicator counts differ from the owned-scope SQL counts');
@@ -317,6 +319,7 @@ async function workflow(s) {
     await Promise.all([dashboard.waitForURL(/DashboardDisplay/), dashboard.locator('.backtoDashboardBtn').click()]);
     await dashboard.locator(`#indicatorId_${indicatorId} .indicatorPanelContainer`).waitFor();
     h.assert((await dashboard.locator('.dashboardHeading h2').innerText()).trim() === marker, 'Back did not return to the owned dashboard');
+    h.assert(await dashboard.locator(`#graphPlots_${indicatorId}`).inputValue() === plotted, 'The reloaded dashboard plots different counts');
   });
 
   await s.step('AssignTickler refuses a GET save with 405 and writes no tickler', async () => {

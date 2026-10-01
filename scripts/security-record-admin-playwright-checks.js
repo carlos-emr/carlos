@@ -217,4 +217,4 @@ async function workflow(s) {
   });
 }
 if (require.main === module) runWorkflow('security-record-admin', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, openSection, navigateFrame, searchByUserName };

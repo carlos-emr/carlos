@@ -262,7 +262,9 @@
     "test:dx-registry-status-update-playwright": "node scripts/dx-registry-status-update-playwright-checks.js",
     "test:eform-deleted-restore-playwright": "node scripts/eform-deleted-restore-playwright-checks.js",
     "test:patient-photo-upload-playwright": "node scripts/patient-photo-upload-playwright-checks.js",
-    "test:note-browser-documents-playwright": "node scripts/note-browser-documents-playwright-checks.js"
+    "test:note-browser-documents-playwright": "node scripts/note-browser-documents-playwright-checks.js",
+    "test:login-mfa-playwright": "node scripts/login-mfa-playwright-checks.js",
+    "test:measurement-map-admin-playwright": "node scripts/measurement-map-admin-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

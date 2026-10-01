@@ -48,6 +48,15 @@ const isPhotoRequest = patient => response => {
     && url.searchParams.get('clientId') === patient;
 };
 
+// The chart releases its note lock with a sendBeacon on pagehide; when the image manager
+// reloads the chart, Chromium aborts that ping as the document unloads. Consume only that
+// entry, only from this reload (as encounter-header-i18n does); every other signal stays strict.
+function consumeUnloadBeacon(recorder, since) {
+  const added = recorder.requestFailures.splice(since);
+  recorder.requestFailures.push(...added.filter(entry => !(entry.resourceType === 'ping'
+    && entry.errorText === 'net::ERR_ABORTED' && new URL(entry.url).pathname.endsWith('/CaseManagementEntry'))));
+}
+
 async function workflow(s) {
   const { sql, patient } = s;
   const stored = () => sql.rows(`SELECT image_type,SHA2(FROM_BASE64(contents),256) FROM client_image
@@ -72,6 +81,7 @@ async function workflow(s) {
   async function upload(file) {
     const manager = await openManager();
     await manager.locator('#clientImage').setInputFiles(file);
+    const since = s.recorder.requestFailures.length;
     const [post, , , image] = await Promise.all([
       manager.waitForResponse(r => new URL(r.url()).pathname.endsWith('/ClientImage') && r.request().method() === 'POST'),
       manager.waitForEvent('close'),
@@ -81,6 +91,7 @@ async function workflow(s) {
     ]);
     h.assert(post.status() === 200, `The photo upload answered HTTP ${post.status()}`);
     await waitForNavbars(chart, 20000);
+    consumeUnloadBeacon(s.recorder, since);
     return image;
   }
 
@@ -124,6 +135,7 @@ async function workflow(s) {
       manager.locator('button[type="submit"]', { hasText: 'Upload' }).click(),
     ]);
     h.assert(post.status() === 200, `The refused upload answered HTTP ${post.status()}`);
+    console.log('ZZDEBUG', manager.url(), JSON.stringify((await manager.locator('body').innerText()).slice(0, 600)), JSON.stringify(stored()));
     const error = manager.locator('.alert-danger');
     await error.waitFor({ state: 'visible' });
     h.assert((await error.innerText()).trim().length > 0, 'The refused upload showed an empty error');
@@ -135,6 +147,7 @@ async function workflow(s) {
 
   await s.step('Clear Photo asks to confirm, removes the row and the chart shows the placeholder', async () => {
     const manager = await openManager();
+    const since = s.recorder.requestFailures.length;
     const dialogs = await h.withExpectedDialogs(manager, async () => {
       await Promise.all([
         manager.waitForEvent('close'),
@@ -145,6 +158,7 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Clear Photo did not ask exactly once to confirm');
     await expectValue(sql, `SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`, '0', 'Clear Photo left the photo row');
     await waitForNavbars(chart, 20000);
+    consumeUnloadBeacon(s.recorder, since);
     h.assert(await photo(chart).getAttribute('alt') === 'No_Id_Photo', 'The chart still shows a photo after Clear Photo');
   });
 

@@ -53,10 +53,12 @@ async function workflow(s) {
       sql.execute(`DELETE FROM consultationRequestExtArchive WHERE requestId=${requestId};
         DELETE FROM consultationRequestsArchive WHERE requestId=${requestId} AND demographicNo=${patient};
         DELETE FROM consultationRequestExt WHERE requestId=${requestId};
-        DELETE FROM consultationRequests WHERE requestId=${requestId} AND demographicNo=${patient}`);
+        DELETE FROM consultationRequests WHERE requestId=${requestId} AND demographicNo=${patient};
+        DELETE FROM DigitalSignature WHERE demographicId=${patient} AND ModuleType='CONSULTATION'`);
       h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM consultationRequests WHERE requestId=${requestId})
-        + (SELECT COUNT(*) FROM consultationRequestsArchive WHERE requestId=${requestId})`) === '0',
-      'The owned referral or its history was not removed');
+        + (SELECT COUNT(*) FROM consultationRequestsArchive WHERE requestId=${requestId})
+        + (SELECT COUNT(*) FROM DigitalSignature WHERE demographicId=${patient})`) === '0',
+      'The owned referral, its history or its stamped signature was not removed');
     }
     sql.execute(`DELETE FROM drugs WHERE demographic_no=${patient} AND special=${h.sqlString(drugText)}`);
     if (serviceId) sql.execute(`DELETE FROM serviceSpecialists WHERE serviceId=${serviceId}`);
@@ -116,6 +118,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT CONCAT(status,'/',urgency,'/',IFNULL(appointmentDate,'none')) FROM consultationRequestsArchive
       WHERE requestId=${requestId}`) === '1/2/none', 'The archived history does not hold the previous version');
     await form.waitForEvent('close', { timeout: 15000 }).catch(() => {});
+    if (!form.isClosed()) console.log('DEBUG', new URL(form.url()).pathname, await form.evaluate(() => [!!window.opener, history.length, document.referrer.replace(/\?.*/, '')]));
     h.assert(form.isClosed(), 'The confirmation window did not close itself');
   });
 

@@ -3938,7 +3938,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: a duplicate import is reported as 'Imported Successfully'. Needs xmllint (libxml2-utils).",
+      "fixtures": "The imported patient (marker surname) and every child row the import wrote (drugs, allergies, casemgmt_note/link, partial_date, admission) are deleted by demographic_no. The CDS XML is built per run and validated with xmllint against the shipped schema; names the test login's own provider so no provider rows are created."
     },
     {
       "name": "admin-sites-clinic-numbers",
@@ -4054,7 +4055,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails on 2026.08: the WAF blocks the Messenger attachment preview POST to messenger/Doc2PDF (CRS 949110).",
+      "fixtures": "The owned patient given a synthetic address; nothing is sent."
     },
     {
       "name": "dx-registry-status-update",
@@ -4101,6 +4103,34 @@
     {
       "name": "note-browser-documents",
       "script": "scripts/note-browser-documents-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "login-mfa",
+      "script": "scripts/login-mfa-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "measurement-map-admin",
+      "script": "scripts/measurement-map-admin-playwright-checks.js",
       "tiers": [
         "core"
       ],

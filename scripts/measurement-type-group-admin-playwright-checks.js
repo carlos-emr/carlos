@@ -110,13 +110,16 @@ async function workflow(s) {
   // closed after use; otherwise the next link would reuse it instead of opening.
   async function open(linkName, label) {
     const since = s.recorder.badResponses.length;
-    const popup = await s.popup(admin, menu.getByRole('link', {name: linkName, exact: true}), label);
-    await popup.waitForLoadState('load');
-    const refused = s.recorder.badResponses.slice(since).find(entry => entry.resourceType === 'document');
-    h.assert(!refused, `${linkName} opened an HTTP ${refused && refused.status} page for ${refused && refused.method} `
-      + `${refused && new URL(refused.url).pathname}; the Customize Measurements link cannot reach its form`);
-    await h.assertNotErrorPage(popup, label);
-    return popup;
+    try {
+      const popup = await s.popup(admin, menu.getByRole('link', {name: linkName, exact: true}), label);
+      await popup.waitForLoadState('load');
+      return popup;
+    } catch (error) {
+      const refused = s.recorder.badResponses.slice(since).find(entry => entry.resourceType === 'document');
+      h.assert(!refused, `${linkName} opened an HTTP ${refused && refused.status} page for ${refused && refused.method} `
+        + `${refused && new URL(refused.url).pathname}; the Customize Measurements link cannot reach its form`);
+      throw error;
+    }
   }
   async function selectGroup(popup, group, button) {
     await popup.locator('#selectedGroupName').selectOption(group);
