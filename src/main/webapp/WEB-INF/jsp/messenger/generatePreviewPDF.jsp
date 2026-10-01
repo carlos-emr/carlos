@@ -124,6 +124,15 @@
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
+    // Same patient-level gate Doc2PDF applies (it also honours a per-patient _eChart$<id> "o"
+    // restriction): without it this page would show the patient's name, and seed the encounter
+    // session, for a patient every preview and attach would then refuse.
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");
+        return;
+    }
+
     DemographicData demoData = new DemographicData();
     Demographic demo = demoData.getDemographic(loggedInInfo, demographic_no);
     String demoName = "";
@@ -143,7 +152,6 @@
     // Offer only the items Doc2PDF would let this user attach for this patient (module read,
     // globally and for the patient). The encounter lookup itself is skipped without _eChart
     // read, so the page does not reveal whether, or when, an encounter exists.
-    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     boolean canDemographic = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
             MsgPdfAttachmentResolver.Item.DEMOGRAPHIC, demographicNoInt);
     boolean canEncounter = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,

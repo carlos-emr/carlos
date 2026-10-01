@@ -86,6 +86,7 @@ class MessengerJspRouteMigrationTest {
                 // Items are offered only with the read Doc2PDF enforces, and the encounter is not
                 // even looked up without _eChart read (its existence and timestamp are chart data).
                 .contains("MsgAttachPDF2Action.canReadItem(")
+                .contains("isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)")
                 .contains("canEncounter ? eChartDao.getLatestChart(demographicNoInt) : null")
                 .contains("<c:if test=\"${canDemographic}\">")
                 .contains("<c:if test=\"${canPrescriptions}\">")
@@ -97,6 +98,10 @@ class MessengerJspRouteMigrationTest {
                 .doesNotContain("titleArray")
                 .doesNotContain("/messenger/Doc2PDF.do")
                 .doesNotContain("/securityError.jsp?type=_msg");
+        // The patient gate runs before any patient data is loaded or put in the session.
+        assertThat(jsp.indexOf("isAllowedAccessToPatientRecord("))
+                .isLessThan(jsp.indexOf("new DemographicData()"))
+                .isLessThan(jsp.indexOf("setAttribute(\"EctSessionBean\""));
     }
 
     @Test
