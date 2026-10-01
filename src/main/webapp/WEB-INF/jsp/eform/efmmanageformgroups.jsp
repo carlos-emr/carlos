@@ -28,6 +28,28 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    eForm Groups administration: lists the eForm groups and the forms in the selected group, and
+    posts the group changes (add group, delete group, add form to group, remove form from group).
+
+    Reached through the ViewEFormPage2Action gate (route eform/efmmanageformgroups, _eform write),
+    either as a standalone page or as HTML inserted into the Administration panel. In the panel case
+    (RequestNegotiation.isAjax) the host page already carries jQuery, so it is loaded only for the
+    standalone page.
+
+    Parameters:
+      group_view  - group to show (request parameter, or request attribute from a forward); defaults
+                    to the first group.
+      orderby     - form_subject | form_name | file_name; any other value sorts by date.
+      scheduleNav - when canonical (ScheduleNav), keeps the schedule-navigation shell.
+
+    Every group-changing form is a POST to its action with groupListContextFields, so the actions'
+    redirect back (EFormListRedirect.toGroup) preserves the sort order and navigation shell. The
+    CSRF token reaches these forms, including when they arrive in inserted HTML, through the
+    patched CSRFGuard client (issue #4130).
+
+    @since 2026-08-04
+--%>
 <%@page import="java.net.URLEncoder" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
