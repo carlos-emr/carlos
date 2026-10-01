@@ -130,6 +130,9 @@ async function workflow(s) {
   await s.step('Back to CARLOS posts rx/clearPending and a reopened Rx module stages nothing', async () => {
     const modal = rx.frameLocator('#carlosModalBody iframe');
     const closed = rx.waitForEvent('close', { timeout: 20000 });
+    s.context.on('request', r => { if (r.url().includes('clearPending')) console.log('DEBUG request', r.method(), r.url(), r.frame() && r.frame().url()); });
+    s.context.on('requestfailed', r => { if (r.url().includes('clearPending')) console.log('DEBUG failed', r.failure()); });
+    s.context.on('response', r => { if (r.url().includes('clearPending')) console.log('DEBUG response', r.status()); });
     const [cleared] = await Promise.all([
       s.context.waitForEvent('requestfinished', { predicate: request => request.method() === 'POST'
         && h.pathOnly(request.url()).endsWith('/rx/clearPending'), timeout: 20000 }),

@@ -104,7 +104,7 @@ async function workflow(s) {
     await clickAndAwaitReload(chooser, chooser.getByRole('button', { name: 'Continue', exact: true }));
     const values = await chooser.locator('select[name="quickListItems"] option').evaluateAll(o => o.map(x => x.value).sort());
     assert(values.join('|') === 'icd9,250|icd9,401', 'Reopened quick list does not show its stored items');
-    editor = chooser;
+    await chooser.close();
   });
 
   await s.step('billing review Dx Quick Pick registers the owned code without saving a bill', async () => {

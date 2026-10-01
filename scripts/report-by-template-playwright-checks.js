@@ -96,6 +96,36 @@ async function workflow(s) {
     await settle(label);
   }
 
+  async function uploadTemplate(xml, ownedTitle) {
+    await frameClick(frame.getByRole('link', {name: 'Add Template', exact: true}), 'Add Template');
+    await frame.locator('#uploadReportXml').setInputFiles({name: 'rbt-template.xml', mimeType: 'text/xml',
+      buffer: Buffer.from(xml)});
+    await frameClick(frame.locator('input[type="submit"][value^="Upload"]'), 'Upload & Add');
+    await frame.locator('.alert-success', {hasText: 'Saved Successfully'}).waitFor();
+    const id = s.sql.value(`SELECT GROUP_CONCAT(templateid) FROM reportTemplates WHERE templatetitle=${h.sqlString(ownedTitle)}`);
+    h.assert(/^[1-9]\d*$/.test(id), 'Upload did not create exactly one owned template');
+    return id;
+  }
+  async function openFromLibrary(ownedTitle, id) {
+    await frameClick(frame.getByRole('link', {name: 'Template Library', exact: true}), 'Template Library');
+    await frame.locator('#userSearch').pressSequentially(ownedTitle);
+    const visible = frame.locator('#tableData tr:visible');
+    h.assert(await visible.count() === 1, 'Library search did not narrow to the one owned template');
+    await frameClick(visible.getByRole('link', {name: ownedTitle, exact: true}), 'Report configuration');
+    h.assert(new URL(frame.url()).searchParams.get('templateid') === id, 'Configuration opened another template');
+    await frame.locator('h3', {hasText: ownedTitle}).waitFor();
+  }
+  async function deleteFromConfiguration(id, ownedTitle) {
+    const dialogs = await h.withExpectedDialogs(admin, async () => {
+      await frameClick(frame.getByRole('link', {name: 'Delete Template', exact: true}), 'Delete Template');
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask exactly one confirmation');
+    await frame.locator('h3', {hasText: 'Template Library'}).waitFor();
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM reportTemplates WHERE templateid=${id}`) === '0',
+      'Confirmed delete left the template row');
+    h.assert(await frame.getByRole('link', {name: ownedTitle, exact: true}).count() === 0, 'Deleted template is still listed');
+  }
+
   // resultReport.jsp's body onunload sends navigator.sendBeacon(ViewClearSession). Chromium
   // abandons a ping from an unloading frame before its response reaches the page (requestfailed
   // ERR_ABORTED, and page/context routes never see it), so the server's answer is not observable
@@ -132,26 +162,14 @@ async function workflow(s) {
   });
 
   await s.step('Add Template uploads the owned template XML and stores its SQL', async () => {
-    await frameClick(frame.getByRole('link', {name: 'Add Template', exact: true}), 'Add Template');
-    await frame.locator('#uploadReportXml').setInputFiles({name: 'rbt-template.xml', mimeType: 'text/xml',
-      buffer: Buffer.from(templateXml(title, `${s.marker} synthetic roster`, query, params))});
-    await frameClick(frame.locator('input[type="submit"][value^="Upload"]'), 'Upload & Add');
-    await frame.locator('.alert-success', {hasText: 'Saved Successfully'}).waitFor();
-    templateId = s.sql.value(`SELECT templateid FROM reportTemplates WHERE templatetitle=${h.sqlString(title)}`);
-    h.assert(/^[1-9]\d*$/.test(templateId), 'Upload did not create exactly one owned template');
+    templateId = await uploadTemplate(templateXml(title, `${s.marker} synthetic roster`, query, params), title);
     const [row] = templateRow();
     h.assert(row[1] === `${s.marker} synthetic roster` && row[2] === query && row[3] === '1'
       && /^[0-9a-f-]{36}$/.test(row[4]), 'Stored template does not match the uploaded XML');
   });
 
   await s.step('the library search narrows to the owned template and opens its configuration', async () => {
-    await frameClick(frame.getByRole('link', {name: 'Template Library', exact: true}), 'Template Library');
-    await frame.locator('#userSearch').pressSequentially(s.marker);
-    const visible = frame.locator('#tableData tr:visible');
-    h.assert(await visible.count() === 1, 'Library search did not narrow to the one owned template');
-    await frameClick(visible.getByRole('link', {name: title, exact: true}), 'Report configuration');
-    h.assert(new URL(frame.url()).searchParams.get('templateid') === templateId, 'Configuration opened another template');
-    await frame.locator('h3', {hasText: title}).waitFor();
+    await openFromLibrary(title, templateId);
     h.assert(await frame.locator('select#sexpick option').allInnerTexts().then(t => t.map(x => x.trim()).join('|'))
       === 'Female|Male', 'List parameter choices did not render from the XML');
   });
@@ -220,43 +238,43 @@ async function workflow(s) {
       'CSV export did not quote the comma/quote-bearing value back to the SQL row');
   });
 
-  await s.step('Edit Template saves the textarea XML and Done returns to the configuration', async () => {
-    await leaveResult(frame.locator('a.edit', {hasText: 'Edit Template'}), 'Edit Template');
+  await s.step('a template whose SQL is a write statement is refused at run time and writes nothing', async () => {
+    await leaveResult(frame.getByRole('link', {name: 'Template Library', exact: true}), 'Template Library (write)');
+    const writeTitle = `${s.marker} RBT write`;
+    const write = `UPDATE reportTemplates SET templatedescription = 'FAKE-PW-written' WHERE templateid = ${templateId}`;
+    const writeId = await uploadTemplate(templateXml(writeTitle, `${s.marker} write probe`, write), writeTitle);
+    const before = JSON.stringify(templateRow());
+    await openFromLibrary(writeTitle, writeId);
+    await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Result report (write)');
+    await frame.locator('.alert-danger', {hasText: 'Only SELECT statements are allowed'}).waitFor();
+    h.assert(await frame.locator('table#report2').count() === 0, 'A write statement produced a result table');
+    h.assert(JSON.stringify(templateRow()) === before, 'Running the write-statement template changed the database');
+    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (write)');
+    await deleteFromConfiguration(writeId, writeTitle);
+  });
+
+  await s.step('Delete Template asks for confirmation and removes the template row', async () => {
+    const deleteTitle = `${s.marker} RBT delete`;
+    const deleteId = await uploadTemplate(templateXml(deleteTitle, `${s.marker} delete probe`, query, params), deleteTitle);
+    await openFromLibrary(deleteTitle, deleteId);
+    await deleteFromConfiguration(deleteId, deleteTitle);
+    h.assert(templateRow().length === 1, 'Deleting one template removed another');
+  });
+
+  // Last: behind the packaged WAF this step is refused (see the report); everything above is
+  // proven first.
+  await s.step('Edit Template saves the parameterised textarea XML and Done returns to the configuration', async () => {
+    await openFromLibrary(title, templateId);
+    await frameClick(frame.getByRole('link', {name: 'Edit Template', exact: true}), 'Edit Template');
     const textarea = frame.locator('textarea#xmltext');
     h.assert((await textarea.inputValue()).includes(`title="${title}"`), 'Edit page did not load the stored XML');
     await textarea.fill(templateXml(title, `${s.marker} edited roster`, query, params));
     await frameClick(frame.locator('input[type="submit"][name="done"]'), 'Edit Done');
     await frame.locator('h3 small', {hasText: `${s.marker} edited roster`}).waitFor();
+    h.assert(await frame.locator('select#sexpick').count() === 1, 'Edited template lost its parameters');
     const [row] = templateRow();
     h.assert(row[0] === title && row[1] === `${s.marker} edited roster` && row[2] === query, 'Edited template was not persisted');
   });
-
-  await s.step('a template whose SQL is a write statement is refused at run time and writes nothing', async () => {
-    const write = `UPDATE reportTemplates SET templatedescription = 'FAKE-PW-written' WHERE templateid = ${templateId}`;
-    await frameClick(frame.getByRole('link', {name: 'Edit Template', exact: true}), 'Edit Template (write)');
-    await frame.locator('textarea#xmltext').fill(templateXml(title, `${s.marker} edited roster`, write));
-    await frameClick(frame.locator('input[type="submit"][name="done"]'), 'Edit Done (write)');
-    h.assert(s.sql.value(`SELECT templatesql FROM reportTemplates WHERE templateid=${templateId}`) === write,
-      'The write-statement template was not stored for the run-time probe');
-    const before = JSON.stringify(templateRow());
-    await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Result report (write)');
-    await frame.locator('.alert-danger', {hasText: 'Only SELECT statements are allowed'}).waitFor();
-    h.assert(await frame.locator('table#report2').count() === 0, 'A write statement produced a result table');
-    h.assert(JSON.stringify(templateRow()) === before, 'Running the write-statement template changed the database');
-  });
-
-  await s.step('Delete Template asks for confirmation and removes the template row', async () => {
-    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (write)');
-    const dialogs = await h.withExpectedDialogs(admin, async () => {
-      await frameClick(frame.getByRole('link', {name: 'Delete Template', exact: true}), 'Delete Template');
-    });
-    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask exactly one confirmation');
-    await frame.locator('h3', {hasText: 'Template Library'}).waitFor();
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM reportTemplates WHERE templateid=${templateId}`) === '0',
-      'Confirmed delete left the template row');
-    h.assert(await frame.getByRole('link', {name: title, exact: true}).count() === 0, 'Deleted template is still listed');
-  });
-
 }
 
 if (require.main === module) runWorkflow('report-by-template', workflow, {openPatient: true, openMaster: false});

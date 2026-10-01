@@ -126,6 +126,7 @@ async function workflow(s) {
   await s.step('View All Measurement Types lists the seeded type exactly as stored', async () => {
     const popup = await open('View All Measurement Types', 'view-measurement-types');
     const row = listedType(popup, seeded);
+    console.log('DEBUG', popup.url(), await row.count(), await popup.locator('tr.data').count(), JSON.stringify((await popup.content()).match(new RegExp('.{0,300}'+seeded.type+'.{0,300}','s'))));
     h.assert(await row.count() === 1, 'The seeded type is not listed exactly once');
     const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
     h.assert(cells[1] === seeded.display && cells[2] === seeded.desc && cells[3] === seeded.instruction,

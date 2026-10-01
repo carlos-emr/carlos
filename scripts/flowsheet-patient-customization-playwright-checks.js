@@ -41,7 +41,7 @@ async function workflow(s) {
 
   const chart = await s.chart();
   let backAfterUpdate;
-  const trackerLink = chart.locator('#measurementslist li a.links[onclick*="ViewHealthTracker"]').first();
+  const trackerLink = chart.locator('#measurementslist li a[onclick*="ViewHealthTracker"]').first();
   await trackerLink.waitFor({ state: 'visible' });
   const tracker = await s.popup(chart, trackerLink, 'health-tracker');
   await tracker.waitForLoadState('networkidle').catch(() => {});
@@ -97,8 +97,6 @@ async function workflow(s) {
 
   await s.step('the tracker renders the item, the warning and the target colour on a seeded value', async () => {
     await tracker.close();
-    await new Promise(r => setTimeout(r, 3000));
-    console.log(chart.isClosed(), await chart.locator('#measurementslist').innerHTML().catch(e => String(e)));
     view = await s.popup(chart, trackerLink, 'health-tracker-customised');
     await view.waitForLoadState('networkidle').catch(() => {});
     const card = view.locator(`#wrap-${TYPE}`);
@@ -116,6 +114,7 @@ async function workflow(s) {
   await s.step('custom print lists the customised item with its target colour', async () => {
     await navigate(view, view.locator('a[title="Print this flowsheet"]'));
     h.assert(/\/ViewTemplateFlowSheetPrint$/.test(new URL(view.url()).pathname), 'Print did not open the custom print page');
+    console.log((await view.locator('#mtype-list').innerHTML().catch(e=>String(e))).slice(0,3000));
     const section = view.locator('.preventionSection').filter({ has: view.locator(`#printHP${TYPE}`) });
     h.assert((await section.locator('.headPrevention p span').first().innerText()).trim() === displayName,
       'Custom print does not list the customised display name');

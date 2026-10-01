@@ -112,6 +112,16 @@ async function workflow(s) {
     return response.status();
   }
 
+  // Application defects found on the way are asserted in the LAST step, so every step that can be
+  // proven is proven first; the check still fails while any of them stands.
+  const defects = [];
+  function deferPageErrors(pattern, description) {
+    const matched = recorder.pageErrors.filter(entry => entry.label === 'role-administration' && pattern.test(entry.text));
+    if (!matched.length) return;
+    recorder.pageErrors.splice(0, recorder.pageErrors.length, ...recorder.pageErrors.filter(entry => !matched.includes(entry)));
+    defects.push(description);
+  }
+
   const admin = await openAdmin(s.schedule, context, recorder, 'role-administration');
   let frame;
   await s.step('Add A Role refuses a one-letter name in the page before any request is sent', async () => {
@@ -153,6 +163,7 @@ async function workflow(s) {
     await row.locator(`input[name="object$${OBJECT}"]`).check();
     await row.locator(`input[name="privilege$${OBJECT}$r"]`).check();
     await submitIn(admin, frame, row.locator('input[name="submit"][value="Add"]'));
+    deferPageErrors(/onChangeSelect/, 'choosing a role in "Add Role Privilege For" raised an uncaught TypeError in onChangeSelect()');
     h.assert((await frame.locator('div.alert').first().innerText()).includes(`${role}/${OBJECT}/r is added.`), 'The grant was not confirmed');
     h.assert(JSON.stringify(grant()) === JSON.stringify([[OBJECT, 'r', '0', s.provider]]), 'The grant was not stored exactly as submitted');
     await expectValue(sql, auditRows('add', 'privilege', `${role}|${OBJECT}|r`), '1', 'The grant was not audited');
@@ -259,11 +270,12 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${h.sqlString(extra)}`) === '0' && grant().length === 0,
       'A refused GET wrote a role or grant');
   });
-  await s.step('Fix notes refuses a GET carrying its run action before reaching the bulk update', async () => {
+  await s.step('Fix notes refuses a GET carrying its run action, and no deferred defect remains', async () => {
     // role_to is deliberately not a number: were the GET to reach the UPDATE, parseInt fails first.
     const response = await context.request.get(h.appUrl(config.baseUrl, '/admin/FixRolesOnNotes'), {
       params: { action: 'run', role_to: 'not-a-role' }, maxRedirects: 0 });
-    h.assert(response.status() === 405, `GET with action=run answered HTTP ${response.status()}, expected 405`);
+    if (response.status() !== 405) defects.push(`GET admin/FixRolesOnNotes?action=run answered HTTP ${response.status()}, expected 405`);
+    h.assert(defects.length === 0, `Application defects: ${defects.join('; ')}`);
   });
 }
 if (require.main === module) runWorkflow('admin-role-management', workflow, { openPatient: false });

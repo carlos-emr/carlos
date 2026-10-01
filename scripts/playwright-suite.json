@@ -3396,7 +3396,7 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 240,
       "env": [],
       "fixtures": "Owned ticklers for the synthetic patient reassigned between providers through the edit popup and filtered by assignee."
     },
@@ -3410,7 +3410,7 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 240,
       "env": [
         "TICKLER_PREFS_DIRECT"
       ],
@@ -3797,6 +3797,34 @@
     {
       "name": "admin-role-management",
       "script": "scripts/admin-role-management-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "document-refile-combine",
+      "script": "scripts/document-refile-combine-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "report-daysheet-labs",
+      "script": "scripts/report-daysheet-labs-playwright-checks.js",
       "tiers": [
         "core"
       ],
