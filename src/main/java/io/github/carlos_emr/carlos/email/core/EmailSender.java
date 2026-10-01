@@ -82,7 +82,9 @@ public class EmailSender {
         this.emailConfig = emailConfig;
         this.recipients = emailData.getRecipients();
         this.subject = emailData.getSubject();
-        this.body = emailData.getBody();
+        // Body plus footer (issue #3981). The archive artifact is prepared from this same text,
+        // so the archived copy carries the footer too; the chart note does not.
+        this.body = emailData.getTransmittedBody();
         this.attachments = emailData.getAttachments();
         this.additionalParams = emailData.getAdditionalParams();
     }

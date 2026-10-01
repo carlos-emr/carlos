@@ -646,6 +646,8 @@ public class EmailManager {
         Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
 
         EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.PENDING);
+        // The footer is logged apart from the body: the chart note is built from the body alone.
+        emailLog.setFooter(emailData.getSentFooter());
         setEmailAttachments(emailLog, emailData.getAttachments());
         emailLog.setEncryptedMessage(emailData.getEncryptedMessage());
         emailLog.setPassword("");
@@ -679,6 +681,7 @@ public class EmailManager {
         emailLog.setToEmail(emailData.getRecipients());
         emailLog.setSubject(nullToEmpty(emailData.getSubject()));
         emailLog.setBody(nullToEmpty(emailData.getBody()));
+        emailLog.setFooter(emailData.getSentFooter());
         emailLog.setStatus(EmailStatus.FAILED);
         emailLog.setErrorMessage(errorMessage);
         emailLog.setEncryptedMessage(nullToEmpty(emailData.getEncryptedMessage()));

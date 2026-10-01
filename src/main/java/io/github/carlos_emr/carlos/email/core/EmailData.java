@@ -52,12 +52,15 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class EmailData {
     /** Maximum persisted length of a consent override justification. */
     public static final int CONSENT_OVERRIDE_REASON_MAX_LENGTH = 255;
+    /** Maximum length of the footer sent below the message (issue #3981). */
+    public static final int FOOTER_MAX_LENGTH = 2000;
 
     private Integer senderConfigId;
     private String sender;
     private String[] recipients;
     private String subject;
     private String body;
+    private String footer = "";
     private String encryptedMessage = "";
     private String password;
     private String passwordClue;
@@ -237,6 +240,62 @@ public class EmailData {
      */
     public void setBody(String body) {
         this.body = body != null ? body : "";
+    }
+
+    /**
+     * Gets the footer sent to the recipient below the body (issue #3981).
+     *
+     * @return String the footer, or empty string if not set
+     * @since 2026-09-29
+     */
+    public String getFooter() {
+        return footer;
+    }
+
+    /**
+     * Sets the footer sent to the recipient below the body. The footer is not part of the body,
+     * so it is never written into the chart note and never put inside the encrypted PDF.
+     *
+     * @param footer String the footer text; null values are converted to empty string
+     * @since 2026-09-29
+     */
+    public void setFooter(String footer) {
+        this.footer = footer != null ? footer : "";
+    }
+
+    /**
+     * Returns the text the transport sends as the email body: the body, then one blank line, then
+     * the footer.
+     *
+     * <p>A footer that is empty or only whitespace leaves the body exactly as it is, so an email
+     * without a footer is byte-for-byte what it was before footers existed. With encryption on,
+     * the body is the fixed secure-message notice, so the footer follows the notice in clear text;
+     * it is never part of the encrypted PDF.</p>
+     *
+     * @return String the transmitted body
+     * @since 2026-09-29
+     */
+    public String getTransmittedBody() {
+        String sentFooter = getSentFooter();
+        if (sentFooter.isEmpty()) {
+            return body;
+        }
+        String visibleBody = body != null ? body : "";
+        return visibleBody.stripTrailing() + "\n\n" + sentFooter;
+    }
+
+    /**
+     * Returns the footer as the recipient receives it: without surrounding whitespace, and empty
+     * when it is only whitespace. The email log stores this, so the log and a resend carry exactly
+     * the footer that was sent.
+     *
+     * @return String the sent footer, never null
+     * @since 2026-09-29
+     */
+    public String getSentFooter() {
+        // isBlank, not trim().isEmpty(): it treats whitespace exactly as strip() does, so a
+        // footer of only Unicode spaces cannot leave trailing blank lines behind.
+        return footer.isBlank() ? "" : footer.strip();
     }
 
     /**

@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.email.helpers;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -209,6 +210,48 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(sender::sendPrepared)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("SMTP message must be prepared before sending");
+    }
+
+    @Test
+    @DisplayName("should archive and send the same plain-text body with the footer below it")
+    void shouldArchiveAndSendFooter_inPlainTextBody() throws Exception {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Body text");
+        emailData.setFooter("Riverside Clinic\nNot monitored for urgent issues.");
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "Footer test", emailData.getTransmittedBody(),
+                List.of(), mailSender);
+
+        byte[] archivedMessageBytes = sender.prepareArtifactBytes();
+        sender.sendPrepared();
+
+        String expected = "Body text\n\nRiverside Clinic\nNot monitored for urgent issues.";
+        assertThat(plainText(archivedMessageBytes)).isEqualTo(expected);
+        assertThat(plainText(mailSender.getSentMessageBytes())).isEqualTo(expected);
+    }
+
+    private String plainText(byte[] messageBytes) throws Exception {
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(messageBytes));
+        String text = findPlainText(message);
+        assertThat(text).as("MIME message plain-text body").isNotNull();
+        return text.replace("\r\n", "\n");
+    }
+
+    private String findPlainText(Part part) throws Exception {
+        Object content = part.getContent();
+        if (content instanceof String text && part.isMimeType("text/plain")) {
+            return text;
+        }
+        if (content instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                String text = findPlainText(multipart.getBodyPart(i));
+                if (text != null) {
+                    return text;
+                }
+            }
+        }
+        return null;
     }
 
     private byte[] firstAttachmentBytes(byte[] messageBytes) throws Exception {

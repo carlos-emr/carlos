@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
@@ -57,6 +58,34 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
                 timestamp, timestamp, "999999", "smoke.sender@example.org", "SUCCESS");
 
         assertThat(demographicFiltered).extracting(EmailLog::getId).doesNotContain(log.getId());
+    }
+
+    @Test
+    @DisplayName("should persist the footer apart from the body and the sending account's default footer")
+    void shouldPersistFooterAndDefaultFooter_whenLogAndAccountSaved() {
+        EmailConfig config = new EmailConfig(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL,
+                "footer.sender@example.org");
+        config.setActive(true);
+        config.setDefaultFooter("Riverside Clinic\nNot monitored for urgent issues.");
+        entityManager.persist(config);
+        EmailLog log = new EmailLog(config, "footer.sender@example.org",
+                new String[] {"footer.recipient@example.org"}, "Footer regression", "Body",
+                EmailLog.EmailStatus.SUCCESS);
+        log.setFooter("Riverside Clinic");
+        entityManager.persist(log);
+        EmailLog legacy = new EmailLog(config, "footer.sender@example.org",
+                new String[] {"footer.recipient@example.org"}, "Legacy footer regression", "Body",
+                EmailLog.EmailStatus.SUCCESS);
+        entityManager.persist(legacy);
+        entityManager.flush();
+        entityManager.clear();
+
+        EmailLog saved = entityManager.find(EmailLog.class, log.getId());
+        assertThat(saved.getBody()).isEqualTo("Body");
+        assertThat(saved.getFooter()).isEqualTo("Riverside Clinic");
+        assertThat(saved.getEmailConfig().getDefaultFooter())
+                .isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
+        assertThat(entityManager.find(EmailLog.class, legacy.getId()).getFooter()).isEmpty();
     }
 
     @Test
