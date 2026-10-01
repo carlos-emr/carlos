@@ -27,8 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration tests for the portable queue-claim and rate-limit DAO SQL against the H2 (MySQL-mode)
  * schema. The claim queries were rewritten from MySQL-only {@code UPDATE ... ORDER BY ... LIMIT} to a
  * pessimistic-write {@code SELECT ... FOR UPDATE} so they run on both MariaDB and H2; these tests pin
- * that behaviour and the {@code SELECT ... FOR UPDATE} rate-limit path, including its {@code INSERT IGNORE}
- * fallback for a provider row that was not seeded.
+ * that behaviour and the atomic upsert followed by {@code SELECT ... FOR UPDATE} rate-limit path.
+ * MariaDB lock contention is covered by {@link JpaSmsSendRateLimitMariaDbIntegrationTest}.
  */
 @Tag("integration")
 @Tag("dao")

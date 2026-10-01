@@ -58,6 +58,28 @@ Also not covered yet: an exception from the admission-time consent check propaga
 
 A direct-send response reflects the persisted result, including a delivery webhook that arrived before the adapter response was saved. Callback identifiers must match the stored outbound message and its authenticated SMS backend. Callbacks cannot introduce internal queue/consent states. Opaque provider identifiers are case-sensitive and must not be silently truncated.
 
+## Rate-limit locking and regression check
+
+Each permit uses a separate transaction. An atomic `INSERT ... ON DUPLICATE KEY UPDATE` creates the
+provider row or locks the existing row without changing its counter. The subsequent `FOR UPDATE`
+read and counter update run in that same transaction. This avoids the gap-lock deadlock from reading
+an absent key first, and the shared-lock upgrade deadlock from `INSERT IGNORE`. The window time is
+sampled after locking, so waiting callers cannot reset a newer window using an old timestamp.
+
+`JpaSmsSendRateLimitMariaDbIntegrationTest` is an opt-in check against real MariaDB with repeatable
+read and snapshot isolation enabled. Set `SMS_TEST_DB_URL` to a server JDBC URL ending in `/`,
+`SMS_TEST_DB_USER`, and `SMS_TEST_DB_PASSWORD` through the test environment, then run:
+
+```sh
+mvn -Dtest=JpaSmsSendRateLimitMariaDbIntegrationTest test
+```
+
+The account needs permission to create and drop databases. The test creates a unique temporary
+schema and drops it afterwards; it does not write application rows. It checks concurrent seeded and
+missing rows, lock release on commit/rollback, failed-permit retry, and the `REQUIRES_NEW` boundary.
+Without `SMS_TEST_DB_URL` the test is skipped. Supplying it makes connection or isolation failures
+fail the test. H2 tests cover ordinary DAO behavior but cannot establish MariaDB lock behavior.
+
 ## Configuration and validation
 
 - `sms.provider.default=STUB`: optional default for synthetic tests. An explicit unknown value blocks outbound SMS instead of silently simulating success. Known but unimplemented adapters are reported at startup.
