@@ -4466,6 +4466,68 @@
       "env": [],
       "notes": "Fails at its last step on 2026.08: Manage Code Styles drops a hand-typed colour declaration on save.",
       "fixtures": "Snapshots and restores the clinic-wide gstControl, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned bill with billing_on_ext GST rows and one unused fake fee code created by a one-line synthetic schedule upload; no existing fee is changed."
+    },
+    {
+      "name": "encoder-null-document-review",
+      "script": "scripts/encoder-null-document-review-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Fails at its last step ('Reviewed records the logged-in provider as the document reviewer...') on 2026.08: editDocument.jsp reviewed() tests reviewerId == 'null', but the null-safe encoder renders a NULL reviewer as '', so the first review raises the debug alert 'set extra', writes a DocumentExtraReviewer row and leaves document.reviewer empty.",
+      "fixtures": "Owns a patient and one unreviewed PDF (document row with reviewer NULL, ctl_document link, file under DOCUMENT_DIR); cleanup deletes the document, its link, its file and any DocumentExtraReviewer row for that document id, and asserts each gone. No global settings; safe to run concurrently."
+    },
+    {
+      "name": "encoder-null-eform-lists",
+      "script": "scripts/encoder-null-eform-lists-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Fails at its last step ('leaving the Deleted and Add eForm lists raised no script error') on 2026.08: from the Master Record no parentAjaxId is passed, the null-safe encoder renders it as '' instead of 'null', and the onunload updateAjax() of efmpatientformlistdeleted.jsp and efmformslistadd.jsp then writes into a null window.opener (TypeError). Every list renders correctly first.",
+      "fixtures": "Owns a patient, one eForm template named with the run marker, and one current and one deleted eform_data instance of it for that patient; cleanup deletes only those instances (and their eform_values) and the template and asserts them gone. No global settings; safe to run concurrently."
+    },
+    {
+      "name": "csrf-runtime-form-day-sheet-unbill",
+      "script": "scripts/csrf-runtime-form-day-sheet-unbill-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned patient; one owned appointment today for the test login (status B, name = marker) and one owned open bill (seedOwnedBill, comment1 = marker) linked by appointment_no; bill rows, appointment and appointmentArchive rows deleted and asserted gone.",
+      "notes": "Regression guard for the runtime-built form in schedulePage.js.jsp postViaForm(): asserts the Unbill POST carries a CSRF-TOKEN and is accepted. Passes on 2026.08."
+    },
+    {
+      "name": "csrf-runtime-form-month-view-group",
+      "script": "scripts/csrf-runtime-form-month-view-group-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Throwaway login with its own ProviderPreference; two marker groups (PW/PX + marker hex) holding only the throwaway provider; groups and throwaway rows deleted and asserted gone. The shared test login's preferences are not touched.",
+      "notes": "Fails at its second step ('choosing the other group posts with a CSRF token...') on 2026.08: appointmentprovideradminmonth.jsp postViaFormPopup() builds the updatepreference form at runtime without a CSRF-TOKEN, so providercontrol answers 403 and My Group is not saved."
     }
   ]
 }
