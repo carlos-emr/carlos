@@ -86,6 +86,8 @@ async function workflow(s) {
       forgiveAbortedSecondRequest(s.recorder, since, /\/rx\/WriteScript/);
       console.log(`    (${posts.seen.length - before} WriteScript POST(s) after the save click; ${scripts} prescription row(s))`);
       v.record(mode.label, count, { exactly: 1 });
+      // One save writes one prescription header for its drug; zero or several is a duplicate or lost write.
+      v.record(`${mode.label} (prescription rows)`, Number(scripts), { exactly: 1 });
       if (!rx.isClosed()) await rx.close().catch(() => {});
     });
   }

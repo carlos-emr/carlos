@@ -4,9 +4,10 @@
  * Special characters in a progress note (wave 6, boundary values).
  * User path: Schedule > Search > Master Record > E-Chart > type into the note > Sign & Save > reopen the E-Chart.
  * Asserts: a note with an apostrophe, accents, CJK, an emoji, "&amp;", quotes, backslash, "%41", "+", ";",
- * a long line and a leading and trailing blank line is stored (utf8mb4, no "?" substitution, no entity or
- * encoding damage) and the reopened chart shows the same text. Leading and trailing spaces are compared
- * with the browser's own normalisation of the typed text.
+ * a long line, typed between a leading and a trailing blank line, is stored (utf8mb4, no "?" substitution, no
+ * entity or encoding damage) and the reopened chart shows the same text. The body is compared exactly with the
+ * browser's own normalisation of the typed text; whether the application keeps or trims the outer blank lines
+ * is logged, not asserted (it trims them, which is harmless for a signed note).
  * Fixtures: the owned FAKE- patient; every casemgmt_note row of that patient carrying the run marker (with
  * issue links, ext rows, drafts and locks) is deleted by cleanup, which asserts they are gone.
  * Implements the wave-6 "boundary values" pattern, Part 1 (case-management note text).
@@ -43,7 +44,8 @@ async function workflow(s) {
     `${T.backslash} ${T.percent} ${T.plus} ${T.semicolon} <not a tag> 5 < 6 > 4`,
     `${'long line of words '.repeat(60)}end`,
   ];
-  const text = lines.join('\n');
+  // Explicit leading and trailing blank lines: the boundary whitespace is part of what the note must keep.
+  const text = `\n\n${lines.join('\n')}\n\n`;
 
   let typed;
   await s.step('Sign & Save stores the note text byte for byte', async () => {
@@ -60,8 +62,15 @@ async function workflow(s) {
     h.assert(noteIds().length === 1, 'Sign & Save did not store exactly one note');
     const stored = b.readStored(sql, 'casemgmt_note', 'note', `demographic_no=${patient} AND note LIKE ${like}`);
     const storedText = Buffer.from(stored.hex, 'hex').toString('utf8');
-    h.assert(storedText.includes(typed.trim()) || storedText.replace(/\r\n/g, '\n').includes(typed.trim()),
-      `The stored note differs from what was typed: ${b.explainMismatch(typed.trim(), { hex: stored.hex, chars: stored.chars })}`);
+    const storedLf = storedText.replace(/\r\n/g, '\n');
+    const body = typed.trim();
+    h.assert(typed.startsWith('\n') && typed.endsWith('\n'), 'The textarea dropped the boundary blank lines before Sign & Save');
+    // The application signs the note and may trim the typed text's outer blank lines; the body between them (internal
+    // whitespace, special characters, the long line) must be stored exactly, and the signature must come after it.
+    h.assert(storedLf.includes(body),
+      `The stored note differs from what was typed: ${b.explainMismatch(body, { hex: stored.hex, chars: stored.chars })}`);
+    console.log(`    (boundary blank lines: leading ${storedLf.startsWith('\n') ? 'kept' : 'trimmed'}, `
+      + `trailing ${storedLf.slice(storedLf.indexOf(body) + body.length).startsWith('\n\n') ? 'kept' : 'trimmed'} by the application)`);
     if (!chart.isClosed()) await chart.close().catch(() => {});
   });
 

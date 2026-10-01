@@ -69,6 +69,11 @@ async function workflow(s) {
         const signed = sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${like} AND signed=1`);
         console.log(`    (${posts.seen.length} CaseManagementEntry POST(s); ${rows} row(s); ${signed} signed)`);
         v.record(`${verb} ${mode.label}`, count, { exactly: 1 });
+        // Sign & Save must leave its one logical note signed (distinct UUIDs, so revisions of one note are not duplicates).
+        if (verb === 'Sign & Save') {
+          const signedNotes = Number(sql.value(`SELECT COUNT(DISTINCT uuid) FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${like} AND signed=1`));
+          v.record(`${verb} ${mode.label} (signed notes)`, signedNotes, { exactly: 1 });
+        }
         if (!chart.isClosed()) await chart.close().catch(() => {});
         await sleep(500);
       });

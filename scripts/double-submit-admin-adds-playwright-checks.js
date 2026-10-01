@@ -29,7 +29,7 @@ async function workflow(s) {
     }
     h.assert(owned().length === 0, 'Owned consultation services were not removed');
   });
-  const { page: list, opened } = await clickOpensPopupOrNavigates(s.schedule,
+  const { page: list, isPopup: opened } = await clickOpensPopupOrNavigates(s.schedule,
     s.schedule.getByRole('link', { name: 'Consultations', exact: true }),
     { context: s.context, recorder: s.recorder, label: 'consultations' });
   const config = await s.popup(list, list.locator('a[href*="ViewShowAllServices"]'), 'consultation-config');

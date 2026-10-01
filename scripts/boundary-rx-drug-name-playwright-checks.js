@@ -39,6 +39,8 @@ async function workflow(s) {
       const option = rx.locator('ul.ui-autocomplete li.ui-menu-item').filter({ hasText: item.pick }).first();
       if (await option.count() === 0) {
         const offered = (await rx.locator('ul.ui-autocomplete li.ui-menu-item').allInnerTexts()).slice(0, 6).map(text => text.replace(/\s+/g, ' ').trim());
+        // Report a mismatch already recorded for an earlier product before skipping an unavailable one.
+        h.assert(problems.length === 0, `${problems.join('; ')} (RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava before rx.setDrugPrescribed)`);
         throw new h.SkipCheck(`DrugRef offers no "${item.pick}" for "${item.term}" on this install (offered: ${offered.join(' | ')})`);
       }
       await option.waitFor({ state: 'visible' });
@@ -52,7 +54,7 @@ async function workflow(s) {
       const fresh = await rx.locator('[id^="drugName_"]').evaluateAll((nodes, known) => nodes.map(node => node.id).filter(id => !known.includes(id)), before);
       h.assert(fresh.length === 1, `Expected exactly one new prescription card, found ${fresh.length}`);
       const staged = (await rx.locator(`[id="${fresh[0]}"]`).inputValue()).replace(/\s+/g, ' ').trim();
-      if (/\\/.test(staged) && !/\\/.test(shown)) problems.push(`${item.label}: the autocomplete showed "${shown}" but the staged card is named "${staged}"`);
+      if (staged !== shown) problems.push(`${item.label}: the autocomplete showed "${shown}" but the staged card is named "${staged}"`);
     }
     h.assert(problems.length === 0, `${problems.join('; ')} (RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava before rx.setDrugPrescribed)`);
   });

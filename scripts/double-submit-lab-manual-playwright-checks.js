@@ -39,7 +39,7 @@ async function workflow(s) {
       const accession = `DS${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
       h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '0', 'The accession is already in use');
       accessions.push(accession);
-      const { page: inbox, opened } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink').first(),
+      const { page: inbox, isPopup: opened } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink').first(),
         { context: s.context, recorder: s.recorder, label: 'manual-lab-inbox', timeout: 30000 });
       const form = await s.popup(inbox, inbox.locator('a[href*="oscarMDS/ViewCreateLab"]').first(), 'manual-lab-create');
       await form.locator('#labname').selectOption('CML');

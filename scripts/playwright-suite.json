@@ -5990,6 +5990,286 @@
       "env": [],
       "fixtures": "EXCLUSIVE=1 (while the fixture exists every session's any-provider Inbox list is broken). The runWorkflow FAKE- patient with its HIN left NULL, one owned HRM XML file with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows, all removed in cleanup and checked gone.",
       "notes": "Fails at its only step on 2026.08: the Inbox list answers HTTP 500 (HRMResultsData.java:180 NPE on the NULL health number). Run with EXCLUSIVE=1."
+    },
+    {
+      "name": "authz-read-role-matrix",
+      "script": "scripts/authz-read-role-matrix-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates four throwaway logins (own provider rows 800000-899999, copy of the test login's credential, one seeded role each: er_clerk, receptionist, nurse, doctor) and one owned patient; reads only; cleanup deletes the owned login/provider/audit rows and asserts they are gone.",
+      "notes": "Expected to FAIL only at the last step 'a refusal is a 403, never an HTTP 500 \"unexpected error\" page' until the SecurityException exception-mapping is added to struts-billing.xml, struts-eform.xml and struts-messenger.xml (70 routes answer a login with no sec object with HTTP 500). Every earlier step (307 pinned refusals, GET and HEAD) passes."
+    },
+    {
+      "name": "authz-read-patient-lock",
+      "script": "scripts/authz-read-patient-lock-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates two owned patients (open and locked), one seeded row per chart domain for each (note, allergy, rx, prevention, measurement, tickler, eform, document, consult, appointment, dx, CPP), one throwaway doctor login with |o| rows on _demographic$N and _eChart$N for the locked patient and for the patient of the newest routed demo HL7 lab (lock rows only, demo rows are only read); cleanup removes every owned row and asserts it.",
+      "notes": "Expected to FAIL at the last step 'no read route serves the locked patient's data to the locked doctor' until the routes it lists (previewDocs, tickler/ListTicklers, ViewAddTickler, BillingONReview, ViewEnrollmentHistory, ViewDemographicLabelPrintSetting, DemographicSearch, CaseManagementEntry history, ManageDocument searchDocumentDescriptions, lab display/PDF/list) consult isAllowedAccessToPatientRecord. Steps 2-6 (pinned refusals, HEAD, controls) pass."
+    },
+    {
+      "name": "authz-read-chart-note-history",
+      "script": "scripts/authz-read-chart-note-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Uses the workflow's owned patient plus a second owned patient; saves one chart note through the E-Chart UI; one throwaway er_clerk login and one throwaway doctor login with the lock rows for the owned patient; cleanup removes notes, eChart row, patients and logins and asserts it.",
+      "notes": "Expected to FAIL at the last step 'a note history is only served for the patient the note belongs to, and not to a login locked out of that patient': CaseManagementEntry method=notehistory and method=history read the note by id alone. Steps 1-3 pass."
+    },
+    {
+      "name": "authz-read-admin-objects",
+      "script": "scripts/authz-read-admin-objects-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates three throwaway logins (doctor, nurse, Field Note Admin); no other rows; reads only; cleanup asserts removal.",
+      "notes": "Expected to FAIL at the last step 'administration pages are refused without their menu object and served with it': eform/fieldNoteReport/* served to a doctor and refused (HTTP 500) to the Field Note Admin role; encounter/oscarMeasurements/View* configuration pages and billing/CA/ON/BillingONPayment served to a nurse. Steps 1-5 pass."
+    },
+    {
+      "name": "authz-read-print-export",
+      "script": "scripts/authz-read-print-export-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Seeds one row per chart domain for the owned patient; creates three throwaway logins (receptionist, nurse, er_clerk); needs pdftotext (SKIPs without Poppler); cleanup removes every owned row and asserts it.",
+      "notes": "Expected to FAIL at the last step 'the E-Chart print hands only the sections a role holds the object for': OscarChartPrint returns the prescriptions and allergies sections (and the whole chart to a receptionist without _eChart). Steps 1-5 pass."
+    },
+    {
+      "name": "authz-read-record-by-id",
+      "script": "scripts/authz-read-record-by-id-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Seeds one row per chart domain for the owned patient, reads (never writes) the newest routed demo HL7 lab and HRM report; three throwaway logins (receptionist, nurse, er_clerk); cleanup asserts removal.",
+      "notes": "Expected to FAIL at the last step 'the chart's Note Browser lists documents only to a role holding _edoc': casemgmt/ViewNoteBrowser lists the patient's document descriptions to a nurse without _edoc. Steps 1-4 (controls, 13 pinned by-id routes x 3 roles, HEAD) pass."
+    },
+    {
+      "name": "gap-encounter-eform-save-as-edoc",
+      "script": "scripts/gap-encounter-eform-save-as-edoc-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "One marker-named eForm template and the owned synthetic patient; the check files one eForm PDF as an eDocument. Cleanup deletes the saved instance, the document and ctl_document rows, the stored eform-*.pdf in DOCUMENT_DIR and the template, and asserts them gone."
+    },
+    {
+      "name": "gap-encounter-eform-edoc-approval",
+      "script": "scripts/gap-encounter-eform-edoc-approval-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "One marker-named eForm template whose inline script throws a marker error (consumed from the strict recorder) and the owned patient; the approval files one eDocument. Cleanup removes the instance, document, ctl_document row, stored PDF and template."
+    },
+    {
+      "name": "gap-encounter-eform-error-log",
+      "script": "scripts/gap-encounter-eform-error-log-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Two marker-named eForm templates (one throws a marker error after load, consumed from the strict recorder); only their rows are removed.",
+      "notes": "Fails at its last step on 2026.08: a plain GET of eform/logEformError flips eform.stable to 0 (EformLogError2Action accepts GET; the flag is written but never read)."
+    },
+    {
+      "name": "gap-encounter-visual-eform-editor",
+      "script": "scripts/gap-encounter-visual-eform-editor-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "The owned patient and the eForm the Visual eForm Editor creates (named with the run marker); cleanup deletes its instances, eform_values and the template. The tag-reference window's request to code.jquery.com is aborted by a context route (nothing leaves the host).",
+      "notes": "Fails at its last step ('the database tag reference loads cleanly and from this host only') on 2026.08: eform/Eform_dbtags loads ../library/jquery/jquery-3.6.4.min.js (404 served as text/html), then falls back to code.jquery.com, and throws '$ is not defined'. Every earlier step passes."
+    },
+    {
+      "name": "gap-encounter-fieldnote-report",
+      "script": "scripts/gap-encounter-fieldnote-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Run with EXCLUSIVE=1: the clinic-wide property fieldNoteEform is snapshotted, emptied for the run and restored. One marker eForm template, two eform_data instances with eform_values on the owned patient (supervisor = a throwaway login, resident = the first demo provider), the throwaway login and its owned _admin.fieldnote secObjPrivilege grant (by provider number); all removed and asserted.",
+      "notes": "Fails at its last step on 2026.08: a doctor-only login without _admin.fieldnote is served the field-note report (EFormViewRoutes gates the three pages by _eform read only; the menu object _admin.fieldnote is declared nowhere and no role holds it). All earlier steps pass."
+    },
+    {
+      "name": "gap-encounter-form-data-import",
+      "script": "scripts/gap-encounter-form-data-import-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned synthetic patient (its form2MinWalk rows), one marker eForm exported through Manage eForms and re-imported, and temporary ZIPs under a private temp directory; cleanup removes the rows, templates and temp files and asserts them gone.",
+      "notes": "Fails at its last step on 2026.08: an archive whose only entry names a form table that does not exist is reported as a successful import (JDBCUtil.toDataBase swallows XmlImportException; FrmXmlUpload2Action.importLegacyArchive returns success). Every earlier step passes."
+    },
+    {
+      "name": "gap-encounter-rx-add-favourite",
+      "script": "scripts/gap-encounter-rx-add-favourite-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned synthetic patient and marker-named favourites of the signed-in provider; the staged custom drugs are session-only (nothing is saved to the chart). Cleanup deletes the favourites by marker and asserts them gone.",
+      "notes": "Fails at its last step on 2026.08: Add to Favorites on the write-script page for a custom drug staged by rx/chooseDrug (no instructions) answers HTTP 500 'Column special cannot be null' (RxPrescriptionData.Favorite.Save). Every earlier step passes."
+    },
+    {
+      "name": "gap-encounter-rx-script-notes",
+      "script": "scripts/gap-encounter-rx-script-notes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned synthetic patient and one marker-named custom drug saved by Save And Print; cleanup removes the drug, its prescription and any signature rows (clearOwnedPrescriptionRows) and asserts them gone."
+    },
+    {
+      "name": "gap-encounter-rx-pharmacy-order",
+      "script": "scripts/gap-encounter-rx-pharmacy-order-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Two marker-named clinic pharmacies and the owned patient's links to them; cleanup deletes the links and both pharmacies and asserts them gone.",
+      "notes": "Fails at its last step on 2026.08: choosing two pharmacies for an empty preferred list stores orders 3 then 2 instead of 1 then 2 (SelectPharmacy2.jsp:306 counts the empty-list placeholder div, so the first pharmacy is stored as order 2 and the next is inserted ahead of it). Every earlier step passes."
+    },
+    {
+      "name": "gap-encounter-rx-drug-info-on-host",
+      "script": "scripts/gap-encounter-rx-drug-info-on-host-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "The owned synthetic patient and one session-only custom drug. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host.",
+      "notes": "Fails at its last step on 2026.08: rx/drugInfo answers with a redirect to http://resource.oscarmcmaster.org/... (RxDrugInfo2Action; same defect as L82/L184)."
+    },
+    {
+      "name": "gap-encounter-rx-quantity-price",
+      "script": "scripts/gap-encounter-rx-quantity-price-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "The owned synthetic patient and one session-only custom drug card; nothing is saved.",
+      "notes": "Fails at its last step on 2026.08: leaving the Qty box throws 'Insertion is not defined' (SearchDrug3.jsp getCost) and no rx/ViewDrugPrice request is sent (same defect as L81)."
     }
   ]
 }

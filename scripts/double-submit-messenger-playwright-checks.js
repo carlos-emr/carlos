@@ -37,7 +37,7 @@ async function workflow(s) {
 
   for (const mode of MODES) {
     await s.step(`Send Message via ${mode.label} delivers at most one message`, async () => {
-      const { page: inbox, opened } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('a:has(#oscar_new_msg)').first(),
+      const { page: inbox, isPopup: opened } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('a:has(#oscar_new_msg)').first(),
         { context: s.context, recorder: s.recorder, label: 'messenger-inbox', timeout: 20000 });
       console.log(`    (messenger ${opened ? 'popup' : 'in-place navigation'})`);
       await inbox.waitForLoadState('domcontentloaded', { timeout: 20000 });
