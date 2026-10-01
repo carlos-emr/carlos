@@ -97,6 +97,20 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should render Epsilon ED rows with the download link, note and preview in lab display")
+    void shouldRenderEpsilonEmbeddedDocuments_inLabDisplay() throws IOException {
+        assertEpsilonBranchRendersEmbeddedDocuments(
+                Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8), "HHSEMR");
+    }
+
+    @Test
+    @DisplayName("should render Epsilon ED rows with the download link, note and preview in ajax lab display")
+    void shouldRenderEpsilonEmbeddedDocuments_inAjaxLabDisplay() throws IOException {
+        assertEpsilonBranchRendersEmbeddedDocuments(
+                Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8), "HHSEMR");
+    }
+
+    @Test
     @DisplayName("should frame the preview lazily, encoded, and without inline script")
     void shouldFramePreviewLazily_withoutInlineScript() throws IOException {
         String fragment = Files.readString(Path.of("src/main/webapp/WEB-INF/jspf/lab-embedded-pdf-preview.jspf"),
@@ -163,6 +177,37 @@ class LabDisplayJspRegressionTest {
                 .contains("<em class=\"lab-embedded-document-unsupported\"><fmt:message key=\"lab.embeddedPdf.notPdf\"/></em>")
                 .doesNotContain("handler.getMsgType().equals(\"ExcellerisON\") || handler.getMsgType().equals(\"PATHL7\")) && handler.getOBXValueType(j, k).equals(\"ED\")")
                 .doesNotContain("&legacy=true");
+    }
+
+    /**
+     * Epsilon rows are filtered by header inside their own branch, which never reaches the shared
+     * ED row, so the branch itself must carry the download link, the not-a-PDF note and the preview
+     * row for both of its row shapes (#4124).
+     */
+    private void assertEpsilonBranchRendersEmbeddedDocuments(String jsp, String nextBranchMsgType) {
+        int start = jsp.indexOf("// Epsilon rows are filtered by header here");
+        assertThat(start).as("Epsilon row branch").isNotNegative();
+        int end = jsp.indexOf("handler.getMsgType().equals(\"" + nextBranchMsgType + "\")", start);
+        assertThat(end).as("branch after the Epsilon row branch").isGreaterThan(start);
+        String branch = jsp.substring(start, end);
+
+        assertThat(branch)
+                .contains("href=\"<%= SafeEncode.forHtmlAttribute(observationHref) %>\"")
+                .contains("<% if (isEmbeddedDocumentResult) { %>")
+                .contains("<% } else if (isUndisplayableEmbeddedDocument) { %>")
+                .doesNotContain("/lab/CA/ON/ViewLabValues");
+        assertThat(occurrences(branch, "href=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>\" class=\"lab-embedded-pdf-download\""))
+                .isEqualTo(2);
+        assertThat(occurrences(branch, "<fmt:message key=\"lab.embeddedPdf.notPdf\"/>")).isEqualTo(2);
+        assertThat(occurrences(branch, "<%@ include file=\"/WEB-INF/jspf/lab-embedded-pdf-preview.jspf\" %>")).isEqualTo(2);
+    }
+
+    private static int occurrences(String text, String needle) {
+        int count = 0;
+        for (int at = text.indexOf(needle); at >= 0; at = text.indexOf(needle, at + needle.length())) {
+            count++;
+        }
+        return count;
     }
 
     private static List<String> ackLabFuncEncodeContexts(String jsp) {

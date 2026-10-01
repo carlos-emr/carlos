@@ -36,7 +36,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import ca.uhn.hl7v2.HL7Exception;
+import ca.uhn.hl7v2.model.Segment;
+import ca.uhn.hl7v2.model.v23.group.ORU_R01_ORDER_OBSERVATION;
+import ca.uhn.hl7v2.model.v23.group.ORU_R01_RESPONSE;
 import ca.uhn.hl7v2.model.v23.message.ORU_R01;
+import ca.uhn.hl7v2.model.v23.segment.OBR;
 import ca.uhn.hl7v2.model.v23.segment.OBX;
 import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.parser.PipeParser;
@@ -44,6 +48,23 @@ import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Parser for Epsilon / MedHealth ({@code EPSILON}) HL7 v2.3 ORU^R01 lab messages.
+ *
+ * <p>Epsilon parses the message as a structured {@link ORU_R01} and reads most values from that
+ * typed model (this class's {@code msg}, which hides {@link DefaultGenericHandler#msg}). Accessors
+ * it inherits unchanged ({@code getOBRCount}, {@code getOBXCount}, {@code getOBXValueType},
+ * {@code getOBXIdentifier}, the embedded-document accessors, the patient getters, ...) read the
+ * superclass's {@code msg}, {@code terser} and {@code obrGroups}, so {@link #init(String)} fills
+ * those from the same parsed message. Without them the lab views and the CDS export saw no OBR
+ * groups and uploads failed on the patient name (#4124).</p>
+ *
+ * <p>Only the first {@code RESPONSE} (patient) group is exposed, as every other accessor here
+ * reads {@code msg.getRESPONSE()}; the uploader stores one message per PID
+ * ({@code Utilities.separateMessages}), so a stored lab has a single patient group.</p>
+ *
+ * @since 2026-02-03
+ */
 public class EpsilonHandler extends DefaultGenericHandler {
     private ORU_R01 msg = null;
     private static Logger logger = MiscUtils.getLogger();
@@ -52,8 +73,23 @@ public class EpsilonHandler extends DefaultGenericHandler {
         return s != null ? s : "";
     }
 
+    /**
+     * Formats an HL7 {@code TS} value like the other generic handlers ({@code yyyy-MM-dd HH:mm:ss},
+     * truncated to the precision sent), which is what the lab views show and what
+     * {@code MessageUploader} and {@link #getDOB()} expect. A value the shared formatter cannot
+     * read is returned trimmed rather than dropped, as this handler always returned it raw.
+     */
+    @Override
     public String formatDateTime(String s) {
-        return s;
+        if (s == null || s.trim().isEmpty()) {
+            return "";
+        }
+        try {
+            String formatted = super.formatDateTime(s.trim());
+            return formatted.isEmpty() ? s.trim() : formatted;
+        } catch (RuntimeException unreadable) {
+            return s.trim();
+        }
     }
 
     @Override
@@ -76,6 +112,48 @@ public class EpsilonHandler extends DefaultGenericHandler {
         Parser p = new PipeParser();
         p.setValidationContext(new NoValidation());
         msg = (ORU_R01) p.parse(hl7Body.replaceAll("\n", "\r\n"));
+
+        // The inherited accessors read the superclass's message, terser and OBR/OBX groups.
+        // DefaultGenericHandler builds its groups by walking the root of a flat message, which a
+        // structured ORU_R01 does not have, so build them from the typed groups instead.
+        super.msg = msg;
+        terser = new Terser(msg);
+        obrGroups = new ArrayList<ArrayList<Segment>>();
+        ORU_R01_RESPONSE response = msg.getRESPONSE();
+        for (int i = 0; i < response.getORDER_OBSERVATIONReps(); i++) {
+            ORU_R01_ORDER_OBSERVATION order = response.getORDER_OBSERVATION(i);
+            ArrayList<Segment> obxSegs = new ArrayList<Segment>();
+            for (int j = 0; j < order.getOBSERVATIONReps(); j++) {
+                obxSegs.add(order.getOBSERVATION(j).getOBX());
+            }
+            obrGroups.add(obxSegs);
+        }
+    }
+
+    /**
+     * OBR-4 text (falling back to the identifier) of the {@code i}th order. The inherited version
+     * looks up {@code OBR2}, {@code OBR3}, ... at the root of a flat message, which a structured
+     * ORU_R01 does not have.
+     */
+    @Override
+    public String getOBRName(int i) {
+        try {
+            OBR obr = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR();
+            String name = getString(Terser.get(obr, 4, 0, 2, 1)).trim();
+            return name.isEmpty() ? getString(Terser.get(obr, 4, 0, 1, 1)).trim() : name;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** OBR-4 identifier of the {@code i}th order; see {@link #getOBRName(int)}. */
+    @Override
+    public String getOBRIdentifier(int i) {
+        try {
+            return getString(Terser.get(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR(), 4, 0, 1, 1)).trim();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -240,7 +318,8 @@ public class EpsilonHandler extends DefaultGenericHandler {
     public Date getMsgDateAsDate() {
         Date date = null;
         try {
-            date = getDateTime(getMsgDate());
+            // getMsgDate() is formatted for display; parse the raw MSH-7 value.
+            date = getDateTime(getString(msg.getMSH().getDateTimeOfMessage().getTimeOfAnEvent().getValue()).trim());
         } catch (Exception e) {
             logger.error("Error of parsing message date :", e);
         }
