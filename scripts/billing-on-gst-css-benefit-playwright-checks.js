@@ -32,6 +32,7 @@ const GST_ROUTE = '/admin/GstControl';
 const GST_REPORT_ROUTE = '/admin/GstReport';
 const STYLE_ROUTE = '/admin/manageCSSStyles';
 const SOB_ROUTE = '/billing/CA/ON/ViewBenefitScheduleUpload';
+const CODE_ROUTE = '/billing/CA/ON/AddEditServiceCode';
 
 /** One fixed-width (75 character) Schedule of Benefits line; fees carry four implied decimals. */
 function scheduleLine(feeCode, effective, gpFee) {
@@ -167,7 +168,8 @@ async function workflow(s) {
     'Applying the change did not insert exactly the one new code row');
   });
 
-  await s.step('Manage Code Styles adds, renames and deletes the owned style, clearing it from its code', async () => {
+  let styleId;
+  await s.step('Manage Code Styles adds the owned style from its pickers and renames it', async () => {
     frame = await adminFrame(admin, STYLE_ROUTE, '#style');
     await frame.locator('#styleName').fill(styleName);
     await frame.locator('#font-weight').selectOption('bold');
@@ -177,7 +179,7 @@ async function workflow(s) {
     await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
     await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(style), MAX(status)) FROM cssStyles WHERE name=${h.sqlString(styleName)}`,
       `1|${styleText}|A`, 'The new style was not saved');
-    const styleId = sql.value(`SELECT id FROM cssStyles WHERE name=${h.sqlString(styleName)}`);
+    styleId = sql.value(`SELECT id FROM cssStyles WHERE name=${h.sqlString(styleName)}`);
     h.assert(await frame.locator('.alert-success').count() === 1, 'Saving the style did not report success');
     await frame.locator('#style').selectOption({ label: styleName });
     await frame.locator('input[type="button"][onclick="edit();return false;"]').click();
@@ -187,8 +189,25 @@ async function workflow(s) {
     await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
     await expectValue(sql, `SELECT CONCAT_WS('|', id, style, status) FROM cssStyles WHERE name=${h.sqlString(`${styleName} edited`)}`,
       `${styleId}|${styleText}|A`, 'Renaming the style did not update the same row');
-    // The style is assigned to a code on the service-code page; link it to the owned code directly.
-    sql.execute(`UPDATE billingservice SET displaystyle=${Number(styleId)} WHERE service_code=${h.sqlString(serviceCode)}`);
+  });
+
+  await s.step('Manage Billing Service Code assigns the owned style to the owned code', async () => {
+    frame = await adminFrame(admin, CODE_ROUTE, 'input[name="service_code"]');
+    await frame.locator('input[name="service_code"]').fill(serviceCode);
+    await navigates(admin, frame, frame.locator('button[name="submitFrm"][value="Search"]').first());
+    h.assert((await frame.locator('textarea[name="description"]').inputValue()) !== null
+      && await frame.locator('input[name="value"]').inputValue() === '12.34', 'Searching the owned code did not load it');
+    await frame.locator('#servicecode_style').selectOption({ label: `${styleName} edited` });
+    h.assert(await frame.locator('#displayStyle').inputValue() === styleText, 'The style viewer does not show the chosen style');
+    const asked = await h.withExpectedDialogs(admin,
+      () => navigates(admin, frame, frame.locator('input[name="submitFrm"][value="Save"]')));
+    h.assert(asked.length === 1 && /sure you want to save/i.test(asked[0].text), 'Saving the code did not ask for confirmation once');
+    await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(displaystyle), MAX(value)) FROM billingservice
+      WHERE service_code=${h.sqlString(serviceCode)}`, `1|${styleId}|12.34`, 'The style was not assigned to the owned code');
+  });
+
+  await s.step('deleting the owned style marks it deleted and clears it from the code that used it', async () => {
+    frame = await adminFrame(admin, STYLE_ROUTE, '#style');
     await frame.locator('#style').selectOption({ label: `${styleName} edited` });
     const dialogs = await h.withExpectedDialogs(admin,
       () => navigates(admin, frame, frame.locator('input[type="submit"][name="submit"]:not(.btn-primary)')));
