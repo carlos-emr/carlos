@@ -477,9 +477,23 @@
             event.preventDefault();
             event.stopImmediatePropagation();
             token().then(function (value) {
-                setFormToken(form, value);
-                if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit(submitter && submitter.form === form ? submitter : undefined);
+                var canReplay = typeof form.requestSubmit === 'function';
+                // Only requestSubmit() carries the submitter; the native fallback
+                // submits with the form's own method and action.
+                var replaySubmitter = canReplay && submitter && submitter.form === form ? submitter : null;
+                // Re-checked now: while the token loaded, the form's method or
+                // action may have changed to GET or another origin. Such a
+                // submission goes ahead as the browser would send it, without the
+                // token. Clearing (rather than skipping the write) also covers a
+                // replay that constraint validation blocks: no token is left
+                // behind for a later native submit() to carry off.
+                if (isSameOriginPostForm(form, replaySubmitter)) {
+                    setFormToken(form, value);
+                } else {
+                    clearFormToken(form);
+                }
+                if (canReplay) {
+                    form.requestSubmit(replaySubmitter || undefined);
                 } else {
                     HTMLFormElement.prototype.submit.call(form);
                 }

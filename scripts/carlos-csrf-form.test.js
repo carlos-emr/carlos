@@ -749,6 +749,61 @@ test('a native submit during a pending lookup is held, then replayed with its su
   assert.deepEqual(submission.fields.update, ['Update 250'], 'the clicked button\'s value survives the replay');
 });
 
+/** A token fetch the test releases by hand. */
+function deferredFetch() {
+  const control = {};
+  control.fetchImpl = () => new Promise((resolve) => {
+    control.release = () => resolve({ ok: true, text: async () => SERVLET_JS });
+  });
+  return control;
+}
+
+test('a held native submit re-pointed abroad during the fetch replays without the token (native fallback)', async () => {
+  const fetch = deferredFetch();
+  const helper = loadHelper({ fetchImpl: fetch.fetchImpl });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/eforms/delGroup' });
+  form.requestSubmit = undefined; // a browser without requestSubmit()
+  helper.dom.document.body.appendChild(form);
+
+  // The user's native submit, held by the guard while the token loads.
+  const event = {
+    target: form, submitter: null, defaultPrevented: false,
+    preventDefault() { this.defaultPrevented = true; }, stopImmediatePropagation() {},
+  };
+  helper.dom.document.fire('submit', event);
+  assert.ok(event.defaultPrevented, 'the token-less submission was held');
+
+  form.setAttribute('action', 'https://elsewhere.example/collect');
+  fetch.release();
+  await settle();
+
+  const [submission] = helper.dom.submissions();
+  assert.ok(submission, 'the held submission still went out');
+  assert.equal(submission.fields['CSRF-TOKEN'], undefined, 'the token did not follow it abroad');
+});
+
+test('a held submit switched to GET whose replay validation blocks leaves no token behind', async () => {
+  const fetch = deferredFetch();
+  const helper = loadHelper({ fetchImpl: fetch.fetchImpl });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/y', inputs: [['CSRF-TOKEN', '']] });
+  helper.dom.document.body.appendChild(form);
+
+  form.requestSubmit();
+  assert.equal(helper.dom.submissions().length, 0);
+
+  // While the token loads the form is switched to GET, and its replay is then
+  // blocked by constraint validation (requestSubmit() does nothing).
+  form.setAttribute('method', 'get');
+  form.requestSubmit = () => {};
+  fetch.release();
+  await settle();
+
+  assert.equal(form.querySelector('input[name="CSRF-TOKEN"]').value, '',
+    'no token was left in the form for a later native submit() to carry into a URL');
+});
+
 test('a native submit whose lookup fails is stopped and the user is told', async () => {
   const helper = loadHelper({ fetchImpl: async () => ({ ok: false, status: 503 }) });
   await settle();
