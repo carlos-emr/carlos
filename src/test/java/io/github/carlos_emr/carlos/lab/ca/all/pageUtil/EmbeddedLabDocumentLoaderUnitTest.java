@@ -206,6 +206,28 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should find the signature past more than a kilobyte of skipped characters, as the full decode does")
+    void shouldAgreeWithUncappedDecode_whenJunkPrecedesPdf() {
+        // 2000 characters the lenient decoder skips, then the PDF: the capped (over-limit) path
+        // must classify it as the uncapped path does, not stop inside the junk.
+        MessageHandler handler = handlerReturning("*%".repeat(1000) + PDF_BASE64, "Base64");
+
+        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.PDF);
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 0).status()).isEqualTo(Status.PDF);
+        EmbeddedLabDocumentLoader.Inspection capped = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10);
+        assertThat(capped.status()).isEqualTo(Status.TOO_LARGE);
+        assertThat(capped.isPdf()).isTrue();
+        assertThat(capped.sizeBytes()).isEqualTo(PDF.length);
+    }
+
+    @Test
+    @DisplayName("should build the capped base64 input from alphabet characters only, stopping at padding")
+    void shouldSkipNonAlphabetAndStopAtPadding_forBase64HeadInput() {
+        assertThat(EmbeddedLabDocumentLoader.base64HeadInput("**QU*%JD==QUJD")).isEqualTo("QUJD=");
+        assertThat(EmbeddedLabDocumentLoader.base64HeadInput("#".repeat(5000) + "A".repeat(5000))).hasSize(1024);
+    }
+
+    @Test
     @DisplayName("should estimate the decoded size exactly for strict and lenient base64 and for hex")
     void shouldEstimateDecodedSize_fromEncodedLength() {
         for (int length = 0; length <= 7; length++) {

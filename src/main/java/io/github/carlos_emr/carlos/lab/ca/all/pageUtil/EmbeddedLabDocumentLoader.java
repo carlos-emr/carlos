@@ -238,9 +238,7 @@ public final class EmbeddedLabDocumentLoader {
         }
         long alphabet = 0;
         for (int i = 0; i < compact.length(); i++) {
-            char c = compact.charAt(i);
-            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
-                    || c == '+' || c == '/' || c == '-' || c == '_') {
+            if (isBase64Alphabet(compact.charAt(i))) {
                 alphabet++;
             }
         }
@@ -285,9 +283,15 @@ public final class EmbeddedLabDocumentLoader {
      * @return the decoded size in bytes, or {@code -1} when the payload cannot be decoded
      */
     private static long decode(String compact, boolean hex, byte[] head, ByteArrayOutputStream sink, boolean headOnly) {
-        // Hex needs two characters per byte, base64 four per three: either way a few times the
-        // signature length covers the head, plus slack for characters the lenient decoder skips.
-        String input = headOnly && sink == null ? compact.substring(0, Math.min(compact.length(), HEAD_PREFIX_CHARS)) : compact;
+        // Hex needs two characters per byte, base64 four per three: a fixed prefix far longer than
+        // the signature needs. For base64 the prefix is counted in alphabet characters, because
+        // the lenient decoder the full decode falls back to skips everything else; a raw prefix
+        // could then end before the data and disagree with the uncapped path. Hex is not
+        // lenient (any non-digit fails the full decode too), so a raw prefix already agrees.
+        String input = compact;
+        if (headOnly && sink == null) {
+            input = hex ? compact.substring(0, Math.min(compact.length(), HEAD_PREFIX_CHARS)) : base64HeadInput(compact);
+        }
         if (hex) {
             return decodeHex(input, head, sink);
         }
@@ -314,6 +318,31 @@ public final class EmbeddedLabDocumentLoader {
                 return -1;
             }
         }
+    }
+
+    /**
+     * The first {@link #HEAD_PREFIX_CHARS} base64-alphabet characters of {@code compact}, skipping
+     * every other character exactly as the lenient decoder does, and stopping at {@code =}
+     * padding, where that decoder stops. One linear scan with a small, fixed-size result.
+     */
+    static String base64HeadInput(String compact) {
+        StringBuilder head = new StringBuilder(HEAD_PREFIX_CHARS);
+        for (int i = 0; i < compact.length() && head.length() < HEAD_PREFIX_CHARS; i++) {
+            char c = compact.charAt(i);
+            if (c == '=') {
+                head.append(c);
+                break;
+            }
+            if (isBase64Alphabet(c)) {
+                head.append(c);
+            }
+        }
+        return head.toString();
+    }
+
+    private static boolean isBase64Alphabet(char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+                || c == '+' || c == '/' || c == '-' || c == '_';
     }
 
     private static long drain(InputStream in, byte[] head, ByteArrayOutputStream sink) throws IOException {
