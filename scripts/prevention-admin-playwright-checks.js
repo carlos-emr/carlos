@@ -57,24 +57,6 @@ async function workflow(s) {
   const openIndex = () => s.popup(chart, chart.locator('a[onclick*="ViewPreventionIndex"]').first(), 'prevention-index');
   const hiddenLink = page => page.locator(`div.leftBox a[onclick*="prevention=${HIDDEN_ITEM}&"]`);
 
-  await s.step('Enable Print then Print returns a PDF of the patient\'s preventions', async () => {
-    const index = await openIndex();
-    assert(await hiddenLink(index).count() === 1, `${HIDDEN_ITEM} is not offered before the list manager hides it`);
-    const button = index.locator('input[name="printButton"]');
-    await button.click();
-    assert(await button.inputValue() === 'Print', 'Enable Print did not switch the button to Print');
-    assert(await index.locator('input[name="printHP"]:checked').count() === 1, 'The owned prevention has no checked print box');
-    const outcome = await clickDownloadsOrOpens(index, button, { context: s.context, recorder: s.recorder, label: 'prevention-print' });
-    assert(outcome.kind === 'download', 'Print did not deliver a file');
-    const bytes = fs.readFileSync(await outcome.download.path());
-    assert(bytes.subarray(0, 4).toString('latin1') === '%PDF', 'Print did not return PDF bytes');
-    const text = execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8' });
-    // prevention_show_comments=false on this install, so the comment ext is not expected in the PDF.
-    assert(text.includes(marker) && text.includes('Inf') && text.includes('2026-02-03'),
-      'Printed PDF does not carry the owned patient, prevention type and date');
-    await index.close();
-  });
-
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context: s.context, recorder: s.recorder, label: 'prevention-administration', timeout: 20000 });
   async function openFrame(name) {
@@ -164,6 +146,9 @@ async function workflow(s) {
   }
 
   await s.step('Prevention List Manager hides an item clinic-wide and the patient page drops it', async () => {
+    const shown = await openIndex();
+    assert(await hiddenLink(shown).count() === 1, `${HIDDEN_ITEM} is not offered before the list manager hides it`);
+    await shown.close();
     await toggleListItem();
     await expectValue(sql, `SELECT FIND_IN_SET(${sqlString(HIDDEN_ITEM)}, value) > 0 FROM property WHERE name=${sqlString(HIDE_PROPERTY)}`,
       '1', 'Saving did not store the hidden item');
@@ -179,6 +164,30 @@ async function workflow(s) {
       before.join(','), 'Unhiding did not restore the previous hidden list');
     const index = await openIndex();
     assert(await hiddenLink(index).count() === 1, 'The unhidden item is not offered on the Preventions page');
+    await index.close();
+  });
+
+  // Last, so every provable step is proven first: the print form's action is an application defect.
+  await s.step('Enable Print then Print returns a PDF of the patient\'s preventions', async () => {
+    const index = await openIndex();
+    const button = index.locator('input[name="printButton"]');
+    await button.click();
+    assert(await button.inputValue() === 'Print', 'Enable Print did not switch the button to Print');
+    assert(await index.locator('input[name="printHP"]:checked').count() === 1, 'The owned prevention has no checked print box');
+    let outcome;
+    try {
+      outcome = await clickDownloadsOrOpens(index, button, { context: s.context, recorder: s.recorder, label: 'prevention-print', timeout: 20000 });
+    } catch (error) {
+      const post = s.recorder.requestLog.filter(entry => entry.method === 'POST' && entry.resourceType === 'document').pop();
+      assert(false, `Print delivered no PDF: the form posted to ${post ? `${new URL(post.url).pathname} (HTTP ${post.status})` : 'nothing'}`);
+    }
+    assert(outcome.kind === 'download', 'Print did not deliver a file');
+    const bytes = fs.readFileSync(await outcome.download.path());
+    assert(bytes.subarray(0, 4).toString('latin1') === '%PDF', 'Print did not return PDF bytes');
+    const text = execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8' });
+    // prevention_show_comments=false on this install, so the comment ext is not expected in the PDF.
+    assert(text.includes(marker) && text.includes('Inf') && text.includes('2026-02-03'),
+      'Printed PDF does not carry the owned patient, prevention type and date');
     await index.close();
   });
 }

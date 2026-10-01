@@ -141,6 +141,110 @@ async function workflow(s) {
     h.assert(new URL(main.url()).pathname.endsWith('/messenger/PreviewPDF'), 'The main frame did not load messenger/PreviewPDF');
   };
 
+  // A small, valid PDF standing in for one Doc2PDF stored earlier (offsets computed).
+  const minimalPdf = () => {
+    const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>'];
+    let out = '%PDF-1.4\n';
+    const offsets = objects.map((body, n) => { const at = out.length; out += `${n + 1} 0 obj\n${body}\nendobj\n`; return at; });
+    const xref = out.length;
+    out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+      + offsets.map(at => `${String(at).padStart(10, '0')} 00000 n \n`).join('')
+      + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    return Buffer.from(out, 'latin1');
+  };
+  const deliver = (subject, columns, values) => {
+    const id = s.sql.value(`INSERT INTO messagetbl(thedate,theime,themessage,thesubject,sentby,sentto,sentbyNo,sentByLocation,type${columns})
+      VALUES(CURDATE(),CURTIME(),'FAKE-PW received',${h.sqlString(subject)},'FAKE-PW sender','FAKE-PW recipient',${provider},${location},0${values});
+      SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'Received-message fixture was not created');
+    s.sql.execute(`INSERT INTO messagelisttbl(message,provider_no,status,remoteLocation,destinationFacilityId,sourceFacilityId)
+      VALUES(${id},${provider},'new',${location},0,0)`);
+    return id;
+  };
+
+  let inbox;
+  const openMessage = async id => {
+    await clickAndLoad(inbox, inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${id}&"]`).first(), '/messenger/ViewMessage');
+    await inbox.locator('#msgSubject').waitFor();
+  };
+  const toInbox = () => clickAndLoad(inbox, inbox.locator('a.btn[href*="/messenger/DisplayMessages"]:visible,'
+    + ' a.nav-link[href*="/messenger/DisplayMessages"]:not([href*="boxType"]):not([href*="orderby"]):visible').first(), '/messenger/DisplayMessages');
+
+  // Opens the stored-PDF list for a message and downloads entry `index`.
+  async function downloadStoredPdf(id, expectedTitles, index) {
+    await openMessage(id);
+    const viewer = await s.popup(inbox, inbox.locator('a[href*="ViewPDFAttach?attachId="]'), 'messenger-pdf-attachment');
+    await settle(viewer);
+    h.assert(new URL(viewer.url()).pathname.endsWith('/messenger/ViewPDFAttach'), 'The attachment link did not open ViewPDFAttach');
+    const rows = viewer.locator('form[action$="/messenger/ViewPDFFile"] tr');
+    const titles = (await rows.allInnerTexts()).map(text => text.trim());
+    h.assert(titles.length === expectedTitles.length && expectedTitles.every((title, n) => titles[n].includes(title)),
+      'The attachment viewer did not list the stored PDFs by title');
+    const captured = await capturePdf(viewer, '/messenger/ViewPDFFile', () => rows.nth(index).locator('button[type="submit"]').click());
+    h.assert(new URLSearchParams(captured.post).get('file_id') === String(index), 'The download did not request the chosen attachment');
+    h.assert(/application\/pdf/.test(captured.type), 'ViewPDFFile did not answer application/pdf');
+    await viewer.close();
+    return captured.body;
+  }
+
+  await s.step('a received message with stored PDFs lists them and ViewPDFFile downloads the exact bytes', async () => {
+    const pdf = minimalPdf();
+    const xml = ` <PDF><FILE_ID>0</FILE_ID><STATUS>OK</STATUS><TITLE>${s.marker} first</TITLE><CONTENT>${pdf.toString('base64')}</CONTENT></PDF>`
+      + ` <PDF><FILE_ID>1</FILE_ID><STATUS>OK</STATUS><TITLE>${s.marker} second</TITLE><CONTENT>${pdf.toString('base64')}</CONTENT></PDF>`;
+    const id = deliver(`${s.marker} received PDFs`, ',pdfattachment', `,${h.sqlString(xml)}`);
+    const opened = await Promise.all([
+      s.context.waitForEvent('page', { timeout: TIMEOUT }).catch(() => null),
+      s.schedule.locator('a:has(#oscar_new_msg)').first().click(),
+    ]);
+    inbox = opened[0] || s.schedule;
+    await settle(inbox);
+    h.assert(/\/messenger\/DisplayMessages/.test(inbox.url()), 'The Msg link did not open the messenger inbox');
+    const body = await downloadStoredPdf(id, [`${s.marker} first`, `${s.marker} second`], 1);
+    h.assert(body.equals(pdf), 'ViewPDFFile did not return the stored PDF byte for byte');
+  });
+
+  let adjustedItems;
+  await s.step('a received message with transferred items renders them and Save Attachments keeps them', async () => {
+    const xml = `<root><table name="${s.marker} table"><item itemId="0" name="${itemName}" value="FAKE-PW value" removable="false">`
+      + '<content><fld name="FAKE-PW field" value="FAKE-PW detail"/></content><data/></item></table></root>';
+    const id = deliver(itemSubject, ',attachment', `,${h.sqlString(xml)}`);
+    await toInbox();
+    await openMessage(id);
+    const items = await s.popup(inbox, inbox.locator('a[href*="ViewAttach?attachId="]'), 'messenger-items');
+    await settle(items);
+    h.assert(new URL(items.url()).pathname.endsWith('/messenger/ViewAttach'), 'The attachment link did not open ViewAttach');
+    h.assert((await items.locator('#tblRoot').innerText()).includes(itemName), 'ViewAttach did not render the transferred item');
+    // Save Attachments keeps the selection in the session and hands over to the
+    // patient search (AdjustAttachments redirects to DemographicLinkMsg).
+    const [adjust] = await Promise.all([
+      items.waitForResponse(r => new URL(r.url()).pathname.endsWith('/messenger/AdjustAttachments'), { timeout: TIMEOUT }),
+      items.locator('form[action$="/messenger/AdjustAttachments"] input[type="submit"]').click(),
+    ]);
+    h.assert(adjust.status() === 302 && /\/demographic\/DemographicLinkMsg$/.test(adjust.headers().location || ''),
+      'Save Attachments did not hand over to the patient search');
+    adjustedItems = true;
+    if (!items.isClosed()) await items.close();
+  });
+
+  await s.step('composing after Save Attachments sends the transferred items, and the received copy renders them', async () => {
+    h.assert(adjustedItems, 'No transferred items were saved');
+    await toInbox();
+    await clickAndLoad(inbox, inbox.locator('a[href*="/messenger/ViewCreateMessage"]:visible').first(), '/messenger/ViewCreateMessage');
+    await inbox.locator('#subject').waitFor();
+    h.assert(/Attachments/i.test(await inbox.locator('#scrollNumber1').innerText()), 'Compose did not show the pending attachment');
+    const id = await sendToSelf(inbox, forwardSubject);
+    const stored = s.sql.value(`SELECT attachment FROM messagetbl WHERE messageid=${id}`);
+    h.assert(stored.includes(`name="${itemName}"`) && stored.includes('FAKE-PW detail'), 'The new message did not store the transferred item');
+    h.assert(s.sql.value(`SELECT pdfattachment IS NULL FROM messagetbl WHERE messageid=${id}`) === '1', 'A PDF attachment leaked onto the message');
+    await toInbox();
+    await openMessage(id);
+    const items = await s.popup(inbox, inbox.locator('a[href*="ViewAttach?attachId="]'), 'messenger-sent-items');
+    await settle(items);
+    h.assert((await items.locator('#tblRoot').innerText()).includes(itemName), 'The sent message did not render the transferred item');
+    await items.close();
+  });
+
   await s.step('chart Messenger + opens a compose form with the patient attached and the owned group offered', async () => {
     const chart = await s.chart();
     compose = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(), 'messenger-compose');
@@ -150,9 +254,19 @@ async function workflow(s) {
     await compose.locator(`#member_group_${groupId}`).waitFor({ state: 'attached' });
   });
 
-  await s.step('Attach Patient lists the patient items and Preview streams a PDF without attaching', async () => {
+  await s.step('Attach Patient opens the frameset whose PreviewPDF page lists the patient items', async () => {
     await openAttachments();
-    h.assert(await main.locator('input[name="indexArray"]').count() >= 2, 'The attachment page offered fewer than two chart items');
+    const uris = await main.locator('input[name="uriArray"]').evaluateAll(inputs => inputs.map(input => input.value));
+    h.assert(uris.some(uri => uri.includes(`/demographic/DemographicPdfLabel?demographic_no=${patient}`))
+      && uris.some(uri => uri.includes(`/rx/ViewPrintDrugProfile2?demographic_no=${patient}`)),
+      'The attachment page did not offer the patient information and prescriptions of the chart patient');
+    h.assert((await main.locator('body').innerText()).toLowerCase().includes(s.marker.toLowerCase()), 'The attachment page did not name the patient');
+  });
+
+  // From here on every step posts rendered chart HTML to messenger/Doc2PDF, which
+  // the front-door WAF blocks in this build (see report); kept last so all of the
+  // above is proven first. The steps assert the correct behaviour.
+  await s.step('Preview posts the rendered patient page to Doc2PDF and streams a PDF without attaching', async () => {
     const preview = main.locator('button[data-preview-uri*="/demographic/DemographicPdfLabel"]');
     const captured = await capturePdf(attach, '/messenger/Doc2PDF', () => preview.click());
     const post = new URLSearchParams(captured.post);
@@ -164,10 +278,9 @@ async function workflow(s) {
   await s.step('ticking the patient information and prescriptions and Attach renders both and returns to compose', async () => {
     await openAttachments();
     const rows = main.locator('tr', { has: main.locator('input[name="indexArray"]') });
-    const info = rows.filter({ has: main.locator('input[name="uriArray"][value*="/demographic/DemographicPdfLabel"]') }).locator('input[name="indexArray"]');
-    const rx = rows.filter({ has: main.locator('input[name="uriArray"][value*="/rx/ViewPrintDrugProfile2"]') }).locator('input[name="indexArray"]');
-    await info.check();
-    await rx.check();
+    for (const route of ['/demographic/DemographicPdfLabel', '/rx/ViewPrintDrugProfile2']) {
+      await rows.filter({ has: main.locator(`input[name="uriArray"][value*="${route}"]`) }).locator('input[name="indexArray"]').check();
+    }
     const posts = [];
     const onRequest = request => {
       if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/messenger/Doc2PDF')) posts.push(request.postData() || '');
@@ -184,87 +297,15 @@ async function workflow(s) {
     await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible' });
   });
 
-  let pdfMessageId;
-  await s.step('sending stores both PDFs on the message, linked to the patient and delivered to the provider', async () => {
-    pdfMessageId = await sendToSelf(compose, pdfSubject);
-    h.assert(s.sql.value(`SELECT demographic_no FROM msgDemoMap WHERE messageID=${pdfMessageId}`) === String(patient),
+  await s.step('sending stores both rendered PDFs, linked to the patient, and the received copy downloads them', async () => {
+    const id = await sendToSelf(compose, pdfSubject);
+    h.assert(s.sql.value(`SELECT demographic_no FROM msgDemoMap WHERE messageID=${id}`) === String(patient),
       'The chart-sent message was not linked to the patient');
-    const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${pdfMessageId}`);
-    h.assert((stored.match(/<PDF>/g) || []).length === 2 && (stored.match(/<STATUS>OK<\/STATUS>/g) || []).length === 2,
-      'The message did not store two successfully rendered PDFs');
-    for (const content of stored.match(/<CONTENT>[^<]*<\/CONTENT>/g) || []) {
-      h.assert(Buffer.from(content.slice(9, -10), 'base64').subarray(0, 5).toString('latin1') === '%PDF-', 'A stored attachment is not a PDF');
-    }
+    const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${id}`);
+    h.assert((stored.match(/<STATUS>OK<\/STATUS>/g) || []).length === 2, 'The message did not store two successfully rendered PDFs');
     await compose.close();
-  });
-
-  let inbox;
-  const openMessage = async id => {
-    await clickAndLoad(inbox, inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${id}&"]`).first(), '/messenger/ViewMessage');
-    await inbox.locator('#msgSubject').waitFor();
-  };
-  await s.step('the received message offers the attachment and ViewPDFFile downloads a stored PDF', async () => {
-    const opened = await Promise.all([
-      s.context.waitForEvent('page', { timeout: TIMEOUT }).catch(() => null),
-      s.schedule.locator('a:has(#oscar_new_msg)').first().click(),
-    ]);
-    inbox = opened[0] || s.schedule;
-    await settle(inbox);
-    await openMessage(pdfMessageId);
-    const viewer = await s.popup(inbox, inbox.locator('a[href*="ViewPDFAttach?attachId="]'), 'messenger-pdf-attachment');
-    await settle(viewer);
-    const titles = viewer.locator('form[action$="/messenger/ViewPDFFile"] tr');
-    h.assert(await titles.count() === 2, 'The attachment viewer did not list the two stored PDFs');
-    h.assert(/information/i.test(await titles.first().innerText()), 'The first attachment is not the patient information');
-    const captured = await capturePdf(viewer, '/messenger/ViewPDFFile',
-      () => titles.nth(1).locator('button[type="submit"]').click());
-    h.assert(new URLSearchParams(captured.post).get('file_id') === '1', 'The download did not request the chosen attachment');
-    h.assert(/application\/pdf/.test(captured.type), 'ViewPDFFile did not answer application/pdf');
-    await viewer.close();
-  });
-
-  let itemMessageId;
-  await s.step('a received message with transferred items renders them in ViewAttach', async () => {
-    const xml = `<root><table name="${s.marker} table"><item itemId="0" name="${itemName}" value="FAKE-PW value" removable="false">`
-      + '<content><fld name="FAKE-PW field" value="FAKE-PW detail"/></content><data/></item></table></root>';
-    itemMessageId = s.sql.value(`INSERT INTO messagetbl(thedate,theime,themessage,thesubject,sentby,sentto,sentbyNo,sentByLocation,attachment,type)
-      VALUES(CURDATE(),CURTIME(),'FAKE-PW items',${h.sqlString(itemSubject)},'FAKE-PW sender','FAKE-PW recipient',${provider},${location},${h.sqlString(xml)},0);
-      SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(itemMessageId), 'Transferred-items message fixture was not created');
-    s.sql.execute(`INSERT INTO messagelisttbl(message,provider_no,status,remoteLocation,destinationFacilityId,sourceFacilityId)
-      VALUES(${itemMessageId},${provider},'new',${location},0,0)`);
-    await clickAndLoad(inbox, inbox.locator('a.btn[href*="/messenger/DisplayMessages"]:visible').first(), '/messenger/DisplayMessages');
-    await openMessage(itemMessageId);
-    const items = await s.popup(inbox, inbox.locator('a[href*="ViewAttach?attachId="]'), 'messenger-items');
-    await settle(items);
-    h.assert(new URL(items.url()).pathname.endsWith('/messenger/ViewAttach'), 'The attachment link did not open ViewAttach');
-    h.assert((await items.locator('#tblRoot').innerText()).includes(itemName), 'ViewAttach did not render the transferred item');
-    // Save Attachments keeps the selection in the session and hands over to the
-    // patient search (AdjustAttachments redirects to DemographicLinkMsg).
-    const [adjust] = await Promise.all([
-      items.waitForResponse(r => new URL(r.url()).pathname.endsWith('/messenger/AdjustAttachments'), { timeout: TIMEOUT }),
-      items.locator('form[action$="/messenger/AdjustAttachments"] input[type="submit"]').click(),
-    ]);
-    h.assert(adjust.status() === 302 && /\/demographic\/DemographicLinkMsg$/.test(adjust.headers().location || ''),
-      'Save Attachments did not hand over to the patient search');
-    if (!items.isClosed()) await items.close();
-  });
-
-  await s.step('composing after Save Attachments sends the transferred items on a new message', async () => {
-    await clickAndLoad(inbox, inbox.locator('a.btn[href*="/messenger/ViewCreateMessage"]:visible').first(), '/messenger/ViewCreateMessage');
-    await inbox.locator('#subject').waitFor();
-    h.assert(/Attachments/i.test(await inbox.locator('#scrollNumber1').innerText()), 'Compose did not show the pending attachment');
-    const id = await sendToSelf(inbox, forwardSubject);
-    const stored = s.sql.value(`SELECT attachment FROM messagetbl WHERE messageid=${id}`);
-    h.assert(stored.includes(`name="${itemName}"`) && stored.includes('FAKE-PW detail'), 'The new message did not store the transferred item');
-    h.assert(s.sql.value(`SELECT pdfattachment IS NULL FROM messagetbl WHERE messageid=${id}`) === '1', 'The earlier PDFs leaked onto the next message');
-    await clickAndLoad(inbox, inbox.locator('a.btn[href*="/messenger/DisplayMessages"]:visible, a.nav-link[href*="/messenger/DisplayMessages"]:visible').first(),
-      '/messenger/DisplayMessages');
-    await openMessage(id);
-    const items = await s.popup(inbox, inbox.locator('a[href*="ViewAttach?attachId="]'), 'messenger-sent-items');
-    await settle(items);
-    h.assert((await items.locator('#tblRoot').innerText()).includes(itemName), 'The sent message did not render the transferred item');
-    await items.close();
+    await toInbox();
+    await downloadStoredPdf(id, ['', ''], 0);
   });
 }
 

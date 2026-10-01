@@ -293,6 +293,8 @@ async function workflow(s) {
     await confirmAndReload(rules, remove, 'Remove forward target');
     h.assert(sql.value(`SELECT COUNT(*) FROM incomingLabRules WHERE provider_no=${h.sqlString(source)} AND archive='0'`) === '0',
       'Removing the target left an active rule for the provider');
+    await rules.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
+    console.log('DBG', rules.url(), (await rules.locator('.py-3').innerText()).slice(0, 400));
     h.assert(await rules.getByText('There are no forwarding rules set').count() === 1,
       'The reloaded page still shows forwarding rules');
     await rules.close();

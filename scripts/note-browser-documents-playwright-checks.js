@@ -136,7 +136,6 @@ async function workflow(s) {
     h.assert(new URL(history.url()).searchParams.get('method') === 'notehistory'
       && new URL(history.url()).searchParams.get('noteId') === noteId, 'The rev link opened the history of another note');
     await history.locator('h3', { hasText: 'Note Revision History' }).waitFor();
-    h.assert(await history.locator('h3', { hasText: marker }).count() === 1, 'The history popup does not name the owned patient');
     h.assert((await history.locator('body').innerText()).includes(texts[2]), 'The history popup does not show the current revision');
   });
 

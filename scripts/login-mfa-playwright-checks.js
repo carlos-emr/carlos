@@ -209,6 +209,7 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text === bundleMessage('admin.securityAddRecord.mfa.reset.confirm',
       'User will need to re-register for MFA. Are you sure you want to reset MFA settings for the user?'), 'Reset MFA did not ask for confirmation');
     h.assert(response.status() === 200, `Reset MFA answered HTTP ${response.status()}`);
+    console.log('DEBUG reset', JSON.stringify(response.headers()), String(await response.body().then(b => b.length).catch(e => 'ERR ' + e.message)));
     await frame.locator('#mfaNote').waitFor({ state: 'visible', timeout: TIMEOUT });
     h.assert(!(await reset.isVisible()), 'The Reset MFA link stayed visible after the reset');
     await expectValue(sql, mfaStateQuery, '1|none', 'Reset MFA did not clear the stored secret');
