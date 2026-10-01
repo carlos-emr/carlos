@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Administration > Jobs Management: list, create, edit, enable / disable, cancel and
+        schedule OscarJob rows through the /ws/rs/jobs REST service.
+
+    Features:
+        Job rows are built with DOM APIs (the stored name is text, never markup). The schedule
+        dialog restores a stored six-field cron exactly or, when it cannot, explains why and
+        disables Save so the stored schedule is never rewritten.
+
+    Parameters:
+        None (all data is loaded from /ws/rs/jobs; _admin r to view).
+
+    @since CARLOS heritage page; documented 2026-10 for issue #4131
+--%>
 <!DOCTYPE html>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Administration > Labs/Inbox > Lab Forwarding Rules: view and change any provider's
+        incoming-lab forwarding rules (admin/labForwardingRules, saved via admin/ForwardingRules).
+
+    Features:
+        Choosing a provider reloads the rules for that provider, into the administration panel
+        (#dynamic-content) or, when opened as a stand-alone popup, by navigating the window;
+        only the latest request may fill the panel.
+
+    Parameters:
+        providerNo  the provider whose rules are shown ("0" or absent: none chosen yet).
+
+    @since CARLOS heritage page; documented 2026-10 for issue #4131
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 

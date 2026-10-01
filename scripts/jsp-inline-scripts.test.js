@@ -166,7 +166,13 @@ function functionSource(source, name, file) {
   let depth = 0;
   for (let i = source.indexOf('{', start); i < source.length; i++) {
     if (source[i] === '{') depth++;
-    else if (source[i] === '}' && --depth === 0) return source.slice(start, i + 1);
+    else if (source[i] === '}' && --depth === 0) {
+      // Brace counting ignores strings and regexes; compiling the slice turns a mis-cut
+      // extraction into a clear failure here instead of a misleading pass on a partial body.
+      const body = source.slice(start, i + 1);
+      new vm.Script(body, { filename: `${file}#${name}` });
+      return body;
+    }
   }
   throw new Error(`Unbalanced ${name}() in ${file}`);
 }

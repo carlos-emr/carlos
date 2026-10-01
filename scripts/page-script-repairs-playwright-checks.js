@@ -54,7 +54,7 @@ const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url(
  */
 function documentStore() {
   const store = process.env.DOCUMENT_DIR || process.env.RX_FAX_DOCUMENT_DIR;
-  if (!store) throw new h.SkipCheck('DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR) is not set; this check stores one owned PDF there');
+  if (!store) throw new h.SkipCheck('DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR) is not set; this check stores two owned PDFs there');
   let real;
   try {
     real = fs.realpathSync(store);
@@ -219,6 +219,7 @@ async function workflow(s) {
       `The combined preview answered HTTP ${preview.status()} instead of a PDF`);
     h.assert(await browser.locator('#docdisp iframe[src*="combinePDFs"]').count() === 1, 'The combined preview frame was not shown');
     await browser.locator('#doclist').selectOption(optionValue);
+    await browser.locator(`#docdisp iframe[src*="doc_no=${documentNo}"]`).waitFor({ state: 'attached', timeout: TIMEOUT });
   });
 
   await s.step('Edit opens the document editor for the selected PDF and Update saves it', async () => {

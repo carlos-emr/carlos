@@ -27,6 +27,25 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        The Document Browser: one module owner's (patient or provider) documents in a list with
+        an inline preview, opened from the Documents report's Browse link or the master record
+        (documentManager/ViewDocumentBrowser).
+
+    Features:
+        Single-document preview and details, two-or-more PDF combined preview, Add Tickler,
+        Edit, Delete / Undelete and Refile (POSTed to the DocumentDelete / DocumentUndelete /
+        DocumentRefile actions).
+
+    Parameters:
+        function, functionid  the module and its owner (demographic and demographic_no).
+        categorykey           scope token "private" or "public"; legacy report headings are
+                              still recognised but never re-emitted (they carried the name).
+        view, viewstatus, sortorder  list filters; winwidth / winheight popup size.
+
+    @since 2012 (Centre de Medecine Integree); documented 2026-10 for issue #4131
+--%>
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>

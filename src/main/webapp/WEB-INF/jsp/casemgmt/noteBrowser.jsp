@@ -27,6 +27,26 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        The E-Chart's Note Browser: one patient's private documents and encounter notes side by
+        side, opened from the chart's "Browse Notes" control (casemgmt/ViewNoteBrowser).
+
+    Features:
+        Document list with preview, Add Tickler, Edit, Delete / Undelete and Refile (the mutations
+        POST the DisplayDoc form to the casemgmt/NoteBrowserDocument* actions); encounter-note
+        list with preview and Print. The view-status, sort and doc-type filters re-open this
+        GET-only gate with a GET built from the filter fields, never by POSTing the form.
+
+    Parameters:
+        demographic_no  the patient (required; _eChart r and the _eChart$<demo> lock apply).
+        view            document type filter, raw ("all" for every type).
+        viewstatus      active | deleted | all.
+        sortorder       Content | Observation | Update.
+        FirstTime       "1" on the first open, to size and place the popup.
+
+    @since 2012 (Centre de Medecine Integree); documented 2026-10 for issue #4131
+--%>
 
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
