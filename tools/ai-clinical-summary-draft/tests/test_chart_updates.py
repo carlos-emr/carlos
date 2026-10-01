@@ -324,6 +324,25 @@ class ChartUpdatesTest(unittest.TestCase):
             inventory = updates.section_inventory(lines)
             self.assertEqual(2, inventory[0]['end_id'])
 
+    def test_new_explicit_sections_survive_empty_model_selection(self):
+        for heading, destination in [('Risk Factors', 'RiskFactors'), ('Immunizations', 'Preventions'),
+                                     ('Immunisations', 'Preventions'), ('Screening', 'Preventions'),
+                                     ('Preventions', 'Preventions'), ('Demographics', 'Demographics')]:
+            source = heading + ':\nPatient fact.'
+            request = copy.deepcopy(self.request)
+            request['sources'][0]['text'] = source
+            def complete(payload):
+                content = json.loads(payload['messages'][1]['content'])
+                if 'segments' in content:
+                    return {'proposals': []}
+                self.assertEqual(source, content['source'])
+                return {'decisions': [{'id': key, 'keep': True, 'reason': 'Eligible'} for key in content['candidates']]}
+            result = updates.run(self.config, request, [('TEST', '2026-09-28', source)], complete)
+            kind = 'history' if destination == 'RiskFactors' else 'review'
+            expected = {'kind': kind, 'destination': destination, 'evidence': source}
+            self.assertEqual([expected], result['output']['proposals'])
+            self.assertEqual([expected], updates.remove_heading_duplicates([dict(expected, evidence='Patient fact.'), expected]))
+
     def test_inline_heading_resets_preceding_unrelated_negation(self):
         source = 'No symptoms.\nImpression: Possible pneumonia.'
         result = updates.resolve_ranges({'proposals': [{'destination': 'Concerns', 'start_id': 2, 'end_id': 2}]}, updates.source_segments(source), source)

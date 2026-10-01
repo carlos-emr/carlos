@@ -155,8 +155,9 @@ The bundled OpenRouter extractor selects numbered source ranges; the host copies
 the original text, including line breaks and spelling. It uses the same reference
 selection approach as the single-document summarizer, while retaining the separate
 chart-proposal contract. It does not extract from a generated summary. A second
-model pass reviews each candidate against the full source for eligibility, repeated
-facts and completed/superseded follow-up. Every candidate needs a valid decision
+model pass reviews each candidate against the full source for eligibility, source
+context and completed/superseded follow-up. It does not suppress repeated facts;
+exact duplicates are handled by the host and overlapping passages by the clinician. Every candidate needs a valid decision
 before any output is released. Empty candidate lists need only one call.
 
 Numbered list markers remain attached to their own item. If a proposed reminder
@@ -170,7 +171,7 @@ and excludes recognized family-history sections from patient history. These are
 bounded checks, not semantic deduplication or clinical verification; unfamiliar
 headings, lost qualifications, omissions and model classification errors remain
 possible. The Java evidence validator, chart comparison and per-entry approval
-remain authoritative. The public 20-proposal limit is unchanged.
+remain authoritative. The public limit is 100 proposals.
 If the first selected history bullet immediately follows a recognized past-history
 heading, the host retains that heading in the exact quotation. This preserves the
 context used by the form's Medical History destination suggestion.

@@ -16,13 +16,13 @@ public final class ChartUpdateSections {
         if (!CODES.contains(code) || !security.hasPrivilege(user, "_eChart", right, patient)
                 || !sectionPrivilege(security, user, patient, code, right)) return false;
         String display = switch (code) {
-            case "MedHistory" -> "medicalHistory";
-            case "FamHistory" -> "familyHistory";
-            case "RiskFactors" -> "riskFactors";
-            case "OMeds" -> "otherMeds";
+            case "MedHistory" -> "_newCasemgmt.medicalHistory";
+            case "FamHistory" -> "_newCasemgmt.familyHistory";
+            case "RiskFactors" -> "_newCasemgmt.riskFactors";
+            case "OMeds" -> "_newCasemgmt.otherMeds";
             default -> "";
         };
-        return display.isEmpty() || security.hasPrivilege(user, "_newCasemgmt." + display, "x", patient);
+        return display.isEmpty() || security.hasPrivilege(user, display, "x", patient);
     }
     private static boolean sectionPrivilege(SecurityInfoManager security, LoggedInInfo user, int patient, String code, String right) {
         // Native CPP sections are unrestricted when no matching section override exists.

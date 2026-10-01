@@ -4,17 +4,19 @@
 import argparse
 import hashlib
 import json
+from http.client import HTTPConnection, HTTPException
 from http.server import HTTPServer
 from pathlib import Path
+import socket
 import sys
+from threading import Timer
 import time
-from urllib.request import Request, ProxyHandler, build_opener
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import chart_updates
 import document_distill
 import openrouter_agent as agent
-from openrouter_agent import committed_notes, loads, private_write, NoRedirect
+from openrouter_agent import committed_notes, loads, private_write
 
 MODEL = 'qwen3.5:2b'
 REQUEST_TIMEOUT_SECONDS = 1800
@@ -35,7 +37,7 @@ class Gateway:
     def __init__(self, cache, port=11434):
         if not 1024 <= port <= 65535:
             raise ValueError('Invalid local model port')
-        self.url = f'http://127.0.0.1:{port}'
+        self.port = port
         self.cache = Path(cache)
         self.notes = allowed_notes()
         self.cache_hits = 0
@@ -44,25 +46,50 @@ class Gateway:
                            max_tokens=OPTIONS['num_predict'])
         self.implementation = hashlib.sha256(b''.join(Path(module.__file__).read_bytes()
             for module in (chart_updates, document_distill, agent, agent.pipeline)) + Path(__file__).read_bytes()).hexdigest()
-        self.opener = build_opener(ProxyHandler({}), NoRedirect())
 
     def call(self, route, data=None):
         body = None if data is None else json.dumps(data).encode()
-        request = Request(self.url + route, data=body, headers={'Content-Type': 'application/json'})
-        try:
-            remaining = self.deadline - time.monotonic() if self.deadline is not None else REQUEST_TIMEOUT_SECONDS
-            if remaining <= 0:
+        deadline = self.deadline if self.deadline is not None else time.monotonic() + REQUEST_TIMEOUT_SECONDS
+        def remaining():
+            seconds = deadline - time.monotonic()
+            if seconds <= 0:
                 raise agent.UpstreamError('Local model request deadline exceeded')
-            with self.opener.open(request, timeout=remaining) as response:
+            return seconds
+        connection, timer = None, None
+        try:
+            # Direct loopback connection: never use proxies or follow redirects.
+            connection = HTTPConnection('127.0.0.1', self.port, timeout=remaining())
+            connection.connect()
+            connected_socket = connection.sock
+            def expire():
+                # Interrupt blocking header/body reads, including slowly arriving bytes.
+                try:
+                    connected_socket.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+            timer = Timer(remaining(), expire)
+            timer.daemon = True
+            timer.start()
+            connection.request('GET' if body is None else 'POST', route, body=body,
+                               headers={'Content-Type': 'application/json'})
+            with connection.getresponse() as response:
+                if not 200 <= response.status < 300:
+                    raise agent.UpstreamError('Local model returned an unsuccessful status')
                 raw = response.read(4 * 1024 * 1024 + 1)
+            remaining()  # A deadline-triggered EOF must never become a successful reply.
             if len(raw) > 4 * 1024 * 1024:
                 raise ValueError('Model response exceeds limit')
             result = loads(raw)
             if not isinstance(result, dict):
                 raise ValueError('Invalid model response envelope')
             return result
-        except (OSError, ValueError):
+        except (OSError, ValueError, HTTPException):
             raise agent.UpstreamError('Local model connection, timeout, or response-format failure') from None
+        finally:
+            if timer is not None:
+                timer.cancel()
+            if connection is not None:
+                connection.close()
 
     def generate(self, request):
         chart_updates.validate_request(request, self.notes, 50000)

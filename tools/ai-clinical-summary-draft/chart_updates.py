@@ -311,12 +311,14 @@ def section_inventory(lines):
                 'medical history': 'MedHistory', 'social history': 'SocHistory',
                 'family history': 'FamHistory', 'family hx': 'FamHistory',
                 'medications': 'Medications', 'allergies': 'Allergies',
+                'risk factors': 'RiskFactors', 'immunizations': 'Preventions',
+                'immunisations': 'Preventions', 'screening': 'Preventions',
+                'preventions': 'Preventions', 'demographics': 'Demographics',
                 'impression': 'Concerns', 'assessment': 'Concerns'}
     stops = set(sections) | {'plan', 'recommendations', 'presenting complaint',
               'history of presenting complaint', 'review of systems', 'on examination',
               'observations', 'investigations', 'test results', 'systems review', 'referral', 'admitting consultant',
-              'clerking doctor', 'clinician leading ward round', 'issues', 'today', 'on review',
-              'risk factors', 'immunizations', 'immunisations', 'screening', 'preventions', 'demographics'}
+              'clerking doctor', 'clinician leading ward round', 'issues', 'today', 'on review'}
     result, start, destination, end = [], None, None, None
     inline_content = False
     def finish():
@@ -344,7 +346,7 @@ def section_inventory(lines):
 
 def remove_heading_duplicates(rows):
     """Prefer an identical quotation with its explicit heading; no paraphrase suppression."""
-    plain_heading = re.compile(r'^(?:Past (?:Medical |Surgical )?History|Medical History|Social History|Family (?:History|Hx)|Medications|Allergies|Impression|Assessment)\s*:?$', re.I)
+    plain_heading = re.compile(r'^(?:Past (?:Medical |Surgical )?History|Medical History|Social History|Family (?:History|Hx)|Medications|Allergies|Risk Factors|Immunizations|Immunisations|Screening|Preventions|Demographics|Impression|Assessment)\s*:?$', re.I)
     with_headings = set()
     for row in rows:
         heading, newline, rest = row['evidence'].partition('\n')

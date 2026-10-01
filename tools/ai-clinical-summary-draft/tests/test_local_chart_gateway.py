@@ -7,7 +7,8 @@ import tempfile
 import unittest
 import uuid
 import threading
-from http.server import HTTPServer
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, ProxyHandler, build_opener
 from unittest.mock import MagicMock, patch
@@ -82,7 +83,7 @@ class LocalChartGatewayTest(unittest.TestCase):
             def unavailable_tags(route, data=None):
                 return {'models': []} if route == '/api/tags' else self.call(route, data)
             for failure in ('connection', 'missing_model'):
-                stub = (patch.object(self.gateway.opener, 'open', side_effect=URLError('private model endpoint details'))
+                stub = (patch.object(local, 'HTTPConnection', side_effect=URLError('private model endpoint details'))
                         if failure == 'connection' else patch.object(self.gateway, 'call', side_effect=unavailable_tags))
                 with self.subTest(failure=failure), stub:
                     with self.assertRaises(HTTPError) as caught:
@@ -100,9 +101,11 @@ class LocalChartGatewayTest(unittest.TestCase):
 
     def test_malformed_envelopes_and_incomplete_completions_return_upstream_errors(self):
         for envelope in ([], None, 3, 'text'):
-            response = MagicMock()
-            response.__enter__.return_value.read.return_value = json.dumps(envelope).encode()
-            with self.subTest(envelope=envelope), patch.object(self.gateway.opener, 'open', return_value=response):
+            connection = MagicMock()
+            response = connection.getresponse.return_value.__enter__.return_value
+            response.status = 200
+            response.read.return_value = json.dumps(envelope).encode()
+            with self.subTest(envelope=envelope), patch.object(local, 'HTTPConnection', return_value=connection):
                 with self.assertRaises(local.agent.UpstreamError):
                     self.gateway.call('/api/show')
         for envelope in ({'models': None}, {'models': [None]}):
@@ -121,16 +124,69 @@ class LocalChartGatewayTest(unittest.TestCase):
                 self.gateway.generate(self.request)
 
     def test_model_calls_share_one_request_deadline(self):
-        response = MagicMock()
-        response.__enter__.return_value.read.return_value = b'{}'
+        connection = MagicMock()
+        response = connection.getresponse.return_value.__enter__.return_value
+        response.status = 200
+        response.read.return_value = b'{}'
         self.gateway.deadline = 200
-        with patch.object(local.time, 'monotonic', side_effect=[100, 175, 201]), patch.object(
-                self.gateway.opener, 'open', return_value=response) as opened:
+        with patch.object(local.time, 'monotonic', return_value=100) as clock, patch.object(
+                local, 'HTTPConnection', return_value=connection) as opened, patch.object(local, 'Timer') as timer:
             self.gateway.call('/api/show')
+            clock.return_value = 175
             self.gateway.call('/api/version')
+            clock.return_value = 201
             with self.assertRaises(local.agent.UpstreamError):
                 self.gateway.call('/api/tags')
         self.assertEqual([100, 25], [call.kwargs['timeout'] for call in opened.call_args_list])
+        self.assertEqual(2, timer.return_value.cancel.call_count)
+        self.assertEqual(2, connection.close.call_count)
+
+    def test_absolute_deadline_interrupts_delayed_headers_and_body(self):
+        release = threading.Event()
+        paths = []
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_):
+                pass
+            def do_GET(self):
+                paths.append(self.path)
+                try:
+                    if self.path == '/headers':
+                        release.wait(2)
+                    elif self.path == '/combined':
+                        release.wait(.2)
+                    self.send_response(302 if self.path == '/redirect' else 200)
+                    self.send_header('Content-Length', '2')
+                    self.send_header('Location', '/must-not-follow')
+                    self.end_headers()
+                    self.wfile.write(b'{')
+                    self.wfile.flush()
+                    if self.path == '/body':
+                        release.wait(2)
+                    elif self.path == '/combined':
+                        release.wait(.2)
+                    self.wfile.write(b'}')
+                except OSError:
+                    pass  # Expected when the client deadline closes a delayed response.
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        gateway = local.Gateway(self.directory.name, server.server_port)
+        try:
+            self.assertEqual({}, gateway.call('/ok'))
+            with self.assertRaises(local.agent.UpstreamError):
+                gateway.call('/redirect')
+            self.assertNotIn('/must-not-follow', paths)
+            for route in ('/headers', '/body', '/combined'):
+                started = time.monotonic()
+                gateway.deadline = started + (.3 if route == '/combined' else .15)
+                with self.subTest(route=route), self.assertRaises(local.agent.UpstreamError):
+                    gateway.call(route)
+                self.assertLess(time.monotonic() - started, 1.5)
+        finally:
+            release.set()
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=5)
 
     def test_refuses_cloud_backed_local_model(self):
         with patch.object(self.gateway, 'call', return_value={'remote_host': 'https://example.invalid'}) as call:

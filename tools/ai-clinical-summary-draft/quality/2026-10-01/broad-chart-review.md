@@ -146,3 +146,18 @@ not establish exhaustive clinical extraction. Cached trial suggestions remain a
 reviewable draft, with the same explicit approval and medication/allergy handoff
 limitations described above. Final test, independent-review, and CI status are
 tracked on the PR and in the supervisor ledger.
+
+
+A further review added exact fallback inventory for explicit Risk Factors,
+Immunizations/Immunisations, Screening/Preventions and Demographics headings,
+including heading-only duplicate removal. Empty-selector tests verify that those
+facts still reach source review. The local-model trial now uses a direct loopback
+connection with an absolute socket-shutdown deadline, tested against delayed
+headers and body bytes; it rejects redirects and unsuccessful status codes.
+All 240 Python tests passed after these changes, with no model calls.
+The suggested null guard for fixture Issue deletion was deferred: those rows are
+committed, owned by this isolated test, and no test deletes them before cleanup.
+
+The full CI security-object contract exposed a literal-scan problem in the CPP
+permission-name concatenation. The switch now supplies complete existing permission
+names; authorization behavior is unchanged and no database change is needed.
