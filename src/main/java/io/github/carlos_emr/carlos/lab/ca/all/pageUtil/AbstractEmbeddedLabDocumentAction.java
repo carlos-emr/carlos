@@ -99,6 +99,7 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
      */
     static final String CONTENT_SECURITY_POLICY = "default-src 'none'; frame-ancestors 'self'; sandbox";
 
+    // At most nine digits, so Integer.valueOf below cannot overflow (max 999,999,999).
     private static final Pattern INDEX = Pattern.compile("\\d{1,9}");
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -150,7 +151,9 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
         Integer segment = index(request.getParameter("segment"));
         Integer group = index(request.getParameter("group"));
         String legacy = request.getParameter("legacy");
-        if (labNo == null || segment == null || group == null
+        // segment/group are zero-based indexes, but labNo is an hl7TextMessage primary key: 0 is
+        // never a stored identity, so refuse it before either DAO is queried.
+        if (labNo == null || labNo <= 0 || segment == null || group == null
                 || (legacy != null && !"true".equals(legacy) && !"false".equals(legacy))) {
             return status(response, HttpServletResponse.SC_BAD_REQUEST);
         }

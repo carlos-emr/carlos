@@ -59,20 +59,24 @@
 
 <html lang="${pageContext.response.locale.language}">
     <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
         <title><fmt:message key="admin.labDisplaySettings.title"/></title>
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <link href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/jquery/jquery-compat.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body class="BodyStyle">
 
     <h4><fmt:message key="admin.labDisplaySettings.heading"/></h4>
 
-    <form name="labDisplaySettingsForm" method="post" action="${pageContext.request.contextPath}/admin/LabDisplaySettings">
+    <%-- Enter in the size field submits the form implicitly, without the Save button's onclick;
+         onsubmit gives that submit the same save intent so it saves (and needs _admin write)
+         instead of silently re-rendering the stored values over the administrator's edit. --%>
+    <form name="labDisplaySettingsForm" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/admin/LabDisplaySettings"
+          onsubmit="this.dboperation.value='Save';">
         <input type="hidden" name="dboperation" value="">
 
         <div class="card" style="max-width: 640px;">

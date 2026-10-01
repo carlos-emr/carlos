@@ -57,7 +57,9 @@ public record LabPdfPreviewSettings(boolean inlinePreviewEnabled, long maxBytes)
     /** The settings used when no preference row exists. */
     public static final LabPdfPreviewSettings DEFAULTS = new LabPdfPreviewSettings(true, DEFAULT_MAX_BYTES);
 
-    private static final Pattern SIZE = Pattern.compile("^(\\d{1,9})\\s*([KkMmGg]?)[Bb]?$");
+    // The optional B belongs to the unit: "5MB" is 5 MiB, but a bare "5B" is not a valid size
+    // (it would otherwise set a 5-byte limit and turn the preview off for nearly every PDF).
+    private static final Pattern SIZE = Pattern.compile("^(\\d{1,9})(?:\\s*([KkMmGg])[Bb]?)?$");
 
     public LabPdfPreviewSettings {
         maxBytes = maxBytes <= 0 ? DEFAULT_MAX_BYTES : Math.min(maxBytes, MAX_ALLOWED_BYTES);
@@ -90,13 +92,15 @@ public record LabPdfPreviewSettings(boolean inlinePreviewEnabled, long maxBytes)
             return DEFAULT_MAX_BYTES;
         }
         long number = Long.parseLong(matcher.group(1));
-        int shift = switch (matcher.group(2)) {
+        String unit = matcher.group(2) == null ? "" : matcher.group(2);
+        int shift = switch (unit) {
             case "K", "k" -> 10;
             case "M", "m" -> 20;
             case "G", "g" -> 30;
             default -> 0;
         };
-        // Nine digits shifted by at most 30 bits stays well inside a long.
+        // The pattern caps the number at nine digits, so parseLong cannot overflow and nine digits
+        // shifted by at most 30 bits (< 2^60) stays well inside a long before the record clamps it.
         return number << shift;
     }
 

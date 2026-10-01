@@ -49,7 +49,9 @@ class LabPdfPreviewSettingsUnitTest {
             "5MB, 5242880",
             "5 mb, 5242880",
             "1G, 104857600",
-            "2048, 2048"
+            "2048, 2048",
+            "5KB, 5120",
+            "999999999G, 104857600"
     })
     @DisplayName("should parse byte counts and K/M/G sizes, clamped to the allowed maximum")
     void shouldParseSize_withUnits(String stored, long expected) {
@@ -58,7 +60,8 @@ class LabPdfPreviewSettingsUnitTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {"abc", "-5", "0", "5TB", "1.5M", "9999999999"})
+    @ValueSource(strings = {"abc", "-5", "0", "5TB", "1.5M", "9999999999", "5B", "5b", "5 B",
+            "99999999999999999999", "99999999999999999999G"})
     @DisplayName("should use the 10 MiB default for missing, invalid or non-positive sizes")
     void shouldUseDefaultSize_forInvalidValue(String stored) {
         assertThat(LabPdfPreviewSettings.fromPreferences(null, stored).maxBytes())

@@ -82,7 +82,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
 
     private static final int LAB_NO = 456;
-    private static final String DEMOGRAPHIC_NO = "123";
+    private static final int DEMOGRAPHIC_ID = 123;
+    private static final String DEMOGRAPHIC_NO = String.valueOf(DEMOGRAPHIC_ID);
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -142,7 +143,7 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
 
     private void matchToPatient() {
         when(patientLabRoutingDao.findByLabNoAndLabType(LAB_NO, "HL7"))
-                .thenReturn(List.of(new PatientLabRouting(LAB_NO, "HL7", Integer.valueOf(DEMOGRAPHIC_NO))));
+                .thenReturn(List.of(new PatientLabRouting(LAB_NO, "HL7", Integer.valueOf(DEMOGRAPHIC_ID))));
     }
 
     @Test
@@ -239,7 +240,8 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @CsvSource({
-            "labNo, abc", "labNo, ''", "labNo, 1234567890", "labNo, 4;5",
+            "labNo, abc", "labNo, ''", "labNo, 1234567890", "labNo, 4;5", "labNo, 0", "labNo, 000",
+            "labNo, 99999999999999999999", "segment, 99999999999999999999",
             "segment, -1", "segment, 1.0", "group, x", "legacy, yes"
     })
     @DisplayName("should answer 400 for malformed parameters")
@@ -252,6 +254,19 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getContentAsByteArray()).isEmpty();
         verifyNoInteractions(hl7TextMessageDao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "000"})
+    @DisplayName("should answer 400 for a non-positive labNo before querying routing or messages")
+    void shouldReturn400_whenLabNoIsNotPositive(String labNo) throws Exception {
+        grantAll();
+        request.setParameter("labNo", labNo);
+
+        assertThat(action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(hl7TextMessageDao, patientLabRoutingDao);
     }
 
     @Test

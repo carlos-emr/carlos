@@ -179,17 +179,22 @@ function seedLab(s) {
 /** Snapshot both preview preferences and restore them exactly, whatever the check changes. */
 function ownPreferences(s) {
   const names = "name IN ('lab_pdf_inline_preview','lab_pdf_max_size')";
-  const before = s.sql.rows(`SELECT id, name, IFNULL(HEX(value),'NULL') FROM SystemPreferences WHERE ${names} ORDER BY id`);
-  for (const [id, , hex] of before) {
-    h.assert(/^\d+$/.test(id) && (hex === 'NULL' || /^[0-9A-F]*$/i.test(hex)), 'Unexpected preference snapshot');
+  // updateDate is snapshotted too: set() and the admin save both stamp it, and a run must leave
+  // existing rows exactly as it found them.
+  const columns = "id, name, IFNULL(HEX(value),'NULL'), IFNULL(DATE_FORMAT(updateDate,'%Y-%m-%d %H:%i:%s'),'NULL')";
+  const before = s.sql.rows(`SELECT ${columns} FROM SystemPreferences WHERE ${names} ORDER BY id`);
+  for (const [id, , hex, updated] of before) {
+    h.assert(/^\d+$/.test(id) && (hex === 'NULL' || /^[0-9A-F]*$/i.test(hex))
+      && (updated === 'NULL' || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(updated)), 'Unexpected preference snapshot');
   }
   s.cleanup(() => {
     const ids = before.map(row => row[0]);
     s.sql.execute(`DELETE FROM SystemPreferences WHERE ${names}${ids.length ? ` AND id NOT IN(${ids.join(',')})` : ''}`);
-    for (const [id, , hex] of before) {
-      s.sql.execute(`UPDATE SystemPreferences SET value=${hex === 'NULL' ? 'NULL' : `UNHEX('${hex}')`} WHERE id=${id}`);
+    for (const [id, , hex, updated] of before) {
+      s.sql.execute(`UPDATE SystemPreferences SET value=${hex === 'NULL' ? 'NULL' : `UNHEX('${hex}')`},
+        updateDate=${updated === 'NULL' ? 'NULL' : `'${updated}'`} WHERE id=${id}`);
     }
-    h.assert(JSON.stringify(s.sql.rows(`SELECT id, name, IFNULL(HEX(value),'NULL') FROM SystemPreferences
+    h.assert(JSON.stringify(s.sql.rows(`SELECT ${columns} FROM SystemPreferences
       WHERE ${names} ORDER BY id`)) === JSON.stringify(before), 'the lab display preferences were not restored exactly');
   });
   return {

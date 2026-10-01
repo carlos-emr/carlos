@@ -108,6 +108,7 @@ public class LabDisplaySettings2Action extends ActionSupport {
 
     /** Whole MiB from 1 to the allowed maximum, or {@code null}. */
     private static Long megabytes(String value) {
+        // At most four digits, so Long.parseLong cannot overflow; longer input is invalid.
         if (value == null || !value.trim().matches("\\d{1,4}")) {
             return null;
         }

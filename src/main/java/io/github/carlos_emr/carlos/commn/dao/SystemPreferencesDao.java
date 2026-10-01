@@ -48,4 +48,20 @@ public interface SystemPreferencesDao extends AbstractDao<SystemPreferences> {
     <T extends Enum<T>> boolean isReadBooleanPreference(Enum<T> name);
 
     <T extends Enum<T>> boolean isPreferenceValueEquals(Enum<T> preferenceName, String trueValueStr);
+
+    /**
+     * Sets a system-wide preference, creating its row only when no row with that name exists.
+     *
+     * <p>{@code SystemPreferences.name} has no unique key, so a find-then-insert can create a
+     * duplicate when two first saves race, after which reads return an arbitrary row. This updates
+     * every row with the name first (so pre-existing duplicates converge on the new value) and
+     * inserts only when none exists. Under InnoDB's default REPEATABLE READ the update's locking
+     * scan of the unindexed {@code name} column serializes a concurrent first save behind this
+     * one (or, on an otherwise empty table, fails one of them with a deadlock) instead of letting
+     * both insert. Must run inside a transaction.</p>
+     *
+     * @param name the preference key
+     * @param value the value to store
+     */
+    <T extends Enum<T>> void upsertPreference(Enum<T> name, String value);
 }
