@@ -500,4 +500,25 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("setSrcText", "setAttachmentTitle", "setAttachmentCount")
                 .contains("setItem", "setPreviewItem", "setDemographic_no");
     }
+
+    @Nested
+    @DisplayName("chooser item rule")
+    class ChooserItemRule {
+
+        @Test
+        @DisplayName("should offer an item only with its module read both globally and for the patient")
+        void shouldRequireGlobalAndPatientRead_forChooserItem() {
+            allow("_eChart", "r");
+            assertThat(MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+                    MsgPdfAttachmentResolver.Item.ENCOUNTER, PATIENT)).isTrue();
+
+            denyForPatient("_eChart");
+            assertThat(MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+                    MsgPdfAttachmentResolver.Item.ENCOUNTER, PATIENT)).isFalse();
+
+            deny("_rx", "r");
+            assertThat(MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+                    MsgPdfAttachmentResolver.Item.PRESCRIPTIONS, PATIENT)).isFalse();
+        }
+    }
 }

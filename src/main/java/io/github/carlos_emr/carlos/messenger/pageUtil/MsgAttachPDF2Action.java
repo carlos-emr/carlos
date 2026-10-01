@@ -269,11 +269,28 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * render once the included gate redirects).
      */
     private void requireItemPrivilege(LoggedInInfo loggedInInfo, Item item, int demographicNo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ, null)
-                || !securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ,
-                        demographicNo)) {
+        if (!canReadItem(securityInfoManager, loggedInInfo, item, demographicNo)) {
             throw new SecurityException("missing required sec object (" + item.securityObject() + ")");
         }
+    }
+
+    /**
+     * Whether the user may read one chart item for one patient: read on the item's own security
+     * object, both globally and for this patient. The chooser page uses the same rule to decide
+     * which rows it offers (and whether it may even look up the encounter), so it never shows an
+     * item, or metadata about one, that this action would refuse.
+     *
+     * @param securityInfoManager the privilege service
+     * @param loggedInInfo the acting user
+     * @param item the chart item
+     * @param demographicNo the patient
+     * @return {@code true} when both the global and the patient-specific read check pass
+     */
+    public static boolean canReadItem(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo,
+                                      Item item, int demographicNo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ, null)
+                && securityInfoManager.hasPrivilege(loggedInInfo, item.securityObject(), SecurityInfoManager.READ,
+                        demographicNo);
     }
 
     /**

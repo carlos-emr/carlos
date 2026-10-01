@@ -83,6 +83,12 @@ class MessengerJspRouteMigrationTest {
                 .contains("name=\"item\" value=\"encounter\"")
                 .contains("name=\"item\" value=\"prescriptions\"")
                 .contains("name=\"previewItem\"")
+                // Items are offered only with the read Doc2PDF enforces, and the encounter is not
+                // even looked up without _eChart read (its existence and timestamp are chart data).
+                .contains("MsgAttachPDF2Action.canReadItem(")
+                .contains("canEncounter ? eChartDao.getLatestChart(demographicNoInt) : null")
+                .contains("<c:if test=\"${canDemographic}\">")
+                .contains("<c:if test=\"${canPrescriptions}\">")
                 .contains("/securityError?type=_msg")
                 .contains("errorPage=\"/WEB-INF/jsp/error/errorpage.jsp\"")
                 .doesNotContain("srcText")

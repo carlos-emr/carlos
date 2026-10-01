@@ -77,6 +77,9 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -137,8 +140,20 @@
     // Expose display variables as page attributes for EL/OWASP encoding
     pageContext.setAttribute("demoName", demoName);
 
-    // Resolve encounter data for the patient
-    EChart ec = eChartDao.getLatestChart(Integer.parseInt(demographic_no));
+    // Offer only the items Doc2PDF would let this user attach for this patient (module read,
+    // globally and for the patient). The encounter lookup itself is skipped without _eChart
+    // read, so the page does not reveal whether, or when, an encounter exists.
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    boolean canDemographic = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+            MsgPdfAttachmentResolver.Item.DEMOGRAPHIC, demographicNoInt);
+    boolean canEncounter = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+            MsgPdfAttachmentResolver.Item.ENCOUNTER, demographicNoInt);
+    boolean canPrescriptions = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+            MsgPdfAttachmentResolver.Item.PRESCRIPTIONS, demographicNoInt);
+    pageContext.setAttribute("canDemographic", canDemographic);
+    pageContext.setAttribute("canPrescriptions", canPrescriptions);
+
+    EChart ec = canEncounter ? eChartDao.getLatestChart(demographicNoInt) : null;
     pageContext.setAttribute("hasEncounter", ec != null);
     if (ec != null) {
         pageContext.setAttribute("ecTimestamp", ec.getTimestamp().toString());
@@ -245,6 +260,7 @@
                         <fmt:message key="messenger.generatePreviewPDF.secDemographic"/>
                     </th>
                 </tr>
+                <c:if test="${canDemographic}">
                 <tr>
                     <td class="align-middle" style="width:2rem;">
                         <input type="checkbox" name="item" value="demographic"
@@ -263,6 +279,7 @@
                         </button>
                     </td>
                 </tr>
+                </c:if>
 
                 <%-- Encounters section --%>
                 <tr class="table-secondary">
@@ -294,6 +311,7 @@
                         <fmt:message key="messenger.generatePreviewPDF.secPrescriptions"/>
                     </th>
                 </tr>
+                <c:if test="${canPrescriptions}">
                 <tr>
                     <td class="align-middle">
                         <input type="checkbox" name="item" value="prescriptions"
@@ -311,6 +329,7 @@
                         </button>
                     </td>
                 </tr>
+                </c:if>
 
                 <%-- Action row --%>
                 <tr>
