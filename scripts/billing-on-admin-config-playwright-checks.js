@@ -256,17 +256,17 @@ async function workflow(s) {
 
   await s.step('a premium code is added and removed again from the premium list', async () => {
     await manageForm(admin, frame, '***');
-    const addForm = frame.locator('form[action="DbManageBillingformPremium"]');
-    await addForm.locator('input[name="service1"]').fill(codeA);
-    await navigates(admin, frame, addForm.locator('input[type="submit"]'));
+    // The premium forms sit inside a <table>, so the parser leaves their inputs outside
+    // the <form> element (still form-owned): address the controls directly.
+    await frame.locator('input[name="service1"]').fill(codeA);
+    await navigates(admin, frame, frame.locator('input[type="submit"][value="Add Code"]'));
     await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(status), MAX(servicetype_name)) FROM ctl_billingservice_premium
       WHERE service_code=${h.sqlString(codeA)}`, '1|A|Office', 'The premium add did not write one active row');
     await manageForm(admin, frame, '***');
-    const deleteForm = frame.locator('form[action="DbManageBillingformPremiumDelete"]');
-    const box = deleteForm.locator(`input[type="checkbox"][value="${codeA}"]`);
+    const box = frame.locator(`input[type="checkbox"][value="${codeA}"]`);
     h.assert(await box.count() === 1, 'The premium list does not offer the owned code');
     await box.check();
-    await navigates(admin, frame, deleteForm.locator('input[type="submit"]'));
+    await navigates(admin, frame, frame.locator('input[type="submit"][value="Delete Code"]'));
     await expectValue(sql, `SELECT COUNT(*) FROM ctl_billingservice_premium WHERE service_code=${h.sqlString(codeA)}`, '0',
       'The premium delete did not remove the owned row');
   });

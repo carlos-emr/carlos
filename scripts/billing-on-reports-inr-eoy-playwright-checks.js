@@ -188,7 +188,7 @@ async function workflow(s) {
     const option = `/billing/CA/ON/ViewInrReportINR?provider_no=${ids.providerNo}`;
     const offered = await inr.locator('select[name="provider"] option').evaluateAll(
       (opts, suffix) => opts.some(o => o.value.endsWith(suffix)), option);
-    console.log('DEBUG', JSON.stringify((await inr.locator('select[name="provider"] option').evaluateAll(o => o.map(x => x.value))).filter(v => v.includes(ids.providerNo) || v.includes('all'))));
+    console.log('DEBUG', JSON.stringify((await inr.locator('select[name="provider"] option').evaluateAll(o => o.map(x => x.value))).length), sql.value(`SELECT CONCAT_WS('|',status,ohip_no,provider_no) FROM provider WHERE provider_no=${p}`));
     h.assert(offered, 'The INR provider list does not offer the owned billable provider');
     const row = inr.locator('tr').filter({ has: inr.locator(`input[name="inrbilling${ids.inr}"]`) });
     h.assert(await row.count() === 1, 'The INR report does not list the owned INR row exactly once');
