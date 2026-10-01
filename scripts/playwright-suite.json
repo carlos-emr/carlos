@@ -4866,6 +4866,666 @@
       "env": [],
       "fixtures": "EXCLUSIVE=1: snapshots and restores the global SystemPreferences row inboxDateSearchType (changes every user's Inbox date mode while it runs). Owns one synthetic HL7 lab (hl7TextMessage, hl7TextInfo, providerLabRouting, patientLabRouting) routed to a FAKE- patient; cleanup deletes only rows carrying the run's lab number and asserts they are gone.",
       "notes": "Fails at the last step ('Received-date mode shows the lab date as \"2026-03-04T12:34:56\"') while Hl7textResultsData.java:783 renders message.created (LocalDateTime under Hibernate 7) with String.valueOf; passes once the date is formatted as 'yyyy-MM-dd HH:mm:ss'."
+    },
+    {
+      "name": "gap-provider-account-expiry",
+      "script": "scripts/gap-provider-account-expiry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "fixtures": "Throwaway login whose security row's expiry columns are changed to 5 days, 30 days and yesterday; the expired attempt is a failed login, so run it with the live wrapper's EXCLUSIVE=1 (the lockout counter is address-keyed unless login_lock=true). The fixture and an extra cleanup remove the throwaway's rows including the 'expired' audit row."
+    },
+    {
+      "name": "gap-provider-appointment-do-not-book",
+      "script": "scripts/gap-provider-appointment-do-not-book-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: the Add Appointment popup of a Do Not Book slot hides Add and Group Appt but still offers Repeat, and Repeat creates a booking on the blocked slot (addappointment.jsp renders apptRepeatButton outside the !(bDnb || bMultipleSameDayGroupAppt) guard; RecurringAppointmentService has no block check).",
+      "fixtures": "Throwaway login; the blocking and any wrongly created appointments belong to the throwaway provider and are deleted (with archive rows) in cleanup."
+    },
+    {
+      "name": "gap-provider-appointment-null-timestamps",
+      "script": "scripts/gap-provider-appointment-null-timestamps-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: opening an appointment whose updatedatetime (or createdatetime) is NULL answers HTTP 500 (editappointment.jsp:1183-1184 LocalDateTime.parse of the empty string); the demo dataset has three such appointments.",
+      "fixtures": "Throwaway login plus an owned FAKE- patient and two SQL-seeded appointments with NULL timestamps; deleted in cleanup."
+    },
+    {
+      "name": "gap-provider-appointment-repeat-booking",
+      "script": "scripts/gap-provider-appointment-repeat-booking-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "fixtures": "Throwaway login with its own day sheet plus an owned FAKE- patient; the eight recurring appointments it books belong to the throwaway provider and are deleted (with archive rows) in cleanup."
+    },
+    {
+      "name": "gap-provider-appointment-type-booking",
+      "script": "scripts/gap-provider-appointment-type-booking-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: choosing Type A then Type B in the Add Appointment popup leaves the reason as 'B -- A' (addappointment.jsp type change appends the earlier autofill instead of replacing it).",
+      "fixtures": "Throwaway login plus an owned FAKE- patient; reads two SEEDED appointment types without modifying them (the Type menu reads a 30-minute cache, so SQL-seeded types are not offered). Owned appointment/archive rows are deleted in cleanup."
+    },
+    {
+      "name": "gap-provider-flowsheet-upload",
+      "script": "scripts/gap-provider-flowsheet-upload-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: Manage Flowsheets ▸ Upload stores any well-formed XML as a flowsheet (a NULL-named row; ManageFlowsheetsUpload2Action ▸ MeasurementTemplateFlowSheetConfig.validateFlowsheet accepts it) and a refused upload shows no message (manageFlowsheets.jsp never renders the flashError the action sets).",
+      "fixtures": "One owned FAKE-named flowsheet definition (dx trigger on a code no patient has, not universal) and its measurement type, plus the not-a-flowsheet file's row if the upload wrongly keeps it; all deleted in cleanup. The in-memory flowsheet registry is refreshed by the next flowsheet admin action."
+    },
+    {
+      "name": "gap-provider-messenger-write-to-encounter",
+      "script": "scripts/gap-provider-messenger-write-to-encounter-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Fails at its step 2 on 2026.08: Write to Encounter answers HTTP 403 because ViewMessage builds the WriteToEncounter form at click time without a CSRF token (L141); behind it, the chart the redirect opens carries no message text, so the note-text and Sign & Save assertions would fail next.",
+      "fixtures": "Owned FAKE- patient, one owned message delivered to the test provider and linked by msgDemoMap; cleanup deletes the message rows, the owned patient's notes and chart rows and the audit rows."
+    },
+    {
+      "name": "gap-provider-preferences-save-all",
+      "script": "scripts/gap-provider-preferences-save-all-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) plus an owned FAKE- patient and one appointment on the throwaway's own schedule; the shared test provider's preferences are never touched. Cleanup removes the appointment, the throwaway's property/ProviderPreference rows and the throwaway."
+    },
+    {
+      "name": "gap-provider-schedule-keyboard-shortcuts",
+      "script": "scripts/gap-provider-schedule-keyboard-shortcuts-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "fixtures": "None: read-only. Presses the day sheet's Alt+A/I/M/D/L/O/R/S/P/C/W/V/N shortcuts as the test login and closes every window it opens."
+    },
+    {
+      "name": "gap-provider-schedule-reason-privacy",
+      "script": "scripts/gap-provider-schedule-reason-privacy-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: the per-provider reason toggle '*' is never rendered while TOGGLE_REASON_BY_PROVIDER is unset (the JSP's defaultVal=\"yes\" is ignored by CarlosPropertiesCheck, which only honours \"true\").",
+      "fixtures": "Throwaway login plus an owned FAKE- patient and one appointment on the throwaway's own schedule; deleted in cleanup."
+    },
+    {
+      "name": "gap-provider-security-add-validation",
+      "script": "scripts/gap-provider-security-add-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Fails at its last step on 2026.08: a login POSTed with a weak password that does not match its confirmation is created (SecurityAddSecurityHelper has no server-side password policy or confirmation check).",
+      "fixtures": "One owned FAKE- provider row (target of the weak-password probe) and the user names the run attempts; the attempted refusals create no row, the probe's row is deleted in cleanup."
+    },
+    {
+      "name": "double-submit-appointment",
+      "script": "scripts/double-submit-appointment-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owns the synthetic patient and one appointment per mode booked 400 days ahead (reason carries the run marker); cleanup deletes the owned appointment and appointmentArchive rows and asserts they are gone.",
+      "notes": "Fails at its final assertion on 2026.08 (all steps run first): Add Appointment re-clicked while the response is slow, and intermittently two back-to-back clicks, books two appointments (addappointment.jsp:1465 #addButton has no disable-on-submit; AppointmentAddRecord2Action.java:141 persists unconditionally)."
+    },
+    {
+      "name": "double-submit-tickler",
+      "script": "scripts/double-submit-tickler-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns the synthetic patient; deletes its marker ticklers (+tickler_comments/tickler_update/ticklerdocs) and asserts none remain.",
+      "notes": "Passes on 2026.08: ticklerAdd.jsp:436-438 disables the Save buttons on the first activation."
+    },
+    {
+      "name": "double-submit-messenger",
+      "script": "scripts/double-submit-messenger-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "fixtures": "Marker-subject messages to the test login (already a messenger contact); cleanup deletes messagelisttbl/msgDemoMap/messagetbl rows with the run marker and asserts them gone. Changes no group membership.",
+      "notes": "Fails at its final assertion on 2026.08: Send Message double Enter, a re-click during a slow response and a POST replay (reload of the result page) each deliver two messages (CreateMessage.jsp:485-486,585 no guard; MsgCreateMessage2Action.java:175 sendMessage2 is not idempotent; SentMessage.jsp is rendered directly, no redirect-after-POST)."
+    },
+    {
+      "name": "double-submit-chart-note",
+      "script": "scripts/double-submit-chart-note-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "fixtures": "Owns the synthetic patient; deletes every marker casemgmt_note (+issue/ext/link rows), drafts and locks for it and asserts none remain.",
+      "notes": "Passes on 2026.08: Save and Sign & Save never yield two notes (two POSTs reach the server on a slow re-click but the save reuses the note id)."
+    },
+    {
+      "name": "double-submit-billing-on",
+      "script": "scripts/double-submit-billing-on-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 720,
+      "env": [],
+      "fixtures": "Owns the synthetic patient (given a synthetic HIN) and one past-dated appointment per mode; cleanup deletes billing_on_cheader1/item/ext/transaction rows for those appointments and the appointments and asserts them gone.",
+      "notes": "Fails at its final assertion on 2026.08: Save on the Ontario bill review page re-clicked during a slow response writes TWO billing_on_cheader1 headers and two items for one appointment (billingONReview.jsp:318,655 no guard; BillingOnSave2Action.java:142 saveBillingWithExtAndPayee has no idempotency key). Two back-to-back clicks did so intermittently."
+    },
+    {
+      "name": "double-submit-chart-adds",
+      "script": "scripts/double-submit-chart-adds-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 720,
+      "env": [],
+      "fixtures": "Owns the synthetic patient; deletes its allergies, preventions (+ext), measurements (+deleted) and any chart notes/locks the popups left and asserts none remain.",
+      "notes": "Fails at its final assertion on 2026.08 (measurement and POST-replay steps pass): Add Allergy (AddReaction2.jsp:329) and Prevention Save (AddPreventionData.jsp:735) each create two rows on a slow re-click and intermittently on two back-to-back clicks or double Enter; measurement group Submit stores one row even though two requests are sent."
+    },
+    {
+      "name": "double-submit-demographic-add",
+      "script": "scripts/double-submit-demographic-add-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "fixtures": "Patients named FAKE-PW<hex>-<tag> (no HIN); cleanup deletes the demographic rows and their admission/archive/ext/custom rows and asserts them gone.",
+      "notes": "Fails at its final assertion on 2026.08: reloading the Add Record result page (a directly rendered POST, no redirect) registers a second patient; dblclick/Enter/slow re-click are safe. DemographicAddRecord2Action.java:249-263 only refuses a duplicate HIN, so a patient without a HIN is unprotected."
+    },
+    {
+      "name": "double-submit-document",
+      "script": "scripts/double-submit-document-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "Owns the synthetic patient and tiny PDFs; cleanup deletes the document/ctl_document rows and the stored files (inside DOCUMENT_DIR) and asserts both gone. SKIPs without DOCUMENT_DIR.",
+      "notes": "Passes on 2026.08: addDocument.jsp:216-219 disables Submit on first submit and the post-save page is a redirect, so reload does not replay. No slow-response mode (route.fetch cannot re-send the multipart body)."
+    },
+    {
+      "name": "double-submit-consultation",
+      "script": "scripts/double-submit-consultation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "Owns the synthetic patient; deletes its marker consultationRequests rows and the CONSULTATION DigitalSignature rows the form files, asserts none remain. Save-only button: nothing is faxed or e-mailed.",
+      "notes": "Passes on 2026.08 (one RequestConsultation POST is ever sent; ConsultationFormRequest.jsp checkForm shows a spinner)."
+    },
+    {
+      "name": "double-submit-rx",
+      "script": "scripts/double-submit-rx-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owns the synthetic patient; deletes its drugs, prescription, drugReason, partial_date, DigitalSignature and chart-note rows between modes and in cleanup and asserts none remain. Needs DrugRef (RX_EDIT_DRUG_TERM/RX_EDIT_DRUG_NAME).",
+      "notes": "Passes on 2026.08: Rx Save yields one drugs row and one prescription row (RxWriteScript2Action consumes each staged card once)."
+    },
+    {
+      "name": "double-submit-eform",
+      "script": "scripts/double-submit-eform-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "fixtures": "Owns the synthetic patient and one marker eForm template; cleanup deletes the instances (eform_values + eform_data) and the template and asserts them gone.",
+      "notes": "Fails at its final assertion on 2026.08: the floating-toolbar Submit saves TWO eform_data instances on two back-to-back clicks, a slow-response re-click and a POST replay (eform_floating_toolbar.js:92 submitEForm no guard; AddEForm2Action.java ~655 saveEformData persists a NEW instance on every submit)."
+    },
+    {
+      "name": "double-submit-lab-manual",
+      "script": "scripts/double-submit-lab-manual-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "fixtures": "Owns the synthetic patient and the labs filed (unique DS<hex> accessions); cleanup removes every owned lab's routing, measurement, message and checksum rows and archived file (removeOwnedHl7Labs) and asserts it.",
+      "notes": "Fails at its final assertion on 2026.08: reloading the Submit-to-EMR result page files a second lab under the same accession. SubmitLabByForm2Action.java:222 FileUploadCheck.storeIfNew only dedups by content checksum of the HL7 it regenerates on every submit, which evidently differs on replay (live: second hl7TextInfo row); CreateLab.jsp:233 has no guard and the result is rendered directly (struts-lab.xml:89-90, no redirect). dblclick/Enter/slow re-click are safe."
+    },
+    {
+      "name": "double-submit-admin-adds",
+      "script": "scripts/double-submit-admin-adds-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Marker-named consultation services (FAKE-PW<hex>-<tag>); cleanup deletes the service rows (+serviceSpecialists) and asserts them gone. Touches no clinic-wide flag.",
+      "notes": "Fails at its final assertion on 2026.08: Add Service (Consultation configuration) re-clicked during a slow response and replayed by reload each add two services with the same name (EctConAddService2Action.java:66 persists without a name check; consultationServices has no unique key)."
+    },
+    {
+      "name": "boundary-demographic-text",
+      "script": "scripts/boundary-demographic-text-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Patients whose surname starts with the run tag, created through Search > Create Demographic; cleanup removes every row of those patients (relabels to the marker, then removeMarkedPatients) and asserts none remain. The append-only audit log is not touched.",
+      "notes": "Expected to FAIL at the last step 'preferred name, pronoun and gender past their columns are refused or stored whole' until the add/edit forms limit nameUsed to the 30-character pref_name column and validate pronoun and gender (25) like the other fields."
+    },
+    {
+      "name": "boundary-demographic-search",
+      "script": "scripts/boundary-demographic-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Two synthetic patients inserted by SQL (surname = run tag plus an apostrophe name / a CJK first name); cleanup deletes them and asserts none remain.",
+      "notes": "Expected to FAIL at the last step 'searches by an apostrophe surname, an accented first name, a CJK first name and an apostrophe address find the patient' until demographicsearchresults.jsp stops passing the keyword through SafeEncode.forJava."
+    },
+    {
+      "name": "boundary-appointment-text",
+      "script": "scripts/boundary-appointment-text-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with its own day sheet and the owned FAKE- patient; cleanup deletes the owned appointment and archive rows, then the throwaway, and asserts they are gone.",
+      "notes": "Expected to FAIL at the last step 'line breaks inside a full box, and a long free-text name and resources entry, are stored whole or refused' (appointment.name varchar(50) and resources varchar(255) have no maxlength and no server check)."
+    },
+    {
+      "name": "boundary-messaging-text",
+      "script": "scripts/boundary-messaging-text-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The owned FAKE- patient; ticklers and messages carry the run marker and are deleted by cleanup, which asserts they are gone. Messenger recipient is the test login itself.",
+      "notes": "Expected to FAIL at the last step 'a subject past the column and a tickler text past the TEXT column are refused or stored whole' (Subject box has no maxlength, messagetbl.thesubject is 128; tickler.message TEXT 65,535 bytes silently cut)."
+    },
+    {
+      "name": "boundary-chart-note-text",
+      "script": "scripts/boundary-chart-note-text-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The owned FAKE- patient; every casemgmt_note row of that patient carrying the run marker (with issue links, ext rows, drafts and locks) is deleted and asserted gone. Passes today."
+    },
+    {
+      "name": "boundary-provider-text",
+      "script": "scripts/boundary-provider-text-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "One provider row created through the UI under an unused number; cleanup deletes the rows carrying that number from provider and its child tables and asserts none remain. SKIPs when AUTO_GENERATE_PROVIDER_NO is on. Passes today."
+    },
+    {
+      "name": "boundary-rbt-group-label",
+      "script": "scripts/boundary-rbt-group-label-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "One Report by Template group named with the run marker; cleanup deletes rbt_groups rows carrying the marker and asserts none remain.",
+      "notes": "Expected to FAIL at its only step: RBTGroupManager.addTemplateToGroup stores the group name through Encode.forJava (O\\'Brien, Zo\\353, \\u5c71...)."
+    },
+    {
+      "name": "boundary-document-text",
+      "script": "scripts/boundary-document-text-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "BOUNDARY_DOCUMENT_DIR"
+      ],
+      "fixtures": "The owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows and the stored files they name (inside the document store only) and asserts them gone. SKIPs when the store is not readable (BOUNDARY_DOCUMENT_DIR overrides carlos.properties DOCUMENT_DIR).",
+      "notes": "Expected to FAIL at the last step 'a description one character past the column is refused or visibly limited' (docDesc box has no maxlength; document.docdesc is 255)."
+    },
+    {
+      "name": "boundary-rx-drug-name",
+      "script": "scripts/boundary-rx-drug-name-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The owned FAKE- patient; two DrugRef products are staged on the prescription card but nothing is saved; cleanup asserts no drugs row exists for the patient. SKIPs when DrugRef offers no matching product.",
+      "notes": "Expected to FAIL at its only step: RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava, so the card shows CHILDREN\\'S and AC\\311TAMINOPH\\310NE."
+    },
+    {
+      "name": "boundary-date-billing-claims",
+      "script": "scripts/boundary-date-billing-claims-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Billing fixture of billing-on-ohip-simulation-report (throwaway billing provider with own OHIP and group numbers in the operator's sites, the owned patient given a synthetic HIN) and seven open claims dated 2004-02-28 .. 2004-03-13; cleanup removes claims and provider and asserts them gone. The simulation writes nothing; no claim file is generated or sent.",
+      "notes": "Expected to FAIL at 'OHIP simulation previews a claim dated exactly on the Service Date Start' (BillingONCHeader1DaoImpl.findByProviderStatusAndDateRange uses billingDate > from); the Invoice Reports steps before it pass."
+    },
+    {
+      "name": "boundary-date-audit-log",
+      "script": "scripts/boundary-date-audit-log-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Twelve owned rows in `log` (action boundary-date, contentId = run marker, dates in 2003-2004); cleanup deletes only rows carrying the marker and asserts them gone.",
+      "notes": "Expected to FAIL at the first step: the one-day window on 2004-02-29 also lists the row stamped 2004-03-01 00:00:00 (OscarLogDaoImpl.findForReport uses dateTime <= end+1 day 00:00:00)."
+    },
+    {
+      "name": "boundary-date-tickler",
+      "script": "scripts/boundary-date-tickler-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Eleven ticklers for the owned patient carrying the run marker (2027-12-30 .. 2028-03-01); cleanup deletes them with comments and updates and asserts none remain. Passes today (negative control: the tickler filter is inclusive)."
+    },
+    {
+      "name": "boundary-date-inbox",
+      "script": "scripts/boundary-date-inbox-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Five documents (ctl_document + routing) and five HL7 labs (hl7TextMessage + hl7TextInfo + providerLabRouting) for the owned patient dated 2026-03-02 .. 2026-03-06; the owned patient's HIN is set to '' (NULL HIN is ISSUES L207). Cleanup removes every row by id and asserts none remain. The inbox date preference is not changed.",
+      "notes": "Expected to FAIL at the last step 'labs observed on the Start Date and at any time on the End Date are listed': labs observed later in the day on the End Date are dropped (LabDataController.convertDate / Hl7TextInfoDaoImpl info.obr_date <= :endDate)."
+    },
+    {
+      "name": "boundary-date-prevention-report",
+      "script": "scripts/boundary-date-prevention-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Three synthetic patients over 65 with one Flu prevention each (day before / on / after the as-of date) and one saved patient query naming them; cleanup removes preventions, query and patients and asserts none remain.",
+      "notes": "Expected to FAIL at its only step: a flu shot dated ON the as-of date is classified 'No Info' (FluReport.removeFutureItems keeps prevDate.before(asOfDate))."
+    },
+    {
+      "name": "boundary-age-report",
+      "script": "scripts/boundary-age-report-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Nineteen synthetic patients (surname = run marker + index; birthdays today, 5..90 years ago, and tomorrow) with an isolated join date; cleanup removes them and their reportagesex cache rows and asserts none remain. The Age-Sex Report regeneration rewrites the reportagesex cache for every patient.",
+      "notes": "Expected to FAIL at the last step: ReportAgeSexDaoImpl.populateAll computes FLOOR(DATEDIFF/365.25), one year short on the birthday itself, so buckets 0-4, 10-14, 30-34, 50-54, ... are off."
+    },
+    {
+      "name": "boundary-age-search-results",
+      "script": "scripts/boundary-age-search-results-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Four synthetic patients (birthday tomorrow / today / yesterday, 29 Feb 2000) inserted by SQL; nothing is booked; cleanup deletes them and asserts none remain.",
+      "notes": "Expected to FAIL at its only step: the Age column of the booking-popup search shows 24 for a patient whose 25th birthday is today (Demographic.getAge -> Utility.calcAge tests curDay > birthDay)."
     }
   ]
 }
