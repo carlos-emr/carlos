@@ -7,8 +7,9 @@
 // Health Review, Mental Health Form 1, Discharge Summary, Palliative Care, Peri-Menopausal,
 // MMSE, Vascular Tracker): each form's prose cell carries clinical punctuation, a structured
 // field is set, the save is asserted in the form's own table (one owned row, exact values, the
-// signed-in provider), on the redisplayed page, after reopening, and in the print. Every form's
-// result is recorded and the check fails at the end, so one broken form never hides the rest.
+// signed-in provider), on the redisplayed page, after reopening, and in the print; Palliative Care
+// is also saved a second time from the redisplayed window. Every form's result is recorded and
+// the check fails at the end, so one broken form never hides the rest.
 // Fixtures: the owned synthetic patient and marker-named Forms-menu registrations of each form
 // (the shipped rows are hidden on Ontario installs and are clinic-wide, so run EXCLUSIVE=1);
 // cleanup deletes every form row of the owned patient and the registrations, and asserts both.
@@ -16,6 +17,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { pdfText } = require('./form-print-pdf-playwright-checks');
 
 const NAME = 'clinical-forms-save-reopen';
 const PROSE = "BP 120/80 & HR 72; pt's c/o SOB";
@@ -25,7 +27,8 @@ const date = name => ({ name, value: DATE.value, stored: DATE.stored });
 
 // key: menu suffix; path/query: the shipped form_value; idColumn: the table's key column;
 // provider: the table records the saving provider; confirm: Save asks before posting;
-// print: 'page' (a server-rendered print popup) or 'pdf' (a POST answered with a PDF).
+// print: 'page' (a server-rendered print popup) or 'pdf' (a POST answered with a PDF), pressed
+// on the reopened form; resave: Save again from the window the first Save redisplayed.
 const FORMS = [
   { key: 'ANN', title: 'Annual Health Review', path: '../form/formannual.jsp', table: 'formAnnual',
     idColumn: 'ID', provider: true, confirm: true, prose: 'currentConcerns',
@@ -36,7 +39,7 @@ const FORMS = [
   { key: 'DS', title: 'Discharge Summary', path: '../form/formDischargeSummary.jsp', table: 'formDischargeSummary',
     idColumn: 'id', provider: true, confirm: true, prose: 'briefSummary', fields: [date('dischargeDate')] },
   { key: 'PC', title: 'Palliative Care', path: '../form/formpalliativecare.jsp', table: 'formPalliativeCare',
-    idColumn: 'ID', provider: true, confirm: true, prose: 'pain1', fields: [date('date1')] },
+    idColumn: 'ID', provider: true, confirm: true, prose: 'pain1', fields: [date('date1')], resave: true },
   { key: 'PERI', title: 'Peri-Menopausal', path: '../form/formperimenopausal.jsp', table: 'formPeriMenopausal',
     idColumn: 'ID', provider: true, confirm: true, prose: 'orf_comments', fields: [check('orf_emYes')] },
   { key: 'MMSE', title: 'Mini-Mental State Examination', path: '../form/formmmse.jsp', table: 'formMMSE',
@@ -115,15 +118,16 @@ async function workflow(s) {
     const { form, name } = registration;
     const entry = { form, name, text: `${marker} ${PROSE}` };
     results.push(entry);
-    let page;
     await attempt(entry, 'opens from the Forms menu for the owned patient', async () => {
       await chart.locator('#menuTitle1 a').hover();
-      page = await s.popup(chart, chart.getByRole('link', { name, exact: true }), `form-${form.key}`);
-      h.assert(new URL(page.url()).searchParams.get('demographic_no') === patient, 'The form opened for another patient');
-      if (form.prose) await page.locator(`[name="${form.prose}"]`).first().waitFor({ state: 'visible' });
+      entry.page = await s.popup(chart, chart.getByRole('link', { name, exact: true }), `form-${form.key}`);
+      h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'The form opened for another patient');
+      h.assert(form.prose, 'The form opened; add its prose and structured fields to FORMS');
+      await entry.page.locator(`[name="${form.prose}"]`).first().waitFor({ state: 'visible' });
     });
 
     await attempt(entry, 'Save stores exactly the typed prose and structured fields for the signed-in provider', async () => {
+      const { page } = entry;
       await page.locator(`[name="${form.prose}"]`).first().fill(entry.text);
       for (const field of form.fields) {
         const input = page.locator(`[name="${field.name}"]`).first();
@@ -131,14 +135,17 @@ async function workflow(s) {
       }
       const posted = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/form/formname'));
       const landed = page.waitForURL(url => url.pathname.endsWith('/form/forwardname'), { waitUntil: 'domcontentloaded' });
-      const seen = await h.withExpectedDialogs(page, () => page.getByRole('button', { name: 'Save', exact: true }).first().click());
-      h.assert(seen.length === (form.confirm ? 1 : 0), form.confirm ? 'Save did not ask for confirmation exactly once' : 'Save raised a dialog');
+      // Observed below; a failure raised first must not surface later as an unhandled rejection.
+      posted.catch(() => {});
+      landed.catch(() => {});
+      // The confirmation is asserted after the save has been proven, so a missing prompt does
+      // not hide whether the form still saves.
+      entry.dialogs = await h.withExpectedDialogs(page, () => page.getByRole('button', { name: 'Save', exact: true }).first().click());
       h.assert((await posted).status() === 302, 'The save was not accepted');
       await landed;
       const columns = [form.idColumn, form.prose, ...form.fields.map(field => field.name), form.provider ? 'provider_no' : "''"];
-      const query = `SELECT ${columns.join(',')} FROM ${form.table} WHERE demographic_no=${patient}`;
       await expectValue(sql, `SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`, '1', 'Save did not store exactly one row');
-      const [row] = sql.rows(query);
+      const [row] = sql.rows(`SELECT ${columns.join(',')} FROM ${form.table} WHERE demographic_no=${patient}`);
       h.assert(row[1] === entry.text, 'The stored prose differs from what was typed');
       form.fields.forEach((field, i) => h.assert(row[2 + i] === field.stored, `The stored ${field.name} differs from what was set`));
       if (form.provider) h.assert(row[row.length - 1] === provider, 'The row is not attributed to the signed-in provider');
@@ -146,10 +153,35 @@ async function workflow(s) {
       h.assert(new URL(page.url()).searchParams.get('formId') === entry.id, 'Save redisplayed another record');
     });
 
-    await attempt(entry, 'the redisplayed form shows the saved values', () => assertShown(page, form, entry.text, 'The redisplayed form'));
+    await attempt(entry, 'the redisplayed form shows the saved values', () => assertShown(entry.page, form, entry.text, 'The redisplayed form'));
+  }
+
+  // Reopen from a fresh E-Chart, whose navbar lists each saved form as a forwardshortcutname entry.
+  // A new page rather than chart.reload(): leaving the encounter fires an unload beacon that the
+  // strict recorder reports as an aborted request.
+  const fresh = await s.context.newPage();
+  h.wireStrictPage(fresh, 'reopen-chart', s.recorder);
+  await fresh.goto(chart.url(), { waitUntil: 'domcontentloaded' });
+  await waitForNavbars(fresh, 20000);
+  for (const entry of results) {
+    const { form } = entry;
+    let page;
+    await attempt(entry, 'reopening from the E-Chart restores the saved values', async () => {
+      const link = fresh.locator(`#leftNavBar a[onclick*="formname=${entry.name}&"], #rightNavBar a[onclick*="formname=${entry.name}&"]`).first();
+      // The Forms module lists six entries and folds the rest behind its "N more items" arrow.
+      const more = fresh.locator('ul:has(a[onclick*="/form/forwardshortcutname"]) a[title$="more items"]').first();
+      if (!await link.count() && await more.count()) await more.click();
+      await link.waitFor({ state: 'attached' });
+      page = await ui.clickOpensPopup(fresh, link, { context: s.context, recorder: s.recorder,
+        label: `reopen-${form.key}`, timeout: 20000, position: { x: 8, y: 9 } });
+      const params = new URL(page.url()).searchParams;
+      h.assert(params.get('demographic_no') === patient, 'The saved-form entry opened another patient');
+      h.assert(params.get('formId') === entry.id, 'The saved-form entry did not open the saved record');
+      await assertShown(page, form, entry.text, 'The reopened form');
+    });
 
     if (form.print) {
-      await attempt(entry, form.print.kind === 'pdf' ? 'Print Pdf answers a PDF of the saved form'
+      await attempt(entry, form.print.kind === 'pdf' ? 'Print Pdf answers a PDF carrying the saved prose'
         : 'Print Page renders the saved form for the owned patient', async () => {
         const button = page.getByRole('button', { name: form.print.button, exact: true }).first();
         if (form.print.kind === 'page') {
@@ -159,6 +191,7 @@ async function workflow(s) {
           await print.close();
           return;
         }
+        // A PDF navigation hands Playwright the viewer's HTML, so the bytes are read in transit.
         let body;
         await page.route('**/form/formname?*', async route => {
           const answer = await route.fetch();
@@ -171,34 +204,30 @@ async function workflow(s) {
         await page.unroute('**/form/formname?*');
         h.assert(response.status() === 200 && /application\/pdf/.test(response.headers()['content-type'] || ''),
           'Print did not answer a PDF');
-        h.assert(body && body.subarray(0, 4).toString() === '%PDF', 'Print answered something other than a PDF document');
+        h.assert(body.subarray(0, 4).toString() === '%PDF', 'Print answered something other than a PDF document');
+        h.assert(pdfText(body).includes(marker), 'The PDF does not carry the saved prose');
       });
     }
     if (page && !page.isClosed()) await page.close();
-  }
 
-  // Reopen from a fresh E-Chart, whose navbar lists each saved form as a forwardshortcutname entry.
-  // A new page rather than chart.reload(): leaving the encounter fires an unload beacon that the
-  // strict recorder reports as an aborted request.
-  const fresh = await s.context.newPage();
-  h.wireStrictPage(fresh, 'reopen-chart', s.recorder);
-  await fresh.goto(chart.url(), { waitUntil: 'domcontentloaded' });
-  await waitForNavbars(fresh, 20000);
-  for (const entry of results) {
-    if (entry.failure) continue;
-    const { form } = entry;
-    await attempt(entry, 'reopening from the E-Chart restores the saved values', async () => {
-      const link = fresh.locator(`#leftNavBar a[onclick*="formname=${entry.name}&"], #rightNavBar a[onclick*="formname=${entry.name}&"]`).first();
-      await link.waitFor({ state: 'attached' });
-      const page = await ui.clickOpensPopup(fresh, link, { context: s.context, recorder: s.recorder,
-        label: `reopen-${form.key}`, timeout: 20000, position: { x: 8, y: 9 } });
-      const params = new URL(page.url()).searchParams;
-      h.assert(params.get('demographic_no') === patient, 'The saved-form entry opened another patient');
-      const latest = sql.value(`SELECT MAX(${form.idColumn}) FROM ${form.table} WHERE demographic_no=${patient}`);
-      h.assert(params.get('formId') === latest, 'The saved-form entry did not open the latest record');
-      await assertShown(page, form, entry.text, 'The reopened form');
-      await page.close();
+    await attempt(entry, form.confirm ? 'Save asked for confirmation exactly once' : 'Save raised no dialog', async () => {
+      h.assert(entry.dialogs.length === (form.confirm ? 1 : 0),
+        form.confirm ? 'Save did not ask for confirmation exactly once' : 'Save raised a dialog');
     });
+
+    if (form.resave) {
+      // A clinician keeps working in the window Save redisplayed; its next Save must be accepted.
+      await attempt(entry, 'a second Save from the redisplayed form is accepted and updates the record', async () => {
+        const revised = `${entry.text} (revised)`;
+        await entry.page.locator(`[name="${form.prose}"]`).first().fill(revised);
+        const posted = entry.page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/form/formname'));
+        await h.withExpectedDialogs(entry.page, () => entry.page.getByRole('button', { name: 'Save', exact: true }).first().click());
+        h.assert((await posted).status() === 302, 'The second save was refused');
+        await expectValue(sql, `SELECT ${form.prose} FROM ${form.table} WHERE demographic_no=${patient}
+          ORDER BY ${form.idColumn} DESC LIMIT 1`, revised, 'The second save did not store the revision');
+      });
+    }
+    if (entry.page && !entry.page.isClosed()) await entry.page.close();
   }
   for (const entry of results) {
     await attempt(entry, 'raised no JavaScript-layer problems', async () => h.assertStrictPage(s.recorder, labels(entry.form)));

@@ -2,28 +2,24 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 
 /*
- * Ontario billing reports: end-of-year patient statement, INR batch billing and the billed
- * report, driven through their real openers.
- *
- * User paths:
- *   Schedule ▸ Administration ▸ Billing ▸ End Year Statement (#myFrame) ▸ patient search ▸ pick
- *     (endYearStatement/demosearch) ▸ dates ▸ Create Statement (…/search) ▸ Print PDF (…/pdf)
- *   Schedule ▸ Administration ▸ Billing ▸ INR Batch Billing (ViewInrReportINR) ▸ provider ▸
- *     tick ▸ Generate INR Batch Billing (ViewInrOnGenINRbilling) ▸ patient name (InrUpdateINRbilling)
- *   Schedule ▸ Report ▸ Billing Report (ViewBillingReportCenter ▸ ViewBillingONNewReport) ▸
- *     Billed ▸ provider ▸ dates ▸ Create Report (ViewBillingONReport)
- * Asserted: the statement lists exactly the owned patient's PAT invoices in the window with
- * their items and invoiced/paid totals, and the PDF bytes carry the same invoices and totals;
- * INR generation writes one OHIP claim (header + item) per ticked INR row and stamps the row
- * billed; the billed report lists exactly the owned provider's open claims; GET against the
- * INR generator is refused and writes nothing. The final step asserts that the INR row's
- * update form opens from the report (it currently answers 405 to its own GET opener).
- * Fixtures: the runWorkflow FAKE- patient, one FAKE- billable provider with a billingreport
- * reportprovider row, one billinginr row, four seeded claims (two PAT in the window, one HCP,
- * one PAT outside it). Cleanup deletes every owned row by id/marker and asserts it is gone.
- * Implements docs/ui-tests/playwright-coverage-plan-2026.08.md billing-on-reports-inr-eoy.
+ * Ontario billing reports: billed report, INR batch billing, end-of-year statement, MOH L report.
+ * User paths: Schedule ▸ Report ▸ Billing Report ▸ Billed ▸ Create Report (ViewBillingReportCenter,
+ * ViewBillingONReport); Schedule ▸ Administration ▸ Billing ▸ INR Batch Billing ▸ tick ▸ Generate
+ * (ViewInrOnGenINRbilling) ▸ patient name (InrUpdateINRbilling); … ▸ End Year Statement ▸ search ▸
+ * pick (demosearch) ▸ Create Statement ▸ Print PDF; … ▸ Upload MOH File ▸ L file (billingLreport).
+ * Asserted (DB + page): one billed-report row per owned open claim in range; INR generation writes
+ * one claim (header + item) for the ticked row and stamps it billed; GET on the generator is 405
+ * and writes nothing; the statement lists exactly the owned PAT invoices in the window with items
+ * and totals. The last four steps assert behaviour the app lacks today: billed-report cells/headers
+ * (forEach var "header" renders the request headers, Cookie included), the statement PDF (HTTP 500),
+ * the L report render (ES.xsl 404) and the INR update form (405 to its own GET opener).
+ * Fixtures: runWorkflow FAKE- patient, a FAKE- billable provider + reportprovider row, a billinginr
+ * row, four seeded claims, the uploaded L file (DOCUMENT_DIR + ONEDT_INBOX); all removed and
+ * re-checked in cleanup. Implements coverage-plan billing-on-reports-inr-eoy.
  */
 
+const fs = require('node:fs');
+const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -93,7 +89,16 @@ async function workflow(s) {
     throw new h.SkipCheck('The year-end statement PDF check requires Poppler pdftotext');
   }
 
+  const inbox = process.env.ONEDT_INBOX
+    || (process.env.DOCUMENT_DIR ? path.join(path.dirname(path.resolve(process.env.DOCUMENT_DIR)), 'onEDTDocs', 'inbox') : '');
+  if (!inbox || !fs.existsSync(inbox)) throw new h.SkipCheck('ONEDT_INBOX (the MOH inbox folder) is not set');
+  const mohName = `L${marker.replace(/^FAKE-PW/, '')}.xml`;
+
   s.cleanup(() => {
+    // The upload stores the report in DOCUMENT_DIR and copies it into the MOH inbox.
+    const copies = [path.join(inbox, mohName), path.join(process.env.DOCUMENT_DIR || inbox, mohName)];
+    for (const copy of copies) fs.rmSync(copy, { force: true });
+    h.assert(copies.every(copy => !fs.existsSync(copy)), 'The owned MOH report files were not removed');
     const headers = sql.rows(`SELECT id FROM billing_on_cheader1 WHERE demographic_no=${patient}`).map(r => r[0]);
     const hIds = headers.length ? headers.map(Number).join(',') : '0';
     sql.execute(`DELETE FROM billing_on_ext WHERE billing_no IN (${hIds});
@@ -183,13 +188,10 @@ async function workflow(s) {
     { context: s.context, recorder: s.recorder, label: 'administration', timeout: 20000 });
 
   let inr;
-  await s.step('INR Batch Billing lists the owned INR row and offers its provider', async () => {
+  await s.step('INR Batch Billing lists the owned INR row with its code, amount, dx and unbilled state', async () => {
     inr = await openAdminFrame(admin, '/billing/CA/ON/ViewInrReportINR?provider_no=all', 'select[name="provider"]');
-    const option = `/billing/CA/ON/ViewInrReportINR?provider_no=${ids.providerNo}`;
-    const offered = await inr.locator('select[name="provider"] option').evaluateAll(
-      (opts, suffix) => opts.some(o => o.value.endsWith(suffix)), option);
-    console.log('DEBUG', JSON.stringify((await inr.locator('select[name="provider"] option').evaluateAll(o => o.map(x => x.value))).length), sql.value(`SELECT CONCAT_WS('|',status,ohip_no,provider_no) FROM provider WHERE provider_no=${p}`));
-    h.assert(offered, 'The INR provider list does not offer the owned billable provider');
+    // The provider dropdown comes from a five-minute provider cache that an SQL-seeded provider
+    // does not evict, so the row is reached through the "all providers" list the menu opens.
     const row = inr.locator('tr').filter({ has: inr.locator(`input[name="inrbilling${ids.inr}"]`) });
     h.assert(await row.count() === 1, 'The INR report does not list the owned INR row exactly once');
     const text = (await row.innerText()).replace(/\s+/g, ' ');
@@ -289,13 +291,19 @@ async function workflow(s) {
   });
 
   await s.step('Print PDF downloads a PDF carrying the same invoices and totals', async () => {
-    const [download] = await Promise.all([
-      admin.waitForEvent('download', { timeout: 30000 }),
+    const downloaded = admin.waitForEvent('download', { timeout: 30000 });
+    downloaded.catch(() => {});
+    const [answer] = await Promise.all([
+      s.context.waitForEvent('response', { timeout: 30000, predicate: r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/billing/CA/ON/endYearStatement/pdf') }),
       eoy.locator('input[type="submit"][value="Print PDF"]').click(),
     ]);
+    h.assert(answer.status() === 200 && /^application\/pdf/.test(answer.headers()['content-type'] || ''),
+      `End Year Statement ▸ Print PDF answered HTTP ${answer.status()} instead of a PDF`);
+    const download = await downloaded;
     const file = await download.path();
     h.assert(file, 'The statement PDF download was not saved');
-    const bytes = require('node:fs').readFileSync(file);
+    const bytes = fs.readFileSync(file);
     h.assert(bytes.subarray(0, 4).toString('latin1') === '%PDF', 'The statement download is not a PDF');
     h.assert(/%%EOF\s*$/.test(bytes.subarray(-64).toString('latin1')), 'The statement PDF is followed by trailing bytes');
     const text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', timeout: 15000 });
@@ -307,6 +315,19 @@ async function workflow(s) {
     h.assert(ids.bills.filter(b => !statement.includes(b)).every(b => !new RegExp(`\\b${b.id}\\b`).test(text)),
       'The PDF lists an invoice outside the PAT/date selection');
     h.assert(text.includes(invoiced) && text.includes(paid), 'The PDF does not carry the invoiced and paid totals');
+  });
+
+  await s.step('Upload MOH File ▸ an L (outside use) report opens in billingLreport through its XSL', async () => {
+    const upload = await openAdminFrame(admin, '/billing/CA/ON/BillingONUpload', 'input[type="file"][name="file1"]');
+    await upload.locator('input[name="file1"]').setInputFiles({ name: mohName, mimeType: 'text/xml', buffer: Buffer.from(
+      `<?xml version="1.0"?><REPORT><REPORT-DTL><REPORT-NAME>${marker} EDT REPORT</REPORT-NAME>`
+      + `<REPORT-ID>${ids.ohip}</REPORT-ID><REPORT-DATE>${today}</REPORT-DATE></REPORT-DTL></REPORT>\n`) });
+    await frameNavigation(admin, upload, () => upload.locator('input[type="submit"][value="Create Report"]').click());
+    h.assert(fs.existsSync(path.join(inbox, mohName)), 'The uploaded L report was not copied into the MOH inbox');
+    const rendered = await upload.locator('#MOHreport').getByText(`${marker} EDT REPORT`)
+      .waitFor({ timeout: 15000 }).then(() => true, () => false);
+    h.assert(rendered, 'billingLreport did not render the uploaded L report (its XSL transform produced nothing)');
+    h.assert((await upload.locator('#MOHreport').innerText()).includes(ids.ohip), 'The rendered L report does not show its report id');
   });
 
   await s.step('INR row ▸ patient name opens the INR update form for that row', async () => {

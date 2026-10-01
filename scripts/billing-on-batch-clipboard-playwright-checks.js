@@ -3,22 +3,19 @@
 
 /*
  * Ontario batch billing and the RA billing clipboard, driven through their real openers.
- *
- * User paths:
- *   Schedule ▸ Administration ▸ Billing ▸ Batch Billing (BatchBill in #myFrame) ▸ provider ▸
- *     tick one patient ▸ Submit; tick another ▸ Remove (confirm)
- *   Schedule ▸ Administration ▸ Billing ▸ Billing Reconciliation (ViewGenRA in #myFrame) ▸
- *     Report (genRADesc window) ▸ Clipboard (popup) ▸ Print Preview (ViewPrintBillingClipboard)
- * Asserted: the batch list for the owned provider shows exactly the owned queue rows; Submit
- * creates one OHIP claim (header + item, schedule fee, dx, clinic, service date) for the ticked
- * patient only and stamps that queue row billed, while the unticked patient gets no claim;
- * Remove asks once and deletes only the ticked queue row; GET against the batch mutators is
- * refused (405, Allow: POST) and writes nothing; the clipboard print preview echoes both text
- * areas as text (markup encoded, the long note wrapped at 80 columns).
- * Fixtures: the runWorkflow FAKE- patient plus a second FAKE- patient, one FAKE- billable
- * provider, two batch_billing queue rows, one raheader row and its empty RA file in
- * DOCUMENT_DIR; cleanup removes every owned row/file by id/marker and asserts it is gone.
- * Implements docs/ui-tests/playwright-coverage-plan-2026.08.md billing-on-batch-clipboard.
+ * User paths: Schedule ▸ Administration ▸ Billing ▸ Batch Billing (BatchBill, #myFrame) ▸ provider ▸
+ * tick ▸ Generate Batch Invoices; tick ▸ Remove (confirm); … ▸ Billing Reconciliation (ViewGenRA) ▸
+ * Report (genRADesc) ▸ Clipboard ▸ Print Preview (ViewPrintBillingClipboard).
+ * Asserted: the batch list shows exactly the owned queue rows; Submit writes one claim (header +
+ * item: provider, HCP, schedule fee, dx, clinic, date, creator) for the ticked patient only and
+ * stamps that queue row; Remove confirms once and deletes only the ticked row; GET on both
+ * mutators is 405 and writes nothing; the clipboard preview echoes both notes encoded, the long
+ * one wrapped at 80 columns. The last step currently fails: the RA Report link posts a runtime
+ * form without a CSRF token (403), so the Clipboard is unreachable.
+ * Fixtures: runWorkflow FAKE- patient + a second FAKE- patient, a FAKE- billable provider (with the
+ * operator's site memberships), two batch_billing rows, a raheader/radetail pair and its empty RA
+ * file in DOCUMENT_DIR; all removed and re-checked in cleanup. Implements coverage-plan
+ * billing-on-batch-clipboard.
  */
 
 const fs = require('node:fs');

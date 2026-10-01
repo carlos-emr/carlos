@@ -4420,11 +4420,12 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: ValidateSwipeCard answers 500 on a malformed track instead of a bad request.",
+      "fixtures": "Owned synthetic patient given a unique synthetic HIN (valid Ontario check digit) and an X0X postal code; removed by runWorkflow."
     },
     {
       "name": "clinical-forms-save-reopen",
@@ -4434,7 +4435,22 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Records each form and fails at the end on 2026.08: a second save/print is refused for a missing CSRF token, Vascular Tracker 404s, Annual print 404s, MMSE image 404s, and the Discharge Summary and Mental Health Form 1 saves throw TypeErrors.",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "billing-on-gst-css-benefit",
+      "script": "scripts/billing-on-gst-css-benefit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [],

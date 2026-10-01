@@ -23,7 +23,8 @@ function luhnHin() {
   let sum = 0;
   for (let i = 0; i < 9; i++) {
     let digit = Number(body[i]);
-    if (i % 2 === 1) { digit *= 2; if (digit > 9) digit -= 9; }
+    // check_hin.js mod10Check doubles the even (0-based) positions of an Ontario HIN.
+    if (i % 2 === 0) { digit *= 2; if (digit > 9) digit -= 9; }
     sum += digit;
   }
   return body + String((10 - (sum % 10)) % 10);
@@ -49,8 +50,9 @@ async function workflow(s) {
   const hin = luhnHin();
   h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE hin=${h.sqlString(hin)}`) === '0',
     'The synthetic HIN collides with an existing record; rerun');
-  // The owned patient is deleted by runWorkflow; this only gives it a card to match.
-  sql.execute(`UPDATE demographic SET hin=${h.sqlString(hin)}, ver='AA', hc_type='ON'
+  // The owned patient is deleted by runWorkflow; this gives it a card to match and the
+  // (fictional, X0X) postal code the record's Update validation requires.
+  sql.execute(`UPDATE demographic SET hin=${h.sqlString(hin)}, ver='AA', hc_type='ON', postal='X0X0X0'
     WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
   h.assert(sql.value(`SELECT GROUP_CONCAT(demographic_no) FROM demographic WHERE hin=${h.sqlString(hin)}`) === patient,
     'The synthetic HIN was not given to the owned patient alone');
