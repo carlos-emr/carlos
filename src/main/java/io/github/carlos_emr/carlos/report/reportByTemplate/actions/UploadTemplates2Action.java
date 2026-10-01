@@ -41,6 +41,7 @@ package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
@@ -73,6 +74,8 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
         this.securityInfoManager = securityInfoManager;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (the ReportManager outcome prefix "Error"/"Exception"); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (the ReportManager outcome prefix); not a security or authorization decision")
     public String execute() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
