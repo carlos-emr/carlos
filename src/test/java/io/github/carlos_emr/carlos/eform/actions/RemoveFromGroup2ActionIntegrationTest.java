@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mockStatic;
 
 /**
@@ -66,6 +67,20 @@ class RemoveFromGroup2ActionIntegrationTest extends CarlosWebTestBase {
         try (MockedStatic<EFormUtil> eformUtil = mockStatic(EFormUtil.class)) {
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             eformUtil.verify(() -> EFormUtil.remEFormFromGroup("Intake", "7"));
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse and leave the group unchanged when the provider may not write eForms")
+    void shouldThrowSecurityException_whenProviderLacksEFormWritePrivilege() {
+        denyPrivilege("_eform", "w");
+        mockRequest.setParameter("groupName", "Intake");
+
+        try (MockedStatic<EFormUtil> eformUtil = mockStatic(EFormUtil.class)) {
+            assertThatThrownBy(() -> action.execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_eform)");
+            eformUtil.verifyNoInteractions();
         }
     }
 

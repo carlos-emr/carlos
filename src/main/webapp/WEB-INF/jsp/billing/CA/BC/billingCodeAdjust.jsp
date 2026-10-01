@@ -55,7 +55,7 @@
 
 <html>
     <head>
-        <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Adjust Billing Codes</title>

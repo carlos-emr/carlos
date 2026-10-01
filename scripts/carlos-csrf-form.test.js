@@ -482,6 +482,28 @@ test('a failed lookup does not submit, tells the user, and rejects', async () =>
   assert.match(helper.alerts[0], /reload the page/i);
 });
 
+test('an un-awaited failed submission raises no unhandled rejection', async () => {
+  const helper = loadHelper({ fetchImpl: async () => ({ ok: false, status: 500 }) });
+  const unhandled = [];
+  const onUnhandled = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    // Fire and forget, as inline onclick handlers do.
+    helper.window.carlosPostForm('/carlos/x', {});
+    const form = helper.dom.document.createElement('form');
+    form.method = 'post';
+    form.action = '/carlos/y';
+    helper.dom.document.body.appendChild(form);
+    helper.window.carlosSubmitForm(form);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+  }
+
+  assert.deepEqual(unhandled, []);
+  assert.equal(helper.alerts.length, 2, 'each failure is still reported to the user');
+});
+
 test('a failed lookup is retried on the next attempt rather than replayed', async () => {
   let calls = 0;
   const helper = loadHelper({
@@ -1008,13 +1030,26 @@ test('a token input outside the form but owned by it (form="") is cleared for an
 /* Context path                                                             */
 /* ------------------------------------------------------------------------ */
 
-test('the context path falls back to the first path segment when the script URL is unknown', async () => {
+test('the context path comes from the injected csrfguard script when the helper URL is unknown', async () => {
   // jQuery .load() evaluates a fragment's scripts with no document.currentScript.
   const helper = loadHelper();
+  const guard = helper.dom.document.createElement('script');
+  guard.setAttribute('src', '/emr/csrfguard');
+  helper.dom.document.head.appendChild(guard);
 
-  await helper.window.carlosPostForm('/carlos/x', {});
+  await helper.window.carlosPostForm('/emr/x', {});
 
-  assert.deepEqual(helper.fetches, ['/carlos/csrfguard']);
+  assert.deepEqual(helper.fetches, ['/emr/csrfguard']);
+});
+
+test('the context path is the root when no script names it', async () => {
+  // Never guessed from the page URL: on a root deployment its first segment
+  // is a module directory, not a context path.
+  const helper = loadHelper();
+
+  await helper.window.carlosPostForm('/billing/x', {});
+
+  assert.deepEqual(helper.fetches, ['/csrfguard']);
 });
 
 test('window.carlosContextPath pins the context path', async () => {

@@ -100,11 +100,13 @@ async function deleteEFormGroupInAdminPanel(context, config, recorder, sql, time
   const groupName = `PW4130 ${Date.now().toString(36)}`.slice(0, 20);
   const fid = sql.value('SELECT fid FROM eform WHERE status = 1 ORDER BY fid LIMIT 1');
   assert(fid, 'eform-groups: the eForm library is empty, so no group can be built to delete');
-  sql.execute(`INSERT INTO eform_groups (fid, group_name) VALUES (${Number(fid)}, ${sqlString(groupName)})`);
-
-  const page = await context.newPage();
-  wireStrictPage(page, 'admin-eform-groups', recorder);
+  let page = null;
+  // The insert sits inside the try so a failure part-way through it, or in
+  // opening the page, still runs the cleanup below.
   try {
+    sql.execute(`INSERT INTO eform_groups (fid, group_name) VALUES (${Number(fid)}, ${sqlString(groupName)})`);
+    page = await context.newPage();
+    wireStrictPage(page, 'admin-eform-groups', recorder);
     await gotoApp(page, config.baseUrl, '/administration');
     await page.waitForLoadState('networkidle', { timeout }).catch(() => {});
     const formsSection = page.locator('button[data-bs-target="#collapseForms"]').first();
@@ -154,7 +156,9 @@ async function deleteEFormGroupInAdminPanel(context, config, recorder, sql, time
     assert(remaining === 0, `eform-groups: the group still has ${remaining} row(s) after a delete the server accepted`);
   } finally {
     sql.execute(`DELETE FROM eform_groups WHERE group_name = ${sqlString(groupName)}`);
-    await page.close().catch(() => {});
+    if (page) {
+      await page.close().catch(() => {});
+    }
   }
 }
 
@@ -162,14 +166,16 @@ async function deleteReportTemplate(context, config, recorder, sql, timeout) {
   const title = `PW4130 template ${Date.now().toString(36)}`;
   const xml = `<report title="${title}" description="CSRF runtime-form probe" active="1">`
     + '<query>SELECT 1 AS probe</query></report>';
-  sql.execute('INSERT INTO reportTemplates (templatetitle, templatedescription, templatesql, templatexml, active) '
-    + `VALUES (${sqlString(title)}, 'CSRF runtime-form probe', 'SELECT 1 AS probe', ${sqlString(xml)}, 1)`);
-  const templateId = sql.value(`SELECT templateid FROM reportTemplates WHERE templatetitle = ${sqlString(title)}`);
-  assert(templateId, 'report-by-template: the fixture template was not created');
-
-  const page = await context.newPage();
-  wireStrictPage(page, 'report-template', recorder);
+  let page = null;
+  // As above: the fixture is created inside the try so it is always removed.
   try {
+    sql.execute('INSERT INTO reportTemplates (templatetitle, templatedescription, templatesql, templatexml, active) '
+      + `VALUES (${sqlString(title)}, 'CSRF runtime-form probe', 'SELECT 1 AS probe', ${sqlString(xml)}, 1)`);
+    const templateId = sql.value(`SELECT templateid FROM reportTemplates WHERE templatetitle = ${sqlString(title)}`);
+    assert(templateId, 'report-by-template: the fixture template was not created');
+
+    page = await context.newPage();
+    wireStrictPage(page, 'report-template', recorder);
     await gotoApp(page, config.baseUrl,
       `/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=${encodeURIComponent(templateId)}`);
     const deleteLink = page.locator('#optionsDiv a', { hasText: /Delete Template/i }).first();
@@ -194,7 +200,9 @@ async function deleteReportTemplate(context, config, recorder, sql, timeout) {
     assert(remaining === 0, 'report-by-template: the template is still there after a delete the server accepted');
   } finally {
     sql.execute(`DELETE FROM reportTemplates WHERE templatetitle = ${sqlString(title)}`);
-    await page.close().catch(() => {});
+    if (page) {
+      await page.close().catch(() => {});
+    }
   }
 }
 

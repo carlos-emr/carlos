@@ -69,7 +69,7 @@
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-        <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script>
             function checkform(formobj) {
                 if (!validDateFieldsByClass('datefield', formobj)) {

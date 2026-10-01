@@ -124,7 +124,7 @@
     <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
     <script src="<%=request.getContextPath() %>/messenger/messenger-common.js"></script>
-    <script src="<%=request.getContextPath() %>/share/javascript/carlosCsrfForm.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <!-- css -->
     <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">

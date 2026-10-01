@@ -86,7 +86,7 @@
 		<script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
 		<script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
-		<script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+		<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 
 		<script>
 

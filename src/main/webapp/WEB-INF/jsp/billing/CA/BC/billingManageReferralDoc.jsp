@@ -63,7 +63,7 @@
 
     <head>
         <%-- Tokenises forms in panels injected by .load() (#4130). --%>
-        <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.admin.ManageReferralDoc"/></title>
 

@@ -48,8 +48,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <%-- Tokenises forms in panels injected by .load() (#4130). --%>
-    <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+    <%-- Defensive: this shell injects report pages into #dynamic-content with
+         .load(), and CSRFGuard does not tokenise a form nested inside an
+         inserted container. Loading the helper here covers any POST form such a
+         panel contains, now or later, without each panel having to (#4130). --%>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Catchment Report</title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">

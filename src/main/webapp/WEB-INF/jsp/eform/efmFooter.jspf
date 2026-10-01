@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <div id="confirmModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true">
@@ -49,7 +50,7 @@
 
 <%-- Token handling for the confirm modal's POSTs; idempotent when the
      Administration shell has already loaded it. --%>
-<script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 <script>
 // Everything below is jQuery-based, and five of the seven eForm pages that
 // include this footer load no jQuery of their own -- they work only because the
@@ -86,15 +87,21 @@ $(document).ready(function() {
         var confirmForm = $(this).data('confirmForm');
         if (confirmForm && confirmForm.length) {
             if (typeof window.carlosSubmitForm === 'function') {
-                // Run the form's own jQuery submit handlers exactly as
-                // .submit() did, then let the helper post it: it waits for
-                // the CSRF token when the panel's lookup is still pending, and
-                // refuses (with an alert) rather than sending a token-less
-                // POST that CSRFGuard would answer with 403 (#4130).
-                var submitEvent = jQuery.Event('submit');
-                confirmForm.triggerHandler(submitEvent);
-                if (!submitEvent.isDefaultPrevented()) {
-                    window.carlosSubmitForm(confirmForm[0]);
+                // Trigger submit exactly as .submit() did, so the event still
+                // bubbles to delegated handlers and the inline onsubmit runs.
+                // jQuery ends a non-prevented trigger by calling the element's
+                // own submit(); that one call is routed to the helper, which
+                // waits for a pending CSRF token and refuses (with an alert)
+                // rather than send a token-less POST CSRFGuard would 403 (#4130).
+                var formEl = confirmForm[0];
+                formEl.submit = function () {
+                    delete formEl.submit;
+                    window.carlosSubmitForm(formEl);
+                };
+                try {
+                    confirmForm.trigger('submit');
+                } finally {
+                    delete formEl.submit;
                 }
             } else {
                 confirmForm.submit();

@@ -81,7 +81,6 @@
                 }
             }
         </script>
-        <script src="<%=request.getContextPath()%>/share/javascript/carlosCsrfForm.js"></script>
         <script>
             function unRemoveIndependent(fdid) {
                 // orderby: sort order the post-restore redirect restores (UnRemEForm2Action#getRedirectTarget).

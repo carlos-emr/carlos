@@ -45,7 +45,7 @@
     <title><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
-    <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 
     <script language="JavaScript">
         <!--

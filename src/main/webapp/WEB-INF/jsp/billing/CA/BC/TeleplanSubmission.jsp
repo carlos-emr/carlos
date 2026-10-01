@@ -94,7 +94,7 @@
 %>
 <html>
 <head>
-    <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Billing Report</title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">

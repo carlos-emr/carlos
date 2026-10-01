@@ -115,10 +115,28 @@
                 return found;
             }
         }
-        // Last resort: CARLOS is deployed under a single context segment
-        // (/carlos on packaged installs), so take the first path segment.
-        var segment = global.location.pathname.split('/')[1];
-        return segment ? '/' + segment : '';
+        // CsrfGuardScriptInjectionFilter adds <script src="<context>/csrfguard">
+        // to every HTML page, so its URL names the context path reliably. A
+        // guess from the page URL would be wrong on a root deployment.
+        for (var j = 0; j < scripts.length; j++) {
+            var guardPath = servletContextPath(scripts[j].src);
+            if (guardPath !== null) {
+                return guardPath;
+            }
+        }
+        return '';
+    }
+
+    function servletContextPath(src) {
+        try {
+            var path = new URL(src, global.location.href).pathname;
+            var suffix = '/csrfguard';
+            return path.length >= suffix.length && path.lastIndexOf(suffix) === path.length - suffix.length
+                ? path.substring(0, path.length - suffix.length)
+                : null;
+        } catch (e) {
+            return null;
+        }
     }
 
     var pendingFetch = null;
@@ -356,12 +374,27 @@
     }
 
     /**
+     * Marks `promise` as handled and returns it. A failure has already been
+     * reported to the user by the time it rejects, and most callers fire and
+     * forget, so an un-awaited rejection must not also surface as an
+     * "unhandledrejection" error. Callers that chain on it still see it.
+     */
+    function handled(promise) {
+        promise.catch(function () { /* already reported to the user */ });
+        return promise;
+    }
+
+    /**
      * Attaches the token to `form` and submits it.
      *
      * @param {HTMLFormElement} form
      * @returns {Promise<void>} rejects (after telling the user) if no token
      */
     function submitForm(form) {
+        return handled(submitFormInternal(form));
+    }
+
+    function submitFormInternal(form) {
         if (!isSameOriginPostForm(form)) {
             // GET or cross-origin: nothing to protect, and a token already in
             // the form (its method or action changed after it was tokenised)
@@ -439,7 +472,7 @@
         // task as submit() has cancelled the navigation in some browsers, and
         // one hidden form per click is harmless.
         document.body.appendChild(form);
-        return submitForm(form).catch(function (err) {
+        return handled(submitFormInternal(form).catch(function (err) {
             // Nothing was sent: close the blank window this helper opened so it
             // does not linger beside the alert. A window the caller opened (a
             // named popup target) is the caller's to manage, and is left alone.
@@ -447,7 +480,7 @@
                 openedHere.close();
             }
             throw err;
-        });
+        }));
     }
 
     function warnInjectionFailure(err) {
