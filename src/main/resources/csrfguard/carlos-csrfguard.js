@@ -537,6 +537,7 @@ if (owaspCSRFGuardScriptHasLoaded !== true) {
                 var base = document.baseURI || location.href;
                 return new URL(url, base).origin === new URL(location.href).origin;
             } catch (e) {
+                // An action URL cannot parse: fail closed, the token stays on the page.
                 return false;
             }
         }
