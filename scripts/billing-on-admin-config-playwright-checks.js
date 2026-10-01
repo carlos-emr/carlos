@@ -101,7 +101,9 @@ async function workflow(s) {
       OR description LIKE ${h.sqlString(`%${p}%`)}) + (SELECT COUNT(*) FROM ctl_billingservice_premium
       WHERE service_code LIKE ${h.sqlString(`${p}%`)}) + (SELECT COUNT(*) FROM ctl_billingservice WHERE service_code LIKE ${h.sqlString(`${p}%`)})`),
   () => `${'WY'[randomInt(2)]}${String(randomInt(100)).padStart(2, '0')}`, 'service code prefix');
-  const typeId2 = pickFree(id => id !== typeId && free(`SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(id)}`),
+  const typeId2 = pickFree(id => id !== typeId && free(`SELECT (SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(id)})
+      + (SELECT COUNT(*) FROM ctl_diagcode WHERE servicetype=${h.sqlString(id)})
+      + (SELECT COUNT(*) FROM ctl_billingtype WHERE servicetype=${h.sqlString(id)})`),
     () => `Z${'ABCDEFGHJKLMNPQRSTUVWXY'[randomInt(23)]}${randomInt(10)}`, 'second billing form id');
   const codeA = `${prefix}1Z`;
   const codeB = `${prefix}2Z`;

@@ -15,11 +15,14 @@
  * of the item's BEFORE state; a status change through the correction form's
  * status control lands on billing_on_cheader1 with a header audit snapshot;
  * the bill-status report lists the owned bill with its new status; GET against
- * the two mutators answers 405 with Allow: POST and writes nothing; the server
- * refuses to unbill a bill flagged as billed; Unbill flips header and items to
- * status D and writes the two billing_on_proc audit rows.
+ * the two mutators answers 405 with Allow: POST and writes nothing; Billing
+ * History offers no Unbill for an owned bill in status B and the server refuses
+ * the unbill post its opener would send for it (billCode B) without changing it;
+ * Unbill flips header and items to status D and writes the two billing_on_proc
+ * audit rows.
  *
- * Fixtures: one owned bill (header + one item, comment1 = the run marker)
+ * Fixtures: two owned bills (header + one item each, comment1 = the run marker,
+ * one open and one already billed, status B)
  * seeded for the owned FAKE- patient under an active provider that carries an
  * OHIP number (the correction page only offers such providers), seeded by the
  * shared seedOwnedBill helper (billing-on-invoice-3rdparty). Its cleanup
@@ -101,6 +104,10 @@ async function workflow(s) {
   // provider to the operator's sites it is missing from (_site_access_privacy).
   const bill = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code, fee, date });
   const { headerId, itemId, provider: billingProvider } = bill;
+  // A second owned bill already submitted to OHIP (status B): the one Unbill must refuse.
+  const billedBill = seedOwnedBill(s, { payProgram: 'HCP', status: 'B', code, fee, date });
+  const billedSnapshot = () => sql.value(`SELECT CONCAT_WS('|', h.status, h.total, GROUP_CONCAT(i.status))
+    FROM billing_on_cheader1 h JOIN billing_on_item i ON i.ch1_id=h.id WHERE h.id=${billedBill.headerId} GROUP BY h.id`);
   const headerSnapshot = () => sql.value(`SELECT CONCAT_WS('|', status, pay_program, total, demographic_no, provider_no,
     billing_date, hin) FROM billing_on_cheader1 WHERE id=${headerId}`);
   const itemSnapshot = () => sql.value(`SELECT CONCAT_WS('|', ser_num, fee, dx, status, service_code)
@@ -216,10 +223,20 @@ async function workflow(s) {
     });
     h.assert(unbill.status() === 405 && unbill.headers().allow === 'POST',
       'BillingDeleteNoAppt must reject GET with Allow: POST');
-    // The documented refusal: a bill flagged as billed cannot be unbilled.
+    // The documented refusal: a bill already billed (status B) cannot be unbilled. The history
+    // hides its Unbill link; the server must refuse the post that link would send (billCode =
+    // the bill's stored status).
+    const billedRow = history.locator('#billingHistoryTable tbody tr').filter({
+      has: history.locator(`a[onclick*="ViewBillingONDisplay?billing_no=${billedBill.headerId}'"]`),
+    });
+    await billedRow.waitFor({ state: 'visible', timeout: 20000 });
+    h.assert(await billedRow.locator('a', { hasText: 'Unbill' }).count() === 0,
+      'Billing History offers Unbill for a bill already in status B');
+    const billedBefore = billedSnapshot();
+    h.assert(billedBefore === `B|${money(fee)}|B`, 'The billed bill fixture is not in status B');
     const token = await ui.csrfTokenPresent(s.master);
     const billed = await s.context.request.post(h.appUrl(s.config.baseUrl, '/billing/CA/ON/BillingDeleteNoAppt'), {
-      form: { 'CSRF-TOKEN': token, billing_no: headerId, billCode: 'B', dboperation: 'delete_bill', hotclick: '0' },
+      form: { 'CSRF-TOKEN': token, billing_no: billedBill.headerId, billCode: 'B', dboperation: 'delete_bill', hotclick: '0' },
       headers: { 'CSRF-TOKEN': token },
       maxRedirects: 0,
     });
@@ -227,6 +244,8 @@ async function workflow(s) {
       'Unbilling a bill flagged as billed was not refused with the cannot-delete page');
     h.assert(headerSnapshot() === before.header && itemSnapshot() === before.item
       && headerAudits() + itemAudits() === before.audits, 'A refused request changed the bill');
+    h.assert(billedSnapshot() === billedBefore && sql.value(`SELECT COUNT(*) FROM billing_on_proc
+      WHERE object=${h.sqlString(billedBill.headerId)}`) === '0', 'The refused unbill changed the billed bill');
   });
 
   await s.step('Unbill asks for confirmation, marks header and items deleted and writes the audit rows', async () => {

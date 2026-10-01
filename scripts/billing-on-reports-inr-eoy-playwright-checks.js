@@ -15,8 +15,8 @@
  * the L report render (ES.xsl 404) and the INR update form (405 to its own GET opener).
  * Fixtures: runWorkflow FAKE- patient, a FAKE- billable provider + reportprovider row, a billinginr
  * row, four seeded claims, the uploaded L file (DOCUMENT_DIR + ONEDT_INBOX); all removed and
- * re-checked in cleanup. Without pdftotext or the MOH inbox only the PDF / L-report step is
- * reported SKIP; the rest still runs and the check then ends SKIP, never PASS.
+ * re-checked in cleanup. Without pdftotext, or without DOCUMENT_DIR and the MOH inbox, only the
+ * PDF / L-report step is reported SKIP; the rest still runs and the check then ends SKIP, never PASS.
  * Implements coverage-plan billing-on-reports-inr-eoy.
  */
 
@@ -26,8 +26,9 @@ const { execFileSync } = require('node:child_process');
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
-const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+// Administration ▸ <xlink> into the #dynamic-content iframe: one shared copy of the helper.
+const { openAdminFrame } = require('./billing-on-ohip-simulation-report-playwright-checks');
 
 const INR_CODE = 'G271A';
 const INR_DX = '286';
@@ -58,19 +59,6 @@ function pdftotextMissing() {
   }
 }
 
-async function openAdminFrame(admin, rel, ready) {
-  const link = admin.locator(`a.xlink[rel$="${rel}"]`).first();
-  await link.waitFor({ state: 'attached' });
-  await revealAuditLink(admin, link, 20000);
-  await link.click();
-  const iframe = admin.locator('#dynamic-content iframe#myFrame');
-  await iframe.waitFor();
-  const frame = await (await iframe.elementHandle()).contentFrame();
-  h.assert(frame, `${rel} did not load into the administration frame`);
-  await frame.locator(ready).first().waitFor();
-  return frame;
-}
-
 async function frameNavigation(page, frame, action) {
   const navigated = page.waitForEvent('framenavigated', { predicate: f => f === frame, timeout: 30000 });
   navigated.catch(() => {});
@@ -99,9 +87,13 @@ async function workflow(s) {
   // Tool and folder prerequisites gate only the step that needs them (optionalStep below),
   // so a missing pdftotext or MOH inbox does not hide the other steps' results.
   const pdfSkip = pdftotextMissing() ? 'Poppler pdftotext (poppler-utils) is not installed' : '';
+  // The upload stores the L report in DOCUMENT_DIR and copies it into the MOH inbox; both
+  // locations must be known so cleanup removes each copy.
+  const documentDir = process.env.DOCUMENT_DIR ? path.resolve(process.env.DOCUMENT_DIR) : '';
   const inbox = process.env.ONEDT_INBOX
-    || (process.env.DOCUMENT_DIR ? path.join(path.dirname(path.resolve(process.env.DOCUMENT_DIR)), 'onEDTDocs', 'inbox') : '');
-  const inboxSkip = inbox && fs.existsSync(inbox) ? '' : 'ONEDT_INBOX (the MOH inbox folder) is not set or does not exist';
+    || (documentDir ? path.join(path.dirname(documentDir), 'onEDTDocs', 'inbox') : '');
+  const inboxSkip = documentDir && fs.existsSync(documentDir) && inbox && fs.existsSync(inbox) ? ''
+    : 'DOCUMENT_DIR and ONEDT_INBOX (the document and MOH inbox folders) are not set or do not exist';
   const mohName = `L${marker.replace(/^FAKE-PW/, '')}.xml`;
   const skipped = [];
   /** Run a step, or report it as SKIP (never PASS) when its prerequisite is missing. */
@@ -114,7 +106,7 @@ async function workflow(s) {
 
   s.cleanup(() => {
     // The upload stores the report in DOCUMENT_DIR and copies it into the MOH inbox.
-    const copies = [inbox, process.env.DOCUMENT_DIR].filter(Boolean).map(dir => path.join(dir, mohName));
+    const copies = [inbox, documentDir].filter(Boolean).map(dir => path.join(dir, mohName));
     for (const copy of copies) fs.rmSync(copy, { force: true });
     h.assert(copies.every(copy => !fs.existsSync(copy)), 'The owned MOH report files were not removed');
     const headers = sql.rows(`SELECT id FROM billing_on_cheader1 WHERE demographic_no=${patient}`).map(r => r[0]);
@@ -250,7 +242,7 @@ async function workflow(s) {
   await s.step('GET against the INR generator is refused and writes nothing', async () => {
     const count = sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`);
     const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/ViewInrOnGenINRbilling'), {
-      params: { [`inrbilling${ids.inr}`]: 'on', xml_appointment_date: today, curUser: provider }, maxRedirects: 0,
+      params: { [`inrbilling${ids.inr}`]: 'on', xml_appointment_date: today }, maxRedirects: 0,
     });
     h.assert(response.status() === 405 && response.headers().allow === 'POST', 'GET INR generation was not refused with 405');
     h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`) === count,

@@ -252,6 +252,11 @@ function ownedDisks(sql, owned) {
 
 async function workflow(s) {
   const { sql } = s;
+  // An explicit OHIP_DISK_DIR must be valid; without one, a host lacking the packaged default
+  // cannot read the generated file back, which is a missing fixture rather than a failure.
+  if (!process.env.OHIP_DISK_DIR && !fs.existsSync(DEFAULT_DISK_DIR)) {
+    throw new h.SkipCheck(`OHIP_DISK_DIR is not set and the packaged ${DEFAULT_DISK_DIR} does not exist`);
+  }
   const diskDir = checkedDiskDirectory(process.env.OHIP_DISK_DIR || DEFAULT_DISK_DIR);
   const owned = createBillingFixture(s);
   // Registered after the claim cleanup, so it runs first: disk rows reference the claims.
@@ -327,10 +332,14 @@ async function workflow(s) {
 
   let ohipFile;
   await s.step('Generate OHIP Diskette bills only the in-window claims and records one disk for the provider', async () => {
-    const form = frame.locator('form[name="form1"]');
-    const offered = await form.locator('select[name="providers"] option').evaluateAll(options => options.map(o => o.value));
+    const offered = await frame.locator('form[name="form1"] select[name="providers"] option')
+      .evaluateAll(options => options.map(o => o.value));
     h.assert(offered.includes(owned.providerNo), 'The diskette page does not offer the owned billing provider');
-    for (let attempt = 0; ; attempt += 1) {
+    // Another check's export may hold the application's disk lock; retry within a bounded deadline.
+    const lockDeadline = Date.now() + 90000;
+    for (;;) {
+      // Bound to the current frame: a retry reopens the page in a new iframe.
+      const form = frame.locator('form[name="form1"]');
       await form.locator('select[name="providers"]').selectOption(owned.providerNo);
       await fillDate(form, admin, '#xml_vdate', WINDOW.start);
       await fillDate(form, admin, '#xml_appointment_date', WINDOW.end);
@@ -342,13 +351,10 @@ async function workflow(s) {
       ]);
       h.assert(response.status() === 200, `Create Report answered HTTP ${response.status()}`);
       await frame.waitForLoadState('domcontentloaded');
-      // Another check's export may hold the application's disk lock for a moment.
-      if (attempt === 0 && (await frame.locator('body').innerText()).includes('already in progress')) {
-        await frame.waitForTimeout(5000);
-        frame = await openAdminFrame(admin, '/billing/CA/ON/ViewBillingOHIPreport', 'form[name="form1"]');
-        continue;
-      }
-      break;
+      if (!(await frame.locator('body').innerText()).includes('already in progress')) break;
+      h.assert(Date.now() < lockDeadline, 'The OHIP disk lock was still held when the retry deadline passed');
+      await frame.waitForTimeout(5000);
+      frame = await openAdminFrame(admin, '/billing/CA/ON/ViewBillingOHIPreport', 'form[name="form1"]');
     }
     await frame.locator('form[name="form1"]').waitFor({ state: 'visible', timeout: 30000 });
     h.assert(statuses() === 'B|B|D|O', 'Generation did not bill exactly the in-window open claims');

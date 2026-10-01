@@ -36,6 +36,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
+const { settleOperations } = require('./graceful-signal-cancellation');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createBillingFixture, openAdministration, openAdminFrame } = require('./billing-on-ohip-simulation-report-playwright-checks');
@@ -112,7 +113,8 @@ function directory(env, fallback) {
 async function uploadMohFile(s, admin, name, text, route) {
   const frame = await openAdminFrame(admin, '/billing/CA/ON/BillingONUpload', 'form#form1');
   await frame.locator('input[name="file1"]').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from(text, 'latin1') });
-  const [response] = await Promise.all([
+  // Drain both before returning or throwing, so cleanup never races an import still in flight.
+  const [response] = await settleOperations([
     admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(route), { timeout: 60000 }),
     frame.locator('input[type="submit"][value="Create Report"]').click(),
   ]);
@@ -294,7 +296,7 @@ async function workflow(s) {
     const row = raRow(frame, marker);
     let response;
     const dialogs = await h.withExpectedDialogs(frame.page(), async () => {
-      [response] = await Promise.all([
+      [response] = await settleOperations([
         admin.waitForResponse(r => r.request().method() === 'POST'
           && new URL(r.url()).pathname.endsWith('/billing/CA/ON/ViewOnGenRAsettle'), { timeout: 30000 }),
         row.locator('a', { hasText: 'Settle' }).click(),
