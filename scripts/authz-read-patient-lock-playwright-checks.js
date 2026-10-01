@@ -24,9 +24,9 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
-const { authzReadFixture, seedPatientDomains } = require('./lib/authz-read-fixture');
+const { authzReadFixture, seedPatientDomains, cleanupAll } = require('./lib/authz-read-fixture');
 const { patientQuery } = require('./lib/authz-read-routes');
-const { probe, classify, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
+const { probe, classify, forbiddenByApp, refusedHead, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
 
 async function workflow(s) {
   const { sql, marker, provider, config } = s;
@@ -35,15 +35,17 @@ async function workflow(s) {
   // A first name that occurs nowhere else, so a search-result row can be told from the echoed keyword.
   const lockedFirst = `Lk${marker.slice(-8)}`;
   let locked; let openIds; let lockedIds; let doctor;
-  s.cleanup(() => {
-    if (lockedIds) lockedIds.remove();
-    if (openIds) openIds.remove();
-    fixture.cleanup();
-    if (locked) {
+  // Independent teardown actions: one failing must not leave the other owned rows behind.
+  s.cleanup(() => cleanupAll(
+    () => { if (lockedIds) lockedIds.remove(); },
+    () => { if (openIds) openIds.remove(); },
+    () => fixture.cleanup(),
+    () => {
+      if (!locked) return;
       sql.execute(`DELETE FROM demographic WHERE demographic_no=${locked} AND last_name=${h.sqlString(lockedName)}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${locked}`) === '0', 'The locked patient was not removed');
-    }
-  });
+    },
+  ));
 
   const lab = sql.rows(`SELECT plr.lab_no, plr.demographic_no, hti.accessionNum FROM patientLabRouting plr
     JOIN hl7TextInfo hti ON hti.lab_no=plr.lab_no WHERE plr.lab_type='HL7' AND plr.demographic_no>0
@@ -54,8 +56,9 @@ async function workflow(s) {
         provider_no,hc_type,province,roster_status,lastUpdateDate)
       VALUES (${h.sqlString(lockedName)},${h.sqlString(lockedFirst)},'1980','01','02','F','AC',${h.sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(locked), 'The locked patient fixture was not created');
-    openIds = seedPatientDomains({ sql, demo: s.patient, tag: `${marker}-OPEN`, provider });
-    lockedIds = seedPatientDomains({ sql, demo: locked, tag: lockedName, provider });
+    // `register` hands each ids object to cleanup before its first insert (a seed that fails midway is still removed).
+    seedPatientDomains({ sql, demo: s.patient, tag: `${marker}-OPEN`, provider, register: ids => { openIds = ids; } });
+    seedPatientDomains({ sql, demo: locked, tag: lockedName, provider, register: ids => { lockedIds = ids; } });
     const login = fixture.addLogin('doctor');
     h.assert(fixture.lockPatient(login, locked).length === 2, 'The patient lock rows were not written');
     if (lab) fixture.lockPatient(login, lab[1]);
@@ -63,9 +66,29 @@ async function workflow(s) {
   });
 
   const full = () => s.context; // the unlocked full-privilege test login
-  const DOMAINS = ['note', 'allergy', 'rx', 'prev', 'meas', 'tickler', 'eform', 'doc', 'consult', 'appt', 'dx', 'cpp'];
-  const needles = [lockedName, marker, lockedFirst, 'Workflow', ...DOMAINS.flatMap(d => [`${marker}-OPEN-${d}`, `${lockedName}-${d}`]), ...(lab ? [lab[2]] : [])];
-  const get = (context, route) => probe(context, urlFor(config, route), { needles });
+  const DOMAINS = ['note', 'allergy', 'rx', 'prev', 'meas', 'tickler', 'eform', 'doc', 'consult', 'appt', 'dx', 'cpp', 'pharmacy'];
+  const needles = [lockedName, marker, lockedFirst, 'Workflow', ...DOMAINS.flatMap(d => [`${marker}-OPEN-${d}`, `${lockedName}-${d}`]), ...(lab ? [lab[2], `segmentID=${lab[0]}`] : [])];
+  const get = (context, route, extra = []) => probe(context, urlFor(config, route), { needles: [...needles, ...extra] });
+  // What proves a response is THIS patient's data (not a generic page, an empty state or the static shell): the
+  // seeded domain string for record routes, the patient's name for pages that render it (demoName upper-cases it).
+  const tagOf = ids => (ids === lockedIds ? lockedName : `${marker}-OPEN`);
+  const nameOf = ids => (ids === lockedIds ? lockedName : marker);
+  const PROOF = {
+    master: ids => nameOf(ids),
+    docReport: ids => `${tagOf(ids)}-doc`,
+    docPage: ids => `${tagOf(ids)}-doc`,
+    docShow: ids => `${tagOf(ids)}-doc`,
+    rxPatient: ids => nameOf(ids),
+    rxScript: ids => nameOf(ids),
+    chartPrint: ids => `${tagOf(ids)}-rx`,
+    label: ids => nameOf(ids),
+    demoName: ids => nameOf(ids).toUpperCase(),
+    pharmacy: ids => `${tagOf(ids)}-pharmacy`,
+  };
+  const served = async (context, ids, key) => {
+    const result = await get(context, routes(ids)[key], [PROOF[key](ids)]);
+    return { result, ok: classify(result) === 'served' && result.found.includes(PROOF[key](ids)) };
+  };
   const routes = ids => ({
     master: `demographic/DemographicEdit?demographic_no=${ids.demo}`,
     docReport: `documentManager/ViewDocumentReport?function=demographic&functionid=${ids.demo}`,
@@ -83,10 +106,11 @@ async function workflow(s) {
   await s.step('controls: the full-privilege login is served the locked patient and this doctor is served the open patient', async () => {
     const wrong = [];
     for (const key of pinned) {
-      const asFull = await get(full(), routes(lockedIds)[key]);
-      if (classify(asFull) !== 'served') wrong.push(`full login ${key} -> ${asFull.status}`);
-      const asDoctorOpen = await get(doctor.context, routes(openIds)[key]);
-      if (classify(asDoctorOpen) !== 'served') wrong.push(`doctor/open ${key} -> ${asDoctorOpen.status}/${classify(asDoctorOpen)}`);
+      // A control counts only when the answer carries this route's fixture marker, so a generic page or an empty state cannot pass.
+      const asFull = await served(full(), lockedIds, key);
+      if (!asFull.ok) wrong.push(`full login ${key} -> ${asFull.result.status}/${classify(asFull.result)} (no fixture marker)`);
+      const asDoctorOpen = await served(doctor.context, openIds, key);
+      if (!asDoctorOpen.ok) wrong.push(`doctor/open ${key} -> ${asDoctorOpen.result.status}/${classify(asDoctorOpen.result)} (no fixture marker)`);
     }
     h.assert(!wrong.length, `The lock fixture is not discriminating: ${wrong.join('; ')}`);
   });
@@ -95,7 +119,7 @@ async function workflow(s) {
     const wrong = [];
     for (const key of pinned) {
       const result = await get(doctor.context, routes(lockedIds)[key]);
-      if (result.status !== 403) wrong.push(`${key} -> ${result.status}/${classify(result)}`);
+      if (!forbiddenByApp(result)) wrong.push(`${key} -> ${result.status}/${classify(result)}`);
     }
     h.assert(!wrong.length, `A locked patient was not refused on: ${wrong.join('; ')}`);
   });
@@ -104,7 +128,7 @@ async function workflow(s) {
     const wrong = [];
     for (const key of pinned) {
       const result = await probe(doctor.context, urlFor(config, routes(lockedIds)[key]), { method: 'HEAD' });
-      if (![403, 405].includes(result.status)) wrong.push(`${key} -> ${result.status}`);
+      if (!refusedHead(result)) wrong.push(`${key} -> ${result.status}/${classify(result)}`);
     }
     h.assert(!wrong.length, `HEAD served a locked patient on: ${wrong.join('; ')}`);
   });
@@ -133,13 +157,19 @@ async function workflow(s) {
     h.assert(!wrong.length, `Candidate routes did not serve the open patient: ${wrong.join('; ')}`);
   });
 
+  // Each lab URL with the string that only that lab's answer contains (the accession number; the list links its segment).
+  const labProofs = () => [
+    [`lab/CA/ALL/ViewLabDisplay?segmentID=${lab[0]}&providerNo=${provider}`, lab[2]],
+    [`lab/CA/ALL/PrintPDF?segmentID=${lab[0]}&providerNo=${provider}`, lab[2]],
+    [`lab/ViewDemographicLab?demographicNo=${lab[1]}`, `segmentID=${lab[0]}`],
+  ];
+
   if (lab) {
     await s.step('a lab for the locked demo patient is refused (controls: the full login is served it)', async () => {
-      const labUrls = [`lab/CA/ALL/ViewLabDisplay?segmentID=${lab[0]}&providerNo=${provider}`, `lab/CA/ALL/PrintPDF?segmentID=${lab[0]}&providerNo=${provider}`, `lab/ViewDemographicLab?demographicNo=${lab[1]}`];
       const unserved = [];
-      for (const url of labUrls) {
-        const asFull = await get(full(), url);
-        if (classify(asFull) !== 'served') unserved.push(url.split('?')[0]);
+      for (const [url, proof] of labProofs()) {
+        const asFull = await get(full(), url, [proof]);
+        if (classify(asFull) !== 'served' || !asFull.found.includes(proof)) unserved.push(url.split('?')[0]);
       }
       h.assert(!unserved.length, `The lab controls were not served to the full login: ${unserved.join(', ')}`);
     });
@@ -156,14 +186,10 @@ async function workflow(s) {
     const viaOpen = await get(doctor.context, `CaseManagementEntry?method=history&noteId=${lockedIds.note}&demographicNo=${openIds.demo}`);
     if (viaOpen.status === 200 && viaOpen.found.includes(`${lockedName}-note`)) open.add('note revision history by note id naming an unlocked patient', 'the note id alone decides');
     if (lab) {
-      const accession = lab[2];
-      for (const [name, url, needle] of [
-        ['lab report display', `lab/CA/ALL/ViewLabDisplay?segmentID=${lab[0]}&providerNo=${provider}`, accession],
-        ['lab report PDF', `lab/CA/ALL/PrintPDF?segmentID=${lab[0]}&providerNo=${provider}`, accession],
-        ['patient lab list', `lab/ViewDemographicLab?demographicNo=${lab[1]}`, accession],
-      ]) {
-        const result = await get(doctor.context, url);
-        if (result.status === 200 && (name === 'patient lab list' ? classify(result) === 'served' : result.found.includes(needle))) open.add(name, `demo lab, HTTP ${result.status}`);
+      const names = ['lab report display', 'lab report PDF', 'patient lab list'];
+      for (const [index, [url, proof]] of labProofs().entries()) {
+        const result = await get(doctor.context, url, [proof]);
+        if (result.status === 200 && result.found.includes(proof)) open.add(names[index], `demo lab, HTTP ${result.status}`);
       }
     }
     open.assertEmpty('Routes served a locked patient\'s data to the locked login');

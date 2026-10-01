@@ -23,6 +23,8 @@
  * addLogin() throw SkipCheck so the runner reports SKIP rather than FAIL.
  */
 const { randomInt } = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { assert, sqlString, SkipCheck } = require('./playwright-harness');
 
 const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'property', 'secUserRole'];
@@ -166,6 +168,8 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
 
     /** Remove one login's patient locks (e.g. to prove the unlocked control). */
     unlockPatient(login, demographicNo) {
+      assert(/^[1-9]\d*$/.test(String(demographicNo)), 'unlockPatient needs a numeric demographic_no');
+      assert(logins.includes(login), 'unlockPatient needs a login created by this fixture');
       sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${sqlString(login.providerNo)}
         AND objectName IN (${sqlString(`_demographic$${demographicNo}`)},${sqlString(`_eChart$${demographicNo}`)})`);
     },
@@ -184,20 +188,37 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
  * Seed one owned row per chart domain for a patient the caller owns, every text field carrying
  * `<tag>-<domain>` (for example `FAKE-PW...-LOCKED-doc`), so a response that contains the string
  * proves which domain's data it served. Returns the ids a by-ID route needs plus remove().
- * Domains: note, allergy, rx, prev, meas, tickler, eform, doc, consult, appt, dx, cpp.
+ * Domains: note, allergy, rx, prev, meas, tickler, eform, doc, consult, appt, dx, cpp, pharmacy.
  * Only rows this call inserted (captured ids / the patient's own key) are ever deleted.
  *
  * @param demo owned demographic_no
  * @param tag text prefix, e.g. `${marker}-LOCKED`
  * @param provider provider_no stored as the author/owner
+ * @param documentStore directory the application serves stored documents from; when given, a real
+ *        one-page PDF named `<tag>-doc.pdf` (text `<tag>-doc page 1`) is written there so the binary
+ *        document routes (display, page images) have a file to serve; removed by ids.remove()
+ * @param register called with the (still empty) ids object BEFORE the first write, so the caller can
+ *        keep it for cleanup even when a later insert throws; ids.remove() deletes whatever was seeded so far
  */
-function seedPatientDomains({ sql, demo, tag, provider }) {
+function seedPatientDomains({ sql, demo, tag, provider, register, documentStore }) {
   assert(/^[1-9]\d*$/.test(String(demo)), 'seedPatientDomains needs an owned numeric demographic_no');
   const d = String(demo);
   const p = sqlString(provider);
   const T = domain => sqlString(`${tag}-${domain}`);
   const ids = { demo: d };
   const owned = [];
+  const files = [];
+  ids.remove = () => {
+    for (const file of files) if (fs.existsSync(file)) fs.unlinkSync(file);
+    assert(!files.some(file => fs.existsSync(file)), 'Seeded document files were not removed');
+    const parts = owned.map(([table, key, id]) => [`DELETE FROM ${table} WHERE ${key}=${id}`, `(SELECT COUNT(*) FROM ${table} WHERE ${key}=${id})`]);
+    if (ids.doc) parts.unshift([`DELETE FROM ctl_document WHERE module='demographic' AND module_id=${d} AND document_no=${ids.doc}`,
+      `(SELECT COUNT(*) FROM ctl_document WHERE document_no=${ids.doc})`]);
+    if (!parts.length) return;
+    sql.execute(parts.map(part => part[0]).join(';'));
+    assert(sql.value(`SELECT ${parts.map(part => part[1]).join('+')}`) === '0', 'Seeded chart-domain rows were not all removed');
+  };
+  if (register) register(ids);
   const track = (table, key, id) => { assert(/^[1-9]\d*$/.test(id), `${table} seed row was not created`); owned.push([table, key, id]); return id; };
   ids.note = track('casemgmt_note', 'note_id', sql.value(`INSERT INTO casemgmt_note
     (update_date,observation_date,demographic_no,provider_no,note,signed,include_issue_innote,signing_provider_no,encounter_type,
@@ -225,6 +246,14 @@ function seedPatientDomains({ sql, demo, tag, provider }) {
     (doctype,docClass,docdesc,docfilename,doccreator,source,program_id,updatedatetime,status,contenttype,contentdatetime,public1,observationdate,number_of_pages,restrictToProgram)
     VALUES ('others','',${T('doc')},${sqlString(`${tag}-doc.pdf`)},${p},'',0,NOW(),'A','application/pdf',NOW(),0,CURDATE(),1,0); SELECT LAST_INSERT_ID()`));
   sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${d},${ids.doc},'A')`);
+  if (documentStore) {
+    const { textPdf } = require('./stored-pdf-documents');
+    const file = path.join(documentStore, `${tag}-doc.pdf`);
+    files.push(file); // registered before the write so a failed write is still cleaned up
+    const owner = fs.statSync(documentStore);
+    fs.writeFileSync(file, textPdf(`${tag}-doc`), { flag: 'wx', mode: 0o640 });
+    fs.chownSync(file, owner.uid, owner.gid);
+  }
   ids.consult = track('consultationRequests', 'requestId', sql.value(`INSERT INTO consultationRequests
     (referalDate,reason,clinicalInfo,providerNo,demographicNo,status,urgency,lastUpdateDate)
     VALUES (CURDATE(),${T('consult')},${T('consult')},${p},${d},'1','2',NOW()); SELECT LAST_INSERT_ID()`));
@@ -237,16 +266,29 @@ function seedPatientDomains({ sql, demo, tag, provider }) {
   ids.cpp = track('casemgmt_cpp', 'id', sql.value(`INSERT INTO casemgmt_cpp
     (demographic_no,provider_no,socialHistory,familyHistory,medicalHistory,ongoingConcerns,reminders,update_date)
     VALUES (${d},${p},${T('cpp')},${T('cpp')},${T('cpp')},${T('cpp')},${T('cpp')},NOW()); SELECT LAST_INSERT_ID()`));
-  ids.remove = () => {
-    sql.execute([
-      `DELETE FROM ctl_document WHERE module='demographic' AND module_id=${d} AND document_no=${ids.doc}`,
-      ...owned.map(([table, key, id]) => `DELETE FROM ${table} WHERE ${key}=${id}`),
-    ].join(';'));
-    const remaining = [`(SELECT COUNT(*) FROM ctl_document WHERE document_no=${ids.doc})`,
-      ...owned.map(([table, key, id]) => `(SELECT COUNT(*) FROM ${table} WHERE ${key}=${id})`)];
-    assert(sql.value(`SELECT ${remaining.join('+')}`) === '0', 'Seeded chart-domain rows were not all removed');
-  };
+  const pharmacyId = track('pharmacyInfo', 'recordID', sql.value(`INSERT INTO pharmacyInfo
+    (name,address,city,province,postalCode,phone1,fax,notes,addDate,status,uid)
+    VALUES (${T('pharmacy')},${T('pharmacy')},'Testville','ON','A1A1A1','5550100','5550101',${T('pharmacy')},NOW(),'1',${900000 + (Number(d) % 99999)}); SELECT LAST_INSERT_ID()`));
+  ids.pharmacy = track('demographicPharmacy', 'id', sql.value(`INSERT INTO demographicPharmacy
+    (pharmacyID,demographic_no,status,addDate,preferredOrder,consentToContact)
+    VALUES (${pharmacyId},${d},'1',NOW(),1,0); SELECT LAST_INSERT_ID()`));
   return ids;
 }
 
-module.exports = { authzReadFixture, seedPatientDomains };
+/**
+ * Run every cleanup action even when an earlier one throws, then rethrow the first failure, so one
+ * failed teardown (a login row that will not delete) cannot leave the other owned rows behind.
+ */
+function cleanupAll(...actions) {
+  const failures = [];
+  for (const action of actions) {
+    try { action(); } catch (error) { failures.push(error); }
+  }
+  if (failures.length) {
+    const first = failures[0];
+    if (failures.length > 1) first.message += ` (+${failures.length - 1} more cleanup failure(s): ${failures.slice(1).map(error => error.message).join('; ')})`;
+    throw first;
+  }
+}
+
+module.exports = { authzReadFixture, seedPatientDomains, cleanupAll };

@@ -21,18 +21,16 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
-const { authzReadFixture, seedPatientDomains } = require('./lib/authz-read-fixture');
-const { probe, classify, refusedByApp, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
+const { authzReadFixture, seedPatientDomains, cleanupAll } = require('./lib/authz-read-fixture');
+const { probe, classify, refusedByApp, refusedHead, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
 const { patientQuery } = require('./lib/authz-read-routes');
 
 async function workflow(s) {
   const { sql, marker, patient, provider, config } = s;
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
   let ids;
-  s.cleanup(() => {
-    fixture.cleanup();
-    if (ids) ids.remove();
-  });
+  // The two teardown actions are independent: a login row that will not delete must not leave the seeded chart rows behind.
+  s.cleanup(() => cleanupAll(() => fixture.cleanup(), () => { if (ids) ids.remove(); }));
   const tag = `${marker}-OPEN`;
   const lab = sql.rows(`SELECT plr.lab_no, plr.demographic_no, hti.accessionNum FROM patientLabRouting plr
     JOIN hl7TextInfo hti ON hti.lab_no=plr.lab_no WHERE plr.lab_type='HL7' AND plr.demographic_no>0
@@ -59,7 +57,8 @@ async function workflow(s) {
   ];
 
   await s.step('an owned patient is seeded with one row per chart domain and three restricted logins sign in', async () => {
-    ids = seedPatientDomains({ sql, demo: patient, tag, provider });
+    // `register` hands over the ids object before the first insert, so cleanup also covers a seed that fails midway.
+    seedPatientDomains({ sql, demo: patient, tag, provider, register: seeded => { ids = seeded; } });
     h.assert(fixture.roleHoldsNothing('er_clerk'), 'er_clerk is expected to hold no sec object');
     const heldBy = role => fixture.rolePrivileges(role).map(entry => entry.split(':')[0]);
     for (const role of ['receptionist', 'nurse']) {
@@ -95,7 +94,7 @@ async function workflow(s) {
     for (const who of ['receptionist', 'nurse', 'er_clerk']) {
       for (const [route] of routes()) {
         const result = await get(who, route, 'HEAD');
-        if (![403, 405].includes(result.status) && !refusedByApp(result)) wrong.push(`${who} ${route.split('?')[0]} -> ${result.status}`);
+        if (!refusedHead(result)) wrong.push(`${who} ${route.split('?')[0]} -> ${result.status}`);
       }
     }
     h.assert(!wrong.length, `HEAD was served: ${wrong.join('; ')}`);

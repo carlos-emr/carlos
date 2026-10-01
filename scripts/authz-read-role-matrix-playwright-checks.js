@@ -20,7 +20,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
-const { probe, classify, urlFor, signIn } = require('./lib/authz-read-probe');
+const { probe, classify, forbiddenByApp, refusedHead, urlFor, signIn } = require('./lib/authz-read-probe');
 const { DENIED, ERROR_PAGE_REFUSALS, patientQuery } = require('./lib/authz-read-routes');
 
 // A route each role may open, proving the login is alive (a dead session would also "refuse").
@@ -57,11 +57,11 @@ async function workflow(s) {
   });
 
   for (const role of Object.keys(DENIED)) {
-    await s.step(`${role}: ${DENIED[role].length} read routes outside its sec objects answer 403 to GET`, async () => {
+    await s.step(`${role}: ${DENIED[role].length} read routes outside its sec objects answer 403 (from the application) to GET`, async () => {
       const wrong = [];
       for (const route of DENIED[role]) {
         const result = await probe(sessions[role].context, urlFor(config, `${route}?${query}`));
-        if (result.status !== 403) wrong.push(`${route} -> ${result.status}/${classify(result)}`);
+        if (!forbiddenByApp(result)) wrong.push(`${route} -> ${result.status}/${classify(result)}`);
       }
       h.assert(!wrong.length, `${role} was not refused on: ${wrong.join('; ')}`);
     });
@@ -72,7 +72,7 @@ async function workflow(s) {
     for (const role of Object.keys(DENIED)) {
       for (const route of DENIED[role]) {
         const result = await probe(sessions[role].context, urlFor(config, `${route}?${query}`), { method: 'HEAD' });
-        if (![403, 405].includes(result.status)) wrong.push(`${role} ${route} -> ${result.status}`);
+        if (!refusedHead(result)) wrong.push(`${role} ${route} -> ${result.status}/${classify(result)}`);
       }
     }
     h.assert(!wrong.length, `HEAD was not refused on: ${wrong.join('; ')}`);
@@ -92,7 +92,7 @@ async function workflow(s) {
     tested = served.length;
     for (const route of served) {
       const result = await probe(sessions.er_clerk.context, urlFor(config, `${route}?${query}`));
-      if (result.status !== 403) errorPages.push({ route, status: result.status });
+      if (!forbiddenByApp(result)) errorPages.push({ route, status: result.status });
     }
   });
 

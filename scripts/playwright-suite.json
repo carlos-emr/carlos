@@ -6081,7 +6081,8 @@
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
-        "MYSQL_PASSWORD"
+        "MYSQL_PASSWORD",
+        "DOCUMENT_DIR"
       ],
       "fixtures": "Seeds one row per chart domain for the owned patient; creates three throwaway logins (receptionist, nurse, er_clerk); needs pdftotext (SKIPs without Poppler); cleanup removes every owned row and asserts it.",
       "notes": "Expected to FAIL at the last step 'the E-Chart print hands only the sections a role holds the object for': OscarChartPrint returns the prescriptions and allergies sections (and the whole chart to a receptionist without _eChart). Steps 1-5 pass."

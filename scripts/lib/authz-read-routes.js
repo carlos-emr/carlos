@@ -19,6 +19,15 @@
  *                 _admin.reporting and 12 more administration objects
  */
 
+/**
+ * Routes deliberately kept OUT of every sweep list because their action mutates on a plain GET:
+ * report/SetEligibility (DemographicSetEligibility2Action) calls setDemographicIneligible() /
+ * setDemographicDelete() for each `demoNo` of the request, and the sweep always sends demoNo.
+ * A pinned refusal would still be only one loosened gate away from writing to a patient set, so
+ * the read sweep never requests it. Documented here as an exclusion, not coverage.
+ */
+const MUTATES_ON_GET = ['report/SetEligibility'];
+
 /** The query string every sweep request carried; `n` is the check's owned demographic_no. */
 function patientQuery(n) {
   return `demographic_no=${n}&demographicNo=${n}&demoNo=${n}`;
@@ -115,7 +124,6 @@ const DENIED = {
     'report/DemographicSetEdit',
     'report/DownloadLetter',
     'report/GenerateEnvelopes',
-    'report/SetEligibility',
     'report/ViewManageLetters',
     'rx/ViewChartDrugProfile',
     'rx/ViewListDrugs',
@@ -212,7 +220,6 @@ const DENIED = {
     'report/DemographicSetEdit',
     'report/DownloadLetter',
     'report/GenerateEnvelopes',
-    'report/SetEligibility',
     'report/ViewManageLetters',
     'rx/ViewChartDrugProfile',
     'rx/ViewDrugPrice',
@@ -300,7 +307,6 @@ const DENIED = {
     'report/DemographicSetEdit',
     'report/DownloadLetter',
     'report/GenerateEnvelopes',
-    'report/SetEligibility',
     'report/ViewManageLetters',
     'rx/ViewDisplayMedHistory',
     'rx/ViewLimitedUseCode',
@@ -423,4 +429,10 @@ const ERROR_PAGE_REFUSALS = [
     'oscarResearch/oscarDxResearch/dxResearchLoadQuickList',
   ];
 
-module.exports = { DENIED, ERROR_PAGE_REFUSALS, patientQuery };
+for (const route of MUTATES_ON_GET) {
+  for (const list of [...Object.values(DENIED), ERROR_PAGE_REFUSALS]) {
+    if (list.includes(route)) throw new Error(`${route} mutates on GET and must not be in a read sweep list`);
+  }
+}
+
+module.exports = { DENIED, ERROR_PAGE_REFUSALS, MUTATES_ON_GET, patientQuery };

@@ -22,7 +22,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
-const { probe, classify, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
+const { probe, classify, forbiddenByApp, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
 
 const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
   && new URLSearchParams(r.request().postData() || '').get('method') === method;
@@ -42,6 +42,12 @@ async function workflow(s) {
       DELETE FROM casemgmt_note WHERE demographic_no=${patient};
       DELETE FROM eChart WHERE demographicNo=${patient}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '0', 'Owned note rows were not removed');
+    // Saving the note and the history reads write audit rows (log.data carries the note text); remove the
+    // ones about the two owned patients or carrying this run's marker.
+    const demos = [patient, other].filter(Boolean).join(',');
+    const ownedLog = `demographic_no IN (${demos}) OR data LIKE ${h.sqlString(`%${marker}%`)} OR content LIKE ${h.sqlString(`%${marker}%`)}`;
+    sql.execute(`DELETE FROM log WHERE ${ownedLog}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE ${ownedLog}`) === '0', 'Owned audit rows were not removed');
     if (other) {
       sql.execute(`DELETE FROM demographic WHERE demographic_no=${other} AND last_name=${h.sqlString(otherName)}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${other}`) === '0', 'The second patient was not removed');
@@ -85,7 +91,7 @@ async function workflow(s) {
     clerk = await signIn(s, fixture.addLogin('er_clerk'));
     for (const method of ['notehistory', 'history']) {
       const result = await get(clerk.context, noteUrl(method, patient));
-      h.assert(result.status === 403 && !result.found.length, `${method} answered HTTP ${result.status} to a login without sec objects`);
+      h.assert(forbiddenByApp(result) && !result.found.length, `${method} answered HTTP ${result.status} to a login without sec objects`);
     }
   });
 
@@ -96,7 +102,7 @@ async function workflow(s) {
     // The lock is a real gate for this patient: the master record refuses it while the other patient is served.
     const refused = await get(doctor.context, `demographic/DemographicEdit?demographic_no=${patient}`);
     const served = await get(doctor.context, `demographic/DemographicEdit?demographic_no=${other}`);
-    h.assert(refused.status === 403 && classify(served) === 'served', `The lock fixture does not discriminate (${refused.status}/${served.status})`);
+    h.assert(forbiddenByApp(refused) && classify(served) === 'served', `The lock fixture does not discriminate (${refused.status}/${served.status})`);
   });
 
   await s.step('a note history is only served for the patient the note belongs to, and not to a login locked out of that patient', async () => {
