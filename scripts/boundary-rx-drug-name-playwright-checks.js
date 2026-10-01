@@ -39,7 +39,9 @@ async function workflow(s) {
         rx.locator('#searchString').pressSequentially(item.term, { delay: 40 }),
       ]);
       h.assert(searched.ok(), `The DrugRef search for "${item.term}" answered HTTP ${searched.status()}`);
-      await rx.locator('ul.ui-autocomplete').first().waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
+      // The menu is filled asynchronously after the response: wait for the product itself (a product that never shows is
+      // genuinely absent and is handled below), not just for the empty list element.
+      await rx.locator('ul.ui-autocomplete li.ui-menu-item').filter({ hasText: item.pick }).first().waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
       const option = rx.locator('ul.ui-autocomplete li.ui-menu-item').filter({ hasText: item.pick }).first();
       if (await option.count() === 0) {
         const offered = (await rx.locator('ul.ui-autocomplete li.ui-menu-item').allInnerTexts()).slice(0, 6).map(text => text.replace(/\s+/g, ' ').trim());

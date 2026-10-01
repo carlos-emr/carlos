@@ -42,7 +42,9 @@ function removeNamedArchives(fileName) {
   const root = fs.realpathSync(store);
   const prefix = `LabUpload.${fileName}.`;
   for (const name of fs.readdirSync(root)) {
-    if (!name.startsWith(prefix) || !/^\d+$/.test(name.slice(prefix.length))) continue;
+    if (!name.startsWith(prefix)) continue;
+    // An archive carrying the run's upload name but an unexpected suffix is not ours to delete: stop before any evidence is removed.
+    h.assert(/^\d+$/.test(name.slice(prefix.length)), `Unexpected archive name for this run's upload: ${name}`);
     // name is the run's generated archive name (prefix + digits, no separators) joined to the resolved store root.
     const file = path.join(root, name); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
     fs.unlinkSync(file);
@@ -63,8 +65,9 @@ async function workflow(s) {
     // A failed or partial upload can leave its archive (and a checksum row) with no hl7TextInfo row to find them
     // through; the run's unique upload name (LabUpload.<fileName>.<millis>) identifies both.
     const uploadName = `LabUpload.${fileName}.%`;
-    sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(uploadName)}`);
+    // Archives first: their names are validated before any checksum evidence is deleted.
     removeNamedArchives(fileName);
+    sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(uploadName)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '0', 'The synthetic lab was not removed');
     h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(uploadName)}`) === '0', 'The run\'s lab upload checksum row was not removed');
   });

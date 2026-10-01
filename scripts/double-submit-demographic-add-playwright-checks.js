@@ -66,12 +66,14 @@ async function workflow(s) {
       // A second activation can reach the form's own "other patients with the same first and last name" confirm once the
       // first record exists. Dismissing it (Cancel) is the correct user response and creates nothing, so it is expected here.
       let count;
-      await h.withExpectedDialogs(search, async () => {
+      const dialogs = await h.withExpectedDialogs(search, async () => {
         await rapid(mode.key, search.locator('input[type="submit"][value="Add Record"]').first(),
           { textField: form.locator('input[name="postal"]') });
         count = await settledCount(sql, `SELECT COUNT(*) FROM demographic WHERE last_name=${h.sqlString(lastName)}`,
           { min: mode.key === 'doubleEnter' ? 0 : 1 });
       }, { accept: false });
+      h.assert(dialogs.every(dialog => dialog.type === 'confirm' && /same first and last name/i.test(dialog.text || '')),
+        `An unexpected dialog was raised and dismissed: ${dialogs.map(dialog => `${dialog.type} "${dialog.text}"`).join(' | ')}`);
       if (disarm) await disarm();
       posts.stop();
       console.log(`    (${posts.seen.length} add-record POST(s))`);
