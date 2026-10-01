@@ -173,6 +173,32 @@ class ReviewedChartUpdateServiceUnitTest {
         }
     }
 
+    @Test void shouldBlockWorkflowDuplicates_onlyWithAuthenticatedSourceAnnotation() {
+        String annotated = "Review symptoms\n\nSource document #41 (2026-09-27)\nReviewed source passage:\nOriginal evidence.";
+        when(context.load(user, 42)).thenReturn(snapshot("fresh", "source", List.of(
+                new ChartUpdateContext.Entry("tickler-8", "tickler", annotated, annotated, "2026-10-12", "101"))));
+        // Identical-looking prose alone must not authenticate a source footer.
+        assertThat(apply(valid()).replay()).isFalse();
+        when(receipts.hasProvenance(3001, "tickler", 8L, 41, "Original evidence.")).thenReturn(true);
+        assertThatThrownBy(() -> apply(valid())).hasMessageContaining("already recorded");
+        prepare("history");
+        when(context.load(user, 42)).thenReturn(snapshot("fresh", "source", List.of(
+                new ChartUpdateContext.Entry("note-9", "history", annotated))));
+        when(receipts.hasProvenance(3001, "history", 9L, 41, "Original evidence.")).thenReturn(true);
+        assertThatThrownBy(() -> apply(approval("Review symptoms", "", "", "MedHistory")))
+                .hasMessageContaining("already recorded");
+    }
+
+    @Test void shouldAllowDistinctReminderMetadata_evenWithAuthenticatedAnnotation() {
+        String annotated = "Review symptoms\n\nSource document #41 ()\nReviewed source passage:\nOriginal evidence.";
+        when(receipts.hasProvenance(3001, "tickler", 8L, 41, "Original evidence.")).thenReturn(true);
+        for (String[] metadata : List.of(new String[]{"2026-10-13", "101"}, new String[]{"2026-10-12", "102"})) {
+            when(context.load(user, 42)).thenReturn(snapshot("fresh", "source", List.of(
+                    new ChartUpdateContext.Entry("tickler-8", "tickler", annotated, annotated, metadata[0], metadata[1]))));
+            assertThat(apply(valid()).replay()).isFalse();
+        }
+    }
+
     @Test void shouldReplayReceipt_withoutAnotherWrite() {
         when(receipts.find(review.receiptKey(proposal.key()))).thenReturn(new ChartUpdateReceipt(
                 review.receiptKey(proposal.key()), 3001, 42, "101", "tickler", 123, "source"));

@@ -57,6 +57,10 @@ class ChartUpdatesTest(unittest.TestCase):
                        '- Increase medication and follow up in clinic.'):
             self.assertEqual([], updates.followup_items(source))
 
+    def test_excludes_mixed_action_from_multibullet_followups(self):
+        source = 'Plan\n- Increase medication and arrange clinic follow-up\n- Arrange GP review'
+        self.assertEqual(['- Arrange GP review'], updates.followup_items(source))
+
     def test_family_scope_ends_at_patient_heading_without_blank_line(self):
         for heading in ('Family History:', 'Family Hx:', 'FH:', 'FHx:', 'F/H:'):
             source = heading + '\n- HTN\nPast Medical History:\n- Asthma'

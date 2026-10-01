@@ -38,7 +38,10 @@ This is not medication reconciliation, prescribing, ordering, ICD coding,
 automatic conflict resolution, or a complete longitudinal problem-list merger.
 Chart comparison is clinician-led. Browser warnings use exact text and a small,
 conservative English paraphrase matcher. Server-side duplicate blocking compares complete normalized entries of the same
-kind; reminders must also have the same due date and assignee. Durable receipts
+kind; reminders must also have the same due date and assignee. Source annotations
+from earlier workflow saves are excluded from that comparison only when the
+patient, chart target, document and quoted evidence agree with a committed approval
+receipt. Ordinary annotation-like chart text remains part of the entry. Durable receipts
 prevent replaying an accepted proposal. Neither establishes
 clinical equivalence. The comparison excludes restricted notes, other chart
 sections and inactive ticklers. Review the normal chart when needed.

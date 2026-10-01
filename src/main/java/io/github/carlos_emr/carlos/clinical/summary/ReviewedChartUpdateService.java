@@ -87,9 +87,9 @@ public class ReviewedChartUpdateService {
         }
         String text = validateText(approval.text());
         if (fresh.entries().stream().anyMatch(entry -> entry.kind().equals(proposal.kind())
-                && normalize(entry.entryText()).equals(normalize(text))
                 && (history || (Objects.equals(entry.dueDate(), approval.dueDate())
-                        && Objects.equals(entry.assignee(), approval.assignee()))))) {
+                        && Objects.equals(entry.assignee(), approval.assignee())))
+                && matchesEntry(fresh.patientId(), entry, text))) {
             throw new IllegalStateException("Matching text is already recorded. Review the existing entry instead of adding it again.");
         }
         String recorded = text + "\n\nSource document #" + fresh.documentId() + " (" + fresh.date() + ")"
@@ -100,6 +100,26 @@ public class ReviewedChartUpdateService {
                 user.getLoggedInProviderNo(), proposal.kind(), target, fresh.sourceHash()));
         return new Result(proposal.kind(), target, false);
     }
+
+    private boolean matchesEntry(int patient, ChartUpdateContext.Entry entry, String text) {
+        String recorded = entry.entryText();
+        if (normalize(recorded).equals(normalize(text))) return true;
+        int separator = recorded.indexOf("\n\nSource document #");
+        if (separator < 0 || !normalize(recorded.substring(0, separator)).equals(normalize(text))) return false;
+        var suffix = SOURCE_ANNOTATION.matcher(recorded.substring(separator));
+        String prefix = "history".equals(entry.kind()) ? "note-" : "tickler-";
+        if (!suffix.matches() || !entry.id().startsWith(prefix)) return false;
+        try {
+            return receipts.hasProvenance(patient, entry.kind(), Long.parseLong(entry.id().substring(prefix.length())),
+                    Integer.parseInt(suffix.group(1)), suffix.group(2));
+        } catch (NumberFormatException invalid) {
+            return false;
+        }
+    }
+
+    private static final java.util.regex.Pattern SOURCE_ANNOTATION = java.util.regex.Pattern.compile(
+            "\\n\\nSource document #([1-9][0-9]{0,8}) \\([^\\r\\n()]{0,100}\\)"
+                    + "\\nReviewed source passage:\\n(.{1,2000})", java.util.regex.Pattern.DOTALL);
 
     private long saveTickler(LoggedInInfo user, ChartUpdateContext.Snapshot snapshot, String text, String date, String assignee) {
         if (date == null || !date.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) throw new IllegalArgumentException("Choose a due date.");

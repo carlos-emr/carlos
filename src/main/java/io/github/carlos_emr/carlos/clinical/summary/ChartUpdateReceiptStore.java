@@ -42,6 +42,15 @@ public class ChartUpdateReceiptStore {
         }
     }
     public ChartUpdateReceipt find(String key) { return entityManager.find(ChartUpdateReceipt.class, key); }
+    /** Only a committed receipt for this exact chart target can authenticate an appended source passage. */
+    public boolean hasProvenance(int patient, String kind, long target, int document, String evidence) {
+        return entityManager.createQuery("from ChartUpdateReceipt where patient = :patient and kind = :kind "
+                        + "and target = :target and document = :document", ChartUpdateReceipt.class)
+                .setParameter("patient", patient).setParameter("kind", kind)
+                .setParameter("target", target).setParameter("document", document).getResultList().stream()
+                .anyMatch(receipt -> receipt.getKey().equals(ChartUpdateReview.receiptKey(patient,
+                        receipt.getSourceHash(), new ChartUpdateProposals.Proposal(kind, evidence))));
+    }
     public void requireNoteLock(LoggedInInfo user, int patient) {
         var session = user.getSession();
         Object stored = session == null ? null : session.getAttribute("casemgmtNoteLock" + patient);

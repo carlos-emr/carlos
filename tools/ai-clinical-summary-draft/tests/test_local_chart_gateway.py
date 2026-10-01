@@ -6,6 +6,10 @@ import sys
 import tempfile
 import unittest
 import uuid
+import threading
+from http.server import HTTPServer
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, ProxyHandler, build_opener
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'browser'))
 import local_chart_gateway as local
@@ -67,6 +71,32 @@ class LocalChartGatewayTest(unittest.TestCase):
             self.version = 'changed'
             self.gateway.generate(self.request)
         self.assertEqual(6, self.calls.count('/api/generate'))
+
+    def test_model_unavailability_returns_502_without_leaking_transport_details(self):
+        server = HTTPServer(('127.0.0.1', 0), local.agent.handler_for(self.gateway))
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            url = f'http://127.0.0.1:{server.server_port}' + local.chart_updates.PATH
+            opener = build_opener(ProxyHandler({}))
+            def unavailable_tags(route, data=None):
+                return {'models': []} if route == '/api/tags' else self.call(route, data)
+            for failure in ('connection', 'missing_model'):
+                stub = (patch.object(self.gateway.opener, 'open', side_effect=URLError('private model endpoint details'))
+                        if failure == 'connection' else patch.object(self.gateway, 'call', side_effect=unavailable_tags))
+                with self.subTest(failure=failure), stub:
+                    with self.assertRaises(HTTPError) as caught:
+                        opener.open(Request(url, data=json.dumps(self.request).encode(),
+                                            headers={'Content-Type': 'application/json'}), timeout=5)
+                    with caught.exception as response:
+                        self.assertEqual(502, response.code)
+                        self.assertEqual({'error': 'Model service unavailable; see local gateway status'},
+                                         json.loads(response.read()))
+            self.assertEqual([], list(Path(self.directory.name).glob('*.json')))
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=5)
 
     def test_refuses_cloud_backed_local_model(self):
         with patch.object(self.gateway, 'call', return_value={'remote_host': 'https://example.invalid'}) as call:

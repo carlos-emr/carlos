@@ -88,6 +88,20 @@ class ChartUpdateProposalsUnitTest {
         assertThat(quotations).isEqualTo(21);
     }
 
+    @Test void shouldAcceptCompletePassage_afterIndentedListMarker() {
+        assertThat(ChartUpdateProposals.completePassage("Plan:\n  - Review in two weeks.", "Review in two weeks.")).isTrue();
+        assertThat(ChartUpdateProposals.completePassage("Plan:\r\n  - Review in two weeks.", "Review in two weeks.")).isTrue();
+    }
+
+    @Test void shouldBoundWork_forRepeatedFragmentsInMaximumSizeSource() {
+        org.junit.jupiter.api.Assertions.assertTimeout(java.time.Duration.ofSeconds(5), () -> {
+            assertThat(ChartUpdateProposals.completePassage("x".repeat(60000), "x")).isFalse();
+            assertThat(ChartUpdateProposals.completePassage("1".repeat(60000), "1")).isFalse();
+            assertThat(ChartUpdateProposals.completePassage("No\nasthma.\n".repeat(5000), "asthma.")).isFalse();
+            assertThat(ChartUpdateProposals.completePassage("No\nasthma.\n".repeat(4000) + "\nasthma.", "asthma.")).isTrue();
+        });
+    }
+
     @Test void shouldValidateProposals_whenEmptyOrDuplicated() throws Exception {
         assertThat(ChartUpdateProposals.validate(JSON.readTree("{\"proposals\":[]}"), SOURCE)).isEmpty();
         String row = "{\"kind\":\"history\",\"evidence\":\"Suspected asthma.\"}";

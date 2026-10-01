@@ -740,7 +740,7 @@ def handler_for(gateway):
                           f"cache hits: {gateway.cache_hits - hits}", flush=True)
             except UpstreamError as error:
                 print(str(error), flush=True)  # Fixed diagnostics, never upstream body or credential.
-                self.respond(502, {"error": "OpenRouter unavailable; see local gateway status"})
+                self.respond(502, {"error": "Model service unavailable; see local gateway status"})
             except (ValueError, TypeError, KeyError, OSError):
                 print("Request or generated draft failed validation; nothing accepted", flush=True)
                 try:

@@ -80,6 +80,7 @@ public final class ChartUpdateProposals {
         if (!rows.isArray() || rows.size() > 20) throw new IllegalArgumentException("Invalid proposals");
         List<Proposal> result = new ArrayList<>();
         Set<String> seen = new HashSet<>();
+        var boundaries = new PassageBoundaries(source);
         for (JsonNode row : rows) {
             ClinicalSummaryAgentProtocol.exactFields(row, Set.of("kind", "evidence"));
             if (!row.path("kind").isTextual() || !Set.of("tickler", "history").contains(row.get("kind").asText())) {
@@ -87,7 +88,7 @@ public final class ChartUpdateProposals {
             }
             JsonNode excerpt = row.path("evidence");
             if (!excerpt.isTextual() || excerpt.asText().isBlank() || excerpt.asText().length() > 2000
-                    || !completePassage(source, excerpt.asText()) || !seen.add(excerpt.asText())) {
+                    || !boundaries.contains(excerpt.asText()) || !seen.add(excerpt.asText())) {
                 throw new IllegalArgumentException("Invalid or duplicate source passage");
             }
             result.add(new Proposal(row.get("kind").asText(), excerpt.asText()));
@@ -97,36 +98,94 @@ public final class ChartUpdateProposals {
 
     /** Require sentence/line boundaries so an agent cannot quote only "asthma" from "No asthma". */
     static boolean completePassage(String source, String evidence) {
-        for (int start = source.indexOf(evidence); start >= 0; start = source.indexOf(evidence, start + 1)) {
-            int end = start + evidence.length();
-            String before = source.substring(0, start);
-            String after = source.substring(end);
-            String linePrefix = before.substring(before.lastIndexOf('\n') + 1);
-            boolean begins = before.isBlank() || linePrefix.isBlank()
-                    || linePrefix.matches("[ \\t]*(?:[-*•]|[0-9]+[.)])[ \\t]+")
-                    || (before.matches("(?s).*[.!?][ \\t]+")
-                        && !before.matches("(?s).*\\b(?:Dr|Mr|Mrs|Ms|Prof|St|[A-Z]|[0-9]+)\\.[ \\t]+"));
-            boolean ends = after.isBlank() || after.matches("[ \\t]*\\r?\\n(?s:.*)")
-                    || (evidence.matches("(?s).*[.!?]") && after.matches("[ \\t]+(?s:.*)"));
-            // Newlines may wrap a qualification; do not treat them as automatic statement ends.
-            String previousLine = before.stripTrailing();
-            previousLine = previousLine.substring(previousLine.lastIndexOf('\n') + 1);
-            String followingLine = after.stripLeading();
-            boolean startsList = evidence.matches("(?s)^(?:[-*•]|[0-9]+[.)])[ \\t]+.*");
-            if (!before.isBlank() && linePrefix.isBlank() && !previousLine.isBlank()
-                    && !previousLine.matches("(?s).*[.!?:]") && !startsList
-                    && !previousLine.strip().matches("(?i)(?:impression|presenting complaint|diagnosis|diagnoses|issues|plan)")
-                    && !before.matches("(?s).*\\n[ \\t\\r]*\\n[ \\t]*$")) begins = false;
-            if (before.matches("(?is).*\\b(?:no|not|denies|without|if|unless|pending)[^.!?\\n]*\\r?\\n[ \\t]*$")) begins = false;
-            if (after.matches("[ \\t]*\\r?\\n(?s:.*)") && !followingLine.isBlank()
-                    && !evidence.matches("(?s).*[.!?:]")
-                    && !after.matches("(?s)^[ \\t]*\\r?\\n[ \\t\\r]*\\n.*")
-                    && !followingLine.matches("(?s)^(?:[-*•][ \\t]*|[0-9]+[.)][ \\t]+).*")
-                    && !followingLine.matches("(?s)^[A-Z][A-Za-z /-]{0,60}:.*")) ends = false;
-            if (followingLine.matches("(?is)^(?:[-*•][ \\t]*|[0-9]+[.)][ \\t]+)?(?:ruled out|not confirmed|resolved|cancelled|if\\b|unless\\b|when\\b).*")) ends = false;
-            if (begins && ends) return true;
+        return new PassageBoundaries(source).contains(evidence);
+    }
+
+    /** Index whitespace and line boundaries once; repeated quotations never copy/rescan the whole source. */
+    private static final class PassageBoundaries {
+        private static final java.util.regex.Pattern LIST_PREFIX = java.util.regex.Pattern.compile("[ \\t]*(?:[-*•]|[0-9]+[.)])[ \\t]+");
+        private static final java.util.regex.Pattern NEXT_LIST = java.util.regex.Pattern.compile("(?:[-*•][ \\t]*|[0-9]+[.)][ \\t]+)");
+        private static final java.util.regex.Pattern HEADING = java.util.regex.Pattern.compile("[A-Z][A-Za-z /-]{0,60}:");
+        private static final java.util.regex.Pattern PLAIN_HEADING = java.util.regex.Pattern.compile("(?i)(?:impression|presenting complaint|diagnosis|diagnoses|issues|plan)");
+        private static final java.util.regex.Pattern ABBREVIATION = java.util.regex.Pattern.compile("\\b(?:Dr|Mr|Mrs|Ms|Prof|St|[A-Z]|[0-9]+)\\.$");
+        private static final java.util.regex.Pattern PREFIX_QUALIFIER = java.util.regex.Pattern.compile("(?i)\\b(?:no|not|denies|without|if|unless|pending)\\b");
+        private static final java.util.regex.Pattern SUFFIX_QUALIFIER = java.util.regex.Pattern.compile(
+                "(?i)(?:[-*•][ \\t]*|[0-9]+[.)][ \\t]+)?(?:ruled out|not confirmed|resolved|cancelled|if\\b|unless\\b|when\\b)");
+        private final String source;
+        private final int[] lineStart, clauseStart, previousText, nextText;
+
+        PassageBoundaries(String source) {
+            this.source = source;
+            int size = source.length();
+            lineStart = new int[size + 1];
+            clauseStart = new int[size + 1];
+            previousText = new int[size + 1];
+            nextText = new int[size + 1];
+            previousText[0] = -1;
+            for (int i = 0; i < size; i++) {
+                char c = source.charAt(i);
+                lineStart[i + 1] = c == '\n' ? i + 1 : lineStart[i];
+                clauseStart[i + 1] = c == '\n' || ".!?".indexOf(c) >= 0 ? i + 1 : clauseStart[i];
+                previousText[i + 1] = Character.isWhitespace(c) ? previousText[i] : i;
+            }
+            nextText[size] = size;
+            for (int i = size - 1; i >= 0; i--) {
+                nextText[i] = Character.isWhitespace(source.charAt(i)) ? nextText[i + 1] : i;
+            }
         }
-        return false;
+
+        boolean contains(String evidence) {
+            if (evidence == null || evidence.isBlank()) return false;
+            for (int start = source.indexOf(evidence); start >= 0; start = source.indexOf(evidence, start + 1)) {
+                int end = start + evidence.length();
+                int previous = previousText[start];
+                boolean blankPrefix = previous < lineStart[start];
+                boolean begins = previous < 0 || blankPrefix
+                        || (start - lineStart[start] <= 32
+                            && LIST_PREFIX.matcher(source).region(lineStart[start], start).matches());
+                if (!begins && previous >= lineStart[start] && ".!?".indexOf(source.charAt(previous)) >= 0
+                        && previous + 1 < start && horizontalEnd(previous + 1) == start) {
+                    begins = !ABBREVIATION.matcher(source).region(Math.max(lineStart[start], previous - 32), previous + 1).find();
+                }
+                if (!begins) continue;
+                if (previous >= 0 && blankPrefix) {
+                    int previousLine = nextText[lineStart[previous]];
+                    int gapLines = newlines(previous + 1, start);
+                    boolean heading = previous + 1 - previousLine <= 64
+                            && PLAIN_HEADING.matcher(source).region(previousLine, previous + 1).matches();
+                    if (".!?:".indexOf(source.charAt(previous)) < 0 && !heading && gapLines < 2
+                            && !LIST_PREFIX.matcher(evidence).lookingAt()) continue;
+                    if (gapLines == 1 && PREFIX_QUALIFIER.matcher(source)
+                            .region(clauseStart[previous + 1], previous + 1).find()) continue;
+                }
+                int following = nextText[end];
+                int afterHorizontal = horizontalEnd(end);
+                int afterCr = afterHorizontal < source.length() && source.charAt(afterHorizontal) == '\r'
+                        ? afterHorizontal + 1 : afterHorizontal;
+                boolean newlineAfter = afterCr < source.length() && source.charAt(afterCr) == '\n';
+                char last = evidence.charAt(evidence.length() - 1);
+                boolean ends = following == source.length() || newlineAfter
+                        || (".!?".indexOf(last) >= 0 && afterHorizontal > end);
+                if (newlineAfter && following < source.length() && ".!?:".indexOf(last) < 0
+                        && newlines(end, following) < 2
+                        && !NEXT_LIST.matcher(source).region(following, source.length()).lookingAt()
+                        && !HEADING.matcher(source).region(following, source.length()).lookingAt()) ends = false;
+                if (SUFFIX_QUALIFIER.matcher(source).region(following, source.length()).lookingAt()) ends = false;
+                if (ends) return true;
+            }
+            return false;
+        }
+
+        private int horizontalEnd(int from) {
+            int end = from;
+            while (end < source.length() && (source.charAt(end) == ' ' || source.charAt(end) == '\t')) end++;
+            return end;
+        }
+        private int newlines(int from, int to) {
+            int count = 0;
+            for (int i = from; i < to && count < 2; i++) if (source.charAt(i) == '\n') count++;
+            return count;
+        }
     }
 
     public static String hash(String value) {

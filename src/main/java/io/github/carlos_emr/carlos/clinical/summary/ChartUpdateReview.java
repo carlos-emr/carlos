@@ -89,7 +89,10 @@ public final class ChartUpdateReview implements Serializable {
         if (!proposals.containsKey(key)) throw new IllegalArgumentException("Unknown proposal");
         return proposals.get(key);
     }
-    public String receiptKey(String key) { return ChartUpdateProposals.hash(patient + "\n" + sourceHash + "\n" + proposal(key).key()); }
+    public String receiptKey(String key) { return receiptKey(patient, sourceHash, proposal(key)); }
+    static String receiptKey(int patient, String sourceHash, ChartUpdateProposals.Proposal proposal) {
+        return ChartUpdateProposals.hash(patient + "\n" + sourceHash + "\n" + proposal.key());
+    }
     public String getToken() { return token; }
     public int getDocument() { return document; }
     public int getPatient() { return patient; }

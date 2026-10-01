@@ -62,5 +62,13 @@ class ChartUpdateTicklerAccessUnitTest {
         var unconfiguredAssignee = new ProgramProvider();
         when(memberships.getProgramProviderByProviderProgramId("102", 10016L)).thenReturn(List.of(unconfiguredAssignee));
         assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).isEmpty();
+        member.setRole(null);
+        tickler.setCreator("101");
+        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).containsExactly(tickler);
+        tickler.setCreator("103");
+        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).isEmpty();
+        member.setRole(new Secrole());
+        tickler.setCreator("101");
+        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).containsExactly(tickler);
     }
 }

@@ -59,6 +59,8 @@ public class ChartUpdateReceipt {
         this.sourceHash = sourceHash;
         acceptedAt = LocalDateTime.now();
     }
+    public String getKey() { return key; }
+    public String getSourceHash() { return sourceHash; }
     public String getKind() { return kind; }
     public long getTarget() { return target; }
 }

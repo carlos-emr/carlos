@@ -46,11 +46,14 @@ class Gateway:
     def call(self, route, data=None):
         body = None if data is None else json.dumps(data).encode()
         request = Request(self.url + route, data=body, headers={'Content-Type': 'application/json'})
-        with self.opener.open(request, timeout=1800) as response:
-            raw = response.read(4 * 1024 * 1024 + 1)
-        if len(raw) > 4 * 1024 * 1024:
-            raise ValueError('Model response exceeds limit')
-        return loads(raw)
+        try:
+            with self.opener.open(request, timeout=1800) as response:
+                raw = response.read(4 * 1024 * 1024 + 1)
+            if len(raw) > 4 * 1024 * 1024:
+                raise ValueError('Model response exceeds limit')
+            return loads(raw)
+        except (OSError, ValueError):
+            raise agent.UpstreamError('Local model connection, timeout, or response-format failure') from None
 
     def generate(self, request):
         chart_updates.validate_request(request, self.notes, 50000)
@@ -58,7 +61,9 @@ class Gateway:
         info = self.call('/api/show', {'model': MODEL})
         if info.get('remote_model') or info.get('remote_host'):
             raise ValueError('A local model is required')
-        tag = next(row for row in self.call('/api/tags')['models'] if row['name'] == MODEL)
+        tag = next((row for row in self.call('/api/tags')['models'] if row['name'] == MODEL), None)
+        if tag is None:
+            raise agent.UpstreamError('Configured local model is unavailable')
         identity = {'model': MODEL, 'digest': tag['digest'], 'version': self.call('/api/version')['version']}
         key = hashlib.sha256(json.dumps([identity, OPTIONS, self.implementation,
             {k: v for k, v in request.items() if k != 'request_id'}], sort_keys=True).encode()).hexdigest()

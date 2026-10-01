@@ -326,7 +326,11 @@ public class TicklerManagerImpl implements TicklerManager {
             }
             ProgramProvider pp = ppList.get(0);
             Secrole role = pp.getRole();
-            if (role == null || role.getRoleName() == null) continue;
+            if (role == null || role.getRoleName() == null) {
+                // Preserve the creator exception even when this membership has no usable role.
+                if (Objects.equals(t.getCreator(), providerNo)) filteredTicklers.add(t);
+                continue;
+            }
 
             // Get the tickler assigned to providers's role in the tickler's program
             String ticklerRole = null;

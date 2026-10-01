@@ -90,5 +90,38 @@ Follow-up validation completed:
   MUST or worthwhile unresolved SHOULD findings. The review covered all 60 fresh
   automated comments. Protected workflow/database paths were not changed.
 
-The earlier successful CI applies to `89e845c71`. CI for the new review-fix commit
-must complete after its push; no manual CI rerun was requested.
+Full build, test, JSP, schema, script, localization and security checks passed for
+`b10d5d99bb`. Its automated review subsequently raised the follow-up items below.
+
+## Further corrections after the automated review
+
+- A later document cannot add the same workflow-written entry merely because the
+  existing entry has a source annotation. The server excludes that annotation
+  only when a committed receipt verifies the patient, entry kind, target record,
+  source document and original quoted evidence. Different reminder dates or
+  assignees remain distinct. Ordinary annotation-like prose cannot authenticate
+  itself.
+- Source validation indexes line, clause and whitespace boundaries once. Repeated
+  short fragments no longer cause copies and rescans of the whole document.
+  Indented list items and wrapped qualifications remain covered.
+- A creator with an existing program membership but a missing role can still see
+  their own reminders. Other reminders remain subject to access checks.
+- Missing local models and transport failures return a sanitized HTTP 502 response.
+  A mixed medication/follow-up item is tested within a multi-item plan.
+
+This pass passed 132 targeted Java tests, 217 Python tests and all 17 browser
+scenarios. The transaction test saved a reminder, rejected the same reminder from
+another source and verified that only one record remained. Receipt checks rejected
+wrong patients, kinds, targets, documents and changed evidence. The source tests
+retained all 21 saved quotations and exercised maximum-size repeated fragments.
+
+The updated isolated eChart trial again returned five and two suggestions for
+AIFACT005's two attachments. Original documents, source highlighting, defaults and
+modal navigation passed; clinical entry and receipt counts remained zero and the
+editing lock was released. The ten-case cache was revalidated without new model
+calls. Independent review cleared the complete PR and these code/test corrections;
+CI for this follow-up will run automatically on push.
+
+Extraction coverage still needs clinician-marked examples: these development checks
+do not establish how many useful facts the model misses. This pass keeps the saved
+model outputs and the current extraction prompts.
