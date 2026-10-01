@@ -185,7 +185,7 @@ async function workflow(s) {
   other.setDefaultTimeout(TIMEOUT);
   other.on('page', (page) => h.wireStrictPage(page, 'fwd-throwaway', recorder));
   const schedule = await h.login(other, { ...config, testUser: fixture.username }, recorder, { label: 'fwd-throwaway' });
-  let inbox = await openInbox(schedule, recorder, 'fwd-throwaway-inbox');
+  const inbox = await openInbox(schedule, recorder, 'fwd-throwaway-inbox');
 
   await s.step('Inbox ▸ Forwarding Rules saves a forward-to rule for the logged-in provider', async () => {
     const rules = await openForwardingRules(inbox, recorder);
@@ -223,15 +223,13 @@ async function workflow(s) {
 
   let report;
   await s.step('Label on the lab display stores the typed label on the lab', async () => {
-    console.log('DBG reopen');
-    await inbox.close();
-    inbox = await openInbox(schedule, recorder, 'fwd-throwaway-inbox');
-    console.log('DBG reopened');
+    // Search again so the list includes the lab uploaded after it was first drawn.
+    await ui.clickAndAwaitReload(inbox, inbox.locator('#inboxhubFormSearchBtn'), { timeout: TIMEOUT, label: 'Inbox search' });
+    await settle(inbox, 60000);
     const row = inbox.locator(`tr[data-lab-type="HL7"][data-segment-id="${labNo}"]`);
     await row.first().waitFor({ state: 'visible', timeout: TIMEOUT });
     report = await ui.clickOpensPopup(inbox, row.locator('a[onclick*="reportWindow"]').first(),
       { context: other, recorder, label: 'fwd-lab-display', timeout: TIMEOUT });
-    console.log('DBG report open');
     const label = `FAKE ${stamp}`;
     await report.locator(`#acklabel_${labNo}`).fill(label);
     const [response] = await Promise.all([
@@ -283,7 +281,6 @@ async function workflow(s) {
     h.assert(await rules.getByText('There are no forwarding rules set').count() === 1,
       'The reloaded page still shows forwarding rules');
     await rules.close();
-    await inbox.close();
   });
 
   await s.step('Administration ▸ Lab Forwarding Rules shows and saves the chosen provider\'s rules', async () => {

@@ -95,20 +95,13 @@ async function workflow(s) {
     await inbox.locator(`input[name="messageNo"][value="${controlId}"]`).waitFor();
   });
 
-  await s.step('Search Patient picks the owned patient and Link writes one msgDemoMap row', async () => {
+  await s.step('the patient typeahead picks the owned patient and Link writes one msgDemoMap row', async () => {
     await openMessage(messageId);
-    await inbox.locator('#keyword').fill(s.marker);
-    const search = await s.popup(inbox, inbox.locator('input[name="searchDemo"]'), 'messenger-patient-search');
-    h.assert(new URL(search.url()).pathname.endsWith('/demographic/DemographicLinkMsg')
-      || new URL(search.url()).pathname.endsWith('/demographic/DemographicSearch'), 'Search Patient did not open the messenger patient search');
-    // msgSearchDemo.jsp auto-submits to DemographicSearch with fromMessenger=true.
-    const pick = search.locator(`#patientResults a[onclick*="selectForMessenger"][onclick*="'${s.patient}'"]`);
-    await pick.waitFor({ timeout: TIMEOUT });
-    h.assert(await search.locator('#patientResults a[onclick*="selectForMessenger"]').count() === 1,
-      'The messenger patient search did not narrow to the one owned patient');
-    await Promise.all([search.waitForEvent('close', { timeout: TIMEOUT }), pick.click()]);
+    await ui.typeAutocomplete(inbox, '#keyword', s.marker, {
+      menu: 'ul.demographic-autocomplete-list', option: s.marker, hidden: 'input[name="demographic_no"]', timeout: TIMEOUT,
+    });
     h.assert(await inbox.locator('input[name="demographic_no"]').inputValue() === s.patient,
-      'Picking the patient did not fill the message link form');
+      'The typeahead filled a patient other than the owned fixture');
     const selected = (await inbox.locator('input[name="selectedDemo"]').inputValue()).toLowerCase();
     h.assert(patientName.every(part => selected.includes(part.toLowerCase())), 'The selected patient name was not shown');
     h.assert(links(messageId) === '0', 'Picking a patient linked the message before Link was clicked');
@@ -117,6 +110,12 @@ async function workflow(s) {
       'Link to Patient did not write exactly one msgDemoMap row');
     h.assert(links(messageId) === '1', 'Link to Patient linked the message to a different patient');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${Number(controlId)}`) === '0', 'The control message was linked');
+  });
+
+  await s.step('the reopened message lists the linked patient', async () => {
+    await backToInbox();
+    await openMessage(messageId);
+    await inbox.locator(`input[title="${s.patient}"]`).waitFor();
   });
 
   await s.step('Reply opens a draft carrying the linked patient and the quoted message', async () => {
@@ -185,6 +184,24 @@ async function workflow(s) {
     await expectValue(s.sql, `SELECT status FROM messagelisttbl WHERE message=${Number(messageId)} AND provider_no=${provider}`, 'read',
       'Unarchive did not restore the delivery row');
     h.assert(status(controlId) === 'new', 'Unarchive changed the control message');
+  });
+  // Kept last: msgSearchDemo.jsp closes itself on load (see report), so this step
+  // asserts the correct behaviour and is expected to fail until that is fixed.
+  await s.step('Search Patient (DemographicLinkMsg) lists the owned patient and links the control message', async () => {
+    await backToInbox();
+    await openMessage(controlId);
+    await inbox.locator('#keyword').fill(s.marker);
+    const search = await s.popup(inbox, inbox.locator('input[name="searchDemo"]'), 'messenger-patient-search');
+    const pick = search.locator(`#patientResults a[onclick*="selectForMessenger"][onclick*="'${s.patient}'"]`);
+    await pick.waitFor({ timeout: TIMEOUT });
+    h.assert(await search.locator('#patientResults a[onclick*="selectForMessenger"]').count() === 1,
+      'The messenger patient search did not narrow to the one owned patient');
+    await Promise.all([search.waitForEvent('close', { timeout: TIMEOUT }), pick.click()]);
+    h.assert(await inbox.locator('input[name="demographic_no"]').inputValue() === s.patient,
+      'Picking the patient did not fill the message link form');
+    await clickAndLoad(inbox, inbox.locator('input[name="linkDemo"]'), '/messenger/ViewMessage');
+    await expectValue(s.sql, `SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${Number(controlId)} AND demographic_no=${Number(s.patient)}`, '1',
+      'Link to Patient after Search Patient did not write the msgDemoMap row');
   });
 }
 

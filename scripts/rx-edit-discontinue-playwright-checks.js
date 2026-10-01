@@ -203,6 +203,7 @@ async function workflow(s) {
     const record = await s.popup(rx, rx.locator(`a[onclick*="/rx/ViewDisplayRxRecord?id=${drug}'"]`).first(), 'rx-record');
     const field = async label => (await record.locator('tr').filter({ has: record.locator('td.label', { hasText: new RegExp(`^${label}:$`) }) })
       .first().locator('td').nth(1).innerText()).trim();
+    console.log('DEBUG', JSON.stringify(await Promise.all(['Brand Name','Frequency','Duration','Quantity','Archived Reason','Problem Code'].map(field))));
     h.assert(await field('Brand Name') === DRUG_NAME && await field('Frequency') === 'BID' && await field('Duration') === '14'
       && await field('Quantity') === '28', 'The record popup does not show the saved product, frequency, duration and quantity');
     h.assert(await field('Archived Reason') === 'doseChange', 'The record popup does not show the discontinue reason');
