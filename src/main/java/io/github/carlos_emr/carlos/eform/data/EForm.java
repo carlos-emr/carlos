@@ -1476,14 +1476,26 @@ public class EForm extends EFormBase {
      */
     public void ensureNewFormInput() {
         Element form = getDocument().selectFirst("form");
-        // Exact, case-sensitive matches: jsoup's [name=...] selector ignores case, so a control
-        // named "newform" would otherwise suppress the fallback although browsers (and template
-        // scripts) treat it as a different field. getElementById is already case-sensitive.
+        // getElementById is case-sensitive; the name check must be too (jsoup's [name=...]
+        // selector ignores case, but "newform" is a different field to browsers and scripts).
         if (form != null && getDocument().getElementById("newForm") == null
-                && form.select("[name]").stream().noneMatch(c -> "newForm".equals(c.attr("name")))) {
+                && !hasSubmittableNewFormControl(form)) {
             form.appendElement("input").attr("type", "hidden").attr("id", "newForm")
                     .attr("name", "newForm").attr("value", "true");
         }
+    }
+
+    /**
+     * True when the form already submits a value named exactly {@code newForm}: an input (other
+     * than the button-like types, which submit nothing unless they are the submitter), select or
+     * textarea. An {@code <a name>} or {@code <img name>} anchor submits nothing, so it must not
+     * suppress the fallback.
+     */
+    private static boolean hasSubmittableNewFormControl(Element form) {
+        return form.select("input[name], select[name], textarea[name]").stream()
+                .filter(control -> "newForm".equals(control.attr("name")))
+                .anyMatch(control -> !control.is(
+                        "input[type=button], input[type=submit], input[type=reset], input[type=image]"));
     }
 
     public void addHiddenInputElement(String id, String name, String className, String value, Map<String, String> additionalProperties) {

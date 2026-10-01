@@ -96,6 +96,21 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldSupplyNewFormFlag_whenOnlyNonSubmittingElementsUseTheName() {
+        EForm form = new EForm();
+        form.setFormHtml("<form><a name='newForm'></a><img name='newForm'>"
+                + "<input type='button' name='newForm' value='Start'></form>");
+        form.ensureNewFormInput();
+        form.ensureNewFormInput();
+        var document = Jsoup.parse(form.getFormHtml());
+        var fields = document.select("input[type=hidden]").stream()
+                .filter(input -> "newForm".equals(input.attr("name"))).toList();
+        assertThat(fields).hasSize(1);
+        assertThat(fields.get(0).id()).isEqualTo("newForm");
+        assertThat(fields.get(0).val()).isEqualTo("true");
+    }
+
+    @Test
     void shouldSupplyNewFormFlag_whenTemplateHasNone() {
         EForm form = new EForm();
         form.setFormHtml("<form></form>");
