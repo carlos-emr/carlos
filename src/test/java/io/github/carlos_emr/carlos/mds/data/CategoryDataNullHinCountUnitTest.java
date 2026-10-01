@@ -9,6 +9,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
@@ -65,26 +66,35 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
                     + " lab_no INT, lab_type VARCHAR(3))");
             ddl.execute("CREATE TABLE hl7TextInfo (id INT AUTO_INCREMENT PRIMARY KEY, lab_no INT, result_status VARCHAR(1),"
                     + " accessionNum VARCHAR(20), obr_date VARCHAR(20))");
-
-            // The patient under test has no health number; a second patient with the same name has one.
-            ddl.execute("INSERT INTO demographic VALUES (" + PATIENT + ", 'Synthetic', 'Nohin', NULL)");
-            ddl.execute("INSERT INTO demographic VALUES (" + OTHER_PATIENT + ", 'Synthetic', 'Nohin', '9876543210')");
-            // One document for each patient.
-            ddl.execute("INSERT INTO ctl_document VALUES ('demographic', " + PATIENT + ", 11, 'A')");
-            ddl.execute("INSERT INTO ctl_document VALUES ('demographic', " + OTHER_PATIENT + ", 12, 'A')");
-            ddl.execute("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES ('" + PROVIDER + "', 11, 'N', 'DOC')");
-            ddl.execute("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES ('" + PROVIDER + "', 12, 'N', 'DOC')");
-            // One abnormal HL7 lab for each patient.
-            ddl.execute("INSERT INTO patientLabRouting (demographic_no, lab_no, lab_type) VALUES (" + PATIENT + ", 21, 'HL7')");
-            ddl.execute("INSERT INTO patientLabRouting (demographic_no, lab_no, lab_type) VALUES (" + OTHER_PATIENT + ", 22, 'HL7')");
-            ddl.execute("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES ('" + PROVIDER + "', 21, 'N', 'HL7')");
-            ddl.execute("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES ('" + PROVIDER + "', 22, 'N', 'HL7')");
-            ddl.execute("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (21, 'A', 'ACC-21')");
-            ddl.execute("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (22, 'A', 'ACC-22')");
         }
+        // Fixture rows are bound, not concatenated, per the parameterized-SQL rule.
+        // The patient under test has no health number; a second patient with the same name has one.
+        insert("INSERT INTO demographic VALUES (?, 'Synthetic', 'Nohin', ?)", PATIENT, null);
+        insert("INSERT INTO demographic VALUES (?, 'Synthetic', 'Nohin', ?)", OTHER_PATIENT, "9876543210");
+        // One document for each patient.
+        insert("INSERT INTO ctl_document VALUES ('demographic', ?, ?, 'A')", PATIENT, 11);
+        insert("INSERT INTO ctl_document VALUES ('demographic', ?, ?, 'A')", OTHER_PATIENT, 12);
+        insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'DOC')", PROVIDER, 11);
+        insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'DOC')", PROVIDER, 12);
+        // One abnormal HL7 lab for each patient.
+        insert("INSERT INTO patientLabRouting (demographic_no, lab_no, lab_type) VALUES (?, ?, 'HL7')", PATIENT, 21);
+        insert("INSERT INTO patientLabRouting (demographic_no, lab_no, lab_type) VALUES (?, ?, 'HL7')", OTHER_PATIENT, 22);
+        insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'HL7')", PROVIDER, 21);
+        insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'HL7')", PROVIDER, 22);
+        insert("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (?, 'A', ?)", 21, "ACC-21");
+        insert("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (?, 'A', ?)", 22, "ACC-22");
         registerMock(DataSource.class, hintStrippingDataSource());
         registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
         registerMock(EntityManagerFactory.class, mock(EntityManagerFactory.class));
+    }
+
+    private void insert(String sql, Object... values) throws SQLException {
+        try (PreparedStatement statement = keepAlive.prepareStatement(sql)) {
+            for (int i = 0; i < values.length; i++) {
+                statement.setObject(i + 1, values[i]);
+            }
+            statement.executeUpdate();
+        }
     }
 
     @AfterEach
