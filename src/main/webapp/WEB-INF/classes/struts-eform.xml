@@ -190,7 +190,7 @@
         </action>
         <action name="eforms/delGroup" class="io.github.carlos_emr.carlos.eform.actions.DeleteGroup2Action">
             <!-- REDIRECT, not a forward: see removeFromGroup above. -->
-            <result name="success" type="redirect">/eform/efmmanageformgroups</result>
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
         <!-- LEGACY BACKWARD-COMPATIBILITY ALIAS (keep): the eForm corpus and saved eform_data

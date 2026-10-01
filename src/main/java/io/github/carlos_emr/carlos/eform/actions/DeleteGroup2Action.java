@@ -60,4 +60,15 @@ public class DeleteGroup2Action extends ActionSupport {
         return SUCCESS;
     }
 
+
+    /**
+     * Where the success redirect lands: the group list, or the Administration shell's eForm
+     * Groups section in schedule mode. A redirect, not a forward: the groups page gate refuses
+     * POST, so the forward ended on "CARLOS Error: 405" (#4130).
+     *
+     * @return the application-relative redirect target, never null
+     */
+    public String getRedirectTarget() {
+        return EFormGroupRedirect.toGroup(null, request);
+    }
 }

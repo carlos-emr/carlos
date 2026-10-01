@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.eform.actions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -45,5 +46,36 @@ class EFormGroupRedirectUnitTest {
     void shouldReturnGroupList_forNullOrEmptyName() {
         assertThat(EFormGroupRedirect.toGroup(null)).isEqualTo("/eform/efmmanageformgroups");
         assertThat(EFormGroupRedirect.toGroup("")).isEqualTo("/eform/efmmanageformgroups");
+    }
+
+    @Test
+    @DisplayName("should keep the plain groups page when not in schedule mode")
+    void shouldReturnGroupsPage_whenScheduleNavAbsent() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/eforms/removeFromGroup");
+
+        assertThat(EFormGroupRedirect.toGroup("Intake", request))
+                .isEqualTo("/eform/efmmanageformgroups?group_view=Intake");
+    }
+
+    @Test
+    @DisplayName("should return a native schedule-mode submission through the Administration shell")
+    void shouldReturnShellGroupsSection_forNativeScheduleModeSubmission() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/eforms/delGroup");
+        request.setParameter("scheduleNav", "1");
+
+        assertThat(EFormGroupRedirect.toGroup(null, request))
+                .isEqualTo("/administration?show=FormsGroups&scheduleNav=1");
+    }
+
+    @Test
+    @DisplayName("should keep the groups page and the flag for an AJAX submission from the shell panel")
+    void shouldKeepGroupsPageWithFlag_forAjaxScheduleModeSubmission() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/eform/addGroup");
+        request.setParameter("scheduleNav", "1");
+        // jQuery's marker joined with CSRFGuard's, as the browser actually sends it.
+        request.addHeader("X-Requested-With", "XMLHttpRequest, OWASP CSRFGuard Project");
+
+        assertThat(EFormGroupRedirect.toGroup("Intake", request))
+                .isEqualTo("/eform/efmmanageformgroups?group_view=Intake&scheduleNav=1");
     }
 }

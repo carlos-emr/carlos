@@ -72,7 +72,7 @@ public class RemoveFromGroup2Action extends ActionSupport {
      * @return the application-relative groups page for this group, never null
      */
     public String getRedirectTarget() {
-        return EFormGroupRedirect.toGroup(request.getParameter("groupName"));
+        return EFormGroupRedirect.toGroup(request.getParameter("groupName"), request);
     }
 
 }

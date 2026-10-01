@@ -58,6 +58,11 @@
     }
 
     String orderByRequest = request.getParameter("orderby");
+
+    // Schedule mode (the Administration shell with the schedule's top nav). Every group
+    // mutator form carries it so the success redirect can return there (EFormGroupRedirect).
+    String scheduleNavField = io.github.carlos_emr.carlos.utility.ScheduleNav.isActive(request)
+            ? "<input type=\"hidden\" name=\"scheduleNav\" value=\"1\"/>" : "";
     String orderBy = "";
     if (orderByRequest == null) orderBy = EFormUtil.DATE;
     else if (orderByRequest.equals("form_subject")) orderBy = EFormUtil.SUBJECT;
@@ -99,6 +104,7 @@
             <!--ADD GROUP-->
             <form action="<%= request.getContextPath() %>/eform/addGroup" method="post" id="addGroupForm"
                   class="d-flex flex-wrap align-items-center gap-2">
+                <%= scheduleNavField %>
                 <div>
                     <div class="input-group">
                         <input type="text" name="groupName" class="check"
@@ -142,6 +148,7 @@
                     <%}%>
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup" style="display:inline;">
+                            <%= scheduleNavField %>
                             <input type="hidden" name="group_name" value="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"/>
                             <a href="javascript:void(0);"
                                class="btn btn-sm btn-secondary" title="delete this group"
@@ -210,6 +217,7 @@
 
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup" style="display:inline;">
+                            <%= scheduleNavField %>
                             <input type="hidden" name="fid" value="<carlos:encode value='<%= (String) curForm.get("fid") %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="groupName" value="<carlos:encode value='<%= groupView %>' context="htmlAttribute"/>"/>
                             <a href="javascript:void(0);"
@@ -252,6 +260,7 @@
         <!--modal-->
                 <% if (!groupView.equals("")) { %>
         <form action="${pageContext.request.contextPath}/eform/addToGroup" method="post" id="eformToGroupForm">
+            <%= scheduleNavField %>
         <div id="myModal" class="modal fade" tabindex="-1" aria-labelledby="myModalLabel"
              aria-hidden="true">
             <div class="modal-dialog"><div class="modal-content">

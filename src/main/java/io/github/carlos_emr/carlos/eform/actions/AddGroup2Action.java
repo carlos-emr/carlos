@@ -62,7 +62,7 @@ public class AddGroup2Action extends ActionSupport {
      * @return the application-relative groups page for this group, never null
      */
     public String getRedirectTarget() {
-        return EFormGroupRedirect.toGroup(groupName);
+        return EFormGroupRedirect.toGroup(groupName, request);
     }
 
     private String groupName;
