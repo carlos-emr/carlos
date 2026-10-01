@@ -340,6 +340,17 @@ function sqlString(value) {
   return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
 }
 
+/**
+ * Runs one fixture INSERT and returns its LAST_INSERT_ID() from the same
+ * session. Throws unless the id is a positive integer, so a check never builds
+ * later SQL or cleanup from an empty or malformed id.
+ */
+function insertId(sql, statement, what) {
+  const id = sql.value(`${statement}; SELECT LAST_INSERT_ID()`);
+  assert(/^[1-9]\d*$/.test(String(id)), `The owned ${what} fixture was not created`);
+  return String(id);
+}
+
 function createRecorder() {
   return {
     badResponses: [],
@@ -953,13 +964,16 @@ async function login(context, config, recorder, options = {}) {
       await page.locator('input[name="oldPassword"]').fill(config.testPassword);
       await page.locator('input[name="newPassword"]').fill(config.resetPassword);
       await page.locator('input[name="confirmPassword"]').fill(config.resetPassword);
-      // loginMfa is in this list because the reset can hand straight to the MFA
-      // challenge; leaving it out made that landing a 30s timeout rather than
-      // the next turn of this loop.
+      // Wait for the main frame to commit the submit's response, not for a URL:
+      // when the reset hands straight to the MFA challenge, Login2Action forwards
+      // mfa_otp_handler.jsp in place, so the challenge sits at
+      // /forcepasswordresetSubmit and a URL list would time out. The next turn of
+      // this loop recognises the challenge by its code field.
       await settleOperations([
-        page.waitForURL(/providercontrol|appointment|select_facility|loginMfa/i, { timeout: 30000 }),
+        page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame(), timeout: 30000 }),
         page.locator('input[type="submit"], button[type="submit"]').first().click(),
       ]);
+      await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
       continue;
     }
@@ -1073,6 +1087,7 @@ module.exports = {
   getLatestRequest,
   getLaunchOptions,
   gotoApp,
+  insertId,
   isLocalTlsTarget,
   launchBrowser,
   loadConsoleBaseline,
