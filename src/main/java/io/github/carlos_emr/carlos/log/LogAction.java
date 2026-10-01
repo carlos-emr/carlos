@@ -172,7 +172,33 @@ public class LogAction {
         addLog(provider_no, action, content, contentId, ip, demographicNo, null);
     }
 
+    /**
+     * Best-effort audit: queues the entry for asynchronous persistence and never throws. If the
+     * executor is saturated it persists synchronously, but a persistence failure is only logged
+     * (see {@link #addLogSynchronous(OscarLog)}). Use {@link #addLogStrict} where serving data
+     * must depend on the audit record having been written.
+     */
     public static void addLog(LoggedInInfo loggedInInfo, String action, String content, String contentId, String demographicNo, String data) {
+        executeAsync(buildEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
+    /**
+     * Strict audit: persists the entry in the calling thread (joining the caller's transaction
+     * if there is one) and lets any persistence failure propagate. Unlike the best-effort
+     * {@code addLog}/{@code addLogSynchronous} methods, a caller can rely on a normal return
+     * meaning the record was handed to the DAO without error, and can refuse to disclose the
+     * audited data when it throws.
+     *
+     * @throws RuntimeException any failure from {@code OscarLogDao.persist}
+     * @since 2026-10-01
+     */
+    public static void addLogStrict(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            String demographicNo, String data) {
+        getOscarLogDao().persist(buildEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
+    private static OscarLog buildEntry(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            String demographicNo, String data) {
         OscarLog logEntry = new OscarLog();
         if (loggedInInfo.getLoggedInSecurity() != null)
             logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
@@ -189,7 +215,7 @@ public class LogAction {
             logger.error("Unexpected error", e);
         }
         logEntry.setData(data);
-        executeAsync(logEntry);
+        return logEntry;
     }
 
     /**

@@ -129,7 +129,7 @@ class DownloadEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase 
         assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"Lab-789.pdf\"");
         assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
         assertThat(response.getContentAsByteArray()).isEqualTo(PathL7EmbeddedDocumentMessage.PDF);
-        logActionMock.verify(() -> LogAction.addLog(loggedInInfo, LogConst.READ,
+        logActionMock.verify(() -> LogAction.addLogStrict(loggedInInfo, LogConst.READ,
                 AbstractEmbeddedLabDocumentAction.AUDIT_CONTENT, "789", "55", "segment=1,group=0,disposition=attachment"));
     }
 

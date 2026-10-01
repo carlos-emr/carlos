@@ -164,7 +164,7 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
         assertThat(response.getHeader("Content-Security-Policy"))
                 .isEqualTo("default-src 'none'; frame-ancestors 'self'; sandbox");
-        logActionMock.verify(() -> LogAction.addLog(loggedInInfo, LogConst.READ,
+        logActionMock.verify(() -> LogAction.addLogStrict(loggedInInfo, LogConst.READ,
                 AbstractEmbeddedLabDocumentAction.AUDIT_CONTENT, "456", DEMOGRAPHIC_NO,
                 "segment=1,group=0,disposition=inline"));
     }
@@ -176,7 +176,7 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
         matchToPatient();
         storeLab(PathL7EmbeddedDocumentMessage.message());
         List<String> typeAtAudit = new java.util.ArrayList<>();
-        logActionMock.when(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+        logActionMock.when(() -> LogAction.addLogStrict(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
                         anyString(), anyString()))
                 .thenAnswer(invocation -> {
                     typeAtAudit.add(String.valueOf(response.getContentType()));
@@ -191,19 +191,22 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should answer a deliberate 500 with no PDF headers or bytes when the audit fails")
-    void shouldSendError_whenReadAuditFails() throws Exception {
+    @DisplayName("should answer a bare 500 with no PDF headers or bytes when the audit cannot be persisted")
+    void shouldReturn500WithoutBody_whenReadAuditFails() throws Exception {
         grantAll();
         matchToPatient();
         storeLab(PathL7EmbeddedDocumentMessage.message());
-        logActionMock.when(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+        logActionMock.when(() -> LogAction.addLogStrict(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
                         anyString(), anyString()))
-                .thenThrow(new IllegalStateException("synthetic audit failure"));
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic audit failure"));
 
         assertThat(action().execute()).isEqualTo("none");
 
         assertThat(response.getStatus()).isEqualTo(500);
+        // setStatus, not sendError: sendError would render the HTML error page into the frame.
         assertThat(response.getErrorMessage()).isNull();
+        assertThat(response.isCommitted()).isFalse();
+        assertThat(response.getContentLength()).isZero();
         assertThat(response.getContentType()).isNull();
         assertThat(response.getHeader("Content-Disposition")).isNull();
         assertThat(response.getHeader("Content-Security-Policy")).isNull();
@@ -236,7 +239,7 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
         action().execute();
 
         assertThat(response.getStatus()).isEqualTo(200);
-        logActionMock.verify(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+        logActionMock.verify(() -> LogAction.addLogStrict(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
                 isNull(), anyString()));
     }
 
