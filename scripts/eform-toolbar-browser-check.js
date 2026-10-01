@@ -117,6 +117,7 @@ const server = http.createServer((req, res) => {
     await page.locator('#remoteFaxOptions summary').click();
     await page.locator('#remoteFaxButton').click();
     await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length,1);
     assert.equal(requests[0].get('recipient'),'Someone Else');
     assert.equal(requests[0].get('recipientFaxNumber'),'');
     // Nor the eForm's own number, and a number the clinician typed survives editing the name.
@@ -130,6 +131,7 @@ const server = http.createServer((req, res) => {
     await page.locator('#remoteFaxOptions summary').click();
     await page.locator('#remoteFaxButton').click();
     await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length,1);
     assert.equal(requests[0].get('recipient'),'Typed Recipient Corrected');
     assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0177');
     // Reverting a typed number to the eForm's own number makes it the eForm's again.
