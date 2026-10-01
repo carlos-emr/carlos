@@ -409,6 +409,26 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should present the include as a GET of the route carrying only the route's parameters")
+    void shouldPresentIncludeAsGetOfRoute_forItemRoutes() {
+        request.addParameter("item", "demographic");
+        request.addParameter("srcText", FORGED_MARKUP);
+        request.addParameter("demographic_no", "999");
+
+        HttpServletRequest view = new MsgAttachPDF2Action.IncludedViewRequest(request,
+                "/encounter/ViewEcharthistoryprint?echartid=77&demographic_no=" + PATIENT);
+
+        assertThat(view.getMethod()).isEqualTo("GET");
+        assertThat(view.getParameterMap()).containsOnlyKeys("echartid", "demographic_no");
+        assertThat(view.getParameter("demographic_no")).isEqualTo(String.valueOf(PATIENT));
+        assertThat(view.getParameterValues("demographic_no")).containsExactly(String.valueOf(PATIENT));
+        assertThat(view.getParameter("srcText")).isNull();
+        assertThat(view.getParameterValues("item")).isNull();
+        assertThat(java.util.Collections.list(view.getParameterNames())).containsExactly("echartid", "demographic_no");
+        assertThat(view.getSession()).as("the session (and so the login) is the caller's").isSameAs(request.getSession());
+    }
+
+    @Test
     @DisplayName("should never expose a setter for client-supplied HTML")
     void shouldNotBindSrcText_forTypeContract() {
         assertThat(MsgAttachPDF2Action.class.getMethods())

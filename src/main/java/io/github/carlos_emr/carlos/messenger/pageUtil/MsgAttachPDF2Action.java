@@ -31,13 +31,19 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Enumeration;
+import java.util.Map;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.Set;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
@@ -114,7 +120,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
         this(SpringUtils.getBean(SecurityInfoManager.class),
                 SpringUtils.getBean(DemographicManager.class),
                 new MsgPdfAttachmentResolver(SpringUtils.getBean(EChartDao.class)),
-                (req, res, route) -> new FormTransportContainer(res, req, route).getHTML(),
+                (req, res, route) -> new FormTransportContainer(res, new IncludedViewRequest(req, route), route).getHTML(),
                 new PdfConverter() {
                     @Override
                     public void streamPdf(HttpServletRequest req, HttpServletResponse res, String html) {
@@ -263,6 +269,73 @@ public class MsgAttachPDF2Action extends ActionSupport {
             // No PHI: the item kind only, never the rendered content or the patient.
             logger.error("Could not render Messenger PDF attachment item {}", attachment.item().key(), e);
             return null;
+        }
+    }
+
+    /**
+     * Presents the include to the item's route as a plain GET of that route: the method reads
+     * {@code GET} and the only parameters visible are the route's own query parameters. The
+     * item pages are read-only views behind GET-only gates (the encounter print's
+     * {@code ViewClinical2Action} refuses anything else, because some gated JSPs act on a
+     * self-POST); without this the outer POST would be refused with 405, and this action's own
+     * parameters would leak into the included page.
+     *
+     * <p>The parameters are parsed from the route here rather than left to the container's
+     * include merge: Tomcat inserts its include wrapper beneath application wrappers, so this
+     * wrapper is what the included page actually reads.</p>
+     */
+    static final class IncludedViewRequest extends HttpServletRequestWrapper {
+        private final Map<String, String[]> parameters;
+
+        IncludedViewRequest(HttpServletRequest request, String route) {
+            super(request);
+            this.parameters = Collections.unmodifiableMap(queryParameters(route));
+        }
+
+        private static Map<String, String[]> queryParameters(String route) {
+            Map<String, java.util.List<String>> collected = new java.util.LinkedHashMap<>();
+            int query = route == null ? -1 : route.indexOf('?');
+            if (query >= 0) {
+                for (String pair : route.substring(query + 1).split("&")) {
+                    if (pair.isEmpty()) {
+                        continue;
+                    }
+                    int eq = pair.indexOf('=');
+                    String name = URLDecoder.decode(eq < 0 ? pair : pair.substring(0, eq), StandardCharsets.UTF_8);
+                    String value = eq < 0 ? "" : URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+                    collected.computeIfAbsent(name, key -> new java.util.ArrayList<>()).add(value);
+                }
+            }
+            Map<String, String[]> result = new java.util.LinkedHashMap<>();
+            collected.forEach((name, values) -> result.put(name, values.toArray(new String[0])));
+            return result;
+        }
+
+        @Override
+        public String getMethod() {
+            return "GET";
+        }
+
+        @Override
+        public String getParameter(String name) {
+            String[] values = parameters.get(name);
+            return values == null || values.length == 0 ? null : values[0];
+        }
+
+        @Override
+        public Map<String, String[]> getParameterMap() {
+            return parameters;
+        }
+
+        @Override
+        public Enumeration<String> getParameterNames() {
+            return Collections.enumeration(parameters.keySet());
+        }
+
+        @Override
+        public String[] getParameterValues(String name) {
+            String[] values = parameters.get(name);
+            return values == null ? null : values.clone();
         }
     }
 
