@@ -80,14 +80,16 @@ async function workflow(s) {
     await schedule.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
     slots = schedule.locator(`a.adhour[onclick*="provider_no=${provider}&"]`);
   }
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const when = new Date(Date.now() + randomInt(500, 900) * 86400000);
+  // A provider may work one weekday a week: probe seven consecutive days from a random start so that day is hit.
+  const startOffset = randomInt(500, 900);
+  for (let attempt = 0; attempt < 7; attempt++) {
+    const when = new Date(Date.now() + (startOffset + attempt) * 86400000);
     s.day = { year: String(when.getUTCFullYear()), month: String(when.getUTCMonth() + 1), day: String(when.getUTCDate()), view: '0',
       displaymode: 'day', dboperation: 'searchappointmentday', viewall: '1' };
     await openDay();
     if (await slots.count() > 0) break;
   }
-  h.assert(await slots.count() > 0, 'No far-future day offered a bookable slot in the provider column');
+  h.assert(await slots.count() > 0, 'No day in a far-future week offered a bookable slot in the provider column');
 
   await s.step('the Add Appointment popup books the owned patient on a free slot (audit rows observed)', async () => {
     const before = probe.mark();

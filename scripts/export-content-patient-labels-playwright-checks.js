@@ -100,11 +100,13 @@ async function workflow(s) {
 
   await s.step('the identifying fields (HIN with version, sex, birth date, phone, chart number) are on the labels that print them', async () => {
     const dob = label => /1962/.test(fullTexts[label]) && /07/.test(fullTexts[label]) && /09/.test(fullTexts[label]);
+    h.assert(has('Client Lab Label', 'Gender:F'), 'Client Lab Label does not carry the gender');
     for (const label of ['PDF Label', 'PDF Chart Label', 'Client Lab Label']) {
       h.assert(has(label, '9876543217'), `${label} does not carry the health number`);
       h.assert(dob(label), `${label} does not carry the birth date`);
     }
     for (const label of ['PDF Label', 'PDF Chart Label']) {
+      h.assert(has(label, 'SEX:F'), `${label} does not carry the sex`);
       h.assert(has(label, 'AB'), `${label} does not carry the version code`);
       h.assert(x.squash(fullTexts[label]).replace(/\D/g, '').includes('5145550142'), `${label} does not carry the phone number`);
     }
@@ -121,7 +123,8 @@ async function workflow(s) {
     const lost = ['PDF Label', 'PDF Chart Label'].filter(label => !has(label, '\u0141ukasz'));
     if (lost.length) problems.push(`${lost.join(' and ')} drop(s) the middle name \u0141ukasz (the label font has no glyph for \u0141)`);
     const age = /AGE:\s*(\S+)/.exec(fullTexts['PDF Chart Label']);
-    if (age && !/^\d+$/.test(age[1])) problems.push(`the chart label prints the age as "${age[1]}" instead of a whole number of years`);
+    if (!age) problems.push('the chart label prints no AGE: field');
+    else if (!/^\d+$/.test(age[1])) problems.push(`the chart label prints the age as "${age[1]}" instead of a whole number of years`);
     const bareTexts = await labelTexts(bare);
     const dirty = LABELS.filter(label => /\bnull\b/i.test(bareTexts[label]));
     if (dirty.length) problems.push(`${dirty.join(', ')} print(s) the literal word "null" after the first name of a patient whose middle name is NULL (label.xml concatenates $F{middle_name})`);

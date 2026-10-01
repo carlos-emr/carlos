@@ -9,8 +9,8 @@
  *
  * Asserts the result table lists the owned patient with the marker name (the report ran and returned
  * identifying data) and, as the test provider and since the run: the report left an audit row of its own (an
- * export or report action for this provider, or any row naming the patient) with the provider and the client
- * address. The sibling bulk list, Patient List by Appointment Time, writes an `export` row with the provider,
+ * export or report action of this provider that names the demographic report, or any row naming the patient) with
+ * the provider and a nonempty client address on every row accepted as that event. The sibling bulk list, Patient List by Appointment Time, writes an `export` row with the provider,
  * the client address, the date range and the row count (PatientListByAppt.createExportAuditLog), so a
  * demographic listing that writes none is the inconsistency asserted here. The audit rows scoped to the
  * patient are checked for patient text too.
@@ -53,13 +53,17 @@ async function workflow(s) {
 
   await s.step('the report run is in the audit log, with the provider and the client address, and no patient text', async () => {
     await probe.settle(3000);
-    const own = sql.rows(`SELECT id,COALESCE(action,''),COALESCE(content,''),COALESCE(ip,'~NULL~') FROM log WHERE id>${before}
-      AND provider_no=${h.sqlString(provider)} AND (action='export' OR action LIKE '%eport%' OR content LIKE '%eport%' OR content LIKE '%emographic report%')`);
+    // A report row of this run: written by the test provider since the watermark AND naming the demographic report
+    // itself. The test login is shared with checks running at the same time, so a bare "any export/report row"
+    // could be another check's (the Patient List by Appointment Time export, say).
+    const own = probe.byProvider(provider, before, `(action='export' OR action LIKE '%eport%' OR content LIKE '%eport%')
+      AND (action LIKE '%emographic%' OR content LIKE '%emographic%' OR data LIKE '%emographic%')`);
     const aboutPatient = probe.since(before, `action NOT LIKE 'read%' AND action NOT LIKE 'DemographicManager.%' AND action NOT LIKE 'PatientConsentManager.%'`);
-    h.assert(own.length + aboutPatient.length >= 1,
+    const accepted = [...new Map([...own, ...aboutPatient].map(r => [r.id, r])).values()];
+    h.assert(accepted.length >= 1,
       'Running the Demographic Report Tool (a listing of patient names and ids) wrote no audit row');
-    h.assert(own.every(([, , , ip]) => ip !== '~NULL~'), 'The report audit row carries no client address');
-    const leaks = phiLeaks(probe.rows(`id>${before}`), [marker]);
+    h.assert(accepted.every(r => Boolean(r.ip)), `The report audit row carries no client address (${accepted.filter(r => !r.ip).map(r => label(r)).join(', ')})`);
+    const leaks = phiLeaks([...probe.rows(`id>${before}`), ...own], [marker]);
     h.assert(!leaks.length, `A report audit row carries patient text (${leaks.join(', ')})`);
     h.assert(aboutPatient.every(r => r.provider === provider), `A report row is attributed to another provider (${aboutPatient.map(label).join(', ')})`);
   });

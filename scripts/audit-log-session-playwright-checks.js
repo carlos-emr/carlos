@@ -61,7 +61,7 @@ async function workflow(s) {
     const ins = rowsOf(`${providerWhere} AND action='log in'`);
     h.assert(ins.length >= 1, 'The sign-in wrote no log in row');
     expect(ins.length === 1, `One sign-in wrote ${ins.length} log in rows (${ins.map(r => `contentId ${r.contentId === '~NULL~' ? 'empty' : 'set'}`).join(' + ')}), expected 1`);
-    expect(ins.every(r => r.content === 'login' && r.ip !== '~NULL~'), 'A log in row lacks the login content type or the client address');
+    expect(ins.every(r => r.content === 'login' && Boolean(r.ip) && r.ip !== '~NULL~'), 'A log in row lacks the login content type or the client address');
     expect(rowsOf(`${failedWhere} AND provider_no=${q(fixture.providerNo)}`).length === 0, 'The failed row was attributed to the provider');
   });
 
@@ -72,7 +72,7 @@ async function workflow(s) {
     await settle();
     const outs = rowsOf(`${providerWhere} AND action='log out' AND id>${before}`);
     expect(outs.length === 1, `Logging out wrote ${outs.length} log out rows, expected 1`);
-    expect(outs.every(r => r.content === 'login' && r.ip !== '~NULL~'), 'The log out row lacks the login content type or the client address');
+    expect(outs.every(r => r.content === 'login' && Boolean(r.ip) && r.ip !== '~NULL~'), 'The log out row lacks the login content type or the client address');
   });
 
   await s.step('every expectation of the session audit trail held', async () => {

@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Helpers for the export-content checks: save what the browser downloads, then read the file back
- * the way a recipient would (CSV parse, XLSX cell grid, pdftotext) so a check can compare the CONTENT
+ * the way a recipient would (CSV parse, XLSX / XLS cell grid, pdftotext) so a check can compare the CONTENT
  * with the database rather than only the headers. Nothing here talks to the application.
  */
 'use strict';
@@ -133,6 +133,117 @@ function xlsxRows(buffer) {
   return rows;
 }
 
+/** The Workbook stream of an OLE2 compound file (the container of a BIFF8 .xls), main-FAT or mini-FAT sectors. */
+function compoundStream(buffer, wanted) {
+  h.assert(buffer.length > 512 && buffer.readUInt32BE(0) === 0xD0CF11E0 && buffer.readUInt32BE(4) === 0xA1B11AE1,
+    'The file is not an Excel 97-2003 (.xls) compound document');
+  const sectorSize = 1 << buffer.readUInt16LE(30);
+  const miniSize = 1 << buffer.readUInt16LE(32);
+  const sector = n => buffer.subarray(512 + n * sectorSize, 512 + (n + 1) * sectorSize);
+  const fatSectors = [];
+  for (let i = 0; i < 109; i++) {
+    const n = buffer.readInt32LE(76 + i * 4);
+    if (n >= 0) fatSectors.push(n);
+  }
+  for (let n = buffer.readInt32LE(68), left = buffer.readUInt32LE(72); left > 0 && n >= 0; left--) {
+    const di = sector(n);
+    for (let i = 0; i < sectorSize / 4 - 1; i++) { const v = di.readInt32LE(i * 4); if (v >= 0) fatSectors.push(v); }
+    n = di.readInt32LE(sectorSize - 4);
+  }
+  const fat = [];
+  for (const n of fatSectors) { const f = sector(n); for (let i = 0; i < sectorSize / 4; i++) fat.push(f.readInt32LE(i * 4)); }
+  const chain = (start, table) => { const out = []; for (let n = start; n >= 0 && out.length <= table.length; n = table[n]) out.push(n); return out; };
+  const read = start => Buffer.concat(chain(start, fat).map(sector));
+  const directory = read(buffer.readInt32LE(48));
+  let entry = null;
+  for (let at = 0; at + 128 <= directory.length; at += 128) {
+    const name = directory.subarray(at, at + Math.max(0, directory.readUInt16LE(at + 64) - 2)).toString('utf16le');
+    if (name === wanted && directory[at + 66] === 2) { entry = { start: directory.readInt32LE(at + 116), size: directory.readUInt32LE(at + 120) }; break; }
+  }
+  h.assert(entry, `The compound document has no "${wanted}" stream`);
+  if (entry.size >= buffer.readUInt32LE(56)) return read(entry.start).subarray(0, entry.size);
+  const root = directory.subarray(0, 128);
+  const miniStream = read(root.readInt32LE(116));
+  const miniFat = [];
+  for (const n of chain(buffer.readInt32LE(60), fat)) { const f = sector(n); for (let i = 0; i < sectorSize / 4; i++) miniFat.push(f.readInt32LE(i * 4)); }
+  return Buffer.concat(chain(entry.start, miniFat).map(n => miniStream.subarray(n * miniSize, (n + 1) * miniSize))).subarray(0, entry.size);
+}
+
+/** Shared strings of a BIFF8 workbook: the SST record and its CONTINUE records (a string may be cut inside its characters). */
+function biffSharedStrings(segments) {
+  const strings = [];
+  let seg = 0;
+  let at = 8; // total and unique counts
+  const data = () => segments[seg];
+  const need = () => { if (at >= data().length && seg + 1 < segments.length) { seg++; at = 0; return true; } return false; };
+  const byte = () => { need(); return data()[at++]; };
+  const u16 = () => byte() | (byte() << 8);
+  const u32 = () => (u16() | (u16() << 16)) >>> 0;
+  const unique = segments[0].readUInt32LE(4);
+  for (let n = 0; n < unique; n++) {
+    need();
+    const length = u16();
+    const flags = byte();
+    const runs = flags & 8 ? u16() : 0;
+    const extra = flags & 4 ? u32() : 0;
+    let wide = !!(flags & 1);
+    let text = '';
+    for (let i = 0; i < length; i++) {
+      if (need()) wide = !!(byte() & 1); // a continuation inside the characters restates the width
+      text += wide ? String.fromCharCode(u16()) : String.fromCharCode(byte());
+    }
+    for (let i = 0; i < runs * 4 + extra; i++) byte();
+    strings.push(text);
+  }
+  return strings;
+}
+
+function rkNumber(rk) {
+  let value;
+  if (rk & 2) value = rk >> 2;
+  else { const b = Buffer.alloc(8); b.writeUInt32LE((rk & 0xFFFFFFFC) >>> 0, 4); value = b.readDoubleLE(0); }
+  return rk & 1 ? value / 100 : value;
+}
+
+/**
+ * The first worksheet of a BIFF8 .xls (what Apache POI HSSF writes) as rows of cells { type: 'text' | 'number', value },
+ * with an empty text cell where nothing is stored. The cell TYPE is kept because "123" stored as a number is a defect a
+ * string comparison cannot see.
+ */
+function xlsCells(buffer) {
+  const stream = compoundStream(buffer, 'Workbook');
+  const sst = [];
+  let sstSegments = null;
+  const cells = new Map();
+  let sheets = 0;
+  let inSheet = false;
+  for (let at = 0; at + 4 <= stream.length;) {
+    const id = stream.readUInt16LE(at);
+    const body = stream.subarray(at + 4, at + 4 + stream.readUInt16LE(at + 2));
+    at += 4 + body.length;
+    if (sstSegments && id === 0x003C) { sstSegments.push(body); continue; }
+    if (sstSegments) { sst.push(...biffSharedStrings(sstSegments)); sstSegments = null; }
+    if (id === 0x0809) { inSheet = body.readUInt16LE(2) === 0x0010 && ++sheets === 1; continue; }
+    if (id === 0x00FC) { sstSegments = [body]; continue; }
+    if (!inSheet) continue;
+    if (id === 0x000A) break; // EOF of the first worksheet
+    const cell = (row, col, type, value) => cells.set(`${row},${col}`, { row, col, type, value });
+    if (id === 0x00FD) cell(body.readUInt16LE(0), body.readUInt16LE(2), 'text', sst[body.readUInt32LE(6)]);
+    else if (id === 0x0203) cell(body.readUInt16LE(0), body.readUInt16LE(2), 'number', body.readDoubleLE(6));
+    else if (id === 0x027E) cell(body.readUInt16LE(0), body.readUInt16LE(2), 'number', rkNumber(body.readUInt32LE(6)));
+    else if (id === 0x00BD) {
+      const first = body.readUInt16LE(2);
+      for (let i = 0; i < (body.length - 6) / 6; i++) cell(body.readUInt16LE(0), first + i, 'number', rkNumber(body.readUInt32LE(4 + i * 6 + 2)));
+    } else if (id === 0x0204) cell(body.readUInt16LE(0), body.readUInt16LE(2), 'text', body.subarray(8, 8 + body.readUInt16LE(6)).toString('latin1'));
+  }
+  const rows = [];
+  for (const { row, col, type, value } of cells.values()) {
+    rows[row] = rows[row] || [];
+    rows[row][col] = { type, value };
+  }
+  return Array.from(rows, r => Array.from(r || [], c => c || { type: 'text', value: '' }));
+}
+
 /** SKIP when Poppler is not installed (preflight-friendly). */
 function requirePoppler(...tools) {
   for (const tool of tools.length ? tools : ['pdftotext', 'pdfinfo']) {
@@ -151,22 +262,9 @@ function pdfText(file, { layout = false } = {}) {
     { encoding: 'utf8', timeout: TOOL_TIMEOUT, maxBuffer: 8 * 1024 * 1024 });
 }
 
-function pdfPages(file) {
-  const info = execFileSync('pdfinfo', [file], { encoding: 'utf8', timeout: TOOL_TIMEOUT });
-  return Number(info.match(/^Pages:\s+(\d+)/m)?.[1]);
-}
-
 /** Whitespace-free, NFC form: PDF text extraction reflows lines, so compare without spacing. */
 function squash(value) {
   return String(value).normalize('NFC').replace(/\s+/g, '');
 }
 
-/** Describes what differs without printing row contents: the label, then only positions and lengths. */
-function sameText(label, actual, expected) {
-  if (actual === expected) return;
-  let at = 0;
-  while (at < actual.length && at < expected.length && actual[at] === expected[at]) at++;
-  throw new Error(`${label}: differs at character ${at} (found length ${actual.length}, expected length ${expected.length})`);
-}
-
-module.exports = { scratchDir, saveDownload, parseCsv, unzip, xlsxRows, requirePoppler, pdfText, pdfPages, squash, sameText };
+module.exports = { scratchDir, saveDownload, parseCsv, unzip, xlsxRows, xlsCells, requirePoppler, pdfText, squash };

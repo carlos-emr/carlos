@@ -7,7 +7,8 @@
  * _demographic$N and _eChart$N): Schedule > Search > the patient's name > the result row's Master Demographic
  * File link. The application refuses (HTTP 403, no patient data on the page).
  *
- * Asserts: the doctor is refused and the page shows nothing of the patient; the full-privilege test login still
+ * Asserts: the doctor is refused by CARLOS itself (the Master Record window's own response is an application 403 or its
+ * securityError/noRights redirect, not a WAF page, server error or login bounce) and the page shows nothing of the patient; the full-privilege test login still
  * opens the same patient (control: the same click is served, and that open writes its read/demographic row for
  * the test provider); and the refused attempt left an audit row that names the patient and the throwaway
  * provider (any action: a refusal of access to PHI is the event a privacy officer looks for, so a login that
@@ -22,7 +23,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture, cleanupAll } = require('./lib/authz-read-fixture');
-const { signIn } = require('./lib/authz-read-probe');
+const { signIn, refusedByApp } = require('./lib/authz-read-probe');
 const { auditProbe, label } = require('./lib/audit-log-helpers');
 
 async function workflow(s) {
@@ -48,12 +49,25 @@ async function workflow(s) {
     h.assert(await link.count() === 1, 'The locked patient is not offered in the doctor\'s search results');
     await probe.settle(1500);
     attemptedAfter = probe.mark();
+    // Every document navigation of the doctor's context from here on: the popup's own response is the proof the
+    // refusal came from CARLOS (an application 403, or its securityError/noRights redirect) and not from a server
+    // error, the WAF, a login bounce or a blank window, any of which would also show no patient data.
+    const navigations = [];
+    const onResponse = response => { if (response.request().isNavigationRequest()) navigations.push(response); };
+    doctor.context.on('response', onResponse);
     const outcome = await ui.clickDownloadsOrOpens(search.page, link, { context: doctor.context, label: 'locked-master', timeout: 30000 });
     h.assert(outcome.kind === 'popup', 'The Master Record link produced no window');
     const page = outcome.page;
     await page.waitForLoadState('load').catch(() => {});
+    doctor.context.off('response', onResponse);
     const text = await page.locator('body').innerText().catch(() => '');
     h.assert(!text.includes(marker), 'The locked patient\'s record was shown to the locked doctor');
+    const popupResponses = navigations.filter(r => r.request().frame()?.page() === page);
+    const asked = popupResponses.find(r => new URL(r.url()).searchParams.get('demographic_no') === String(patient)) || popupResponses[0];
+    h.assert(asked, 'The Master Record window made no document request that could be inspected');
+    const answer = { status: asked.status(), fromApp: Object.prototype.hasOwnProperty.call(asked.headers(), 'x-permitted-cross-domain-policies'),
+      location: asked.headers().location || '' };
+    h.assert(refusedByApp(answer), `The locked Master Record request was not refused by CARLOS (HTTP ${answer.status}${answer.fromApp ? '' : ', not an application response'})`);
     await page.close().catch(() => {});
   });
 

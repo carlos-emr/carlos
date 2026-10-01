@@ -47,22 +47,26 @@ async function workflow(s) {
   const mine = rows => rows.filter(r => r.provider === provider);
 
   await s.step('Master Record open wrote exactly one complete read/demographic row', async () => {
-    const rows = await probe.waitFor(all => all.some(r => r.action === 'read' && r.content === 'demographic'), 'Master Record open');
+    // An audit mismatch is recorded, not thrown: the E-Chart, note-history and print steps are independent of it
+    // and must still run so the final step reports every defect together.
+    const rows = await probe.waitFor(all => all.some(r => r.action === 'read' && r.content === 'demographic'), 'Master Record open')
+      .catch(error => { expect(false, error.message); return probe.rows(); });
     const reads = mine(rows).filter(r => r.action === 'read' && r.content === 'demographic');
-    h.assert(reads.length === 1, `Opening the Master Record wrote ${reads.length} read/demographic rows, expected 1`);
+    expect(reads.length === 1, `Opening the Master Record wrote ${reads.length} read/demographic rows, expected 1`);
     const problems = incomplete(reads, { provider, patient });
-    h.assert(!problems.length, `The read/demographic row is incomplete: ${problems.join(', ')}`);
-    h.assert(reads[0].contentId === String(patient), 'The read/demographic row names another contentId');
+    expect(!problems.length, `The read/demographic row is incomplete: ${problems.join(', ')}`);
+    if (reads.length) expect(reads[0].contentId === String(patient), 'The read/demographic row names another contentId');
   });
 
   await s.step('E-Chart open wrote exactly one complete read/eChart row', async () => {
     const before = probe.mark();
     await s.chart();
-    const rows = await probe.waitFor(all => all.some(r => r.action === 'read' && r.content === 'eChart'), 'E-Chart open', { after: before });
+    const rows = await probe.waitFor(all => all.some(r => r.action === 'read' && r.content === 'eChart'), 'E-Chart open', { after: before })
+      .catch(error => { expect(false, error.message); return probe.rows(`id>${before}`); });
     const reads = mine(rows).filter(r => r.action === 'read' && r.content === 'eChart');
-    h.assert(reads.length === 1, `Opening the E-Chart wrote ${reads.length} read/eChart rows, expected 1`);
+    expect(reads.length === 1, `Opening the E-Chart wrote ${reads.length} read/eChart rows, expected 1`);
     const problems = incomplete(reads, { provider, patient });
-    h.assert(!problems.length, `The read/eChart row is incomplete: ${problems.join(', ')}`);
+    expect(!problems.length, `The read/eChart row is incomplete: ${problems.join(', ')}`);
     expect(!phiLeaks(rows, [marker]).length, `Opening the chart logged the patient name in: ${phiLeaks(rows, [marker]).join(', ')}`);
   });
 
@@ -105,6 +109,7 @@ async function workflow(s) {
     const file = await download;
     const bytes = fs.readFileSync(await file.path());
     h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', 'The chart print did not download a PDF');
+    h.assert(bytes.subarray(-1024).toString('latin1').includes('%%EOF'), 'The chart print PDF is truncated (no %%EOF trailer)');
     await probe.settle(3000);
     const printed = probe.since(before).filter(r => /print|export|reprint/i.test(r.action));
     expect(printed.length >= 1, 'Printing the whole chart as a PDF (E-Chart Print icon, CaseManagementEntry method=print) wrote no audit row');

@@ -19,7 +19,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openSecondSession } = require('./lib/concurrency-support');
+const { openSecondSession, failureMark, consumeKnownConsole } = require('./lib/concurrency-support');
 const { seedTickler, openPatientTicklerList, openTicklerEdit, saveTicklerEdit } = require('./lib/concurrency-tickler');
 
 async function workflow(s) {
@@ -31,6 +31,7 @@ async function workflow(s) {
   const aList = await openPatientTicklerList(s.context, s.master, s.recorder, 'tickler-list-a');
   const bList = await openPatientTicklerList(b.context, b.master, s.recorder, 'tickler-list-b');
   let aEdit;
+  let saveOutcome;
 
   await s.step('session A opens the edit popup and holds it', async () => {
     aEdit = await openTicklerEdit(s.context, s.recorder, aList, tickler.message, 'tickler-edit-a');
@@ -46,7 +47,27 @@ async function workflow(s) {
   });
   await s.step('session A saves a different field (priority) from its stale popup', async () => {
     await aEdit.locator('select[name="priority"]').selectOption('High');
-    await saveTicklerEdit(aEdit);
+    // A correct application may store the save (merge) or refuse it; the popup reports a refusal with an alert and a console
+    // error instead of the #tickler-edit-ok sentinel. Either is accepted here; the next step judges what the row holds.
+    const mark = failureMark(s.recorder);
+    const sentinel = () => {
+      const frame = document.getElementById('ticklerEditFrame');
+      return Boolean(frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok'));
+    };
+    const refusal = new Promise(resolve => aEdit.once('dialog', () => resolve('refused')));
+    const stored = aEdit.waitForFunction(sentinel, null, { timeout: 30000 }).then(() => 'saved', () => 'timeout');
+    const dialogs = await h.withExpectedDialogs(aEdit, async () => {
+      await aEdit.locator('input[name="updateTickler"]').click();
+      saveOutcome = await Promise.race([stored, refusal]);
+      await aEdit.waitForTimeout(300);
+    });
+    h.assert(saveOutcome !== 'timeout', 'Session A\'s stale save was neither stored nor refused');
+    if (saveOutcome === 'refused') {
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'A refused stale save raised more than the one alert');
+      consumeKnownConsole(s.recorder, mark, /\[ticklerEdit\] Server did not return expected success response/);
+    } else {
+      h.assert(dialogs.length === 0, 'A stored stale save also raised an alert');
+    }
   });
   await s.step('the tickler session B completed is still completed', async () => {
     const [status, priority] = state().split('|');
@@ -54,6 +75,10 @@ async function workflow(s) {
       `Session A's stale Edit Tickler save silently put the completed tickler back to status '${status}' (priority now ${priority}). `
       + 'EditTickler2Action applies every posted field with no comparison against the state the form was rendered from, so the later save wins '
       + 'and the completion is lost without a warning to either user.');
+    // A stored save must also keep A's own change; a refusal leaves the row as B saved it.
+    if (saveOutcome === 'saved') {
+      h.assert(priority === 'High', `Session A's stale save was reported stored but its priority change was lost (priority is ${priority})`);
+    }
   });
 }
 

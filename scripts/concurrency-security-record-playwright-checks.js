@@ -36,7 +36,9 @@ function pickUnusedProviderNo(sql, taken) {
     if (taken.includes(candidate)) continue;
     const c = h.sqlString(candidate);
     const used = sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${c}) + (SELECT COUNT(*) FROM security WHERE provider_no=${c})
-      + (SELECT COUNT(*) FROM log WHERE provider_no=${c})`);
+      + (SELECT COUNT(*) FROM log WHERE provider_no=${c})
+      + ${[...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`),
+        ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`)].join(' + ')}`);
     if (used === '0') return candidate;
   }
   h.assert(false, 'No unused provider number was found in the fixture range');
@@ -63,7 +65,7 @@ async function workflow(s) {
     for (const login of logins) {
       const no = h.sqlString(login.providerNo);
       sql.execute(`DELETE FROM log WHERE provider_no=${no}`);
-      sql.execute(`DELETE FROM security WHERE provider_no=${no} AND user_name=${h.sqlString(record.userName)}`);
+      sql.execute(`DELETE FROM security WHERE provider_no=${no} AND user_name=${h.sqlString(login.userName)}`);
       for (const table of PROVIDER_LINKED_TABLES) sql.execute(`DELETE FROM ${table} WHERE provider_no=${no}`);
       for (const table of PROVIDER_PREFERENCE_TABLES) sql.execute(`DELETE FROM ${table} WHERE providerNo=${no}`);
       sql.execute(`DELETE FROM provider WHERE provider_no=${no} AND last_name=${h.sqlString(s.marker)}`);

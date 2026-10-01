@@ -29,6 +29,10 @@ async function batch(list, message, buttonValue) {
   const button = list.locator(`input[type="button"][value="${buttonValue}"]`).first();
   h.assert(await button.count() > 0, `The tickler list offers no ${buttonValue} button`);
   await ui.clickAndAwaitReload(list, button, { timeout: 30000, label: buttonValue });
+  // DbTicklerMain2Action swallows a per-row exception and redirects with failCount=N; a failed update must not be read as the
+  // application protecting the row (the status assertions below could not tell the two apart).
+  h.assert(!new URL(list.url()).searchParams.has('failCount'),
+    `The ${buttonValue} batch reported failed rows (failCount in the redirect URL), so the update itself did not run`);
 }
 
 async function workflow(s) {

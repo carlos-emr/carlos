@@ -36,10 +36,17 @@ function toRow(cells) {
   };
 }
 
-/** "action/content" label that is safe to print. */
-function label(row) {
-  return `${row.action}${row.content ? `/${row.content}` : ''}`;
+/**
+ * "action/content" label for a row. A `content` value is printed as stored, so a caller that is reporting
+ * that `content` itself carries patient text passes {maskContent: true} and gets a fixed placeholder.
+ */
+function label(row, { maskContent = false } = {}) {
+  if (!row.content) return `${row.action}`;
+  return `${row.action}/${maskContent ? '<content>' : row.content}`;
 }
+
+/** Content types whose audit rows legitimately carry the patient's demographic_no as their contentId. */
+const PATIENT_KEYED_CONTENT = ['demographic', 'eChart'];
 
 /**
  * @param sql        the session's createSqlRunner result
@@ -64,6 +71,28 @@ function auditProbe({ sql, patient = null }) {
     return `(${parts.join(' OR ')})`;
   }
 
+  /**
+   * The rows cleanup() may delete. Narrower than aboutPredicate(): a bare `contentId=<demographic_no>` also matches
+   * an UNRELATED row whose contentId is another entity's id that happens to equal the number (a document id, a note
+   * id), so the contentId match applies only to the content types that key by demographic_no, and a bare numeric
+   * `data` value (which cannot say whose number it is) is left out. Rows about the patient that only that wider
+   * match would have found are left behind rather than risk deleting someone else's audit history.
+   */
+  function ownedPredicate() {
+    const parts = [];
+    if (patient !== null) {
+      const p = String(patient);
+      parts.push(`demographic_no=${p}`,
+        `(content IN (${PATIENT_KEYED_CONTENT.map(sqlString).join(',')}) AND contentId=${sqlString(p)})`,
+        `data REGEXP '(emographic(No|_no| id| no)?[ =:]+|patientId=|patient=)${p}([^0-9]|$)'`);
+    }
+    for (const { content, id } of owned) {
+      parts.push(`(content=${sqlString(content)} AND contentId=${sqlString(String(id))})`);
+    }
+    assert(parts.length, 'The audit probe has nothing to scope to');
+    return `(${parts.join(' OR ')})`;
+  }
+
   function rows(extra = '1=1') {
     return sql.rows(`SELECT ${selectList()} FROM log WHERE ${aboutPredicate()} AND (${extra}) ORDER BY id`).map(toRow);
   }
@@ -74,6 +103,10 @@ function auditProbe({ sql, patient = null }) {
     /** Register a row the check created whose audit rows carry it as contentId. */
     own(content, id) { owned.push({ content, id }); },
     rows,
+    /** Rows of one provider written after `after`, whether or not they name the patient (a report or export row need not). */
+    byProvider(providerNo, after, extra = '1=1') {
+      return sql.rows(`SELECT ${selectList()} FROM log WHERE id>${Number(after)} AND provider_no=${sqlString(providerNo)} AND (${extra}) ORDER BY id`).map(toRow);
+    },
     /** Rows whose id is above `after` (a value returned by mark()). */
     since(after, extra = '1=1') { return rows(`id>${Number(after)} AND (${extra})`); },
     /** High-water mark of the whole table; rows written afterwards have a larger id. */
@@ -91,11 +124,13 @@ function auditProbe({ sql, patient = null }) {
       return rows(`id>${Number(after)}`);
     },
     async settle(ms = 1500) { await sleep(ms); },
-    /** Delete exactly the rows this probe scopes to, and prove they are gone. */
+    /** Delete the rows this probe can prove are its own (ownedPredicate), and prove they are gone. */
     cleanup() {
-      sql.execute(`DELETE FROM log WHERE ${aboutPredicate()}`);
-      assert(sql.value(`SELECT COUNT(*) FROM log WHERE ${aboutPredicate()}`) === '0', 'Owned audit rows were not removed');
+      sql.execute(`DELETE FROM log WHERE ${ownedPredicate()}`);
+      assert(sql.value(`SELECT COUNT(*) FROM log WHERE ${ownedPredicate()}`) === '0', 'Owned audit rows were not removed');
     },
+    /** The SQL cleanup() deletes by; exposed for the regression test that an unrelated row is outside it. */
+    ownedPredicate,
   };
 }
 
@@ -108,7 +143,8 @@ function phiLeaks(rows, needles) {
   for (const row of rows) {
     for (const column of ['content', 'contentId', 'data']) {
       const cell = row[column];
-      if (cell && needles.some(needle => needle && cell.includes(needle))) leaks.push(`${label(row)}:${column}`);
+      // A leak found IN `content` must not print that content: it is the patient text being reported.
+      if (cell && needles.some(needle => needle && cell.includes(needle))) leaks.push(`${label(row, { maskContent: column === 'content' })}:${column}`);
     }
   }
   return [...new Set(leaks)];
@@ -125,4 +161,4 @@ function incomplete(rows, { provider, patient, needIp = true }) {
   return [...new Set(problems)];
 }
 
-module.exports = { auditProbe, phiLeaks, incomplete, label, NIL };
+module.exports = { auditProbe, phiLeaks, incomplete, label, NIL, PATIENT_KEYED_CONTENT };

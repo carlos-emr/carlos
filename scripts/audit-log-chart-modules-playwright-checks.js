@@ -152,7 +152,8 @@ async function workflow(s) {
       panel.locator('input[onclick*="Discontinue2("]').click(),
     ]);
     await expectValue(sql, `SELECT archived FROM drugs WHERE drugid=${drugId}`, '1', 'The drug was not discontinued');
-    const stopped = await judge('Discontinuing the prescription', mid);
+    // The discontinue row names the drug (RxDeleteRx2Action logs drug.getId()), not the script the add row names.
+    const stopped = await judge('Discontinuing the prescription', mid, { contentId: drugId });
     noText(stopped, [drugName, instructions, `${marker} stopped`], 'Discontinuing the prescription');
   });
 

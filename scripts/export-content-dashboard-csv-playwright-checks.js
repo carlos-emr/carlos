@@ -26,7 +26,9 @@ const GRANTS = [['_dashboardDisplay', 'x'], ['_dashboardDrilldown', 'x'], ['_das
 const q = h.sqlString;
 
 function templateXml(marker) {
-  const scope = "FROM demographic d WHERE d.provider_no = '${provider}'";
+  // Restricted to the run's own patients (last name = the marker): a legacy demographic row that happens to carry the
+  // throwaway provider number must not appear in the drill-down or the CSV.
+  const scope = `FROM demographic d WHERE d.provider_no = '\${provider}' AND d.last_name = '${marker}'`;
   const columns = [['demographic', 'd.demographic_no', 'Patient Id', true], ['firstName', 'd.first_name', 'First Name', false],
     ['lastName', 'd.last_name', 'Last Name', false], ['email', 'd.email', 'Email', false], ['address', 'd.address', 'Address', false]];
   const list = columns.map(([id, name, title, primary]) => `<column id="${id}" name="${name}" title="${title}" primary="${primary}" />`).join('\n      ');
@@ -70,6 +72,7 @@ async function workflow(s) {
   const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: s.config.testUser });
   s.cleanup(() => fixture.cleanup());
   const patients = [];
+  let grantsOwned = false; // set only after proving the throwaway role group had no privileges of its own
   let dashboardId;
   let indicatorId;
   s.cleanup(() => {
@@ -79,18 +82,23 @@ async function workflow(s) {
     sql.execute([
       `DELETE FROM indicatorTemplate WHERE name LIKE ${q(`${marker}%`)}`,
       `DELETE FROM dashboard WHERE name=${M}`,
-      `DELETE FROM secObjPrivilege WHERE roleUserGroup=${P} AND objectName IN (${GRANTS.map(g => q(g[0])).join(',')})`,
       `DELETE FROM demographicArchive WHERE demographic_no IN (${owned})`,
       `DELETE FROM demographic WHERE demographic_no IN (${owned}) AND last_name=${M}`,
     ].join(';'));
+    if (grantsOwned) sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${P} AND objectName IN (${GRANTS.map(g => q(g[0])).join(',')})`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM indicatorTemplate WHERE name LIKE ${q(`${marker}%`)})
-      + (SELECT COUNT(*) FROM dashboard WHERE name=${M}) + (SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${P})
+      + (SELECT COUNT(*) FROM dashboard WHERE name=${M}) + ${grantsOwned ? `(SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${P})` : '0'}
       + (SELECT COUNT(*) FROM demographicArchive WHERE demographic_no IN (${owned}))
       + (SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${owned}))`) === '0', 'Owned dashboard fixtures were not all removed');
   });
 
   fixture.create();
   const P = q(fixture.providerNo);
+  // The fixture allocator does not look at secObjPrivilege: never grant into, or later delete from, a role group that
+  // already has rows (a legacy group named like the random throwaway provider number).
+  h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${P}`) === '0',
+    'The throwaway provider number is already a role group with privileges; run the check again');
+  grantsOwned = true;
   for (const [object, right] of GRANTS) {
     sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
       VALUES (${P},${q(object)},${q(right)},0,${q(s.provider)})`);
@@ -156,7 +164,7 @@ async function workflow(s) {
     if (Number.isFinite(declared) && declared !== file.bytes.length) problems.push(`Content-Length ${declared} differs from the ${file.bytes.length} bytes received`);
     const parsed = x.parseCsv(text).filter(r => r.some(c => c !== ''));
     const expected = sql.rows(`SELECT demographic_no, first_name, last_name, IFNULL(email,''), address FROM demographic
-      WHERE provider_no=${P} ORDER BY demographic_no`).map(r => r.map(c => (c === null ? '' : c)));
+      WHERE provider_no=${P} AND last_name=${M} ORDER BY demographic_no`).map(r => r.map(c => (c === null ? '' : c)));
     const titles = parsed[0] || [];
     const kinds = new Set();
     expected.forEach((row, i) => {

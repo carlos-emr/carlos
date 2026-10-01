@@ -99,6 +99,9 @@ async function workflow(s) {
       + `${/exclusive note lock/.test(body) ? 'the text "Your note was not saved as you did not have the exclusive note lock"' : 'an error page'}; the note editor and the `
       + `clinical text typed into it are gone (${alerts.length} alert(s) raised). The ajaxsave path (409 + noteLockLostError alert, editor kept) and the autosave `
       + 'indicator handle a lost lock; this Save path ignores lostNoteLock and treats the refusal page as the new notes pane.');
+    // Keeping the editor is not enough: the user must also be told the lock was lost, by the noteLockLostError alert or a visible message.
+    const told = alerts.some(alert => /lock/i.test(alert.text)) || /note lock/i.test(body);
+    h.assert(told, 'The stale window kept its editor but gave the user no alert or visible message that the note lock was lost');
   });
 }
 

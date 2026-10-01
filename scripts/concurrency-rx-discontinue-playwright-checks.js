@@ -21,7 +21,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openSecondSession } = require('./lib/concurrency-support');
+const { openSecondSession, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 
 const isDiscontinue = response => response.request().method() === 'POST' && h.pathOnly(response.url()).endsWith('/rx/deleteRx')
@@ -84,8 +84,15 @@ async function workflow(s) {
   });
   let second;
   await s.step('session B discontinues the same medication from its stale profile', async () => {
+    const mark = failureMark(s.recorder);
     second = await discontinue(bRx, drug, 'allergy', `${marker} B`);
     h.assert(second.status() < 500, `The stale discontinue answered HTTP ${second.status()}`);
+    // A 4xx is a valid refusal; consume exactly that one response so the strict page check after the step does not report it
+    // (the next step judges the stored state).
+    if (second.status() >= 400) {
+      await bRx.waitForTimeout(500);
+      consumeExpectedFailure(s.recorder, mark, { status: second.status(), path: /\/rx\/deleteRx$/ });
+    }
   });
   await s.step('the first discontinue reason stands and the chart holds one discontinue note', async () => {
     const state = sql.value(archived);

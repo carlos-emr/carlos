@@ -35,6 +35,20 @@ function loadProperties(buffer) {
   return props;
 }
 
+/**
+ * What is wrong with a Content-Disposition value, or null. RFC 6266 / RFC 7230: filename= is a token or a quoted-string in
+ * which a quote or backslash is escaped with a backslash (so an escaped quote is fine); a name outside printable ASCII
+ * needs filename*= (parameter names are case-insensitive). A missing header is a problem too: the form's name is lost.
+ */
+function dispositionProblem(header) {
+  if (!/;\s*filename\*?\s*=/i.test(header)) return 'there is no Content-Disposition filename, so the browser names the download after the route (manageEForm.zip)';
+  const plain = /;\s*filename\s*=/i.test(header);
+  const wellFormed = /;\s*filename\s*=\s*(?:"(?:[^"\\]|\\.)*"|[^\s;"]+)\s*(?:;|$)/i.test(header);
+  if (plain && !wellFormed) return 'its filename is not a token or a well-formed quoted-string (a quote inside the name is not escaped)';
+  if (/[^\x20-\x7e]/.test(header) && !/;\s*filename\*\s*=/i.test(header)) return 'its filename is not ASCII and there is no filename*=';
+  return null;
+}
+
 async function workflow(s) {
   const { sql, provider, marker } = s;
   const scratch = x.scratchDir();
@@ -107,17 +121,29 @@ async function workflow(s) {
       problems.push(`the attachment name splices the form id into the name ("${nameOf(plainFile).replace(marker, 'M')}")`);
     }
     const accentName = nameOf(accentFile);
-    // RFC 6266: a quote inside a quoted-string must be escaped, and non-ASCII needs filename*= (or a transliteration).
-    if (/filename="[^"]*"[^;]*"/.test(accentName) || (/[^\x20-\x7e]/.test(Buffer.from(accentName, 'latin1').toString('latin1')) && !/filename\*=/.test(accentName))) {
-      problems.push('the attachment name of an accented, quoted form is not a valid Content-Disposition value');
-    }
+    const accentProblem = dispositionProblem(accentName);
+    if (accentProblem) problems.push(`the attachment name of an accented, quoted form is not a valid Content-Disposition value: ${accentProblem}`);
     const responding = admin.waitForResponse(r => /\/eform\/manageEForm$/.test(new URL(r.url()).pathname), { timeout: 20000 });
     responding.catch(() => {});
-    const downloading = admin.waitForEvent('download', { timeout: 15000 }).catch(() => null);
-    await exportLink(forms.slash).click();
-    const response = await responding.catch(() => null);
-    const download = await downloading;
-    if (!download) problems.push(`Export of "Well Baby 0/6 months" sent no zip (HTTP ${response ? response.status() : 'none'}): a "/" in the form name is rejected as a path component by EFormExportZip`);
+    let file = null;
+    try {
+      file = await x.saveDownload(admin, scratch, () => exportLink(forms.slash).click(), { route: /\/eform\/manageEForm$/, timeout: 15000 });
+    } catch (error) { /* reported below with the HTTP status */ }
+    if (!file) {
+      const response = await responding.catch(() => null);
+      problems.push(`Export of "Well Baby 0/6 months" sent no zip (HTTP ${response ? response.status() : 'none'}): a "/" in the form name is rejected as a path component by EFormExportZip`);
+    } else {
+      // A download event alone is not a zip: the attachment headers are set before the name is validated.
+      let archive = null;
+      try { archive = x.unzip(file.bytes); } catch (error) { /* reported below */ }
+      const names = archive ? Object.keys(archive) : [];
+      const htmlName = names.find(name => name.endsWith(`/${marker}-slash.html`));
+      const properties = names.find(name => name.endsWith('/eform.properties'));
+      if (file.status !== 200 || !/zip/.test(file.headers['content-type'] || '') || !archive || !htmlName || !properties
+        || archive[htmlName].toString('utf8') !== html) {
+        problems.push(`Export of "Well Baby 0/6 months" downloaded something that is not the form's zip (HTTP ${file.status}, ${file.headers['content-type'] || 'no content type'}, ${names.length} entries)`);
+      }
+    }
     h.assert(!problems.length, `eForm export problems: ${problems.join('; ')}`);
   });
 }

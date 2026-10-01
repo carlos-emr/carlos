@@ -25,7 +25,15 @@ async function workflow(s) {
   const probe = auditProbe({ sql, patient });
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
-  s.cleanup(() => probe.cleanup());
+  s.cleanup(() => {
+    // A successful Update Record archives the ext key/values and the custom fields of the patient; the shared
+    // owned-patient cleanup does not know these two tables, so remove and verify them here, before the patient goes.
+    sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${patient};
+      DELETE FROM demographiccust WHERE demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${patient})`) === '0', 'Owned demographic archive/custom rows were not removed');
+    probe.cleanup();
+  });
   const values = { city: `CITY${marker.slice(-8)}`, postal: 'X0X0X0', phone: '555-0142', email: `pw-${marker.slice(-8).toLowerCase()}@example.invalid` };
   let before;
 
@@ -53,7 +61,7 @@ async function workflow(s) {
   });
 
   await s.step('no audit row about the patient carries the new contact details or the name', async () => {
-    const leaks = phiLeaks(probe.rows(), [values.city, values.phone, values.email, values.postal, marker]);
+    const leaks = phiLeaks(probe.rows(), [values.city, values.phone, values.email, values.postal, marker, 'Workflow']);
     expect(!leaks.length, `Audit rows carry patient data typed into the edit: ${leaks.join(', ')}`);
   });
 

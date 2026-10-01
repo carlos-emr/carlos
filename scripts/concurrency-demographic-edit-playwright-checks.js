@@ -45,6 +45,18 @@ function makeWorkflow({ prime }) {
     const col = (name) => `SELECT IFNULL(${name},'') FROM demographic WHERE demographic_no=${patient}`;
     const extRows = () => sql.value(`SELECT COUNT(*) FROM demographicExt WHERE demographic_no=${patient}`);
     let b;
+    // The harness's parent cleanup removes only demographicExt and demographicArchive rows; each save through the form also
+    // writes demographicExtArchive (keyed by archive id) and demographiccust. Register their removal before the first save
+    // and, because cleanups run before the parent's, while the archive rows they hang from still exist.
+    s.cleanup(() => {
+      sql.execute(`DELETE FROM demographicExtArchive WHERE archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient})
+        OR demographic_no=${patient};
+        DELETE FROM demographiccust WHERE demographic_no=${patient}`);
+      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${patient})
+        + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${patient}
+          OR archiveId IN (SELECT id FROM demographicArchive WHERE demographic_no=${patient}))`) === '0',
+      'The owned patient\'s custom-field and extension archive rows were not removed');
+    });
     // The edit form refuses a blank Canadian postal code; the fixture needs a valid one to be savable.
     sql.execute(`UPDATE demographic SET postal='K1A0B1' WHERE demographic_no=${patient}`);
     await s.master.reload({ waitUntil: 'domcontentloaded' });

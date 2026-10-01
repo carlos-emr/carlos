@@ -10,10 +10,11 @@
  * Asserts: the download is an .xlsx workbook; its header row names the eleven registry columns; the
  * owned patient's row (first name with an accent, quote and comma; last name; sex; DOB; phone; HIN;
  * code system; code; start date; status) equals the database for each status filter (All, Active,
- * Resolved), row for row; the workbook has exactly the rows of the on-screen list (an owned patient
- * of ANOTHER provider and a deleted diagnosis are absent); the same click does not change dxresearch.
+ * Resolved, Deleted), row for row; the workbook has exactly the rows of the on-screen list (an owned patient
+ * of ANOTHER provider is absent; the deleted diagnosis appears under All and Deleted only); the same click
+ * does not change dxresearch.
  * Fixtures: the runWorkflow FAKE-PW patient (names set to non-ASCII text), a second FAKE- patient of
- * another provider holding the same code, three dxresearch rows with unused ICD-9 codes. Cleanup
+ * another provider holding the same code, three dxresearch rows with unused ICD-9 codes (the deleted one's code is added to the report filters too). Cleanup
  * deletes only those rows and asserts them gone. Needs no Poppler.
  */
 const h = require('./lib/playwright-harness');
@@ -26,6 +27,7 @@ const x = require('./lib/export-content-helpers');
 const HEADER = ['First Name', 'Last Name', 'Sex', 'DOB', 'Phone', 'HIN', 'Code System', 'Code', 'Start Date', 'Update Date', 'Status'];
 const CODE = { code: '036', description: 'MENINGOCOCCAL INFECTION' };
 const OTHER_CODE = '0369';
+const DELETED_CODE = '0360'; // seeded with status D and selected in the report, so the status filters are exercised on it
 const FIRST = 'Zoë "Zed", O\'Neil-Ünal';
 
 async function workflow(s) {
@@ -60,13 +62,13 @@ async function workflow(s) {
     VALUES (${demo},${q(start)},'2024-05-06 07:08:09',${q(status)},${q(code)},'icd9',0,${q(provider)})`);
   seed(patient, CODE.code, 'A', '2019-03-05');
   seed(patient, OTHER_CODE, 'C', '2020-11-30');
-  seed(patient, '0360', 'D', '2021-01-02');
+  seed(patient, DELETED_CODE, 'D', '2021-01-02');
   seed(other.id, CODE.code, 'A', '2018-04-03');
   const owned = status => sql.rows(`SELECT d.first_name, d.last_name, d.hin, d.year_of_birth, d.month_of_birth, d.date_of_birth,
       x.coding_system, x.dxresearch_code, d.sex, x.start_date, x.status, x.update_date, d.phone
     FROM dxresearch x JOIN demographic d ON d.demographic_no=x.demographic_no
-    WHERE x.demographic_no=${patient} AND x.dxresearch_code IN (${q(CODE.code)},${q(OTHER_CODE)})
-      ${status ? `AND x.status=${q(status)}` : 'AND x.status<>\'D\''} ORDER BY x.dxresearch_code`);
+    WHERE x.demographic_no=${patient} AND x.dxresearch_code IN (${q(CODE.code)},${q(OTHER_CODE)},${q(DELETED_CODE)})
+      ${status ? `AND x.status=${q(status)}` : ''} ORDER BY x.dxresearch_code`);
 
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context: s.context, recorder: s.recorder, label: 'dx-xlsx-administration', timeout: 20000 });
@@ -84,9 +86,9 @@ async function workflow(s) {
     await report.waitForLoadState('networkidle').catch(() => {});
   }
 
-  await s.step('the report lists the two owned diagnoses for the chosen code', async () => {
+  await s.step('the report is filtered by the three owned codes (two live diagnoses and one deleted)', async () => {
     await report.locator('#codesearch').waitFor({ state: 'visible' });
-    for (const [code, description] of [[CODE.code, CODE.description], [OTHER_CODE, 'MENINGOCOCCAL INFECT NOS']]) {
+    for (const [code, description] of [[CODE.code, CODE.description], [OTHER_CODE, 'MENINGOCOCCAL INFECT NOS'], [DELETED_CODE, 'MENINGOCOCCAL MENINGITIS']]) {
       await report.locator('#codingSystem').selectOption('icd9');
       await typeAutocomplete(report, '#codesearch', description, { option: new RegExp(`^${code}: `) });
       await submit(report.getByRole('button', { name: 'Add', exact: true }));
@@ -102,7 +104,7 @@ async function workflow(s) {
       .map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.trim())).filter(cells => cells.length >= 11));
   };
 
-  for (const [radio, status, label] of [['ALL', '', 'All'], ['Active', 'A', 'Active'], ['Resolved', 'C', 'Resolved']]) {
+  for (const [radio, status, label] of [['ALL', '', 'All'], ['Active', 'A', 'Active'], ['Resolved', 'C', 'Resolved'], ['Deleted', 'D', 'Deleted']]) {
     // eslint-disable-next-line no-await-in-loop
     await s.step(`${label}: the downloaded workbook equals the database and the on-screen list`, async () => {
       await report.locator('#provider_no').selectOption(provider);
@@ -125,7 +127,8 @@ async function workflow(s) {
       const col = Object.fromEntries(HEADER.map((title, i) => [title, at[i]]));
       headers.push(HEADER.map((title, i) => [title, grid[headerAt][at[i]]]));
       const body = grid.slice(headerAt + 1).filter(row => row.some(cell => cell !== ''));
-      const mine = body.filter(row => row[col['Last Name']] === marker);
+      // The report does not promise an order for rows with the same update time, so compare by code.
+      const mine = body.filter(row => row[col['Last Name']] === marker).sort((a, b) => (a[col.Code] < b[col.Code] ? -1 : a[col.Code] > b[col.Code] ? 1 : 0));
       const expected = owned(status);
       h.assert(mine.length === expected.length,
         `The workbook lists ${mine.length} owned rows for ${label}, the database has ${expected.length}`);
@@ -143,7 +146,8 @@ async function workflow(s) {
       });
       h.assert(!body.some(row => row[col['First Name']] === 'OtherProviderPatient'),
         `${label}: the workbook carries a patient of another provider`);
-      h.assert(!body.some(row => row[col.Code] === '0360'), `${label}: the workbook carries a deleted diagnosis`);
+      // "ALL" and "Deleted" list status D by design (dx-registry-status-update); Active and Resolved must not.
+      if (status === 'A' || status === 'C') h.assert(!body.some(row => row[col.Code] === DELETED_CODE), `${label}: the workbook carries a deleted diagnosis`);
       h.assert(body.length === onScreen.length,
         `${label}: the workbook has ${body.length} rows, the on-screen list ${onScreen.length}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no IN (${patient},${other.id})`) === before,
@@ -152,7 +156,7 @@ async function workflow(s) {
   }
 
   await s.step('the workbook labels every column in full and prints the stored update time as stored', async () => {
-    h.assert(headers.length === 3 && updates.length > 0, 'No workbook header or update date was captured');
+    h.assert(headers.length === 4 && updates.length > 0, 'No workbook header or update date was captured');
     const problems = [];
     headers[0].forEach(([title, found]) => {
       if (found !== title) problems.push(`column headed "${found}" should be headed "${title}"`);

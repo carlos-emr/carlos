@@ -11,7 +11,7 @@
  * Asserts, against the same SELECT run in SQL: the result table's header is the aliases the SELECT chose; two
  * columns with the same name (provider last_name, patient last_name) show their own values; NULL, DATE, DATETIME,
  * DECIMAL, multi-line, accented and quoted values read as SQL returns them; the CSV parses to the same header and
- * row; the XLS workbook holds the same values in the same order. The checks are collected in order, so the first
+ * row; the XLS workbook, decoded cell by cell, holds the same values at the same column indexes. The checks are collected in order, so the first
  * wrong construct fails the step that names it.
  * Fixtures: the owned FAKE-PW patient (names set to accented text) and one marker-titled template; cleanup deletes
  * only the marker template and asserts it gone. Nothing else is written.
@@ -121,16 +121,23 @@ async function workflow(s) {
     h.assert(!wrong.length, `The CSV row differs from the SQL row in ${wrong.join(', ')}`);
   });
 
+  let xls;
   await s.step('the XLS workbook holds the same values in the same order', async () => {
     const file = await x.saveDownload(admin, scratch, () => frame.locator('input[name="getXLS"]').click());
-    const text = file.bytes.toString('latin1');
+    // Decode the .xls sheet (BIFF8) and compare each expected cell by its column index.
+    const sheet = x.xlsCells(file.bytes);
+    h.assert(sheet.length === 2, `The XLS sheet has ${sheet.length} rows, expected a header and one row`);
+    xls = { header: sheet[0], row: sheet[1] };
     const want = expectedRow();
-    for (const [i, value] of want.entries()) {
-      const probe = value.trim().split('\n')[0];
-      // Numbers are legitimately numeric cells; text values must be present as text.
-      if (!probe || /[^\x20-\x7e]/.test(probe) || Number.isFinite(Number(probe))) continue; // numeric values: see the last step
-      h.assert(text.includes(probe), `The XLS workbook lacks the value of column ${i + 1} (${header[i]})`);
-    }
+    h.assert(xls.row.length === want.length, `The XLS row has ${xls.row.length} cells, the SELECT returns ${want.length}`);
+    const wrong = [];
+    want.forEach((value, i) => {
+      const cell = xls.row[i];
+      // A numeric cell is the same value when it reads as that number; whether text was WRONGLY numeric is the last step.
+      const same = cell.type === 'number' ? value.trim() !== '' && Number(value) === cell.value : cell.value.replace(/\r\n/g, '\n') === value.trim();
+      if (!same) wrong.push(`column ${i + 1} (${header[i]})`);
+    });
+    h.assert(!wrong.length, `The XLS row differs from the SQL row in ${wrong.join(', ')}`);
   });
 
   await s.step('the table shows each of the two columns named last_name with its own value, the headings are the aliases, and the XLS keeps text cells as text', async () => {
@@ -145,10 +152,13 @@ async function workflow(s) {
     if (JSON.stringify(csv[0]) !== JSON.stringify(header)) {
       problems.push(`the CSV is headed ${JSON.stringify(csv[0])} instead of ${JSON.stringify(header)}`);
     }
-    const xls = await x.saveDownload(admin, scratch, () => frame.locator('input[name="getXLS"]').click());
-    const sheet = xls.bytes.toString('latin1');
+    const sheetHeader = xls.header.map(cell => String(cell.value));
+    if (JSON.stringify(sheetHeader) !== JSON.stringify(header)) {
+      problems.push(`the XLS is headed ${JSON.stringify(sheetHeader)} instead of ${JSON.stringify(header)}`);
+    }
     for (const [name, value] of [['chart_no', '00123'], ['reference_no', '12345678901234567']]) {
-      if (!sheet.includes(value)) problems.push(`the XLS stores ${name} ${value} as a number, not as the text the query returned (GenerateOutFiles2Action parses every cell with Double.parseDouble: leading zeros and digits beyond 15 are lost)`);
+      const cell = xls.row[header.indexOf(name)];
+      if (cell.type !== 'text' || cell.value !== value) problems.push(`the XLS stores ${name} ${value} as a number, not as the text the query returned (GenerateOutFiles2Action parses every cell with Double.parseDouble: leading zeros and digits beyond 15 are lost)`);
     }
     h.assert(!problems.length, `Report by Template exports wrong content: ${problems.join('; ')}`);
   });

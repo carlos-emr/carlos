@@ -61,7 +61,10 @@ async function workflow(s) {
     const headers = g.headersOf(sql, patient, ['pay_program', 'status', 'provider_no', 'billing_date', 'hin']);
     h.assert(headers.length === 1, 'The save did not write exactly one claim for the owned patient');
     headerId = headers[0].id;
-    h.assert(g.itemsOf(sql, headerId).length === 1, 'The claim does not carry exactly one item');
+    h.assert(headers[0].provider_no === owned.providerNo, 'The claim was saved for another billing physician than the one chosen');
+    const items = g.itemsOf(sql, headerId);
+    h.assert(items.length === 1, 'The claim does not carry exactly one item');
+    h.assert(items[0].service_code === 'A007A', 'The claim item does not carry the typed service code');
     await probe.settle(2500);
     const rows = probe.since(before, `action NOT LIKE 'read%' AND action NOT LIKE '%Manager.get%' AND action NOT LIKE '%Manager.find%'
       AND action NOT LIKE 'DemographicManager.%' AND action NOT LIKE 'PatientConsentManager.%'`);
@@ -81,7 +84,8 @@ async function workflow(s) {
     const history = await openHistory(s);
     await history.close();
     await probe.settle(2500);
-    const reads = probe.since(before, `action LIKE 'read%' OR content LIKE '%illing%' OR action LIKE '%illing%'`);
+    // A read of the billing record: a read/view action together with billing content or a billing action name.
+    const reads = probe.since(before, `(action LIKE '%read%' OR action LIKE '%view%') AND (action LIKE '%illing%' OR content LIKE '%illing%')`);
     expect(reads.length >= 1, 'Opening the patient\'s Billing History wrote no audit row naming the patient');
   });
 

@@ -106,10 +106,12 @@ async function workflow(s) {
       .map(([id, who, action, content, contentId, ip, demographic, data]) => ({ id, provider: who, action, content, contentId, ip, demographic, data }));
     h.assert(reads.length >= 1, 'Viewing the document wrote no read row for it');
     expect(reads.length === 1, `One view of the document wrote ${reads.length} read rows (${reads.map(r => r.content).join(' + ')}), expected 1`);
+    // The two-spelling case is reported by the next line; this one catches a lone row spelled otherwise.
+    expect(new Set(reads.map(r => r.content)).size > 1 || reads.every(r => r.content === 'document'), `A view of the document wrote a read row whose content type is "${reads[0] ? reads[0].content : ''}", not "document"`);
     expect(new Set(reads.map(r => r.content)).size === 1, 'One view of the document wrote read rows under two spellings of the content type (document and Document)');
     for (const r of reads) {
       expect(r.provider === provider, `The ${label(r)} row does not carry the provider`);
-      expect(r.ip !== '~NULL~', `The ${label(r)} row (${r.content}) carries no client address`);
+      expect(r.ip !== '~NULL~' && r.ip !== '', `The ${label(r)} row (${r.content}) carries no client address`);
       expect(r.demographic === String(patient), `The read/${r.content} row carries no demographic_no, so the view cannot be found from the patient`);
     }
     expect(!phiLeaks(reads.map(r => ({ ...r, ip: undefined })), [description]).length, 'A read row carries the document description');

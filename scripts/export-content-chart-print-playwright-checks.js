@@ -60,7 +60,7 @@ async function workflow(s) {
   let minutes = 10;
   for (const [key, text] of Object.entries(notes)) ids[key] = seed(text, minutes++);
   const stored = key => sql.value(`SELECT note FROM casemgmt_note WHERE note_id=${ids[key]}`);
-  h.assert(stored('latin') === notes.latin && stored('viet') === notes.viet, 'The seeded notes were not stored as written');
+  h.assert(Object.keys(notes).every(key => stored(key) === notes[key]), 'The seeded notes were not stored as written');
 
   let text;
   let file;
@@ -97,7 +97,7 @@ async function workflow(s) {
     const lines = stored('lines').split('\n').map(l => l.trim()).filter(Boolean);
     let from = text.indexOf(`${marker} LINES`);
     h.assert(from >= 0, 'The multi-line note is missing from the print');
-    for (const line of lines.slice(1)) {
+    for (const line of lines) {
       const at = text.indexOf(line, from);
       h.assert(at >= 0, 'A line of the multi-line note is missing or out of order in the print');
       from = at;
@@ -124,9 +124,11 @@ async function workflow(s) {
     const printed = new Set([...text.normalize('NFC')]);
     for (const key of ['viet', 'polish', 'turkish']) {
       const missing = [...new Set([...stored(key).normalize('NFC')])].filter(c => !/\s/.test(c) && !printed.has(c));
-      if (missing.length) lost[key] = missing.map(c => `U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`).join(' ');
+      if (missing.length) { lost[key] = missing.map(c => `U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`).join(' '); continue; }
+      // Every letter is somewhere in the PDF, but the note must also print as stored (order, no corruption).
+      try { mustContain(key, `${key} note`); } catch (error) { lost[key] = 'the printed text differs from the stored note'; }
     }
-    h.assert(!Object.keys(lost).length, `The chart print drops letters (the PDF font has no glyph for them): ${JSON.stringify(lost)}`);
+    h.assert(!Object.keys(lost).length, `The chart print does not carry these notes as stored (letters are dropped when the PDF font has no glyph for them): ${JSON.stringify(lost)}`);
   });
   h.assert(file.bytes > 0, 'No PDF was captured');
 }

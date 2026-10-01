@@ -98,8 +98,10 @@ async function workflow(s) {
       'The note was not signed');
     const rows = await probe.waitFor(all => all.some(r => r.content === 'CME note'), 'Sign & Save', { after: before });
     const written = noteRows(probe.since(before));
-    expect(written.some(r => r.action === 'update' || r.action === 'add'),
-      `Sign & Save of a chart note wrote none of an add/update CME note row (rows: ${written.map(label).join(', ') || 'none'})`);
+    const signedId = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient}`);
+    probe.own('CME note', signedId);
+    expect(written.some(r => r.action === 'update' && r.contentId === signedId),
+      `Sign & Save of a chart note wrote no update/CME note row naming the signed note (rows: ${written.map(label).join(', ') || 'none'})`);
     expect(rows.length > 0, 'Sign & Save wrote no audit row');
   });
 

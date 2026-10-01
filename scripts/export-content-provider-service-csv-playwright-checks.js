@@ -14,8 +14,8 @@
  * the filename carries no "/", and a note that was archived (removed from the chart) or re-saved as a second
  * revision of the same note uuid is not counted as another encounter.
  * Fixtures: two FAKE- Service programs (the default OSCAR program is a Bed program, which the report skips), one
- * more owned patient, doctor-role notes dated in February/March 2003 (a year no other fixture uses); cleanup deletes
- * only those rows and asserts them gone.
+ * more owned patient, doctor-role notes dated in February/March 2003; every assertion is scoped to the owned programs (rows of
+ * other programs, or other notes in the window, are ignored); cleanup deletes only those rows and asserts them gone.
  */
 const h = require('./lib/playwright-harness');
 const { clickInjectsPanel } = require('./lib/playwright-ui');
@@ -50,8 +50,6 @@ async function workflow(s) {
 
   const doctorRole = sql.value('SELECT role_no FROM secRole WHERE role_name=\'doctor\'');
   h.assert(/^\d+$/.test(doctorRole), 'The doctor role is missing');
-  h.assert(sql.value('SELECT COUNT(*) FROM casemgmt_note WHERE observation_date>=\'2003-01-01\' AND observation_date<\'2003-05-01\'') === '0',
-    'Notes dated in early 2003 already exist, so the report window is not exclusively owned');
   owned.second = sql.value(`INSERT INTO demographic (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,
     patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
     VALUES (${q(marker)},'SecondClient','1975','03','04','M','AC',${q(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);

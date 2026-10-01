@@ -131,11 +131,10 @@ async function workflow(s) {
       aEdit.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT }),
       aEdit.locator('#updateButton').click(),
     ]);
-    h.assert(response.status() < 500, `Updating a deleted appointment answered HTTP ${response.status()}`);
-    if (response.status() >= 400) {
-      await aEdit.waitForTimeout(500);
-      consumeExpectedFailure(s.recorder, mark, { status: response.status(), path: /\/appointment\/UpdateRecord$/ });
-    }
+    // AppointmentUpdateRecord2Action answers sendError(404, "Appointment not found"); pin exactly that refusal.
+    h.assert(response.status() === 404, `Updating a deleted appointment answered HTTP ${response.status()} instead of refusing it with 404`);
+    await aEdit.waitForTimeout(500);
+    consumeExpectedFailure(s.recorder, mark, { status: 404, path: /\/appointment\/UpdateRecord$/ });
     h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no=${deleteId}`) === '0', 'The stale update resurrected the deleted appointment');
     h.assert(sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${deleteId}`) === archivedBefore, 'The stale update wrote a second archive row');
     await aEdit.close().catch(() => {});

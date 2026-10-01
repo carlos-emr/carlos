@@ -146,9 +146,16 @@ async function workflow(s) {
     const file = await x.saveDownload(admin, scratch, () => frame.locator('a[download="carlos_invoices.xls"]').click());
     const html = file.bytes.toString('utf8');
     h.assert(/charset=UTF-8/i.test(html), 'The Excel export does not declare its UTF-8 encoding');
-    for (const id of ids) h.assert(html.includes(`>${id}<`) || new RegExp(`>\\s*${id}\\s*<`).test(html), 'The Excel export lacks an owned invoice');
-    h.assert((html.match(/<tr\b/g) || []).length >= table.rows.length + 1, 'The Excel export has fewer rows than the report');
-    h.assert(html.includes('Zoë') || html.includes('Zo&euml;') || html.includes('Zo&#235;'), 'The Excel export lost the accent in the patient name');
+    // Parse the file the way Excel would read its table (an inert DOMParser in the opener, nothing is run), then compare every cell.
+    const grid = await admin.evaluate(source => [...new DOMParser().parseFromString(source, 'text/html').querySelectorAll('tr')]
+      .map(tr => [...tr.cells].map(cell => cell.textContent.trim())), html);
+    const same = (a, b) => a.length === b.length && a.every((cell, i) => flat(cell) === flat(b[i]));
+    h.assert(grid.length === table.rows.length + 1, `The Excel export has ${grid.length} rows (header included), the report lists ${table.rows.length} plus the header`);
+    h.assert(same(grid[0], table.head), 'The Excel header row is not the report header row');
+    grid.slice(1).forEach((row, i) => {
+      h.assert(same(row, table.rows[i]), `The Excel export differs from the report in row ${i + 1} (invoice ${table.rows[i][col('INVOICE #')]})`);
+    });
+    for (const id of ids) h.assert(grid.some(row => row[col('INVOICE #')] === id), 'The Excel export lacks an owned invoice');
   });
 
   await s.step('a negative adjustment is exported as a number and the CSV declares UTF-8', async () => {

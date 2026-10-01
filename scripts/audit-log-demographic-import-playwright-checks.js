@@ -25,15 +25,17 @@ const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { buildCdsXml, fixtureValues } = require('./demographic-cds-import-playwright-checks');
-const { phiLeaks, label } = require('./lib/audit-log-helpers');
+const { phiLeaks, label, PATIENT_KEYED_CONTENT } = require('./lib/audit-log-helpers');
 
 const q = h.sqlString;
+const KEYED = PATIENT_KEYED_CONTENT.map(q).join(',');
 
 async function workflow(s) {
   const { sql, marker, provider } = s;
   const v = fixtureValues(marker);
   const hin = `9${String(randomInt(0, 1e9)).padStart(9, '0')}`;
   const owner = `last_name=${q(v.lastName)} AND first_name=${q(v.firstName)}`;
+  const hinRowsWhere = `(data LIKE ${q(`%${hin}%`)} OR content LIKE ${q(`%${hin}%`)} OR contentId LIKE ${q(`%${hin}%`)})`;
   const importedIds = () => sql.rows(`SELECT demographic_no FROM demographic WHERE ${owner} ORDER BY demographic_no`).flat();
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
@@ -53,16 +55,17 @@ async function workflow(s) {
         `DELETE FROM demographiccust WHERE demographic_no=${id}`, `DELETE FROM demographicExt WHERE demographic_no=${id}`,
         `DELETE FROM demographicArchive WHERE demographic_no=${id}`, `DELETE FROM DemographicContact WHERE demographicNo=${id}`,
         `DELETE FROM demographicPharmacy WHERE demographic_no=${id}`,
-        `DELETE FROM log WHERE demographic_no=${id} OR contentId=${q(id)} OR data REGEXP ${q(`(emographic(No|_no| id| no)?[ =:]+)${id}([^0-9]|$)`)}`,
+        `DELETE FROM log WHERE demographic_no=${id} OR (content IN (${KEYED}) AND contentId=${q(id)}) OR data REGEXP ${q(`(emographic(No|_no| id| no)?[ =:]+)${id}([^0-9]|$)`)}`,
       ].join(';\n'));
       h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}) + (SELECT COUNT(*) FROM allergies WHERE demographic_no=${id})
         + (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${q(id)}) + (SELECT COUNT(*) FROM log WHERE demographic_no=${id})`) === '0',
       'Imported patient child rows were not removed');
       sql.execute(`DELETE FROM demographic WHERE demographic_no=${id} AND ${owner}`);
     }
-    sql.execute(`DELETE FROM log WHERE data LIKE ${q(`%${hin}%`)}`);
+    // The leak check looks for the number in content, contentId and data, so remove by all three.
+    sql.execute(`DELETE FROM log WHERE ${hinRowsWhere}`);
     h.assert(importedIds().length === 0, 'The imported patient was not removed');
-    h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE data LIKE ${q(`%${hin}%`)}`) === '0', 'Audit rows carrying the run health number were not removed');
+    h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE ${hinRowsWhere}`) === '0', 'Audit rows carrying the run health number were not removed');
   });
   const [first, last] = sql.rows(`SELECT first_name,last_name FROM provider WHERE provider_no=${q(provider)}`)[0] || [];
   h.assert(first && last, 'The test provider has no name to match as primary physician');
@@ -101,12 +104,18 @@ async function workflow(s) {
     h.assert(ids.length === 1, `Expected exactly one imported patient, found ${ids.length}`);
     [id] = ids;
     h.assert(sql.value(`SELECT hin FROM demographic WHERE demographic_no=${id}`) === hin, 'The imported patient does not carry the file\'s health card number');
-    await new Promise(resolve => setTimeout(resolve, 3500));
+    // LogAction.addLog commits on a background executor: poll (bounded) for the first row naming the created patient
+    // instead of a fixed delay, then give late rows a moment to land. No row at all is a finding reported below.
+    const named = `SELECT COUNT(*) FROM log WHERE id>${before} AND (demographic_no=${id} OR (content IN (${KEYED}) AND contentId=${q(id)})
+      OR data REGEXP ${q(`(emographic(No|_no| id| no)?[ =:]+)${id}([^0-9]|$)`)})`;
+    for (const deadline = Date.now() + 20000; sql.value(named) === '0' && Date.now() < deadline;) await new Promise(resolve => setTimeout(resolve, 250));
+    await new Promise(resolve => setTimeout(resolve, 2000));
     const cols = `id,COALESCE(provider_no,'~NULL~'),action,COALESCE(content,'~NULL~'),COALESCE(contentId,'~NULL~'),COALESCE(ip,'~NULL~'),COALESCE(CAST(demographic_no AS CHAR),'~NULL~'),COALESCE(data,'~NULL~')`;
     const toRow = ([rid, who, action, content, contentId, ip, demographic, data]) => ({ id: rid, provider: who, action, content: content === '~NULL~' ? null : content,
       contentId: contentId === '~NULL~' ? null : contentId, ip: ip === '~NULL~' ? null : ip, demographic, data: data === '~NULL~' ? null : data });
-    const hinRows = sql.rows(`SELECT ${cols} FROM log WHERE id>${before} AND (data LIKE ${q(`%${hin}%`)} OR contentId=${q(hin)})`).map(toRow);
-    expect(!phiLeaks(hinRows, [hin]).length, `The patient's health card number is stored in the audit log (${[...new Set(hinRows.map(label))].join(', ')})`);
+    const hinRows = sql.rows(`SELECT ${cols} FROM log WHERE id>${before} AND ${hinRowsWhere}`).map(toRow);
+    const hinLeaks = phiLeaks(hinRows, [hin]);
+    expect(!hinLeaks.length, `The patient's health card number is stored in the audit log (${hinLeaks.join(', ')})`);
     const written = sql.rows(`SELECT ${cols} FROM log WHERE id>${before} AND (demographic_no=${id} OR contentId=${q(id)}
       OR data REGEXP ${q(`(emographic(No|_no| id| no)?[ =:]+)${id}([^0-9]|$)`)}) AND action NOT LIKE 'read%' AND action NOT LIKE '%Manager.get%'`).map(toRow);
     expect(written.length >= 1, 'Importing a patient file (a new patient with a medication, an allergy and a clinical note) wrote no audit row naming the created patient');
