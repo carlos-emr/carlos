@@ -239,7 +239,10 @@
     "test:eform-groups-playwright": "node scripts/eform-groups-playwright-checks.js",
     "test:measurement-type-group-admin-playwright": "node scripts/measurement-type-group-admin-playwright-checks.js",
     "test:report-age-sex-visit-playwright": "node scripts/report-age-sex-visit-playwright-checks.js",
-    "test:rx-edit-discontinue-playwright": "node scripts/rx-edit-discontinue-playwright-checks.js"
+    "test:rx-edit-discontinue-playwright": "node scripts/rx-edit-discontinue-playwright-checks.js",
+    "test:admin-api-keygen-playwright": "node scripts/admin-api-keygen-playwright-checks.js",
+    "test:admin-email-config-playwright": "node scripts/admin-email-config-playwright-checks.js",
+    "test:admin-role-management-playwright": "node scripts/admin-role-management-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

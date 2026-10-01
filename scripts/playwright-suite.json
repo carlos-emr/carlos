@@ -3765,6 +3765,48 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "admin-api-keygen",
+      "script": "scripts/admin-api-keygen-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "admin-email-config",
+      "script": "scripts/admin-email-config-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "admin-role-management",
+      "script": "scripts/admin-role-management-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
     }
   ]
 }

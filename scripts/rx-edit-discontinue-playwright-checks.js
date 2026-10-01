@@ -94,7 +94,8 @@ async function workflow(s) {
     await instructions.fill(INSTRUCTIONS);
     const [parsed] = await Promise.all([
       rx.waitForResponse(isPost('/rx/UpdateScript')),
-      instructions.press('Tab'),
+      // Leave the field for the indication box: Tab would land on Qty, whose blur handler throws (getCost).
+      rx.locator(`label[for="jsonDxSearch_${card}"]`).click(),
     ]);
     h.assert(parsed.status() === 200, `rx/UpdateScript answered HTTP ${parsed.status()}`);
     const body = await parsed.json();

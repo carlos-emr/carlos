@@ -3,8 +3,8 @@
 // Coverage plan §3.4 immunization-schedule-config: the legacy immunization schedule.
 // User path: E-Chart ▸ Preventions ▸ "Old immunizations" (IMMUNIZATION_IN_PREVENTION=yes)
 // ▸ Manage Immu. Template ▸ Add New ▸ Next Step ▸ Render ▸ set link (display popup); then
-// "Old immunizations" ▸ Add. Immu. Template ▸ cell edit popup ▸ Save ▸ Configure/Cancel ▸ del /
-// Show All / restore; finally Configure ▸ Manage Immu. Template ▸ Delete ▸ Deleted List.
+// "Old immunizations" ▸ Add. Immu. Template ▸ cell edit popup ▸ Save ▸ Configure/Cancel;
+// Configure ▸ Manage Immu. Template ▸ Delete ▸ Deleted List; reopen ▸ del / Show All / restore.
 // Asserts each round trip against config_Immunization (setName, setXmlDoc, archived) and the
 // patient's current immunizations row (archived=0 replaces the previous one; set status and
 // cell lot/givenDate/comments live in the stored XML).
@@ -12,8 +12,8 @@
 // (both carry the run marker in their row names; the seeded one is what gets scheduled, because
 // the UI-created template loses its name and is filtered out of the picker). Cleanup deletes only
 // those templates and the owned patient's immunizations rows, then asserts they are gone.
-// The two defects that cannot be proven away (template name lost, missing stylesheets) are
-// asserted in the LAST step so every other step is proven first.
+// The application defects (del link dead, template name lost, missing stylesheets) are asserted
+// in the LAST step so every other step is proven first.
 const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');

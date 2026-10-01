@@ -3,24 +3,22 @@
 //
 // Browser check for measurement type, instruction, group and style-sheet admin.
 //
-// User path: Schedule ▸ Administration ▸ System Management ▸ Customize Measurements
-// (the page loads in the admin iframe) ▸ each popup it opens: Add Measurement Type,
-// View All Measurement Types, Add Measuring Instruction, Add Measurement Group,
-// Edit Measurement Group (Modify Measurement Types / Modify Measurement Style /
-// Delete), View All Style Sheet and Add Measurement Style Sheet; then Chart ▸
-// Measurements ▸ <owned group> for the owned patient.
+// User path: Schedule ▸ Administration ▸ Customize Measurements (loads in the admin
+// iframe) ▸ the popups it opens: View All Measurement Types (+Delete), Edit
+// Measurement Group (Modify Measurement Types / Modify Measurement Style / Delete),
+// View All Style Sheet, Add Measurement Type, Add Measuring Instruction, Add
+// Measurement Group, Add Measurement Style Sheet; and Chart ▸ Measurements ▸ group.
 //
-// Asserts every write in MariaDB: measurementType rows (type + extra instruction),
-// measurementGroupStyle / measurementGroup rows (create, add and remove a member,
-// delete), measurementTypeDeleted audit rows on type deletion, and that the eChart
-// measurement popup offers the new type with both instructions. Duplicate type
-// names are refused without a second row.
+// Asserts each write in MariaDB: measurementGroup membership add/remove, group and
+// type deletion (with measurementTypeDeleted audit rows), types and instructions
+// saved by the Add forms, duplicate type refused, and that the chart's measurement
+// popup offers the owned type. Steps that need no Add form run first on SQL-seeded
+// types and group; the Add forms come last because they are what currently fails.
 //
-// Fixtures: per-run FAKEPW<hex> type codes, display names, group and style-sheet
-// names (the admin validator rejects '-', so the marker's hex is reused without
-// it); one second owned type is seeded by SQL. Cleanup deletes only rows carrying
-// those names and asserts they are gone. Implements coverage plan §3.7 admin-misc
-// (Customize Measurements).
+// Fixtures: FAKEPW<hex> type codes, display names, group names and style-sheet name
+// (the admin validator rejects '-'); cleanup deletes only those rows and asserts it.
+// Optional MEASUREMENT_CSS_UPLOAD_DIR lets cleanup remove an uploaded style sheet.
+// Implements coverage plan §3.7 admin-misc (Customize Measurements).
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -31,9 +29,9 @@ const {runWorkflow} = require('./lib/workflow-session');
 
 const ROUTE = '/encounter/oscarMeasurements/';
 
-// Arms a wait for the popup's next document whose path ends with `route`, runs
-// the click, then waits for that document to load. Intermediate auto-submitting
-// pages (ProcessAdd/EditMeasurementGroupAction) are skipped by the predicate.
+// Arms a wait for the popup's next document whose path ends with `route`, runs the
+// click, then waits for that document. Auto-submitting intermediate pages
+// (Process*MeasurementGroupAction) are skipped by the predicate.
 async function landOn(page, route, act) {
   const landed = page.waitForEvent('framenavigated', {
     timeout: 20000,
@@ -50,42 +48,51 @@ async function workflow(s) {
   const {sql, marker} = s;
   const q = h.sqlString;
   const hex = marker.slice('FAKE-PW'.length).toUpperCase();
-  const type = `PW${hex.slice(0, 12)}`;
-  const display = `FAKEPW${hex.slice(0, 12)}`;
-  const desc = `FAKEPW ${hex} synthetic type`;
-  const instruction = `FAKEPW ${hex} first instruction`;
+  const code = suffix => `PW${hex.slice(0, 12)}${suffix}`;
+  const name = suffix => `FAKEPW${hex.slice(0, 12)}${suffix}`; // measurementTypeDeleted holds 20 chars
+  const [seeded, peer, created] = ['A', 'B', 'C'].map(suffix => ({type: code(suffix), display: name(suffix),
+    desc: `FAKEPW ${hex} type ${suffix}`, instruction: `FAKEPW ${hex} instruction ${suffix}`}));
   const instruction2 = `FAKEPW ${hex} second instruction`;
-  const peerType = `PW${hex.slice(4, 16)}`;
-  const peerDisplay = `FAKEPW${hex.slice(4, 16)}`;
-  const group = `FAKEPW ${hex} group`;
+  const seededGroup = `FAKEPW ${hex} seeded group`;
+  const createdGroup = `FAKEPW ${hex} new group`;
   const cssName = `FAKEPW${hex}.css`;
-  const ownedTypes = `type IN (${q(type)},${q(peerType)}) AND typeDisplayName IN (${q(display)},${q(peerDisplay)})`;
-  const typeRows = () => sql.rows(`SELECT type,typeDisplayName,typeDescription,measuringInstruction,validation
-    FROM measurementType WHERE type=${q(type)} AND typeDisplayName=${q(display)} ORDER BY id`);
-  const groupRows = () => sql.rows(`SELECT typeDisplayName FROM measurementGroup WHERE name=${q(group)} ORDER BY typeDisplayName`)
-    .map(([name]) => name);
-  const groupStyles = () => sql.value(`SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName=${q(group)}`);
+  const cssUploadDir = process.env.MEASUREMENT_CSS_UPLOAD_DIR || '';
+  const types = [seeded, peer, created];
+  const codes = types.map(t => q(t.type)).join(',');
+  const displays = types.map(t => q(t.display)).join(',');
+  const groups = [seededGroup, createdGroup].map(q).join(',');
+  const typeRows = t => sql.rows(`SELECT type,typeDisplayName,typeDescription,measuringInstruction,validation
+    FROM measurementType WHERE type=${q(t.type)} AND typeDisplayName=${q(t.display)} ORDER BY id`);
+  const members = group => sql.rows(`SELECT typeDisplayName FROM measurementGroup WHERE name=${q(group)}
+    ORDER BY typeDisplayName`).map(([display]) => display);
+  const styles = group => sql.value(`SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName=${q(group)}`);
   const cssDir = fs.mkdtempSync(path.join(os.tmpdir(), 'measurement-css-'));
+  const ownedCount = () => sql.value(`SELECT
+      (SELECT COUNT(*) FROM measurementGroup WHERE name IN (${groups}) OR typeDisplayName IN (${displays}))
+    + (SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN (${groups}))
+    + (SELECT COUNT(*) FROM measurementType WHERE type IN (${codes}) OR typeDisplayName IN (${displays}))
+    + (SELECT COUNT(*) FROM measurementTypeDeleted WHERE type IN (${codes}))
+    + (SELECT COUNT(*) FROM measurementCSSLocation WHERE location=${q(cssName)})`);
 
   s.cleanup(() => {
     fs.rmSync(cssDir, {recursive: true, force: true});
-    sql.execute(`DELETE FROM measurementGroup WHERE name=${q(group)} OR typeDisplayName IN (${q(display)},${q(peerDisplay)});
-      DELETE FROM measurementGroupStyle WHERE groupName=${q(group)};
-      DELETE FROM measurementType WHERE ${ownedTypes};
-      DELETE FROM measurementTypeDeleted WHERE type IN (${q(type)},${q(peerType)});
+    const uploaded = sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE location=${q(cssName)}`) !== '0';
+    sql.execute(`DELETE FROM measurementGroup WHERE name IN (${groups}) OR typeDisplayName IN (${displays});
+      DELETE FROM measurementGroupStyle WHERE groupName IN (${groups});
+      DELETE FROM measurementType WHERE type IN (${codes}) AND typeDisplayName IN (${displays});
+      DELETE FROM measurementTypeDeleted WHERE type IN (${codes});
       DELETE FROM measurementCSSLocation WHERE location=${q(cssName)}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM measurementGroup WHERE name=${q(group)}
-        OR typeDisplayName IN (${q(display)},${q(peerDisplay)}))
-      + (SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName=${q(group)})
-      + (SELECT COUNT(*) FROM measurementType WHERE ${ownedTypes})
-      + (SELECT COUNT(*) FROM measurementTypeDeleted WHERE type IN (${q(type)},${q(peerType)}))
-      + (SELECT COUNT(*) FROM measurementCSSLocation WHERE location=${q(cssName)})`) === '0',
-    'Owned measurement admin rows were not removed');
+    h.assert(ownedCount() === '0', 'Owned measurement admin rows were not removed');
+    if (uploaded) {
+      h.assert(cssUploadDir, `Style sheet ${cssName} was uploaded; set MEASUREMENT_CSS_UPLOAD_DIR so cleanup can remove it`);
+      fs.rmSync(path.join(cssUploadDir, cssName), {force: true});
+    }
   });
-  h.assert(sql.value(`SELECT COUNT(*) FROM measurementType WHERE type IN (${q(type)},${q(peerType)})
-    OR typeDisplayName IN (${q(display)},${q(peerDisplay)})`) === '0', 'Per-run measurement type names already exist');
-  sql.execute(`INSERT INTO measurementType(type,typeDisplayName,typeDescription,measuringInstruction,validation,createDate)
-    VALUES (${q(peerType)},${q(peerDisplay)},${q(`FAKEPW ${hex} peer type`)},${q(`FAKEPW ${hex} peer instruction`)},'5',NOW())`);
+  h.assert(ownedCount() === '0', 'Per-run measurement admin names already exist');
+  sql.execute(types.slice(0, 2).map(t => `INSERT INTO measurementType
+      (type,typeDisplayName,typeDescription,measuringInstruction,validation,createDate)
+      VALUES (${q(t.type)},${q(t.display)},${q(t.desc)},${q(t.instruction)},'5',NOW())`).join(';')
+    + `; INSERT INTO measurementGroupStyle(groupName,cssID) VALUES (${q(seededGroup)},0)`);
 
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     {context: s.context, recorder: s.recorder, label: 'measurement-administration', timeout: 20000});
@@ -96,18 +103,177 @@ async function workflow(s) {
   await iframe.waitFor();
   const menu = await (await iframe.elementHandle()).contentFrame();
   h.assert(menu, 'Customize Measurements did not load in the administration frame');
-  await menu.getByRole('link', {name: 'Add Measurement Type', exact: true}).waitFor();
+  await menu.getByRole('link', {name: 'View All Measurement Types', exact: true}).waitFor();
 
-  // Every Customize Measurements link targets the same window name, so a popup
-  // left open would be reused by the next link instead of opening a new page.
-  async function open(name, label) {
-    const popup = await s.popup(admin, menu.getByRole('link', {name, exact: true}), label);
+  // Every Customize Measurements link targets one window name, so each popup is
+  // closed after use; otherwise the next link would reuse it instead of opening.
+  async function open(linkName, label) {
+    const since = s.recorder.badResponses.length;
+    const popup = await s.popup(admin, menu.getByRole('link', {name: linkName, exact: true}), label);
     await popup.waitForLoadState('load');
+    const refused = s.recorder.badResponses.slice(since).find(entry => entry.label === label);
+    h.assert(!refused, `${linkName} opened an HTTP ${refused && refused.status} page for ${refused && refused.method} `
+      + `${refused && new URL(refused.url).pathname}; the Customize Measurements link cannot reach its form`);
     await h.assertNotErrorPage(popup, label);
     return popup;
   }
+  async function selectGroup(popup, group, button) {
+    await popup.locator('#selectedGroupName').selectOption(group);
+    return popup.getByRole('button', {name: button, exact: true});
+  }
+  const listedType = (popup, t) => popup.locator('tr.data').filter({has: popup.getByRole('link', {name: t.type, exact: true})});
 
-__BODY__
+  await s.step('View All Measurement Types lists the seeded type exactly as stored', async () => {
+    const popup = await open('View All Measurement Types', 'view-measurement-types');
+    const row = listedType(popup, seeded);
+    h.assert(await row.count() === 1, 'The seeded type is not listed exactly once');
+    const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
+    h.assert(cells[1] === seeded.display && cells[2] === seeded.desc && cells[3] === seeded.instruction,
+      'The listed type does not show the stored display name, description and instruction');
+    await popup.close();
+  });
+
+  await s.step('Modify Measurement Types adds both owned types to the group and removes one', async () => {
+    const popup = await open('Edit Measurement Group', 'edit-measurement-group');
+    await landOn(popup, 'SetupEditMeasurementGroup', async () => (await selectGroup(popup, seededGroup, 'Modify Measurement Types')).click());
+    await popup.locator('select[name="selectedAddTypes"]').selectOption([seeded.display, peer.display]);
+    await landOn(popup, 'SetupEditMeasurementGroup', () => popup.getByRole('button', {name: 'Add', exact: true}).click());
+    h.assert(JSON.stringify(members(seededGroup)) === JSON.stringify([seeded.display, peer.display]),
+      'Add did not store both owned members');
+    const current = (await popup.locator('select[name="selectedDeleteTypes"] option').allInnerTexts()).map(t => t.trim()).sort();
+    h.assert(JSON.stringify(current) === JSON.stringify([seeded.display, peer.display]), 'The editor does not list the stored members');
+    await popup.locator('select[name="selectedDeleteTypes"]').selectOption(peer.display);
+    await landOn(popup, 'SetupEditMeasurementGroup', () => popup.getByRole('button', {name: 'Delete', exact: true}).click());
+    h.assert(JSON.stringify(members(seededGroup)) === JSON.stringify([seeded.display]), 'Delete did not remove exactly the second member');
+    await popup.close();
+  });
+
+  await s.step('the chart measurement menu offers the group and its popup the owned type', async () => {
+    const chart = await s.chart();
+    const link = chart.locator('#leftNavBar .menu a, #rightNavBar .menu a').filter({hasText: seededGroup});
+    h.assert(await link.count() === 1, 'The chart measurement menu does not list the owned group');
+    await revealAuditLink(chart, link, 20000);
+    const entry = await s.popup(chart, link, 'measurement-entry');
+    await entry.waitForLoadState('load');
+    await h.assertNotErrorPage(entry, 'measurement-entry');
+    const row = entry.locator(`[id="row-${seeded.type}"]`);
+    await row.waitFor();
+    h.assert(await entry.locator('tr.data[id^="row-"]').count() === 1, 'The group popup offers types outside the group');
+    h.assert((await row.locator('span').first().innerText()).trim() === seeded.display, 'The entry row is not labelled with the display name');
+    h.assert((await row.locator('label').allInnerTexts()).map(t => t.trim()).join('|') === seeded.instruction,
+      'The entry row does not offer the measuring instruction');
+    h.assert(await row.locator('input[name^="inputValue-"]').count() === 1, 'The entry row has no value input');
+    await entry.close();
+  });
+
+  await s.step('Modify Measurement Style opens the owned group without changing it', async () => {
+    const popup = await open('Edit Measurement Group', 'measurement-group-style');
+    await landOn(popup, 'SelectMeasurementGroup', async () => (await selectGroup(popup, seededGroup, 'Modify Measurement Style')).click());
+    h.assert(await popup.locator('input[name="groupName"]').inputValue() === seededGroup, 'The style editor opened another group');
+    h.assert(styles(seededGroup) === '1' && members(seededGroup).length === 1, 'Opening the style editor changed the group');
+    await popup.close();
+  });
+
+  await s.step('Delete in Edit Measurement Group removes the group after one confirmation', async () => {
+    const popup = await open('Edit Measurement Group', 'delete-measurement-group');
+    const button = await selectGroup(popup, seededGroup, 'Delete');
+    const dialogs = await h.withExpectedDialogs(popup, () => landOn(popup, 'SelectMeasurementGroup', () => button.click()));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm'
+      && dialogs[0].text === `Are you sure you want to delete ${seededGroup} group?`, 'Group delete did not ask exactly once');
+    h.assert(styles(seededGroup) === '0' && members(seededGroup).length === 0, 'The deleted group still has rows');
+    h.assert(await popup.locator('#selectedGroupName option').filter({hasText: seededGroup}).count() === 0,
+      'The group list still offers the deleted group');
+    await popup.close();
+  });
+
+  await s.step('Delete in View All Measurement Types removes both types and records them as deleted', async () => {
+    const popup = await open('View All Measurement Types', 'delete-measurement-types');
+    for (const t of [seeded, peer]) await listedType(popup, t).locator('input[name="deleteCheckbox"]').check();
+    await landOn(popup, 'DeleteMeasurementTypes', () => popup.getByRole('button', {name: 'Delete', exact: true}).click());
+    h.assert(typeRows(seeded).length === 0 && typeRows(peer).length === 0, 'The owned measurement types were not deleted');
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurementTypeDeleted WHERE (type,typeDisplayName,measuringInstruction) IN
+      ((${q(seeded.type)},${q(seeded.display)},${q(seeded.instruction)}),(${q(peer.type)},${q(peer.display)},${q(peer.instruction)}))`) === '2',
+    'Type deletion did not record exactly one deleted-type row per type');
+    h.assert(await listedType(popup, seeded).count() + await listedType(popup, peer).count() === 0, 'A deleted type is still listed');
+    await popup.close();
+  });
+
+  await s.step('View All Style Sheet renders the style-sheet list without the owned name', async () => {
+    const popup = await open('View All Style Sheet', 'view-style-sheets');
+    await popup.locator('form[action$="/DeleteMeasurementStyleSheet"]').waitFor();
+    h.assert(await popup.getByText(cssName, {exact: true}).count() === 0, 'The owned style sheet exists before upload');
+    await popup.close();
+  });
+
+  // The Add forms. Steps above prove everything that does not depend on them.
+  await s.step('Add Measurement Type saves the new type with its validation rule', async () => {
+    const popup = await open('Add Measurement Type', 'add-measurement-type');
+    await popup.locator('#type').fill(created.type.toLowerCase());
+    await popup.locator('#typeDesc').fill(created.desc);
+    await popup.locator('#typeDisplayName').fill(created.display);
+    await popup.locator('#measuringInstrc').fill(created.instruction);
+    await popup.locator('#validation').selectOption({label: 'Numeric Value: 0 to 300'});
+    await landOn(popup, 'AddMeasurementType', () => popup.locator('input[type="submit"][name="submit"]').click());
+    await popup.getByText('Measurement type has been added successfully!').waitFor();
+    h.assert(JSON.stringify(typeRows(created)) === JSON.stringify([[created.type, created.display, created.desc, created.instruction, '5']]),
+      'The saved measurementType row does not match the submitted (upper-cased) type');
+    await popup.close();
+  });
+
+  await s.step('a second Add with the same type code is refused and writes nothing', async () => {
+    const popup = await open('Add Measurement Type', 'add-duplicate-measurement-type');
+    await popup.locator('#type').fill(created.type);
+    await popup.locator('#typeDesc').fill(created.desc);
+    await popup.locator('#typeDisplayName').fill(created.display);
+    await popup.locator('#measuringInstrc').fill(instruction2);
+    await landOn(popup, 'AddMeasurementType', () => popup.locator('input[type="submit"][name="submit"]').click());
+    await popup.locator('.action-errors').getByText('The entered type already exists').waitFor();
+    h.assert(typeRows(created).length === 1, 'A duplicate measurement type code was stored');
+    await popup.close();
+  });
+
+  await s.step('Add Measuring Instruction stores a second instruction for the new type', async () => {
+    const popup = await open('Add Measuring Instruction', 'add-measuring-instruction');
+    await popup.locator('#typeDisplayName').selectOption(created.display);
+    await popup.locator('#measuringInstrc').fill(instruction2);
+    await popup.locator('#validation').selectOption({label: 'Numeric Value: 0 to 300'});
+    await landOn(popup, 'AddMeasuringInstruction', () => popup.getByRole('button', {name: 'Add', exact: true}).click());
+    await popup.getByText('Measuring Instruction has been added successfully!').waitFor();
+    h.assert(JSON.stringify(typeRows(created).map(row => row[3])) === JSON.stringify([created.instruction, instruction2]),
+      'The second instruction was not stored against the new type');
+    await popup.close();
+  });
+
+  await s.step('Add Measurement Group defines a group and adds the new type to it', async () => {
+    const popup = await open('Add Measurement Group', 'add-measurement-group');
+    await popup.locator('input[name="groupName"]').fill(createdGroup);
+    await landOn(popup, 'SetupAddMeasurementGroup', () => popup.locator('input[type="submit"][name="submit"]').click());
+    h.assert(styles(createdGroup) === '1', 'The new group has no measurementGroupStyle row');
+    await popup.locator('select[name="selectedAddTypes"]').selectOption(created.display);
+    await landOn(popup, 'SetupEditMeasurementGroup', () => popup.getByRole('button', {name: 'Add', exact: true}).click());
+    h.assert(JSON.stringify(members(createdGroup)) === JSON.stringify([created.display]), 'The new type was not added to the new group');
+    await popup.close();
+  });
+
+  await s.step('Add Measurement Style Sheet uploads a style sheet that Delete then removes', async () => {
+    const file = path.join(cssDir, cssName);
+    fs.writeFileSync(file, `/* ${marker} */\n.FAKEPW${hex} { color: #000; }\n`);
+    const popup = await open('Add Measurement Style Sheet', 'add-style-sheet');
+    await popup.locator('#file').setInputFiles(file);
+    await landOn(popup, 'AddMeasurementStyleSheet', () => popup.getByRole('button', {name: 'Continue', exact: true}).click());
+    const errors = popup.locator('.action-errors');
+    h.assert(await errors.count() === 0, `Uploading a valid style sheet was refused: ${(await errors.allInnerTexts()).join(' ').trim()}`);
+    await popup.getByText(`Style Sheet ${cssName} added successfully!`).waitFor();
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE location=${q(cssName)}`) === '1',
+      'The uploaded style sheet has no measurementCSSLocation row');
+    await popup.close();
+    const list = await open('View All Style Sheet', 'delete-style-sheet');
+    await list.locator('tr.data').filter({hasText: cssName}).locator('input[name="deleteCheckbox"]').check();
+    await landOn(list, 'DeleteMeasurementStyleSheet', () => list.getByRole('button', {name: 'Delete', exact: true}).click());
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE location=${q(cssName)}`) === '0',
+      'Delete did not remove the unused style sheet');
+    await list.close();
+  });
 }
 
 if (require.main === module) runWorkflow('measurement-type-group-admin', workflow, {openPatient: true});

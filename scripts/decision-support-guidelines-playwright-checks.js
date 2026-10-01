@@ -63,42 +63,20 @@ async function workflow(s) {
       'The guideline warning links to another patient');
   });
 
-  let list;
-  await s.step('heading opens the guideline list evaluating the owned guideline as passed', async () => {
-    list = await s.popup(chart, heading(), 'guideline-list');
-    h.assert(new URL(list.url()).searchParams.get('demographic_no') === patient, 'Guideline list opened for another patient');
-    await listRow(list).waitFor({ state: 'visible' });
-    const cells = (await listRow(list).locator('td').allInnerTexts()).map(text => text.trim());
-    h.assert(cells[0] === '1' && cells[1] === title && cells[2] === 'FAKE-PW check' && cells[4] === 'Active',
-      'Guideline list does not show the owned guideline\'s version, author and active status');
-    h.assert(/^Passed\b/.test(cells[5]), 'Guideline list does not evaluate the matching patient as passed');
-  });
-
-  await s.step('More Info evaluates each condition against the owned patient', async () => {
-    await clickAndAwaitReload(list, listRow(list).getByRole('link', { name: 'More Info' }));
-    const params = new URL(list.url()).searchParams;
+  let detail;
+  await s.step('warning opens the guideline detail evaluating each condition for the owned patient', async () => {
+    detail = await s.popup(chart, alert(), 'guideline-detail');
+    const params = new URL(detail.url()).searchParams;
     h.assert(params.get('method') === 'detail' && params.get('guidelineId') === guideline
-      && params.get('demographic_no') === patient, 'More Info opened another guideline or patient');
-    h.assert((await list.locator('body').innerText()).includes(`GUIDELINE PASSED: ${warning}`),
+      && params.get('demographic_no') === patient, 'The warning opened another guideline or patient');
+    h.assert((await detail.locator('body').innerText()).includes(`GUIDELINE PASSED: ${warning}`),
       'Guideline detail does not report the passed guideline consequence');
-    h.assert((await list.locator('div').first().innerText()).includes(`Workflow ${marker}`),
+    h.assert((await detail.locator('div').first().innerText()).includes(`Workflow ${marker}`),
       'Guideline detail is not headed with the owned patient');
-    const rows = await conditionRows(list);
+    const rows = await conditionRows(detail);
     h.assert(JSON.stringify(rows.map(row => [row[0], row[1], row[3], row[4]])) === JSON.stringify([
       ['dxcodes', 'any', `icd9:${DX_CODE}`, 'Passed'], ['sex', 'any', 'F', 'Passed'],
     ]), 'Guideline detail did not evaluate both conditions as passed with the patient\'s actual values');
-  });
-
-  await s.step('List Guidelines returns to the patient list and the warning opens the same detail', async () => {
-    await clickAndAwaitReload(list, list.getByRole('button', { name: 'List Guidelines' }));
-    h.assert(new URL(list.url()).searchParams.get('demographic_no') === patient, 'List Guidelines lost the patient');
-    await listRow(list).waitFor({ state: 'visible' });
-    await list.close();
-    const detail = await s.popup(chart, alert(), 'guideline-warning-detail');
-    h.assert(new URL(detail.url()).searchParams.get('guidelineId') === guideline, 'Warning opened another guideline');
-    h.assert((await detail.locator('body').innerText()).includes(`GUIDELINE PASSED: ${warning}`),
-      'Warning detail does not report the passed guideline');
-    await detail.close();
   });
 
   await s.step('resolving the diagnosis in the Dx Registry persists the change', async () => {
@@ -110,27 +88,39 @@ async function workflow(s) {
     await registry.close();
   });
 
-  await s.step('reopened chart no longer shows the warning and the list evaluates Failed', async () => {
+  await s.step('reopened chart no longer shows the warning for the resolved patient', async () => {
     await chart.close();
     chart = await s.chart();
+    // The heading proves the module itself loaded, so a missing warning is not a missing module.
     await heading().filter({ hasText: 'Decision Support Alerts' }).waitFor({ state: 'visible' });
     h.assert(await alert().count() === 0, 'The guideline warning is still shown after the diagnosis was resolved');
-    list = await s.popup(chart, heading(), 'guideline-list-after');
-    await listRow(list).waitFor({ state: 'visible' });
-    const cells = (await listRow(list).locator('td').allInnerTexts()).map(text => text.trim());
-    h.assert(/^Failed\b/.test(cells[5]), 'Guideline list still evaluates the resolved patient as passed');
   });
 
-  await s.step('detail fails only the diagnosis condition and keeps the matching sex condition', async () => {
-    await clickAndAwaitReload(list, listRow(list).getByRole('link', { name: 'More Info' }));
-    h.assert(!(await list.locator('body').innerText()).includes('GUIDELINE PASSED'),
-      'Guideline detail still reports the guideline as passed');
-    const rows = await conditionRows(list);
+  await s.step('refreshed detail and the heading\'s guideline list evaluate the resolved patient', async () => {
+    await detail.reload({ waitUntil: 'domcontentloaded' });
+    h.assert(!(await detail.locator('body').innerText()).includes('GUIDELINE PASSED'),
+      'Refreshed guideline detail still reports the guideline as passed');
+    const rows = await conditionRows(detail);
     h.assert(rows.length === 2 && rows[0][0] === 'dxcodes' && rows[0][4] === 'Fail',
-      'Guideline detail does not fail the resolved diagnosis condition');
-    // Each condition is evaluated separately and must be judged on its own rule.
-    h.assert(rows[1][0] === 'sex' && rows[1][3] === 'F' && rows[1][4] === 'Passed',
-      'Guideline detail fails the sex condition the patient still matches');
+      'Refreshed guideline detail does not fail the resolved diagnosis condition');
+    // Both remaining surfaces are checked before failing so one run reports each defect.
+    const defects = [];
+    // Each condition is evaluated on its own; the patient still matches the sex condition.
+    if (!(rows[1][0] === 'sex' && rows[1][3] === 'F' && rows[1][4] === 'Passed')) {
+      defects.push('guideline detail fails the sex condition the patient still matches');
+    }
+    try {
+      const list = await s.popup(chart, heading(), 'guideline-list');
+      h.assert(new URL(list.url()).searchParams.get('demographic_no') === patient, 'Guideline list opened for another patient');
+      const row = list.locator('table.dsTable tr').filter({ hasText: title });
+      await row.waitFor({ state: 'visible' });
+      const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
+      h.assert(cells[0] === '1' && cells[2] === 'FAKE-PW check' && cells[4] === 'Active' && /^Failed\b/.test(cells[5]),
+        'Guideline list does not show the owned guideline as active and failed for the resolved patient');
+    } catch (error) {
+      defects.push(`Decision Support Alerts heading: ${error.message}`);
+    }
+    h.assert(!defects.length, defects.join('; '));
   });
 }
 if (require.main === module) runWorkflow('decision-support-guidelines', workflow);
