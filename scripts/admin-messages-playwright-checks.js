@@ -67,6 +67,10 @@ async function workflow(s) {
     ({page: admin, isPopup} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
       {context: s.context, recorder: s.recorder, label: 'messages-administration', timeout: TIMEOUT}));
     const link = admin.getByRole('link', {name: 'System Messages', exact: true, includeHidden: true}).first();
+    // The CAISI group that hosts System Messages renders only when the deployment
+    // sets caisi=on; without it the route has no user entry and nothing to drive.
+    await admin.locator('#dynamic-content, .adminBox').first().waitFor({timeout: TIMEOUT});
+    if (await link.count() === 0) throw new h.SkipCheck('System Messages is not offered by the administration menu on this deployment (caisi module off)');
     await revealAuditLink(admin, link, TIMEOUT);
     await link.click();
     const iframe = admin.locator('#dynamic-content iframe[src*="/SystemMessage"]').first();

@@ -26,6 +26,8 @@
  *
  * tickler/ForwardDemographicTickler is deliberately NOT driven here: it only prefills the add
  * form from a document, lab or HRM viewer and has no entry in the tickler list (see the report).
+ * Env: the common contract (lib/playwright-harness.js readConfig()); TICKLER_PREFS_DIRECT=true
+ * opens the preference form by its own route while the Preferences link points at the wrong action.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -189,10 +191,30 @@ async function workflow(s) {
     h.assert(rows.some(item => String(item.id) === ticklerNo && item.assigneeName === providerName), 'The tickler did not return to the test provider\'s list');
   });
 
+  // The preference form, entered through the Preferences popup link. providerpreference.jsp links
+  // setProviderStaleDate?method=viewTicklerTaskAssignee, whose "success" result is
+  // setNoteStaleDate.jsp, so on the current build the link never renders the tickler form; that is
+  // asserted (and fails) unless TICKLER_PREFS_DIRECT=true opens the form by its own route.
+  async function openPreferenceForm(label) {
+    let settings;
+    if (process.env.TICKLER_PREFS_DIRECT === 'true') {
+      settings = await s.context.newPage();
+      await h.gotoApp(settings, s.config.baseUrl, '/setTicklerPreferences?method=viewTicklerTaskAssignee');
+      await h.assertNotErrorPage(settings, label);
+    } else {
+      const link = prefs.locator('a[href*="method=viewTicklerTaskAssignee"]').first();
+      await revealAuditLink(prefs, link, 20000);
+      settings = await s.popup(prefs, link, label);
+    }
+    h.assert(await settings.locator('#taskAssigneeProvider').count() === 1,
+      'The "Set Tickler Preferences" link did not open the tickler preference form (it opens '
+      + 'setProviderStaleDate?method=viewTicklerTaskAssignee, mapped to setNoteStaleDate.jsp); '
+      + 'TICKLER_PREFS_DIRECT=true drives the form by its own route until the link is fixed');
+    return settings;
+  }
+
   await s.step('Preferences ▸ Set Tickler Preferences saves the other provider as the default assignee', async () => {
-    const link = prefs.locator('a[href*="method=viewTicklerTaskAssignee"]').first();
-    await revealAuditLink(prefs, link, 20000);
-    const settings = await s.popup(prefs, link, 'tickler-preferences');
+    const settings = await openPreferenceForm('tickler-preferences');
     await settings.locator('#taskAssigneeProvider').check();
     const select = settings.locator('#assigneeSelect');
     await select.waitFor({ state: 'visible' });
@@ -223,9 +245,7 @@ async function workflow(s) {
   });
 
   await s.step('choosing Default again removes the preference row', async () => {
-    const link = prefs.locator('a[href*="method=viewTicklerTaskAssignee"]').first();
-    await revealAuditLink(prefs, link, 20000);
-    const settings = await s.popup(prefs, link, 'tickler-preferences-reset');
+    const settings = await openPreferenceForm('tickler-preferences-reset');
     h.assert(await settings.locator('#taskAssigneeProvider').isChecked() && await settings.locator('#assigneeSelect').inputValue() === otherNo,
       'Reopening the preference did not show the stored provider');
     await settings.locator('#taskAssigneeDefault').check();

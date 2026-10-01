@@ -1,0 +1,349 @@
+#!/usr/bin/env node
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+
+/*
+ * Ontario bill correction, status change and unbill (delete) workflow check.
+ *
+ * User path: Schedule ▸ Search ▸ Master Record ▸ Billing History (popup) ▸ Edit
+ * (billingONCorrection.jsp popup) ▸ Save; Schedule ▸ Administration ▸ Billing ▸
+ * Invoice Reports (ViewBillStatus → ViewBillingONStatus in the #myFrame iframe)
+ * ▸ Create Report; Master Record ▸ Billing History ▸ Unbill (confirm).
+ *
+ * Asserts, against MariaDB after every round trip: a units + diagnostic-code
+ * correction rewrites the billing_on_item row (units, fee = schedule fee x
+ * units, dx) and the header total, and leaves a billing_on_repo audit snapshot
+ * of the item's BEFORE state; a status change through the correction form's
+ * status control lands on billing_on_cheader1 with a header audit snapshot;
+ * the bill-status report lists the owned bill with its new status; GET against
+ * the two mutators answers 405 with Allow: POST and writes nothing; the server
+ * refuses to unbill a bill flagged as billed; Unbill flips header and items to
+ * status D and writes the two billing_on_proc audit rows.
+ *
+ * Fixtures: one owned bill (header + one item, comment1 = the run marker)
+ * seeded for the owned FAKE- patient under an active provider that carries an
+ * OHIP number (the correction page only offers such providers). Cleanup
+ * deletes the owned repo/proc/payment/transaction/ext/item/header rows by id
+ * and marker and asserts they are gone.
+ *
+ * Implements docs/ui-tests/playwright-coverage-plan-2026.08.md §2.7
+ * billing-on-correction-delete.
+ *
+ * Environment: the common contract in lib/playwright-harness.js readConfig().
+ * Optional BILLING_CORRECTION_CODE (default A007A): an OHIP code with a
+ * billingservice fee on or before the bill date.
+ */
+
+const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
+
+const UNBILL_CONFIRM = 'You are about to delete the previous billing, are you sure?';
+const CORRECTION_FORM = 'form[action$="/billing/CA/ON/UpdateBillingONCorrection"]';
+
+function serviceCode() {
+  const code = (process.env.BILLING_CORRECTION_CODE || 'A007A').toUpperCase();
+  h.assert(/^[A-Z]\d{3}[A-Z]$/.test(code), 'BILLING_CORRECTION_CODE must be an Ontario service code like A007A');
+  return code;
+}
+
+/** Two days ago, so the correction form's "not in the future" rule holds in any zone. */
+function billDate() {
+  const d = new Date(Date.now() - 2 * 86400000);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Wait for the POST the browser sends to `route`, from whichever page sends it. */
+function awaitPost(context, route, timeout = 20000) {
+  return context.waitForEvent('response', {
+    timeout,
+    predicate: r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(route),
+  });
+}
+
+/** Master Record ▸ Billing History: the patient's bill list popup. */
+async function openHistory(s) {
+  const link = s.master.locator('a[onclick*="/billing/CA/ON/ViewBillingONHistory"]').first();
+  h.assert(await link.count() === 1, 'The Master Record does not offer the Ontario Billing History link');
+  const history = await s.popup(s.master, link, 'billing-history');
+  await history.locator('#billingHistoryTable').waitFor({ state: 'visible', timeout: 20000 });
+  return history;
+}
+
+/** The history row of one owned bill (its Edit link names the bill). */
+function historyRow(history, headerId) {
+  return history.locator('#billingHistoryTable tbody tr').filter({
+    has: history.locator(`a[onclick*="BillingONCorrection?billing_no=${headerId}'"]`),
+  });
+}
+
+/** History row ▸ Edit: the correction popup, loaded for the owned bill. */
+async function openCorrection(s, history, headerId, provider) {
+  const row = historyRow(history, headerId);
+  await row.waitFor({ state: 'visible', timeout: 20000 });
+  const popup = await s.popup(history, row.locator('a[title]', { hasText: 'Edit' }).first(), 'billing-correction');
+  await popup.locator(CORRECTION_FORM).waitFor({ state: 'visible', timeout: 20000 });
+  h.assert(await popup.locator(`${CORRECTION_FORM} input[name="xml_billing_no"]`).inputValue() === headerId,
+    'The correction popup opened a bill other than the owned fixture');
+  h.assert(await popup.locator('#provider_no').inputValue() === provider,
+    'The correction page does not offer the bill\'s provider (only active providers with an OHIP number are listed)');
+  return popup;
+}
+
+/** Click Save on the correction form and wait for the update POST to answer. */
+async function saveCorrection(s, popup) {
+  const [response] = await Promise.all([
+    awaitPost(s.context, '/billing/CA/ON/UpdateBillingONCorrection'),
+    popup.locator(`${CORRECTION_FORM} input[type="submit"][value="Save"]`).click(),
+  ]);
+  h.assert(response.status() === 200, `The correction save answered HTTP ${response.status()}`);
+}
+
+/** Type an ISO date into a flatpickr (allowInput) field and close its calendar. */
+async function fillDate(frame, selector, value) {
+  await frame.locator(selector).fill(value);
+  await frame.locator('body').click({ position: { x: 4, y: 4 } });
+  await frame.locator('.flatpickr-calendar.open').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+  h.assert(await frame.locator(selector).inputValue() === value, `${selector} did not keep ${value}`);
+}
+
+async function workflow(s) {
+  const { sql, patient, marker, provider } = s;
+  const code = serviceCode();
+  const date = billDate();
+  const owned = { headerId: '', itemId: '' };
+
+  s.cleanup(() => {
+    // Recover by marker as well as by id: an INSERT that succeeded before an
+    // assertion failed must still be removed. Every DELETE names the owned ids.
+    const headers = new Set(sql.rows(`SELECT id FROM billing_on_cheader1 WHERE demographic_no=${patient}
+      AND comment1=${h.sqlString(marker)}`).map(row => row[0]));
+    if (owned.headerId) headers.add(owned.headerId);
+    for (const id of headers) {
+      h.assert(/^[1-9]\d*$/.test(id), 'Owned billing header id is invalid');
+      const items = sql.rows(`SELECT id FROM billing_on_item WHERE ch1_id=${id}`).map(row => row[0]);
+      const itemIds = items.length ? items.map(Number).join(',') : '0';
+      sql.execute(`DELETE FROM billing_on_repo WHERE (category='billing_on_item' AND h_id IN (${itemIds}))
+          OR (category='billing_on_cheader1' AND h_id=${id});
+        DELETE FROM billing_on_proc WHERE object=${h.sqlString(id)} AND action LIKE 'updateBillingStatus%';
+        DELETE FROM billing_on_transaction WHERE ch1_id=${id};
+        DELETE FROM billing_on_payment WHERE billing_no=${id};
+        DELETE FROM billing_on_ext WHERE billing_no=${id};
+        DELETE FROM billing_on_item WHERE ch1_id=${id};
+        DELETE FROM billing_on_cheader1 WHERE id=${id} AND demographic_no=${patient}`);
+      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM billing_on_cheader1 WHERE id=${id})
+        + (SELECT COUNT(*) FROM billing_on_item WHERE ch1_id=${id})
+        + (SELECT COUNT(*) FROM billing_on_repo WHERE category='billing_on_item' AND h_id IN (${itemIds}))
+        + (SELECT COUNT(*) FROM billing_on_repo WHERE category='billing_on_cheader1' AND h_id=${id})
+        + (SELECT COUNT(*) FROM billing_on_proc WHERE object=${h.sqlString(id)})`) === '0',
+      'Owned billing fixture rows were not removed');
+    }
+  });
+
+  // The correction page lists only active providers with an OHIP number, so
+  // the fixture bills under one; the test login is preferred when it qualifies.
+  const billingProvider = sql.value(`SELECT provider_no FROM provider WHERE status='1' AND ohip_no<>''
+    ORDER BY (provider_no=${h.sqlString(provider)}) DESC, provider_no LIMIT 1`);
+  if (!/^-?\d+$/.test(billingProvider)) throw new h.SkipCheck('no active provider with an OHIP number to bill under');
+  const providerOhip = sql.value(`SELECT ohip_no FROM provider WHERE provider_no=${h.sqlString(billingProvider)}`);
+  // With _site_access_privacy granted, the correction page offers (and edits
+  // bills of) only providers who share a site with the operator. Put the
+  // billing provider in the operator's sites it is missing from; cleanup
+  // removes exactly those memberships and nothing that existed before.
+  const addedSites = sql.rows(`SELECT s.site_id FROM providersite s WHERE s.provider_no=${h.sqlString(provider)}
+    AND NOT EXISTS (SELECT 1 FROM providersite p WHERE p.provider_no=${h.sqlString(billingProvider)}
+    AND p.site_id=s.site_id)`).map(row => row[0]);
+  if (addedSites.length && billingProvider !== provider) {
+    s.cleanup(() => {
+      for (const siteId of addedSites) {
+        h.assert(/^\d+$/.test(siteId), 'Owned site id is invalid');
+        sql.execute(`DELETE FROM providersite WHERE provider_no=${h.sqlString(billingProvider)} AND site_id=${siteId}`);
+      }
+      h.assert(sql.value(`SELECT COUNT(*) FROM providersite WHERE provider_no=${h.sqlString(billingProvider)}
+        AND site_id IN (${addedSites.map(Number).join(',')})`) === '0', 'Owned provider-site memberships were not removed');
+    });
+    sql.execute(addedSites.map(siteId => `INSERT IGNORE INTO providersite (provider_no, site_id)
+      VALUES (${h.sqlString(billingProvider)}, ${Number(siteId)})`).join(';'));
+  }
+  const fee = sql.value(`SELECT value FROM billingservice WHERE service_code=${h.sqlString(code)}
+    AND billingservice_date<=${h.sqlString(date)} ORDER BY billingservice_date DESC LIMIT 1`);
+  if (!/^\d+(\.\d+)?$/.test(fee) || Number(fee) <= 0) {
+    throw new h.SkipCheck(`service code ${code} has no positive schedule fee on ${date}; set BILLING_CORRECTION_CODE`);
+  }
+  const feeTimesTwo = (Number(fee) * 2).toFixed(2);
+
+  // Shape mirrors BillingOnHeaderCreationService: optional text columns are
+  // empty strings, never NULL, because the change detection compares them.
+  owned.headerId = sql.value(`INSERT INTO billing_on_cheader1 (header_id, transc_id, rec_id, hin, ver, dob, pay_program,
+      payee, ref_num, facilty_num, admission_date, ref_lab_num, man_review, location, demographic_no, provider_no,
+      appointment_no, demographic_name, sex, province, billing_date, billing_time, total, paid, status, comment1,
+      visittype, provider_ohip_no, provider_rma_no, apptProvider_no, asstProvider_no, creator, clinic)
+    VALUES (0, 'HE', 'H', '', '', '19800102', 'HCP', 'P', '', '', '', '', '', '', ${patient},
+      ${h.sqlString(billingProvider)}, 0, ${h.sqlString(`${marker},Workflow`)}, '2', 'ON', ${h.sqlString(date)},
+      '09:00:00', ${Number(fee).toFixed(2)}, 0.00, 'O', ${h.sqlString(marker)}, '00', ${h.sqlString(providerOhip)}, '',
+      '', '', ${h.sqlString(provider)}, NULL); SELECT LAST_INSERT_ID()`);
+  h.assert(/^[1-9]\d*$/.test(owned.headerId), 'The billing header fixture was not created');
+  owned.itemId = sql.value(`INSERT INTO billing_on_item (ch1_id, transc_id, rec_id, service_code, fee, ser_num,
+      service_date, dx, dx1, dx2, status)
+    VALUES (${owned.headerId}, 'HE', 'T', ${h.sqlString(code)}, ${h.sqlString(fee)}, '1', ${h.sqlString(date)},
+      '250', '', '', 'O'); SELECT LAST_INSERT_ID()`);
+  h.assert(/^[1-9]\d*$/.test(owned.itemId), 'The billing item fixture was not created');
+  const { headerId, itemId } = owned;
+  const headerSnapshot = () => sql.value(`SELECT CONCAT_WS('|', status, pay_program, total, demographic_no, provider_no,
+    billing_date, hin) FROM billing_on_cheader1 WHERE id=${headerId}`);
+  const itemSnapshot = () => sql.value(`SELECT CONCAT_WS('|', ser_num, fee, dx, status, service_code)
+    FROM billing_on_item WHERE id=${itemId}`);
+  const headerAudits = () => Number(sql.value(`SELECT COUNT(*) FROM billing_on_repo
+    WHERE category='billing_on_cheader1' AND h_id=${headerId}`));
+  const itemAudits = () => Number(sql.value(`SELECT COUNT(*) FROM billing_on_repo
+    WHERE category='billing_on_item' AND h_id=${itemId}`));
+
+  let history = await openHistory(s);
+
+  await s.step('billing history lists the owned bill with its code, dx, Edit and Unbill controls', async () => {
+    const row = historyRow(history, headerId);
+    h.assert(await row.count() === 1, 'Billing History did not list exactly one row for the owned bill');
+    const text = (await row.innerText()).replace(/\s+/g, ' ');
+    h.assert(text.includes(code) && text.includes('250'), 'The history row does not show the service code and dx');
+    h.assert(await row.locator('a', { hasText: 'Edit' }).count() === 1, 'The history row has no Edit link');
+    h.assert(await row.locator('a', { hasText: 'Unbill' }).count() === 1, 'The history row has no Unbill link');
+  });
+
+  await s.step('correcting units and dx rewrites the item, the header total and leaves an item audit snapshot', async () => {
+    const popup = await openCorrection(s, history, headerId, billingProvider);
+    h.assert(await popup.locator('input[name="servicecode0"]').inputValue() === code, 'The correction form did not load the item code');
+    h.assert(await popup.locator('input[name="billingunit0"]').inputValue() === '1', 'The correction form did not load the item units');
+    h.assert(await popup.locator('input[name="xml_diagnostic_detail"]').inputValue() === '250', 'The correction form did not load the dx');
+    h.assert(await popup.locator('#status').inputValue() === 'O', 'The correction form did not load the bill status');
+    await popup.locator('input[name="billingunit0"]').fill('2');
+    await popup.locator('input[name="xml_diagnostic_detail"]').fill('401');
+    const auditsBefore = headerAudits();
+    await saveCorrection(s, popup);
+    await expectValue(sql, `SELECT CONCAT_WS('|', ser_num, fee, dx, status) FROM billing_on_item WHERE id=${itemId}`,
+      `2|${feeTimesTwo}|401|O`, 'The correction did not rewrite the item units, fee and dx');
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_item WHERE ch1_id=${headerId}`) === '1',
+      'The correction added or removed item rows instead of updating the existing one');
+    h.assert(sql.value(`SELECT CONCAT_WS('|', total, status, demographic_no, provider_no) FROM billing_on_cheader1
+      WHERE id=${headerId}`) === `${feeTimesTwo}|O|${patient}|${billingProvider}`,
+    'The header total was not recomputed from the corrected item, or its identity changed');
+    h.assert(itemAudits() === 1, 'Exactly one billing_on_repo snapshot of the corrected item was expected');
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_repo WHERE category='billing_on_item' AND h_id=${itemId}
+      AND content LIKE ${h.sqlString(`HE|T|${code}|${fee}|1|%|250|%`)}`) === '1',
+    'The item audit snapshot does not carry the pre-correction fee, units and dx');
+    h.assert(headerAudits() - auditsBefore <= 1, 'A single correction wrote more than one header audit snapshot');
+    if (!popup.isClosed()) await popup.close();
+  });
+
+  await s.step('the status control changes the bill status and leaves a header audit snapshot', async () => {
+    // close.html reloads the history page when the popup closes; find the row afresh.
+    const popup = await openCorrection(s, history, headerId, billingProvider);
+    const auditsBefore = headerAudits();
+    const itemAuditsBefore = itemAudits();
+    await popup.locator('#status').selectOption('W');
+    await saveCorrection(s, popup);
+    await expectValue(sql, `SELECT CONCAT_WS('|', status, pay_program, total) FROM billing_on_cheader1 WHERE id=${headerId}`,
+      `W|HCP|${feeTimesTwo}`, 'The status change did not reach billing_on_cheader1');
+    h.assert(headerAudits() === auditsBefore + 1, 'The status change did not write exactly one header audit snapshot');
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_repo WHERE category='billing_on_cheader1' AND h_id=${headerId}
+      AND content LIKE ${h.sqlString(`%|O|${marker}|%`)}`) !== '0',
+    'No header audit snapshot carries the pre-change status O');
+    h.assert(itemAudits() === itemAuditsBefore, 'A status-only change wrote an item audit snapshot');
+    h.assert(itemSnapshot() === `2|${feeTimesTwo}|401|O|${code}`, 'A status-only change altered the item');
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_payment WHERE billing_no=${headerId}`) === '0',
+      'A status change to W created a payment record');
+    if (!popup.isClosed()) await popup.close();
+  });
+
+  await s.step('Administration ▸ Billing ▸ Invoice Reports lists the owned bill with its new status', async () => {
+    const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
+      { context: s.context, recorder: s.recorder, label: 'billing-administration', timeout: 20000 });
+    const link = admin.locator('a[rel$="/billing/CA/ON/ViewBillStatus"]').first();
+    await link.waitFor({ state: 'attached', timeout: 20000 });
+    await revealAuditLink(admin, link, 20000);
+    await link.click();
+    const iframe = admin.locator('#dynamic-content iframe').first();
+    await iframe.waitFor({ timeout: 20000 });
+    const status = await (await iframe.elementHandle()).contentFrame();
+    h.assert(status, 'The bill status page did not load in the administration frame');
+    await status.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
+    await fillDate(status, '#xml_vdate', date);
+    await fillDate(status, '#xml_appointment_date', date);
+    await status.locator('input[name="demographicNo"]').fill(patient);
+    // The report defaults to "O | Invoiced"; the bill now carries status W.
+    await status.locator('#statusTypeAll').check();
+    const providers = status.locator('select[name="providerview"]').last();
+    const offered = await providers.locator('option').evaluateAll(options => options.map(option => option.value));
+    if (offered.includes(billingProvider)) await providers.selectOption(billingProvider);
+    else if (offered.includes('all')) await providers.selectOption('all');
+    const navigated = admin.waitForEvent('framenavigated', { predicate: frame => frame === status, timeout: 30000 });
+    navigated.catch(() => {});
+    await status.locator('input[type="submit"][value="Create Report"]').click();
+    await navigated;
+    await status.waitForLoadState('networkidle', { timeout: 30000 });
+    const rows = status.locator('tr').filter({ has: status.locator(`a[onclick*="BillingONCorrection?billing_no=${headerId}'"]`) });
+    h.assert(await rows.count() === 1, 'The bill status report did not list exactly one row for the owned bill');
+    const cells = (await rows.first().locator('td').allInnerTexts()).map(text => text.trim());
+    h.assert(cells.includes('W') && cells.includes(code) && cells.includes(patient),
+      'The bill status row does not show the new status, the service code and the patient number');
+    h.assert(headerSnapshot() === `W|HCP|${feeTimesTwo}|${patient}|${billingProvider}|${date}|`,
+      'Rendering the bill status report changed the bill');
+    if (admin !== s.schedule && !admin.isClosed()) await admin.close();
+  });
+
+  await s.step('GET against the correction and unbill mutators is refused and writes nothing', async () => {
+    const before = { header: headerSnapshot(), item: itemSnapshot(), audits: headerAudits() + itemAudits() };
+    const correction = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/UpdateBillingONCorrection'), {
+      params: { xml_billing_no: headerId, status: 'S', payProgram: 'HCP', submit: 'Save', oldStatus: '' },
+      maxRedirects: 0,
+    });
+    h.assert(correction.status() === 405 && correction.headers().allow === 'POST',
+      'UpdateBillingONCorrection must reject GET with Allow: POST');
+    const unbill = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/BillingDeleteNoAppt'), {
+      params: { billing_no: headerId, billCode: 'W', dboperation: 'delete_bill', hotclick: '0' },
+      maxRedirects: 0,
+    });
+    h.assert(unbill.status() === 405 && unbill.headers().allow === 'POST',
+      'BillingDeleteNoAppt must reject GET with Allow: POST');
+    // The documented refusal: a bill flagged as billed cannot be unbilled.
+    const token = await ui.csrfTokenPresent(s.master);
+    const billed = await s.context.request.post(h.appUrl(s.config.baseUrl, '/billing/CA/ON/BillingDeleteNoAppt'), {
+      form: { 'CSRF-TOKEN': token, billing_no: headerId, billCode: 'B', dboperation: 'delete_bill', hotclick: '0' },
+      headers: { 'CSRF-TOKEN': token },
+      maxRedirects: 0,
+    });
+    h.assert(billed.status() === 200 && /cannot delete billed items/i.test(await billed.text()),
+      'Unbilling a bill flagged as billed was not refused with the cannot-delete page');
+    h.assert(headerSnapshot() === before.header && itemSnapshot() === before.item
+      && headerAudits() + itemAudits() === before.audits, 'A refused request changed the bill');
+  });
+
+  await s.step('Unbill asks for confirmation, marks header and items deleted and writes the audit rows', async () => {
+    if (!history.isClosed()) await history.close();
+    history = await openHistory(s);
+    const row = historyRow(history, headerId);
+    await row.waitFor({ state: 'visible', timeout: 20000 });
+    const procBefore = sql.value(`SELECT COUNT(*) FROM billing_on_proc WHERE object=${h.sqlString(headerId)}`);
+    let response;
+    const dialogs = await h.withExpectedDialogs(history, async () => {
+      [response] = await Promise.all([
+        awaitPost(s.context, '/billing/CA/ON/BillingDeleteNoAppt'),
+        row.locator('a', { hasText: 'Unbill' }).first().click(),
+      ]);
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text === UNBILL_CONFIRM,
+      'Unbill must ask the bundle\'s confirmation question exactly once');
+    h.assert(response.status() === 200, `Unbill answered HTTP ${response.status()}`);
+    await expectValue(sql, `SELECT CONCAT_WS('|', status, pay_program, total) FROM billing_on_cheader1 WHERE id=${headerId}`,
+      `D|HCP|${feeTimesTwo}`, 'Unbill did not mark the header deleted');
+    h.assert(sql.value(`SELECT GROUP_CONCAT(status) FROM billing_on_item WHERE ch1_id=${headerId}`) === 'D',
+      'Unbill did not mark the item deleted');
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE id=${headerId}`) === '1',
+      'Unbill removed the header row instead of flagging it');
+    await expectValue(sql, `SELECT COUNT(*) FROM billing_on_proc WHERE object=${h.sqlString(headerId)}
+      AND creator=${h.sqlString(provider)} AND action IN ('updateBillingStatus','updateBillingStatus-items')`,
+    String(Number(procBefore) + 2), 'Unbill did not write its two billing_on_proc audit rows');
+  });
+}
+
+if (require.main === module) runWorkflow('billing-on-correction-delete', workflow, { openPatient: true });
+module.exports = { workflow, UNBILL_CONFIRM };

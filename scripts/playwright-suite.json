@@ -3490,6 +3490,34 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned faxes rows for an owned patient admitted to an owned program, and an owned inactive SRFax-typed fax_config activated only around the mutating steps; files never exist, so nothing is transmitted."
+    },
+    {
+      "name": "billing-on-correction-delete",
+      "script": "scripts/billing-on-correction-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned bill for an owned patient corrected and deleted through the Ontario billing history; owned billing rows removed."
+    },
+    {
+      "name": "billing-shortcut",
+      "script": "scripts/billing-shortcut-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned patient and appointment billed through the month-view billing shortcut; owned billing and appointment rows removed."
     }
   ]
 }

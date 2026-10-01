@@ -39,7 +39,9 @@ async function profileText(page) {
 
 /** Print the page the way window.print() would and return the PDF's text, after checking the bytes. */
 function printedText(page, filePath) {
-  return page.emulateMedia({ media: 'print' }).then(() => page.pdf({ path: filePath })).then(() => {
+  // Print media hides the page's .noPrint controls (Show All / Show Current); restore screen media after.
+  return page.emulateMedia({ media: 'print' }).then(() => page.pdf({ path: filePath }))
+    .then(() => page.emulateMedia({ media: null })).then(() => {
     const bytes = fs.readFileSync(filePath);
     h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', 'The printed drug profile is not a PDF');
     h.assert(bytes.length > 1000, `The printed drug profile is unexpectedly small (${bytes.length} bytes)`);
@@ -67,9 +69,13 @@ async function workflow(s) {
         DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes.join(',')});
         DELETE FROM casemgmt_note WHERE demographic_no=${patient} AND note_id IN (${notes.join(',')})`);
     }
-    sql.execute(`DELETE FROM drugs WHERE demographic_no=${patient}; DELETE FROM prescription WHERE demographic_no=${patient}`);
+    // Save And Print stamps the script with a DigitalSignature row (FK to demographic); it must go
+    // after the prescription that references it and before the owned patient.
+    sql.execute(`DELETE FROM drugs WHERE demographic_no=${patient}; DELETE FROM prescription WHERE demographic_no=${patient};
+      DELETE FROM DigitalSignature WHERE demographicId=${patient} AND ModuleType='PRESCRIPTION'`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM DigitalSignature WHERE demographicId=${patient})
       + (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})`) === '0', 'Owned Rx fixtures were not removed');
   });
   // One printed and once reprinted script, with an active and an archived drug on it. The
@@ -124,8 +130,9 @@ async function workflow(s) {
     const body = (await prints.locator('body').innerText()).replace(/\s+/g, ' ');
     h.assert(/Prescription Print History/.test(body), 'The print history page did not render its heading');
     h.assert(body.includes(reprintStamp), 'The print history omits the seeded reprint date');
-    const providerRows = prints.locator('tr').filter({ hasText: providerName });
-    h.assert(await providerRows.count() === 2, `expected the original print and one reprint by the test provider, found ${await providerRows.count()} row(s)`);
+    // Exact text: the page nests tables, so any ancestor row also "has" the name.
+    const providerCells = prints.getByText(providerName, { exact: true });
+    h.assert(await providerCells.count() === 2, `expected the original print and one reprint by the test provider, found ${await providerCells.count()} row(s)`);
     await prints.close();
   });
 
@@ -143,6 +150,7 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`, '2', 'Save And Print did not persist a second prescription');
     h.assert(noteCount() === '0', 'A chart note existed before Print & Paste');
     // A successful paste opens the encounter in a new window; take it so it cannot leak.
+    const failuresBefore = s.recorder.requestFailures.length;
     const encounter = s.context.waitForEvent('page', { timeout: 20000 }).catch(() => null);
     const [write] = await Promise.all([
       rx.waitForResponse(isEncounterWrite, { timeout: 30000 }),
@@ -164,6 +172,15 @@ async function workflow(s) {
       await opened.waitForLoadState('domcontentloaded', { timeout: 20000 }).catch(() => {});
       await opened.close().catch(() => {});
     }
+    // ViewScript2 reads only the headers of the acknowledged write and never consumes its body;
+    // printIframe() then closes the Rx window, so Chromium reports that one fetch as aborted
+    // (net::ERR_ABORTED) AFTER the write was acknowledged and asserted above. Consume exactly that
+    // artefact; any other request failure stays for the strict assertion.
+    const aborted = s.recorder.requestFailures.slice(failuresBefore);
+    h.assert(aborted.length <= 1 && aborted.every(entry => entry.label === 'rx-module' && entry.errorText === 'net::ERR_ABORTED'
+      && entry.resourceType === 'fetch' && h.pathOnly(entry.url).endsWith('/rx/WriteToEncounter')),
+    'A request other than the acknowledged encounter write failed during Print & Paste');
+    s.recorder.requestFailures.splice(failuresBefore, aborted.length);
   });
 
   await s.step('a GET against rx/WriteToEncounter is refused before any write', async () => {

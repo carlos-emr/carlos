@@ -67,7 +67,9 @@ async function navigateFrame(admin, frame, locator) {
 async function searchByUserName(admin, frame, userName) {
   await frame.locator('input[name="search_mode"][value="search_username"]').check();
   await frame.locator('input[name="keyword"]').fill(userName);
-  await navigateFrame(admin, frame, frame.locator('form[name="searchprovider"] [type="submit"]'));
+  // securitysearchrecordshtm.jsp nests the form inside a <table>, so the parser
+  // foster-parents it and its controls are not DOM descendants of the form.
+  await navigateFrame(admin, frame, frame.locator('input[name="button"], button[name="button"]').first());
   return dataTableRows(frame, '#tblResults', { timeout: TIMEOUT });
 }
 
@@ -123,7 +125,8 @@ async function workflow(s) {
   await s.step('the edit page opens the owned record and reflects its stored flags', async () => {
     await navigateFrame(admin, frame, frame.getByRole('link', { name: userName, exact: true }));
     h.assert(new URL(frame.url()).searchParams.get('keyword') === securityNo, 'The edit page opened a record other than the owned login');
-    const form = frame.locator('form[name="updatearecord"]');
+    // The update form is also table-nested, so its inputs are located from the frame.
+    const form = frame;
     h.assert(await form.locator('input[name="user_name"]').inputValue() === userName, 'The edit page shows the wrong user name');
     h.assert(await form.locator('input[name="provider_no"]').inputValue() === providerNo, 'The edit page shows the wrong provider number');
     h.assert(await form.locator('input[name="security_no"]').inputValue() === securityNo, 'The edit page carries the wrong security_no');
@@ -133,7 +136,7 @@ async function workflow(s) {
     h.assert(await form.locator('input[name="date_ExpireDate"]').inputValue() === '2100-01-01', 'The expiry date was not shown as stored');
   });
   await s.step('Update Record saves the rename and flag changes and nothing else', async () => {
-    const form = frame.locator('form[name="updatearecord"]');
+    const form = frame;
     await form.locator('input[name="user_name"]').fill(renamed);
     await form.locator('input[name="b_ExpireSet"]').check();
     await form.locator('input[name="b_RemoteLockSet"]').uncheck();
@@ -169,13 +172,15 @@ async function workflow(s) {
     frame = await openSection(admin, 'input[name="keyword"]');
     await searchByUserName(admin, frame, renamed);
     await navigateFrame(admin, frame, frame.getByRole('link', { name: renamed, exact: true }));
-    h.assert(await frame.locator('form#deleteSecurityForm input[name="keyword"]').inputValue() === securityNo,
+    h.assert(await frame.locator('form#deleteSecurityForm').count() === 1
+      && await frame.locator('input[name="keyword"]').inputValue() === securityNo,
       'The delete form targets a record other than the owned login');
     // securityupdatesecurity.jsp submits #deleteSecurityForm directly: no confirm() is raised.
-    await navigateFrame(admin, frame, frame.locator('form[name="updatearecord"] input[type="button"]'));
-    h.assert(new URL(frame.url()).pathname.endsWith('/admin/SecurityDelete')
-      && (await frame.locator('h2').first().innerText()).trim() === `Security entry deleted for user: ${renamed}`,
-    'The delete did not report the deleted login');
+    await navigateFrame(admin, frame, frame.locator('input[type="button"][value="Delete Record"]'));
+    const landed = h.pathOnly(frame.url());
+    const reported = (await frame.locator('h2').first().innerText().catch(() => '')).trim();
+    h.assert(landed.endsWith('/admin/SecurityDelete') && reported === `Security entry deleted for user: ${renamed}`,
+      `The delete did not report the deleted login (landed on ${landed}, heading "${reported}")`);
     h.assert(sql.value(`SELECT COUNT(*) FROM security WHERE security_no=${securityNo} OR user_name IN (${h.sqlString(userName)},${h.sqlString(renamed)})`) === '0',
       'The security row was not deleted');
     h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(providerNo)}`) === '1', 'Deleting the login removed the provider');
@@ -194,14 +199,20 @@ async function workflow(s) {
       await page.locator('#username').fill(renamed);
       await page.locator('#password').fill(config.testPassword);
       await page.locator('#pin').fill(config.testPin);
+      // Login2Action sends an unknown login back to /index?login=failed (expired or
+      // locked ones to /loginfailed); either is the front door, never the schedule.
       await Promise.all([
-        page.waitForURL(/loginfailed|providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i, { timeout: TIMEOUT }),
+        page.waitForURL(/login=failed|loginfailed|providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i, { timeout: TIMEOUT }),
         page.locator('input[type="submit"], button[type="submit"]').first().click(),
       ]);
       await page.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
-      h.assert(new URL(page.url()).pathname.endsWith('/loginfailed'), `The deleted login reached ${h.pathOnly(page.url())} instead of /loginfailed`);
-      h.assert(/Please correct and try again/.test(await page.locator('body').innerText()) && await page.locator('a.adhour').count() === 0,
-        'The deleted login was not refused');
+      const url = new URL(page.url());
+      const refused = url.searchParams.get('login') === 'failed' || url.pathname.endsWith('/loginfailed');
+      h.assert(refused, `The deleted login reached ${h.pathOnly(page.url())} instead of the failed-login page`);
+      const body = await page.locator('body').innerText();
+      h.assert(/Login failed\. Username or Password is incorrect\.|Please correct and try again/.test(body)
+        && await page.locator('a.adhour').count() === 0, 'The deleted login was not refused');
+      if (url.searchParams.get('login') === 'failed') h.assert(await page.locator('#username').isVisible(), 'The login form was not offered again');
     } finally { await ctx3.close(); }
   });
 }

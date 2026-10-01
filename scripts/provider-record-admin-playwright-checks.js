@@ -91,7 +91,9 @@ async function searchProviders(admin, frame, mode, keyword, status) {
   await frame.locator(`input[name="search_mode"][value="${mode}"]`).check();
   if (status) await frame.locator(`input[name="search_status"][value="${status}"]`).check();
   await frame.locator('input[name="keyword"]').fill(keyword);
-  await navigateFrame(admin, frame, frame.locator('form[name="searchprovider"] [type="submit"]'));
+  // providersearchrecordshtm.jsp nests the form inside a <table> (foster-parented),
+  // so the submit is located by name rather than as a form descendant.
+  await navigateFrame(admin, frame, frame.locator('input[name="button"], button[name="button"]').first());
   const { rows } = await dataTableRows(frame, '#tblResults', { timeout: TIMEOUT });
   return rows;
 }
