@@ -234,7 +234,6 @@ function cleanupFixture(sql, fixture, names) {
   const ids = rows.map(([id]) => Number(id));
   if (ids.length) {
     assert(ids.every((id) => Number.isInteger(id) && id > 0), 'Fixture cleanup returned an invalid document id');
-    removeOwnedFiles(rows.map(([, file]) => file), names);
     const list = ids.join(',');
     sql.execute(`DELETE FROM document_storage WHERE documentNo IN (${list})`);
     sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${list})`);
@@ -247,6 +246,9 @@ function cleanupFixture(sql, fixture, names) {
     const list = fixture.all.map(sqlString).join(',');
     sql.execute(`DELETE FROM provider WHERE provider_no IN (${list}) AND last_name=${sqlString(SURNAME)}`);
   }
+  // Last, from the names captured above: an unavailable store or a refused delete still fails the
+  // check, but no longer leaves the run's rows, rules and active providers behind.
+  removeOwnedFiles(rows.map(([, file]) => file), names);
 }
 
 async function main() {
