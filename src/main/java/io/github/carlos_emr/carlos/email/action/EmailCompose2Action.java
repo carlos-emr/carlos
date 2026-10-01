@@ -32,6 +32,8 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
+import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -73,8 +75,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *
  * Request lifecycle (#3632):
  * <ol>
- *   <li><b>Prepare.</b> The eForm save stages the compose fields in the HTTP session and redirects
- *       here. The first GET takes those fields out of the session in one step, generates the
+ *   <li><b>Prepare.</b> The eForm save stages one immutable draft in the HTTP session and redirects
+ *       here. The first GET takes that draft out of the session in one step, generates the
  *       attachment PDFs, stores the one-time submission state with the staged values under an opaque
  *       view id, and redirects to {@code ?composeView=<id>}. It runs once per staged compose.</li>
  *   <li><b>View.</b> A GET with {@code composeView} renders the stored state. It changes no session
@@ -196,7 +198,10 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>Redirects to {@code ?composeView=<id>}, which {@link #execute()} renders</li>
      * </ol>
      *
-     * Session Attributes Consumed:
+     * Session State Consumed:
+     * The current eForm writer publishes an {@link EmailComposeStaging.Draft}, including the
+     * template id and all settings. For compatibility, a session without that snapshot may
+     * supply the following legacy attributes, which are also cleared when a snapshot is taken:
      * <ul>
      *   <li>attachEFormItSelf (Boolean) - whether to attach the eForm itself</li>
      *   <li>fdid (String) - form data ID for the eForm</li>
@@ -211,7 +216,7 @@ public class EmailCompose2Action extends ActionSupport {
      *
      * Request Parameters:
      * <ul>
-     *   <li>fid (String, optional) - form identifier, validated for numeric format</li>
+     *   <li>fid (String, optional) - legacy form identifier; modern drafts carry their own template id</li>
      * </ul>
      *
      * Server-Side State Stored:
@@ -241,9 +246,9 @@ public class EmailCompose2Action extends ActionSupport {
     public String prepareComposeEFormMailer() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        StagedCompose staged = takeStagedCompose(request.getSession());
+        StagedCompose staged = takeStagedCompose(request.getSession(), request.getParameter("fid"));
         String demographicId = staged.demographicId();
-        String fid = request.getParameter("fid");
+        String fid = staged.fid();
 
         if (demographicId == null || demographicId.isBlank()) {
             return composeExpired();
@@ -487,22 +492,29 @@ public class EmailCompose2Action extends ActionSupport {
     }
 
     /**
-     * Snapshots the staged compose values and removes them from the session in one step.
-     *
-     * <p>Locking on the session object serializes two requests for the same staged compose where
-     * the container hands every request the same session object, as Tomcat does; the second then
-     * finds nothing to prepare. Without that guarantee the worst case is two preparations of the
-     * same compose, which is what every request did before.</p>
-     *
-     * <p>It is atomic only against other prepare requests. AddEForm2Action writes the staged values
-     * one attribute at a time without this lock, so two eForm saves in one session at the same
-     * instant can still interleave, as they always could.</p>
+     * Takes the complete modern draft, or legacy session fields for older entry points, once.
+     * Modern drafts use their own session attribute and include the template id, so unrelated
+     * session fields and another window's redirect cannot change their patient/content tuple.
+     * The single slot may still be replaced by a later save before preparation begins.
      */
-    private static StagedCompose takeStagedCompose(HttpSession session) {
-        // The session itself unless HttpSessionMutexListener is registered; either way one lock
-        // per session that every prepare request agrees on.
+    private static StagedCompose takeStagedCompose(HttpSession session, String legacyFid) {
         synchronized (WebUtils.getSessionMutex(session)) {
-            StagedCompose staged = new StagedCompose(
+            EmailComposeStaging.Draft draft = EmailComposeStaging.take(session);
+            StagedCompose staged;
+            if (draft != null) {
+                EmailAttachmentSettings settings = draft.settings();
+                staged = new StagedCompose(draft.fid(), settings.attachEFormItSelf(), settings.fdid(),
+                        settings.demographicNo(), settings.attachedDocuments(), settings.attachedLabs(),
+                        settings.attachedForms(), settings.attachedEForms(), settings.attachedHRMDocuments(),
+                        settings.senderEmail(), settings.subjectEmail(), settings.bodyEmail(),
+                        settings.encryptedMessageEmail(), settings.emailPatientChartOption(),
+                        settings.isEmailEncrypted(), settings.isEmailAttachmentEncrypted(),
+                        settings.isEmailAutoSend(), settings.openAfterEmail(), settings.deleteEFormAfterEmail());
+            } else {
+                // Compatibility for already-staged drafts and older callers. The current eForm
+                // save publishes a Draft above, never these independently mutable attributes.
+                staged = new StagedCompose(
+                    legacyFid,
                     isTrue(session.getAttribute("attachEFormItSelf")),
                     (String) session.getAttribute("fdid"),
                     (String) session.getAttribute(DEMOGRAPHIC_ID_KEY),
@@ -521,6 +533,7 @@ public class EmailCompose2Action extends ActionSupport {
                     session.getAttribute("isEmailAutoSend"),
                     session.getAttribute("openEFormAfterEmail"),
                     session.getAttribute("deleteEFormAfterEmail"));
+            }
             for (String key : EMAIL_SESSION_KEYS) {
                 session.removeAttribute(key);
             }
@@ -530,6 +543,7 @@ public class EmailCompose2Action extends ActionSupport {
 
     /** The compose values AddEForm2Action stages in the session before redirecting here. */
     private record StagedCompose(
+            String fid,
             boolean attachEFormItSelf,
             String fdid,
             String demographicId,
@@ -553,6 +567,7 @@ public class EmailCompose2Action extends ActionSupport {
         @Override
         public boolean equals(Object other) {
             return other instanceof StagedCompose that
+                    && Objects.equals(fid, that.fid)
                     && attachEFormItSelf == that.attachEFormItSelf
                     && Objects.equals(fdid, that.fdid)
                     && Objects.equals(demographicId, that.demographicId)
@@ -575,7 +590,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         @Override
         public int hashCode() {
-            int result = Objects.hash(attachEFormItSelf, fdid, demographicId, senderEmail, subjectEmail, bodyEmail,
+            int result = Objects.hash(fid, attachEFormItSelf, fdid, demographicId, senderEmail, subjectEmail, bodyEmail,
                     encryptedMessageEmail, emailPatientChartOption, isEmailEncrypted, isEmailAttachmentEncrypted,
                     isEmailAutoSend, openEFormAfterEmail, deleteEFormAfterEmail);
             result = 31 * result + Arrays.hashCode(attachedDocuments);
@@ -606,9 +621,8 @@ public class EmailCompose2Action extends ActionSupport {
     }
 
     /**
-     * Cleans up email-related session attributes.
-     * The prepare step takes these attributes itself. Any other caller removes whatever compose
-     * an eForm save has staged in this session, which may belong to another open window.
+     * Cleans up legacy email-related session attributes. Modern eForm drafts use a separate
+     * snapshot and are left intact: a Manage Emails resend must not erase another window's draft.
      *
      * @param request the HTTP servlet request containing the session to clean up
      * @since 2025-01-18
@@ -619,8 +633,10 @@ public class EmailCompose2Action extends ActionSupport {
             return;
         }
 
-        for (String key : EMAIL_SESSION_KEYS) {
-            session.removeAttribute(key);
+        synchronized (WebUtils.getSessionMutex(session)) {
+            for (String key : EMAIL_SESSION_KEYS) {
+                session.removeAttribute(key);
+            }
         }
     }
 
