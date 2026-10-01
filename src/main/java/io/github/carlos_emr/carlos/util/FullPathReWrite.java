@@ -164,7 +164,8 @@ public class FullPathReWrite extends TagSupport {
             return safeJspPage;
         }
         String contextPath = request.getContextPath() == null ? "" : request.getContextPath();
-        if (safeJspPage.startsWith("/")) {
+        // Browsers treat "\" as "/" in URLs, so a backslash-led target is context-relative too.
+        if (LEADING_SEPARATORS.matcher(safeJspPage).lookingAt()) {
             // Collapse the leading separators: under the root context "//host/x" (or "/\host/x",
             // which browsers treat the same) would otherwise be a protocol-relative URL to
             // another host, breaking the host-free guarantee.

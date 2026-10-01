@@ -89,15 +89,16 @@ class FullPathReWriteUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"//attacker.example/path", "///attacker.example/path", "/\\attacker.example/path",
-            "\\/attacker.example/path"})
+            "\\/attacker.example/path", "\\\\attacker.example/path"})
     @DisplayName("should never emit a protocol-relative URL under the root context")
     void shouldCollapseLeadingSeparators_forProtocolRelativeJspPage(String jspPage) {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/prevention/index.jsp");
+        // A top-level request URI, so no page directory is prepended to mask the result.
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/index.jsp");
         request.setContextPath("");
 
         String url = FullPathReWrite.buildRelativeUrl(request, jspPage);
 
-        assertThat(url).startsWith("/").doesNotStartWith("//").doesNotStartWith("/\\");
+        assertThat(url).isEqualTo("/attacker.example/path");
     }
 
     @Test
