@@ -30,3 +30,8 @@ test('master record includes the same internal panel for its action-resolved pat
   assert.match(source, /jsp:include page="\/WEB-INF\/jsp\/demographic\/portalBookingPrompt\.jsp"/);
   assert.match(source, /name="portalBookingPatient" value="<%= demographic_no %>"/);
 });
+
+test('booking controls need no general account-read grant', () => {
+  assert.doesNotMatch(fragment, /OBJECT_ACCOUNT|_portal\.account/);
+  assert.match(fragment, /boolean portalMayCreate = portalMayWrite;/);
+});

@@ -119,8 +119,10 @@ Settings and transport construction tests reject absent pins before any connecti
 `portal.booking_prompt.manage` maps to `_portal.booking_prompt`. The JSON action is
 `POST demographic/portalBookingPrompt`, with `method=create|list|withdraw` and `demographicNo`.
 Every request checks patient-record access and the patient's booking privilege; list requires read,
-and create/withdraw require write. Create also requires `_portal.account` read and checks for an
-active account before requesting a prompt. The normal Struts CSRF protection applies.
+and create/withdraw require write. Create checks the narrow `booking-eligibility` endpoint before
+requesting a prompt, using only `portal.booking_prompt.manage`. The response contains clinic,
+patient, and an eligibility boolean; general account details and `_portal.account` are not needed.
+The normal Struts CSRF protection applies.
 
 Create accepts `operationId`, `urgency`, and `appointmentType`. Keep the same operation ID after
 an uncertain response. The portal returns HTTP 201 with `created=true` initially and also HTTP 201
@@ -142,9 +144,11 @@ Changing the appointment's patient ID or editing/previewing its patient name blo
 controls until save/reopen; every mutation rechecks the current inputs, including programmatic
 changes that emit no input event.
 The fragment checks patient access and booking read before rendering; create controls require
-booking write and account read. The `panel` POST reports account eligibility, prompt history, and
-current create/withdraw capabilities. It reads account status only when permitted and treats an
-explicit absent account separately from an outage. It never reads unrelated invitations.
+booking write. The `panel` POST reports account eligibility, prompt history, and
+current create/withdraw capabilities. It checks eligibility only when the caller can create. Missing/inactive accounts return false;
+HTTP errors and malformed replies remain failures. No booking request calls the general account
+or invitation endpoints. Deploy the portal eligibility endpoint before this CARLOS change; there
+is no fallback to broader account access.
 
 The browser waits for CSRF bootstrap, uses fixed pick-lists and text-only rendering, and disables
 concurrent changes. An uncertain create retains its operation ID and fixed choices in tab-scoped

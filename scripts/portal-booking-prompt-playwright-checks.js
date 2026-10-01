@@ -105,6 +105,21 @@ async function main() {
     const retry = calls.filter(call => call.method === 'create').at(-1);
     assert.equal(retry.operationId, first.operationId); assert.equal(retry.urgency, 'soon'); assert.equal(notifications, 2);
     console.log('PASS lost-response retry keeps identity and choices across reload, one notification');
+    loseCreate = true; await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
+    const bookedRequest = calls.filter(call => call.method === 'create').at(-1);
+    const bookedPrompt = { ...operations.get(bookedRequest.operationId), state: 'booked' };
+    operations.set(bookedRequest.operationId, bookedPrompt); prompts = [bookedPrompt];
+    const noticesBeforeRetry = notifications;
+    await page.reload(); await waitReady(); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed')
+      && document.querySelector('[data-role="prompts"]').textContent.includes('Booked'));
+    assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, bookedRequest.operationId);
+    assert.equal(notifications, noticesBeforeRetry);
+    assert.match(await status.innerText(), /Check its current status below/);
+    assert.doesNotMatch(await status.innerText(), /No appointment has been booked/);
+    assert.equal(await page.evaluate(() => sessionStorage.length), 0);
+    console.log('PASS booked retry confirms original request without a false booking claim or new notification');
     for (const state of ['choice_pending', 'declined_all', 'booked', 'expired']) {
       prompts = [prompt(7, state)]; await page.locator('[data-role="refresh"]').click();
       const withdraw = page.locator('[data-role="prompts"] button'); await withdraw.waitFor();
@@ -157,7 +172,7 @@ async function main() {
       await page.evaluate(() => sessionStorage.clear()); await page.reload(); await waitReady();
       await page.screenshot({ path: process.env.PORTAL_BOOKING_SCREENSHOT, fullPage: true });
     }
-    console.log('PASS all 13 browser scenarios; no page errors');
+    console.log('PASS all 14 browser scenarios; no page errors');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
