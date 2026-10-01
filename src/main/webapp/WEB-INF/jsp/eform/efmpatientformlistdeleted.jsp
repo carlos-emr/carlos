@@ -105,9 +105,19 @@
 
 			function updateAjax() {
 				let parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-				if( parentAjaxId !== "null" ) {
-					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
-					window.opener.updateNeeded = true;
+				// Same guard as efmpatientformlist.jsp: the null-safe encoder renders a
+				// missing id as "" (never "null"), and window.opener is null when this
+				// page is not a popup (or the site-wide COOP header cut it). The
+				// unguarded access threw a TypeError on every unload, including the
+				// navigation a Restore triggers (#4130 verification).
+				try {
+					if (parentAjaxId && parentAjaxId !== "null" && window.opener && !window.opener.closed
+							&& window.opener.document && window.opener.document.forms['encForm']) {
+						window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
+						window.opener.updateNeeded = true;
+					}
+				} catch (e) {
+					// Cross-origin or closed opener: nothing to update.
 				}
 
 			}
