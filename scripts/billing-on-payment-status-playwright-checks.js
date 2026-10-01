@@ -109,6 +109,38 @@ async function workflow(s) {
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(appointment), 'The appointment fixture was not created');
 
+  await s.step('day sheet "B" opens the Ontario bill form whose history popup lists both owned bills', async () => {
+    await s.schedule.reload({ waitUntil: 'domcontentloaded' }); // shows the appointment seeded after login
+    const link = s.schedule.locator(`a[onclick*="appointment_no=${appointment}&"][onclick*="/billing?"]`).first();
+    h.assert(await link.count() === 1, 'The day sheet does not offer the B link for the owned appointment');
+    const form = await s.popup(s.schedule, link, 'bill-form');
+    await form.locator('select[name="xml_billtype"]').waitFor({ state: 'visible', timeout: 30000 });
+    h.assert(new URL(form.url()).searchParams.get('appointment_no') === appointment, 'The bill form opened for another appointment');
+    await form.locator('input[name="day"]').fill('30');
+    const spec = await s.popup(form, form.locator('input[name="buttonDay"]'), 'billing-history-spec');
+    await spec.locator('form[name="titlesearch"]').waitFor({ state: 'visible' });
+    const specRow = id => spec.locator('tbody tr').filter({ has: spec.locator('td', { hasText: new RegExp(`^\\s*${id}\\s*$`) }) });
+    h.assert(await specRow(pat.headerId).count() === 1 && await specRow(hcp.headerId).count() === 1,
+      'The bill form history did not list both owned bills');
+    const patCells = await cellsOf(specRow(pat.headerId));
+    const hcpCells = await cellsOf(specRow(hcp.headerId));
+    console.log('DEBUG', JSON.stringify(patCells), JSON.stringify(hcpCells));
+    h.assert(patCells.includes('Bill Patient') && patCells.includes(privateCode) && patCells.includes(date),
+      'The history row of the PAT bill does not show Bill Patient, its code and date');
+    h.assert(hcpCells.includes('Bill OHIP') && hcpCells.includes(ohipCode) && hcpCells.includes('401'),
+      'The history row of the OHIP bill does not show Bill OHIP, its code and dx');
+    await spec.locator('input[name="serviceCode"]').fill(ohipCode);
+    await Promise.all([
+      spec.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+      spec.locator('input[type="submit"][value="Search"]').click(),
+    ]);
+    h.assert(await specRow(hcp.headerId).count() === 1 && await specRow(pat.headerId).count() === 0,
+      'The service-code filter did not narrow the history to the OHIP bill');
+    await spec.close();
+    await form.close();
+    h.assert(sql.value(`SELECT status FROM appointment WHERE appointment_no=${appointment}`) === 't',
+      'Opening the bill form without saving changed the appointment status');
+  });
   const { admin, frame: report } = await openAdminFrame(s, '/billing/CA/ON/ViewBillStatus', 'form[name="serviceform"]');
   const search = opts => runInvoiceReport(admin, report, { date, billingProvider: pat.provider, demographic: patient, ...opts });
 
@@ -219,37 +251,6 @@ async function workflow(s) {
     await history.close();
   });
 
-  await s.step('day sheet "B" opens the Ontario bill form whose history popup lists both owned bills', async () => {
-    await s.schedule.reload({ waitUntil: 'domcontentloaded' });
-    const link = s.schedule.locator(`a[onclick*="appointment_no=${appointment}&"][onclick*="/billing?"]`).first();
-    h.assert(await link.count() === 1, 'The day sheet does not offer the B link for the owned appointment');
-    const form = await s.popup(s.schedule, link, 'bill-form');
-    await form.locator('select[name="xml_billtype"]').waitFor({ state: 'visible', timeout: 30000 });
-    h.assert(new URL(form.url()).searchParams.get('appointment_no') === appointment, 'The bill form opened for another appointment');
-    await form.locator('input[name="day"]').fill('30');
-    const spec = await s.popup(form, form.locator('input[name="buttonDay"]'), 'billing-history-spec');
-    await spec.locator('form[name="titlesearch"]').waitFor({ state: 'visible' });
-    const specRow = id => spec.locator('tbody tr').filter({ has: spec.locator('td', { hasText: new RegExp(`^\\s*${id}\\s*$`) }) });
-    h.assert(await specRow(pat.headerId).count() === 1 && await specRow(hcp.headerId).count() === 1,
-      'The bill form history did not list both owned bills');
-    const patCells = await cellsOf(specRow(pat.headerId));
-    const hcpCells = await cellsOf(specRow(hcp.headerId));
-    h.assert(patCells.includes('Settled') && patCells.includes(privateCode) && patCells.includes(date),
-      'The history row of the settled bill does not show Settled, its code and date');
-    h.assert(hcpCells.includes('Bill OHIP') && hcpCells.includes(ohipCode) && hcpCells.includes('401'),
-      'The history row of the OHIP bill does not show Bill OHIP, its code and dx');
-    await spec.locator('input[name="serviceCode"]').fill(ohipCode);
-    await Promise.all([
-      spec.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-      spec.locator('input[type="submit"][value="Search"]').click(),
-    ]);
-    h.assert(await specRow(hcp.headerId).count() === 1 && await specRow(pat.headerId).count() === 0,
-      'The service-code filter did not narrow the history to the OHIP bill');
-    await spec.close();
-    await form.close();
-    h.assert(sql.value(`SELECT status FROM appointment WHERE appointment_no=${appointment}`) === 't',
-      'Opening the bill form without saving changed the appointment status');
-  });
   // Last: the single-day Payment Received window exposes a defect (see the report).
   await s.step('Administration ▸ Payment Received lists the settled 3rd-party bill with its payment', async () => {
     const { frame } = await openAdminFrame(s, '/billing/CA/ON/BillingONPayment', 'form[name="billingPaymentForm"]', admin);

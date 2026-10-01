@@ -13,8 +13,9 @@
  * (attachment), its messagelisttbl/msgDemoMap rows, and that the received message
  * renders the attachment.
  * Fixtures: an owned FAKE- patient (runWorkflow), an owned messenger group holding
- * the test provider (the recipient), and one SQL-delivered message carrying a FAKE-PW
- * item; cleanup deletes only those rows and the messages carrying the marker.
+ * the test provider (the recipient), and two SQL-delivered messages (one with two
+ * stored PDFs, one with a FAKE-PW transferred item); cleanup deletes only those rows
+ * and the messages carrying the marker. Steps that hit known defects run last.
  * Not covered (no UI entry): messenger/Transfer/SelectItems and Transfer/PostItems.
  * Implements coverage plan §3.4 messenger-attachments.
  */

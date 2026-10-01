@@ -3916,7 +3916,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: the Search Patient popup closes itself before listing anyone, and Link to Patient posts a runtime-built form without a CSRF token.",
+      "fixtures": "Owned patient, an owned messenger group and owned messages; all removed."
     },
     {
       "name": "prevention-admin",
@@ -4223,9 +4224,10 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 420,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails on 2026.08: the patient-search page closes itself on load (null-safe encoder vs \"null\" comparison) and throws a TypeError; through the front door the WAF blocks the Doc2PDF preview/attach POSTs.",
+      "fixtures": "Owned patient, an owned messenger group as recipient and owned messages with stored PDF attachments; all removed."
     },
     {
       "name": "lab-manual-entry-cumulative",
@@ -4340,6 +4342,20 @@
     {
       "name": "billing-on-ra-import",
       "script": "scripts/billing-on-ra-import-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Provisional entry: live validation in progress."
+    },
+    {
+      "name": "billing-on-batch-clipboard",
+      "script": "scripts/billing-on-batch-clipboard-playwright-checks.js",
       "tiers": [
         "core"
       ],

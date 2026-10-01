@@ -278,6 +278,7 @@ async function workflow(s) {
       'The preview does not show the owned code in its colour');
   });
 
+  const deferred = {};
   const dateRows = (where = '1=1') => sql.rows(`SELECT available,hour,status FROM scheduledate WHERE provider_no=${q(owner)}
     AND sdate=${q(holidayDate)} AND ${where} ORDER BY id`);
   await s.step('the calendar step shows the owned holiday and the date popup saves that day as unavailable', async () => {
@@ -298,6 +299,8 @@ async function workflow(s) {
     const popup = await ui.clickOpensPopup(admin, cell, {context, recorder, label: 'schedule-date-popup', timeout: 20000});
     await popup.locator('select[name="hour"]').waitFor();
     h.assert(await popup.locator('input[name="available"][value="1"]').isChecked(), 'The date popup did not load the day as available');
+    // Observed here, asserted in the last step so every other step is proven first.
+    deferred.datePopupHour = await popup.locator('select[name="hour"]').inputValue();
     await popup.locator('select[name="hour"]').selectOption(templateName);
     await popup.locator('input[name="available"][value="0"]').check();
     const reloaded = admin.waitForEvent('framenavigated', {predicate: candidate => candidate === f, timeout: 20000});
@@ -425,7 +428,13 @@ async function workflow(s) {
       && statusSnapshot() === originalStatus && dateRows().length === 2, 'A GET probe wrote a row');
   });
 
-  await s.step('a template code description with an apostrophe survives Edit', async () => {
+  await s.step('edit forms reload what was saved: an apostrophe code description and a generated day\'s template', async () => {
+    const problems = [];
+    // scheduledatepopup.jsp reads the session scheduleDateBean, which CreateDate fills BEFORE it
+    // generates the week-setting dates, so a just-generated day opens with the first template.
+    if (deferred.datePopupHour !== templateName) {
+      problems.push('the date popup for a day the week setting just scheduled did not preselect that day\'s template');
+    }
     const popup = await codePopup();
     const form = popup.locator('form[name="addtemplatecode"]');
     const desc = `${marker} O'Neil`;
@@ -435,11 +444,13 @@ async function workflow(s) {
     await navigates(popup, () => saveCode(popup).click());
     h.assert(JSON.stringify(codeRow().map(r => r[1])) === JSON.stringify([desc]), 'The apostrophe description was not saved');
     await editCode(popup, code);
-    h.assert(await form.locator('#description').inputValue() === desc,
-      'Edit reloaded a template code description with an apostrophe truncated (single-quoted attribute encoded for HTML content)');
+    if (await form.locator('#description').inputValue() !== desc) {
+      problems.push('Template Code Setting Edit truncated a description containing an apostrophe');
+    }
     await navigates(popup, () => popup.locator(`form[name="addtemplatecode"] input[type="button"][value="${LABEL.codeDelete}"]`).click());
     h.assert(codeRow().length === 0, 'Delete did not remove the apostrophe template code');
     await popup.close();
+    h.assert(problems.length === 0, problems.join('; '));
   });
 }
 
