@@ -13,20 +13,27 @@ const h = require('./playwright-harness');
 const ALL_MODES = [
   { key: 'dblclick', tag: 'DC', label: 'dblclick()' },
   { key: 'twoClicks', tag: 'TC', label: 'two back-to-back click({noWaitAfter})' },
-  { key: 'doubleEnter', tag: 'EN', label: 'double Enter in a text field' },
+  { key: 'doubleEnter', tag: 'EN', label: 'double Enter in a text field or on the focused submit button' },
   // Impatient re-click while the (held-back) response is still pending: the server has already
   // processed request one, the browser has not shown the result yet.
   { key: 'slowResubmit', tag: 'SR', label: 'second click 500 ms later while the response is slow' },
 ];
 
-// DS_ONLY=slowResubmit,dblclick narrows a debugging run; unset runs every mode.
-const MODES = process.env.DS_ONLY ? ALL_MODES.filter((mode) => process.env.DS_ONLY.split(',').includes(mode.key)) : ALL_MODES;
+// DS_ONLY=slowResubmit,dblclick narrows a debugging run; unset runs every mode. A misspelled key must not
+// silently select nothing (a check with no modes would otherwise report success having tested nothing).
+const DS_ONLY_KEYS = process.env.DS_ONLY ? process.env.DS_ONLY.split(',').map((key) => key.trim()) : null;
+if (DS_ONLY_KEYS) {
+  const known = [...ALL_MODES.map((mode) => mode.key), 'replay'];
+  const unknown = DS_ONLY_KEYS.filter((key) => !known.includes(key));
+  h.assert(unknown.length === 0, `DS_ONLY names unknown mode(s) ${unknown.join(', ')}; valid: ${known.join(', ')}`);
+}
+const MODES = DS_ONLY_KEYS ? ALL_MODES.filter((mode) => DS_ONLY_KEYS.includes(mode.key)) : ALL_MODES;
 
 // POST replay: submit once, let the page settle, then reload it. A page that renders its POST result
 // directly (no redirect-after-POST) re-sends the form on reload; a PRG page does not. Only meaningful where
 // the submit navigates the page it ran in, so checks opt in with MODES_REPLAY.
 const REPLAY = { key: 'replay', tag: 'RP', label: 'submit once then reload the result page (POST replay)' };
-const MODES_REPLAY = process.env.DS_ONLY && !process.env.DS_ONLY.split(',').includes('replay') ? MODES : [...MODES, REPLAY];
+const MODES_REPLAY = DS_ONLY_KEYS && !DS_ONLY_KEYS.includes('replay') ? MODES : [...MODES, REPLAY];
 
 const GONE = /closed|detached|destroyed|navigat|Timeout|timeout|not attached|Target page/i;
 
@@ -35,7 +42,10 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Activate `target` twice, as fast as the browser allows. `mode` is one of MODES[].key.
- * `textField` (a locator) is required for doubleEnter. A page that closes or navigates
+ * `textField` (a locator) is required for doubleEnter: the control that receives focus and the Enter
+ * presses. Pass a text input when the form's default (first submit) button IS the save button; pass the save
+ * button itself when implicit submission would hit another button (a Search or Back button earlier in the
+ * form) or the form has no submit-type button at all, so Enter in a text field cannot save by design. A page that closes or navigates
  * after the first activation makes the second one throw; that is the guarded outcome
  * and is swallowed, any other error is rethrown.
  */
@@ -132,20 +142,24 @@ function recorderMark(recorder) {
  * `pattern` and only console errors that say the fetch failed, both recorded since `since`.
  */
 function forgiveAbortedSecondRequest(recorder, since, pattern) {
-  let forgiven = 0;
+  const forgivenLabels = [];
   for (let i = recorder.requestFailures.length - 1; i >= since.failures; i--) {
     const failure = recorder.requestFailures[i];
     if (/ERR_ABORTED/.test(failure.errorText || '') && pattern.test(failure.url || '')) {
       recorder.requestFailures.splice(i, 1);
-      forgiven += 1;
+      forgivenLabels.push(failure.label);
     }
   }
-  // Console errors are only consumed when tied to an aborted request just forgiven, one per aborted request,
-  // so an unrelated "Failed to fetch" from the page stays strict and fails the check.
-  for (let i = recorder.consoleIssues.length - 1; i >= since.issues && forgiven > 0; i--) {
-    if (/Failed to fetch|ERR_ABORTED/.test(recorder.consoleIssues[i].text || '')) {
+  // Console errors are only consumed when tied to an aborted request just forgiven: same page label, and one
+  // console error per aborted request. A browser "Failed to fetch" carries no URL, so the page it came from is
+  // the strongest correlation available; an unrelated error from another page, or a surplus one, stays strict
+  // and fails the check.
+  for (let i = recorder.consoleIssues.length - 1; i >= since.issues && forgivenLabels.length > 0; i--) {
+    const issue = recorder.consoleIssues[i];
+    const at = forgivenLabels.indexOf(issue.label);
+    if (at !== -1 && /Failed to fetch|ERR_ABORTED/.test(issue.text || '')) {
       recorder.consoleIssues.splice(i, 1);
-      forgiven -= 1;
+      forgivenLabels.splice(at, 1);
     }
   }
 }
@@ -176,6 +190,9 @@ function verdicts(name) {
       return ok;
     },
     finish() {
+      // A narrowed run (DS_ONLY) can leave this workflow with no applicable mode (e.g. doubleEnter on a form with
+      // no text field). Nothing was proven, so that is a SKIP, never a green pass.
+      if (rows.length === 0) throw new h.SkipCheck(`${name}: no double-submit mode ran (DS_ONLY=${process.env.DS_ONLY || ''} leaves none that applies here)`);
       const bad = rows.filter((row) => !row.ok);
       h.assert(bad.length === 0,
         `${name}: double submit created duplicates or lost the write: ${bad.map((r) => `${r.label}=${r.count}`).join('; ')}`);

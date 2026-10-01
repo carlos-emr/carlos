@@ -35,7 +35,7 @@ async function workflow(s) {
   const v = verdicts('lab-manual-entry');
 
   for (const mode of MODES) {
-    await s.step(`Submit to EMR via ${mode.label} files at most one lab`, async () => {
+    await s.step(`Submit to EMR via ${mode.label} files exactly one lab`, async () => {
       const accession = `DS${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
       h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '0', 'The accession is already in use');
       accessions.push(accession);
@@ -68,11 +68,11 @@ async function workflow(s) {
         await sleep(1500);
       });
       const count = await settledCount(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`,
-        { min: mode.key === 'doubleEnter' ? 0 : 1, quietMs: 3500 });
+        { min: 1, quietMs: 3500 });
       if (disarm) await disarm();
       posts.stop();
       console.log(`    (${dialogs.length} confirm dialog(s); ${posts.seen.length} SubmitLab POST(s))`);
-      v.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      v.record(mode.label, count, { exactly: 1 });
       if (!form.isClosed()) await form.close().catch(() => {});
       if (opened && !inbox.isClosed()) await inbox.close().catch(() => {});
       if (!opened) await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');

@@ -6,8 +6,8 @@
  *
  * User path: Schedule day sheet (the appointment's date) > the appointment's Bill link > OHIP bill form
  * (choose the General Practice form, tick the favourite code, type a diagnostic code) > Next > review
- * page > Save. For each rapid activation (dblclick(), two back-to-back clicks, double Enter in a review
- * text field when the review page has one, slow-response re-click) the check bills ONE owned
+ * page > Save. For each rapid activation (dblclick(), two back-to-back clicks, double Enter on the focused Save
+ * button (the first submit button in the review form is Back to Edit, so Enter in a text field would not save), slow-response re-click) the check bills ONE owned
  * appointment and asserts EXACTLY ONE billing_on_cheader1 row and ONE billing_on_item row set for it.
  *
  * Fixtures: the owned FAKE- patient (given a synthetic HIN so billing is allowed) and one owned
@@ -88,16 +88,10 @@ async function workflow(s) {
       await h.assertNotErrorPage(page, 'bill review');
       const save = page.locator('form[name="titlesearch"] input[type="submit"][value="Save"]');
       h.assert(await save.count(), 'the review page did not offer Save');
-      const textField = page.locator('form[name="titlesearch"] input[type="text"]:visible').first();
-      if (mode.key === 'doubleEnter' && !(await textField.count())) {
-        console.log('    (review page has no visible text field: Enter mode not applicable)');
-        await page.close().catch(() => {});
-        return;
-      }
       const route = /\/billing\/CA\/ON\/BillingONSave$/;
       const posts = watchPosts(page.context(), route);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
-      await rapid(mode.key, save, { textField });
+      await rapid(mode.key, save, { textField: save });
       const count = await settledCount(sql, `SELECT COUNT(*) FROM billing_on_cheader1 WHERE appointment_no=${apptNo} AND demographic_no=${patient}`,
         { min: 1, quietMs: 3500 });
       if (disarm) await disarm();
@@ -105,7 +99,10 @@ async function workflow(s) {
       const items = sql.value(`SELECT COUNT(*) FROM billing_on_item i JOIN billing_on_cheader1 c ON c.id=i.ch1_id
         WHERE c.appointment_no=${apptNo} AND c.demographic_no=${patient}`);
       console.log(`    (${posts.seen.length} BillingONSave POST(s); ${count} header(s); ${items} item(s))`);
-      v.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      v.record(mode.label, count, { exactly: 1 });
+      // One bill for one OHIP code carries exactly one item: zero is a header with nothing billed, two are a
+      // duplicated line under the same header.
+      v.record(`${mode.label} (bill items)`, Number(items), { exactly: 1 });
       if (!page.isClosed()) await page.close().catch(() => {});
     });
   }

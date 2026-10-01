@@ -46,7 +46,7 @@ async function workflow(s) {
   const v = verdicts('consultation-submit');
 
   for (const mode of MODES.filter((m) => m.key !== 'doubleEnter')) {
-    await s.step(`Submit Consultation Request via ${mode.label} files at most one request`, async () => {
+    await s.step(`Submit Consultation Request via ${mode.label} files exactly one request`, async () => {
       const form = await s.popup(chart, chart.locator('a[onclick*="ViewConsultationFormRequest?de="]').first(), 'consult-form');
       await form.locator('#EctConsultationFormRequest2Form').waitFor({ state: 'attached', timeout: 30000 });
       await pickFirst(form, '#serviceInput');

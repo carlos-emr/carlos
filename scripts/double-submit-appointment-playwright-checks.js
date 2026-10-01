@@ -5,7 +5,7 @@
  *
  * User path: Schedule day sheet > empty slot link > patient keyword search > pick the owned
  * FAKE- patient > Add Appointment. Each rapid activation (dblclick(), slow re-click, two back-to-back
- * click({noWaitAfter}), double Enter in the reason field) books ONE appointment (own marker reason,
+ * click({noWaitAfter}), double Enter on the focused Add Appointment button; Enter in a text field would hit the earlier Search button and #reason is a textarea) books ONE appointment (own marker reason,
  * own slot, 400 days ahead) and the check asserts EXACTLY ONE appointment row for the owned patient
  * and marker. addappointment.jsp has no disable-on-submit and no token; a repeat relies on the page
  * navigating away fast enough.
@@ -39,7 +39,7 @@ async function workflow(s) {
   const v = verdicts('appointment-add');
 
   for (const [index, mode] of MODES.entries()) {
-    await s.step(`Add Appointment via ${mode.label} books at most one appointment`, async () => {
+    await s.step(`Add Appointment via ${mode.label} books exactly one appointment`, async () => {
       await h.gotoApp(s.schedule, s.config.baseUrl, `/provider/providercontrol?${query}`);
       await s.schedule.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
       const slots = s.schedule.locator(`a.adhour[onclick*="provider_no=${provider}&"]`);
@@ -56,14 +56,14 @@ async function workflow(s) {
       await popup.locator('#reason').fill(`${marker}-${mode.tag} double submit`);
       const posts = watchPosts(popup.context(), /\/appointment\/AddRecord$/);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, /\/appointment\/AddRecord$/) : null;
-      await rapid(mode.key, popup.locator('#addButton'), { textField: popup.locator('#reason') });
+      await rapid(mode.key, popup.locator('#addButton'), { textField: popup.locator('#addButton') });
       const count = await settledCount(sql,
         `SELECT COUNT(*) FROM appointment WHERE demographic_no=${patient} AND reason LIKE ${h.sqlString(`${marker}-${mode.tag}%`)}`,
-        { min: mode.key === 'doubleEnter' ? 0 : 1 });
+        { min: 1 });
       if (disarm) await disarm();
       posts.stop();
       console.log(`    (${posts.seen.length} AddRecord POST(s) sent)`);
-      v.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      v.record(mode.label, count, { exactly: 1 });
       if (!popup.isClosed()) await popup.close().catch(() => {});
     });
   }

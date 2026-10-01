@@ -36,7 +36,7 @@ async function workflow(s) {
   const v = verdicts('add-service');
 
   for (const mode of MODES) {
-    await s.step(`Add Service via ${mode.label} adds at most one service`, async () => {
+    await s.step(`Add Service via ${mode.label} adds exactly one service`, async () => {
       await clickAndAwaitReload(config, config.locator('nav a[href$="/ViewAddService"]'), { label: 'ViewAddService' });
       const name = `${marker}-${mode.tag} double submit`;
       await config.locator('#service').fill(name);
@@ -45,11 +45,11 @@ async function workflow(s) {
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
       await rapid(mode.key, config.locator('input[type="submit"]').first(), { textField: config.locator('#service') });
       const count = await settledCount(sql, `SELECT COUNT(*) FROM consultationServices WHERE serviceDesc=${h.sqlString(name)}`,
-        { min: mode.key === 'doubleEnter' ? 0 : 1, quietMs: 3500 });
+        { min: 1, quietMs: 3500 });
       if (disarm) await disarm();
       posts.stop();
       console.log(`    (${posts.seen.length} AddService POST(s))`);
-      v.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      v.record(mode.label, count, { exactly: 1 });
       await config.waitForLoadState('domcontentloaded', { timeout: 20000 }).catch(() => {});
     });
   }

@@ -62,10 +62,10 @@ async function workflow(s) {
     const accepted = [...new Map([...own, ...aboutPatient].map(r => [r.id, r])).values()];
     h.assert(accepted.length >= 1,
       'Running the Demographic Report Tool (a listing of patient names and ids) wrote no audit row');
-    h.assert(accepted.every(r => Boolean(r.ip)), `The report audit row carries no client address (${accepted.filter(r => !r.ip).map(r => label(r)).join(', ')})`);
+    h.assert(accepted.every(r => Boolean(r.ip)), `The report audit row carries no client address (${accepted.filter(r => !r.ip).map(r => label(r, { maskContent: true })).join(', ')})`);
     const leaks = phiLeaks([...probe.rows(`id>${before}`), ...own], [marker]);
     h.assert(!leaks.length, `A report audit row carries patient text (${leaks.join(', ')})`);
-    h.assert(aboutPatient.every(r => r.provider === provider), `A report row is attributed to another provider (${aboutPatient.map(label).join(', ')})`);
+    h.assert(aboutPatient.every(r => r.provider === provider), `A report row is attributed to another provider (${aboutPatient.map(r => label(r, { maskContent: true })).join(', ')})`);
   });
 }
 

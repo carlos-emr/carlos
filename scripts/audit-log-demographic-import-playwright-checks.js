@@ -37,6 +37,7 @@ async function workflow(s) {
   const owner = `last_name=${q(v.lastName)} AND first_name=${q(v.firstName)}`;
   const hinRowsWhere = `(data LIKE ${q(`%${hin}%`)} OR content LIKE ${q(`%${hin}%`)} OR contentId LIKE ${q(`%${hin}%`)})`;
   const importedIds = () => sql.rows(`SELECT demographic_no FROM demographic WHERE ${owner} ORDER BY demographic_no`).flat();
+  let before; // audit watermark: cleanup touches only rows this run wrote
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
   s.cleanup(() => {
@@ -62,10 +63,13 @@ async function workflow(s) {
       'Imported patient child rows were not removed');
       sql.execute(`DELETE FROM demographic WHERE demographic_no=${id} AND ${owner}`);
     }
-    // The leak check looks for the number in content, contentId and data, so remove by all three.
-    sql.execute(`DELETE FROM log WHERE ${hinRowsWhere}`);
     h.assert(importedIds().length === 0, 'The imported patient was not removed');
-    h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE ${hinRowsWhere}`) === '0', 'Audit rows carrying the run health number were not removed');
+    // The leak check looks for the number in content, contentId and data, so remove by all three, but only rows written
+    // after the watermark; without one nothing of this run's was recorded and no unrelated row is touched.
+    if (Number.isInteger(before)) {
+      sql.execute(`DELETE FROM log WHERE id>${before} AND ${hinRowsWhere}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE id>${before} AND ${hinRowsWhere}`) === '0', 'Audit rows carrying the run health number were not removed');
+    }
   });
   const [first, last] = sql.rows(`SELECT first_name,last_name FROM provider WHERE provider_no=${q(provider)}`)[0] || [];
   h.assert(first && last, 'The test provider has no name to match as primary physician');
@@ -92,7 +96,6 @@ async function workflow(s) {
   });
 
   let id;
-  let before;
   await s.step('importing the CDS file creates exactly one patient (audit rows observed)', async () => {
     before = Number(sql.value('SELECT COALESCE(MAX(id),0) FROM log'));
     await frame.locator('#importFile').setInputFiles(file);

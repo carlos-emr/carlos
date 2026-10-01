@@ -9,7 +9,7 @@
  * description and asserts EXACTLY ONE document row attached to the owned patient (ctl_document).
  *
  * Fixtures: the owned FAKE- patient and a throw-away PDF; cleanup deletes the document/ctl_document rows
- * for the owned patient and marker AND the stored files they name (inside DOCUMENT_DIR only; SKIP when the
+ * for the owned patient and marker, the system chart note + casemgmt_note_link each upload created, AND the stored files they name (inside DOCUMENT_DIR only; SKIP when the
  * store is not readable), and asserts rows and files are gone. Nothing is transmitted.
  * Wave-6 pattern sweep "double-submit".
  */
@@ -42,6 +42,16 @@ async function workflow(s) {
     const files = new Set();
     for (const [no, file] of rows()) {
       h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
+      // Every successful demographic upload also writes a system chart note plus a casemgmt_note_link row
+      // (table_name 5 = CaseManagementNoteLink.DOCUMENT) pointing at the document; remove both with it.
+      const notes = sql.rows(`SELECT l.note_id FROM casemgmt_note_link l JOIN casemgmt_note n ON n.note_id=l.note_id
+        WHERE l.table_name=5 AND l.table_id=${no} AND n.demographic_no=${patient}`).map(([id]) => id);
+      for (const note of notes) {
+        h.assert(/^[1-9]\d*$/.test(note), 'Owned document note id is invalid');
+        sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id=${note} AND table_name=5 AND table_id=${no};
+          DELETE FROM casemgmt_issue_notes WHERE note_id=${note};
+          DELETE FROM casemgmt_note WHERE note_id=${note} AND demographic_no=${patient}`);
+      }
       sql.execute(`DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
       files.add(file);
     }
@@ -52,6 +62,8 @@ async function workflow(s) {
     }
     fs.rmSync(scratch, { recursive: true, force: true });
     h.assert(rows().length === 0, 'Owned documents were not removed');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${q(`%${marker}-%`)}`) === '0',
+      'Upload-created chart notes were not removed');
   });
   const chart = await s.chart();
   const v = verdicts('document-upload');
@@ -59,7 +71,7 @@ async function workflow(s) {
   // No slow-response mode: route.fetch() cannot faithfully re-send this multipart upload, so the held-back
   // request never wrote a row (a harness limit, not an application result). The form also disables its own button.
   for (const mode of MODES.filter((m) => m.key !== 'slowResubmit')) {
-    await s.step(`Add Document via ${mode.label} files at most one document`, async () => {
+    await s.step(`Add Document via ${mode.label} files exactly one document`, async () => {
       const add = await s.popup(chart, chart.locator('a[onclick*="ViewDocumentReport?"][onclick*="mode=add"]').first(), 'document-add');
       const form = add.locator('form[action*="addEditDocument"]').first();
       await form.waitFor({ state: 'visible', timeout: 20000 });
@@ -75,13 +87,13 @@ async function workflow(s) {
       await rapid(mode.key, form.locator('input[name="Submit"]').first(), { textField: form.locator('input[name="docDesc"]') });
       const count = await settledCount(sql, `SELECT COUNT(*) FROM document d JOIN ctl_document c ON c.document_no=d.document_no
         WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc=${q(desc)}`,
-      { min: mode.key === 'doubleEnter' ? 0 : 1, quietMs: 3500 });
+      { min: 1, quietMs: 3500 });
       if (disarm) await disarm();
       posts.stop();
       await sleep(300);
       forgiveAbortedSecondRequest(s.recorder, since, /\/documentManager\//);
       console.log(`    (${posts.seen.length} addEditDocument POST(s))`);
-      v.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      v.record(mode.label, count, { exactly: 1 });
       if (!add.isClosed()) await add.close().catch(() => {});
     });
   }

@@ -23,7 +23,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { clickOpensPopup } = require('./lib/playwright-ui');
-const { openSecondSession } = require('./lib/concurrency-support');
+const { openSecondSession, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
 const TAKEOVER = /^You have started to edit this note in another window at [^\n]+\.\nDo you wish to continue\?$/;
@@ -78,12 +78,24 @@ async function workflow(s) {
     await expectValue(sql, active, '1', 'Session A\'s amendment did not leave exactly one active allergy');
   });
   await s.step('session B amends the same allergy from its stale list', async () => {
-    await amend(bPopup, original, '3');
+    const mark = failureMark(s.recorder);
+    const [response] = await Promise.all([
+      bPopup.waitForResponse(r => r.request().method() === 'POST' && /\/rx\/addAllergy2?$/.test(new URL(r.url()).pathname), { timeout: 20000 }),
+      amend(bPopup, original, '3'),
+    ]);
+    h.assert(response.status() < 500, `Session B's stale amendment answered HTTP ${response.status()}`);
     // A correct application may store B's amendment (merge) or refuse it; either is acceptable here and the next step judges the
-    // outcome. Give the save a bounded moment to land so that step reads settled data, but do not require the row.
+    // outcome. An explicit 4xx refusal is consumed so the strict page check does not report it; a save that answered
+    // success must land, so give it a bounded moment and require the row then, so a dropped save cannot pass as one.
+    if (response.status() >= 400) {
+      await bPopup.waitForTimeout(500);
+      consumeExpectedFailure(s.recorder, mark, { status: response.status(), path: /\/rx\/addAllergy2?$/ });
+      return;
+    }
     const stored = `SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient} AND severity_of_reaction='3'`;
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline && sql.value(stored) === '0') await bPopup.waitForTimeout(200);
+    h.assert(sql.value(stored) !== '0', `Session B's amendment answered HTTP ${response.status()} but no severity-3 allergy was stored`);
   });
   await s.step('the chart carries one active version of the allergy', async () => {
     const count = sql.value(active);

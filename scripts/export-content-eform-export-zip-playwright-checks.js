@@ -45,7 +45,10 @@ function dispositionProblem(header) {
   const plain = /;\s*filename\s*=/i.test(header);
   const wellFormed = /;\s*filename\s*=\s*(?:"(?:[^"\\]|\\.)*"|[^\s;"]+)\s*(?:;|$)/i.test(header);
   if (plain && !wellFormed) return 'its filename is not a token or a well-formed quoted-string (a quote inside the name is not escaped)';
-  if (/[^\x20-\x7e]/.test(header) && !/;\s*filename\*\s*=/i.test(header)) return 'its filename is not ASCII and there is no filename*=';
+  // RFC 5987 ext-value: charset ' [language] ' percent-encoded-or-attr-chars; "garbage" has no charset and is unusable.
+  const extended = /;\s*filename\*\s*=\s*([^\s;]*)/i.exec(header);
+  if (extended && !/^(?:UTF-8|ISO-8859-1)'[A-Za-z0-9-]*'(?:%[0-9A-Fa-f]{2}|[A-Za-z0-9!#$&+.^_`|~-])+$/i.test(extended[1])) return 'its filename*= value is not a valid RFC 5987 extended value (charset\'language\'percent-encoded name)';
+  if (/[^\x20-\x7e]/.test(header) && !extended) return 'its filename is not ASCII and there is no filename*=';
   return null;
 }
 

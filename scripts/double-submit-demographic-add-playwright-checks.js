@@ -44,7 +44,7 @@ async function workflow(s) {
   const v = verdicts('demographic-add');
 
   for (const mode of MODES) {
-    await s.step(`Add Record via ${mode.label} registers at most one patient`, async () => {
+    await s.step(`Add Record via ${mode.label} registers exactly one patient`, async () => {
       const lastName = `${marker}-${mode.tag}`;
       const search = await s.popup(s.schedule, s.schedule.locator('a').filter({ hasText: /^Search$/ }), 'patient-search');
       await search.waitForLoadState('domcontentloaded', { timeout: 30000 });
@@ -70,14 +70,14 @@ async function workflow(s) {
         await rapid(mode.key, search.locator('input[type="submit"][value="Add Record"]').first(),
           { textField: form.locator('input[name="postal"]') });
         count = await settledCount(sql, `SELECT COUNT(*) FROM demographic WHERE last_name=${h.sqlString(lastName)}`,
-          { min: mode.key === 'doubleEnter' ? 0 : 1 });
+          { min: 1 });
       }, { accept: false });
       h.assert(dialogs.every(dialog => dialog.type === 'confirm' && /same first and last name/i.test(dialog.text || '')),
         `An unexpected dialog was raised and dismissed: ${dialogs.map(dialog => `${dialog.type} "${dialog.text}"`).join(' | ')}`);
       if (disarm) await disarm();
       posts.stop();
       console.log(`    (${posts.seen.length} add-record POST(s))`);
-      v.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      v.record(mode.label, count, { exactly: 1 });
       if (!search.isClosed()) await search.close().catch(() => {});
     });
   }

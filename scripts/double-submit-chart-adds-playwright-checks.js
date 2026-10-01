@@ -5,8 +5,8 @@
  * group (Submit).
  *
  * User path: Schedule > Search > Master Record > E-Chart > Allergies / Preventions / Measurements "+" >
- * the add popup > Save. For each rapid activation (dblclick(), two back-to-back clicks, double Enter in a
- * text field, slow-response re-click) the check adds ONE record with its own marker (allergy reaction text,
+ * the add popup > Save. For each rapid activation (dblclick(), two back-to-back clicks, double Enter in a text field or
+ * on the focused Add/Submit button where the form has no implicit-submit path, slow-response re-click) the check adds ONE record with its own marker (allergy reaction text,
  * prevention date, measurement comment) and asserts EXACTLY ONE owned row in allergies, preventions,
  * measurements. Neither form disables its button.
  *
@@ -42,7 +42,7 @@ async function workflow(s) {
 
   // The allergy popup navigates in place after Add Allergy, so it also gets the POST-replay mode.
   for (const mode of MODES_REPLAY) {
-    await s.step(`Add Allergy via ${mode.label} records at most one allergy`, async () => {
+    await s.step(`Add Allergy via ${mode.label} records exactly one allergy`, async () => {
       const page = await s.popup(chart, chart.locator('a[onclick*="showAllergy"]').first(), 'allergy-list');
       const form = page.locator('#RxAddAllergyForm');
       await page.locator('#searchString').fill(marker.slice(-16).toUpperCase());
@@ -60,19 +60,19 @@ async function workflow(s) {
       const route = /\/rx\/addAllergy|\/rx\/AddAllergy|RxAddAllergy/i;
       const posts = watchPosts(page.context(), route);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
-      await rapid(mode.key, form.locator('input[type="submit"]').first(), { textField: form.locator('#startDate') });
+      await rapid(mode.key, form.locator('input[type="submit"]').first(), { textField: form.locator('input[type="submit"]').first() });
       const count = await settledCount(sql, `SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient}
-        AND reaction=${h.sqlString(reaction)}`, { min: mode.key === 'doubleEnter' ? 0 : 1 });
+        AND reaction=${h.sqlString(reaction)}`, { min: 1 });
       if (disarm) await disarm();
       posts.stop();
       console.log(`    (${posts.seen.length} allergy POST(s))`);
-      allergies.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      allergies.record(mode.label, count, { exactly: 1 });
       if (!page.isClosed()) await page.close().catch(() => {});
     });
   }
 
   for (const [index, mode] of MODES.entries()) {
-    await s.step(`Prevention Save via ${mode.label} records at most one prevention`, async () => {
+    await s.step(`Prevention Save via ${mode.label} records exactly one prevention`, async () => {
       const list = await s.popup(chart, chart.locator('a[onclick*="ViewPreventionIndex"]').first(), 'prevention-index');
       await list.locator('#immunization').fill('Fluzone');
       const editor = await s.popup(list,
@@ -87,17 +87,17 @@ async function workflow(s) {
       await rapid(mode.key, editor.locator('input[type="submit"][name="action"]').first(), { textField: editor.locator('#prevDate') });
       const count = await settledCount(sql, `SELECT COUNT(*) FROM preventions WHERE demographic_no=${patient}
         AND prevention_type='Inf' AND deleted=0 AND DATE(prevention_date)=${h.sqlString(date)}`,
-      { min: mode.key === 'doubleEnter' ? 0 : 1 });
+      { min: 1 });
       if (disarm) await disarm();
       posts.stop();
       console.log(`    (${posts.seen.length} prevention POST(s))`);
-      preventions.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      preventions.record(mode.label, count, { exactly: 1 });
       for (const p of [editor, list]) if (!p.isClosed()) await p.close().catch(() => {});
     });
   }
 
   for (const mode of MODES) {
-    await s.step(`Measurement group Submit via ${mode.label} stores at most one reading`, async () => {
+    await s.step(`Measurement group Submit via ${mode.label} stores exactly one reading`, async () => {
       await chart.locator('#menuTitle3 a').hover();
       const item = chart.locator('#menu3 a.menuItemleft').filter({ hasText: 'Vitals' });
       await item.waitFor({ state: 'visible' });
@@ -110,15 +110,15 @@ async function workflow(s) {
       const since = recorderMark(s.recorder);
       const posts = watchPosts(group.context(), /Measurement/i);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, /Measurement/i) : null;
-      await rapid(mode.key, group.getByRole('button', { name: 'Submit', exact: true }), { textField: row.locator('input[name^="comments-"]') });
+      await rapid(mode.key, group.getByRole('button', { name: 'Submit', exact: true }), { textField: group.getByRole('button', { name: 'Submit', exact: true }) });
       const count = await settledCount(sql, `SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}
-        AND type='BP' AND comments=${h.sqlString(`${marker}-${mode.tag}`)}`, { min: mode.key === 'doubleEnter' ? 0 : 1 });
+        AND type='BP' AND comments=${h.sqlString(`${marker}-${mode.tag}`)}`, { min: 1 });
       if (disarm) await disarm();
       posts.stop();
       await sleep(500);
       forgiveAbortedSecondRequest(s.recorder, since, /\/encounter\/Measurements/);
       console.log(`    (${posts.seen.length} measurement POST(s))`);
-      measurements.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      measurements.record(mode.label, count, { exactly: 1 });
       if (!group.isClosed()) await group.close().catch(() => {});
     });
   }

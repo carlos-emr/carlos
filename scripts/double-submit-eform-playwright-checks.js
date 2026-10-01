@@ -5,7 +5,7 @@
  *
  * User path: Schedule > Search > Master Record > E-Chart > eForms "+" > the owned eForm > type a subject and a
  * field > toolbar Submit (#remoteSubmitButton). For each rapid activation (dblclick(), two back-to-back
- * clicks, double Enter in the form's text field, slow-response re-click) the check saves ONE instance with
+ * clicks, double Enter on the focused toolbar Save button (the fixture's own submit is not the eForm save path), slow-response re-click) the check saves ONE instance with
  * its own marker subject and asserts EXACTLY ONE eform_data row for the owned patient and that subject.
  *
  * Fixtures: one owned eForm template (marker name) and the owned FAKE- patient; cleanup deletes the instances
@@ -48,7 +48,7 @@ async function workflow(s) {
   await list.locator('#efmTable').waitFor();
 
   for (const mode of MODES) {
-    await s.step(`eForm Submit via ${mode.label} saves at most one instance`, async () => {
+    await s.step(`eForm Submit via ${mode.label} saves exactly one instance`, async () => {
       const form = await s.popup(list, list.locator('#efmTable a').filter({ hasText: formName }).first(), 'eform-fill');
       await form.locator('#remoteSubmitButton').waitFor({ state: 'visible' });
       const subject = `${marker}-${mode.tag}`;
@@ -58,15 +58,15 @@ async function workflow(s) {
       const posts = watchPosts(form.context(), route);
       const since = recorderMark(s.recorder);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
-      await rapid(mode.key, form.locator('#remoteSubmitButton'), { textField: form.locator('#note') });
+      await rapid(mode.key, form.locator('#remoteSubmitButton'), { textField: form.locator('#remoteSubmitButton') });
       const count = await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
-        AND form_name=${q(formName)} AND subject=${q(subject)}`, { min: mode.key === 'doubleEnter' ? 0 : 1, quietMs: 3500 });
+        AND form_name=${q(formName)} AND subject=${q(subject)}`, { min: 1, quietMs: 3500 });
       if (disarm) await disarm();
       posts.stop();
       await sleep(300);
       forgiveAbortedSecondRequest(s.recorder, since, /\/eform\//);
       console.log(`    (${posts.seen.length} AddEForm POST(s))`);
-      v.record(mode.label, count, mode.key === 'doubleEnter' ? { atMost: 1 } : { exactly: 1 });
+      v.record(mode.label, count, { exactly: 1 });
       if (!form.isClosed()) await form.close().catch(() => {});
     });
   }
