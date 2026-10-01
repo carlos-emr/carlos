@@ -24,7 +24,7 @@
  * is sent after the GET (a container runs doGet for HEAD, so a `"GET".equals` check
  * would let it through). Results go into a ledger and are asserted together in
  * the check's LAST step, so one open route does not hide the others. A WAF block, a 5xx,
- * or a HEAD 403 whose origin cannot be shown to be the application is INCONCLUSIVE and fails
+ * or a 403 whose origin cannot be shown to be the application is INCONCLUSIVE and fails
  * the ledger: unchanged rows alone never prove the application refused the request.
  */
 const h = require('./playwright-harness');
@@ -87,6 +87,9 @@ function replayParams(params, overrides = {}) {
   return out;
 }
 
+/** A header the application's own filters add to every response and the WAF's nginx error page lacks. */
+const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
+
 function isWafPage(status, body) {
   return status === 403 && /ModSecurity|<center>nginx<\/center>/i.test(body || '');
 }
@@ -105,7 +108,6 @@ function createLedger(name) {
       const entry = { label, path: path.replace(/^\/[^/]+/, ''), answers: [], changed: false, changedBy: [],
         blocked: false, errored: false, unverified: false };
       h.assert(url.length < 7000, `${label}: the replayed GET is too long for a request line (${url.length})`);
-      let appRefusedGet = false; // the GET got a 403 that is verifiably the application's, not the WAF's
       for (const method of methods) {
         const before = snapshot();
         const response = await s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
@@ -113,25 +115,27 @@ function createLedger(name) {
         const body = method === 'GET' ? await response.text().catch(() => '') : '';
         const after = snapshot();
         const waf = isWafPage(status, body);
-        // A HEAD response has no body, so a WAF page cannot be told from an application 403:
-        // HEAD 403 only counts as a refusal when the same URL's GET was verifiably refused by
-        // the application; otherwise it is inconclusive. HEAD 405 is always a refusal.
-        const headAmbiguous = method === 'HEAD' && status === 403 && !appRefusedGet;
-        const refused = status === 405 || (status === 403 && !waf && !headAmbiguous);
-        if (method === 'GET' && status === 403 && !waf) appRefusedGet = true;
-        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${headAmbiguous ? ' (unverified origin)' : ''}`);
+        // A 403 only counts as the application's refusal on POSITIVE evidence that CARLOS wrote the
+        // response: its own filters add X-Permitted-Cross-Domain-Policies to every response, which
+        // the WAF's nginx error page (and any blank or custom proxy answer) does not carry. This
+        // works for HEAD too, where there is no body to recognise a WAF page by. An unmarked 403 is
+        // inconclusive. A 405 is always a refusal.
+        const fromApplication = Object.prototype.hasOwnProperty.call(response.headers(), APPLICATION_HEADER);
+        const unverified403 = status === 403 && !waf && !fromApplication;
+        const refused = status === 405 || (status === 403 && !waf && fromApplication);
+        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${unverified403 ? ' (unverified origin)' : ''}`);
         if (before !== after) { entry.changed = true; entry.changedBy.push(method); }
         // Whatever the include rules allow, a WAF block or a 5xx means the application never
         // answered the question: it must not read as "refused" just because the rows are unchanged.
         if (waf) entry.blocked = true;
         if (status >= 500) entry.errored = true;
-        if (headAmbiguous) entry.unverified = true;
+        if (unverified403) entry.unverified = true;
         // requireStatus=false: an include()d gate cannot set a status (the container ignores
         // sendError inside an include), so only the absence of a write can be asserted.
         if (!refused && requireStatus) entry.open = true;
       }
       entries.push(entry);
-      const flaws = [entry.blocked && 'WAF block', entry.errored && 'server error', entry.unverified && 'HEAD 403 of unverified origin']
+      const flaws = [entry.blocked && 'WAF block', entry.errored && 'server error', entry.unverified && '403 of unverified origin']
         .filter(Boolean).join(', ');
       const verdict = entry.changed ? `WROTE (${entry.changedBy.join('/')})`
         : flaws ? `INCONCLUSIVE (${flaws})`
@@ -146,7 +150,7 @@ function createLedger(name) {
       h.assert(!failed.length, `${failed.length} of ${entries.length} state-changing route(s) did not refuse GET/HEAD: `
         + failed.map(e => `${e.label} [${e.path}] ${e.answers.join(', ')}${e.changed ? ` and the ${e.changedBy.join('/')} CHANGED the owned rows` : ''}`
           + `${e.blocked ? ' (blocked by the WAF before the application saw it)' : ''}${e.errored ? ' (server error, not a refusal)' : ''}`
-          + `${e.unverified ? ' (HEAD 403 could not be attributed to the application)' : ''}`)
+          + `${e.unverified ? ' (a 403 could not be attributed to the application)' : ''}`)
           .join('; '));
       return entries.length;
     },

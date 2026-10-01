@@ -72,8 +72,9 @@ async function workflow(s) {
 
   await s.step('Add books the appointment, closes the popup and the day sheet refreshes itself to show it', async () => {
     await closesAndRefreshes(booking, () => booking.locator('#addButton').click({ noWaitAfter: true }), 'Add Appointment');
-    appointmentNo = sql.value(`SELECT appointment_no FROM appointment WHERE demographic_no=${patient} AND reason=${h.sqlString(marker)}`);
-    h.assert(/^[1-9]\d*$/.test(appointmentNo || ''), 'The booking did not write exactly one appointment for the owned patient');
+    const booked = sql.rows(`SELECT appointment_no FROM appointment WHERE demographic_no=${patient} AND reason=${h.sqlString(marker)}`);
+    h.assert(booked.length === 1 && /^[1-9]\d*$/.test(booked[0][0] || ''), 'The booking did not write exactly one appointment for the owned patient');
+    appointmentNo = booked[0][0];
     await day.locator(`a.apptLink[onclick*="appointment_no=${appointmentNo}&"]`).first().waitFor({ state: 'visible', timeout: TIMEOUT });
   });
 
