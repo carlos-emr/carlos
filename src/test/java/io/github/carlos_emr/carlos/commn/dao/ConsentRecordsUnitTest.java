@@ -150,6 +150,24 @@ class ConsentRecordsUnitTest {
     }
 
     @Test
+    @DisplayName("should preserve every untyped record among the deciding typed records")
+    void shouldPreserveUntypedRecords_whenSelectingPerType() {
+        Consent firstUntyped = consent(1, false, 1_000L);
+        Consent typedOptIn = consent(2, false, 2_000L);
+        Consent secondUntyped = consent(3, true, 3_000L);
+        Consent typedOptOut = consent(4, true, 1_000L);
+        typedOptIn.setConsentTypeId(10);
+        typedOptOut.setConsentTypeId(10);
+        List<Consent> live = List.of(firstUntyped, typedOptIn, secondUntyped, typedOptOut);
+
+        assertThat(ConsentRecords.effectivePerType(live))
+                .containsExactly(firstUntyped, typedOptOut, secondUntyped);
+        assertThat(ConsentRecords.effectivePerType(List.of(secondUntyped, firstUntyped)))
+                .containsExactly(secondUntyped, firstUntyped);
+        assertThat(live).containsExactly(firstUntyped, typedOptIn, secondUntyped, typedOptOut);
+    }
+
+    @Test
     @DisplayName("should keep one deciding record per consent type")
     void shouldKeepTheDecidingRecord_forEachConsentType() {
         Consent olderOptOut = consent(1, true, 1_000L);

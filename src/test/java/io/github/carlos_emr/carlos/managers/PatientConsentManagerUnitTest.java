@@ -803,6 +803,17 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should preserve unrelated untyped records in the patient consent list")
+        void shouldPreserveUntypedRecords_whenReadingPatientConsents() {
+            Consent firstUntyped = consent(10, false, new Date(1_000L));
+            Consent secondUntyped = consent(11, true, new Date(2_000L));
+            when(mockConsentDao.findByDemographic(100)).thenReturn(List.of(firstUntyped, secondUntyped));
+
+            assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 100))
+                    .containsExactly(firstUntyped, secondUntyped);
+        }
+
+        @Test
         @DisplayName("should throw and read nothing when read privilege denied")
         void shouldThrow_whenReadPrivilegeDenied() {
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), anyInt()))

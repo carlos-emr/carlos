@@ -460,6 +460,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
     /**
      * Returns the deciding record for each consent type the patient has a live record for.
+     * Live records with no consent type are preserved individually.
      */
     @Transactional(propagation = Propagation.SUPPORTS)
     public List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no) {

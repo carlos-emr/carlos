@@ -210,6 +210,7 @@ public interface PatientConsentManager {
     /**
      * Returns the patient's consent for each consent type they have a live record for: one
      * deciding record per type, as chosen by {@link io.github.carlos_emr.carlos.commn.dao.ConsentRecords#effective}.
+     * Live records with no consent type are preserved individually.
      */
     List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no);
 

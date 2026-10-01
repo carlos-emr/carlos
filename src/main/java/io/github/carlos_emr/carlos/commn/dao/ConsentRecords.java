@@ -78,18 +78,30 @@ public final class ConsentRecords {
 
     /**
      * @param live the live (not deleted) records for one patient, of any consent types
-     * @return the deciding record for each consent type, in the order the types first appear
+     * @return the deciding record for each consent type, in the order the types first appear;
+     *         each untyped record is preserved in its original position among those groups
      */
     public static List<Consent> effectivePerType(List<Consent> live) {
         if (live == null || live.isEmpty()) {
             return new ArrayList<>();
         }
         Map<Integer, List<Consent>> byType = new LinkedHashMap<>();
+        List<List<Consent>> groups = new ArrayList<>();
         for (Consent consent : live) {
-            byType.computeIfAbsent(consent.getConsentTypeId(), type -> new ArrayList<>()).add(consent);
+            Integer typeId = consent.getConsentTypeId();
+            if (typeId == null) {
+                // A missing type does not establish that these records concern the same consent.
+                groups.add(List.of(consent));
+            } else {
+                byType.computeIfAbsent(typeId, type -> {
+                    List<Consent> records = new ArrayList<>();
+                    groups.add(records);
+                    return records;
+                }).add(consent);
+            }
         }
-        List<Consent> deciding = new ArrayList<>(byType.size());
-        for (List<Consent> records : byType.values()) {
+        List<Consent> deciding = new ArrayList<>(groups.size());
+        for (List<Consent> records : groups) {
             deciding.add(effective(records));
         }
         return deciding;
