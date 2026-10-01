@@ -59,6 +59,7 @@ async function workflow(s) {
 
   await s.step('Enable Print then Print returns a PDF of the patient\'s preventions', async () => {
     const index = await openIndex();
+    console.log('DEBUG', JSON.stringify(await index.locator('div.leftBox li a').evaluateAll(as => as.slice(0, 40).map(a => [a.textContent.trim(), (a.getAttribute('onclick') || '').slice(0, 120)]))));
     assert(await hiddenLink(index).count() === 1, `${HIDDEN_ITEM} is not offered before the list manager hides it`);
     const button = index.locator('input[name="printButton"]');
     await button.click();

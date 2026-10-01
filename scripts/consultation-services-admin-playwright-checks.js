@@ -224,7 +224,7 @@ async function workflow(s) {
 
   const referringActive = `SELECT GROUP_CONCAT(active ORDER BY serviceId) FROM consultationServices
     WHERE serviceDesc=${h.sqlString(REFERRING)}`;
-  const flag = name => `SELECT IFNULL(GROUP_CONCAT(IFNULL(value,'NULL')),'') FROM property WHERE name=${h.sqlString(name)}`;
+  const flag = name => `SELECT IFNULL(GROUP_CONCAT(IFNULL(value,'<NULL>')),'') FROM property WHERE name=${h.sqlString(name)}`;
   const submitSwitch = async () => {
     await clickAndAwaitReload(config, config.locator('form[action$="/EnableConRequestResponse"] input[type="submit"]'));
     await config.locator('.alert-success').waitFor({ state: 'visible' });
@@ -249,8 +249,8 @@ async function workflow(s) {
     await menu('ViewEnableRequestResponse');
     await config.locator('#respEnabled').uncheck();
     await submitSwitch();
-    h.assert(sql.value(flag('consultRequestEnabled')) === 'Y' && sql.value(flag('consultResponseEnabled')) === 'NULL',
-      `Disabling responses did not clear only the response flag (DEBUG ${sql.value(flag('consultRequestEnabled'))}/${sql.value(flag('consultResponseEnabled'))})`);
+    h.assert(sql.value(flag('consultRequestEnabled')) === 'Y' && sql.value(flag('consultResponseEnabled')) === '<NULL>',
+      'Disabling responses did not clear only the response flag');
     h.assert(sql.value(referringActive) === '02', 'Disabling responses did not inactivate the Referring Doctor service');
     await menu('ViewShowAllServices');
     h.assert(await config.getByRole('link', { name: REFERRING, exact: true }).count() === 0,

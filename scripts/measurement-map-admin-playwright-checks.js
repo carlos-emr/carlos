@@ -177,26 +177,21 @@ async function workflow(s) {
   });
 
   // Every step from here opens a page through a link that currently answers 405.
-  await s.step('Add Measurement Mapping offers the owned codes when searched by name', async () => {
+  const offeredCodes = async page => (await page.locator('select[name="loinc_code"] option').allInnerTexts())
+    .map(t => t.trim()).filter(t => t.startsWith(`X${hex.slice(0, 11)}`));
+  await s.step('Add Measurement Mapping offers both owned codes to map to', async () => {
     const page = await open('Add Measurement Mapping', 'add-measurement-mapping');
-    await page.locator('input[name="searchstring"]').fill(marker);
-    await landOn(page, 'ViewAddMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
-    const offered = (await page.locator('select[name="loinc_code"] option').allInnerTexts()).map(t => t.trim()).filter(t => t !== 'None Selected');
-    h.assert(JSON.stringify(offered) === JSON.stringify(codes.map(c => `${c.loinc} - ${c.name}`)),
-      'The code search does not offer exactly the owned codes');
+    h.assert(JSON.stringify(await offeredCodes(page)) === JSON.stringify(codes.map(c => `${c.loinc} - ${c.name}`)),
+      'The identifier mapping page does not offer exactly the owned codes');
     await page.close();
   });
 
   await s.step('REMAP moves the type mapping to the second code and records the old row', async () => {
     const page = await open('Remove/Remap Measurement Mapping', 'remove-measurement-mapping');
     const oldId = sql.value(`SELECT id FROM measurementMap WHERE loinc_code=${q(first.loinc)} AND lab_type='FLOWSHEET'`);
-    await page.locator('input[name="searchstring"]').fill(display);
-    await landOn(page, 'ViewRemoveMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
-    const row = codeRow(page, first.loinc);
+    const row = codeRow(page, first.loinc).filter({hasText: 'FLOWSHEET'});
     h.assert(await row.count() === 1, 'The owned FLOWSHEET mapping is not listed once');
     const remap = await s.popup(page, row.getByRole('button', {name: 'REMAP', exact: true}), 'remap-measurement-mapping');
-    await remap.locator('input[name="searchstring"]').fill(marker);
-    await landOn(remap, 'ViewRemapMeasurementMap', () => remap.getByRole('button', {name: 'Search', exact: true}).click());
     await remap.locator('select[name="loinc_code"]').selectOption(second.loinc);
     const since = s.recorder.requestFailures.length;
     const closed = remap.waitForEvent('close', {timeout: 20000});
@@ -215,25 +210,31 @@ async function workflow(s) {
 
   await s.step('DELETE removes every owned mapping after confirmation and records each', async () => {
     const page = await open('Remove/Remap Measurement Mapping', 'delete-measurement-mapping');
-    for (const term of [marker, display]) {
-      await page.locator('input[name="searchstring"]').fill(term);
-      await landOn(page, 'ViewRemoveMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
-      for (;;) {
-        const row = codeRow(page, codes.map(c => c.loinc).join('|')).first();
-        if (!await row.count()) break;
-        const before = mapRows().length;
-        const dialogs = await h.withExpectedDialogs(page, () => landOn(page, 'RemoveMeasurementMap',
-          () => row.getByRole('button', {name: 'DELETE', exact: true}).click()));
-        h.assert(dialogs.map(d => d.text).join('|') === 'Are you sure you want to delete the mapping?|Successfully deleted the mapping',
-          'DELETE did not confirm and then report success');
-        h.assert(mapRows().length === before - 1, 'DELETE did not remove exactly one owned mapping');
-        await page.locator('input[name="searchstring"]').fill(term);
-        await landOn(page, 'ViewRemoveMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
-      }
+    const ownedRow = () => codeRow(page, codes.map(c => c.loinc).join('|')).first();
+    for (let left = mapRows().length; left > 0; left--) {
+      h.assert(await ownedRow().count() === 1, 'The removal table does not list a remaining owned mapping');
+      const dialogs = await h.withExpectedDialogs(page, () => landOn(page, 'RemoveMeasurementMap',
+        () => ownedRow().getByRole('button', {name: 'DELETE', exact: true}).click()));
+      h.assert(dialogs.map(d => d.text).join('|') === 'Are you sure you want to delete the mapping?|Successfully deleted the mapping',
+        'DELETE did not confirm and then report success');
+      h.assert(mapRows().length === left - 1, 'DELETE did not remove exactly one owned mapping');
     }
-    h.assert(mapRows().length === 0, 'Owned mappings remain after DELETE');
+    h.assert(await ownedRow().count() === 0, 'The removal table still lists an owned mapping');
     h.assert(sql.value(`SELECT COUNT(*) FROM recyclebin WHERE ${recycled} AND provider_no=${q(provider)}`) === '3',
       'DELETE did not record each removed mapping against the provider');
+    await page.close();
+  });
+
+  // Search posts the form to the GET-only View* gate (405 today), so it is asserted last.
+  await s.step('Search by name on Add Measurement Mapping narrows the codes to the owned ones', async () => {
+    sql.execute(`INSERT INTO measurementMap(loinc_code,ident_code,name,lab_type)
+      VALUES ${codes.map(c => `(${q(c.loinc)},${q(c.loinc)},${q(c.name)},'PATHL7')`).join(',')}`);
+    const page = await open('Add Measurement Mapping', 'search-measurement-mapping');
+    await page.locator('input[name="searchstring"]').fill(marker);
+    await landOn(page, 'ViewAddMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
+    const offered = (await page.locator('select[name="loinc_code"] option').allInnerTexts()).map(t => t.trim()).filter(t => t !== 'None Selected');
+    h.assert(JSON.stringify(offered) === JSON.stringify(codes.map(c => `${c.loinc} - ${c.name}`)),
+      'Searching by name does not offer exactly the owned codes');
     await page.close();
   });
 }
