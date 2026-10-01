@@ -25,6 +25,8 @@ package io.github.carlos_emr.carlos.lab.service;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * System-wide settings for the inline preview of PDFs embedded in HL7 lab results.
  *
@@ -59,7 +61,20 @@ public record LabPdfPreviewSettings(boolean inlinePreviewEnabled, long maxBytes)
 
     // The optional B belongs to the unit: "5MB" is 5 MiB, but a bare "5B" is not a valid size
     // (it would otherwise set a 5-byte limit and turn the preview off for nearly every PDF).
-    private static final Pattern SIZE = Pattern.compile("^(\\d{1,9})(?:\\s*([KkMmGg])[Bb]?)?$");
+    private static final Pattern SIZE = sizePattern();
+
+    /** Longest trimmed value parsed; anything longer is unparseable and uses the default. */
+    static final int MAX_SIZE_LENGTH = 16;
+
+    // Compiled in its own method so the REDOS suppression covers only this pattern (SpotBugs
+    // reports it at the compile call, which would otherwise be the class initializer).
+    // FindSecBugs REDOS: false positive -- no nested or overlapping quantifiers; the digit run is
+    // bounded to nine and \s* is followed only by the disjoint unit class, so matching is linear.
+    // Input is also capped at MAX_SIZE_LENGTH characters before matching.
+    @SuppressFBWarnings(value = "REDOS", justification = "false positive: no nested or overlapping quantifiers; bounded digit run and \\s* followed by a disjoint class make matching linear; input length is capped before matching")
+    private static Pattern sizePattern() {
+        return Pattern.compile("^(\\d{1,9})(?:\\s*([KkMmGg])[Bb]?)?$");
+    }
 
     public LabPdfPreviewSettings {
         maxBytes = maxBytes <= 0 ? DEFAULT_MAX_BYTES : Math.min(maxBytes, MAX_ALLOWED_BYTES);
@@ -87,7 +102,11 @@ public record LabPdfPreviewSettings(boolean inlinePreviewEnabled, long maxBytes)
         if (value == null) {
             return DEFAULT_MAX_BYTES;
         }
-        Matcher matcher = SIZE.matcher(value.trim());
+        String trimmed = value.trim();
+        if (trimmed.length() > MAX_SIZE_LENGTH) {
+            return DEFAULT_MAX_BYTES;
+        }
+        Matcher matcher = SIZE.matcher(trimmed);
         if (!matcher.matches()) {
             return DEFAULT_MAX_BYTES;
         }
