@@ -181,13 +181,23 @@ affinity). The email compose flow requires it:
   own temporary directory.
 - An attachment preview link is valid on that server only, for two minutes.
 
-If the send, a later resend, or a preview reaches a different server, that
-server cannot find the token. Nothing is sent. The user sees "This email
-compose window has expired or is no longer valid. Please reopen the email
-compose window and try again." Reopening the compose window starts over on
-whichever server now handles the session. A server restart, or a failover in
-the middle of composing, has the same effect. Session replication does not
-change this, because none of this state is in the session.
+If submission of a prepared email or prepared resend reaches a different
+server, that server cannot resolve its submission token. The send is refused
+before transport with "This email compose window has expired or is no longer
+valid. Please reopen the email compose window and try again."
+
+A preview request that reaches a server without its preview capability returns
+HTTP 403. A failed preview does not establish whether a separate send was
+attempted or accepted. Opening a new resend from **Manage Emails** creates fresh
+state on the receiving server, provided the authenticated session and source
+documents are available. Submitting that prepared resend still requires the
+same server.
+
+To recover an unusable compose, return to the eForm and choose **Email** again,
+or open a new resend from **Manage Emails**. Refreshing or reopening the old
+compose URL does not recreate its prepared state. A restart or failover loses
+the previous server's prepared state; HTTP-session replication does not
+preserve it.
 
 Carrying it between servers would need a shared, short-lived store that keeps
 what the current design guarantees:
