@@ -24,7 +24,7 @@
 const h = require('./lib/playwright-harness');
 const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { closeBrowserWithChartCleanup, releaseChartLocks } = require('./lib/chart-lock-cleanup');
-const { assertHealthy, crawl, judgePage, startSession } = require('./lib/page-health-engine');
+const { assertHealthy, beginEntry, crawl, judgePage, startSession } = require('./lib/page-health-engine');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { NAVBAR_SELECTOR, SKIP_ITEMS, openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
@@ -33,6 +33,8 @@ async function main() {
   const timeout = Number(process.env.PAGE_HEALTH_TIMEOUT_MS || '20000');
   const session = await startSession(config);
   try {
+    // Search, the Master Record and the chart's own start-up are judged with the crawl, not discarded.
+    const entry = beginEntry(session);
     const { masterPage } = await openMasterRecord(session.context, session.schedulePage, session.recorder, {
       searchTerm: process.env.ECHART_NAV_SEARCH || 'FAKE-',
       preferredDemographicNo: process.env.ECHART_NAV_DEMOGRAPHIC_NO || '2',
@@ -45,7 +47,7 @@ async function main() {
     h.assert(items.length > 0, 'The E-Chart navigation loaded but offered no navigable links');
     const result = await crawl({
       context: session.context, hostPage: chartPage, items, recorder: session.recorder, probe: session.probe,
-      labelPrefix: 'echart-nav', timeout, tolerateReshuffle: true, skipRules: SKIP_ITEMS, ledger: session.ledger,
+      labelPrefix: 'echart-nav', timeout, entry: { window: entry, label: 'echart (entry)' }, tolerateReshuffle: true, skipRules: SKIP_ITEMS, ledger: session.ledger,
       beforeItem: () => waitForNavbars(chartPage, timeout),
       beforePopupClose: page => releaseChartLocks(session.context, config.baseUrl, [page]),
     });

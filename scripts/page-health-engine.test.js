@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createLedger, headerFindings, scanText } = require('./lib/page-health-engine');
+const { beginEntry, createLedger, entryFailures, headerFindings, scanText } = require('./lib/page-health-engine');
 
 const kinds = findings => findings.map(finding => finding.kind).sort();
 
@@ -13,11 +13,13 @@ test('scanText reports each rendering accident once with its kind', () => {
     values: ['null', 'ok', '???other.key???'],
     title: 'Fine',
   };
-  const found = kinds(scanText(read));
-  for (const kind of ['literal-null', 'literal-undefined', 'literal-nan', 'missing-resource-key',
-    'object-object', 'unresolved-el', 'unresolved-ognl', 'double-encoded-entity', 'java-leak', 'field-null']) {
-    assert.ok(found.includes(kind), `${kind} should be reported, got ${found.join(',')}`);
-  }
+  // The whole sorted list: a duplicated finding or an unexpected extra kind fails too. The two
+  // missing-resource-key hits are the one in the text and the one in a form value.
+  assert.deepEqual(kinds(scanText(read)), [
+    'double-encoded-entity', 'field-null', 'java-leak', 'literal-nan', 'literal-null',
+    'literal-undefined', 'missing-resource-key', 'missing-resource-key', 'object-object',
+    'unresolved-el', 'unresolved-ognl',
+  ]);
 });
 
 test('scanText leaves ordinary words, paths and identifiers alone', () => {
@@ -76,4 +78,23 @@ test('the ledger keeps one entry per distinct defect and counts the pages', () =
   assert.equal(ledger.list().length, 1);
   assert.equal(ledger.list()[0].count, 2);
   assert.deepEqual(ledger.suppressedSummary(), ['known-kind x1 (known: already filed)']);
+});
+
+test('entryFailures reports what the browser recorded since the entry began, and nothing before it', () => {
+  const recorder = {
+    pageErrors: [{ text: 'old error' }], consoleIssues: [], badResponses: [], requestFailures: [], unexpectedDialogs: [],
+  };
+  const probe = { offHost: [{ url: 'https://old.example/x', resourceType: 'image', mixed: false, from: '' }] };
+  const ledger = createLedger();
+  const entry = beginEntry({ recorder, probe });
+  recorder.pageErrors.push({ text: 'ReferenceError: boom\n    at x' });
+  recorder.requestFailures.push({ resourceType: 'image', errorText: 'net::ERR_BLOCKED_BY_CLIENT' });
+  recorder.badResponses.push({ status: 500, resourceType: 'document' });
+  probe.offHost.push({ url: 'https://new.example/y', resourceType: 'script', mixed: false, from: 'http://app/p' });
+  const lines = entryFailures({ recorder, probe, ledger }, entry, 'entry');
+  assert.deepEqual(lines, ['entry: uncaught ReferenceError: boom', 'entry: HTTP 500 on a document']);
+  assert.equal(ledger.list().length, 1);
+  assert.match(ledger.list()[0].detail, /new\.example/);
+  assert.deepEqual(entryFailures({ recorder, probe, ledger }, entry, 'entry', ['uncaught ReferenceError: boom']),
+    ['entry: HTTP 500 on a document']);
 });

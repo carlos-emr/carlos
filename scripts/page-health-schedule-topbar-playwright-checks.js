@@ -35,8 +35,11 @@ async function main() {
   try {
     const all = dedupe(await catalogueLinks(session.schedulePage, { identity: true }));
     const topBar = all.filter(item => item.identity.ancestorIds.some(id => TOP_BAR_ANCESTORS.includes(id)));
-    // One appointment slot is enough: they all share addappointment.
-    const slot = all.find(item => item.identity.ancestorIds.includes('providerSchedule'));
+    // One appointment slot is enough: they all share addappointment. Only an EMPTY slot's opener
+    // qualifies; a booked appointment's links lead to patient-specific encounter/billing/edit pages.
+    const slot = all.find(item => item.identity.ancestorIds.includes('providerSchedule')
+      && /\/appointment\/addappointment\b/.test(`${item.identity.onclick || ''} ${item.identity.href || ''}`));
+    if (!slot) console.log('  no empty appointment slot opener on this day sheet; the add-appointment page is not crawled');
     const items = [...topBar, ...(slot ? [slot] : [])];
     h.assert(items.length >= 10,
       `the schedule offered only ${items.length} top-bar link(s); the catalogue is probably broken`);

@@ -316,18 +316,30 @@ function createLedger() {
   };
 }
 
-/** Same-origin frames of a page, deepest-first not needed: one level is what apps use. */
+/*
+ * Same-origin frames of a page, one level deep (what the apps use). With a scope (the
+ * Administration shell's #dynamic-content panel) only the frames whose <iframe> element
+ * sits INSIDE the scope belong to the destination: the shell's own frames are not judged
+ * as part of an item, but an iframe-backed .xlink destination is.
+ */
 async function frameReads(page, scopeSelector) {
   const reads = [];
   const main = await page.evaluate(readPageText, scopeSelector).catch(() => null);
   if (main) reads.push({ where: 'page', read: main });
-  if (!scopeSelector) {
-    for (const frame of page.frames()) {
-      if (frame === page.mainFrame()) continue;
-      if (!frame.url() || frame.url() === 'about:blank') continue;
-      const read = await frame.evaluate(readPageText, null).catch(() => null);
-      if (read && (read.text || read.values.length)) reads.push({ where: 'frame', read });
+  for (const frame of page.frames()) {
+    if (frame === page.mainFrame()) continue;
+    if (!frame.url() || frame.url() === 'about:blank') continue;
+    if (scopeSelector) {
+      const owner = await frame.frameElement().catch(() => null);
+      const inside = owner
+        ? await owner.evaluate((element, selector) => !!element.closest(selector), scopeSelector).catch(() => false)
+        : false;
+      if (owner) await owner.dispose().catch(() => {});
+      if (!inside) continue;
     }
+    const read = await frame.evaluate(readPageText, null).catch(() => null);
+    // The URL rides along so a frame that landed on the login page is reported as a lost session.
+    if (read) reads.push({ where: 'frame', read, url: frame.url() });
   }
   return reads;
 }
@@ -361,7 +373,16 @@ async function judgePage(ledger, probe, label, page, options = {}) {
     // A binary destination (PDF viewer) has no text; the response header check above covered it.
     return;
   }
-  for (const { where, read } of reads) {
+  for (const { where, read, url: frameUrl } of reads) {
+    if (where === 'frame') {
+      let framePath = '';
+      try { framePath = new URL(frameUrl).pathname; } catch { /* not a URL: nothing to judge */ }
+      if (/\/(?:index\.jsp|logout|login)(?:[?#;]|$)/i.test(framePath)) {
+        ledger.add(label, 'session-lost', `a frame ended on ${framePath.replace(/^\/carlos/, '')}, the login/logout page`);
+        continue;
+      }
+      if (!read.text && !read.values.length) continue;
+    }
     for (const finding of scanText(read, allow)) {
       const known = KNOWN_FINDINGS.find(rule => rule.kind.test(finding.kind) && rule.match.test(finding.detail));
       if (known) {
@@ -449,13 +470,46 @@ async function clickFooterLinks(context, page, label, timeout, ledger) {
       ledger.add(label, 'dead-footer-link', `the "${text}" footer link opened nothing`);
       continue;
     }
-    await popup.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+    // The popup event fires while the window is still about:blank, where "domcontentloaded"
+    // is already true; a link that never navigates must not pass as a working footer link.
+    const navigated = await popup.waitForURL(url => String(url) !== 'about:blank', { timeout })
+      .then(() => true, () => false);
+    if (navigated) await popup.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+    else ledger.add(label, 'dead-footer-link', `the "${text}" footer link opened a window that never navigated`);
     await popup.close().catch(() => {});
   }
 }
 
 /**
+ * The ENTRY phase of a check: everything between "the session was healthy" and the first
+ * crawled item (opening the surface, the search, the Master Record, the chart ...). The
+ * crawl snapshots the recorder per item, so signals raised while getting THERE would
+ * otherwise belong to nobody. Take the window before the first opening click and hand it
+ * to crawl({entry}) or entryFailures().
+ */
+function beginEntry(session) {
+  return { before: snapshotRecorder(session.recorder), offHostFrom: session.probe.offHost.length };
+}
+
+/**
+ * Failure lines for the browser signals recorded since `entry` began, plus off-host and
+ * mixed-content requests into the ledger. `ignore` lists "uncaught ..." lines the caller
+ * already reports itself (the footer check owns its ReferenceError findings).
+ */
+function entryFailures({ recorder, probe, ledger }, entry, label, ignore = []) {
+  for (const off of probe.offHost.slice(entry.offHostFrom)) {
+    ledger.add(label, off.mixed ? 'mixed-content' : 'off-host-request',
+      `${off.resourceType} request to ${off.url} was blocked (requested by ${off.from || 'unknown'})`);
+  }
+  return findingsSince(recorder, entry.before, label)
+    .filter(line => !/ERR_BLOCKED_BY_CLIENT/.test(line))
+    .filter(line => !ignore.some(text => line === `${label}: ${text}`));
+}
+
+/**
  * The crawl: click each item, judge the destination, put the host back.
+ * `options.entry` ({window: beginEntry(session), label}) adds the browser signals of the
+ * entry phase to the failures before the first item.
  *
  * @returns {{opened:string[], skipped:number, failures:string[], ledger}}
  */
@@ -476,6 +530,9 @@ async function crawl(options) {
   const hidden = [];
   let skipped = 0;
   let attempted = 0;
+  if (options.entry) {
+    failures.push(...entryFailures({ recorder, probe, ledger }, options.entry.window, options.entry.label));
+  }
   for (const item of items) {
     if (limit && attempted >= limit) break;
     if (skipRules.find(rule => rule.match.test(item.text)) || isCurrentDocumentLink(item, hostUrl)) {
@@ -612,6 +669,6 @@ async function startSession(config) {
 }
 
 module.exports = {
-  TEXT_RULES, assertHealthy, createLedger, crawl, headerFindings, installProbes, judgePage,
+  TEXT_RULES, assertHealthy, beginEntry, createLedger, crawl, entryFailures, headerFindings, installProbes, judgePage,
   readPageText, scanText, startSession,
 };

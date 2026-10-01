@@ -32,6 +32,11 @@ const { closeBrowserWithChartCleanup, releaseChartLocks } = require('./lib/chart
 const { assertHealthy, crawl, judgePage, startSession } = require('./lib/page-health-engine');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
+// Applies to every hub: a destructive control must never be clicked by a read-only crawl.
+const DESTRUCTIVE_SKIP = [
+  { match: /^(?:del(?:ete)?|remove|discon(?:tinue)?)$/i, reason: 'mutates the patient record' },
+];
+
 const HUBS = [
   {
     name: 'Prescriptions',
@@ -83,7 +88,7 @@ async function main() {
         if (hub.sample && !allPreventions) items = sampleSpread(items, 24);
         const result = await crawl({
           context: session.context, hostPage: hubPage, items, recorder: session.recorder, probe: session.probe,
-          labelPrefix: hub.name, timeout, skipRules: hub.skip, ledger: session.ledger, tolerateReshuffle: true,
+          labelPrefix: hub.name, timeout, skipRules: [...DESTRUCTIVE_SKIP, ...hub.skip], ledger: session.ledger, tolerateReshuffle: true,
           beforePopupClose: page => releaseChartLocks(session.context, config.baseUrl, [page]),
         });
         console.log(`  ${hub.name}: opened ${result.opened.length}, skipped ${result.skipped}`);

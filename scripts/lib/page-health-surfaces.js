@@ -18,7 +18,7 @@
 const h = require('./playwright-harness');
 const { catalogueLinks, dedupe } = require('./playwright-link-audit');
 const { NEVER_OPEN, surfaceByName } = require('./playwright-surfaces');
-const { assertHealthy, crawl, createLedger, judgePage, startSession } = require('./page-health-engine');
+const { assertHealthy, beginEntry, crawl, createLedger, entryFailures, judgePage, startSession } = require('./page-health-engine');
 const { openSurface } = require('../surface-audit-playwright-checks');
 
 /** Open each named surface, crawl what it offers, fail with every finding in one list. */
@@ -36,6 +36,9 @@ async function runSurfaceHealth(names, options = {}) {
       const surface = surfaceByName(name);
       h.assert(surface, `unknown surface ${name}; see lib/playwright-surfaces.js`);
       let page;
+      // Opening the surface is part of its verdict: its script errors, failed resources and
+      // off-host requests are reported with the crawl's, not discarded after the landing loads.
+      const entry = beginEntry(session);
       try {
         page = await openSurface(session.context, session.schedulePage, surface, session.recorder, timeout);
       } catch (error) {
@@ -51,6 +54,7 @@ async function runSurfaceHealth(names, options = {}) {
         await judgePage(ledger, session.probe, `${name} (landing)`, page, {});
         if (surface.controls) {
           console.log(`  ${name}: form surface, landing page judged`);
+          failures.push(...entryFailures({ ...session, ledger }, entry, `${name} (entry)`).map(line => `[${name}] ${line}`));
           continue;
         }
         const items = dedupe(await catalogueLinks(page, surface.scope ? { selector: `${surface.scope} a` } : {}));
@@ -58,7 +62,7 @@ async function runSurfaceHealth(names, options = {}) {
           `${surface.title} offered ${items.length} link(s); expected at least ${surface.minimum}`);
         const result = await crawl({
           context: session.context, hostPage: page, items, recorder: session.recorder, probe: session.probe,
-          labelPrefix: name, timeout, limit, ledger,
+          labelPrefix: name, timeout, limit, ledger, entry: { window: entry, label: `${name} (entry)` },
           skipRules: [...NEVER_OPEN, ...(surface.skip || []), ...(options.skip || [])],
         });
         console.log(`  ${name}: opened ${result.opened.length}, skipped ${result.skipped}`);
@@ -72,7 +76,9 @@ async function runSurfaceHealth(names, options = {}) {
       }
     }
     assertHealthy({ failures, ledger, opened: new Array(openedTotal) },
-      { surface: names.join(' + '), minimumOpened: options.minimumOpened || 1 });
+      // A bounded run (PAGE_HEALTH_LIMIT=N) opens at most N links per surface and a surface
+      // may not be offered here at all, so the catalogue-sanity minimum only applies unbounded.
+      { surface: names.join(' + '), minimumOpened: limit ? 1 : options.minimumOpened || 1 });
   } finally {
     await session.close();
   }

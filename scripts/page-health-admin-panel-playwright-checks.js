@@ -29,7 +29,7 @@
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
-const { assertHealthy, crawl, judgePage, startSession } = require('./lib/page-health-engine');
+const { assertHealthy, beginEntry, crawl, judgePage, startSession } = require('./lib/page-health-engine');
 const { SKIP_ITEMS } = require('./admin-index-links-playwright-checks');
 
 async function main() {
@@ -41,6 +41,8 @@ async function main() {
   try {
     const opener = session.schedulePage.locator('#admin-panel, #admin2').first();
     h.assert(await opener.count() > 0, 'The schedule offers no Administration control (#admin-panel / #admin2)');
+    // Opening the shell is judged too: its startup errors and failed resources are reported with the crawl's.
+    const entry = beginEntry(session);
     const { page: adminPage } = await clickOpensPopupOrNavigates(session.schedulePage, opener, {
       context: session.context, label: 'administration', recorder: session.recorder, timeout,
     });
@@ -55,10 +57,14 @@ async function main() {
     const result = await crawl({
       context: session.context, hostPage: adminPage, items, recorder: session.recorder, probe: session.probe,
       labelPrefix: 'admin', inPlaceTarget: '#dynamic-content', skipRules: SKIP_ITEMS, limit, timeout,
-      ledger: session.ledger,
+      ledger: session.ledger, entry: { window: entry, label: 'administration (entry)' },
       // Filed: Unlock Account answers 500 whenever any login is tracked (ISSUES.md L1,
-      // app-findings-log 71). Counted, not failed a second time.
-      knownFailures: [{ match: /^admin:Unlock Account/, reason: 'Unlock Account 500, ISSUES.md L1 / finding 71' }],
+      // app-findings-log 71). Only that 500 signature is counted, not failed a second time: an
+      // uncaught error, another failed request or a text finding on the same link still fails.
+      knownFailures: [{
+        match: /^admin:Unlock Account: (?:HTTP 500\b|console error: Failed to load resource: the server responded with a status of 500|rendered an error page)/,
+        reason: 'Unlock Account 500, ISSUES.md L1 / finding 71',
+      }],
     });
     console.log(`  opened ${result.opened.length} Administration item(s), skipped ${result.skipped}`);
     assertHealthy(result, { surface: 'Administration', minimumOpened: only || limit || shards > 1 ? 1 : 20 });

@@ -24,7 +24,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
-const { startSession } = require('./lib/page-health-engine');
+const { beginEntry, createLedger, entryFailures, startSession } = require('./lib/page-health-engine');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 async function openHub(session, masterPage, name, timeout) {
@@ -37,14 +37,14 @@ async function openHub(session, masterPage, name, timeout) {
 }
 
 /** Click one footer link and require a healthy popup; returns the findings. */
-async function footerLink(session, page, text, timeout) {
+async function footerLink(session, page, text, timeout, reported) {
   const link = page.locator('a[href^="javascript:"]').filter({ hasText: new RegExp(`^\\s*${text}\\s*$`) }).first();
   if (await link.count() === 0) return [`no "${text}" footer link on ${page.url().split('?')[0].split('/').pop()}`];
   const problems = [];
   const before = session.recorder.pageErrors.length;
   try {
     const popup = await ui.clickOpensPopup(page, link, {
-      context: session.context, label: `footer ${text}`, recorder: session.recorder, timeout: 5000,
+      context: session.context, label: `footer ${text}`, recorder: session.recorder, timeout,
     });
     await popup.close().catch(() => {});
   } catch (error) {
@@ -52,6 +52,7 @@ async function footerLink(session, page, text, timeout) {
   }
   for (const entry of session.recorder.pageErrors.slice(before)) {
     problems.push(`"${text}" footer link threw: ${entry.text.split('\n')[0]}`);
+    reported.push(`uncaught ${entry.text.split('\n')[0]}`);
   }
   return problems;
 }
@@ -61,13 +62,18 @@ async function main() {
   const timeout = Number(process.env.PAGE_HEALTH_TIMEOUT_MS || '20000');
   const session = await startSession(config);
   const problems = [];
+  // Footer ReferenceErrors are reported per link above; everything else the browser recorded
+  // while getting here and clicking is asserted at the end.
+  const reported = [];
+  const ledger = createLedger();
+  const entry = beginEntry(session);
   try {
     const { masterPage } = await openMasterRecord(session.context, session.schedulePage, session.recorder, {
       searchTerm: 'FAKE-', preferredDemographicNo: '2', timeout,
     });
 
     const contacts = await openHub(session, masterPage, 'Manage Contacts', timeout);
-    for (const text of ['About', 'License']) problems.push(...await footerLink(session, contacts, text, timeout));
+    for (const text of ['About', 'License']) problems.push(...await footerLink(session, contacts, text, timeout, reported));
     await contacts.close().catch(() => {});
     console.log(`  step page-health-footer-links: Manage Contacts footer links clicked, ${problems.length} problem(s) recorded`);
 
@@ -77,13 +83,14 @@ async function main() {
     const form = await ui.clickOpensPopup(preventions, first, {
       context: session.context, label: 'add prevention', recorder: session.recorder, timeout,
     });
-    for (const text of ['About', 'License']) problems.push(...await footerLink(session, form, text, timeout));
+    for (const text of ['About', 'License']) problems.push(...await footerLink(session, form, text, timeout, reported));
     await form.close().catch(() => {});
     await preventions.close().catch(() => {});
     console.log(`  step page-health-footer-links: add-prevention form footer links clicked, ${problems.length} problem(s) recorded`);
 
+    problems.push(...entryFailures({ ...session, ledger }, entry, 'browser', reported), ...ledger.lines());
     h.assert(problems.length === 0,
-      `${problems.length} footer link(s) are broken:\n    - ${problems.join('\n    - ')}`);
+      `${problems.length} problem(s) on the footer-link pages:\n    - ${problems.join('\n    - ')}`);
   } finally {
     await closeBrowserWithChartCleanup(session.browser, config.baseUrl);
   }

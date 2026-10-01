@@ -43,6 +43,9 @@ async function main() {
     const link = await resolveAuditLink(adminPage, item, timeout);
     await revealAuditLink(adminPage, link, timeout);
     const offHostBefore = session.probe.offHost.length;
+    // Live DOM: the item is an `a.xlink[rel=/carlos/admin/ResourceBaseUrl]` that the Administration
+    // shell loads into an iframe inside #dynamic-content (a popup is only the legacy
+    // popupPage() markup in admin.jsp, which the panel does not render for this item).
     await link.click({ timeout });
     const frame = adminPage.frameLocator('#dynamic-content iframe');
     await frame.locator('.toastui-editor-defaultUI, .ProseMirror').first().waitFor({ state: 'attached', timeout });
@@ -55,6 +58,9 @@ async function main() {
     h.assert(requests.length === 0,
       `Help Link Setting made ${requests.length} request(s) to a host other than the application, which CARLOS must never do `
       + `from an EMR page (blocked in the browser): ${[...new Set(requests)].join('; ')}`);
+    // After the off-host verdict so the telemetry diagnostic stays primary: the editor must
+    // also render without a script error, console error or failed same-origin resource.
+    h.assertStrictPage(session.recorder);
   } finally {
     await session.close();
   }
