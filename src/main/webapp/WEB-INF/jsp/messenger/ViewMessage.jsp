@@ -188,15 +188,17 @@ function popup(demographicNo, msgId, providerNo, action) {
 
       if ( action == "writeToEncounter") {
           win = window.open("","<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>");
-          if ( win.pasteToEncounterNote && win.demographicNo == demographicNo ) {
+          // A popup blocker leaves win null; fall through to the other paths
+          // (and the POST below) instead of stopping at a TypeError.
+          if ( win && win.pasteToEncounterNote && win.demographicNo == demographicNo ) {
             txt = fmtOscarMsg();
             win.pasteToEncounterNote(txt);
           } else if ( noteEditor != undefined ){
-        	win.close();
+        	if (win) { win.close(); }
         	txt = "\n" + fmtOscarMsg();
         	noteEditor.value = noteEditor.value + txt;
           } else if ( noteEditor == undefined && ngApp != undefined ){
-        	  win.close();
+        	  if (win) { win.close(); }
         	  txt = "\n" + fmtOscarMsg();
         	  var openerRef = window.parent.opener || window.opener;
         	  if (openerRef) {
@@ -205,7 +207,7 @@ function popup(demographicNo, msgId, providerNo, action) {
         	      openerRef.location.href = newAngJsPath;
         	  }
           } else {
-              win.close();
+              if (win) { win.close(); }
               var writeTarget = "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
               // Open the popup inside the click handler (popup blockers), then
               // post into it. carlosPostForm attaches the CSRF token, which
@@ -213,7 +215,7 @@ function popup(demographicNo, msgId, providerNo, action) {
               var popUp = window.open('', writeTarget, windowprops);
               carlosPostForm('WriteToEncounter',
                   {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'},
-                  {target: writeTarget});
+                  {target: writeTarget, popup: popUp});
               if (popUp != null) {
                   if (popUp.opener == null) {
                       popUp.opener = self;
