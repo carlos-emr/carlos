@@ -3052,6 +3052,19 @@
       "env": []
     },
     {
+      "name": "inbox-document-forwarding-scope",
+      "script": "scripts/inbox-document-forwarding-scope-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "provider-linking-rules",
       "script": "scripts/provider-linking-rules-playwright-checks.js",
       "tiers": [
