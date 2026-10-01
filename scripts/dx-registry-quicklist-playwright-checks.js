@@ -11,7 +11,7 @@
 // refreshing both fragments without saving a bill, retirement of an emptied
 // list, the association list, the sidebar switching to a named list whose "add"
 // registers the code, and a CSV association appended through the upload form.
-// Fixtures: owned FAKE- patient, a UI-created list and a seeded list (FAKE-<hex>
+// Fixtures: owned FAKE- patient, a UI-created list and a seeded list (FAKE<base36>
 // names, VARCHAR(10)-safe), associations whose code starts with the run marker;
 // cleanup deletes only those rows and asserts they are gone.
 // Coverage plan: §2.5 dx-registry-quicklist.
@@ -24,20 +24,24 @@ const CODES = ['250', '401', '428'];
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
-  // quickListUser.quickListName is VARCHAR(10); keep the owned names within it.
-  const name = `FAKE-${marker.slice(-5)}`;
-  const seeded = `FAKE-${marker.slice(-10, -5)}`;
+  // quickListUser.quickListName is VARCHAR(10): "FAKE" plus six base-36 digits of a
+  // disjoint 32-bit slice of the run marker (~31 bits each) keeps the names within it.
+  const shortName = hex => `FAKE${(parseInt(hex, 16) % 36 ** 6).toString(36).toUpperCase().padStart(6, '0')}`;
+  const name = shortName(marker.slice(-8));
+  const seeded = shortName(marker.slice(-16, -8));
   const names = `(${sqlString(name)},${sqlString(seeded)})`;
+  const ownedLists = `quickListName IN ${names} AND createdByProvider=${sqlString(provider)}`;
+  const ownedUsers = `quickListName IN ${names} AND providerNo=${sqlString(provider)}`;
   const ownedCodes = `code LIKE ${sqlString(`${marker}%`)}`;
   const listRows = () => sql.value(`SELECT GROUP_CONCAT(dxResearchCode ORDER BY dxResearchCode)
     FROM quickList WHERE quickListName=${sqlString(name)} AND codingSystem='icd9' AND createdByProvider=${sqlString(provider)}`);
   s.cleanup(() => {
-    sql.execute(`DELETE FROM quickList WHERE quickListName IN ${names};
-      DELETE FROM quickListUser WHERE quickListName IN ${names};
+    sql.execute(`DELETE FROM quickList WHERE ${ownedLists};
+      DELETE FROM quickListUser WHERE ${ownedUsers};
       DELETE FROM dxresearch WHERE demographic_no=${patient};
       DELETE FROM dx_associations WHERE ${ownedCodes}`);
-    assert(sql.value(`SELECT (SELECT COUNT(*) FROM quickList WHERE quickListName IN ${names})
-      + (SELECT COUNT(*) FROM quickListUser WHERE quickListName IN ${names})
+    assert(sql.value(`SELECT (SELECT COUNT(*) FROM quickList WHERE ${ownedLists})
+      + (SELECT COUNT(*) FROM quickListUser WHERE ${ownedUsers})
       + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM dx_associations WHERE ${ownedCodes})`) === '0', 'Owned quick-list fixtures were not removed');
   });
@@ -65,7 +69,8 @@ async function workflow(s) {
     await editor.locator('select[name="quickListItems"]').waitFor({ state: 'visible' });
     assert((await editor.locator('h4.page-header-title').innerText()).includes(name), 'Editor does not name the new quick list');
     assert(await editor.locator('select[name="quickListItems"] option').count() === 0, 'A new quick list already has items');
-    assert(listRows() === null, 'Opening a new quick list wrote quickList rows');
+    assert(sql.value(`SELECT COUNT(*) FROM quickList WHERE quickListName=${sqlString(name)}`) === '0',
+      'Opening a new quick list wrote quickList rows');
   });
 
   await s.step('code search prefills the exact codes and Add >> stores exactly those items', async () => {

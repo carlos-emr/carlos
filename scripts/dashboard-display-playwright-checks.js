@@ -92,6 +92,10 @@ async function workflow(s) {
     const P = h.sqlString(fixture.providerNo);
     const owned = patients.length ? patients.join(',') : '0';
     const ownedMessages = `SELECT message FROM messagelisttbl WHERE provider_no=${P}`;
+    // Child rows are verified by the parent ids captured before the parents are deleted;
+    // a subquery through the deleted tickler/messagelisttbl rows would always count zero.
+    const ticklerIds = sql.value(`SELECT GROUP_CONCAT(tickler_no) FROM tickler WHERE demographic_no IN (${owned})`) || '0';
+    const messageIds = sql.value(`SELECT GROUP_CONCAT(message) FROM messagelisttbl WHERE provider_no=${P}`) || '0';
     sql.execute([
       `DELETE FROM tickler_update WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE demographic_no IN (${owned}))`,
       `DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE demographic_no IN (${owned}))`,
@@ -107,12 +111,18 @@ async function workflow(s) {
       `DELETE FROM demographicArchive WHERE demographic_no IN (${owned})`,
       `DELETE FROM demographic WHERE demographic_no IN (${owned}) AND last_name=${M}`,
     ].join(';'));
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${owned}))
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM tickler_update WHERE tickler_no IN (${ticklerIds}))
+      + (SELECT COUNT(*) FROM tickler_comments WHERE tickler_no IN (${ticklerIds}))
+      + (SELECT COUNT(*) FROM tickler_link WHERE tickler_no IN (${ticklerIds}))
+      + (SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${owned}) OR tickler_no IN (${ticklerIds}))
       + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no IN (${owned}))
+      + (SELECT COUNT(*) FROM msgDemoMap WHERE messageID IN (${messageIds}))
+      + (SELECT COUNT(*) FROM messagetbl WHERE messageid IN (${messageIds}))
       + (SELECT COUNT(*) FROM messagelisttbl WHERE provider_no=${P})
       + (SELECT COUNT(*) FROM indicatorTemplate WHERE name LIKE ${h.sqlString(marker + '%')})
       + (SELECT COUNT(*) FROM dashboard WHERE name=${M})
       + (SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${P})
+      + (SELECT COUNT(*) FROM demographicArchive WHERE demographic_no IN (${owned}))
       + (SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${owned}))`) === '0',
     'Owned dashboard fixtures were not all removed');
   });
@@ -311,9 +321,12 @@ async function workflow(s) {
     h.assert((await modal.locator('#icd9description').innerText()).trim()
       === sql.value(`SELECT description FROM icd9 WHERE icd9='${DX_CODE}'`), 'The confirmation shows the wrong ICD9 description');
     await modal.locator('#confirmAddToDiseaseRegistry').click();
-    if (!await eventually(`SELECT (${dxRows(alpha)})+(${dxRows(bravo)})`, '2')) {
-      deferFailure('dashboard-display', /\/web\/dashboard\/display\/DrilldownDisplay$/, 500, null);
-      defects.push('Drilldown > Actions > Add To Disease Registry > Confirm writes no dxresearch rows: drilldownDisplayController.js posts to $(this).attr("href"), which the <button> lacks, so the XHR goes to DrilldownDisplay (HTTP 500)');
+    if (!await eventually(`SELECT (${dxRows(alpha)})=1 AND (${dxRows(bravo)})=1`, '1')) {
+      const misrouted = deferFailure('dashboard-display', /\/web\/dashboard\/display\/DrilldownDisplay$/, 500, null);
+      const counts = [alpha, bravo].map(id => sql.value(dxRows(id)));
+      defects.push(misrouted && counts.every(count => count === '0')
+        ? 'Drilldown > Actions > Add To Disease Registry > Confirm writes no dxresearch rows: drilldownDisplayController.js posts to $(this).attr("href"), which the <button> lacks, so the XHR goes to DrilldownDisplay (HTTP 500)'
+        : `Drilldown > Actions > Add To Disease Registry > Confirm did not write exactly one ICD9 ${DX_CODE} row per checked patient (found ${counts.join(' and ')})`);
       if (await modal.isVisible()) await modal.locator('.modal-footer button', { hasText: 'Cancel' }).click();
       await modal.waitFor({ state: 'hidden' });
     }
@@ -338,8 +351,9 @@ async function workflow(s) {
   await s.step('no deferred dashboard defect remains (plain-user drill down, GET-refusing BulkPatientAction)', async () => {
     const dx = await ctx.request.get(h.appUrl(s.config.baseUrl,
       `/web/dashboard/display/BulkPatientAction?method=addToDiseaseRegistry&dxUpdateICD9Code=${DX_CODE}&patientIds=${charlie}`), { maxRedirects: 0 });
-    if (sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${charlie}`) !== '0') {
-      defects.push(`GET web/dashboard/display/BulkPatientAction?method=addToDiseaseRegistry wrote a dxresearch row (HTTP ${dx.status()}); a mutator must refuse GET`);
+    const written = sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${charlie}`);
+    if (dx.status() !== 405 || written !== '0') {
+      defects.push(`GET web/dashboard/display/BulkPatientAction?method=addToDiseaseRegistry answered HTTP ${dx.status()} and wrote ${written} dxresearch row(s); a mutator must refuse GET with 405 and write nothing`);
     }
     await dashboard.close();
     sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${P} AND objectName='_dashboardChgUser'`);

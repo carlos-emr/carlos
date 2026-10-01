@@ -20,23 +20,11 @@
  * snapshotted and restored through the UI and again by cleanup SQL; cleanup deletes only
  * rows carrying the group name and asserts they are gone.
  */
-const fs = require('node:fs');
-const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const {clickAndAwaitReload, clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
-
-/** English bundle text for a key, read from the source tree when present. */
-function bundleMessage(key, fallback) {
-  try {
-    const bundle = path.join(__dirname, '..', 'src', 'main', 'resources', 'oscarResources_en.properties');
-    const line = fs.readFileSync(bundle, 'utf8').split('\n').find(candidate => candidate.startsWith(`${key}=`));
-    return line ? line.slice(key.length + 1).trim() : fallback;
-  } catch (error) {
-    return fallback;
-  }
-}
+const {bundleMessage} = require('./lib/throwaway-login-fixture');
 
 /** Wait for the admin shell's #myFrame to navigate because of `action`. */
 async function frameNavigation(admin, frame, action) {

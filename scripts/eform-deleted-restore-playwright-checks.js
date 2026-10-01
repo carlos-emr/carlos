@@ -45,9 +45,11 @@ async function workflow(s) {
     for (const fid of fids) {
       s.sql.execute(`DELETE FROM eform WHERE fid=${fid} AND form_name LIKE ${h.sqlString(s.marker + '%')}`);
     }
-    const ids = [...fids, 0].join(',');
+    // fid 0 rows are counted only for the owned patient: other charts may hold them.
+    const ids = fids.length ? fids.join(',') : '-1';
     h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM eform WHERE fid IN (${ids}))
-      + (SELECT COUNT(*) FROM eform_data WHERE fid IN (${ids}))`) === '0', 'Owned eForm templates or instances were not removed');
+      + (SELECT COUNT(*) FROM eform_data WHERE fid IN (${ids}) OR (fid=0 AND demographic_no=${s.patient}))`) === '0',
+    'Owned eForm templates or instances were not removed');
   });
   for (const [name, independent] of [[patientForm, 0], [independentForm, 1]]) {
     const fid = s.sql.value(`INSERT INTO eform(form_name,file_name,subject,form_date,form_time,form_creator,

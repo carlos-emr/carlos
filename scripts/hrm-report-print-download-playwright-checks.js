@@ -22,10 +22,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
-const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { requirePoppler, pdfText } = require('./lib/stored-pdf-documents');
 
 /** One page of PDF text, so the downloaded attachment can be told apart from any other. */
 function onePagePdf(text) {
@@ -195,7 +195,7 @@ async function workflow(s) {
     const pdf = await download(viewer, viewer.locator('form[action$="/hospitalReportManager/PrintHRMReport"] input[type="submit"]'),
       'hrm-print', s, path.join(scratch, 'print.pdf'));
     h.assert(pdf.subarray(0, 5).toString('latin1') === '%PDF-', 'Print did not answer a PDF');
-    const text = execFileSync('pdftotext', [path.join(scratch, 'print.pdf'), '-'], { encoding: 'utf8' });
+    const text = pdfText(path.join(scratch, 'print.pdf'));
     h.assert(text.replace(/\s+/g, ' ').includes(textReport.text), 'The printed PDF does not carry the report body');
     await viewer.close();
   });
@@ -225,5 +225,7 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('hrm-report-print-download', workflow, { openPatient: true });
+if (require.main === module) runWorkflow('hrm-report-print-download', workflow, {
+  openPatient: true, preflight: () => requirePoppler('pdftotext'),
+});
 module.exports = { workflow };

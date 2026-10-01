@@ -211,6 +211,9 @@ async function workflow(s) {
   await s.step('DELETE removes every owned mapping after confirmation and records each', async () => {
     const page = await open('Remove/Remap Measurement Mapping', 'delete-measurement-mapping');
     const ownedRow = () => codeRow(page, codes.map(c => c.loinc).join('|')).first();
+    // The recycle-bin keyword is the removed row's id; scoping to these ids leaves out the
+    // entry the REMAP step recorded for the row it replaced.
+    const removedIds = sql.rows(`SELECT id FROM measurementMap WHERE loinc_code IN (${owned})`).map(([id]) => id);
     for (let left = mapRows().length; left > 0; left--) {
       h.assert(await ownedRow().count() === 1, 'The removal table does not list a remaining owned mapping');
       const dialogs = await h.withExpectedDialogs(page, () => landOn(page, 'RemoveMeasurementMap',
@@ -220,7 +223,8 @@ async function workflow(s) {
       h.assert(mapRows().length === left - 1, 'DELETE did not remove exactly one owned mapping');
     }
     h.assert(await ownedRow().count() === 0, 'The removal table still lists an owned mapping');
-    h.assert(sql.value(`SELECT COUNT(*) FROM recyclebin WHERE ${recycled} AND provider_no=${q(provider)}`) === '3',
+    h.assert(sql.value(`SELECT COUNT(*) FROM recyclebin WHERE ${recycled} AND provider_no=${q(provider)}
+      AND keyword IN (${removedIds.map(q).join(',') || "''"})`) === String(removedIds.length),
       'DELETE did not record each removed mapping against the provider');
     await page.close();
   });

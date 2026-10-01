@@ -23,72 +23,29 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createHash } = require('node:crypto');
-const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const {
+  requirePoppler, pdfFacts, sha, directory, ownedPdfDocuments, seedOwnedPdfDocuments,
+  removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
+} = require('./lib/stored-pdf-documents');
 
 const PREFERENCE = 'edoc_browser_in_document_report';
-
-/** A classic-xref PDF with one text line per page, so pdftotext can prove which file is which. */
-function textPdf(label, pages) {
-  const kids = Array.from({ length: pages }, (_, index) => `${4 + index * 2} 0 R`).join(' ');
-  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', `<< /Type /Pages /Kids [${kids}] /Count ${pages} >>`,
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
-  for (let page = 1; page <= pages; page++) {
-    const content = `BT /F1 12 Tf 40 700 Td (${label} page ${page}) Tj ET\n`;
-    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${objects.length + 2} 0 R >>`);
-    objects.push(`<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`);
-  }
-  let pdf = '%PDF-1.4\n';
-  const offsets = [];
-  objects.forEach((object, index) => { offsets.push(Buffer.byteLength(pdf)); pdf += `${index + 1} 0 obj\n${object}\nendobj\n`; });
-  const xref = Buffer.byteLength(pdf);
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  pdf += offsets.map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
-  return Buffer.from(`${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
-}
-
-function pdfFacts(file) {
-  h.assert(fs.readFileSync(file).subarray(0, 5).toString('latin1') === '%PDF-', 'The response is not a PDF');
-  const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' });
-  return { pages: Number(info.match(/^Pages:\s+(\d+)/m)?.[1]), text: execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' }) };
-}
-
-const sha = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-
-function directory(name, ...candidates) {
-  const configured = candidates.map(key => process.env[key]).find(Boolean);
-  if (!configured) throw new h.SkipCheck(`Set ${name} to the installed directory`);
-  const real = fs.realpathSync(configured);
-  h.assert(fs.statSync(real).isDirectory(), `${name} is not a directory`);
-  return real;
-}
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const store = directory('DOCUMENT_DIR', 'DOCUMENT_DIR', 'RX_FAX_DOCUMENT_DIR');
   const incoming = directory('INCOMINGDOCUMENT_DIR', 'INCOMINGDOCUMENT_DIR');
-  const owner = fs.statSync(store);
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-refile-combine-'));
-  // Stored names follow the uploader's 14-digit timestamp prefix; the refile copy drops it.
-  const docs = [{ key: 'A', pages: 2 }, { key: 'B', pages: 3 }].map(doc => ({
-    ...doc, label: `${marker} ${doc.key}`, filename: `20260101000000${marker}-${doc.key}.pdf`,
-  }));
-  docs.forEach(doc => { doc.file = path.join(store, doc.filename); });
+  const docs = ownedPdfDocuments(store, marker, [{ key: 'A', pages: 2 }, { key: 'B', pages: 3 }]);
   const refiled = path.join(incoming, '1', 'Refile', `R${marker}-A.pdf`);
+  const owned = { sql, marker, patient, files: [...docs.map(doc => doc.file), refiled] };
   const preferenceWhere = `provider_no=${h.sqlString(provider)} AND name=${h.sqlString(PREFERENCE)}`;
   const preference = sql.rows(`SELECT id,value,IF(value IS NULL,1,0) FROM property WHERE ${preferenceWhere} ORDER BY id`);
   h.assert(preference.length <= 1, 'The test provider has duplicate document-browser preference rows');
 
   s.cleanup(() => {
-    const ids = sql.rows(`SELECT document_no FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`).map(row => row[0]);
-    h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned document identity');
-    if (ids.length) {
-      sql.execute(`DELETE FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND module='demographic' AND module_id=${patient};
-        DELETE FROM document WHERE document_no IN (${ids.join(',')}) AND docdesc LIKE ${h.sqlString(`${marker}%`)}`);
-    }
-    for (const file of [...docs.map(doc => doc.file), refiled]) if (fs.existsSync(file)) fs.unlinkSync(file);
+    removeOwnedPdfDocuments(owned);
     fs.rmSync(scratch, { recursive: true, force: true });
     if (preference.length) {
       const [id, value, isNull] = preference[0];
@@ -96,22 +53,10 @@ async function workflow(s) {
     } else sql.execute(`DELETE FROM property WHERE ${preferenceWhere}`);
     h.assert(JSON.stringify(sql.rows(`SELECT id,value,IF(value IS NULL,1,0) FROM property WHERE ${preferenceWhere} ORDER BY id`))
       === JSON.stringify(preference), 'The document-browser preference was not restored');
-    h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`) === '0'
-      && sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${patient}`) === '0',
-    'Owned document rows were not removed');
-    h.assert(![...docs.map(doc => doc.file), refiled].some(file => fs.existsSync(file)), 'Owned document files were not removed');
+    assertOwnedPdfDocumentsRemoved(owned);
   });
 
-  for (const doc of docs) {
-    fs.writeFileSync(doc.file, textPdf(doc.label, doc.pages), { flag: 'wx', mode: 0o640 });
-    fs.chownSync(doc.file, owner.uid, owner.gid);
-    doc.id = sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,
-        status,contenttype,contentdatetime,public1,observationdate,number_of_pages,restrictToProgram,abnormal)
-      VALUES ('others',${h.sqlString(doc.label)},${h.sqlString(doc.filename)},${h.sqlString(provider)},${h.sqlString(provider)},
-        '',NOW(),'A','application/pdf',NOW(),0,'2026-01-02',${doc.pages},0,0); SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(doc.id), 'The owned document fixture was not created');
-    sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${doc.id},'A')`);
-  }
+  seedOwnedPdfDocuments({ sql, store, patient, provider, docs });
   if (preference.length) sql.execute(`UPDATE property SET value='yes' WHERE id=${preference[0][0]} AND ${preferenceWhere}`);
   else sql.execute(`INSERT INTO property (provider_no,name,value) VALUES (${h.sqlString(provider)},${h.sqlString(PREFERENCE)},'yes')`);
   const [docA, docB] = docs;
@@ -220,5 +165,7 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('document-refile-combine', workflow, { openPatient: true });
+if (require.main === module) runWorkflow('document-refile-combine', workflow, {
+  openPatient: true, preflight: () => requirePoppler('pdfinfo', 'pdftotext'),
+});
 module.exports = { workflow };

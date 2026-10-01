@@ -23,35 +23,12 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createHash } = require('node:crypto');
-const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-
-/** A one-page classic-xref PDF whose text names the document, so pdftotext can identify it. */
-function textPdf(label) {
-  const content = `BT /F1 12 Tf 40 700 Td (${label}) Tj ET\n`;
-  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`];
-  let pdf = '%PDF-1.4\n';
-  const offsets = [];
-  objects.forEach((object, index) => { offsets.push(Buffer.byteLength(pdf)); pdf += `${index + 1} 0 obj\n${object}\nendobj\n`; });
-  const xref = Buffer.byteLength(pdf);
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map(o => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
-  return Buffer.from(`${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
-}
-
-const sha = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-
-function directory(name, ...keys) {
-  const configured = keys.map(key => process.env[key]).find(Boolean);
-  if (!configured) throw new h.SkipCheck(`Set ${name} to the installed directory`);
-  const real = fs.realpathSync(configured);
-  h.assert(fs.statSync(real).isDirectory(), `${name} is not a directory`);
-  return real;
-}
+const {
+  requirePoppler, pdfText, sha, directory, ownedPdfDocuments, seedOwnedPdfDocuments,
+  removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
+} = require('./lib/stored-pdf-documents');
 
 const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
   && new URLSearchParams(r.request().postData() || '').get('method') === method;
@@ -60,50 +37,29 @@ async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const store = directory('DOCUMENT_DIR', 'DOCUMENT_DIR', 'RX_FAX_DOCUMENT_DIR');
   const incoming = directory('INCOMINGDOCUMENT_DIR', 'INCOMINGDOCUMENT_DIR');
-  const owner = fs.statSync(store);
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-note-browser-'));
-  const docs = ['A', 'B'].map(key => ({
-    key, label: `${marker} ${key}`, filename: `20260101000000${marker}-${key}.pdf`,
-  }));
-  docs.forEach(doc => { doc.file = path.join(store, doc.filename); });
+  const docs = ownedPdfDocuments(store, marker, [{ key: 'A' }, { key: 'B' }]);
   const [docA, docB] = docs;
   // EDocUtil.getRefiledDocumentFileName drops the 14-character upload timestamp and prefixes R.
   const refiled = path.join(incoming, '1', 'Refile', `R${docB.filename.substring(14)}`);
+  const owned = { sql, marker, patient, files: [...docs.map(doc => doc.file), refiled] };
   const texts = [1, 2, 3].map(n => `${marker} note revision ${n}`);
 
   s.cleanup(() => {
-    const ids = sql.rows(`SELECT document_no FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`).map(row => row[0]);
-    h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned document identity');
-    if (ids.length) {
-      sql.execute(`DELETE FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND module='demographic' AND module_id=${patient};
-        DELETE FROM document WHERE document_no IN (${ids.join(',')}) AND docdesc LIKE ${h.sqlString(`${marker}%`)}`);
-    }
+    removeOwnedPdfDocuments(owned);
     const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
     sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note WHERE demographic_no=${patient};
       DELETE FROM eChart WHERE demographicNo=${patient}`);
-    for (const file of [...docs.map(doc => doc.file), refiled]) if (fs.existsSync(file)) fs.unlinkSync(file);
     fs.rmSync(scratch, { recursive: true, force: true });
-    h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`) === '0'
-      && sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${patient}`) === '0'
-      && sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '0',
-    'Owned document or note rows were not removed');
-    h.assert(![...docs.map(doc => doc.file), refiled].some(file => fs.existsSync(file)), 'Owned document files were not removed');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '0', 'Owned note rows were not removed');
+    assertOwnedPdfDocumentsRemoved(owned);
   });
 
   h.assert(!fs.existsSync(refiled), 'The refile destination already exists');
-  for (const doc of docs) {
-    fs.writeFileSync(doc.file, textPdf(doc.label), { flag: 'wx', mode: 0o640 });
-    fs.chownSync(doc.file, owner.uid, owner.gid);
-    doc.id = sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,
-        status,contenttype,contentdatetime,public1,observationdate,number_of_pages,restrictToProgram,abnormal)
-      VALUES ('others',${h.sqlString(doc.label)},${h.sqlString(doc.filename)},${h.sqlString(provider)},${h.sqlString(provider)},
-        '',NOW(),'A','application/pdf',NOW(),0,'2026-01-02',1,0,0); SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(doc.id), 'The owned document fixture was not created');
-    sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${doc.id},'A')`);
-  }
+  seedOwnedPdfDocuments({ sql, store, patient, provider, docs });
   const status = doc => sql.value(`SELECT status FROM document WHERE document_no=${doc.id}`);
 
   let chart;
@@ -222,7 +178,7 @@ async function workflow(s) {
     await browser.locator('#encounterlist').waitFor({ state: 'attached' });
     h.assert(new URL(browser.url()).pathname.endsWith('/casemgmt/ViewNoteBrowser'), 'Printing navigated the note browser away');
     h.assert(fs.readFileSync(file).subarray(0, 5).toString('latin1') === '%PDF-', 'The note print is not a PDF');
-    const text = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' });
+    const text = pdfText(file);
     h.assert(text.includes(texts[2]), 'The printed PDF does not carry the latest note revision');
     h.assert(!text.includes(texts[0]), 'The printed PDF carries a superseded revision');
     await browser.close();
@@ -235,5 +191,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('note-browser-documents', workflow, { openPatient: true });
+if (require.main === module) runWorkflow('note-browser-documents', workflow, { openPatient: true, preflight: () => requirePoppler('pdftotext') });
 module.exports = { workflow };

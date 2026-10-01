@@ -77,10 +77,14 @@ async function workflow(s) {
     }
     if (owned.scheduleDate) {
       sql.execute(`DELETE FROM scheduledate WHERE id=${owned.scheduleDate} AND hour=${h.sqlString(owned.template)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM scheduledate WHERE id=${owned.scheduleDate}`) === '0',
+        'The owned schedule day was not removed');
+    }
+    // The template is inserted before the schedule day, so it is removed on its own.
+    if (owned.template) {
       sql.execute(`DELETE FROM scheduletemplate WHERE provider_no=${h.sqlString(provider)} AND name=${h.sqlString(owned.template)}`);
-      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM scheduledate WHERE id=${owned.scheduleDate})
-        + (SELECT COUNT(*) FROM scheduletemplate WHERE provider_no=${h.sqlString(provider)} AND name=${h.sqlString(owned.template)})`) === '0',
-      'The owned schedule day was not removed');
+      h.assert(sql.value(`SELECT COUNT(*) FROM scheduletemplate WHERE provider_no=${h.sqlString(provider)}
+        AND name=${h.sqlString(owned.template)}`) === '0', 'The owned schedule template was not removed');
     }
   });
 
@@ -153,7 +157,12 @@ async function workflow(s) {
   await s.step('the booked slot disappears from the search while untouched slots remain', async () => {
     const after = await submitSearch(search);
     h.assert(!after.some(slot => key(slot) === key(taken)), 'The search still offers the slot the owned appointment occupies');
-    const untouched = baseline.filter(slot => slot.date !== taken.date || Math.abs(minutes(slot.start) - minutes(taken.start)) > 60);
+    // NextAppointmentSearchHelper.checkAvailability drops a slot whose own duration
+    // overlaps the booking; every other slot must still be offered, in order.
+    const untouched = baseline.filter(slot => {
+      const offset = minutes(slot.start) - minutes(taken.start);
+      return slot.date !== taken.date || offset >= taken.duration || -offset >= slot.duration;
+    });
     const remaining = after.map(key);
     let cursor = -1;
     for (const slot of untouched) {

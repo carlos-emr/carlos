@@ -95,14 +95,6 @@ async function workflow(s) {
   }
   const chart = await s.chart();
 
-  await s.step('the E-Chart Forms menu offers every registered form for the owned patient', async () => {
-    await chart.locator('#menuTitle1 a').hover();
-    for (const { name } of registrations) {
-      h.assert(await chart.getByRole('link', { name, exact: true }).count() === 1, 'A registered form is missing from the Forms menu');
-    }
-    await chart.mouse.move(0, 0);
-  });
-
   async function attempt(entry, label, body) {
     if (entry.failure) return;
     try {
@@ -118,9 +110,13 @@ async function workflow(s) {
     const { form, name } = registration;
     const entry = { form, name, text: `${marker} ${PROSE}` };
     results.push(entry);
-    await attempt(entry, 'opens from the Forms menu for the owned patient', async () => {
+    // Each form's menu entry is asserted in its own attempt, so one missing registration is
+    // recorded without stopping the remaining forms.
+    await attempt(entry, 'is listed once in the Forms menu and opens for the owned patient', async () => {
       await chart.locator('#menuTitle1 a').hover();
-      entry.page = await s.popup(chart, chart.getByRole('link', { name, exact: true }), `form-${form.key}`);
+      const link = chart.getByRole('link', { name, exact: true });
+      h.assert(await link.count() === 1, 'The Forms menu does not list the registered form exactly once');
+      entry.page = await s.popup(chart, link, `form-${form.key}`);
       h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'The form opened for another patient');
       h.assert(form.prose, 'The form opened; add its prose and structured fields to FORMS');
       await entry.page.locator(`[name="${form.prose}"]`).first().waitFor({ state: 'visible' });

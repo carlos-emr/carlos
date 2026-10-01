@@ -17,7 +17,8 @@
  * its HTML unencoded, so markup-like text in a field is lost (open defect).
  *
  * Fixtures and cleanup: the owned FAKE- patient from runWorkflow, given a
- * synthetic address; it is removed by the workflow session. Nothing is sent.
+ * synthetic address; it is removed by the workflow session, after any messenger
+ * rows a defective preview linked to it or marked with the run marker. Nothing is sent.
  *
  * Not covered here: demographic/AddRelation and DeleteRelation have no UI entry
  * while NEW_CONTACTS_UI is on (the Master Record's "Add Relation" pill is rendered
@@ -48,11 +49,28 @@ async function workflow(s) {
   // Markup-like characters are ordinary address text; a correct page prints them.
   const address = `${s.marker.slice(-6)} O'Neil & <Fixture> Lane`;
   const city = 'Fixture City';
+  const markerLike = h.sqlString(`%${s.marker}%`);
+  // Registered before the first write: a defective preview that sends a message or
+  // links one to the patient must not leave messenger rows behind (msgDemoMap has
+  // no cascade from demographic). Messages linked to the owned patient were created
+  // by this run, since the patient did not exist before it.
+  s.cleanup(() => {
+    const ids = s.sql.rows(`SELECT messageid FROM messagetbl WHERE thesubject LIKE ${markerLike}
+      OR themessage LIKE ${markerLike} UNION SELECT messageID FROM msgDemoMap WHERE demographic_no=${s.patient}`)
+      .map(([id]) => Number(id)).filter(id => id > 0);
+    const list = ids.length ? ids.join(',') : '-1';
+    s.sql.execute(`DELETE FROM msgDemoMap WHERE messageID IN (${list}) OR demographic_no=${s.patient};
+      DELETE FROM messagelisttbl WHERE message IN (${list});
+      DELETE FROM messagetbl WHERE messageid IN (${list})`);
+    h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM msgDemoMap WHERE messageID IN (${list}) OR demographic_no=${s.patient})
+      + (SELECT COUNT(*) FROM messagelisttbl WHERE message IN (${list}))
+      + (SELECT COUNT(*) FROM messagetbl WHERE messageid IN (${list}))`) === '0',
+    'Messenger rows created by the preview were not removed');
+  });
   s.sql.execute(`UPDATE demographic SET address=${h.sqlString(address)},city=${h.sqlString(city)},
     postal='K1A0B1' WHERE demographic_no=${s.patient} AND last_name=${h.sqlString(s.marker)}`);
   const persisted = () => s.sql.value(`SELECT (SELECT COUNT(*) FROM msgDemoMap WHERE demographic_no=${s.patient})
-    + (SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`%${s.marker}%`)}
-      OR themessage LIKE ${h.sqlString(`%${s.marker}%`)})`);
+    + (SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${markerLike} OR themessage LIKE ${markerLike})`);
   h.assert(persisted() === '0', 'The owned patient already has messenger rows');
 
   let compose;
@@ -110,14 +128,24 @@ async function workflow(s) {
     h.assert((await source.innerText()).includes(city), 'The rendered patient information omits the city');
   });
 
+  let route;
   await s.step('previewing sends nothing and links nothing to the patient', async () => {
+    // Bounded: a preview whose handler never posts the captured HTML must fail
+    // here with that defect, not hang until the suite's per-script timeout.
+    let timer;
+    route = await Promise.race([held, new Promise(resolve => { timer = setTimeout(resolve, TIMEOUT, null); })]);
+    clearTimeout(timer);
+    h.assert(route, 'The preview never posted the captured patient information to messenger/Doc2PDF');
     h.assert(persisted() === '0', 'Previewing an attachment persisted a message or patient link');
   });
 
   let text;
-  await s.step('the preview answers with a complete PDF carrying the patient', async () => {
-    await (await held).continue();
+  await s.step('the preview answers with a complete PDF carrying the patient and persists nothing', async () => {
+    await route.continue();
     const response = await pdfResponse;
+    // Re-checked once the conversion request has completed, so a write made by
+    // Doc2PDF itself is caught too.
+    h.assert(persisted() === '0', 'The preview conversion (messenger/Doc2PDF) persisted a message or patient link');
     // The page posts the captured HTML (its <script> blocks included) as srcText;
     // a front-door WAF that refuses that body leaves the clinician with no preview.
     h.assert(response.status() === 200, `messenger/Doc2PDF answered HTTP ${response.status()} instead of the preview PDF`);

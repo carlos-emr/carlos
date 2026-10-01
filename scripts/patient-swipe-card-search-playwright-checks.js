@@ -160,6 +160,9 @@ async function workflow(s) {
 
   await s.step('a malformed track sent straight to ValidateSwipeCard is refused, not rendered', async () => {
     const endpoint = new URL('demographic/ValidateSwipeCard', s.config.baseUrl.href + '/').href;
+    // The server-side half of the popup's refusal above: a short (40-character) track
+    // that verifyInput() never lets through. A full-length track with a bad HIN is
+    // well formed, and Validate legitimately renders it with an "invalid" verdict.
     const response = await s.context.request.get(endpoint, { params: { magneticStripe: malformed.slice(0, 40) } });
     h.assert(response.status() >= 400 && response.status() < 500,
       `A malformed track was not refused as a bad request (HTTP ${response.status()})`);

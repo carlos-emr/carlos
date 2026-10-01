@@ -3613,7 +3613,7 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "Fails on 2026.08: choosing a named quick list in the registry sidebar answers 500; the later association steps hit the JSON+JSP response and the silently ignored CSV upload.",
-      "fixtures": "Owns a FAKE- patient, a UI-created and a seeded quick list (FAKE-<hex>, at most 10 chars), and dx_associations rows whose code starts with the run marker; never saves a bill; removes only owned rows."
+      "fixtures": "Owns a FAKE- patient, a UI-created and a seeded quick list (FAKE<base36>, at most 10 chars), and dx_associations rows whose code starts with the run marker; never saves a bill; removes only owned rows."
     },
     {
       "name": "flowsheet-patient-customization",

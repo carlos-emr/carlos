@@ -308,10 +308,12 @@ async function workflow(s) {
         {params: {method, jobId, faxNumber: DESTINATION}, maxRedirects: 0});
       h.assert(response.status() === 405 && response.headers().allow === 'POST', `GET ${method} was not rejected with Allow: POST`);
     }
+    // SetCompleted resolves any row unconditionally (no account or status gate), so only the
+    // CSRF gate can stop this POST from turning the SENT row RESOLVED with the account inactive.
     const tokenless = await context.request.post(h.appUrl(config.baseUrl, '/admin/ManageFaxes'),
-      {form: {method: 'CancelFax', jobId: sent.id}, maxRedirects: 0});
-    h.assert(!/"success"\s*:\s*true/.test(await tokenless.text()), 'A POST without a CSRF token cancelled a fax');
-    h.assert([stored(sent.id), stored(complete.id)].join(';') === before, 'A refused request changed a fax row');
+      {form: {method: 'SetCompleted', jobId: sent.id}, maxRedirects: 0});
+    await tokenless.dispose();
+    h.assert([stored(sent.id), stored(complete.id)].join(';') === before, 'A POST without a CSRF token changed a fax row');
     h.assert(ownedCount(`id>${maxSeeded}`) === '1', 'A refused request queued a fax');
   });
 }

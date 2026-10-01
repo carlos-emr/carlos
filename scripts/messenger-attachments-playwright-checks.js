@@ -20,6 +20,7 @@
  * Implements coverage plan §3.4 messenger-attachments.
  */
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const TIMEOUT = 30000;
@@ -203,11 +204,9 @@ async function workflow(s) {
     const xml = ` <PDF><FILE_ID>0</FILE_ID><STATUS>OK</STATUS><TITLE>${s.marker} first</TITLE><CONTENT>${pdf.toString('base64')}</CONTENT></PDF>`
       + ` <PDF><FILE_ID>1</FILE_ID><STATUS>OK</STATUS><TITLE>${s.marker} second</TITLE><CONTENT>${pdf.toString('base64')}</CONTENT></PDF>`;
     const id = deliver(`${s.marker} received PDFs`, ',pdfattachment', `,${h.sqlString(xml)}`);
-    const opened = await Promise.all([
-      s.context.waitForEvent('page', { timeout: TIMEOUT }).catch(() => null),
-      s.schedule.locator('a:has(#oscar_new_msg)').first().click(),
-    ]);
-    inbox = opened[0] || s.schedule;
+    // Waits for the popup to leave about:blank (or for an in-place navigation).
+    ({ page: inbox } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('a:has(#oscar_new_msg)').first(),
+      { context: s.context, recorder: s.recorder, label: 'messenger-inbox', timeout: TIMEOUT }));
     await settle(inbox);
     h.assert(/\/messenger\/DisplayMessages/.test(inbox.url()), 'The Msg link did not open the messenger inbox');
     const body = await downloadStoredPdf(id, [`${s.marker} first`, `${s.marker} second`], 1);
@@ -354,7 +353,11 @@ async function workflow(s) {
 
   await s.step('the received message downloads the rendered patient information PDF', async () => {
     await toInbox();
-    await downloadStoredPdf(pdfMessageId, ['', ''], 0);
+    // The viewer must list each stored entry by the title Attach stored for it.
+    const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${pdfMessageId}`);
+    const titles = [...stored.matchAll(/<TITLE>([^<]*)<\/TITLE>/g)].map(match => match[1].trim());
+    h.assert(titles.length === 2 && titles.every(Boolean), 'The sent message did not store a title for each rendered item');
+    await downloadStoredPdf(pdfMessageId, titles, 0);
   });
 
   // Asserted separately: in this build the prescriptions page fails to render

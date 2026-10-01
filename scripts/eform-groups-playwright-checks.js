@@ -130,6 +130,8 @@ async function workflow(s) {
   await s.step('E-Chart Add eForm list filtered by the group offers only the grouped eForm', async () => {
     const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'eform-add-list');
     await list.locator('#efmTable').waitFor();
+    // Opened without group_view, the list applies the provider's saved favourite group.
+    await viewGroup(list, list.locator('.grouplist li a').first(), '');
     h.assert(await list.locator('#efmTable').getByText(loose, {exact: true}).count() === 1,
       'The unfiltered Add eForm list does not offer the ungrouped eForm');
     const groupLink = list.locator('.grouplist li a').filter({hasText: group});

@@ -79,13 +79,17 @@ async function workflow(s) {
 
   s.cleanup(() => {
     fs.rmSync(cssDir, {recursive: true, force: true});
-    sql.execute(`DELETE FROM measurementGroup WHERE name IN (${groups}) OR typeDisplayName IN (${displays});
-      DELETE FROM measurementGroupStyle WHERE groupName IN (${groups});
-      DELETE FROM measurementType WHERE type IN (${codes}) AND typeDisplayName IN (${displays});
-      DELETE FROM measurementTypeDeleted WHERE type IN (${codes});
-      DELETE FROM measurementCSSLocation WHERE location=${q(cssName)}`);
-    h.assert(ownedCount() === '0', 'Owned measurement admin rows were not removed');
-    fs.rmSync(uploadedFile, {force: true});
+    // The uploaded file sits in a shared directory: remove it even when the SQL cleanup fails.
+    try {
+      sql.execute(`DELETE FROM measurementGroup WHERE name IN (${groups}) OR typeDisplayName IN (${displays});
+        DELETE FROM measurementGroupStyle WHERE groupName IN (${groups});
+        DELETE FROM measurementType WHERE type IN (${codes}) AND typeDisplayName IN (${displays});
+        DELETE FROM measurementTypeDeleted WHERE type IN (${codes});
+        DELETE FROM measurementCSSLocation WHERE location=${q(cssName)}`);
+      h.assert(ownedCount() === '0', 'Owned measurement admin rows were not removed');
+    } finally {
+      fs.rmSync(uploadedFile, {force: true});
+    }
     h.assert(!fs.existsSync(uploadedFile), 'The uploaded style-sheet file was not removed');
   });
   h.assert(ownedCount() === '0', 'Per-run measurement admin names already exist');
@@ -280,6 +284,8 @@ async function workflow(s) {
     await landOn(list, 'DeleteMeasurementStyleSheet', () => list.getByRole('button', {name: 'Delete', exact: true}).click());
     h.assert(sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE location=${q(cssName)}`) === '0',
       'Delete did not remove the unused style sheet');
+    // Upload copies without replacing, so a file left behind blocks re-adding the same name.
+    h.assert(!fs.existsSync(uploadedFile), 'Delete left the uploaded style-sheet file on disk');
     await list.close();
   });
 }
@@ -289,7 +295,9 @@ if (require.main === module) runWorkflow('measurement-type-group-admin', workflo
   preflight() {
     const dir = process.env.MEASUREMENT_CSS_UPLOAD_DIR;
     if (!dir) throw new h.SkipCheck('MEASUREMENT_CSS_UPLOAD_DIR is not set; this check needs it (see scripts/playwright-suite.json)');
-    h.assert(path.isAbsolute(dir) && fs.statSync(dir).isDirectory(), 'MEASUREMENT_CSS_UPLOAD_DIR must be an existing absolute directory');
+    // Set but wrong is a misconfiguration, not a missing fixture: fail with this message, not ENOENT.
+    h.assert(path.isAbsolute(dir) && fs.existsSync(dir) && fs.statSync(dir).isDirectory(),
+      'MEASUREMENT_CSS_UPLOAD_DIR must be an existing absolute directory');
   },
 });
 module.exports = {workflow};

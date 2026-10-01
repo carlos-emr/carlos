@@ -11,7 +11,8 @@
  * the head's Master Record showing the duplicate as a tail; the schedule search
  * returning only the head; the unmerge marking the row deleted and parking the
  * privilege in the recycle bin; a self-merge, a forged head outside the selection
- * and a GET refused with no row. Fixtures: two owned FAKE- patients seeded by SQL;
+ * and a GET refused with no row. Fixtures: two owned FAKE- patients seeded by SQL (and a
+ * third, never selected, as the forged head);
  * cleanup removes their merge, privilege, recycle-bin and demographic rows and
  * asserts they are gone. Implements coverage plan §2.4 demographic-merge.
  */
@@ -194,9 +195,13 @@ async function workflow(s) {
     const before = mergeRows();
     await search();
     const token = await csrfTokenPresent(merge);
-    const missing = sql.value('SELECT COALESCE(MAX(demographic_no),0)+100000 FROM demographic');
+    // A real, owned patient that is simply not among the selected records: a nonexistent
+    // id could be refused for not existing rather than for being outside the selection.
+    const outsider = seed('Outsider');
+    h.assert(/^[1-9]\d*$/.test(outsider), 'The outsider patient fixture was not created');
+    ids.push(outsider);
     const endpoint = h.appUrl(s.config.baseUrl, '/admin/MergeRecords');
-    const body = new URLSearchParams({'CSRF-TOKEN': token, mergeAction: 'merge', provider_no: provider, head: missing});
+    const body = new URLSearchParams({'CSRF-TOKEN': token, mergeAction: 'merge', provider_no: provider, head: outsider});
     body.append('records', dup);
     body.append('records', head);
     const forged = await context.request.post(endpoint, {data: body.toString(), maxRedirects: 0,
@@ -206,7 +211,9 @@ async function workflow(s) {
     const unsafeGet = await context.request.get(endpoint, {maxRedirects: 0,
       params: {mergeAction: 'merge', provider_no: provider, head, records: dup}});
     h.assert(unsafeGet.status() === 405 && unsafeGet.headers().allow === 'POST', 'MergeRecords must reject GET with Allow: POST');
-    h.assert(mergeRows() === before && liveRows() === '0', 'A refused merge probe wrote a merge row');
+    h.assert(mergeRows() === before && liveRows() === '0'
+      && sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=${outsider} OR merged_to=${outsider}`) === '0',
+    'A refused merge probe wrote a merge row');
     h.assert(privilegeRows() === '0', 'A refused merge probe granted a chart privilege');
   });
 }
