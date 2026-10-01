@@ -119,7 +119,10 @@ async function typeLetter(page, text = LETTER_TEXT) {
   await page.keyboard.press('End');
   await page.keyboard.type(text);
   const html = await frame.evaluate(() => document.body.innerHTML);
-  assert(html.includes('Playwright RTL check'), `typed text did not land in the editor: ${html.slice(0, 200)}`);
+  // Check the text this call typed, not a marker an earlier save may already have put in the
+  // letter. Contenteditable can render typed spaces as non-breaking ones, so compare as plain text.
+  const landed = await frame.evaluate(() => document.body.innerText.replace(/\u00a0/g, ' '));
+  assert(landed.includes(text), `typed text did not land in the editor: ${html.slice(0, 200)}`);
   return html;
 }
 
