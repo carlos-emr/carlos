@@ -33,7 +33,8 @@ async function workflow(s) {
     for (const id of list) h.assert(/^[1-9]\d*$/.test(id), 'Owned request id is invalid');
     if (list.length) {
       const csv = list.join(',');
-      for (const table of ['consultdocs']) {
+      // The form always files an ext_ row per request (ext_appNo); the extension tables have no cascading foreign key.
+      for (const table of ['consultdocs', 'consultationRequestExt', 'consultationRequestExtArchive']) {
         try { sql.execute(`DELETE FROM ${table} WHERE requestId IN (${csv})`); } catch (error) { /* absent */ }
       }
       sql.execute(`DELETE FROM consultationRequests WHERE requestId IN (${csv}) AND demographicNo=${patient}`);
@@ -41,6 +42,11 @@ async function workflow(s) {
     // The consultation form files one stamp row per submit for the patient (FK to demographic).
     sql.execute(`DELETE FROM DigitalSignature WHERE demographicId=${patient} AND ModuleType='CONSULTATION'`);
     h.assert(ids().length === 0, 'Owned consultation requests were not removed');
+    if (list.length) {
+      const orphans = sql.value(`SELECT (SELECT COUNT(*) FROM consultationRequestExt WHERE requestId IN (${list.join(',')}))
+        + (SELECT COUNT(*) FROM consultationRequestExtArchive WHERE requestId IN (${list.join(',')}))`);
+      h.assert(orphans === '0', 'Owned consultation request extension rows were not removed');
+    }
   });
   const chart = await s.chart();
   const v = verdicts('consultation-submit');
