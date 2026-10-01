@@ -9,7 +9,7 @@
 //
 // Owns a synthetic FAKE-PW patient, one prevention and one PDF document; all are removed.
 // Requires the workflow env contract plus DOCUMENT_DIR (the installed document store the
-// check writes its one-page fixture PDF into, as stored-document-mutations does).
+// check writes its three-page fixture PDF into, as stored-document-mutations does).
 // Local disposable database only.
 const fs = require('node:fs');
 const path = require('node:path');
