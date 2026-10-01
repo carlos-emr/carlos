@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD,
+  buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD, ownPreferences,
 } = require('./lab-embedded-pdf-playwright-checks');
 
 const GOOD_HEADERS = {
@@ -73,4 +73,33 @@ test('keeps both CSP headers the front door sends', () => {
   assert.match(headers['content-security-policy'], /sandbox/);
   assert.match(headers['content-security-policy'], /object-src 'none'/);
   assertInlinePdfResponse(200, { ...GOOD_HEADERS, 'content-security-policy': headers['content-security-policy'] }, PDF);
+});
+
+test('restores NULL preference values and dates as SQL NULL, not the string null', () => {
+  // Rows as the harness returns them: the IS NULL flags carry nullness, never a NULL token.
+  const snapshot = [
+    ['7', 'lab_pdf_max_size', '', '1', '', '1'],
+    ['8', 'lab_pdf_inline_preview', '66616C7365', '0', '2026-09-30 10:00:00', '0'],
+  ];
+  const executed = [];
+  let cleanup;
+  const s = {
+    sql: { rows: () => snapshot.map(row => [...row]), execute: query => executed.push(query) },
+    cleanup: fn => { cleanup = fn; },
+  };
+  ownPreferences(s);
+  cleanup();
+  const restores = executed.filter(query => query.startsWith('UPDATE'));
+  assert.equal(restores.length, 2);
+  assert.match(restores[0], /SET value=NULL,\s+updateDate=NULL WHERE id=7$/);
+  assert.match(restores[1], /SET value=UNHEX\('66616C7365'\),\s+updateDate='2026-09-30 10:00:00' WHERE id=8$/);
+  assert.ok(executed.every(query => !/'null'|'NULL'/.test(query)), 'no NULL may be restored as a string');
+});
+
+test('refuses a preference snapshot whose NULL arrived as a JS null', () => {
+  const s = {
+    sql: { rows: () => [['7', 'lab_pdf_max_size', null, '1', null, '1']], execute: () => {} },
+    cleanup: () => {},
+  };
+  assert.throws(() => ownPreferences(s), /Unexpected preference snapshot/);
 });
