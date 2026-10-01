@@ -106,6 +106,32 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0199');
     assert.equal(requests[0].get('recipient'),'Example, Specialist');
+    // Retyping the name after a directory selection must not keep the selected recipient's number.
+    await open();
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxRecipient').fill('Example');
+    await page.locator('#remoteFaxSuggestions .fax-ac-item').click();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0199');
+    await page.locator('#remoteFaxRecipient').fill('Someone Else');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests[0].get('recipient'),'Someone Else');
+    assert.equal(requests[0].get('recipientFaxNumber'),'');
+    // Nor the eForm's own number, and a number the clinician typed survives editing the name.
+    await open();
+    await page.locator('#remoteFaxOptions summary').click();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0123');
+    await page.locator('#remoteFaxRecipient').fill('Typed Recipient');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'');
+    await page.locator('#remoteFaxNumber').fill('416-555-0177');
+    await page.locator('#remoteFaxRecipient').fill('Typed Recipient Corrected');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests[0].get('recipient'),'Typed Recipient Corrected');
+    assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0177');
     await open();
     await page.setViewportSize({width:600,height:800});
     await page.locator('#remoteFaxOptions summary').click();

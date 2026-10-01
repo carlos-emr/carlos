@@ -1070,6 +1070,7 @@ function initializeFaxRecipient() {
             fax.value = option.value;
             name.value = option.dataset.recipientName;
             fax.dataset.edited = 'true';
+            delete fax.dataset.typed;
         } else {
             delete fax.dataset.edited;
             delete name.dataset.edited;
@@ -1079,6 +1080,20 @@ function initializeFaxRecipient() {
     ['input', 'change'].forEach(event => {
         fax.addEventListener(event, () => { fax.dataset.edited = 'true'; });
         name.addEventListener(event, () => { name.dataset.edited = 'true'; });
+    });
+    // A number the clinician typed is theirs; one filled in from the directory, the eForm or the
+    // list belongs to the recipient it was chosen for. Directory selection assigns both fields and
+    // dispatches a synthetic change, so only trusted typing marks the number as typed.
+    fax.addEventListener('input', event => { if (event.isTrusted) fax.dataset.typed = 'true'; });
+    fax.addEventListener('change', event => { if (!event.isTrusted) delete fax.dataset.typed; });
+    // Typing a different recipient name must not keep the previous recipient's number: the fax
+    // would go there under the new name. Clear it (as an explicit empty override, so the eForm's
+    // number is not resurrected either) until a directory row or a typed number supplies one.
+    name.addEventListener('input', event => {
+        if (!event.isTrusted || fax.dataset.typed === 'true') return;
+        fax.value = '';
+        fax.dataset.edited = 'true';
+        fromForm.value = '';
     });
     document.getElementById('remoteFaxOptions').addEventListener('toggle', () => { refreshOptions(); refresh(); });
     document.addEventListener('change', event => {
