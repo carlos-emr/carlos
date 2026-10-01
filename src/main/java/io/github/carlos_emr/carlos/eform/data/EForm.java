@@ -1476,8 +1476,11 @@ public class EForm extends EFormBase {
      */
     public void ensureNewFormInput() {
         Element form = getDocument().selectFirst("form");
+        // Exact, case-sensitive matches: jsoup's [name=...] selector ignores case, so a control
+        // named "newform" would otherwise suppress the fallback although browsers (and template
+        // scripts) treat it as a different field. getElementById is already case-sensitive.
         if (form != null && getDocument().getElementById("newForm") == null
-                && form.selectFirst("[name=newForm]") == null) {
+                && form.select("[name]").stream().noneMatch(c -> "newForm".equals(c.attr("name")))) {
             form.appendElement("input").attr("type", "hidden").attr("id", "newForm")
                     .attr("name", "newForm").attr("value", "true");
         }
