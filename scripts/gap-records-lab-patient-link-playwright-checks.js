@@ -41,10 +41,11 @@ function removeNamedArchives(fileName) {
   }
   const root = fs.realpathSync(store);
   const prefix = `LabUpload.${fileName}.`;
-  for (const name of fs.readdirSync(root)) {
-    if (!name.startsWith(prefix)) continue;
-    // An archive carrying the run's upload name but an unexpected suffix is not ours to delete: stop before any evidence is removed.
-    h.assert(/^\d+$/.test(name.slice(prefix.length)), `Unexpected archive name for this run's upload: ${name}`);
+  const mine = fs.readdirSync(root).filter(name => name.startsWith(prefix));
+  // Validate EVERY matching name before unlinking any of them, so an unexpected archive cannot leave the run's evidence
+  // half-removed.
+  for (const name of mine) h.assert(/^\d+$/.test(name.slice(prefix.length)), `Unexpected archive name for this run's upload: ${name}`);
+  for (const name of mine) {
     // name is the run's generated archive name (prefix + digits, no separators) joined to the resolved store root.
     const file = path.join(root, name); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
     fs.unlinkSync(file);
