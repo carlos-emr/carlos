@@ -23,7 +23,9 @@
  * snapshot of the rows the request could touch is identical before and after. HEAD
  * is sent after the GET (a container runs doGet for HEAD, so a `"GET".equals` check
  * would let it through). Results go into a ledger and are asserted together in
- * the check's LAST step, so one open route does not hide the others.
+ * the check's LAST step, so one open route does not hide the others. A WAF block, a 5xx,
+ * or a HEAD 403 whose origin cannot be shown to be the application is INCONCLUSIVE and fails
+ * the ledger: unchanged rows alone never prove the application refused the request.
  */
 const h = require('./playwright-harness');
 
@@ -100,8 +102,10 @@ function createLedger(name) {
     entries,
     async probe(s, { label, path, params, snapshot, methods = ['GET', 'HEAD'], requireStatus = true }) {
       const url = new URL(`${path}?${params.toString()}`, s.config.baseUrl.origin).toString();
-      const entry = { label, path: path.replace(/^\/[^/]+/, ''), answers: [], changed: false, changedBy: [] };
+      const entry = { label, path: path.replace(/^\/[^/]+/, ''), answers: [], changed: false, changedBy: [],
+        blocked: false, errored: false, unverified: false };
       h.assert(url.length < 7000, `${label}: the replayed GET is too long for a request line (${url.length})`);
+      let appRefusedGet = false; // the GET got a 403 that is verifiably the application's, not the WAF's
       for (const method of methods) {
         const before = snapshot();
         const response = await s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
@@ -109,24 +113,40 @@ function createLedger(name) {
         const body = method === 'GET' ? await response.text().catch(() => '') : '';
         const after = snapshot();
         const waf = isWafPage(status, body);
-        const refused = status === 405 || (status === 403 && !waf);
-        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}`);
+        // A HEAD response has no body, so a WAF page cannot be told from an application 403:
+        // HEAD 403 only counts as a refusal when the same URL's GET was verifiably refused by
+        // the application; otherwise it is inconclusive. HEAD 405 is always a refusal.
+        const headAmbiguous = method === 'HEAD' && status === 403 && !appRefusedGet;
+        const refused = status === 405 || (status === 403 && !waf && !headAmbiguous);
+        if (method === 'GET' && status === 403 && !waf) appRefusedGet = true;
+        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${headAmbiguous ? ' (unverified origin)' : ''}`);
         if (before !== after) { entry.changed = true; entry.changedBy.push(method); }
+        // Whatever the include rules allow, a WAF block or a 5xx means the application never
+        // answered the question: it must not read as "refused" just because the rows are unchanged.
+        if (waf) entry.blocked = true;
+        if (status >= 500) entry.errored = true;
+        if (headAmbiguous) entry.unverified = true;
         // requireStatus=false: an include()d gate cannot set a status (the container ignores
         // sendError inside an include), so only the absence of a write can be asserted.
         if (!refused && requireStatus) entry.open = true;
       }
       entries.push(entry);
-      const verdict = entry.changed ? `WROTE (${entry.changedBy.join('/')})` : entry.open ? 'answered (no write seen)'
-        : requireStatus ? 'refused' : 'no write (status not assertable through include)';
+      const flaws = [entry.blocked && 'WAF block', entry.errored && 'server error', entry.unverified && 'HEAD 403 of unverified origin']
+        .filter(Boolean).join(', ');
+      const verdict = entry.changed ? `WROTE (${entry.changedBy.join('/')})`
+        : flaws ? `INCONCLUSIVE (${flaws})`
+          : entry.open ? 'answered (no write seen)'
+            : requireStatus ? 'refused' : 'no write (status not assertable through include)';
       console.log(`  probe ${name}: ${label} -> ${entry.answers.join(', ')}; ${verdict}`);
       return entry;
     },
     assertAllRefused() {
-      const failed = entries.filter(e => e.changed || e.open);
+      const failed = entries.filter(e => e.changed || e.open || e.blocked || e.errored || e.unverified);
       h.assert(entries.length > 0, 'No GET probe was recorded');
       h.assert(!failed.length, `${failed.length} of ${entries.length} state-changing route(s) did not refuse GET/HEAD: `
-        + failed.map(e => `${e.label} [${e.path}] ${e.answers.join(', ')}${e.changed ? ` and the ${e.changedBy.join('/')} CHANGED the owned rows` : ''}`)
+        + failed.map(e => `${e.label} [${e.path}] ${e.answers.join(', ')}${e.changed ? ` and the ${e.changedBy.join('/')} CHANGED the owned rows` : ''}`
+          + `${e.blocked ? ' (blocked by the WAF before the application saw it)' : ''}${e.errored ? ' (server error, not a refusal)' : ''}`
+          + `${e.unverified ? ' (HEAD 403 could not be attributed to the application)' : ''}`)
           .join('; '));
       return entries.length;
     },
