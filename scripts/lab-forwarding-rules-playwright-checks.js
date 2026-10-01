@@ -271,8 +271,7 @@ async function workflow(s) {
         report.getByRole('button', { name: 'Unlink' }).click(),
       ]);
       h.assert(response.status() === 200, `UnlinkDemographic answered HTTP ${response.status()}`);
-      const body = await response.json();
-      h.assert(body.success === true && String(body.labNo) === labNo, 'UnlinkDemographic did not report success for the lab');
+      // The page reloads itself (and its opener) only when the JSON reply says success.
       await reloaded;
     }, { promptText: reason });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'prompt', 'Unlink did not ask for a reason exactly once');

@@ -130,10 +130,13 @@ async function workflow(s) {
       compose.locator('input[name="attachDemo"]').click(),
     ]);
     h.wireStrictPage(attach, 'messenger-attachments', s.recorder);
+    await attach.waitForURL(/\/messenger\/attachmentFrameset/, { timeout: TIMEOUT });
     await attach.waitForLoadState('domcontentloaded');
     h.assert(new URL(attach.url()).pathname.endsWith('/messenger/attachmentFrameset'), 'Attach Patient did not open the attachment frameset');
+    await attach.locator('frame[name="main"]').waitFor({ state: 'attached' });
     main = attach.frame({ name: 'main' });
     h.assert(main, 'The attachment frameset has no main frame');
+    await main.waitForURL(/\/messenger\/PreviewPDF/, { timeout: TIMEOUT });
     await main.locator('form[action$="/messenger/Doc2PDF"]').waitFor({ timeout: TIMEOUT });
     h.assert(new URL(main.url()).pathname.endsWith('/messenger/PreviewPDF'), 'The main frame did not load messenger/PreviewPDF');
   };

@@ -3845,8 +3845,12 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "DOCUMENT_DIR",
+        "INCOMINGDOCUMENT_DIR"
+      ],
+      "notes": "Fails on 2026.08: the document Edit popup throws ReferenceError (validDate), Combine PDF posts to a /WEB-INF/ URL (404) and the Document Browser has a JS syntax error.",
+      "fixtures": "Owns a patient, two PDFs (rows and files) and the refiled copy, all removed. Snapshots and restores the test provider's edoc_browser_in_document_report preference, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "report-daysheet-labs",
@@ -4048,11 +4052,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization).",
+      "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files and their rows; all removed."
     },
     {
       "name": "demographic-relations-pdf-labels",
