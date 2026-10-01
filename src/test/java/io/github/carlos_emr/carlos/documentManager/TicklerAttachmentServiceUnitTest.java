@@ -145,6 +145,21 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         when(documentDao.findCtlDocsAndDocsByDocNo(documentNo)).thenReturn(rows);
     }
 
+    /** A document filed against the patient with the given document and ctl_document statuses. */
+    private void documentLinkedWithStatus(int documentNo, int demographicNo, char documentStatus, String linkStatus) {
+        CtlDocumentPK key = new CtlDocumentPK();
+        key.setModule("demographic");
+        key.setModuleId(demographicNo);
+        CtlDocument ctlDocument = new CtlDocument();
+        ctlDocument.setId(key);
+        ctlDocument.setStatus(linkStatus);
+        Document document = new Document();
+        document.setStatus(documentStatus);
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[]{document, ctlDocument});
+        when(documentDao.findCtlDocsAndDocsByDocNo(documentNo)).thenReturn(rows);
+    }
+
     private void labOwnedBy(int labNo, int demographicNo, String labType) {
         PatientLabRouting routing = new PatientLabRouting();
         routing.setLabNo(labNo);
@@ -187,6 +202,56 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
 
             verify(ticklerDocsDao, never()).persist(any());
             verify(ticklerDocsDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse to attach a document whose patient link was deleted")
+        void shouldRejectDocument_whenPatientLinkDeleted() {
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "D");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11")))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("does not belong to the patient");
+            verify(ticklerDocsDao, never()).persist(any());
+            verify(ticklerDocsDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse to attach a deleted document even through a live link")
+        void shouldRejectDocument_whenDocumentDeleted() {
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'D', "A");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11")))
+                    .isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource(value = {"A", "NULL"}, nullValues = "NULL")
+        @DisplayName("should attach a document through a live or legacy NULL-status link")
+        void shouldAttachDocument_whenPatientLinkLive(String linkStatus) {
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', linkStatus);
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
+
+            verify(ticklerDocsDao).persist(any(TicklerDocs.class));
+        }
+
+        @Test
+        @DisplayName("should detach a stored document whose patient link has since been deleted")
+        void shouldDetachStoredDocument_whenPatientLinkDeleted() {
+            TicklerDocs storedDoc = stored(11, "D");
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "D");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(storedDoc));
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
+
+            assertThat(storedDoc.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            verify(ticklerDocsDao).merge(storedDoc);
+            verify(ticklerDocsDao, never()).persist(any());
         }
 
         @Test
@@ -594,6 +659,16 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should refuse a document whose patient link was deleted before any tickler exists")
+        void shouldThrowSecurityException_whenDocumentLinkDeleted() {
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "D");
+
+            assertThatThrownBy(() -> service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO,
+                    submission(DocumentType.DOC, "11"))).isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @Test
         @DisplayName("should refuse a lab routed to another patient before any tickler exists")
         void shouldThrowSecurityException_whenLabIsAnotherPatients() {
             labOwnedBy(77, DEMOGRAPHIC_NO + 5, "HL7");
@@ -674,6 +749,33 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
             verify(formsManager, times(1)).getEncounterFormsbyDemographicNumber(loggedInInfo, DEMOGRAPHIC_NO, true, false);
             assertThat(attachments.get(0).getParameterName()).isEqualTo("docNo");
             assertThat(attachments.get(0).getSubmissionValue()).isEqualTo("11");
+        }
+
+        @Test
+        @DisplayName("should not render a stored document whose patient link was deleted")
+        void shouldOmitDocument_whenPatientLinkDeleted() {
+            when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "D");
+
+            List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
+
+            assertThat(attachments).isEmpty();
+            verify(documentDao, never()).getDocument("11");
+        }
+
+        @Test
+        @DisplayName("should render a stored document through a live link")
+        void shouldRenderDocument_whenPatientLinkLive() {
+            when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "A");
+            Document document = new Document();
+            document.setDocdesc("Referral letter");
+            when(documentDao.getDocument("11")).thenReturn(document);
+
+            List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
+
+            assertThat(attachments).extracting(TicklerAttachmentData::getDisplayName).containsExactly("Referral letter");
+            assertThat(attachments).allMatch(TicklerAttachmentData::isViewable);
         }
 
         @Test

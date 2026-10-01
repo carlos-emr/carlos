@@ -46,7 +46,6 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
-import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -642,14 +641,11 @@ public class TicklerAttachmentService {
         if (rows == null) {
             return false;
         }
+        // Only a live association counts: a deleted document, or a ctl_document link the
+        // document was un-filed from (status 'D'), is no longer the patient's. Same predicate as
+        // consult/eForm attachment selection and CtlDocumentDao.findDocumentNosForDemographic.
         for (Object[] row : rows) {
-            if (row.length < 2 || !(row[1] instanceof CtlDocument)) {
-                continue;
-            }
-            CtlDocument ctlDocument = (CtlDocument) row[1];
-            if (ctlDocument.getId() != null
-                    && "demographic".equals(ctlDocument.getId().getModule())
-                    && demographicNo.equals(ctlDocument.getId().getModuleId())) {
+            if (AttachmentSelectionAccess.isLiveDemographicLink(row, demographicNo)) {
                 return true;
             }
         }
