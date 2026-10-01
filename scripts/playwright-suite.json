@@ -6554,6 +6554,462 @@
       "env": [],
       "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) with the dashboard grants, three FAKE- patients (first names Zoë / Ro\"b / Plain; Ro\"b has a two-line address and no e-mail), one dashboard and one indicator template carrying the marker; cleanup removes all of it and asserts it. Reads only.",
       "notes": "Fails at its LAST step on 2026.08 (Dashboard menu opens the owned dashboard, Drill Down lists three patients, Export downloads a .csv with the template titles all PASS): (1) the CSV is cut off when any value is non-ASCII because ExportResults2Action.java:87 sets Content-Length from csvFile.length() (characters) but writes getBytes() (bytes); (2) ExportQueryHandler.java:109-134 exports an empty value as the word null, doubles an inner quote without quoting the field, and does not quote a value containing a line break."
+    },
+    {
+      "name": "audit-log-session",
+      "script": "scripts/audit-log-session-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with its own provider number and user name; cleanup deletes every audit row carrying them and asserts the rows are gone.",
+      "notes": "Expected to FAIL at the last step 'every expectation of the session audit trail held' (One sign-in wrote 2 log in rows) until Login2Action writes one log in row per sign-in (:1115 and the facilityId row at :1220/:1231 both write one)."
+    },
+    {
+      "name": "audit-log-chart-read",
+      "script": "scripts/audit-log-chart-read-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient and one note saved through the chart; cleanup deletes the note rows and the audit rows scoped to the patient or the note id and asserts them gone.",
+      "notes": "Expected to FAIL at the last step 'every expectation of the read path held': the E-Chart rev link (CaseManagementEntry method=notehistory) and the E-Chart Print icon (method=print, a full-chart PDF) write no audit row, and the manager-layer rows about the patient carry no demographic_no."
+    },
+    {
+      "name": "audit-log-chart-note",
+      "script": "scripts/audit-log-chart-note-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient and its note; cleanup deletes the note, lock and tmpsave rows and the audit rows scoped to the patient or note id and asserts them gone.",
+      "notes": "Expected to FAIL at the last step 'every expectation of the note write path held': the add/update CME note rows carry the whole note text in log.data (CaseManagementNote.getAuditString) and opening the chart writes an edit/CME note row with contentId 'null'."
+    },
+    {
+      "name": "audit-log-demographic-edit",
+      "script": "scripts/audit-log-demographic-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient; cleanup deletes the audit rows scoped to the patient and asserts them gone.",
+      "notes": "Control: expected to PASS (the demographic edit audit row is complete and carries none of the typed values)."
+    },
+    {
+      "name": "audit-log-appointment",
+      "script": "scripts/audit-log-appointment-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient; one appointment booked on a random day 500-900 days ahead with the run marker in its reason; cleanup deletes the appointment, appointmentArchive, other_id and audit rows scoped to the appointment id and patient and asserts them gone.",
+      "notes": "Expected to FAIL at the last step 'every expectation of the appointment audit trail held': Add (AppointmentAddRecord2Action:141), Edit (AppointmentUpdateRecord2Action:110/138), the status letter and Cancel write no audit row; the Delete row (Appointment.delete, :101) carries no demographic_no or client address."
+    },
+    {
+      "name": "audit-log-chart-modules",
+      "script": "scripts/audit-log-chart-modules-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient; allergy, prevention, drug, prescription and signature rows created through the UI and removed by patient id with the audit rows scoped to the patient; cleanup asserts nothing remains. Needs no DrugRef data (custom drug).",
+      "notes": "Expected to FAIL at the last step 'every expectation of the chart-module audit trail held': prevention add/delete (AddPrevention2Action) write no audit row; the allergy, prescription and discontinue rows carry the clinical text in log.data and the discontinue row carries a Drug object dump (RxDeleteRx2Action:441)."
+    },
+    {
+      "name": "audit-log-document-read",
+      "script": "scripts/audit-log-document-read-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "Owned synthetic patient and one uploaded PDF; cleanup deletes the document and ctl_document rows, the stored file (inside DOCUMENT_DIR only) and the audit rows scoped to the patient or document id, and asserts them gone. SKIPs when DOCUMENT_DIR is not readable.",
+      "notes": "Expected to FAIL at the last step 'every expectation of the document audit trail held': the upload row has no demographic_no (AddEditDocument2Action:257) and one document view writes two read rows spelled document/Document, the second without demographic_no (ManageDocument2Action:1204-1206 and :1252)."
+    },
+    {
+      "name": "audit-log-vitals",
+      "script": "scripts/audit-log-vitals-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient; one BP reading carrying the run marker; cleanup deletes the readings, archived readings, encounter notes and audit rows scoped to the patient and asserts them gone.",
+      "notes": "Expected to FAIL at the last step 'every expectation of the vitals audit trail held': entering and deleting a vitals reading (E-Chart Measurements, EctMeasurements2Action) write no audit row."
+    },
+    {
+      "name": "audit-log-billing-on",
+      "script": "scripts/audit-log-billing-on-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "createBillingFixture (owned billing provider and HIN on the owned patient); cleanup removes the claim rows the browser wrote and every fixture and the audit rows scoped to the patient and asserts them gone.",
+      "notes": "Expected to FAIL at the last step 'every expectation of the Ontario billing audit trail held': Saving an Ontario OHIP claim (BillingOnSave2Action) and opening the Billing History write no audit row."
+    },
+    {
+      "name": "audit-log-locked-patient",
+      "script": "scripts/audit-log-locked-patient-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient; one throwaway doctor login with two lock rows (_demographic$N, _eChart$N) via lib/authz-read-fixture.js; cleanup removes the login, locks, audit rows and asserts them gone.",
+      "notes": "Expected to FAIL at the last step 'the refused attempt is itself in the audit log': the locked doctor's refused Master Record open is thrown as a SecurityException before any audit write."
+    },
+    {
+      "name": "audit-log-report-tools",
+      "script": "scripts/audit-log-report-tools-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient; nothing is saved (Run Query only); cleanup deletes the audit rows scoped to the patient and asserts them gone.",
+      "notes": "Expected to FAIL at the last step 'the report run is in the audit log': the Demographic Report Tool (RptDemographicReport2Action) writes no audit row, unlike Patient List by Appointment Time (PatientListByAppt export row)."
+    },
+    {
+      "name": "audit-log-demographic-import",
+      "script": "scripts/audit-log-demographic-import-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The patient exists only because the check imported it (surname = run marker, synthetic 9-prefixed health card number); cleanup removes every row the importer wrote for that demographic_no, the audit rows scoped to it or carrying the number, and asserts them gone.",
+      "notes": "Expected to FAIL at the last step 'every expectation of the import audit trail held': DemographicManager.searchByHealthCard writes 'hin=<number>' into log.data (DemographicManagerImpl:904) and the import's addDemographic row has no demographic_no or client address."
+    },
+    {
+      "name": "page-health-schedule-topbar",
+      "script": "scripts/page-health-schedule-topbar-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS"
+      ],
+      "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings.",
+      "notes": "Control (expected PASS). Schedule top-bar and date-bar links, one click deep: HTTP, error page, console/page errors, off-host/mixed-content, headers, literal null/undefined/NaN/???key???/[object Object]/${...}."
+    },
+    {
+      "name": "page-health-admin-panel:1of2",
+      "script": "scripts/page-health-admin-panel-playwright-checks.js",
+      "envSet": {
+        "PAGE_HEALTH_SHARD": "1/2"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS",
+        "ADMIN_LINKS_ONLY",
+        "ADMIN_LINKS_LIMIT",
+        "PAGE_HEALTH_SHARD"
+      ],
+      "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings. Items are sharded by position (PAGE_HEALTH_SHARD=1/2).",
+      "notes": "Expected to FAIL today at the end of the crawl: admin:Help Link Setting makes a blocked request to https://www.google-analytics.com/collect (resourcebaseurl.jsp builds the Toast UI editor without usageStatistics:false). Unlock Account 500 is counted as known (ISSUES.md L1)."
+    },
+    {
+      "name": "page-health-admin-panel:2of2",
+      "script": "scripts/page-health-admin-panel-playwright-checks.js",
+      "envSet": {
+        "PAGE_HEALTH_SHARD": "2/2"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS",
+        "ADMIN_LINKS_ONLY",
+        "ADMIN_LINKS_LIMIT",
+        "PAGE_HEALTH_SHARD"
+      ],
+      "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings. Items are sharded by position (PAGE_HEALTH_SHARD=2/2).",
+      "notes": "Expected PASS (Unlock Account 500 counted as known, ISSUES.md L1 / finding 71)."
+    },
+    {
+      "name": "page-health-report-index",
+      "script": "scripts/page-health-report-index-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS",
+        "PAGE_HEALTH_LIMIT"
+      ],
+      "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings.",
+      "notes": "Control (expected PASS). Report index links, one click deep, with the page-health assertions."
+    },
+    {
+      "name": "page-health-inbox-edoc",
+      "script": "scripts/page-health-inbox-edoc-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS",
+        "PAGE_HEALTH_LIMIT"
+      ],
+      "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings.",
+      "notes": "Control (expected PASS). Inbox and eDoc surfaces, one click deep. The Chromium PDF viewer's own chrome-extension: requests are ignored."
+    },
+    {
+      "name": "page-health-tickler-msg-consult",
+      "script": "scripts/page-health-tickler-msg-consult-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS",
+        "PAGE_HEALTH_LIMIT"
+      ],
+      "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings.",
+      "notes": "Control (expected PASS). Tickler, Msg and Consultations surfaces. The Health Care Team ???key??? hits are counted as known (ISSUES.md L284)."
+    },
+    {
+      "name": "page-health-preferences-referrals",
+      "script": "scripts/page-health-preferences-referrals-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS",
+        "PAGE_HEALTH_LIMIT"
+      ],
+      "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings.",
+      "notes": "Expected to FAIL today at preferences-surface:Edit Text Signature: its About/License footer links throw ReferenceError popupStart is not defined and open nothing (provider/editSignature.jsp:98-99). Ref and WorkFlow are SKIP-ed per surface when the properties are off."
+    },
+    {
+      "name": "page-health-master-record",
+      "script": "scripts/page-health-master-record-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS",
+        "MASTER_RECORD_SEARCH",
+        "MASTER_RECORD_DEMOGRAPHIC_NO"
+      ],
+      "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does.",
+      "notes": "Expected to FAIL today at master-record:Manage Contacts: About/License footer links throw ReferenceError popupStart is not defined (demographic/ManageContacts.jsp:365-366)."
+    },
+    {
+      "name": "page-health-echart-navbar",
+      "script": "scripts/page-health-echart-navbar-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS",
+        "ECHART_NAV_SEARCH",
+        "ECHART_NAV_DEMOGRAPHIC_NO"
+      ],
+      "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does.",
+      "notes": "Expected to FAIL today at echart-nav:Health Care Team / Inf / Grid Display / Row Display / HRM Documents: their About/License footer links throw ReferenceError popupStart is not defined and open nothing."
+    },
+    {
+      "name": "page-health-patient-hubs",
+      "script": "scripts/page-health-patient-hubs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS",
+        "PAGE_HEALTH_PREVENTIONS",
+        "MASTER_RECORD_SEARCH",
+        "MASTER_RECORD_DEMOGRAPHIC_NO"
+      ],
+      "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does. Skips the Rx stale-date '*' and favourite 'copy' links, which write.",
+      "notes": "Expected to FAIL today at Manage Contacts (About/License) and at the add-prevention forms (14 of 24 sampled): footer links throw ReferenceError popupStart is not defined (prevention/AddPreventionData.jsp:697-698 and others)."
+    },
+    {
+      "name": "page-health-footer-links",
+      "script": "scripts/page-health-footer-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS"
+      ],
+      "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does.",
+      "notes": "Focused proof of the dead footer links. Expected to FAIL today at the end of step 2: Manage Contacts and the add-prevention form footer About/License throw ReferenceError popupStart is not defined and open no popup (about 40 JSPs, see risk-page-health.md C1)."
+    },
+    {
+      "name": "page-health-help-link-offhost",
+      "script": "scripts/page-health-help-link-offhost-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "PAGE_HEALTH_TIMEOUT_MS"
+      ],
+      "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings. The browser aborts the off-host request; nothing leaves the machine.",
+      "notes": "Expected to FAIL today at the final step: Administration > Help Link Setting requests https://www.google-analytics.com/collect (Toast UI editor usage statistics, resourcebaseurl.jsp:212-224 lacks usageStatistics:false)."
     }
   ]
 }
