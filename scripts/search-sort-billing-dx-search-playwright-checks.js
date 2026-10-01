@@ -66,6 +66,10 @@ async function workflow(s) {
   const defects = [];
   // CSRFGuard's client throws on result inputs named with numeric dx codes (known, scratchpad L173 / finding 112): that
   // error is consumed here so it is not blamed on every search; anything else the search raises is kept.
+  // Every search drains the strict recorder, so each caller must look at the errors it gets back: this reports them as defects.
+  const reportErrors = (label, errors) => {
+    if (errors.length) defects.push(`${label} raised ${errors.join(' / ')} in the Dx search window`);
+  };
   const search = async (prefs, opts) => {
     let frame;
     const { failed, pageErrors, thrown } = await k.collectHttpFailures(s, async () => {
@@ -83,7 +87,8 @@ async function workflow(s) {
   await prefs.locator('#dxSearchModal.show').waitFor({ timeout: 30000 });
 
   await s.step('the 200-299 range lists exactly the codes that start with 2', async () => {
-    const { frame } = await search(prefs, { range: '2', text: '' });
+    const { frame, errors } = await search(prefs, { range: '2', text: '' });
+    reportErrors('the 200-299 range search', errors);
     const shown = (await dxRows(frame)).map(r => r.code).sort();
     const expected = sql.rows("SELECT DISTINCT diagnostic_code FROM diagnosticcode WHERE diagnostic_code LIKE '2%' AND TRIM(diagnostic_code)<>''")
       .map(r => r[0]).sort();
@@ -92,7 +97,9 @@ async function workflow(s) {
   });
 
   await s.step('the run word lists both owned codes; the run word plus "asthma" lists only the asthma code', async () => {
-    let { frame } = await search(prefs, { text: word });
+    const first = await search(prefs, { text: word });
+    let frame = first.frame;
+    reportErrors('the run word search', first.errors);
     const both = (await dxRows(frame)).map(r => r.code).sort();
     h.assert(JSON.stringify(both) === JSON.stringify([codeA, codeB].sort()), `The run word listed ${both.join(', ')}, not the two owned codes`);
     const single = await search(prefs, { text: `${word} asthma` });
@@ -107,7 +114,8 @@ async function workflow(s) {
   });
 
   await s.step('a shipped description with an apostrophe reads as text', async () => {
-    const { frame } = await search(prefs, { text: 'Cushing' });
+    const { frame, errors } = await search(prefs, { text: 'Cushing' });
+    reportErrors('the "Cushing" search', errors);
     const rows = await dxRows(frame);
     h.assert(rows.length >= 1, 'The search for "Cushing" found nothing');
     const raw = rows.filter(r => /&#\d+;|&[a-z]+;/i.test(r.text));
@@ -115,7 +123,8 @@ async function workflow(s) {
   });
 
   await s.step('a description with a digit lists the matching code and nothing that does not match', async () => {
-    const { frame } = await search(prefs, { text: `${word} diabetes type 2` });
+    const { frame, errors } = await search(prefs, { text: `${word} diabetes type 2` });
+    reportErrors('the mixed-digit search', errors);
     const rows = await dxRows(frame);
     h.assert(rows.some(r => r.code === codeA), 'The owned diabetes code was not found by its own description');
     const stray = rows.filter(r => r.code !== codeA);

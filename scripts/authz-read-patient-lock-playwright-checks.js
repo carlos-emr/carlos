@@ -35,13 +35,21 @@ async function workflow(s) {
   // A first name that occurs nowhere else, so a search-result row can be told from the echoed keyword.
   const lockedFirst = `Lk${marker.slice(-8)}`;
   let locked; let openIds; let lockedIds; let doctor;
+  let lockedChildrenRemoved = true; // false only while (or after a failed) removal of the locked patient's seeded rows
   // Independent teardown actions: one failing must not leave the other owned rows behind.
   s.cleanup(() => cleanupAll(
-    () => { if (lockedIds) lockedIds.remove(); },
+    () => {
+      if (!lockedIds) return;
+      lockedChildrenRemoved = false;
+      lockedIds.remove();
+      lockedChildrenRemoved = true;
+    },
     () => { if (openIds) openIds.remove(); },
     () => fixture.cleanup(),
     () => {
       if (!locked) return;
+      // The parent row stays when its seeded chart rows could not be removed: deleting it would orphan them past any later retry.
+      h.assert(lockedChildrenRemoved, 'The locked patient was kept because its seeded chart rows were not all removed');
       sql.execute(`DELETE FROM demographic WHERE demographic_no=${locked} AND last_name=${h.sqlString(lockedName)}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${locked}`) === '0', 'The locked patient was not removed');
     },

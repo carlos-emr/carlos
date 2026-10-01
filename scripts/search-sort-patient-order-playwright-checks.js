@@ -5,7 +5,8 @@
  * User path: Schedule > Search > name search for the run tag > Search > each column header of the results table
  * (Demographic no., Name, Chart no., Sex, DOB, Doctor, Roster status, Patient status, Phone; demographicsearchresults.jsp).
  * Asserts, on five owned patients that differ in every sortable column (one surname starts in lower case, as "van Dyk" or
- * "de Souza" do in real data; one patient has no MRP, no chart number and no phone): the default order is alphabetical;
+ * "de Souza" do in real data, and five different patient statuses, none of them in the default inactive list so the default
+ * search still includes them; one patient has no MRP, no chart number and no phone): the default order is alphabetical;
  * each header returns all five owned rows, once each, ordered by the column it names (numbers as numbers, text without
  * regard to case); and sorting by Doctor with a patient who has no MRP still lists the patients. Defects are collected
  * and asserted together in the last step, so every header is exercised before the check fails.
@@ -21,11 +22,11 @@ async function workflow(s) {
   const tag = k.nameTag(s.marker);
   k.registerPatientCleanup(s, tag);
   const ids = {
-    zulu: k.insertPatient(s, { last: `${tag}-Zulu`, first: 'Ann', sex: 'F', chart: 'C30', dob: '1990-03-05', roster: 'RO', status: 'AC', phone: '9055550003' }),
-    vanDyk: k.insertPatient(s, { last: `${tag}-van Dyk`, first: 'Bob', sex: 'M', chart: 'C100', dob: '1980-12-25', roster: 'NR', status: 'AC', phone: '9055550001' }),
+    zulu: k.insertPatient(s, { last: `${tag}-Zulu`, first: 'Ann', sex: 'F', chart: 'C30', dob: '1990-03-05', roster: 'RO', status: 'XA', phone: '9055550003' }),
+    vanDyk: k.insertPatient(s, { last: `${tag}-van Dyk`, first: 'Bob', sex: 'M', chart: 'C100', dob: '1980-12-25', roster: 'NR', status: 'BA', phone: '9055550001' }),
     bravo: k.insertPatient(s, { last: `${tag}-Bravo`, first: 'Cy', sex: 'F', chart: 'C2', dob: '1985-01-15', roster: 'RO', status: 'AC', phone: '9055550002' }),
-    aaron: k.insertPatient(s, { last: `${tag}-Aaron`, first: 'Di', sex: 'M', chart: 'C7', dob: '1975-06-30', roster: 'NR', status: 'AC', phone: '9055550004' }),
-    noMrp: k.insertPatient(s, { last: `${tag}-Mulligan`, first: 'Ed', sex: 'F', chart: null, dob: '1999-09-09', roster: 'NR', status: 'AC', phone: null, provider: null }),
+    aaron: k.insertPatient(s, { last: `${tag}-Aaron`, first: 'Di', sex: 'M', chart: 'C7', dob: '1975-06-30', roster: 'NR', status: 'ZA', phone: '9055550004' }),
+    noMrp: k.insertPatient(s, { last: `${tag}-Mulligan`, first: 'Ed', sex: 'F', chart: null, dob: '1999-09-09', roster: 'NR', status: 'MA', phone: null, provider: null }),
   };
   const all = Object.values(ids);
   const defects = [];
@@ -80,9 +81,12 @@ async function workflow(s) {
   }
 
   await s.step('the Doctor header still lists every patient when one has no most-responsible provider', async () => {
-    const { failed } = await k.collectHttpFailures(s, async () => { await k.clickSort(popup, 'provider_no'); });
-    if (failed.length) {
-      defects.push(`Doctor header: the results page failed (${failed.join(', ')}) when an owned patient has no provider`);
+    const { failed, pageErrors, thrown } = await k.collectHttpFailures(s, async () => { await k.clickSort(popup, 'provider_no'); });
+    // clickSort's own failure is caught by the helper, so a thrown click must count as a defect: otherwise the rows still on
+    // screen from the previous sort would be accepted by count alone.
+    if (failed.length || pageErrors.length || thrown) {
+      const why = [...failed, ...pageErrors, ...(thrown ? [`the click failed: ${String(thrown.message || thrown).split('\n')[0].slice(0, 120)}`] : [])];
+      defects.push(`Doctor header: the results page failed (${why.join(', ')}) when an owned patient has no provider`);
       return;
     }
     expectOnce(await read(), 'Doctor header');

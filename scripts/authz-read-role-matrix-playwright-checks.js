@@ -8,8 +8,9 @@
  * role does not hold the sec object for. The routes are the Struts gates reached from the schedule
  * top bar, the Administration panel, the Master Record and the E-Chart (scripts/lib/authz-read-routes.js).
  *
- * Asserted: for every pinned (role, route) pair the application answers 403 to GET and to HEAD
- * ("Security Exception"), never content; a positive control per role proves the session is alive
+ * Asserted: for every pinned (role, route) pair the application refuses GET (403 "Security Exception")
+ * and HEAD (the same 403, a redirect to the securityError / noRights denial pages, or 405 where the route is GET-only),
+ * never content; a positive control per role proves the session is alive
  * and the 403 is an authorization decision. A route that starts serving a role lacking its object
  * fails the pinning step with the route name.
  *
@@ -67,7 +68,7 @@ async function workflow(s) {
     });
   }
 
-  await s.step('the same pairs are refused for HEAD too (403, or 405 where the route is GET-only; a container runs doGet for HEAD)', async () => {
+  await s.step('the same pairs are refused for HEAD too (the application 403, a redirect to its securityError/noRights page, or 405 where the route is GET-only; a container runs doGet for HEAD)', async () => {
     const wrong = [];
     for (const role of Object.keys(DENIED)) {
       for (const route of DENIED[role]) {

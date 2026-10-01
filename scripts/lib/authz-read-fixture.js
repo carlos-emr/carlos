@@ -209,14 +209,23 @@ function seedPatientDomains({ sql, demo, tag, provider, register, documentStore 
   const owned = [];
   const files = [];
   ids.remove = () => {
-    for (const file of files) if (fs.existsSync(file)) fs.unlinkSync(file);
-    assert(!files.some(file => fs.existsSync(file)), 'Seeded document files were not removed');
-    const parts = owned.map(([table, key, id]) => [`DELETE FROM ${table} WHERE ${key}=${id}`, `(SELECT COUNT(*) FROM ${table} WHERE ${key}=${id})`]);
-    if (ids.doc) parts.unshift([`DELETE FROM ctl_document WHERE module='demographic' AND module_id=${d} AND document_no=${ids.doc}`,
-      `(SELECT COUNT(*) FROM ctl_document WHERE document_no=${ids.doc})`]);
-    if (!parts.length) return;
-    sql.execute(parts.map(part => part[0]).join(';'));
-    assert(sql.value(`SELECT ${parts.map(part => part[1]).join('+')}`) === '0', 'Seeded chart-domain rows were not all removed');
+    // File removal and SQL cleanup are independent: a file that will not unlink must not leave the seeded rows behind.
+    // The first failure is rethrown once both have been attempted.
+    let firstError = null;
+    const attempt = action => { try { action(); } catch (error) { if (!firstError) firstError = error; } };
+    attempt(() => {
+      for (const file of files) if (fs.existsSync(file)) fs.unlinkSync(file);
+      assert(!files.some(file => fs.existsSync(file)), 'Seeded document files were not removed');
+    });
+    attempt(() => {
+      const parts = owned.map(([table, key, id]) => [`DELETE FROM ${table} WHERE ${key}=${id}`, `(SELECT COUNT(*) FROM ${table} WHERE ${key}=${id})`]);
+      if (ids.doc) parts.unshift([`DELETE FROM ctl_document WHERE module='demographic' AND module_id=${d} AND document_no=${ids.doc}`,
+        `(SELECT COUNT(*) FROM ctl_document WHERE document_no=${ids.doc})`]);
+      if (!parts.length) return;
+      sql.execute(parts.map(part => part[0]).join(';'));
+      assert(sql.value(`SELECT ${parts.map(part => part[1]).join('+')}`) === '0', 'Seeded chart-domain rows were not all removed');
+    });
+    if (firstError) throw firstError;
   };
   if (register) register(ids);
   const track = (table, key, id) => { assert(/^[1-9]\d*$/.test(id), `${table} seed row was not created`); owned.push([table, key, id]); return id; };

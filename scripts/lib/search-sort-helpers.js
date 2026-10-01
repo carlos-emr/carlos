@@ -40,7 +40,8 @@ function registerPatientCleanup(s, tag) {
  */
 function insertPatient(s, spec) {
   const { sql, provider } = s;
-  const val = (v, dflt) => (v === undefined ? h.sqlString(dflt) : v === null ? 'NULL' : h.sqlString(v));
+  // An omitted column takes `dflt`; a null default (chart, phone) must be SQL NULL, not the literal text 'null'.
+  const val = (v, dflt) => ((v === undefined ? dflt : v) === null ? 'NULL' : h.sqlString(v === undefined ? dflt : v));
   const dob = spec.dob || '1980-01-02';
   const [y, m, d] = dob.split('-');
   const id = sql.value(`INSERT INTO demographic

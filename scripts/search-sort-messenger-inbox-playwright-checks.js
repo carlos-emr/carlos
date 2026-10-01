@@ -2,11 +2,11 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
  * The Messenger inbox: search, paging at 25 rows a page, and the sortable headers (wave 7, search-sort).
- * User path: Schedule > Msg (messenger/DisplayMessages) > the search box > Next / Previous page > the Status, From, Subject
- * and Linked headers, each clicked twice (ascending then descending).
+ * User path: Schedule > Msg (messenger/DisplayMessages) > the search box > Next / Previous page > the Status, From, Subject,
+ * Date and Linked headers, each clicked twice (ascending then descending).
  * Asserts, on 27 owned messages in the test provider's inbox (some read, some new, three senders, every third one linked
  * to a patient): searching the run marker lists 25 rows with a Next link, page two lists the remaining two with a
- * Previous link, and the two pages hold each message once; the Subject, From and Status headers order the whole result
+ * Previous link, and the two pages hold each message once; the Subject, From, Status and Date headers order the whole result
  * (across the page boundary) by that column and the second click reverses it; and the Linked header groups the messages that
  * are linked to a patient together instead of leaving them where they were. Defects are collected and asserted together in
  * the last step, so every provable step runs first.
@@ -89,9 +89,13 @@ async function workflow(s) {
     return [...first, ...await readRows(inbox)];
   };
   const textCmp = (a, b) => k.collator.compare(a, b);
-  const columns = [['Subject', 'subject', 'subject', textCmp], ['From', 'from', 'from', textCmp], ['Status', 'status', 'status', textCmp]];
+  // The inbox shows dates as dd-MM-yyyy; order them as dates, not as text.
+  const dateKey = v => v.replace(/^(\d{2})-(\d{2})-(\d{4})$/, '$3-$2-$1');
+  const dateCmp = (a, b) => (dateKey(a) < dateKey(b) ? -1 : dateKey(a) > dateKey(b) ? 1 : 0);
+  const columns = [['Subject', 'subject', 'subject', textCmp], ['From', 'from', 'from', textCmp], ['Status', 'status', 'status', textCmp],
+    ['Date', 'date', 'date', dateCmp]];
 
-  await s.step('the Subject, From and Status headers order all 27 messages across the page boundary, and a second click reverses it', async () => {
+  await s.step('the Subject, From, Status and Date headers order all 27 messages across the page boundary, and a second click reverses it', async () => {
     for (const [label, param, field, cmp] of columns) {
       for (const dir of ['ascending', 'descending']) {
         await ui.clickAndAwaitReload(inbox, inbox.locator(`a[href*="orderby=${param}"]`).first(), { timeout: 30000, label: `messenger sort by ${label}` });
@@ -104,12 +108,20 @@ async function workflow(s) {
     }
   });
 
-  await s.step('the Linked header groups the messages linked to a patient together', async () => {
-    await ui.clickAndAwaitReload(inbox, inbox.locator('a[href*="orderby=linked"]').first(), { timeout: 30000, label: 'messenger sort by Linked' });
-    const rows = await bothPages();
-    const flags = rows.map(r => (r.linked !== '' ? 'L' : 'u'));
-    const changes = flags.filter((f, i) => i > 0 && f !== flags[i - 1]).length;
-    if (changes > 1) defects.push(`Linked: the 9 linked and 18 unlinked messages are not grouped (${flags.join('')})`);
+  await s.step('the Linked header, clicked twice, groups the messages linked to a patient together both ways', async () => {
+    for (const dir of ['first click', 'second click']) {
+      await ui.clickAndAwaitReload(inbox, inbox.locator('a[href*="orderby=linked"]').first(), { timeout: 30000, label: 'messenger sort by Linked' });
+      const rows = await bothPages();
+      const linked = rows.filter(r => r.linked !== '').length;
+      // Zero transitions would also be the answer for 27 empty Linked cells, so the shape of the listing is proven first.
+      if (rows.length !== 27 || linked !== 9) {
+        defects.push(`Linked ${dir}: lists ${rows.length} rows with ${linked} linked cells, not 27 with 9 (the grouping cannot be judged)`);
+        continue;
+      }
+      const flags = rows.map(r => (r.linked !== '' ? 'L' : 'u'));
+      const changes = flags.filter((f, i) => i > 0 && f !== flags[i - 1]).length;
+      if (changes > 1) defects.push(`Linked ${dir}: the 9 linked and 18 unlinked messages are not grouped (${flags.join('')})`);
+    }
   });
 
   await s.step('every messenger sort and page listed the owned messages correctly', async () => {
