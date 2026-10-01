@@ -133,6 +133,38 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should send ED rows past the HHSEMR, CML and Spire renderers in lab display")
+    void shouldRouteEmbeddedDocumentRows_pastLabSpecificRenderersInLabDisplay() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("} else if (embeddedDocument == null && (handler.getMsgType().equals(\"HHSEMR\") || handler.getMsgType().equals(\"CML\"))) {")
+                .contains("} else if (embeddedDocument == null && handler.getMsgType().equals(\"Spire\")) {");
+    }
+
+    @Test
+    @DisplayName("should send ED rows past the HHSEMR renderer in ajax lab display")
+    void shouldRouteEmbeddedDocumentRows_pastLabSpecificRendererInAjaxLabDisplay() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("} else if (embeddedDocument == null && handler.getMsgType().equals(\"HHSEMR\")) {");
+    }
+
+    @Test
+    @DisplayName("should send PDF and binary ED rows past the unstructured-report layout in both lab views")
+    void shouldRouteEmbeddedPdfRows_pastUnstructuredLayoutInBothViews() throws IOException {
+        for (Path view : List.of(LAB_DISPLAY_JSP, LAB_DISPLAY_AJAX_JSP)) {
+            String jsp = Files.readString(view, StandardCharsets.UTF_8);
+
+            assertThat(jsp).as(view.toString())
+                    .contains("if (isUnstructuredDoc && !isEmbeddedDocumentResult && !isUndisplayableEmbeddedDocument) {")
+                    // Text ED rows stay in the narrative layout but show the ED.5 text.
+                    .contains("embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT"
+                            + " ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k)");
+        }
+    }
+
+    @Test
     @DisplayName("should close inboxhub iframe after successful lab macro")
     void shouldCloseInboxhubIframe_afterSuccessfulLabMacro() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);

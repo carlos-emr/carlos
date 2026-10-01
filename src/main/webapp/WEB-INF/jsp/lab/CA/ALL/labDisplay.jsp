@@ -2378,7 +2378,10 @@ input[id^='acklabel_']{
             </tr>
             <% }
 
-            } else if (handler.getMsgType().equals("HHSEMR") || handler.getMsgType().equals("CML")) {
+            } else if (embeddedDocument == null && (handler.getMsgType().equals("HHSEMR") || handler.getMsgType().equals("CML"))) {
+                // ED rows (embeddedDocument != null) skip this and the Spire branch below for the shared
+                // rendering further down, which owns the Download PDF link, the text/unsupported value
+                // and the inline preview row (#3977).
                 if (!obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
@@ -2433,7 +2436,7 @@ input[id^='acklabel_']{
             <%
                 }
 
-            } else if (handler.getMsgType().equals("Spire")) {
+            } else if (embeddedDocument == null && handler.getMsgType().equals("Spire")) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
@@ -2508,7 +2511,10 @@ input[id^='acklabel_']{
 
             } else if (!handler.getMsgType().equals("EPSILON")) {
 
-                if (isUnstructuredDoc) {
+                // A PDF or other binary ED row in an unstructured report (PATHL7 CELLPATH, MEDITECH
+                // narrative) takes the structured row below for its Download PDF link and preview;
+                // text keeps the narrative layout (and the CELLPATHR RTF rendering).
+                if (isUnstructuredDoc && !isEmbeddedDocumentResult && !isUndisplayableEmbeddedDocument) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%="NarrativeRes"%>"><%
                                    			if(handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (obxCount>1) && ! handler.getMsgType().equals("MEDITECH") ){%>
@@ -2536,7 +2542,7 @@ input[id^='acklabel_']{
                 </td>
                     <%}else{%>
                 <td style="text-align:left">
-                    <span><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
+                    <span><carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
                 </td>
                     <%} %>
 
@@ -2615,13 +2621,13 @@ input[id^='acklabel_']{
                     <%
                                            		}
 
-                                           		else if(handler.getMsgType().equals("MEDITECH")  && isUnstructuredDoc ) {
+                                           		else if(embeddedDocument == null && handler.getMsgType().equals("MEDITECH")  && isUnstructuredDoc ) {
                                            	%>
 
                 <pre> <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
 					                             		</pre>
 
-                    <% } else if(handler.getMsgType().equals("MEDITECH")  && ((MEDITECHHandler) handler).isReportData() ) { %>
+                    <% } else if(embeddedDocument == null && handler.getMsgType().equals("MEDITECH")  && ((MEDITECHHandler) handler).isReportData() ) { %>
             <tr>
                 <td>
                     <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
