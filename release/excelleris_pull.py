@@ -134,6 +134,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 try:
+    from cryptography.exceptions import UnsupportedAlgorithm
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import padding, rsa
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -212,6 +213,7 @@ class Config:
     pfx_file: Path
     pfx_password: str
     excelleris_timeout: int
+    excelleris_ca_file: Optional[Path]  # extra trust anchor; None = system CA store
     # [carlos]
     carlos_base_url: str
     carlos_username: str
@@ -221,6 +223,7 @@ class Config:
     client_private_key: str  # base64 PKCS#8 DER, as served by admin/keygen/getPublicKey
     server_public_key: str  # base64 X.509 SubjectPublicKeyInfo DER, from the Key Manager page
     carlos_timeout: int
+    carlos_ca_file: Optional[Path]  # for a CARLOS behind a private CA; None = system store
     # [paths]
     state_dir: Path
     log_file: Path
@@ -375,6 +378,16 @@ def load_config(path: Path) -> Config:
     pfx_file = Path(need("excelleris", "pfx_file"))
     _require_private_file(pfx_file, "[excelleris] pfx_file")
 
+    def ca_file(section: str) -> Optional[Path]:
+        """Optional PEM bundle to trust in addition to the system store."""
+        raw = optional(section, "ca_file", "")
+        if not raw:
+            return None
+        path = Path(raw)
+        if not path.is_file():
+            raise ConfigError(f"[{section}] ca_file not found: {path}")
+        return path
+
     cfg = Config(
         excelleris_context=optional("excelleris", "context", ""),
         excelleris_url=excelleris_url,
@@ -383,6 +396,7 @@ def load_config(path: Path) -> Config:
         pfx_file=pfx_file,
         pfx_password=optional("excelleris", "pfx_password", ""),
         excelleris_timeout=positive_int("excelleris", "timeout_seconds", "60", 5),
+        excelleris_ca_file=ca_file("excelleris"),
         carlos_base_url=carlos_base_url,
         carlos_username=username,
         carlos_password=need("carlos", "password"),
@@ -391,6 +405,7 @@ def load_config(path: Path) -> Config:
         client_private_key=_read_key_material(parser["carlos"], "client_private_key"),
         server_public_key=_read_key_material(parser["carlos"], "server_public_key"),
         carlos_timeout=positive_int("carlos", "timeout_seconds", "120", 5),
+        carlos_ca_file=ca_file("carlos"),
         state_dir=Path(need("paths", "state_dir")),
         log_file=Path(need("paths", "log_file")),
         retention_days=positive_int("paths", "retention_days", "90", 0),
@@ -595,8 +610,20 @@ class ClientCertificate:
         password = self.pfx_password.encode("utf-8") if self.pfx_password else None
         try:
             key, cert, extra = pkcs12.load_key_and_certificates(raw, password)
+        except UnsupportedAlgorithm as exc:
+            # PFX files from older Windows tooling are often sealed with RC2-40
+            # or similar ciphers that OpenSSL 3 only serves from its "legacy"
+            # provider. Re-exporting once fixes it without touching the key.
+            raise ConfigError(
+                f"PFX {self.pfx_file} uses a cipher this OpenSSL does not enable ({exc}); "
+                "re-export it with: openssl pkcs12 -legacy -in old.pfx -nodes | "
+                "openssl pkcs12 -export -out new.pfx"
+            ) from exc
         except ValueError as exc:
-            raise ConfigError(f"cannot open PFX {self.pfx_file}: {exc}") from exc
+            raise ConfigError(
+                f"cannot open PFX {self.pfx_file}: {exc} (wrong passphrase, or a legacy "
+                "cipher: see the re-export hint in --help/docstring)"
+            ) from exc
         if key is None or cert is None:
             raise ConfigError(f"PFX {self.pfx_file} does not contain both a key and a certificate")
         pem = key.private_bytes(
@@ -621,10 +648,19 @@ class ClientCertificate:
             self._tmpdir = None
             self.pem_path = None
 
-    def ssl_context(self) -> ssl.SSLContext:
-        ctx = ssl.create_default_context()  # verifies the server; no "-k"
+    def ssl_context(self, ca_file: Optional[Path] = None) -> ssl.SSLContext:
+        ctx = server_verifying_context(ca_file)
         ctx.load_cert_chain(certfile=str(self.pem_path))
         return ctx
+
+
+def server_verifying_context(ca_file: Optional[Path] = None) -> ssl.SSLContext:
+    """A context that verifies the peer (no "-k"), optionally trusting one
+    extra PEM bundle on top of the system store for sites behind a private CA."""
+    ctx = ssl.create_default_context()
+    if ca_file is not None:
+        ctx.load_verify_locations(cafile=str(ca_file))
+    return ctx
 
 
 # ---------------------------------------------------------------------------
@@ -1222,7 +1258,9 @@ def pull_step(
 ) -> Optional[Path]:
     """Excelleris login -> pull -> store -> ack -> logout. Returns the inbox file or None."""
     with ClientCertificate(cfg.pfx_file, cfg.pfx_password) as cert:
-        transport = make_transport(cfg.excelleris_timeout, cert.ssl_context(), True)
+        transport = make_transport(
+            cfg.excelleris_timeout, cert.ssl_context(cfg.excelleris_ca_file), True
+        )
         try:
             with ExcellerisSession(cfg, transport) as session:
                 if opts.dry_run:
@@ -1230,16 +1268,18 @@ def pull_step(
                     return None
                 body = session.pull()
                 summary = inspect_pull(body)
-                if summary.problem:
+                if summary.problem or summary.return_code is not None:
                     # Not a results document: keep them pending at Excelleris
                     # and tell someone, because this is not the normal "empty".
-                    session.ack(False)
-                    raise StepError("excelleris pull", f"unexpected pull body: {summary.problem}")
-                if summary.return_code is not None:
-                    session.ack(False)
-                    raise StepError(
-                        "excelleris pull", f"Excelleris returned ReturnCode={summary.return_code}"
+                    # Logged before the ack so a failing ack cannot hide it.
+                    detail = (
+                        f"unexpected pull body: {summary.problem}"
+                        if summary.problem
+                        else f"Excelleris returned ReturnCode={summary.return_code}"
                     )
+                    log.error("excelleris: %s", detail)
+                    session.ack(False)
+                    raise StepError("excelleris pull", detail)
                 if not summary.has_results:
                     log.info("excelleris: no results pending")
                     session.ack(False)
@@ -1269,7 +1309,9 @@ def upload_step(
         return []
     failures: list[str] = []
     envelope = LabUploadEnvelope(cfg.client_private_key, cfg.server_public_key)
-    transport = make_transport(cfg.carlos_timeout, None, False)
+    transport = make_transport(
+        cfg.carlos_timeout, server_verifying_context(cfg.carlos_ca_file), False
+    )
     try:
         with CarlosSession(cfg, transport, envelope) as session:
             if opts.dry_run:
@@ -1293,31 +1335,43 @@ def upload_step(
 
 
 def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
-    archive = Archive(cfg)
+    """One complete run. Every failure path ends in an alert and a non-zero
+    exit; the only quiet early exit is lock contention."""
     notifier = Notifier(cfg)
-    lock = RunLock(cfg.lock_file)
-    if not lock.acquire():
-        log.warning("another excelleris_pull run still holds %s; exiting", cfg.lock_file)
-        return EXIT_LOCKED
     run_id = time.strftime("%Y%m%d-%H%M%S")
-    log.info(
-        ">>>>> run %s started (excelleris_pull %s, clinic %r)",
-        run_id,
-        VERSION,
-        cfg.excelleris_context,
-    )
+    lock: Optional[RunLock] = None
     try:
+        # State directory and lock come first and inside the try: a permission
+        # problem here must produce an alert, not a bare traceback.
+        archive = Archive(cfg)
+        lock = RunLock(cfg.lock_file)
+        if not lock.acquire():
+            lock = None
+            log.warning("another excelleris_pull run still holds %s; exiting", cfg.lock_file)
+            return EXIT_LOCKED
+        log.info(
+            ">>>>> run %s started (excelleris_pull %s, clinic %r)",
+            run_id,
+            VERSION,
+            cfg.excelleris_context,
+        )
         failures: list[str] = []
         # Retry first: a backlog from a CARLOS outage goes in before new work.
         if not opts.no_upload and not opts.dry_run:
             failures += upload_step(cfg, archive, opts, make_transport)
         if not opts.upload_only:
-            pull_step(cfg, archive, run_id, opts, make_transport)
+            try:
+                pull_step(cfg, archive, run_id, opts, make_transport)
+            except StepError as exc:
+                # The pull failing must not strand what is already in the inbox
+                # (including a pull stored just before its ack failed), so
+                # record it and still run the upload below.
+                failures.append(f"{exc.step}: {exc.detail}")
         if not opts.no_upload:
             failures += upload_step(cfg, archive, opts, make_transport)
         archive.purge()
         if failures:
-            notifier.failure(run_id, "carlos upload", "; ".join(failures))
+            notifier.failure(run_id, "run", "; ".join(failures))
             log.error("<<<<< run %s finished WITH ERRORS", run_id)
             return EXIT_FAILED
         log.info("<<<<< run %s finished cleanly", run_id)
@@ -1335,7 +1389,8 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
         notifier.failure(run_id, "internal error", f"{type(exc).__name__}: {exc}")
         return EXIT_FAILED
     finally:
-        lock.release()
+        if lock is not None:
+            lock.release()
 
 
 # ---------------------------------------------------------------------------
