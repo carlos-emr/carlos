@@ -129,3 +129,6 @@ async function workflow(s) {
     console.log(view.url(), (await view.locator('body').innerText()).slice(0, 300));
   });
 }
+
+if (require.main === module) runWorkflow('flowsheet-patient-customization', workflow);
+module.exports = { workflow };

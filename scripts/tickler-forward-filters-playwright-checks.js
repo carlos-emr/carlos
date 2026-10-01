@@ -1,40 +1,31 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * tickler-forward-preferences — coverage plan §3.4 (`tickler-forward-filters`: forward to another
- * provider, the Assigned To filter, and Preferences ▸ tickler settings).
+ * tickler-forward-filters — coverage plan §3.4 (`tickler-forward-filters`: forward a tickler to
+ * another provider and the tickler list's Assigned To filter). The preference half of that row
+ * lives in tickler-preferences-playwright-checks.js.
  *
- * User path: Schedule ▸ preferences icon ▸ "Set Tickler Preferences" (setProviderStaleDate?
- * method=viewTicklerTaskAssignee ▸ form posts to setTicklerPreferences); Schedule ▸ Tickler
- * (tickler/ViewTicklerMain) ▸ Assigned To filter + Create Report (tickler/ListTicklers) ▸ row
- * pencil ▸ edit popup ▸ Assigned To ▸ Update (tickler/EditTickler, the reassignment control);
- * Master Record ▸ Tickler ▸ New Tickler (the preference's effect: the defaulted assignee).
+ * User path: Schedule ▸ Tickler (tickler/ViewTicklerMain) ▸ search box + Assigned To filter +
+ * Create Report (tickler/ListTicklers) ▸ row pencil ▸ edit popup ▸ Assigned To ▸ Update
+ * (tickler/EditTickler, the reassignment control).
  *
  * Asserted: forwarding an owned tickler to a second active provider changes
  * tickler.task_assigned_to and writes tickler_update rows (the original-state backfill plus the
- * change, each by the forwarding provider); the Assigned To filter then hides the row under the
- * test provider and shows it under the other provider (ListTicklers JSON and the rendered row);
- * forwarding back restores it; saving the "default assignee = <other provider>" preference writes
- * the property row `tickler_task_assignee`, a new tickler form preselects that provider and a
- * save carries it; choosing "Default" again deletes the row. Finally a GET against
- * setTicklerPreferences must not change the stored preference.
+ * change, each by the forwarding provider) and no comment; the Assigned To filter then hides the
+ * row under the test provider and shows it under the other provider (ListTicklers JSON and the
+ * rendered row); forwarding back restores the assignee, adds one more history row and returns the
+ * row to the test provider's list.
  *
- * Fixtures: one tickler seeded by SQL for the owned patient (message carries the marker) plus the
- * one the preference step saves; the preference row is snapshotted before any change. Cleanup
- * deletes the owned ticklers with their comments, updates and attachments, restores the
- * preference snapshot, and asserts both.
+ * Fixtures: one tickler seeded by SQL for the owned synthetic patient (message carries the
+ * marker). Cleanup deletes the owned tickler with its comments, updates and attachments, and
+ * asserts it is gone. No shared setting is changed.
  *
  * tickler/ForwardDemographicTickler is deliberately NOT driven here: it only prefills the add
- * form from a document, lab or HRM viewer and has no entry in the tickler list (see the report).
- * Env: the common contract (lib/playwright-harness.js readConfig()); TICKLER_PREFS_DIRECT=true
- * opens the preference form by its own route while the Preferences link points at the wrong action.
+ * form from a document, lab or HRM viewer and has no entry in the tickler list.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
-const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-
-const PREFERENCE = 'tickler_task_assignee';
 
 /** The server-side DataTable is initialised and idle. */
 async function waitForTicklerTable(page) {
@@ -103,10 +94,10 @@ async function forwardThroughEdit(s, list, marker, ticklerNo, from, to) {
   if (!edit.isClosed()) await edit.close();
 }
 
+
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const message = `${marker} forward through the tickler list`;
-  const defaultedMessage = `${marker} saved with the preferred default assignee`;
   const other = sql.rows(`SELECT provider_no, last_name, first_name FROM provider WHERE status='1'
     AND provider_no NOT LIKE '-%' AND provider_no<>${h.sqlString(provider)} ORDER BY last_name, first_name, provider_no LIMIT 1`)[0];
   if (!other) throw new h.SkipCheck('No second active provider exists to forward a tickler to');
@@ -114,11 +105,6 @@ async function workflow(s) {
   const providerName = sql.value(`SELECT CONCAT(last_name, ', ', first_name) FROM provider WHERE provider_no=${h.sqlString(provider)}`);
   const namesOther = name => String(name || '').includes(otherLast) && String(name || '').includes(otherFirst);
   const ownedTicklers = `demographic_no=${patient} AND message LIKE ${h.sqlString(`${marker}%`)}`;
-  const preferencePredicate = `provider_no=${h.sqlString(provider)} AND name=${h.sqlString(PREFERENCE)}`;
-  const snapshotQuery = `SELECT id, COALESCE(value,''), value IS NULL FROM property WHERE ${preferencePredicate} ORDER BY id`;
-  const preferenceSnapshot = sql.rows(snapshotQuery);
-  const storedPreference = () => sql.value(`SELECT COALESCE(value,'') FROM property WHERE ${preferencePredicate} ORDER BY id LIMIT 1`);
-  const preferenceRows = () => sql.value(`SELECT COUNT(*) FROM property WHERE ${preferencePredicate}`);
   s.cleanup(() => {
     const ids = sql.rows(`SELECT tickler_no FROM tickler WHERE ${ownedTicklers}`).map(row => row[0]);
     h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Owned tickler ID is invalid');
@@ -129,13 +115,6 @@ async function workflow(s) {
         DELETE FROM tickler WHERE ${ownedTicklers} AND tickler_no IN (${ids.join(',')})`);
     }
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE ${ownedTicklers}`) === '0', 'Owned ticklers were not removed');
-    const statements = [`DELETE FROM property WHERE ${preferencePredicate}`];
-    for (const [id, value, isNull] of preferenceSnapshot) {
-      h.assert(/^\d+$/.test(id), 'Invalid preference restore snapshot');
-      statements.push(`INSERT INTO property(id,provider_no,name,value) VALUES (${id},${h.sqlString(provider)},${h.sqlString(PREFERENCE)},${isNull === '1' ? 'NULL' : h.sqlString(value)})`);
-    }
-    sql.execute(`START TRANSACTION;${statements.join(';')};COMMIT`);
-    h.assert(JSON.stringify(sql.rows(snapshotQuery)) === JSON.stringify(preferenceSnapshot), 'Tickler preference restore did not match its snapshot');
   });
   const ticklerNo = sql.value(`INSERT INTO tickler(demographic_no,message,status,update_date,service_date,creator,priority,task_assigned_to)
     VALUES(${patient},${h.sqlString(message)},'A',NOW(),DATE_SUB(CURDATE(),INTERVAL 1 DAY),${h.sqlString(provider)},'Normal',${h.sqlString(provider)});
@@ -143,9 +122,7 @@ async function workflow(s) {
   h.assert(/^[1-9]\d*$/.test(ticklerNo), 'Owned tickler was not created');
   const updates = () => sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${ticklerNo}`);
 
-  // The preferences popup is opened from the schedule before the Tickler link, which in the
-  // focused schedule mode navigates the schedule tab itself.
-  const prefs = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'preferences');
+  // Schedule ▸ Tickler: a popup, or the schedule tab itself in the focused schedule mode.
   const opened = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('a:has(#oscar_new_tickler)').first(),
     { context: s.context, recorder: s.recorder, label: 'tickler-list', timeout: 20000 });
   const list = opened.page;
@@ -190,80 +167,8 @@ async function workflow(s) {
     const rows = await listAssignedTo(list, provider, marker);
     h.assert(rows.some(item => String(item.id) === ticklerNo && item.assigneeName === providerName), 'The tickler did not return to the test provider\'s list');
   });
-
-  // The preference form, entered through the Preferences popup link. providerpreference.jsp links
-  // setProviderStaleDate?method=viewTicklerTaskAssignee, whose "success" result is
-  // setNoteStaleDate.jsp, so on the current build the link never renders the tickler form; that is
-  // asserted (and fails) unless TICKLER_PREFS_DIRECT=true opens the form by its own route.
-  async function openPreferenceForm(label) {
-    let settings;
-    if (process.env.TICKLER_PREFS_DIRECT === 'true') {
-      settings = await s.context.newPage();
-      await h.gotoApp(settings, s.config.baseUrl, '/setTicklerPreferences?method=viewTicklerTaskAssignee');
-      await h.assertNotErrorPage(settings, label);
-    } else {
-      const link = prefs.locator('a[href*="method=viewTicklerTaskAssignee"]').first();
-      await revealAuditLink(prefs, link, 20000);
-      settings = await s.popup(prefs, link, label);
-    }
-    h.assert(await settings.locator('#taskAssigneeProvider').count() === 1,
-      'The "Set Tickler Preferences" link did not open the tickler preference form (it opens '
-      + 'setProviderStaleDate?method=viewTicklerTaskAssignee, mapped to setNoteStaleDate.jsp); '
-      + 'TICKLER_PREFS_DIRECT=true drives the form by its own route until the link is fixed');
-    return settings;
-  }
-
-  await s.step('Preferences ▸ Set Tickler Preferences saves the other provider as the default assignee', async () => {
-    const settings = await openPreferenceForm('tickler-preferences');
-    await settings.locator('#taskAssigneeProvider').check();
-    const select = settings.locator('#assigneeSelect');
-    await select.waitFor({ state: 'visible' });
-    await select.selectOption(otherNo);
-    h.assert(await settings.locator('#taskAssignee').inputValue() === otherNo, 'Choosing a provider did not stage it for submission');
-    await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'tickler preference Submit' });
-    h.assert(h.pathOnly(settings.url()).endsWith('/setTicklerPreferences'), 'The preference form did not post to setTicklerPreferences');
-    await settings.locator('#AlertBanner').waitFor({ state: 'visible', timeout: 20000 });
-    h.assert(preferenceRows() === '1' && storedPreference() === otherNo, 'The default assignee preference was not stored');
-    await settings.close();
-  });
-
-  await s.step('a new tickler form preselects the preferred assignee and the save carries it', async () => {
-    const patientList = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'patient-tickler-list');
-    const add = await s.popup(patientList, patientList.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
-    await add.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
-    h.assert(await add.locator('form[name="serviceform"] input[name="demographic_no"]').last().inputValue() === patient, 'The add form did not open for the owned patient');
-    h.assert(await add.locator('select[name="task_assigned_to"]').first().inputValue() === otherNo, 'The add form did not default its assignee to the preferred provider');
-    await add.locator('textarea[name="ticklerMessage"]').fill(defaultedMessage);
-    await add.locator('input[name="xml_appointment_date"]').fill(sql.value('SELECT CURDATE()'));
-    await add.locator('input.btn-primary[name="Button"]').first().click();
-    await waitForSaveSentinel(add, 'ticklerSubmitFrame', 'tickler-save-ok');
-    await expectValue(sql, `SELECT task_assigned_to FROM tickler WHERE demographic_no=${patient} AND message=${h.sqlString(defaultedMessage)}`,
-      otherNo, 'The defaulted tickler was not saved to the preferred assignee');
-    h.assert(sql.value(`SELECT creator FROM tickler WHERE demographic_no=${patient} AND message=${h.sqlString(defaultedMessage)}`) === provider,
-      'The defaulted tickler was not created by the test provider');
-    if (!add.isClosed()) await add.close();
-  });
-
-  await s.step('choosing Default again removes the preference row', async () => {
-    const settings = await openPreferenceForm('tickler-preferences-reset');
-    h.assert(await settings.locator('#taskAssigneeProvider').isChecked() && await settings.locator('#assigneeSelect').inputValue() === otherNo,
-      'Reopening the preference did not show the stored provider');
-    await settings.locator('#taskAssigneeDefault').check();
-    await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'tickler preference Submit' });
-    await settings.locator('#AlertBanner').waitFor({ state: 'visible', timeout: 20000 });
-    h.assert(preferenceRows() === '0', 'Choosing Default did not delete the preference row');
-    await settings.close();
-  });
-
-  await s.step('a GET against setTicklerPreferences does not change the stored preference', async () => {
-    const before = `${preferenceRows()}:${storedPreference()}`;
-    const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl,
-      `/setTicklerPreferences?method=saveTicklerTaskAssignee&taskAssigneeMRP.value=provider&taskAssigneeSelection.value=${encodeURIComponent(otherNo)}`),
-    { maxRedirects: 0 });
-    h.assert(rejected.status() === 405, `A GET preference save answered HTTP ${rejected.status()} instead of 405`);
-    h.assert(`${preferenceRows()}:${storedPreference()}` === before, 'A GET request changed the stored tickler preference');
-  });
 }
 
-if (require.main === module) runWorkflow('tickler-forward-preferences', workflow, { openPatient: true });
-module.exports = { workflow };
+// The patient fixture owns the tickler; the Master Record is not needed on this path.
+if (require.main === module) runWorkflow('tickler-forward-filters', workflow, { openPatient: true, openMaster: false });
+module.exports = { workflow, waitForSaveSentinel, waitForTicklerTable };

@@ -104,7 +104,7 @@ async function workflow(s) {
       'The owned specialist was not removed');
   });
   const specId = insertId(sql, `INSERT INTO professionalSpecialists
-    (fName,lName,phone,fax,streetAddress,lastUpdated,institutionId,departmentId,hideFromView,deleted)
+    (fName,lName,phone,fax,address,lastUpdated,institutionId,departmentId,hideFromView,deleted)
     VALUES('Ann',${h.sqlString(lastName)},'555-0150','555-0151','1 Synthetic Way',NOW(),0,0,0,0)`, 'specialist');
   const institutionName = `${marker}-Inst`;
   const departmentName = `${marker}-Dept`;
@@ -250,7 +250,7 @@ async function workflow(s) {
     await config.locator('#respEnabled').uncheck();
     await submitSwitch();
     h.assert(sql.value(flag('consultRequestEnabled')) === 'Y' && sql.value(flag('consultResponseEnabled')) === 'NULL',
-      'Disabling responses did not clear only the response flag');
+      `Disabling responses did not clear only the response flag (DEBUG ${sql.value(flag('consultRequestEnabled'))}/${sql.value(flag('consultResponseEnabled'))})`);
     h.assert(sql.value(referringActive) === '02', 'Disabling responses did not inactivate the Referring Doctor service');
     await menu('ViewShowAllServices');
     h.assert(await config.getByRole('link', { name: REFERRING, exact: true }).count() === 0,

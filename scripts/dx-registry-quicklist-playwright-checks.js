@@ -15,7 +15,7 @@
 // cleanup deletes only that list's quickList/quickListUser rows and the owned
 // patient's dxresearch rows, and asserts they are gone.
 // Coverage plan: §2.5 dx-registry-quicklist.
-const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
+const { assert, assertNotErrorPage, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -141,6 +141,25 @@ async function workflow(s) {
     assert(await pick.locator('input[name="xml_research"][value="icd9,250"]').count() === 1, 'Quick pick lost the unregistered code');
     assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`) === '0', 'The quick pick saved a bill');
     await bill.close();
+  });
+
+  await s.step('registry sidebar switches to the owned list and its add link registers the code', async () => {
+    const chart = await s.chart();
+    const registry = await s.popup(chart, chart.locator('a[onclick*="setupDxResearch"]').first(), 'dx-quicklist-registry');
+    const sidebar = registry.locator('#dxCodeQuicklist');
+    const reloaded = registry.waitForEvent('framenavigated', { predicate: f => f === registry.mainFrame() });
+    await sidebar.locator('select[name="quickList"]').selectOption(name);
+    await reloaded;
+    await registry.waitForLoadState('networkidle').catch(() => {});
+    await assertNotErrorPage(registry, 'quick-list sidebar switch');
+    assert(await registry.locator('#dxCodeQuicklist select[name="quickList"]').inputValue() === name, 'Sidebar did not keep the chosen quick list');
+    const add = registry.locator('#dxCodeQuicklist a[title="250"]');
+    await add.waitFor({ state: 'visible' });
+    await clickAndAwaitReload(registry, add);
+    await expectValue(sql, `SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient} AND dxresearch_code='250'
+      AND coding_system='icd9' AND status='A'`, '1', 'Sidebar add did not register the quick-list code');
+    await registry.locator('#displayDxCodeTable td', { hasText: 'DIABETES MELLITUS' }).first().waitFor({ state: 'visible' });
+    await registry.close();
   });
 }
 

@@ -69,18 +69,15 @@ async function workflow(s) {
     return lines;
   }
 
-  await s.step('the day sheet shows the active facility message once, as literal text', async () => {
+  await s.step('the day sheet shows only the in-scope active message, once, as literal text', async () => {
+    // The expired, other-facility and other-program rows also carry the marker, so
+    // exactly one marked line proves the facility, program and expiry filters.
     const lines = await reloadDaySheet();
     h.assert(lines.length === 1 && lines[0] === `${facilityName} Message - ${text}`,
       'The day sheet does not show exactly the active owned message with its facility name');
     h.assert(await s.schedule.locator('#facility_message script, #facility_message b').count() === 0,
       'The facility message markup was rendered as elements');
     h.assert(await s.schedule.evaluate(() => window.__pwFacilityMessage === undefined), 'The facility message script executed');
-  });
-  await s.step('expired, other-facility and other-program messages are not shown', async () => {
-    const lines = await reloadDaySheet();
-    h.assert(lines.length === 1 && !/ (expired|other facility|other program)$/.test(lines[0]),
-      'A message outside the login\'s facility, program or validity window was shown');
   });
   await s.step('once the active message expires the next day sheet no longer shows it', async () => {
     sql.execute(`UPDATE facility_message SET expiry_date=DATE_SUB(NOW(), INTERVAL 1 MINUTE) WHERE id=${active}`);

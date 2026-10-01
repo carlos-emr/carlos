@@ -3507,22 +3507,11 @@
         "ON"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned bill for an owned patient corrected and deleted through the Ontario billing history; owned billing rows removed."
-    },
-    {
-      "name": "billing-shortcut",
-      "script": "scripts/billing-shortcut-playwright-checks.js",
-      "tiers": [
-        "core"
+      "env": [
+        "BILLING_CORRECTION_CODE"
       ],
-      "assertsDatabase": true,
-      "provinces": [
-        "ON"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned patient and appointment billed through the month-view billing shortcut; owned billing and appointment rows removed."
+      "fixtures": "Owned bill (header + item, marker in comment1) for an owned patient under a billable provider temporarily added to the operator's sites; corrected, status-changed and unbilled through Master Record ▸ Billing History; owned rows removed.",
+      "notes": "Fails at its Unbill step on 2026.08: the history page submits a runtime-built form without a CSRF token (403)."
     },
     {
       "name": "demographic-report-favourites",

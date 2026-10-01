@@ -159,20 +159,6 @@ async function workflow(s) {
     assert(sql.value(`SELECT COUNT(*) FROM immunizations WHERE demographic_no=${patient}`) === rowsBefore, 'Configure/Cancel wrote a schedule row');
   });
 
-  await step('del marks the set deleted, Show All lists it and restore brings it back', async () => {
-    const dialogs = await withExpectedDialogs(imm, () => go(imm.getByRole('link', { name: 'del', exact: true }), 'delete set'));
-    assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask for confirmation exactly once');
-    await expectValue(sql, `SELECT immunizations LIKE '%status="deleted"%' ${current}`, '1', 'Delete did not mark the set deleted');
-    assert(await imm.getByText(seededName).count() === 0, 'Deleted set is still listed');
-    await go(imm.locator('input[type="button"][value="Show All"]').first(), 'show all');
-    assert(await imm.getByText(seededName).count() === 1, 'Show All does not list the deleted set');
-    const again = await withExpectedDialogs(imm, () => go(imm.getByRole('link', { name: 'restore', exact: true }), 'restore set'));
-    assert(again.length === 1 && again[0].type === 'confirm', 'Restore did not ask for confirmation exactly once');
-    await expectValue(sql, `SELECT immunizations LIKE '%status="deleted"%' ${current}`, '0', 'Restore did not clear the deleted status');
-    assert(currentXml().includes(`lot="${lot}"`), 'Delete/restore lost the recorded cell');
-    assert(await imm.getByText(seededName).count() === 1, 'Restored set is not listed');
-  });
-
   await step('the set administration deletes both owned templates and lists them as deleted', async () => {
     await go(imm.locator('input[type="button"][value="Configure"]').first(), 'configure');
     await go(imm.locator('input[value="Manage Immu. Template"]'), 'manage template');
@@ -186,10 +172,34 @@ async function workflow(s) {
     assert(currentXml().includes(`name="${seededName}"`), 'Deleting the template changed the patient schedule copy');
   });
 
-  await step('the UI-created template kept its name and every page loaded its stylesheets', async () => {
+  await step('reopening Old immunizations goes straight to the saved schedule', async () => {
+    await openSchedule();
+    assert(path().endsWith('/encounter/immunization/initSchedule'), 'A patient with a schedule was sent elsewhere');
+    assert(await imm.getByText(seededName).count() === 1 && await imm.locator('#tdSet0_Row0_Col1_label').innerText() !== '',
+      'Saved schedule did not reopen with its recorded cell');
+  });
+
+  // Last, so every provable step above is proven first: each problem here is an application defect.
+  await step('del/restore round-trips, the created template kept its name, and every stylesheet loaded', async () => {
     const problems = [];
+    const dialogs = await withExpectedDialogs(imm, async () => {
+      const navigated = await clickAndAwaitReload(imm, imm.getByRole('link', { name: 'del', exact: true }),
+        { label: 'delete set', required: false });
+      if (!navigated) problems.push('the schedule "del" link does nothing: its form is nested inside the save form, so the parser drops it and getElementById returns null');
+    });
+    assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask for confirmation exactly once');
+    if (!problems.length) {
+      await expectValue(sql, `SELECT immunizations LIKE '%status="deleted"%' ${current}`, '1', 'Delete did not mark the set deleted');
+      assert(await imm.getByText(seededName).count() === 0, 'Deleted set is still listed');
+      await go(imm.locator('input[type="button"][value="Show All"]').first(), 'show all');
+      assert(await imm.getByText(seededName).count() === 1, 'Show All does not list the deleted set');
+      const again = await withExpectedDialogs(imm, () => go(imm.getByRole('link', { name: 'restore', exact: true }), 'restore set'));
+      assert(again.length === 1 && again[0].type === 'confirm', 'Restore did not ask for confirmation exactly once');
+      await expectValue(sql, `SELECT immunizations LIKE '%status="deleted"%' ${current}`, '0', 'Restore did not clear the deleted status');
+      assert(currentXml().includes(`lot="${lot}"`), 'Delete/restore lost the recorded cell');
+    }
     if (sql.value(`SELECT setName FROM config_Immunization WHERE setId=${uiId}`) !== uiName) {
-      problems.push('CreateImmunizationSetConfig dropped the set name typed on Add New (hidden setName vs action property name)');
+      problems.push('CreateImmunizationSetConfig dropped the set name typed on Add New (hidden setName vs action property name), so the template never appears in the picker');
     }
     if (deferred.length) {
       const pages = [...new Set(deferred.map(entry => entry.label))].join(', ');

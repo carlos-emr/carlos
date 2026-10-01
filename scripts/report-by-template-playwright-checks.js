@@ -96,6 +96,30 @@ async function workflow(s) {
     await settle(label);
   }
 
+  // resultReport.jsp's body onunload sends navigator.sendBeacon(ViewClearSession). Chromium
+  // abandons a ping from a detached frame, so the recorder sees ERR_ABORTED whatever the server
+  // said; the route below lets the browser's own request through and keeps the server's answer.
+  // Each exit consumes exactly that ping failure; the LAST step asserts the answers.
+  const beacons = [];
+  const isBeacon = url => new URL(url).pathname.endsWith('/oscarReport/reportByTemplate/ViewClearSession');
+  await s.context.route(isBeacon, async route => {
+    const response = await route.fetch();
+    beacons.push({method: route.request().method(), status: response.status()});
+    await route.fulfill({response}).catch(() => {});
+  });
+  async function leaveResult(locator, label) {
+    const seen = beacons.length;
+    await frameClick(locator, label);
+    const deadline = Date.now() + 15000;
+    while (beacons.length === seen && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
+    h.assert(beacons.length === seen + 1, `${label}: leaving the result page sent no ViewClearSession beacon`);
+    await new Promise(r => setTimeout(r, 300));
+    for (let i = s.recorder.requestFailures.length - 1; i >= 0; i--) {
+      const entry = s.recorder.requestFailures[i];
+      if (entry.resourceType === 'ping' && isBeacon(entry.url)) s.recorder.requestFailures.splice(i, 1);
+    }
+  }
+
   await s.step('Administration ▸ Reports ▸ Report by Template opens the Template Library', async () => {
     const link = admin.getByRole('link', {name: 'Report by Template', exact: true, includeHidden: true});
     await revealAuditLink(admin, link, 20000);
@@ -184,11 +208,7 @@ async function workflow(s) {
   });
 
   await s.step('Back fires the ViewClearSession beacon and returns to the configuration', async () => {
-    const beacon = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/oscarReport/reportByTemplate/ViewClearSession'),
-      {timeout: 20000});
-    await frameClick(frame.locator('input[type="button"][value="Back"]'), 'Back to configuration');
-    const response = await beacon;
-    h.assert(response.status() === 200, `ViewClearSession beacon answered HTTP ${response.status()}`);
+    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back to configuration');
     await frame.locator('input[type="submit"][value="Run Query"]').waitFor();
   });
 
@@ -204,7 +224,7 @@ async function workflow(s) {
   });
 
   await s.step('Edit Template saves the textarea XML and Done returns to the configuration', async () => {
-    await frameClick(frame.locator('a.edit', {hasText: 'Edit Template'}), 'Edit Template');
+    await leaveResult(frame.locator('a.edit', {hasText: 'Edit Template'}), 'Edit Template');
     const textarea = frame.locator('textarea#xmltext');
     h.assert((await textarea.inputValue()).includes(`title="${title}"`), 'Edit page did not load the stored XML');
     await textarea.fill(templateXml(title, `${s.marker} edited roster`, query, params));
@@ -229,7 +249,7 @@ async function workflow(s) {
   });
 
   await s.step('Delete Template asks for confirmation and removes the template row', async () => {
-    await frameClick(frame.locator('input[type="button"][value="Back"]'), 'Back (write)');
+    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (write)');
     const dialogs = await h.withExpectedDialogs(admin, async () => {
       await frameClick(frame.getByRole('link', {name: 'Delete Template', exact: true}), 'Delete Template');
     });
@@ -238,6 +258,13 @@ async function workflow(s) {
     h.assert(s.sql.value(`SELECT COUNT(*) FROM reportTemplates WHERE templateid=${templateId}`) === '0',
       'Confirmed delete left the template row');
     h.assert(await frame.getByRole('link', {name: title, exact: true}).count() === 0, 'Deleted template is still listed');
+  });
+
+  await s.step('every result-page exit cleared the session without a CSRF rejection', async () => {
+    h.assert(beacons.length === 3, 'Not every result-page exit sent its ViewClearSession beacon');
+    const rejected = beacons.filter(b => b.status >= 400);
+    h.assert(!rejected.length, `ViewClearSession beacon was refused (${rejected.map(b => `${b.method} HTTP ${b.status}`)
+      .join(', ')}): the unload sendBeacon carries no CSRF token, so CSRFGuard rejects it on every exit`);
   });
 }
 
