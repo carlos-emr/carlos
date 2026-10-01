@@ -273,7 +273,7 @@
     }
 
     // The select is #provider-selection (singular). The handler was bound to a non-existent
-    // #providers-selection, so choosing a provider never reloaded the rules: providerNo stayed
+    // "providers-" (plural) id, so choosing a provider never reloaded the rules: providerNo stayed
     // "0" and confirmUpdate() refused every save (issue #4131, previously #2626).
     $("#provider-selection").on('change', function (e) {
         e.preventDefault();
