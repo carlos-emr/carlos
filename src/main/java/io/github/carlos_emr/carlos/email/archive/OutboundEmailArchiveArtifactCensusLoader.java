@@ -227,6 +227,9 @@ public class OutboundEmailArchiveArtifactCensusLoader {
                     encryptedFound = true;
                     if (inspection.keyId() > 0) {
                         keyIds.add(inspection.keyId());
+                    } else {
+                        // The marker proves encryption, but the damaged header hides its key id.
+                        uncheckable++;
                     }
                     if (scan == Scan.UNTIL_FIRST_ENCRYPTED) {
                         break;

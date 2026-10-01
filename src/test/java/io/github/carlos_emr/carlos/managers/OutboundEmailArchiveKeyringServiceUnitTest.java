@@ -55,6 +55,9 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveTestKeyrings.keyring;
 import static io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveTestKeyrings.syntheticKeyBase64;
@@ -422,6 +425,81 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
             assertThat(onDisk.encodedKey(2)).isEqualTo(rotated.encodedKey(2));
             assertThat(serviceLog.messages()).anyMatch(m -> m.startsWith(
                     "Rotated the outbound email archive keyring at " + keyringFile + ": key 2 now encrypts"));
+        }
+
+        @Test
+        void shouldKeepIdenticalKeyMaterial_whenTwoServicesRotateTogether() throws Exception {
+            writeKeyring(keyring(1, 1));
+            CountDownLatch ready = new CountDownLatch(2);
+            CountDownLatch start = new CountDownLatch(1);
+            var executor = Executors.newFixedThreadPool(2);
+            try {
+                var first = executor.submit(() -> {
+                    ready.countDown();
+                    assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
+                    return resolve(settings(false, "2"));
+                });
+                var second = executor.submit(() -> {
+                    ready.countDown();
+                    assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
+                    return resolve(settings(false, "2"));
+                });
+                assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+                start.countDown();
+                OutboundEmailArchiveKeyring firstResult = first.get(10, TimeUnit.SECONDS);
+                OutboundEmailArchiveKeyring secondResult = second.get(10, TimeUnit.SECONDS);
+                assertThat(firstResult.encodedKey(2)).isEqualTo(secondResult.encodedKey(2));
+                assertThat(parseFile().encodedKey(2)).isEqualTo(firstResult.encodedKey(2));
+                assertThat(parseFile().encodedKey(1)).isEqualTo(keyring(1, 1).encodedKey(1));
+            } finally {
+                start.countDown();
+                executor.shutdownNow();
+                assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+            }
+        }
+
+        @Test
+        void shouldReloadTheKeyring_whenAnotherProcessRotatedAfterInitialLoad() throws Exception {
+            OutboundEmailArchiveKeyring staleSnapshot = keyring(1, 1);
+            writeKeyring(keyring(2, 1, 2));
+            OutboundEmailArchiveKeyringService service = service(settings(false, "2"));
+
+            OutboundEmailArchiveKeyring resolved = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    service, "rotateIfRequested", keyringFile, keyringFile.toString(), staleSnapshot);
+
+            assertThat(resolved.encodedKey(2)).isEqualTo(keyring(2, 1, 2).encodedKey(2));
+            assertThat(parseFile().encodedKey(2)).isEqualTo(resolved.encodedKey(2));
+        }
+
+        @Test
+        void shouldRefuseToRotate_whenAnArchivedFileCannotBeChecked() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "missing.eml", sealedArtifact(keyring(2, 2)));
+            Files.delete(documentDir.resolve("missing.eml"));
+            writeKeyring(keyring(1, 1));
+            byte[] before = Files.readAllBytes(keyringFile);
+
+            assertThatThrownBy(() -> resolve(settings(false, "2")))
+                    .isInstanceOf(OutboundEmailArchiveKeyringException.class)
+                    .hasMessageContaining("1 archived emails could not be checked");
+            assertThat(Files.readAllBytes(keyringFile)).isEqualTo(before);
+        }
+
+        @Test
+        void shouldTreatUnknownEnvelopeKeyAsUncheckable_whenHeaderIsDamaged() throws Exception {
+            withArchiveTables();
+            byte[] damaged = sealedArtifact(keyring(2, 2));
+            damaged[8] = 99; // Unknown format; the marker still identifies encrypted data.
+            archiveRow(1, "damaged.eml", damaged);
+            var census = new OutboundEmailArchiveArtifactCensusLoader(dataSource)
+                    .load(documentDir.toString(), OutboundEmailArchiveArtifactCensusLoader.Scan.ALL);
+            assertThat(census.encryptedFound()).isTrue();
+            assertThat(census.complete()).isFalse();
+            assertThat(census.uncheckable()).isEqualTo(1);
+
+            OutboundEmailArchiveKeyring recovered = resolve(settings(true, null));
+            assertThat(recovered.currentKeyId()).isGreaterThanOrEqualTo(
+                    OutboundEmailArchiveKeyringService.RANDOM_KEY_ID_FLOOR);
         }
 
         @Test

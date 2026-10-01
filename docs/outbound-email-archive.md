@@ -353,8 +353,9 @@ artifacts, so it does not protect artifacts already sealed with a compromised ke
    and restart. Before generating key N, CARLOS reads every archived file's header
    once. If an archive already uses key N or higher and the keyring lacks that key,
    the keyring is an out-of-date copy: CARLOS refuses to start rather than create a
-   second, different key N, and names the fix (restore the newest keyring). Otherwise
-   it generates key N, makes it current, keeps every other key, writes the file
+   second, different key N, and names the fix (restore the newest keyring). Missing,
+   unreadable or malformed archive headers also stop rotation until every key id
+   can be checked. Otherwise it generates key N, makes it current, keeps every other key, writes the file
    atomically (owner-only) and logs
    `Rotated the outbound email archive keyring at <path>: key N now encrypts new archived emails, ...`.
 3. Back up the new keyring file straight away.
@@ -368,8 +369,15 @@ hand instead: generate a key with `openssl rand -base64 32`, add it as a new
 strictly: a duplicate, an unknown line, a key that is not 32 bytes, or a `current`
 that names no key stops startup and leaves the file untouched.
 
-Run one CARLOS server per keyring file. Two servers rotating the same file at the
-same time can overwrite each other's new key.
+Automatic rotation uses a stable sibling `.lock` file and reloads the keyring while
+holding an exclusive filesystem lock. The directory must be writable, and the
+filesystem must support locks shared by every process using it. Leave that lock
+file in place. Ordinary reads of a mounted keyring do not need a writable lock file.
+
+For multiple CARLOS servers, stop sends on every server before rotating, then restart
+all servers with the updated keyring before resuming sends. Running servers keep their
+startup keyring in memory and cannot read a newly added key until restarted. Manual
+keyring edits must also happen while every server is stopped.
 
 **Compared with the patient portal (#3207 / #3220, carlos-emr/carlos-portal).** Taken
 from the portal: AES-256-GCM with a random nonce per record, a keyring of retained

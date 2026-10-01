@@ -44,9 +44,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
@@ -149,6 +151,8 @@ public class OutboundEmailArchiveKeyringService implements InitializingBean, Ser
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final SecureRandom RANDOM = new SecureRandom();
+    // FileLock rejects overlapping locks within one JVM rather than waiting for them.
+    private static final Object ROTATION_MONITOR = new Object();
     private static final Set<PosixFilePermission> OWNER_ONLY = PosixFilePermissions.fromString("rw-------");
     private static final Set<PosixFilePermission> GROUP_OR_OTHER = EnumSet.of(
             PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_WRITE, PosixFilePermission.GROUP_EXECUTE,
@@ -480,6 +484,29 @@ public class OutboundEmailArchiveKeyringService implements InitializingBean, Ser
             return current;
         }
         int target = parseRotateTo(raw);
+        if (target <= current.currentKeyId()) {
+            return rotateUnderLock(file, path, current, target);
+        }
+        // Keep the lock on a stable sibling, since publishing replaces the keyring inode.
+        // Reload after acquiring it: another CARLOS process may have rotated while we waited.
+        // No lock file is needed for ordinary reads or an already-applied rotation.
+        synchronized (ROTATION_MONITOR) {
+            Path lockFile = file.resolveSibling(file.getFileName() + ".lock");
+            Set<OpenOption> options = Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                    LinkOption.NOFOLLOW_LINKS);
+            try (FileChannel channel = FileChannel.open(lockFile, options, ownerOnlyAttributes(file.getParent()));
+                    FileLock ignored = channel.lock()) {
+                return rotateUnderLock(file, path, load(file, path), target);
+            } catch (IOException e) {
+                throw refuse("Could not lock the outbound email archive keyring at " + path
+                        + " for rotation (" + e.getClass().getSimpleName() + "). Refusing to start. Fix: make its"
+                        + " directory writable and use a filesystem with shared file locks, then restart.");
+            }
+        }
+    }
+
+    private OutboundEmailArchiveKeyring rotateUnderLock(Path file, String path,
+            OutboundEmailArchiveKeyring current, int target) {
         int currentKeyId = current.currentKeyId();
         if (target < currentKeyId) {
             logger.warn("{}={} is ignored: key {} is already current and keys are never rolled back. Remove the"
@@ -537,10 +564,10 @@ public class OutboundEmailArchiveKeyringService implements InitializingBean, Ser
                     + " above " + lostKeyIds.last() + " and restart.");
         }
         if (census.uncheckable() > 0) {
-            long uncheckable = census.uncheckable();
-            logger.warn("Rotating the outbound email archive keyring at {} to key {}: {} archived emails could not be"
-                    + " checked for key ids already in use, because the stored file is missing or unreadable.",
-                    path, target, uncheckable);
+            throw refuse(rotation + ": " + census.uncheckable()
+                    + " archived emails could not be checked for key ids already in use. Refusing to start rather"
+                    + " than risk reusing a lost key id. Fix: restore the document store and readable archive files,"
+                    + " then restart, or remove " + ROTATE_TO_PROPERTY + ".");
         }
     }
 
