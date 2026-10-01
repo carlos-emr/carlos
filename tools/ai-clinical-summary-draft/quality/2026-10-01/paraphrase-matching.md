@@ -14,7 +14,7 @@ significant. This is a bounded text heuristic, not a clinical terminology engine
 
 ## Checks
 
-The matcher has 48 regression cases covering useful matches and deliberate
+The matcher has 52 regression cases covering useful matches and deliberate
 nonmatches, including:
 
 | Draft | Chart passage | Expected result |
@@ -31,7 +31,7 @@ nonmatches, including:
 
 Exact whole entries and unblocked identical statements still match with their
 qualifiers intact. Paraphrase matching skips recognized uncertain, family,
-conditional, resolved or completed scopes; unknown headings; and conjunctions or
+conditional, resolved or completed scopes; unknown headings; and compound statements, repeated laterality or
 causal relationships that could associate a qualifier with the wrong fact.
 Wrapped lines stay together. A changed draft is compared on its current text,
 so an old source match does not keep warning about an unrelated edited entry.
@@ -42,6 +42,10 @@ markup displayed as text. Approval remains unchecked, both suggestions remain
 present, and there are no new chart entries or receipts. Existing approval,
 replay, CSRF, stale chart/source, draft preservation and modal tests also pass.
 Final CI results are recorded in PR #4065.
+
+A final counterexample swapped knee/hip laterality across a comma-separated list.
+The matcher now skips compound statements and repeated laterality; regression
+cases cover commas, slashes and repeated sides with no conjunction.
 
 ## Limits
 

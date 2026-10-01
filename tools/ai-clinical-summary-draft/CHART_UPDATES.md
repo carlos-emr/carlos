@@ -55,7 +55,7 @@ Dates, numbers, laterality, severity and other remaining qualifiers must agree.
 
 Paraphrase matching is suppressed for recognized negation, family history,
 uncertainty, conditional or completed/resolved events, unknown heading scopes,
-conjunctions and causal statements. Identical whole entries or unblocked statements
+compound statements, repeated laterality and causal statements. Identical whole entries or unblocked statements
 can still match verbatim, including their qualifiers. This intentionally misses
 some duplicates rather than treating a qualifier as disposable. The alias list is
 small, English-only, and does not infer diagnoses from symptoms. Arbitrary clinical

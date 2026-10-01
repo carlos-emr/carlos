@@ -50,7 +50,8 @@
             facts.push({ passage, key: 'exact:' + lower.replace(/\s+/g, ' ').trim() });
             if (excluded.test(lower)) continue;
             // Do not detach a qualifier from one of several facts, or reverse causality.
-            if (/;|\b(?:and|or|but|because|due|secondary|caus(?:ed|ing)|related)\b/.test(lower)) continue;
+            if (/[,;]|\s\/\s|\b(?:and|or|but|because|due|secondary|caus(?:ed|ing)|related)\b/.test(lower) ||
+                    (lower.match(/\b(?:left|right|bilateral)\b/g) || []).length > 1) continue;
             let canonical = lower.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '')
                 .replace(resetHeading, '');
             for (const [pattern, replacement] of aliases) canonical = canonical.replace(pattern, replacement);
