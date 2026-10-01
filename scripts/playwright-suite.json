@@ -3207,7 +3207,7 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "fixtures": "Stores one owned PDF under DOCUMENT_DIR and turns on the test provider's edoc_browser_in_document_report preference (restored exactly), so run with EXCLUSIVE=1."
+      "fixtures": "Stores one owned PDF under DOCUMENT_DIR and turns on the test provider's edoc_browser_in_document_report preference (restored exactly); do not run it concurrently with another check that reads that preference."
     }
   ]
 }

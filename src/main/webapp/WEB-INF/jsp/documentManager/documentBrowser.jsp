@@ -68,6 +68,10 @@
     }
 %>
 
+<%-- The report's legacy categorykey was its localized heading; resolve the same labels the
+     same way so a legacy link from a non-English session is still recognised. --%>
+<fmt:message key="dms.documentReport.msgPrivateDocuments" var="legacyPrivateLabel"/>
+<fmt:message key="dms.documentReport.msgPublicDocuments" var="legacyPublicLabel"/>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -145,14 +149,18 @@
 
     // categorykey selects the document set. Callers send the stable tokens "private" /
     // "public". The legacy form was the report's display heading ("<LAST, FIRST> Private
-    // Documents"), which put the patient's name into the URL and access logs, and which no
-    // longer contained "Private" once the heading was localized. Legacy headings are still
-    // recognised so old bookmarks and in-flight redirects keep working, but the page only
-    // ever re-emits the token.
+    // Documents"), which put the patient's name into the URL and access logs. Legacy headings
+    // are still recognised, in English or by the session's localized label (a French heading
+    // never contained "Private"), so old bookmarks and in-flight redirects keep working, but
+    // the page only ever re-emits the token.
+    String legacyPrivateLabel = (String) pageContext.getAttribute("legacyPrivateLabel");
+    String legacyPublicLabel = (String) pageContext.getAttribute("legacyPublicLabel");
     String categoryScope = null;
-    if ("private".equals(categoryKey) || categoryKey.indexOf("Private") >= 0) {
+    if ("private".equals(categoryKey) || categoryKey.indexOf("Private") >= 0
+            || (legacyPrivateLabel != null && !legacyPrivateLabel.isEmpty() && categoryKey.endsWith(legacyPrivateLabel))) {
         categoryScope = "private";
-    } else if ("public".equals(categoryKey) || categoryKey.indexOf("Public") >= 0) {
+    } else if ("public".equals(categoryKey) || categoryKey.indexOf("Public") >= 0
+            || (legacyPublicLabel != null && !legacyPublicLabel.isEmpty() && categoryKey.endsWith(legacyPublicLabel))) {
         categoryScope = "public";
     }
     if (categoryScope != null) {

@@ -258,7 +258,8 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
 
             Response response = post(form);
 
-            assertThat(response.getStatus()).isLessThan(500);
+            // The service returns null for a refused schedule, which JAX-RS answers as 204.
+            assertThat(response.getStatus()).isEqualTo(204);
             verify(mockOscarJobManager, never()).updateJob(any(LoggedInInfo.class), any(OscarJob.class));
         }
 
@@ -267,7 +268,8 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
         void shouldRefuseWithoutSaving_whenChosenPartHasNoValues() {
             Response response = post(everyPartExcept("minute"));
 
-            assertThat(response.getStatus()).isLessThan(500);
+            // The service returns null for a refused schedule, which JAX-RS answers as 204.
+            assertThat(response.getStatus()).isEqualTo(204);
             verify(mockOscarJobManager, never()).updateJob(any(LoggedInInfo.class), any(OscarJob.class));
         }
     }

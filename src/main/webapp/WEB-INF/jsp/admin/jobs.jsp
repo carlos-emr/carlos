@@ -258,7 +258,8 @@
                 var row = $('<tr></tr>');
 
                 var calendar = $('<i class="fa-solid fa-calendar"></i>').addClass(scheduled ? 'blue' : 'red');
-                row.append($('<td></td>').append(jobLink('', function () { scheduleJob(jobId); }).append(calendar)));
+                row.append($('<td></td>').append(jobLink('', function () { scheduleJob(jobId); })
+                    .attr('aria-label', '<fmt:message key="admin.jobs.scheduleJob"/>').append(calendar)));
                 row.append($('<td></td>').append($('<u></u>').append(jobLink(job.name, function () { editJob(jobId); }))));
                 row.append($('<td></td>').append(jobLink('<fmt:message key="admin.jobs.cancel"/>', function () { cancelJob(jobId); })));
 

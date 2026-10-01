@@ -156,19 +156,22 @@ test('lab forwarding rules binds its provider handler to the select that exists'
   for (const id of bound) assert.ok(ids.has(id), `The handler is bound to #${id}, which the page does not render`);
 });
 
+/** The full source of `function name(...) { ... }`, braces balanced. */
+function functionSource(source, name, file) {
+  const start = source.indexOf(`function ${name}(`);
+  assert.ok(start >= 0, `${file} no longer defines ${name}()`);
+  let depth = 0;
+  for (let i = source.indexOf('{', start); i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}' && --depth === 0) return source.slice(start, i + 1);
+  }
+  throw new Error(`Unbalanced ${name}() in ${file}`);
+}
+
 /** Runs the Jobs Management schedule helpers against a stub jQuery that knows each select's options. */
 function jobsHelpers() {
   const source = fs.readFileSync(path.join(WEBAPP, 'WEB-INF/jsp/admin/jobs.jsp'), 'utf8');
-  const take = name => {
-    const start = source.indexOf(`function ${name}(`);
-    assert.ok(start >= 0, `jobs.jsp no longer defines ${name}()`);
-    let depth = 0;
-    for (let i = source.indexOf('{', start); i < source.length; i++) {
-      if (source[i] === '{') depth++;
-      else if (source[i] === '}' && --depth === 0) return source.slice(start, i + 1);
-    }
-    throw new Error(`Unbalanced ${name}()`);
-  };
+  const take = name => functionSource(source, name, 'jobs.jsp');
   const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
   const options = { minute: range(0, 59), hour: range(0, 23), day: range(1, 31), month: range(1, 12), weekday: range(0, 6) };
   const $ = selector => {
@@ -218,7 +221,14 @@ test('the document browser link carries a scope token, never the patient-named h
 
 test('the note browser re-opens its GET-only gate with GET and keeps Print from submitting', () => {
   const source = fs.readFileSync(path.join(WEBAPP, 'WEB-INF/jsp/casemgmt/noteBrowser.jsp'), 'utf8');
-  const take = name => source.slice(source.indexOf(`function ${name}(`), source.indexOf('}', source.indexOf(`function ${name}(`)) + 1);
+  const take = name => functionSource(source, name, 'noteBrowser.jsp');
+  const reload = take('reloadNoteBrowser');
+  assert.match(reload, /window\.location\.href\s*=\s*'[^']*\/casemgmt\/ViewNoteBrowser\?'\s*\+\s*params\.toString\(\)/,
+    'reloadNoteBrowser must navigate (GET) to ViewNoteBrowser with the built query');
+  assert.deepEqual([...reload.matchAll(/params\.set\('([^']+)'/g)].map(match => match[1]),
+    ['demographic_no', 'view', 'viewstatus', 'sortorder'], 'reloadNoteBrowser must carry only the filter fields');
+  assert.doesNotMatch(reload, /submit\(|CSRF|method\s*=|\.post\(|fetch\(|XMLHttpRequest/,
+    'reloadNoteBrowser must not POST or copy the CSRF token');
   for (const name of ['ReLoadDoc', 'LoadView']) {
     assert.doesNotMatch(take(name), /DisplayDoc\.submit\(\)/, `${name} must not POST the form to ViewNoteBrowser`);
     assert.match(take(name), /reloadNoteBrowser\(\)/);

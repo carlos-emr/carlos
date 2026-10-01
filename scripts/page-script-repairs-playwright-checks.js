@@ -25,7 +25,7 @@
  * Fixtures: the run's FAKE- patient, one owned PDF (document + ctl_document rows, file under
  * DOCUMENT_DIR), the owned note, a DISABLED job type with a nonexistent class plus a DISABLED
  * job on it (never schedulable); the test provider's edoc_browser_in_document_report preference
- * is turned on and restored exactly (run with EXCLUSIVE=1). Cleanup removes exactly those rows
+ * is turned on and restored exactly, so do not run it concurrently with another check that reads it. Cleanup removes exactly those rows
  * and the file, and asserts they are gone.
  * Env: DOCUMENT_DIR, plus the harness contract.
  */
@@ -47,7 +47,12 @@ const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url(
 function documentStore() {
   const store = process.env.DOCUMENT_DIR;
   if (!store) throw new h.SkipCheck('DOCUMENT_DIR is not set; this check stores one owned PDF there');
-  const real = fs.realpathSync(store);
+  let real;
+  try {
+    real = fs.realpathSync(store);
+  } catch (error) {
+    throw new Error(`DOCUMENT_DIR does not exist or is not accessible (${error.code})`);
+  }
   h.assert(fs.statSync(real).isDirectory(), 'DOCUMENT_DIR is not a directory');
   return real;
 }
@@ -292,7 +297,8 @@ async function workflow(s) {
   const isRest = (p, method) => r => r.request().method() === method && new URL(r.url()).pathname.endsWith(`/ws/rs/jobs/${p}`);
   await s.step('Jobs Management lists the owned job name as text', async () => {
     await openAdmin();
-    const link = admin.getByRole('link', { name: 'Jobs Management', exact: true, includeHidden: true });
+    // Matched by route, not label: the label is the localized admin.jobs.title.
+    const link = admin.locator('#adminNav a.xlink[rel$="/admin/ViewJobs"]').first();
     await revealAuditLink(admin, link, TIMEOUT);
     await link.click();
     const iframe = admin.locator('#dynamic-content iframe#myFrame[src*="/admin/ViewJobs"]');
