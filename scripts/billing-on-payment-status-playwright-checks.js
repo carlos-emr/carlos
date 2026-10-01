@@ -124,10 +124,9 @@ async function workflow(s) {
       'The bill form history did not list both owned bills');
     const patCells = await cellsOf(specRow(pat.headerId));
     const hcpCells = await cellsOf(specRow(hcp.headerId));
-    console.log('DEBUG', JSON.stringify(patCells), JSON.stringify(hcpCells));
-    h.assert(patCells.includes('Bill Patient') && patCells.includes(privateCode) && patCells.includes(date),
+    h.assert(patCells[1] === date && patCells[2] === 'Bill Patient' && patCells[3].startsWith(`${privateCode} x 1`) && patCells[5] === patTotal,
       'The history row of the PAT bill does not show Bill Patient, its code and date');
-    h.assert(hcpCells.includes('Bill OHIP') && hcpCells.includes(ohipCode) && hcpCells.includes('401'),
+    h.assert(hcpCells[2] === 'Bill OHIP' && hcpCells[3].startsWith(`${ohipCode} x 1`) && hcpCells[4] === '401',
       'The history row of the OHIP bill does not show Bill OHIP, its code and dx');
     await spec.locator('input[name="serviceCode"]').fill(ohipCode);
     await Promise.all([
