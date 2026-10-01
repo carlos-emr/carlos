@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Objects;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -86,7 +87,9 @@ public class ReviewedChartUpdateService {
         }
         String text = validateText(approval.text());
         if (fresh.entries().stream().anyMatch(entry -> entry.kind().equals(proposal.kind())
-                && normalize(entry.text()).contains(normalize(text)))) {
+                && normalize(entry.entryText()).equals(normalize(text))
+                && (history || (Objects.equals(entry.dueDate(), approval.dueDate())
+                        && Objects.equals(entry.assignee(), approval.assignee()))))) {
             throw new IllegalStateException("Matching text is already recorded. Review the existing entry instead of adding it again.");
         }
         String recorded = text + "\n\nSource document #" + fresh.documentId() + " (" + fresh.date() + ")"

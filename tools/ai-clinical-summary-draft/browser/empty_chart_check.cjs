@@ -16,9 +16,11 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
   const patient = fixture.demographicId;
   assert(Number.isSafeInteger(patient) && patient > 0);
   assert.equal(fixture.chartNumber, 'AIFACT005');
+  assert.equal(fixture.documents?.length, 2, 'Both empty-chart attachments are required');
   const output = path.resolve(process.env.CHART_TEST_OUTPUT);
   fs.mkdirSync(output, { recursive: true });
   const sql = createSqlRunner(config.mysql);
+  try {
   const counts = () => Object.fromEntries(
     ['casemgmt_note', 'tickler', 'drugs', 'allergies', 'clinical_chart_update_receipt'].map(table =>
       [table, Number(sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${patient}`))]));
@@ -80,7 +82,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
           const card = frame.locator('article.proposal:visible');
           const related = card.locator('.related-proposal-notice');
           const hasRelated = await related.count() ? await related.isVisible() : false;
-          if (/subdural hygroma/i.test(quote) && /confusion/i.test(quote) && document.documentId === 43) {
+          if (/subdural hygroma/i.test(quote) && /confusion/i.test(quote) && document.sha256 === 'fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630') {
             assert.equal(hasRelated, true, 'Overlapping impressions should be available for comparison');
             assert(await related.locator('blockquote').count() > 0);
             await related.locator('summary').first().click();
@@ -135,6 +137,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       fs.writeFileSync(path.join(output, 'empty-chart-result.json'), JSON.stringify(report, null, 2) + '\n');
       console.log(JSON.stringify(report, null, 2));
       if (results.some(row => row.status !== 'generated')) process.exitCode = 2;
-    } finally { await browser.close(); sql.dispose(); }
+    } finally { await browser.close(); }
   }
+  } finally { sql.dispose(); }
 })().catch(error => { console.error(error.message); process.exitCode = 1; });

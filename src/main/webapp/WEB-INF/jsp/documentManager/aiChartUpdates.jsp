@@ -124,7 +124,8 @@
     </c:choose>
     <c:if test="${not empty chartUpdateReview}"><details class="regenerate mt-4"><summary><fmt:message key="chartUpdates.regenerate"/></summary><p class="mt-2"><fmt:message key="chartUpdates.regenerateHelp"/></p></c:if>
     <fmt:message key="chartUpdates.generating" var="generatingLabel"/>
-    <form class="generation-form" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/GenerateAiChartUpdates" data-busy-label="${carlos:forHtmlAttribute(generatingLabel)}">
+    <fmt:message key="chartUpdates.discardForGeneration" var="discardForGeneration"/>
+    <form class="generation-form" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/GenerateAiChartUpdates" data-discard-confirm="${carlos:forHtmlAttribute(discardForGeneration)}" data-busy-label="${carlos:forHtmlAttribute(generatingLabel)}">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(chartUpdateDocumentId)}">
         <button class="btn btn-primary btn-sm" type="submit"><fmt:message key="chartUpdates.generate"/></button>

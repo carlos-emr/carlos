@@ -43,8 +43,8 @@ class ChartUpdateReviewUnitTest {
 
     @Test void shouldRejectReview_whenExpiredOrActorOrTokenMismatch() {
         var review = review(3001, 42);
-        assertThatThrownBy(() -> review.authorize("102", review.getToken())).isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> review.authorize("101", "forged")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> review.authorize("102", review.getToken())).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> review.authorize("101", "forged")).isInstanceOf(SecurityException.class);
         review.authorize("101", review.getToken());
         ReflectionTestUtils.setField(review, "expiresAt", 0L);
         assertThatThrownBy(() -> review.authorize("101", review.getToken())).hasMessageContaining("expired");

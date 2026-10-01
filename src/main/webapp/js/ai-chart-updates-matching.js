@@ -32,18 +32,23 @@
         for (const line of text.split(/\r?\n/)) {
             const trimmed = line.trim();
             const previous = lines[lines.length - 1];
-            if (previous && trimmed && !/[.!?:]$/.test(previous) &&
+            if (previous && /^(?:ruled out|resolved|recovered|not confirmed|suspected|unconfirmed|in remission)\b/i.test(trimmed)) {
+                lines[lines.length - 1] += '\n' + trimmed;
+            } else if (previous && trimmed && !/[.!?:]$/.test(previous) &&
                     !/^(?:[-*•]|\d+[.)])\s/.test(trimmed) && !resetHeading.test(trimmed)) {
                 lines[lines.length - 1] += '\n' + trimmed;
             } else lines.push(trimmed);
         }
         // Keep semicolon/conjunction scopes together. Never split decimal values or dates.
-        for (const raw of lines.flatMap(line => line.split(/(?<=[.!?])\s+(?=[A-Z])/))) {
+        for (const raw of lines.flatMap(line => excluded.test(line.toLowerCase())
+                ? [line] : line.split(/(?<=[.!?])\s+(?=[A-Z])/))) {
             const passage = raw.trim();
             if (!passage) continue;
             const lower = passage.toLowerCase();
             if (resetHeading.test(passage)) blockedHeading = false;
-            if ((lower.endsWith(':') && excluded.test(lower)) || /^(?:family history|fhx|f\/h|no history of|possible diagnoses)\s*:?$/.test(lower)) blockedHeading = true;
+            if ((lower.endsWith(':') && excluded.test(lower)) ||
+                    /^(?:family history|family hx|fhx|f\/h)\b/.test(lower) ||
+                    /^(?:no history of|possible diagnoses)\s*:?$/.test(lower)) blockedHeading = true;
             // Unknown headings may qualify the entire following list (e.g. dates or status).
             if (lower.endsWith(':') && !resetHeading.test(passage)) blockedHeading = true;
             if (blockedHeading) continue;

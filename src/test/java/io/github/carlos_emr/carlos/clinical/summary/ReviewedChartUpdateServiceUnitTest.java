@@ -110,10 +110,10 @@ class ReviewedChartUpdateServiceUnitTest {
     }
 
     @Test void shouldRejectApproval_withWrongActorTokenOrProposal() {
-        assertThatThrownBy(() -> service.apply(user, review, "forged", proposal.key(), valid())).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service.apply(user, review, "forged", proposal.key(), valid())).isInstanceOf(SecurityException.class);
         assertThatThrownBy(() -> service.apply(user, review, review.getToken(), "forged", valid())).isInstanceOf(IllegalArgumentException.class);
         when(user.getLoggedInProviderNo()).thenReturn("102");
-        assertThatThrownBy(() -> apply(valid())).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> apply(valid())).isInstanceOf(SecurityException.class);
         verifyNoInteractions(receipts, ticklers, notes);
     }
 
@@ -149,9 +149,28 @@ class ReviewedChartUpdateServiceUnitTest {
 
     @Test void shouldRejectApproval_whenTextAlreadyExists() {
         when(context.load(user, 42)).thenReturn(snapshot("fresh", "source",
-                List.of(new ChartUpdateContext.Entry("tickler-1", "tickler", "REVIEW   SYMPTOMS\nDue: tomorrow"))));
+                List.of(new ChartUpdateContext.Entry("tickler-1", "tickler", "REVIEW   SYMPTOMS\nDue: 2026-10-12", "REVIEW   SYMPTOMS", "2026-10-12", "101"))));
         assertThatThrownBy(() -> apply(valid())).hasMessageContaining("already recorded");
         verifyNoInteractions(ticklers, notes);
+    }
+
+    @Test void shouldAllowDistinctStatements_despiteSharedWordsOrProvenance() {
+        for (String[] pair : List.of(new String[]{"No hypertension", "Hypertension"},
+                new String[]{"Family history: hypertension", "Hypertension"},
+                new String[]{"Right knee osteoarthritis", "Knee osteoarthritis"},
+                new String[]{"No action needed\n\nSource document #42 (2026-09-28)\nReviewed source passage:\nHypertension", "Hypertension"})) {
+            when(context.load(user, 42)).thenReturn(snapshot("fresh", "source", List.of(
+                    new ChartUpdateContext.Entry("tickler-1", "tickler", pair[0], pair[0], "2026-10-12", "101"))));
+            assertThat(apply(approval(pair[1], "2026-10-12", "101", "")).replay()).isFalse();
+        }
+    }
+
+    @Test void shouldAllowSameReminderText_withDifferentDueDateOrAssignee() {
+        for (String[] metadata : List.of(new String[]{"2026-10-13", "101"}, new String[]{"2026-10-12", "102"})) {
+            when(context.load(user, 42)).thenReturn(snapshot("fresh", "source", List.of(
+                    new ChartUpdateContext.Entry("tickler-1", "tickler", "Review symptoms", "Review symptoms", metadata[0], metadata[1]))));
+            assertThat(apply(valid()).replay()).isFalse();
+        }
     }
 
     @Test void shouldReplayReceipt_withoutAnotherWrite() {

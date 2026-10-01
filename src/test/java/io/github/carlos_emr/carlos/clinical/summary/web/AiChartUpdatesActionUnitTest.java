@@ -213,7 +213,7 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
 
     @Test void shouldRequireValidToken_whenDismissingWithoutWrites() throws Exception {
         request.setParameter("reviewToken", "forged");
-        action.dismiss();
+        assertThatThrownBy(action::dismiss).isInstanceOf(SecurityException.class);
         assertThat(review.getOutcomes()).isEmpty();
         request.setParameter("reviewToken", review.getToken());
         action.dismiss();

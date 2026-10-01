@@ -49,10 +49,11 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
     private final TicklerDao ticklers = mock(TicklerDao.class);
     private final ProgramProviderDAO programs = mock(ProgramProviderDAO.class);
     private final ProgramManager programManager = mock(ProgramManager.class);
+    private final TicklerManager ticklerAccess = mock(TicklerManager.class);
     private final EntityManager em = mock(EntityManager.class);
     private final LoggedInInfo user = mock(LoggedInInfo.class);
     private final MockHttpSession session = new MockHttpSession();
-    private final ChartUpdateContext context = new ChartUpdateContext(security, documents, notes, ticklers, programs, programManager);
+    private final ChartUpdateContext context = new ChartUpdateContext(security, documents, notes, ticklers, programs, programManager, ticklerAccess);
     private MockedStatic<CarlosProperties> settings;
     private MockedStatic<EDocUtil> visibility;
     private MockedStatic<ClinicalSummaryTextExtractor> reader;
@@ -68,7 +69,7 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         when(user.getSession()).thenReturn(session);
         session.setAttribute("case_program_id", "10016");
         when(security.hasPrivilege(user, "_edoc", "r", null)).thenReturn(true);
-        for (String permission : List.of("_demographic", "_eChart", "_tickler")) {
+        for (String permission : List.of("_edoc", "_demographic", "_eChart", "_tickler")) {
             when(security.hasPrivilege(user, permission, "r", 3001)).thenReturn(true);
         }
         when(security.isAllowedAccessToPatientRecord(user, 3001)).thenReturn(true);
@@ -88,6 +89,8 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         when(visible.getDocId()).thenReturn("42");
         visibility.when(() -> EDocUtil.listDocs(user, "demographic", "3001", "all", EDocUtil.PRIVATE,
                 EDocUtil.EDocSort.OBSERVATIONDATE, "active")).thenReturn(new ArrayList<>(List.of(visible)));
+        when(ticklerAccess.filterTicklersByAccess(anyList(), eq("101"), eq("10016")))
+                .thenAnswer(call -> call.getArgument(0));
         document = new Document();
         document.setDocumentNo(42);
         document.setDocfilename("synthetic.txt");
@@ -124,6 +127,42 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         assertThat(snapshot.source()).isEqualTo("Review symptoms.");
         verify(em).clear();
         assertThatThrownBy(() -> context.requireWrite(user, 3001, "tickler")).isInstanceOf(SecurityException.class);
+    }
+
+    @Test void shouldExcludeReminders_deniedByProgramRoleAccess() {
+        var tickler = new Tickler();
+        tickler.setId(7);
+        tickler.setDemographicNo(3001);
+        tickler.setProgramId(10016);
+        tickler.setMessage("Restricted reminder");
+        when(ticklers.findActiveByDemographicNo(3001)).thenReturn(List.of(tickler));
+        when(ticklerAccess.filterTicklersByAccess(List.of(tickler), "101", "10016")).thenReturn(List.of());
+        assertThat(context.load(user, 42).entries()).isEmpty();
+    }
+
+    @Test void shouldExcludeUnsignedNotes_beforeComparison() {
+        var note = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote();
+        note.setDemographic_no("3001");
+        note.setNote("Unsigned private draft");
+        note.setReporter_caisi_role("1");
+        note.setSigned(false);
+        when(notes.getNotes("3001")).thenReturn(List.of(note));
+        context.load(user, 42);
+        verify(notes).filterNotes(eq(user), eq("101"), argThat(java.util.Collection::isEmpty), eq("10016"));
+    }
+
+    @Test void shouldRequirePatientDocumentPermission_beforeReadingSource() {
+        when(security.hasPrivilege(user, "_edoc", "r", 3001)).thenReturn(false);
+        assertThatThrownBy(() -> context.load(user, 42)).isInstanceOf(SecurityException.class);
+        reader.verifyNoInteractions();
+        verifyNoInteractions(ticklers, notes);
+    }
+
+    @Test void shouldFormatObservationDate_forReminderDefaults() {
+        document.setObservationdate(java.sql.Date.valueOf("2026-09-28"));
+        assertThat(context.load(user, 42).date()).isEqualTo("2026-09-28");
+        document.setObservationdate(new java.util.Date(java.sql.Date.valueOf("2026-09-28").getTime()));
+        assertThat(context.load(user, 42).date()).isEqualTo("2026-09-28");
     }
 
     @Test void shouldRequirePatientPermissions_beforeReadingSource() {

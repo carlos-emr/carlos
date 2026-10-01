@@ -67,6 +67,11 @@
                 event.preventDefault();
                 return;
             }
+            if (proposals.length && form.classList.contains('generation-form') &&
+                    !window.confirm(form.dataset.discardConfirm)) {
+                event.preventDefault();
+                return;
+            }
             // Carry other cards' edits in the same authenticated POST, never browser storage.
             // The server limits these fields to the session's proposals and never retains approval.
             if (form.classList.contains('proposal-form')) {

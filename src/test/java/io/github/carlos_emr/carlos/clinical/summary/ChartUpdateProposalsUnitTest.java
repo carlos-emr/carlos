@@ -54,6 +54,40 @@ class ChartUpdateProposalsUnitTest {
         }
     }
 
+    @Test void shouldRejectFragments_withOmittedQualification() {
+        for (String[] pair : List.of(new String[]{"No asthma.", "asthma"},
+                new String[]{"No\nasthma.", "asthma."},
+                new String[]{"Asthma\nruled out.", "Asthma"},
+                new String[]{"Asthma\n-ruled out.", "Asthma"},
+                new String[]{"Asthma\n- ruled out.", "Asthma"},
+                new String[]{"Review in four weeks\nif symptoms persist.", "Review in four weeks"},
+                new String[]{"No asthma.", "asthma."},
+                new String[]{"Asthma if confirmed.", "Asthma"},
+                new String[]{"Review in two weeks if symptoms persist.", "Review in two weeks"},
+                new String[]{"Dr. Smith advised review.", "Smith advised review."})) {
+            assertThat(ChartUpdateProposals.completePassage(pair[0], pair[1])).isFalse();
+        }
+        assertThat(ChartUpdateProposals.completePassage("No asthma.\nAsthma.", "Asthma.")).isTrue();
+        assertThat(ChartUpdateProposals.completePassage("Plan:\n- Review in two weeks.", "- Review in two weeks.")).isTrue();
+    }
+
+    @Test void shouldAcceptSavedReviewedQuotations_fromTenSyntheticTrialCases() throws Exception {
+        var acceptance = JSON.readTree(java.nio.file.Files.readString(java.nio.file.Path.of(
+                "tools/ai-clinical-summary-draft/quality/2026-09-30/extraction-acceptance-results.json")));
+        int cases = 0;
+        int quotations = 0;
+        for (var trial : acceptance.path("final").path("runs")) {
+            String source = trial.path("source").asText();
+            var output = trial.path("response").path("output");
+            assertThatCode(() -> ChartUpdateProposals.validate(output, source))
+                    .as(trial.path("label").asText()).doesNotThrowAnyException();
+            cases++;
+            quotations += output.path("proposals").size();
+        }
+        assertThat(cases).isEqualTo(10);
+        assertThat(quotations).isEqualTo(21);
+    }
+
     @Test void shouldValidateProposals_whenEmptyOrDuplicated() throws Exception {
         assertThat(ChartUpdateProposals.validate(JSON.readTree("{\"proposals\":[]}"), SOURCE)).isEmpty();
         String row = "{\"kind\":\"history\",\"evidence\":\"Suspected asthma.\"}";
@@ -74,7 +108,7 @@ class ChartUpdateProposalsUnitTest {
         when(agent.generate(any())).thenThrow(new IOException("private source and credentials"))
                 .thenReturn(JSON.readTree("{\"proposals\":[]}"));
         var generator = new ChartUpdateProposals(agent);
-        assertThatThrownBy(() -> generator.generate(SOURCE)).hasMessageNotContaining("private source");
+        assertThatThrownBy(() -> generator.generate(SOURCE)).hasMessage("Proposals could not be generated or failed source validation. Nothing was saved.");
         assertThat(generator.generate(SOURCE)).isEmpty();
     }
 }

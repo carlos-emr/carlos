@@ -93,8 +93,9 @@ def followup_items(evidence):
     """Split only plain independent list items; never publish an entire mixed plan as a reminder."""
     bullets = list(re.finditer(
         r'(?m)(?:^[ \t]*[-*][ \t]+|(?:^[ \t]*|(?<=[.!?])[ \t]+)\d+[.)][ \t]+)', evidence))
+    excluded_action = r'\b(?:prescrib\w*|medication|medicines?|drugs?|increase|decrease|stop|start|order|investigat\w*|histology|inpatient|discharge tomorrow)\b'
     if len(bullets) < 2:
-        return [evidence]
+        return [] if re.search(excluded_action, evidence, re.I) else [evidence]
     heading = evidence[:bullets[0].start()].strip()
     # A qualified heading or a dependency between items needs clinical interpretation.
     # Omitting this candidate is safer than silently removing that shared qualification.
@@ -106,7 +107,8 @@ def followup_items(evidence):
     for index, bullet in enumerate(bullets):
         end = bullets[index + 1].start() if index + 1 < len(bullets) else len(evidence)
         item = evidence[bullet.start():end].strip()
-        if re.search(r'\b(?:follow[- ]?up|outpatient|OPD|clinic|review|recheck|appointment)\b', item, re.I):
+        if (re.search(r'\b(?:follow[- ]?up|outpatient|OPD|clinic|review|recheck|appointment)\b', item, re.I)
+                and not re.search(excluded_action, item, re.I)):
             items.append(item)
     return items
 
@@ -119,9 +121,9 @@ def resolve_ranges(raw, lines, source):
     family_lines = set()
     in_family = False
     for number, line in lines.items():
-        if re.match(r'^\s*(?:Family History|FHx)\s*[:\-]?\s*$', line, re.I):
+        if re.match(r'^\s*(?:Family (?:History|Hx)|FHx?|F/H)\s*(?::|-|$)', line, re.I):
             in_family = True
-        elif not line.strip():
+        elif re.match(r'^\s*(?:Past (?:Medical |Surgical )?History|Medical History|PMHx?|Assessment|Impression|Plan|Recommendations|Social History|Medications|Allergies)\s*(?::|-|$)', line, re.I):
             in_family = False
         if in_family:
             family_lines.add(number)
@@ -135,7 +137,7 @@ def resolve_ranges(raw, lines, source):
         # Known family-history blocks must not become the patient's own medical history,
         # even when the model selects only a diagnosis line beneath the heading.
         if row['kind'] == 'history' and (family_lines.intersection(range(start, end + 1))
-                or re.search(r'\b(?:family history|mother|father|sister|brother)\b', evidence, re.I)):
+                or re.search(r'\b(?:family (?:history|hx)|fhx|mother|father|sister|brother|parent|daughter|son|maternal|paternal|grandmother|grandfather)\b', evidence, re.I)):
             continue
         excerpts = followup_items(evidence) if row['kind'] == 'tickler' else [evidence]
         for excerpt in excerpts:
@@ -144,7 +146,7 @@ def resolve_ranges(raw, lines, source):
                 continue
             seen.add(key)
             proposals.append({'kind': row['kind'], 'evidence': excerpt})
-    output = {'proposals': proposals}
+    output = {'proposals': proposals[:20]}
     validate_output(output, source)
     return output
 

@@ -390,6 +390,31 @@ async function run() {
     assert.equal(await reminder.locator('.related-proposal-notice').isVisible(), false);
     assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
   });
+  await scenario('regeneration requires confirmation before discarding edited drafts', async page => {
+    await generate(page);
+    const history = card(page, 'History entry');
+    await history.locator('[name="entryText"]').fill('Keep this edited draft');
+    page.once('dialog', dialog => dialog.dismiss());
+    const regeneration = page.locator('details.regenerate:not([open]) > summary');
+    if (await regeneration.count()) await regeneration.click();
+    await page.getByRole('button', { name: 'Generate new proposals', exact: true }).click();
+    assert.equal(await history.locator('[name="entryText"]').inputValue(), 'Keep this edited draft');
+    assert.equal(await page.evaluate(() => window.CarlosChartUpdateReview.busy), false);
+    // Saving another card persists this draft server-side, then reloads with edited=false.
+    const reminder = card(page, 'Follow-up reminder');
+    await reminder.locator('[name="dueDate"]').fill('2026-10-12');
+    await reminder.locator('[name="confirmed"]').check();
+    await click(page, reminder.getByRole('button', { name: 'Accept and save', exact: true }));
+    assert.equal(await page.evaluate(() => window.CarlosChartUpdateReview.dirty), false);
+    await page.locator('details.regenerate:not([open]) > summary').click();
+    page.once('dialog', dialog => dialog.dismiss());
+    await page.getByRole('button', { name: 'Generate new proposals', exact: true }).click();
+    assert.equal(await card(page, 'History entry').locator('[name="entryText"]').inputValue(), 'Keep this edited draft');
+    page.once('dialog', dialog => dialog.accept());
+    await generate(page);
+    assert.notEqual(await card(page, 'History entry').locator('[name="entryText"]').inputValue(), 'Keep this edited draft');
+    assert.deepEqual(await stats(page), { reminders: 1, histories: 0, receipts: 1 });
+  });
   await scenario('dismiss bypasses required fields and creates no chart entry', async page => {
     await generate(page);
     await click(page, card(page, 'Follow-up reminder').getByRole('button', { name: 'Dismiss', exact: true }));

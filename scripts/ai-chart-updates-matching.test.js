@@ -18,7 +18,12 @@ for (const [draft, chart] of [
 ]) test(`finds local duplicate: ${draft} / ${chart}`, () => assert.ok(match(draft, chart)));
 for (const [draft, chart] of [
   ['Hypertension', 'No hypertension'], ['Hypertension', 'No\nHTN'],
-  ['Asthma', 'Asthma\nruled out'], ['Hypertension', '2025:\nHTN'], ['Hypertension', 'No history of HTN'],
+  ['Asthma', 'Asthma\nruled out'],
+  ['Asthma', 'Asthma. Ruled out.'], ['Asthma', 'Asthma.\nRuled out.'],
+  ['Asthma', 'Asthma.\nResolved.'],
+  ['Hypertension', 'Family history: Asthma. Hypertension'],
+  ['Hypertension', 'Family history: Asthma.\nHypertension'],
+  ['Hypertension', 'Family hx: Asthma.\nHypertension'], ['Hypertension', '2025:\nHTN'], ['Hypertension', 'No history of HTN'],
   ['Hypertension', 'Family history:\nHTN'], ['Hypertension', 'Family history\nHTN'],
   ['Hypertension', 'Father has HTN'], ['Hypertension', 'Possible HTN'],
   ['Hypertension', 'HTN?'], ['Asthma', 'Asthma resolved'],

@@ -52,6 +52,27 @@ class ChartUpdatesTest(unittest.TestCase):
         result = updates.resolve_ranges(raw, updates.source_segments(source), source)
         self.assertEqual(source.split('\r\n\r\n')[0], result['proposals'][0]['evidence'])
 
+    def test_rejects_single_item_mixed_medication_and_investigation_plans(self):
+        for source in ('Start drug X and arrange GP review.', 'Review in four weeks; order histology.',
+                       '- Increase medication and follow up in clinic.'):
+            self.assertEqual([], updates.followup_items(source))
+
+    def test_family_scope_ends_at_patient_heading_without_blank_line(self):
+        for heading in ('Family History:', 'Family Hx:', 'FH:', 'FHx:', 'F/H:'):
+            source = heading + '\n- HTN\nPast Medical History:\n- Asthma'
+            parts = updates.source_segments(source)
+            result = updates.resolve_ranges({'proposals': [
+                {'kind': 'history', 'start_id': 2, 'end_id': 2},
+                {'kind': 'history', 'start_id': 4, 'end_id': 4}]}, parts, source)
+            self.assertEqual([{'kind': 'history', 'evidence': 'Past Medical History:\n- Asthma'}], result['proposals'])
+
+    def test_caps_expanded_lists_after_deduplication(self):
+        source = 'Plan\n' + '\n'.join(f'- Arrange clinic {i} follow-up.' for i in range(25))
+        parts = updates.source_segments(source)
+        result = updates.resolve_ranges({'proposals': [
+            {'kind': 'tickler', 'start_id': 1, 'end_id': len(parts)}]}, parts, source)
+        self.assertEqual(20, len(result['proposals']))
+
     def test_followup_can_be_selected_without_neighbouring_prescription(self):
         source = 'Prescribe drug A. Advised to follow up with GP in 7 days.\r\n'
         segments = updates.source_segments(source)

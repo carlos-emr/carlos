@@ -91,7 +91,7 @@
         if (active === card) showMatches(card);
     };
     function show(card, jump = false) {
-        if (active !== card) {
+        if (active !== card || jump) {
             active = card;
             const quote = evidence(card);
             const fragment = document.createDocumentFragment();

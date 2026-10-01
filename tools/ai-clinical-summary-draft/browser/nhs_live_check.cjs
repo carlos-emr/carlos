@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
 const assert = require('node:assert/strict');
-const { readConfig, createRecorder, launchBrowser, newContext, login, createSqlRunner, wireStrictPage } =
+const { readConfig, createRecorder, launchBrowser, newContext, login, createSqlRunner, wireStrictPage, assertStrictPage } =
   require('../../../scripts/lib/playwright-harness');
 const { openMasterRecord } = require('../../../scripts/master-record-tabs-playwright-checks');
 const { openChart } = require('../../../scripts/echart-navbar-modules-playwright-checks');
@@ -19,6 +19,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
   const output = path.resolve(process.env.CHART_TEST_OUTPUT);
   fs.mkdirSync(output, { recursive: true });
   const sql = createSqlRunner(config.mysql);
+  try {
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
   const results = { agent: process.env.CHART_TEST_AGENT, patients: [], passed: false };
@@ -95,7 +96,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       const firstKey = await proposals.locator('input[name="proposalKey"]').first().inputValue();
       const forgedReview = await page.request.post(`${config.baseUrl}/documentManager/DismissAiChartUpdate`,
         { form: { documentId: String(doc), 'CSRF-TOKEN': await csrf.inputValue(), reviewToken: 'forged', proposalKey: firstKey } });
-      assert((await forgedReview.text()).includes('This review expired or was replaced'), 'Forged review token must be rejected');
+      assert.equal(forgedReview.status(), 403, 'Forged review token must be rejected');
       assert.equal(count(), receiptsBefore);
       details.checks.push('review token rejection');
       await page.screenshot({ path: path.join(output, `${fixture.fixture}-review.png`), fullPage: true });
@@ -150,6 +151,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: path.join(output, `${fixture.fixture}-saved-mobile.png`), fullPage: true });
       details.checks.push('mobile layout');
+      assertStrictPage(recorder);
       results.patients.push(details);
       console.log(`${fixture.fixture}: ${details.checks.length} checks passed`);
       // CARLOS reuses named Search/E-Chart windows. Close the search popup too,
@@ -169,6 +171,6 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
   } finally {
     fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(results, null, 2) + '\n');
     await browser.close();
-    sql.dispose();
   }
+  } finally { sql.dispose(); }
 })().catch(error => { console.error(error.message); process.exitCode = 1; });

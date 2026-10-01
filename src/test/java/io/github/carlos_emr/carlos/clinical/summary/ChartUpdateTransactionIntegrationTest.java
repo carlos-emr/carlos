@@ -72,7 +72,7 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         transactions.executeWithoutResult(status -> {
             IntegrationTestSeedService.ensureProviderExists(em, "999998");
             IntegrationTestSeedService.ensureDemographicExists(em, PATIENT);
-            em.createNativeQuery("MERGE INTO program (id, name) KEY(id) VALUES (10016, 'Synthetic program')").executeUpdate();
+            em.createNativeQuery("INSERT INTO program (id, name) SELECT 10016, 'Synthetic program' WHERE NOT EXISTS (SELECT 1 FROM program WHERE id=10016)").executeUpdate();
             if (em.createQuery("from Issue where code = 'MedHistory'").getResultList().isEmpty()) {
                 var issue = new Issue();
                 issue.setCode("MedHistory");

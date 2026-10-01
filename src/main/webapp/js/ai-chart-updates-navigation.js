@@ -30,8 +30,8 @@
         if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         const url = new URL(link.href);
         if (url.origin !== location.origin) return;
-        event.preventDefault();
         if (busy) return;
+        event.preventDefault();
         busy = true;
         const label = link.textContent;
         link.setAttribute('aria-busy', 'true');

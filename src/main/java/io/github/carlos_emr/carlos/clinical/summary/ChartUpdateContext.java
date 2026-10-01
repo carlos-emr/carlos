@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.IOException;
 import java.io.FileNotFoundException;
@@ -66,18 +67,21 @@ public class ChartUpdateContext {
     private final TicklerDao ticklers;
     private final ProgramProviderDAO programs;
     private final ProgramManager programManager;
+    private final TicklerManager ticklerAccess;
 
     public ChartUpdateContext(SecurityInfoManager security, DocumentManager documents, CaseManagementManager notes,
-            TicklerDao ticklers, ProgramProviderDAO programs, ProgramManager programManager) {
+            TicklerDao ticklers, ProgramProviderDAO programs, ProgramManager programManager, TicklerManager ticklerAccess) {
         this.security = security;
         this.documents = documents;
         this.notes = notes;
         this.ticklers = ticklers;
         this.programs = programs;
         this.programManager = programManager;
+        this.ticklerAccess = ticklerAccess;
     }
 
-    public record Entry(String id, String kind, String text) implements Serializable {
+    public record Entry(String id, String kind, String text, String entryText, String dueDate, String assignee) implements Serializable {
+        public Entry(String id, String kind, String text) { this(id, kind, text, text, "", ""); }
         public String getId() { return id; }
         public String getKind() { return kind; }
         public String getText() { return text; }
@@ -108,7 +112,7 @@ public class ChartUpdateContext {
                 || !Objects.equals(link.getId().getDocumentNo(), documentId)
                 || link.getId().getModuleId() == null || link.getId().getModuleId() <= 0) deny();
         int patient = link.getId().getModuleId();
-        for (String permission : List.of("_demographic", "_eChart", "_tickler")) {
+        for (String permission : List.of("_edoc", "_demographic", "_eChart", "_tickler")) {
             if (!security.hasPrivilege(user, permission, "r", patient)) deny();
         }
         if (!security.isAllowedAccessToPatientRecord(user, patient)) deny();
@@ -147,7 +151,7 @@ public class ChartUpdateContext {
         List<Entry> entries = new ArrayList<>();
         List<CaseManagementNote> allNotes = notes.getNotes(String.valueOf(patient));
         if (allNotes.stream().anyMatch(note -> !String.valueOf(patient).equals(note.getDemographic_no()))) deny();
-        List<CaseManagementNote> candidates = allNotes.stream().filter(note -> !note.isArchived() && !note.isLocked())
+        List<CaseManagementNote> candidates = allNotes.stream().filter(note -> note.isSigned() && !note.isArchived() && !note.isLocked())
                 .filter(note -> note.getNote() != null && !note.getNote().isBlank())
                 .filter(note -> note.getReporter_caisi_role() != null && note.getReporter_caisi_role().matches("[1-9][0-9]{0,8}"))
                 .toList();
@@ -157,14 +161,17 @@ public class ChartUpdateContext {
                 entries.add(new Entry("note-" + note.getId(), "history", note.getNote()));
             }
         }
-        for (Tickler tickler : ticklers.findActiveByDemographicNo(patient)) {
+        List<Tickler> activeTicklers = ticklers.findActiveByDemographicNo(patient);
+        if (activeTicklers.stream().anyMatch(tickler -> !Objects.equals(tickler.getDemographicNo(), patient))) deny();
+        for (Tickler tickler : ticklerAccess.filterTicklersByAccess(activeTicklers, user.getLoggedInProviderNo(), program)) {
             if (!Objects.equals(tickler.getDemographicNo(), patient)) deny();
             if (tickler.getProgramId() != null && !programManager.hasAccessBasedOnCurrentFacility(user, tickler.getProgramId())) continue;
             entries.add(new Entry("tickler-" + tickler.getId(), "tickler", Objects.toString(tickler.getMessage(), "")
-                    + "\nDue: " + tickler.getServiceDate() + "\nAssigned to: " + tickler.getTaskAssignedTo()));
+                    + "\nDue: " + date(tickler.getServiceDate()) + "\nAssigned to: " + tickler.getTaskAssignedTo(),
+                    Objects.toString(tickler.getMessage(), ""), date(tickler.getServiceDate()), tickler.getTaskAssignedTo()));
         }
         entries.sort(Comparator.comparing(Entry::id));
-        String date = document.getObservationdate() == null ? "Not recorded" : document.getObservationdate().toString();
+        String date = date(document.getObservationdate());
         String sourceHash = ChartUpdateProposals.hash(extract.text());
         String patientLabel = demographic.getFormattedName();
         String fingerprint = ChartUpdateProposals.hash(documentId + "\n" + patient + "\n" + patientLabel + "\n" + program + "\n"
@@ -173,6 +180,12 @@ public class ChartUpdateContext {
         LogAction.addLogSynchronous(user, "ChartUpdates.read", "documentId=" + documentId + ",demographicNo=" + patient);
         return new Snapshot(documentId, patient, patientLabel, document.getDocdesc(), date, extract.text(), sourceHash,
                 fingerprint, program, membership.getRoleId().toString(), List.copyOf(entries));
+    }
+
+    private static String date(java.util.Date value) {
+        if (value == null) return "";
+        // java.sql.Date has no toInstant(); use the calendar date in the application zone.
+        return new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT).format(value);
     }
 
     public void requireWrite(LoggedInInfo user, int patient, String kind) {

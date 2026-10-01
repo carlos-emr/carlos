@@ -76,7 +76,7 @@ class ChartUpdateSuggestionsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldSuggestChartSection_fromHistoricalWording() {
-        for (String text : List.of("History of asthma", "Past surgical history: appendectomy", "Resolved pneumonia")) {
+        for (String text : List.of("History of asthma", "Medical history: appendectomy", "Past surgical history: appendectomy", "Resolved pneumonia")) {
             assertThat(ChartUpdateSuggestions.suggest(new ChartUpdateProposals.Proposal("history", text), "", "101")
                     .draft().destination()).isEqualTo("MedHistory");
         }
@@ -92,6 +92,7 @@ class ChartUpdateSuggestionsUnitTest extends CarlosUnitTestBase {
         assertThat(review.draft(proposal.key()).dueDate()).isEqualTo("2026-10-26");
         review.remember(proposal.key(), new ChartUpdateReview.Draft("Edited", "", "", ""));
         review.refresh("new fingerprint");
+        assertThat(review.draft(proposal.key()).text()).isEqualTo("Edited");
         assertThat(review.draft(proposal.key()).dueDate()).isEmpty();
         assertThat(review.draft(proposal.key()).assignee()).isEmpty();
         assertThat(review.suggestion(proposal.key()).draft().dueDate()).isEqualTo("2026-10-26");

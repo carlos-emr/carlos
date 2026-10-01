@@ -37,8 +37,9 @@ boundary. Direct standalone review links remain available, showing all cards.
 This is not medication reconciliation, prescribing, ordering, ICD coding,
 automatic conflict resolution, or a complete longitudinal problem-list merger.
 Chart comparison is clinician-led. Browser warnings use exact text and a small,
-conservative English paraphrase matcher. Server-side duplicate blocking remains
-normalized text containment plus durable replay protection. Neither establishes
+conservative English paraphrase matcher. Server-side duplicate blocking compares complete normalized entries of the same
+kind; reminders must also have the same due date and assignee. Durable receipts
+prevent replaying an accepted proposal. Neither establishes
 clinical equivalence. The comparison excludes restricted notes, other chart
 sections and inactive ticklers. Review the normal chart when needed.
 
@@ -62,8 +63,7 @@ small, English-only, and does not infer diagnoses from symptoms. Arbitrary clini
 paraphrases, multilingual qualifiers and complicated scope are not understood.
 
 Warnings never delete, approve or block a suggestion. The server independently
-reloads the chart and blocks matching edited text within the same entry kind before
-saving; receipt checks prevent replaying an already accepted proposal. No chart
+reloads the chart and checks this complete-entry identity before saving; receipt checks prevent replaying an already accepted proposal. No chart
 content leaves the browser for these comparisons and no model calls are made.
 
 Suggestions sharing at least three significant words and 60% of the smaller
@@ -91,8 +91,8 @@ generate proposals, expose source/chart text or change the session review.
 
 The review form pre-fills exact source text and makes editable suggestions without
 another model call. Reminders initially select the signed-in clinician if that
-account is in the active assignee list. History passages explicitly describing
-past history or a resolved condition suggest Medical history; other clinical
+account is in the active assignee list. History passages beginning with a recognized past-history or resolved-condition
+marker suggest Medical history; other clinical
 findings suggest Ongoing concerns. The clinician can change either selection.
 
 Clear intervals such as "in four weeks" and "tomorrow" calculate from the source

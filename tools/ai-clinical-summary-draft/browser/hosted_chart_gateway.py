@@ -24,7 +24,7 @@ class Gateway(agent.Gateway):
         # The inherited single-document summary route keeps its original note allow-list.
         self.trial_notes = allowed_notes()
         self.implementation = hashlib.sha256(b''.join(Path(module.__file__).read_bytes()
-            for module in (chart_updates, document_distill))).hexdigest()
+            for module in (chart_updates, document_distill, agent, agent.pipeline))).hexdigest()
 
     def cache_file(self, request):
         key = {'request': {k: v for k, v in request.items() if k != 'request_id'},

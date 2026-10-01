@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { readConfig, createRecorder, launchBrowser, newContext, login, createSqlRunner, wireStrictPage } =
+const { readConfig, createRecorder, launchBrowser, newContext, login, createSqlRunner, wireStrictPage, assertStrictPage } =
   require('../../../scripts/lib/playwright-harness');
 const { openMasterRecord } = require('../../../scripts/master-record-tabs-playwright-checks');
 const { openChart } = require('../../../scripts/echart-navbar-modules-playwright-checks');
@@ -16,6 +16,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
   const output = path.resolve(process.env.CHART_TEST_OUTPUT);
   fs.mkdirSync(output, { recursive: true });
   const sql = createSqlRunner(config.mysql);
+  try {
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
   const results = [];
@@ -102,6 +103,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(await page.locator('article.proposal').count(), 3);
       assert.equal(await page.locator('article.proposal:visible').count(), 1);
       const fullSource = await page.locator('#chart-update-source').textContent();
+      assert.equal(fullSource, fs.readFileSync(fixture.sourceFile, 'utf8'));
       for (let step = 0; step < 3; step++) {
         const passage = await page.locator('article.proposal:visible .proposal-evidence blockquote').textContent();
         assert((await page.locator('.source-highlight').allTextContents()).includes(passage));
@@ -148,10 +150,12 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       });
       assert.equal(release.status(), 200);
       assert.equal(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998'`), '0');
+      assertStrictPage(recorder);
       results.push({ fixture: fixture.fixture, documentDate: date, suggestedDate: expected, approvalsUnchanged: true, unavailableModalChecked });
       console.log(`${fixture.fixture}: eChart navigation, document selection, suggested fields, explicit approval, mobile layout, source highlighting, modal steps, Back and Close navigation passed`);
       for (const candidate of context.pages()) if (candidate !== schedule) await candidate.close();
     }
     fs.writeFileSync(path.join(output, 'suggestions-result.json'), JSON.stringify(results, null, 2) + '\n');
-  } finally { await browser.close(); sql.dispose(); }
+  } finally { await browser.close(); }
+  } finally { sql.dispose(); }
 })().catch(error => { console.error(error.message); process.exitCode = 1; });

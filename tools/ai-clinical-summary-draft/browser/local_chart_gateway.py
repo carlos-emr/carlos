@@ -4,14 +4,15 @@
 import argparse
 import hashlib
 import json
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer
 from pathlib import Path
 import sys
-import time
 from urllib.request import Request, ProxyHandler, build_opener
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import chart_updates
+import document_distill
+import openrouter_agent as agent
 from openrouter_agent import committed_notes, loads, private_write, NoRedirect
 
 MODEL = 'qwen3.5:2b'
@@ -21,7 +22,7 @@ OPTIONS = {'temperature': 0, 'num_ctx': 16384, 'num_predict': 4096, 'num_thread'
 def allowed_notes():
     notes, _ = committed_notes()
     selected = [(date, body) for key, date, body in notes if key == 'NHSSYN005']
-    assert len(selected) == 37
+    if len(selected) != 37: raise ValueError('Unexpected synthetic corpus')
     combined = '\n\n'.join(f'=== Source note {i+1} | {date} ===\n{body}'
                            for i, (date, body) in enumerate(selected))
     # Rebuild from the checksum-verified corpus, never trust uploaded file metadata.
@@ -35,6 +36,11 @@ class Gateway:
         self.url = f'http://127.0.0.1:{port}'
         self.cache = Path(cache)
         self.notes = allowed_notes()
+        self.cache_hits = 0
+        self.config = dict(agent.DEFAULTS, model=MODEL, provider='local', request_bytes=50000,
+                           max_tokens=OPTIONS['num_predict'])
+        self.implementation = hashlib.sha256(b''.join(Path(module.__file__).read_bytes()
+            for module in (chart_updates, document_distill, agent, agent.pipeline)) + Path(__file__).read_bytes()).hexdigest()
         self.opener = build_opener(ProxyHandler({}), NoRedirect())
 
     def call(self, route, data=None):
@@ -54,37 +60,35 @@ class Gateway:
             raise ValueError('A local model is required')
         tag = next(row for row in self.call('/api/tags')['models'] if row['name'] == MODEL)
         identity = {'model': MODEL, 'digest': tag['digest'], 'version': self.call('/api/version')['version']}
-        payload = {'model': MODEL, 'system': request['instructions'],
-                   'prompt': json.dumps({'sources': request['sources']}), 'stream': False, 'think': False,
-                   'keep_alive': '10m', 'format': request['output_schema'], 'options': OPTIONS}
-        key = hashlib.sha256(json.dumps([identity, payload], sort_keys=True).encode()).hexdigest()
+        key = hashlib.sha256(json.dumps([identity, OPTIONS, self.implementation,
+            {k: v for k, v in request.items() if k != 'request_id'}], sort_keys=True).encode()).hexdigest()
         cached = self.cache / (key + '.json')
         if cached.exists():
-            record = loads(cached.read_text())
-            output = record['output']
+            output = loads(cached.read_text())['output']
             chart_updates.validate_output(output, source)
-            print('Validated local model cache hit', flush=True)
+            self.cache_hits += 1
         else:
-            start = time.monotonic()
-            raw_path = self.cache / (key + '-raw.json')
-            if raw_path.exists():
-                raw = loads(raw_path.read_text())
-            else:
-                raw = self.call('/api/generate', payload)
-                # Keep rejected responses too; retrying the UI must not silently generate again.
-                private_write(raw_path, json.dumps(raw, indent=2) + '\n')
-            if raw.get('model') != MODEL or raw.get('done') is not True or raw.get('done_reason') != 'stop':
-                raise ValueError('Incomplete local model response')
-            output = loads(raw['response'])
-            chart_updates.validate_output(output, source)
-            record = {'identity': identity, 'options': OPTIONS, 'sourceSha256': hashlib.sha256(source.encode()).hexdigest(),
-                      'promptSha256': hashlib.sha256(request['instructions'].encode()).hexdigest(),
-                      'seconds': round(time.monotonic() - start, 3),
-                      'promptTokens': raw.get('prompt_eval_count'), 'outputTokens': raw.get('eval_count'),
-                      'output': output}
-            private_write(cached, json.dumps(record, indent=2) + '\n')
-            print(f"Validated live local model result: {len(output['proposals'])} proposals", flush=True)
+            def complete(completion):
+                payload = {'model': MODEL, 'system': completion['messages'][0]['content'],
+                           'prompt': completion['messages'][1]['content'], 'stream': False, 'think': False,
+                           'keep_alive': '10m', 'format': completion['response_format']['json_schema']['schema'],
+                           'options': OPTIONS}
+                raw_key = hashlib.sha256(json.dumps([identity, self.implementation, payload], sort_keys=True).encode()).hexdigest()
+                raw_path = self.cache / (raw_key + '-raw.json')
+                if raw_path.exists():
+                    raw = loads(raw_path.read_text())
+                else:
+                    raw = self.call('/api/generate', payload)
+                    private_write(raw_path, json.dumps(raw) + '\n')
+                if raw.get('model') != MODEL or raw.get('done') is not True or raw.get('done_reason') != 'stop':
+                    raise ValueError('Incomplete local model response')
+                return loads(raw['response'])
+            # Both backends use host-owned ranges and review every candidate against full source.
+            output = chart_updates.run(self.config, request, self.notes, complete)['output']
+            private_write(cached, json.dumps({'identity': identity, 'output': output}) + '\n')
         return {'contract_version': 1, 'request_id': request['request_id'], 'status': 'completed', 'output': output}
+
+    run_chart_updates = generate
 
 
 def main():
@@ -95,27 +99,12 @@ def main():
     args = parser.parse_args()
     gateway = Gateway(args.cache, args.ollama_port)
 
-    class Handler(BaseHTTPRequestHandler):
+    class Handler(agent.handler_for(gateway)):
         def do_POST(self):
-            try:
-                if self.path != chart_updates.PATH:
-                    raise ValueError('Unknown operation')
-                length = int(self.headers.get('Content-Length', '0'))
-                if not 0 < length <= 50000:
-                    raise ValueError('Invalid request size')
-                result = gateway.generate(loads(self.rfile.read(length)))
-                body = json.dumps(result).encode()
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Content-Length', str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            except Exception as error:
-                print('Local trial rejected request:', type(error).__name__, flush=True)
-                self.send_error(502, 'Local model unavailable or output failed validation; nothing saved')
-
-        def log_message(self, _format, *args):
-            pass
+            if self.path != chart_updates.PATH:
+                self.respond(404, {'error': 'Unknown operation'})
+                return
+            super().do_POST()
 
     with HTTPServer(('127.0.0.1', args.port), Handler) as server:
         print(f'Local synthetic trial gateway: {MODEL}, port {args.port}', flush=True)

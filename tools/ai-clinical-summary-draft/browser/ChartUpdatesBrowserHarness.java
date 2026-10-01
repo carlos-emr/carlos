@@ -123,6 +123,7 @@ public final class ChartUpdatesBrowserHarness {
                 return;
             }
             if (request.getPathInfo().equals("/original") && request.getMethod().equals("GET")) {
+                if (fixture.originalMissing) { response.sendError(404); return; }
                 response.setContentType("text/plain");
                 response.getWriter().write("Readable synthetic original");
                 return;

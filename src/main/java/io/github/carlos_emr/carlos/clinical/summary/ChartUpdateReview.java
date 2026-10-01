@@ -78,7 +78,10 @@ public final class ChartUpdateReview implements Serializable {
     }
 
     public void authorize(String actor, String suppliedToken) {
-        if (!provider.equals(actor) || !token.equals(suppliedToken) || Instant.now().getEpochSecond() >= expiresAt) {
+        if (!provider.equals(actor) || !token.equals(suppliedToken)) {
+            throw new SecurityException("Chart-update review authorization failed");
+        }
+        if (Instant.now().getEpochSecond() >= expiresAt) {
             throw new IllegalStateException("This review expired or was replaced. Generate proposals again.");
         }
     }

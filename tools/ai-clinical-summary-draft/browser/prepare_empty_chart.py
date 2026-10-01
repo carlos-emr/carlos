@@ -8,7 +8,8 @@ from openrouter_agent import committed_notes
 base = Path('target/nhs-chart-update-morning').resolve()
 props = dict(re.findall(r'^([^#\s=]+)=(.*)$', (base/'tomcat/conf/chart-updates.properties').read_text(), re.M))
 database = 'carlos_chartupdates_morning_20260929'
-assert props.get('db_name', '').split('?', 1)[0] == database
+if props.get('db_name', '').split('?', 1)[0] != database:
+    raise ValueError('Isolated trial database required')
 env = dict(os.environ, MYSQL_PWD=props['db_password'])
 client = ['mysql', '-h', 'db', '-u', props['db_username'], '--batch', '--skip-column-names', database]
 def query(sql):
@@ -19,15 +20,16 @@ def literal(text):
     return 'CONVERT(0x' + text.encode('utf-8').hex() + ' USING utf8mb4)'
 notes, _ = committed_notes()
 selected = [(date, body) for key, date, body in notes if key == 'NHSSYN005']
-assert len(selected) == 37
+if len(selected) != 37: raise ValueError('Unexpected synthetic corpus')
 combined = '\n\n'.join(f'=== Source note {i+1} | {date} ===\n{body}' for i, (date, body) in enumerate(selected))
 date, longest = max(selected, key=lambda row:len(row[1]))
-assert not query("SELECT demographic_no FROM demographic WHERE chart_no='AIFACT005'")
+if query("SELECT demographic_no FROM demographic WHERE chart_no='AIFACT005'"):
+    raise ValueError("Trial patient already exists; refusing to replace it")
 files = [ ('nhs-empty-chart-full-record.txt', 'SYNTHETIC - 37-note record - 4537 words', selected[-1][0], combined),
           ('nhs-empty-chart-longest-note.txt', 'SYNTHETIC - long clerking note - 561 words', date, longest) ]
 for filename, _, _, text in files:
     path = base/'documents'/filename
-    assert not path.exists()
+    if path.exists(): raise ValueError('Trial source file already exists')
     path.write_text(text, encoding='utf-8')
 sql = """CREATE TEMPORARY TABLE fixture_guard(ok INT NOT NULL CHECK(ok=1));
 INSERT INTO fixture_guard SELECT IF(DATABASE()='carlos_chartupdates_morning_20260929' AND EXISTS(SELECT 1 FROM security WHERE user_name='carlosdoc' AND provider_no='999998'),1,0);
@@ -47,11 +49,11 @@ SELECT @trial_doc;
 """
 sql += 'COMMIT;'
 ids = list(map(int, query(sql).splitlines()))
-assert len(ids) == 3
+if len(ids) != 3: raise ValueError('Unexpected fixture identifiers')
 patient = ids[0]
 counts = {table:int(query(f'SELECT COUNT(*) FROM {table} WHERE demographic_no={patient}'))
           for table in ['casemgmt_note','tickler','drugs','allergies','clinical_chart_update_receipt']}
-assert not any(counts.values())
+if any(counts.values()): raise ValueError('Trial chart must be empty')
 result = dict(chartNumber='AIFACT005', demographicId=patient, sourceFixture='NHSSYN005', baselineCounts=counts,
               documents=[dict(documentId=doc, title=title, sourceFile=str(base/'documents'/filename),
                               date=observed, characters=len(body), words=len(body.split()),

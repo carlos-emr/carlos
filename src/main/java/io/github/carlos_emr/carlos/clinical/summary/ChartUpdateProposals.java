@@ -87,12 +87,46 @@ public final class ChartUpdateProposals {
             }
             JsonNode excerpt = row.path("evidence");
             if (!excerpt.isTextual() || excerpt.asText().isBlank() || excerpt.asText().length() > 2000
-                    || !source.contains(excerpt.asText()) || !seen.add(excerpt.asText())) {
+                    || !completePassage(source, excerpt.asText()) || !seen.add(excerpt.asText())) {
                 throw new IllegalArgumentException("Invalid or duplicate source passage");
             }
             result.add(new Proposal(row.get("kind").asText(), excerpt.asText()));
         }
         return List.copyOf(result);
+    }
+
+    /** Require sentence/line boundaries so an agent cannot quote only "asthma" from "No asthma". */
+    static boolean completePassage(String source, String evidence) {
+        for (int start = source.indexOf(evidence); start >= 0; start = source.indexOf(evidence, start + 1)) {
+            int end = start + evidence.length();
+            String before = source.substring(0, start);
+            String after = source.substring(end);
+            String linePrefix = before.substring(before.lastIndexOf('\n') + 1);
+            boolean begins = before.isBlank() || linePrefix.isBlank()
+                    || linePrefix.matches("[ \\t]*(?:[-*•]|[0-9]+[.)])[ \\t]+")
+                    || (before.matches("(?s).*[.!?][ \\t]+")
+                        && !before.matches("(?s).*\\b(?:Dr|Mr|Mrs|Ms|Prof|St|[A-Z]|[0-9]+)\\.[ \\t]+"));
+            boolean ends = after.isBlank() || after.matches("[ \\t]*\\r?\\n(?s:.*)")
+                    || (evidence.matches("(?s).*[.!?]") && after.matches("[ \\t]+(?s:.*)"));
+            // Newlines may wrap a qualification; do not treat them as automatic statement ends.
+            String previousLine = before.stripTrailing();
+            previousLine = previousLine.substring(previousLine.lastIndexOf('\n') + 1);
+            String followingLine = after.stripLeading();
+            boolean startsList = evidence.matches("(?s)^(?:[-*•]|[0-9]+[.)])[ \\t]+.*");
+            if (!before.isBlank() && linePrefix.isBlank() && !previousLine.isBlank()
+                    && !previousLine.matches("(?s).*[.!?:]") && !startsList
+                    && !previousLine.strip().matches("(?i)(?:impression|presenting complaint|diagnosis|diagnoses|issues|plan)")
+                    && !before.matches("(?s).*\\n[ \\t\\r]*\\n[ \\t]*$")) begins = false;
+            if (before.matches("(?is).*\\b(?:no|not|denies|without|if|unless|pending)[^.!?\\n]*\\r?\\n[ \\t]*$")) begins = false;
+            if (after.matches("[ \\t]*\\r?\\n(?s:.*)") && !followingLine.isBlank()
+                    && !evidence.matches("(?s).*[.!?:]")
+                    && !after.matches("(?s)^[ \\t]*\\r?\\n[ \\t\\r]*\\n.*")
+                    && !followingLine.matches("(?s)^(?:[-*•][ \\t]*|[0-9]+[.)][ \\t]+).*")
+                    && !followingLine.matches("(?s)^[A-Z][A-Za-z /-]{0,60}:.*")) ends = false;
+            if (followingLine.matches("(?is)^(?:[-*•][ \\t]*|[0-9]+[.)][ \\t]+)?(?:ruled out|not confirmed|resolved|cancelled|if\\b|unless\\b|when\\b).*")) ends = false;
+            if (begins && ends) return true;
+        }
+        return false;
     }
 
     public static String hash(String value) {

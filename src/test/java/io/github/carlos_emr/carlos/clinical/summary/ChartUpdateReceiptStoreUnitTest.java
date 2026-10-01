@@ -62,12 +62,19 @@ class ChartUpdateReceiptStoreUnitTest {
         lock.setDemographicNo(3001);
         lock.setSessionId(session.getId());
         session.setAttribute("casemgmtNoteLock3001", lock);
-        when(em.find(CasemgmtNoteLock.class, 7L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(lock);
+        var current = new CasemgmtNoteLock();
+        current.setId(7L);
+        current.setDemographicNo(3001);
+        current.setSessionId(session.getId());
+        when(em.find(CasemgmtNoteLock.class, 7L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(current);
         store.requireNoteLock(user, 3001);
+        current.setSessionId("another-session");
+        assertThatThrownBy(() -> store.requireNoteLock(user, 3001)).hasMessageContaining("lock changed");
+        current.setSessionId(session.getId());
         lock.setSessionId("another-session");
         assertThatThrownBy(() -> store.requireNoteLock(user, 3001)).hasMessageContaining("lock changed");
         lock.setSessionId(session.getId());
-        lock.setDemographicNo(3002);
+        current.setDemographicNo(3002);
         assertThatThrownBy(() -> store.requireNoteLock(user, 3001)).hasMessageContaining("lock changed");
     }
 }
