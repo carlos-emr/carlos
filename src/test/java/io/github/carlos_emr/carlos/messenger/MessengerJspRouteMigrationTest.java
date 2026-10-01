@@ -110,7 +110,8 @@ class MessengerJspRouteMigrationTest {
         String jsp = Files.readString(ATTACHMENT_FRAMESET);
 
         assertThat(jsp)
-                .contains("<frame name=\"main\"")
+                .contains("<iframe name=\"main\"")
+                .doesNotContain("<frameset")
                 .doesNotContain("name=\"srcFrame\"");
     }
 

@@ -103,7 +103,7 @@ async function workflow(s) {
   let chooser;
   let main;
   const openChooser = async () => {
-    // A frameset page has no body text, so the chooser is asserted in its main frame.
+    // The host page is only the frame, so the chooser is asserted in its main frame.
     [chooser] = await Promise.all([
       s.context.waitForEvent('page', { timeout: TIMEOUT }),
       compose.locator('input[name="attachDemo"]').click(),
@@ -143,7 +143,7 @@ async function workflow(s) {
 
   await s.step('Attach Patient lists this patient\'s items by key, with no hidden source frame', async () => {
     await openChooser();
-    h.assert(await chooser.locator('frame[name="srcFrame"]').count() === 0, 'The chooser still has a hidden source frame');
+    h.assert(await chooser.locator('frame, iframe[name="srcFrame"]').count() === 0, 'The chooser still has a hidden source frame');
     const keys = await main.locator('input[name="item"]').evaluateAll(inputs => inputs.map(input => input.value));
     h.assert(JSON.stringify(keys) === JSON.stringify(['demographic', 'prescriptions']),
       `The chooser offered ${JSON.stringify(keys)}; a patient with no encounter record has no encounter item`);
