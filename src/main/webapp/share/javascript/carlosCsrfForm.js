@@ -174,9 +174,14 @@
                 }
                 // Seed the page's empty bootstrap inputs too, so the page's own
                 // fetch() callers and the next lookup find it synchronously.
+                // Only standalone inputs (csrf-token.jspf's) and those in forms
+                // that post to this origin: an empty token field in a GET or
+                // foreign form must stay empty, or submitting it would leak
+                // the token into a URL or to another host.
                 var inputs = document.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
                 for (var i = 0; i < inputs.length; i++) {
-                    if (!inputs[i].value) {
+                    var owner = owningForm(inputs[i]);
+                    if (!inputs[i].value && (!owner || isSameOriginPostForm(owner))) {
                         inputs[i].value = value;
                     }
                 }
@@ -192,13 +197,35 @@
         return pendingFetch;
     }
 
-    /** True for a form that posts to this page's own origin. */
-    function isSameOriginPostForm(form) {
-        var method = (form.getAttribute('method') || 'get').toLowerCase();
+    /** The form an input belongs to, or null for a standalone input. */
+    function owningForm(input) {
+        if (input.form !== undefined) {
+            return input.form;
+        }
+        for (var node = input.parentNode; node; node = node.parentNode) {
+            if (node.tagName && node.tagName.toLowerCase() === 'form') {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * True for a submission that posts to this page's own origin. A clicked
+     * submitter's formmethod / formaction override the form's own, exactly as
+     * the browser applies them, so they are checked when one is given.
+     */
+    function isSameOriginPostForm(form, submitter) {
+        var override = function (name) {
+            return submitter && submitter.getAttribute && submitter.hasAttribute
+                && submitter.hasAttribute(name) ? submitter.getAttribute(name) : null;
+        };
+        var method = (override('formmethod') || form.getAttribute('method') || 'get').toLowerCase();
         if (method !== 'post') {
             return false;
         }
-        var action = form.getAttribute('action');
+        var formAction = override('formaction');
+        var action = formAction !== null ? formAction : form.getAttribute('action');
         if (action && /^\s*javascript:/i.test(action)) {
             return false;
         }
@@ -397,8 +424,25 @@
         // doomed POST go out. Capture phase, so page handlers see the replay.
         document.addEventListener('submit', function (event) {
             var form = event.target;
-            if (!form || !form.tagName || form.tagName.toLowerCase() !== 'form'
-                    || !isSameOriginPostForm(form) || hasToken(form)) {
+            if (!form || !form.tagName || form.tagName.toLowerCase() !== 'form') {
+                return;
+            }
+            var submitter = event.submitter || null;
+            if (!isSameOriginPostForm(form, submitter)) {
+                // This submission goes by GET or to another origin (a
+                // submitter's formmethod / formaction can do that to a POST
+                // form). A token CSRFGuard or this script put in the form
+                // would end up in a URL or at another host, so blank it; a
+                // later same-origin submission is re-tokenised by this guard.
+                if (isSameOriginPostForm(form)) {
+                    var carried = form.querySelectorAll('input[name="' + TOKEN_NAME + '"]');
+                    for (var k = 0; k < carried.length; k++) {
+                        carried[k].value = '';
+                    }
+                }
+                return;
+            }
+            if (hasToken(form)) {
                 return;
             }
             var existing = currentToken();
@@ -408,7 +452,6 @@
             }
             event.preventDefault();
             event.stopImmediatePropagation();
-            var submitter = event.submitter || null;
             token().then(function (value) {
                 setFormToken(form, value);
                 if (typeof form.requestSubmit === 'function') {

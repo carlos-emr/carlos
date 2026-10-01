@@ -99,6 +99,10 @@ function makeDom() {
       this.attributes.set(name, String(value));
     }
 
+    hasAttribute(name) {
+      return this.attributes.has(name);
+    }
+
     appendChild(child) {
       child.parentNode = this;
       this.children.push(child);
@@ -724,6 +728,73 @@ test('a native submit with a token on the page goes straight through', async () 
 
   assert.deepEqual(helper.dom.submissions()[0].fields['CSRF-TOKEN'], ['PAGE-TOKEN']);
   assert.equal(helper.fetches.length, 0);
+});
+
+test('a fetched token never seeds an empty token field in a GET or foreign form', async () => {
+  const helper = loadHelper();
+  const standalone = helper.dom.document.createElement('input'); // csrf-token.jspf's
+  standalone.setAttribute('name', 'CSRF-TOKEN');
+  helper.dom.document.body.appendChild(standalone);
+  const getForm = buildForm(helper.dom, { method: 'get', action: '/carlos/search', inputs: [['CSRF-TOKEN', '']] });
+  const foreign = buildForm(helper.dom, { action: 'https://elsewhere.example/x', inputs: [['CSRF-TOKEN', '']] });
+  const ours = buildForm(helper.dom, { action: '/carlos/y', inputs: [['CSRF-TOKEN', '']] });
+  [getForm, foreign, ours].forEach((form) => helper.dom.document.body.appendChild(form));
+
+  await helper.window.CarlosCsrf.token();
+
+  assert.equal(standalone.value, 'SERVLET-TOKEN');
+  assert.equal(ours.querySelector('input[name="CSRF-TOKEN"]').value, 'SERVLET-TOKEN');
+  assert.equal(getForm.querySelector('input[name="CSRF-TOKEN"]').value, '', 'would leak into a URL');
+  assert.equal(foreign.querySelector('input[name="CSRF-TOKEN"]').value, '', 'would leak to another host');
+});
+
+/** A submit button on `form`, optionally overriding its action or method. */
+function submitButton(helper, form, attributes = {}) {
+  const button = helper.dom.document.createElement('button');
+  button.setAttribute('type', 'submit');
+  Object.entries(attributes).forEach(([name, value]) => button.setAttribute(name, value));
+  button.form = form;
+  form.appendChild(button);
+  return button;
+}
+
+test('a submitter whose formaction points at another origin carries no token', async () => {
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/y', inputs: [['CSRF-TOKEN', 'PAGE-TOKEN']] });
+  const away = submitButton(helper, form, { formaction: 'https://elsewhere.example/collect' });
+  helper.dom.document.body.appendChild(form);
+
+  form.requestSubmit(away);
+
+  const [submission] = helper.dom.submissions();
+  assert.deepEqual(submission.fields['CSRF-TOKEN'], [''], 'the token already in the form was blanked');
+});
+
+test('a submitter with formmethod="get" carries no token into the URL', async () => {
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/y', inputs: [['CSRF-TOKEN', 'PAGE-TOKEN']] });
+  const viaGet = submitButton(helper, form, { formmethod: 'get' });
+  helper.dom.document.body.appendChild(form);
+
+  form.requestSubmit(viaGet);
+
+  assert.deepEqual(helper.dom.submissions()[0].fields['CSRF-TOKEN'], ['']);
+});
+
+test('after a blanked override, an ordinary submit of the same form is re-tokenised', async () => {
+  const helper = loadHelper({ pageToken: 'PAGE-TOKEN' });
+  await settle();
+  const form = buildForm(helper.dom, { action: '/carlos/y', inputs: [['CSRF-TOKEN', 'PAGE-TOKEN']] });
+  const viaGet = submitButton(helper, form, { formmethod: 'get' });
+  const save = submitButton(helper, form);
+  helper.dom.document.body.appendChild(form);
+
+  form.requestSubmit(viaGet);
+  form.requestSubmit(save);
+
+  assert.deepEqual(helper.dom.submissions()[1].fields['CSRF-TOKEN'], ['PAGE-TOKEN']);
 });
 
 /* ------------------------------------------------------------------------ */

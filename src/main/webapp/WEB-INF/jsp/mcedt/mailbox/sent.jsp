@@ -161,28 +161,13 @@
                 control.disabled = true;
             }
 
-            var form = document.getElementById('reSubmitForm');
-            if (!form) {
-                form = document.createElement('form');
-                form.id = 'reSubmitForm';
-                form.method = 'post';
-                form.style.display = 'none';
-                var input1 = document.createElement('input');
-                input1.type = 'hidden';
-                input1.name = 'resourceId';
-                form.appendChild(input1);
-                var input2 = document.createElement('input');
-                input2.type = 'hidden';
-                input2.name = 'serviceId';
-                form.appendChild(input2);
-                document.body.appendChild(form);
-            }
-            form.action = "<%= request.getContextPath() %>/mcedt/reSubmit";
-            form.elements['resourceId'].value = resourceId;
-            form.elements['serviceId'].value = jQuery("#serviceId").val();
-            // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
-            // into a runtime-built form in time (#4130).
-            carlosSubmitForm(form);
+            // A fresh form per click: the token may still be loading, and a
+            // shared form would let a second click overwrite the first one's
+            // resourceId before it is sent. carlosPostForm attaches the CSRF
+            // token, which CSRFGuard cannot inject into a runtime-built form
+            // in time (#4130).
+            carlosPostForm("<%= request.getContextPath() %>/mcedt/reSubmit",
+                {resourceId: resourceId, serviceId: jQuery("#serviceId").val()});
             return false;
 
         }
