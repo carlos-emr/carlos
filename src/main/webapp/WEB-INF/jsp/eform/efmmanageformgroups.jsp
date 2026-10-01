@@ -292,11 +292,26 @@
         </form>
                 <% } %>
 
+            <%-- Standalone, this page has no jQuery: inside the Administration shell
+                 it borrows the shell's. delGroup / removeFromGroup now redirect here
+                 after a POST (#4130), so load it when absent, synchronously while
+                 the page is still parsing, before the footer and the script below
+                 use it. In the shell window.jQuery exists and nothing is loaded. --%>
+            <script>
+                if (!window.jQuery && document.readyState === "loading") {
+                    document.write('<script src="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(request.getContextPath()) %>/library/jquery/jquery-3.7.1.min.js"><\/script>');
+                }
+            </script>
             <%@ include file="efmFooter.jspf" %>
 
         <script>
-            registerFormSubmit('addGroupForm', 'dynamic-content');
-            registerFormSubmit('eformToGroupForm', 'dynamic-content');
+            // registerFormSubmit lives on the Administration shell. This page is
+            // also reached standalone: delGroup / removeFromGroup now redirect here
+            // after a POST (#4130), and the unguarded call threw a ReferenceError.
+            if (typeof registerFormSubmit === 'function') {
+                registerFormSubmit('addGroupForm', 'dynamic-content');
+                registerFormSubmit('eformToGroupForm', 'dynamic-content');
+            }
 
 
             $(function () {

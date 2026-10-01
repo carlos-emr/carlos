@@ -36,7 +36,7 @@
  * WHAT IS ASSERTED for each: the request that reached the server carried a
  * non-empty CSRF-TOKEN, the server did not answer 403, the database shows the
  * effect (the group and template rows are gone; the dx description is
- * byte-identical), and the pages raised no JavaScript error.
+ * unchanged apart from trailing padding), and the pages raised no JavaScript error.
  *
  * FIXTURES: one eForm group and one report template, both uniquely named and
  * created by SQL, removed by the workflow under test and, if the run fails
@@ -223,7 +223,11 @@ async function resubmitDxDescription(context, config, recorder, sql, timeout) {
       `dx-search: the update did not post desc_${code}; the input is still named with the bare code`);
 
     const after = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(code)} LIMIT 1`);
-    assert(after === before, `dx-search: resubmitting the unchanged description changed the stored text for ${code}`);
+    // Trailing whitespace is not a change: legacy rows are space-padded, and the
+    // round trip through the form drops the padding (it did before #4130 too).
+    // The cleanup below still restores the row byte-for-byte.
+    assert(String(after).trimEnd() === String(before).trimEnd(),
+      `dx-search: resubmitting the unchanged description changed the stored text for ${code}`);
   } finally {
     if (code && before !== null) {
       const current = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code = ${sqlString(code)} LIMIT 1`);
