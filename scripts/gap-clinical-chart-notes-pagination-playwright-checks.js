@@ -79,7 +79,14 @@ async function workflow(s) {
       return (document.getElementById('encMainDiv').innerText.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).length >= total;
     }, {m: marker, total: TOTAL}, {timeout: 40000, polling: 1000})
       .catch(() => { throw new Error('Scrolling to the top did not page in all 45 notes within 40 s'); });
-    await chart.waitForTimeout(2000);
+    // The pane keeps asking for older notes while the scroll is at the top; the batch that comes back
+    // empty (notesLastBatchSize === 0) is the last one, and only after it has rendered is maxNcId
+    // final. Wait for it rather than for a fixed pause, then read the bookkeeping. If no empty batch is
+    // ever requested the wait times out quietly and maxNcId is read as it stands.
+    await chart.waitForFunction(() => {
+      document.getElementById('encMainDivWrapper').scrollTop = 0;
+      return window.notesLastBatchSize === 0;
+    }, null, {timeout: 15000, polling: 500}).catch(() => {});
     const notes = await shown(chart);
     h.assert(JSON.stringify(notes) === JSON.stringify(descending(TOTAL, 1)),
       `After paging the pane should list NOTE45 down to NOTE01 once each, it lists ${notes.length} notes: ${JSON.stringify(notes)}`);

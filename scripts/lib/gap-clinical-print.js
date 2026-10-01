@@ -55,6 +55,9 @@ async function pressPrint(chart, scratch, trigger = () => chart.locator('#printO
   await (await download).saveAs(file);
   const bytes = fs.readFileSync(file);
   h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', 'The print is not a PDF');
+  // A truncated download still starts with %PDF- and pdftotext may extract a prefix of it; the
+  // trailer must be complete before the text is trusted.
+  h.assert(/%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')), 'The print is a truncated PDF (no %%EOF in the final 1 KiB)');
   const text = pdfText(file);
   fs.rmSync(file, { force: true });
   // printNotes() holds the note lock for 3 s after the submit; let the page settle before the next click.

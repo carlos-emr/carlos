@@ -65,7 +65,7 @@ async function workflow(s) {
   const go = async action => {
     await Promise.all([frame.waitForNavigation({timeout: 20000}), action()]);
     await frame.waitForLoadState('load');
-    await h.assertNotErrorPage(await iframe.elementHandle().then(handle => handle.contentFrame()).then(() => admin), 'flowsheet editor');
+    await h.assertNotErrorPage(frame, 'flowsheet editor');
   };
   const editorRow = display => frame.locator('#myTab').locator('xpath=..').locator('tbody tr', {hasText: display});
 

@@ -100,7 +100,13 @@ async function workflow(s) {
   });
 
   await s.step('Disabled + Save stores "master" and disables the per-prevention controls', async () => {
-    await masterRadio('master').check();
+    // The page can already read Disabled (the starting-state defect above); clicking an already checked
+    // radio does nothing, so move the selection to Enabled (unsaved) first to make Disabled a real change.
+    if (await masterRadio('master').isChecked()) await masterRadio('false').check();
+    // Picking Disabled raises a confirm() ("disable all prevention notifications"); a clinician accepts it.
+    const seen = await h.withExpectedDialogs(admin, () => masterRadio('master').check(), {accept: true});
+    h.assert(seen.length === 1 && seen[0].type === 'confirm' && /disable all prevention notifications/i.test(seen[0].text),
+      `Choosing Disabled should raise exactly one confirmation about disabling all prevention notifications, saw ${JSON.stringify(seen.map(d => d.text))}`);
     await submit('masterForm');
     h.assert(JSON.stringify(value()) === JSON.stringify(['master']), `Expected one row "master", found ${JSON.stringify(value())}`);
     h.assert(await masterRadio('master').isChecked(), 'The page does not show Disabled after saving it');

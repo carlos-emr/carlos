@@ -240,7 +240,7 @@ async function workflow(s) {
 
   await s.step('the chart print with the CPP icon lists the active items and leaves out the one flagged Hide in CPP', async () => {
     const text = await printCpp();
-    for (const code of ['MedHistory', 'Concerns', 'Reminders', 'RiskFactors']) {
+    for (const code of ['MedHistory', 'OMeds', 'Concerns', 'Reminders', 'RiskFactors']) {
       const wanted = code === 'MedHistory' ? texts.edited : texts[code];
       h.assert(text.includes(wanted), `The CPP print is missing the ${code} item`);
     }

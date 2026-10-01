@@ -65,7 +65,7 @@ async function workflow(s) {
     INSERT INTO preventions (demographic_no,creation_date,prevention_date,provider_no,prevention_type,deleted,refused,never,lastUpdateDate)
     VALUES (${patient},NOW(),'2022-01-02 00:00:00',${q(provider)},'MMR','0','0','0',NOW())`);
 
-  const chart = await s.chart();
+  let chart = await s.chart();
   // The queue icons exist only on rendered notes: wait for the three seeded notes.
   for (const id of Object.values(ids)) await chart.locator(`#print${id}`).waitFor({state: 'attached', timeout: 20000});
   const posted = [];
@@ -143,6 +143,11 @@ async function workflow(s) {
   });
 
   try {
+    // A failed Clear (recorded above) leaves the queue and the dialog's scope radio as the earlier
+    // steps set them; the Today check must not inherit that, so it runs on a freshly opened chart.
+    await chart.close();
+    chart = await s.chart();
+    await chart.locator(`#print${ids.now}`).waitFor({state: 'attached', timeout: 20000});
     await s.step('the dialog\'s Today link prints the notes observed today (date-range print)', async () => {
       await print.openPrintDialog(chart);
       const {text} = await print.pressPrint(chart, scratch, () => chart.locator('#printOps a', {hasText: /today/i}).click());

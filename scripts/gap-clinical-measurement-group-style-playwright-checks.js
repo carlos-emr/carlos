@@ -21,7 +21,8 @@
  * Fixtures: FAKEPW<hex> groups A and B (each with a type member and a style row), one FAKEPW
  * measurementCSSLocation row whose id is a large explicit number, and B's style row sits AT THAT KEY so
  * a mishandled merge can only ever damage the owned row, never a demo group. Cleanup deletes only those
- * rows (by name and by key) and asserts it. Coverage plan §3.7 admin-misc.
+ * rows (by name and by key), asserts it, and puts both tables' AUTO_INCREMENT counters (advanced by the
+ * explicit keys) back to their pre-run values. Coverage plan §3.7 admin-misc.
  */
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
@@ -41,12 +42,27 @@ async function workflow(s) {
     + (SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN (${q(gA)},${q(gB)}) OR groupID=${css})
     + (SELECT COUNT(*) FROM measurementCSSLocation WHERE cssID=${css})
     + (SELECT COUNT(*) FROM measurementType WHERE typeDisplayName=${q(type.display)})`);
+  // The explicit 8,xxx,xxx keys below push both tables' AUTO_INCREMENT counters up and deleting the
+  // rows does not rewind them, so every run would leave the clinic's counters further ahead. Snapshot
+  // them first and put them back after the delete. ALTER ... AUTO_INCREMENT never goes below
+  // MAX(id)+1 on InnoDB, so a row another session inserts meanwhile can never be handed a duplicate key.
+  const counterOf = table => sql.value(`SELECT AUTO_INCREMENT FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${q(table)}`);
+  const counters = {measurementCSSLocation: counterOf('measurementCSSLocation'), measurementGroupStyle: counterOf('measurementGroupStyle')};
   s.cleanup(() => {
     sql.execute(`DELETE FROM measurementGroup WHERE name IN (${q(gA)},${q(gB)});
       DELETE FROM measurementGroupStyle WHERE groupName IN (${q(gA)},${q(gB)}) OR groupID=${css};
       DELETE FROM measurementCSSLocation WHERE cssID=${css} AND location=${q(cssName)};
       DELETE FROM measurementType WHERE typeDisplayName=${q(type.display)} AND type=${q(type.type)}`);
     h.assert(owned() === '0', 'Owned measurement style rows were not removed');
+    for (const [table, next] of Object.entries(counters)) {
+      if (!/^\d+$/.test(next || '')) continue;
+      try {
+        sql.execute(`ALTER TABLE ${table} AUTO_INCREMENT=${Number(next)}`);
+      } catch (error) {
+        // A database account without ALTER rights cannot restore the counter; the rows are gone, which is what matters.
+      }
+    }
   });
   h.assert(owned() === '0' && sql.value(`SELECT COUNT(*) FROM measurementGroupStyle WHERE groupID=${css}`) === '0',
     'The per-run measurement style rows already exist');

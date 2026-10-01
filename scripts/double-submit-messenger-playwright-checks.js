@@ -61,6 +61,9 @@ async function workflow(s) {
         WHERE m.thesubject=${h.sqlString(subj(mode.tag))}`);
       console.log(`    (${posts.seen.length} CreateMessage POST(s) sent; ${listRows} delivery row(s))`);
       v.record(mode.label, count, { exactly: 1 });
+      // One recipient was ticked, so exactly one delivery row must exist: a duplicated or lost
+      // delivery is as much a double-submit defect as a duplicated message row.
+      v.record(`${mode.label} (delivery rows)`, Number(listRows), { exactly: 1 });
       if (opened) { if (!inbox.isClosed()) await inbox.close().catch(() => {}); }
       else await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');
     });
