@@ -42,7 +42,8 @@ import org.apache.struts2.ServletActionContext;
  * a POST and needs {@code _admin} write. A save intent on GET/HEAD, or any other method, is
  * refused with 405 before any privilege check or preference access, matching
  * {@link EchartDisplaySettings2Action}. The size is entered in whole MiB between 1 and 100; any
- * other value re-renders the page with an error and saves nothing.</p>
+ * other value re-renders the page with an error, keeping the submitted toggle and size, and
+ * saves nothing.</p>
  *
  * @since 2026-09-30
  */
@@ -83,13 +84,19 @@ public class LabDisplaySettings2Action extends ActionSupport {
         boolean saved = false;
         boolean invalidSize = false;
         LabPdfPreviewSettings settings;
+        Object displayedMaxSizeMb = null;
         if ("POST".equals(method) && saveIntent) {
             boolean enabled = "true".equals(request.getParameter(
                     SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_inline_preview.name()));
-            Long maxMegabytes = megabytes(request.getParameter(MAX_SIZE_MB_PARAMETER));
+            String submittedSize = request.getParameter(MAX_SIZE_MB_PARAMETER);
+            Long maxMegabytes = megabytes(submittedSize);
             if (maxMegabytes == null) {
                 invalidSize = true;
-                settings = previewSettingsService.load();
+                // Nothing is saved, but re-render what the administrator submitted (the toggle and
+                // the rejected size) next to the error rather than reverting it to the stored
+                // values. The JSP encodes the echoed size for the attribute context.
+                settings = new LabPdfPreviewSettings(enabled, previewSettingsService.load().maxBytes());
+                displayedMaxSizeMb = submittedSize == null ? "" : submittedSize.trim();
             } else {
                 settings = new LabPdfPreviewSettings(enabled, maxMegabytes * 1024 * 1024);
                 previewSettingsService.save(settings);
@@ -99,7 +106,8 @@ public class LabDisplaySettings2Action extends ActionSupport {
             settings = previewSettingsService.load();
         }
         request.setAttribute("labPdfInlinePreview", settings.inlinePreviewEnabled());
-        request.setAttribute("labPdfMaxSizeMb", settings.maxMegabytes());
+        request.setAttribute("labPdfMaxSizeMb",
+                displayedMaxSizeMb != null ? displayedMaxSizeMb : settings.maxMegabytes());
         request.setAttribute("labPdfMaxSizeMbLimit", LabPdfPreviewSettings.MAX_ALLOWED_BYTES / (1024 * 1024));
         request.setAttribute("saved", saved);
         request.setAttribute("invalidSize", invalidSize);

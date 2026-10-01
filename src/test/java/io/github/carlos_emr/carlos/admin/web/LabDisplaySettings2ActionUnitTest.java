@@ -161,6 +161,28 @@ class LabDisplaySettings2ActionUnitTest {
     }
 
     @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @DisplayName("should re-render the submitted toggle and rejected size after an invalid size")
+    void shouldKeepSubmittedValues_whenSizeIsInvalid(boolean enabled) {
+        request.setMethod("POST");
+        request.setParameter("dboperation", "Save");
+        request.setParameter("lab_pdf_max_size_mb", " 250 ");
+        if (enabled) {
+            request.setParameter("lab_pdf_inline_preview", "true");
+        }
+        // Stored settings are the opposite toggle, so a revert to them would be visible.
+        when(settingsService.load()).thenReturn(new LabPdfPreviewSettings(!enabled, 3L * 1024 * 1024));
+        when(security.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+
+        assertThat(action().execute()).isEqualTo("success");
+
+        verify(settingsService, never()).save(any());
+        assertThat(request.getAttribute("invalidSize")).isEqualTo(true);
+        assertThat(request.getAttribute("labPdfInlinePreview")).isEqualTo(enabled);
+        assertThat(request.getAttribute("labPdfMaxSizeMb")).isEqualTo("250");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD"})
     @DisplayName("should reject a save intent on a read method before any check")
     void shouldRejectSaveIntent_onReadMethods(String method) {
