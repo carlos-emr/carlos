@@ -69,6 +69,21 @@ class LabPdfPreviewSettingsUnitTest {
     }
 
     @Test
+    @DisplayName("should use the default, without matching, for a value longer than the length cap")
+    void shouldUseDefaultSize_forOverLongValue() {
+        String overLong = "1" + " ".repeat(LabPdfPreviewSettings.MAX_SIZE_LENGTH) + "M";
+        String atCap = "5" + " ".repeat(LabPdfPreviewSettings.MAX_SIZE_LENGTH - 3) + "MB";
+
+        assertThat(LabPdfPreviewSettings.fromPreferences(null, overLong).maxBytes())
+                .isEqualTo(LabPdfPreviewSettings.DEFAULT_MAX_BYTES);
+        assertThat(LabPdfPreviewSettings.fromPreferences(null, "  " + "9".repeat(40) + "  ").maxBytes())
+                .isEqualTo(LabPdfPreviewSettings.DEFAULT_MAX_BYTES);
+        // Exactly at the cap still parses, so the cap rejects only over-long input.
+        assertThat(atCap).hasSize(LabPdfPreviewSettings.MAX_SIZE_LENGTH);
+        assertThat(LabPdfPreviewSettings.fromPreferences(null, atCap).maxBytes()).isEqualTo(5L * 1024 * 1024);
+    }
+
+    @Test
     @DisplayName("should leave the preview on unless the preference is exactly false")
     void shouldEnablePreview_unlessStoredFalse() {
         assertThat(LabPdfPreviewSettings.fromPreferences(null, null).inlinePreviewEnabled()).isTrue();
