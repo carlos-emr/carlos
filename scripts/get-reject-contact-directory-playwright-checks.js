@@ -35,7 +35,9 @@ async function workflow(s) {
   const lastName = `${marker}C`;
   const owned = `SELECT id FROM Contact WHERE LOCATE(${q(marker)}, lastName) = 1`;
   s.cleanup(() => {
-    sql.execute(`DELETE FROM DemographicContact WHERE contactId IN (SELECT id FROM (${owned}) t);
+    // DemographicContact.contactId is a Contact id only for type 2 (TYPE_CONTACT); other types hold
+    // demographic or provider numbers, which an owned Contact id must never be matched against.
+    sql.execute(`DELETE FROM DemographicContact WHERE type=2 AND contactId IN (SELECT id FROM (${owned}) t);
       DELETE FROM Contact WHERE LOCATE(${q(marker)}, lastName) = 1`);
     h.assert(sql.value(`SELECT COUNT(*) FROM Contact WHERE LOCATE(${q(marker)}, lastName) = 1`) === '0',
       'Owned directory contacts were not removed');

@@ -34,12 +34,34 @@ async function workflow(s) {
     AND table_name LIKE ${tablePattern} ORDER BY table_name`).map(row => row[0]);
   const ownedRows = () => sql.rows(`SELECT id, tableName, eformId FROM EFormReportTool WHERE name=${h.sqlString(name)} ORDER BY id`);
 
-  s.cleanup(() => {
+  // A step that times out on the add response does not cancel the request the page already sent:
+  // the server can still create the row and its table afterwards. Remember that the add left the
+  // browser, so cleanup can wait for that late write instead of checking an instant too early.
+  let addSent = false;
+  s.context.on('request', request => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/ws/rs/reporting/eformReportTool/add')) addSent = true;
+  });
+  const removeOwned = () => {
     for (const table of ownedTables()) {
       h.assert(new RegExp(`^ERT_${name}[0-7]*$`).test(table), 'Refusing to drop a table this check does not own');
       sql.execute(`DROP TABLE IF EXISTS \`${table}\``);
     }
     sql.execute(`DELETE FROM EFormReportTool WHERE name=${h.sqlString(name)}`);
+  };
+  s.cleanup(async () => {
+    if (addSent) {
+      // Reconcile the uncertain outcome: wait until the row and its table both exist (the add
+      // finished) or the window closes, then remove; a final pass catches anything created since.
+      const deadline = Date.now() + 15000;
+      while (Date.now() < deadline && !(ownedRows().length > 0 && ownedTables().length > 0)) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    removeOwned();
+    if (addSent) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      removeOwned();
+    }
     h.assert(ownedTables().length === 0 && ownedRows().length === 0, 'Owned report tool rows or tables were not removed');
   });
   h.assert(ownedTables().length === 0 && ownedRows().length === 0, 'A report tool with the owned name already exists');
