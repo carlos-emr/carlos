@@ -39,6 +39,12 @@ from cryptography.x509.oid import NameOID
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import excelleris_pull as ep  # noqa: E402
 
+# The tool logs its alerts at ERROR; without a handler Python's last-resort
+# handler would print them into the test output. Keep the suite quiet.
+import logging  # noqa: E402
+
+logging.getLogger().addHandler(logging.NullHandler())
+
 # A pull body in the single-line shape the Excelleris guide describes and the
 # old shell script matched on. Content is synthetic; it is not a real result.
 PULL_WITH_RESULTS = (
@@ -784,3 +790,287 @@ class CliTest(TempEnv):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# End to end over real TLS: real HttpTransport, real client certificate,
+# real crypto, against local HTTPS servers that impersonate both ends.
+# ---------------------------------------------------------------------------
+
+import http.server  # noqa: E402
+import ssl  # noqa: E402
+import threading  # noqa: E402
+import urllib.parse as _up  # noqa: E402
+
+from cryptography.hazmat.primitives.asymmetric import padding as _pad  # noqa: E402
+
+
+def _self_signed(cn: str, san: str | None = None):
+    key = rsa.generate_private_key(65537, 2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)])
+    now = dt.datetime.now(dt.timezone.utc)
+    builder = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - dt.timedelta(days=1))
+        .not_valid_after(now + dt.timedelta(days=30))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+    )
+    if san:
+        builder = builder.add_extension(
+            x509.SubjectAlternativeName([x509.DNSName(san)]), critical=False
+        )
+    cert = builder.sign(key, hashes.SHA256())
+    return key, cert
+
+
+class _QuietHandler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *_a):  # keep the test output clean
+        pass
+
+    def _reply(self, status: int, body: bytes = b"", headers: dict | None = None):
+        self.send_response(status)
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class FakeExcellerisHandler(_QuietHandler):
+    """Excelleris HL7 pull endpoint as the shell script and guide describe it."""
+
+    def do_GET(self):  # noqa: N802
+        srv = self.server
+        q = _up.parse_qs(_up.urlsplit(self.path).query)
+        srv.log.append(("GET", dict(q), self.headers.get("Cookie"), self.headers.get("User-Agent")))
+        if "Logout" in q:
+            return self._reply(200, b"")
+        if q.get("Page") == ["Login"]:
+            if q.get("UserID") == ["clinic"] and q.get("Password") == ["p&ss word%"]:
+                return self._reply(
+                    200,
+                    ep._AUTH_GRANTED.encode(),
+                    {"Set-Cookie": "ASP.NET_SessionId=live1; Path=/"},
+                )
+            return self._reply(200, ep._AUTH_DENIED.encode())
+        if "live1" not in (self.headers.get("Cookie") or ""):
+            return self._reply(403, b"no session")
+        if "ACK" in q:
+            srv.acks.append(q["ACK"][0])
+            return self._reply(200, b"<HL7Messages/>")
+        if q.get("Page") == ["HL7"] and q.get("Pending") == ["Yes"]:
+            return self._reply(200, srv.next_pull)
+        return self._reply(400, b"?")
+
+
+class FakeCarlosHandler(_QuietHandler):
+    """The four CARLOS routes the tool uses, with the real server-side checks:
+    session cookie, Referer on /csrfguard, CSRF-TOKEN header on the upload,
+    RSA unwrap + AES-ECB decrypt + MD5withRSA verify, and checksum dedupe."""
+
+    def do_GET(self):  # noqa: N802
+        srv = self.server
+        path = _up.urlsplit(self.path).path
+        if path == "/carlos/logout":
+            return self._reply(405, b"POST only")
+        if path == "/carlos/csrfguard":
+            if "JSESSIONID=sess1" not in (self.headers.get("Cookie") or ""):
+                return self._reply(302, b"", {"Location": "/carlos/index"})
+            if not (self.headers.get("Referer") or "").startswith(srv.base_url):
+                return self._reply(404, b"")
+            return self._reply(200, b"(function(){ var masterTokenValue = 'LIVE-TOKEN'; })();")
+        return self._reply(404, b"")
+
+    def do_POST(self):  # noqa: N802
+        srv = self.server
+        path = _up.urlsplit(self.path).path
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length)
+        if path == "/carlos/login":
+            form = _up.parse_qs(body.decode())
+            srv.log.append(("login", form.get("username"), form.get("pin")))
+            if (
+                form.get("username") == ["excelleris"]
+                and form.get("password") == ["Secret#1"]
+                and form.get("pin") == ["1234"]
+            ):
+                return self._reply(
+                    302,
+                    b"",
+                    {
+                        "Set-Cookie": "JSESSIONID=sess1; Path=/carlos",
+                        "Location": "/carlos/provider/providercontrol?year=2026",
+                    },
+                )
+            return self._reply(302, b"", {"Location": "/carlos/loginfailed?errormsg=x"})
+        if path == "/carlos/logout":
+            srv.log.append(("logout",))
+            return self._reply(302, b"", {"Location": "/carlos/index"})
+        if path == "/carlos/lab/newLabUpload":
+            if "JSESSIONID=sess1" not in (self.headers.get("Cookie") or ""):
+                return self._reply(302, b"", {"Location": "/carlos/index"})
+            if self.headers.get("CSRF-TOKEN") != "LIVE-TOKEN" or "XMLHttpRequest" not in (
+                self.headers.get("X-Requested-With") or ""
+            ):
+                return self._reply(403, b"csrf")
+            msg = email.message_from_bytes(
+                f"Content-Type: {self.headers['Content-Type']}\r\n\r\n".encode() + body
+            )
+            parts = {
+                p.get_param("name", header="content-disposition"): p for p in msg.get_payload()
+            }
+            if parts.get("service", None) is None or parts["service"].get_payload() != "excelleris":
+                return self._reply(403, b"unknown service")
+            ciphertext = parts["importFile"].get_payload(decode=True)
+            try:
+                aes_key = srv.server_key.decrypt(
+                    base64.b64decode(parts["key"].get_payload()), _pad.PKCS1v15()
+                )
+                dec = Cipher(algorithms.AES(aes_key), modes.ECB()).decryptor()
+                unpad = PKCS7(128).unpadder()
+                plaintext = unpad.update(dec.update(ciphertext) + dec.finalize()) + unpad.finalize()
+                srv.client_pub.verify(
+                    base64.b64decode(parts["signature"].get_payload()),
+                    plaintext,
+                    _pad.PKCS1v15(),
+                    hashes.MD5(),
+                )
+            except Exception:  # noqa: BLE001 - this is the server's 403 path
+                return self._reply(403, b"validation failed")
+            if plaintext in srv.seen:
+                return self._reply(409, b"uploaded previously")
+            srv.seen.append(plaintext)
+            srv.log.append(("upload", parts["importFile"].get_filename(), len(plaintext)))
+            return self._reply(200, b"uploaded")
+        return self._reply(404, b"")
+
+
+def _serve(handler, server_ctx: ssl.SSLContext):
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    srv.socket = server_ctx.wrap_socket(srv.socket, server_side=True)
+    srv.log, srv.acks, srv.seen = [], [], []
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    return srv
+
+
+class LiveServersTest(TempEnv):
+    def setUp(self):
+        super().setUp()
+        # urllib honours proxy variables; the container sets HTTPS_PROXY.
+        self._env = {k: os.environ.get(k) for k in ("NO_PROXY", "no_proxy")}
+        os.environ["NO_PROXY"] = os.environ["no_proxy"] = "localhost,127.0.0.1"
+
+        srv_key, srv_cert = _self_signed("localhost", san="localhost")
+        self.server_pem = self.tmp / "server.pem"
+        self.server_pem.write_bytes(
+            srv_key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            )
+            + srv_cert.public_bytes(serialization.Encoding.PEM)
+        )
+        self.ca_pem = self.tmp / "ca.pem"
+        self.ca_pem.write_bytes(srv_cert.public_bytes(serialization.Encoding.PEM))
+
+        # The Excelleris stand-in requires the clinic's client certificate.
+        _, client_cert, _ = pkcs12.load_key_and_certificates(self.pfx.read_bytes(), b"pfx-secret")
+        client_pem = self.tmp / "client-cert.pem"
+        client_pem.write_bytes(client_cert.public_bytes(serialization.Encoding.PEM))
+        ex_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ex_ctx.load_cert_chain(str(self.server_pem))
+        ex_ctx.verify_mode = ssl.CERT_REQUIRED
+        ex_ctx.load_verify_locations(cafile=str(client_pem))
+        self.excelleris = _serve(FakeExcellerisHandler, ex_ctx)
+        self.excelleris.next_pull = PULL_WITH_RESULTS
+
+        ca_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ca_ctx.load_cert_chain(str(self.server_pem))
+        self.carlos = _serve(FakeCarlosHandler, ca_ctx)
+        self.carlos.server_key = self.server_key
+        self.carlos.client_pub = self.client_key.public_key()
+        self.carlos.base_url = f"https://localhost:{self.carlos.server_address[1]}/carlos"
+
+        _, _, client_b64, server_pub_b64 = (
+            None,
+            None,
+            self.cfg.client_private_key,
+            self.cfg.server_public_key,
+        )
+        self.write_conf(
+            client_b64,
+            server_pub_b64,
+            url=f"https://localhost:{self.excelleris.server_address[1]}/hl7pull.aspx",
+            base_url=self.carlos.base_url,
+        )
+        text = self.conf.read_text()
+        text = text.replace("[excelleris]\n", f"[excelleris]\nca_file = {self.ca_pem}\n", 1)
+        text = text.replace("[carlos]\n", f"[carlos]\nca_file = {self.ca_pem}\n", 1)
+        self.conf.write_text(text)
+        self.cfg = ep.load_config(self.conf)
+
+    def tearDown(self):
+        for srv in (self.excelleris, self.carlos):
+            srv.shutdown()
+            srv.server_close()
+        for k, v in self._env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def test_full_pipeline_over_tls(self):
+        rc = ep.run(self.cfg, ep.RunOptions())
+        self.assertEqual(rc, ep.EXIT_OK)
+        # Excelleris: client cert accepted, credentials decoded intact, UA ours, ack positive, logout.
+        pages = [c[1].get("Page", c[1].get("Logout"))[0] for c in self.excelleris.log]
+        self.assertEqual(pages, ["Login", "HL7", "HL7", "Yes"])
+        self.assertEqual(self.excelleris.acks, ["Positive"])
+        self.assertTrue(all("CARLOS-EMR excelleris_pull" in c[3] for c in self.excelleris.log))
+        # CARLOS: login, upload decrypted and verified, logout via POST.
+        kinds = [c[0] for c in self.carlos.log]
+        self.assertEqual(kinds, ["login", "upload", "logout"])
+        self.assertEqual(self.carlos.log[1][2], len(PULL_WITH_RESULTS))
+        self.assertEqual(self.carlos.seen, [PULL_WITH_RESULTS])
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 1)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+
+    def test_duplicate_is_accepted_and_empty_pull_is_negative(self):
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions()), ep.EXIT_OK)
+        # Re-pull the same results (as Excelleris would after a lost ack): CARLOS says 409, still clean.
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions()), ep.EXIT_OK)
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 2)
+        self.excelleris.next_pull = b"<HL7Messages/>"
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions()), ep.EXIT_OK)
+        self.assertEqual(self.excelleris.acks, ["Positive", "Positive", "Negative"])
+
+    def test_wrong_carlos_credentials_keep_pull_for_retry(self):
+        text = self.conf.read_text().replace("password = Secret#1", "password = wrong")
+        self.conf.write_text(text)
+        cfg = ep.load_config(self.conf)
+        self.assertEqual(ep.run(cfg, ep.RunOptions()), ep.EXIT_FAILED)
+        self.assertEqual(self.excelleris.acks, ["Positive"])  # Excelleris side completed
+        self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # kept for the next run
+        self.assertEqual([c[0] for c in self.carlos.log], ["login"])
+
+    def test_untrusted_server_certificate_is_refused(self):
+        text = self.conf.read_text().replace(f"ca_file = {self.ca_pem}\n", "")
+        self.conf.write_text(text)
+        cfg = ep.load_config(self.conf)
+        self.assertEqual(ep.run(cfg, ep.RunOptions()), ep.EXIT_FAILED)
+        self.assertEqual(self.excelleris.log, [])  # handshake never completed
+
+    def test_dry_run_live(self):
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(dry_run=True)), ep.EXIT_OK)
+        self.assertEqual(
+            [c[1].get("Page", c[1].get("Logout"))[0] for c in self.excelleris.log], ["Login", "Yes"]
+        )
+        self.assertEqual([c[0] for c in self.carlos.log], ["login", "logout"])
+        self.assertEqual(self.excelleris.acks, [])

@@ -29,6 +29,11 @@ pfx_password =
 # Per-request timeout. The old script had none and could hang forever.
 timeout_seconds = 60
 
+# Optional extra PEM bundle to trust in addition to the system CA store.
+# Not needed for Excelleris' public certificates; here for a TLS-intercepting
+# proxy or a test endpoint.
+# ca_file = /etc/carlos-excelleris/extra-ca.pem
+
 [carlos]
 # The CARLOS base URL including the context path, no trailing slash.
 base_url = https://emr.example.ca/carlos
@@ -53,6 +58,9 @@ client_private_key_file = /etc/carlos-excelleris/client-private-key.b64
 server_public_key_file = /etc/carlos-excelleris/server-public-key.b64
 
 timeout_seconds = 120
+
+# Optional PEM bundle for a CARLOS served under a private or internal CA.
+# ca_file = /etc/carlos-excelleris/clinic-ca.pem
 
 [paths]
 # Private working directory; the tool creates inbox/, done/, failed/ under it
