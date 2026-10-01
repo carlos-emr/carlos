@@ -6,6 +6,8 @@ import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -77,17 +79,18 @@ class SmsSendValidatorUnitTest {
         );
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"€", "\f"})
     @DisplayName("validation counts GSM-7 extension characters twice against the one-segment limit")
-    void shouldRejectCommand_whenExtensionCharactersExceedSingleSegment() {
+    void shouldRejectCommand_whenExtensionCharactersExceedSingleSegment(String extension) {
         SmsSendValidator.Result result = validator.validate(
-                SmsSendCommand.patientMessage(123, "416-555-1212", "a".repeat(159) + "€", "999998")
+                SmsSendCommand.patientMessage(123, "416-555-1212", "a".repeat(159) + extension, "999998")
         );
 
         assertThat(result.valid()).isFalse();
         assertThat(result.messages()).containsExactly(
                 "SMS message body is too long for one text message (uses 161 of 160 spaces; "
-                        + "€ { } [ ] ~ | ^ \\ each take two)."
+                        + "some characters, such as € { } [ ] ~ | ^ \\, take two spaces)."
         );
     }
 

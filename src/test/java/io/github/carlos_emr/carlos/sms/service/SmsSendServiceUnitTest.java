@@ -216,7 +216,7 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send releases its claim and rethrows when the rate limiter fails")
+    @DisplayName("send confirms a queued result when the limiter fails and the claim is released")
     void shouldReleaseClaim_whenRateLimiterThrows() {
         List<String> events = new ArrayList<>();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
@@ -233,9 +233,10 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(
-                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998")))
-                .isSameAs(limiterFailure);
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+        assertThat(result.accepted()).isTrue();
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
 
         // Nothing was sent, so the row must not be left SENDING for stale recovery to misjudge.
         assertThat(events).containsExactly("recordOutboundAttempt", "markSending", "tryAcquire", "releaseClaim");
@@ -244,6 +245,29 @@ class SmsSendServiceUnitTest {
                     assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
                     assertThat(transaction.getAttemptCount()).isZero();
                 });
+    }
+
+    @Test
+    @DisplayName("send preserves the limiter failure when releasing its claim also fails")
+    void shouldPreserveFailure_whenLimiterAndClaimReleaseThrow() {
+        IllegalStateException limiterFailure = new IllegalStateException("synthetic limiter failure");
+        IllegalStateException releaseFailure = new IllegalStateException("synthetic release failure");
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService() {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+                throw releaseFailure;
+            }
+        };
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())), recorder,
+                type -> { throw limiterFailure; }, new SmsDefaultProviderResolver(() -> "STUB"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic failure", "999998")))
+                .isSameAs(limiterFailure);
+        assertThat(limiterFailure.getSuppressed()).containsExactly(releaseFailure);
+        assertThat(recorder.transactions()).singleElement()
+                .extracting(SmsTransaction::getStatus).isEqualTo(SmsStatus.SENDING);
     }
 
     @Test

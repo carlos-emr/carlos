@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -47,8 +49,9 @@ public class SmsSendService {
      * row is left {@code QUEUED} (due now) and returned as queued; draining it then depends on the queue
      * scheduler ({@code sms.queue.scheduler.enabled}) or an explicit worker run, so that scheduler must
      * be enabled wherever this path is used. If the row cannot be handed back to the queue after a
-     * denial, that failure is thrown: the row stays {@code SENDING} for stale recovery, and the caller
-     * must not treat the message as queued.
+     * denial or limiter error, the release failure is thrown. A confirmed release returns queued, so
+     * the caller does not retry a request that was already accepted. A concurrent update can reject
+     * the release; the returned result then reflects the current state and never assumes it is queued.
      */
     public SmsSendResultDto send(SmsSendCommand command) {
         SmsSendValidator.Result validation = validator.validate(command);
@@ -77,15 +80,12 @@ public class SmsSendService {
         try {
             permitted = rateLimiter.tryAcquire(providerType);
         } catch (RuntimeException e) {
-            releaseClaimAfterFailure(transaction, e);
-            throw e;
+            return releaseClaimAfterFailure(transaction, e);
         }
         if (!permitted) {
-            // If the claim cannot be handed back, the failure reaches the caller: the row stays SENDING
-            // until stale recovery retries it or fails it for review, so answering "queued" now would
-            // promise more than is known.
-            transactionRecorder.releaseClaim(transaction, new Date());
-            return SmsSendResultDto.queued();
+            // A release can lose a version race to another worker or callback. Use the returned row's
+            // state instead of assuming the handoff succeeded; release exceptions still reach the caller.
+            return releasedClaimResult(transactionRecorder.releaseClaim(transaction, new Date()));
         }
 
         SmsProviderSendResultDto providerResult;
@@ -100,13 +100,28 @@ public class SmsSendService {
         return SmsSendResultDto.fromTransaction(recorded);
     }
 
-    private void releaseClaimAfterFailure(SmsTransaction transaction, RuntimeException failure) {
+    private SmsSendResultDto releaseClaimAfterFailure(SmsTransaction transaction, RuntimeException failure) {
         try {
-            transactionRecorder.releaseClaim(transaction, new Date());
+            return releasedClaimResult(transactionRecorder.releaseClaim(transaction, new Date()));
         } catch (RuntimeException releaseFailure) {
             // Keep the original failure as the one reported; stale recovery still covers the row.
             failure.addSuppressed(releaseFailure);
+            throw failure;
         }
+    }
+
+    private SmsSendResultDto releasedClaimResult(SmsTransaction released) {
+        Objects.requireNonNull(released, "SMS claim release result is required");
+        if (released.getStatus() == SmsStatus.QUEUED) {
+            return SmsSendResultDto.queued();
+        }
+        if (released.getStatus() == SmsStatus.SENDING) {
+            // A version conflict (or removed row) prevented a confirmed handoff. Preserve the newer
+            // claim and tell the caller to reconcile its outcome before creating another send.
+            return new SmsSendResultDto(false, SmsStatus.SENDING, released.getProviderMessageId(),
+                    List.of("SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually."));
+        }
+        return SmsSendResultDto.fromTransaction(released);
     }
 
     private String clientReferenceId(SmsTransaction transaction) {

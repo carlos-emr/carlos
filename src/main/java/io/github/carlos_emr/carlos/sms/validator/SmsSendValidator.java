@@ -61,7 +61,7 @@ public class SmsSendValidator {
         if (count.encoding() == SmsSegments.Encoding.UCS_2) {
             message += "; accented or special characters lower the limit from 160 to 70";
         } else if (count.units() > body.length()) {
-            message += "; € { } [ ] ~ | ^ \\ each take two";
+            message += "; some characters, such as € { } [ ] ~ | ^ \\, take two spaces";
         }
         return message + ").";
     }
