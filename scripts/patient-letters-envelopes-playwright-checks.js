@@ -378,8 +378,12 @@ async function checkUnicodeEnvelope(context) {
   }, [
     () => fs.rmSync(temporary, {recursive:true, force:true}),
     () => {
-      if (!patient) return;
-      sql(`DELETE FROM demographic WHERE demographic_no=${patient} AND first_name='Łukasz Жуков' AND last_name=${sqlString(marker)}`);
+      // Ownership is this session's LAST_INSERT_ID, the same key the count check
+      // uses. Do not also match the stored names: the round-trip assertion above
+      // exists to catch a transformed (e.g. truncated) name, and a name-matched
+      // DELETE would then remove nothing and leave the synthetic row behind.
+      if (!patient || !/^[1-9]\d*$/.test(patient)) return;
+      sql(`DELETE FROM demographic WHERE demographic_no=${patient}`);
       if (sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) !== '0')
         throw new Error('Owned envelope patient remains');
     },
