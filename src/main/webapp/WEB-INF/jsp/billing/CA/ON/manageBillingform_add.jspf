@@ -29,7 +29,11 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
-<form name="servicetypeform" method="post">
+<%-- The action is in the markup, not only set by valid() at click time, so CSRFGuard
+     injects the token when the page loads (issue #4130). Enter in the text field
+     still cannot submit: the only control is a type="button" that runs valid(). --%>
+<form name="servicetypeform" method="post"
+      action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/billing/CA/ON/DbManageBillingformAdd">
 <table width="92%" border="0" height="285">
 	<tr>
 		<td width="5%">&nbsp;</td>

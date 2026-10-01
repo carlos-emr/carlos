@@ -25,12 +25,17 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -49,6 +54,12 @@ class CsrfGuardConfigurationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties");
     private static final String PRNG_PROPERTY = "org.owasp.csrfguard.PRNG";
     private static final String PRNG_PROVIDER_PROPERTY = "org.owasp.csrfguard.PRNG.Provider";
+    private static final String SOURCE_FILE_PROPERTY = "org.owasp.csrfguard.JavascriptServlet.sourceFile";
+    private static final String CLASSPATH_PREFIX = "classpath:";
+    /** The template shipped inside the CSRFGuard jar, which the CARLOS copy is patched from. */
+    private static final String UPSTREAM_TEMPLATE = "META-INF/csrfguard.js";
+    /** JavaScriptServlet placeholders: %NAME%, some written inside single quotes. */
+    private static final Pattern PLACEHOLDER = Pattern.compile("%[A-Z_]+%");
 
     @Test
     @DisplayName("should use DRBG without provider constraint")
@@ -66,6 +77,54 @@ class CsrfGuardConfigurationRegressionTest {
 
         assertThatCode(() -> SecureRandom.getInstance(properties.getProperty(PRNG_PROPERTY)))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should serve the CARLOS-patched client template from the classpath")
+    void shouldServePatchedClientTemplate_fromClasspath() throws IOException {
+        String sourceFile = loadCsrfGuardProperties().getProperty(SOURCE_FILE_PROPERTY);
+
+        // The classpath: form is what makes JavaScriptServlet read WEB-INF/classes
+        // rather than the jar's META-INF copy (issue #4130).
+        assertThat(sourceFile).startsWith(CLASSPATH_PREFIX);
+        String template = readClasspathResource(sourceFile.substring(CLASSPATH_PREFIX.length()).trim());
+
+        assertThat(template)
+                .as("each issue #4130 patch must still be wired in")
+                .contains("function carlosTokenFields(form, tokenName)")
+                .contains("injectToElements(carlosWithNestedForms(addedNodes)")
+                .contains("carlosHookFormSubmission();")
+                .doesNotContain("Object.keys(form.elements).filter");
+    }
+
+    @Test
+    @DisplayName("should keep every placeholder of the upstream CSRFGuard template")
+    void shouldKeepEveryUpstreamPlaceholder_inPatchedTemplate() throws IOException {
+        String sourceFile = loadCsrfGuardProperties().getProperty(SOURCE_FILE_PROPERTY);
+        Set<String> patched = placeholders(
+                readClasspathResource(sourceFile.substring(CLASSPATH_PREFIX.length()).trim()));
+        Set<String> upstream = placeholders(readClasspathResource(UPSTREAM_TEMPLATE));
+
+        // A CSRFGuard upgrade that adds a placeholder (a new configurable option)
+        // fails here until the CARLOS copy is rebased onto the new template.
+        assertThat(upstream).isNotEmpty();
+        assertThat(patched).containsExactlyInAnyOrderElementsOf(upstream);
+    }
+
+    private static Set<String> placeholders(String template) {
+        Set<String> found = new TreeSet<>();
+        Matcher matcher = PLACEHOLDER.matcher(template);
+        while (matcher.find()) {
+            found.add(matcher.group());
+        }
+        return found;
+    }
+
+    private static String readClasspathResource(String name) throws IOException {
+        try (InputStream in = CsrfGuardConfigurationRegressionTest.class.getClassLoader().getResourceAsStream(name)) {
+            assertThat(in).as("classpath resource " + name).isNotNull();
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
     private static Properties loadCsrfGuardProperties() throws IOException {
