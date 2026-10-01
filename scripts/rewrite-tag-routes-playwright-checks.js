@@ -41,6 +41,8 @@ async function submitForDownload(page, control, pathname, label) {
   const file = await (await download).path();
   const bytes = fs.readFileSync(file);
   assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', `${label} download is not a PDF`);
+  // A header alone would accept a truncated stream; a complete PDF ends with its trailer.
+  assert(bytes.subarray(-1024).toString('latin1').includes('%%EOF'), `${label} download is truncated (no %%EOF)`);
   return bytes;
 }
 
