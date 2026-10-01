@@ -59,6 +59,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -295,6 +297,21 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             action.setPreviewItem("prescriptions");
 
             assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class).hasMessageContaining("_rx");
+            assertThat(renderedRoutes).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should refuse an encounter preview without _eChart read before looking the chart up")
+        void shouldNotLookUpChart_whenEncounterReadDenied() {
+            deny("_eChart", "r");
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("encounter");
+
+            // Same refusal whether or not a chart exists: the lookup never runs, so the response
+            // cannot reveal the encounter's existence.
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class).hasMessageContaining("_eChart");
+            verify(eChartDao, never()).getLatestChart(anyInt());
             assertThat(renderedRoutes).isEmpty();
         }
 

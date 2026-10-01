@@ -196,13 +196,19 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     private String preview(LoggedInInfo loggedInInfo, int demographicNo, String patientName, ResourceBundle labels)
             throws IOException {
-        Optional<Attachment> attachment = Item.fromKey(previewItem)
-                .flatMap(item -> resolver.resolve(item, demographicNo, patientName, labels));
+        Optional<Item> item = Item.fromKey(previewItem);
+        if (item.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown attachment item");
+            return NONE;
+        }
+        // Authorize before resolving: resolving the encounter item looks the chart up, and a
+        // caller without _eChart read must not learn from the response whether one exists.
+        requireItemPrivilege(loggedInInfo, item.get(), demographicNo);
+        Optional<Attachment> attachment = resolver.resolve(item.get(), demographicNo, patientName, labels);
         if (attachment.isEmpty()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown attachment item");
             return NONE;
         }
-        requireItemPrivilege(loggedInInfo, attachment.get().item(), demographicNo);
         String html = render(attachment.get(), demographicNo, loggedInInfo);
         if (html == null) {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
