@@ -181,6 +181,11 @@ function makeDom() {
   HTMLFormElement.prototype.submit = function submit(submitter) {
     const fields = {};
     this.querySelectorAll('input').forEach((input) => {
+      // As in the browser, submit buttons are not sent unless they are the
+      // submitter; a replay that lost its submitter must show up as such.
+      if (input.getAttribute('type') === 'submit') {
+        return;
+      }
       if (fields[input.name] === undefined) {
         fields[input.name] = [];
       }
@@ -464,6 +469,46 @@ test('a failed lookup is retried on the next attempt rather than replayed', asyn
 
   assert.equal(calls, 2);
   assert.equal(helper.dom.submissions().length, 1);
+});
+
+test('a form re-pointed abroad during the token fetch is submitted without the token', async () => {
+  let release;
+  const helper = loadHelper({
+    fetchImpl: () => new Promise((resolve) => {
+      release = () => resolve({ ok: true, text: async () => SERVLET_JS });
+    }),
+  });
+  const form = buildForm(helper.dom, { action: '/carlos/x' });
+  helper.dom.document.body.appendChild(form);
+
+  const sent = helper.window.carlosSubmitForm(form);
+  form.setAttribute('action', 'https://elsewhere.example/collect');
+  release();
+  await sent;
+
+  assert.equal(helper.dom.submissions()[0].fields['CSRF-TOKEN'], undefined);
+});
+
+test('a form switched to GET during the token fetch is not given the token by injection', async () => {
+  let release;
+  const helper = loadHelper({
+    fetchImpl: () => new Promise((resolve) => {
+      release = () => resolve({ ok: true, text: async () => SERVLET_JS });
+    }),
+  });
+  const kept = buildForm(helper.dom, { action: '/carlos/a' });
+  const switched = buildForm(helper.dom, { action: '/carlos/b' });
+  const container = helper.dom.document.createElement('div');
+  container.appendChild(kept);
+  container.appendChild(switched);
+
+  const injected = helper.window.CarlosCsrf.injectIntoForms(container);
+  switched.setAttribute('method', 'get');
+  release();
+
+  assert.equal(await injected, 1);
+  assert.equal(kept.querySelector('input[name="CSRF-TOKEN"]').value, 'SERVLET-TOKEN');
+  assert.equal(switched.querySelector('input[name="CSRF-TOKEN"]'), null);
 });
 
 test('a _blank target is opened by name before the token fetch, keeping the click gesture', async () => {

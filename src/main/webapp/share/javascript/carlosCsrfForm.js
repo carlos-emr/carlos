@@ -320,8 +320,17 @@
             return Promise.resolve(0);
         }
         var apply = function (value) {
-            forms.forEach(function (form) { setFormToken(form, value); });
-            return forms.length;
+            // Re-checked at write time: while the token was being fetched a
+            // form's method or action may have changed to GET or another
+            // origin, and such a form must not receive it.
+            var given = 0;
+            forms.forEach(function (form) {
+                if (isSameOriginPostForm(form)) {
+                    setFormToken(form, value);
+                    given++;
+                }
+            });
+            return given;
         };
         var existing = currentToken();
         if (existing) {
@@ -353,7 +362,13 @@
             return Promise.resolve();
         }
         return token().then(function (value) {
-            setFormToken(form, value);
+            // The form may have been re-pointed while the token was fetched.
+            // This native submit() bypasses the submit guard, so check again.
+            if (isSameOriginPostForm(form)) {
+                setFormToken(form, value);
+            } else {
+                clearFormToken(form);
+            }
             HTMLFormElement.prototype.submit.call(form);
         }, function (err) {
             reportFailure(err);
