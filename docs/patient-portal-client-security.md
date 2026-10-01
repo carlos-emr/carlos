@@ -192,9 +192,28 @@ an SMS provider.
 
 An attempt that did not finish shows as incomplete on the page. After 15 minutes without a change,
 staff can resolve it: **Stop and withdraw the code** before the commit, or **It arrived** / **It did
-not arrive; revoke it** after it. "It did not arrive" first marks the attempt `REVOKING`, which is
+not arrive; revoke it** once the send call has returned with an uncertain outcome (`SEND_UNCERTAIN`).
+A `COMMITTED` attempt may still have a paused sender and offers **It arrived** only. Confirm that
+choice from actual arrival evidence; it records that evidence without cancelling the sender or
+sending another email. A crash-stuck `COMMITTED` attempt cannot safely be marked not sent online:
+negative cleanup requires verified shutdown/quiescence of all sender nodes and separately authorized
+maintenance. This deliberately narrows the original recovery choices in #3854. Explicit **Revoke**
+is still available as intentional code invalidation; it does not claim that no email was sent and
+cannot cancel or recall an email already in progress. Stopping first atomically marks the attempt `ABANDONING`, before
+looking up or revoking any code. This blocks a paused sender from advancing to `COMMITTED` and
+sending; if the sender already advanced, stopping fails without revoking. The 15-minute wait only
+controls when recovery is offered and is not proof that a sender has stopped. An interrupted
+`ABANDONING` attempt stays unfinished and offers the same stop action again. A preparation whose
+response arrives after that claim is discarded and withdrawn without sending. If replay cannot
+identify a lost preparation, list recovery matches its exact delivery operation id; it never guesses
+ownership from another attempt's age or missing invite id. No database row lock
+is held across a portal or email call. Deploy this recovery change to every CARLOS sender node
+together after draining or stopping existing sends: older nodes do not understand `ABANDONING`
+and retain the old recovery protocol. "It did not arrive" first marks the attempt `REVOKING`, which is
 unfinished, and marks it `REVOKED` only once the portal has confirmed the code dead; if that is
-interrupted, the attempt stays open and staff can revoke it again after the same wait. Recovery re-checks that the patient and the portal connection match
+interrupted or the call fails, the attempt stays `REVOKING` and staff can revoke it again after the
+same wait. A timeout can still apply remotely, so positive confirmation stays unavailable unless the
+portal proves the invitation was already accepted (an irreversible state that cannot be revoked). Recovery re-checks that the patient and the portal connection match
 the attempt, and the page offers no decision for an attempt made on another portal connection. Each
 decision is written to the CARLOS audit log as `PortalInviteDeliveryService.recover.<decision>`, with the
 delivery id, the patient, and the state and outcome codes it left; never the code. Nothing runs in the

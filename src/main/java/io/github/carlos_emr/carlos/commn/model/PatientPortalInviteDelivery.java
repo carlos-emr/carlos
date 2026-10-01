@@ -104,6 +104,8 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         SEND_UNCERTAIN,
         /** Stopped before the token was activated; nothing reached the patient. */
         ABANDONED,
+        /** Sending is fenced out; withdrawal may still need to finish after interruption. */
+        ABANDONING,
         /**
          * Staff said the email never arrived and the portal is being asked to revoke the code; the code may
          * still be live. Not finished: an interruption here leaves the attempt open for staff to revoke again.

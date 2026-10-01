@@ -185,6 +185,30 @@ class PatientPortalInviteDeliveryDaoIntegrationTest extends CarlosTestBase {
         assertThat(deliveries.findByEmailLogId(987655)).isNull();
     }
 
+    @Test
+    void shouldPersistAbandonmentOwnership_andRejectAResumedSender() {
+        Long id = deliveries.claim(attempt(PATIENT)).getId();
+        deliveries.advance(id, State.PREPARING, State.QUEUED, row -> row.setPortalInviteId(41L));
+        deliveries.advance(id, State.QUEUED, State.ABANDONING,
+                row -> row.setOutcome(Outcome.ABANDONED_BY_STAFF));
+
+        assertThat(deliveries.find(id).getState()).isEqualTo(State.ABANDONING);
+        assertThat(deliveries.advance(id, State.QUEUED, State.COMMITTED, null)).isNull();
+        assertThat(deliveries.findUnfinishedByDemographic(PATIENT))
+                .extracting(PatientPortalInviteDelivery::getId).containsExactly(id);
+        assertThat(deliveries.advance(id, State.ABANDONING, State.ABANDONED, null)).isNotNull();
+    }
+
+    @Test
+    void shouldRejectAbandonmentOwnership_whenTheSenderAlreadyCommitted() {
+        Long id = deliveries.claim(attempt(PATIENT)).getId();
+        deliveries.advance(id, State.PREPARING, State.QUEUED, null);
+        deliveries.advance(id, State.QUEUED, State.COMMITTED, null);
+
+        assertThat(deliveries.advance(id, State.QUEUED, State.ABANDONING, null)).isNull();
+        assertThat(deliveries.find(id).getState()).isEqualTo(State.COMMITTED);
+    }
+
     private static PatientPortalInviteDelivery attempt(int demographicNo) {
         return new PatientPortalInviteDelivery("inv-" + UUID.randomUUID(), demographicNo, "clinic-a",
                 "https://portal.example", Channel.EMAIL, null, "999998");

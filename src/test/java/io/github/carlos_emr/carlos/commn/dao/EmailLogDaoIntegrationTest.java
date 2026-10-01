@@ -193,4 +193,30 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         entityManager.flush();
         return log.getId();
     }
+
+    @Test
+    void shouldClearBody_withoutOverwritingAConcurrentStatusOrTimestamp() {
+        EmailLog log = new EmailLog();
+        log.setFromEmail("body.sender@example.org");
+        log.setToEmail(new String[] {"body.recipient@example.org"});
+        log.setBody("invitation credential");
+        log.setStatus(EmailLog.EmailStatus.PENDING);
+        log.setTimestamp(new Date(1_700_000_000_000L));
+        entityManager.persist(log);
+        entityManager.flush();
+        Date completed = new Date(1_700_000_060_000L);
+        entityManager.createNativeQuery("UPDATE emailLog SET status = 'SUCCESS', timestamp = ?1 WHERE id = ?2")
+                .setParameter(1, completed).setParameter(2, log.getId()).executeUpdate();
+        // Keep the stale managed PENDING snapshot, as a concurrent writer can leave one. Invoke the
+        // DAO target inside this rollback transaction so its normal REQUIRES_NEW does not hide the fixture.
+        EmailLogDaoImpl target = new EmailLogDaoImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(target, "entityManager", entityManager);
+        assertThat(target.replaceBody(log.getId(), "code removed")).isOne();
+        entityManager.flush();
+        entityManager.clear();
+        EmailLog updated = entityManager.find(EmailLog.class, log.getId());
+        assertThat(updated.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        assertThat(updated.getTimestamp().getTime()).isEqualTo(completed.getTime());
+        assertThat(updated.getBody()).isEqualTo("code removed");
+    }
 }
