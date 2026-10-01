@@ -127,3 +127,13 @@ The history view (#3839) and the settings page (#3836) are the first actions to 
 - Carrier-level integration tests and operational rollout validation, including how the chosen provider handles UCS-2 text within its limits.
 
 Record diagnostics are redacted. Full body retrieval goes through authorization and a committed audit record. These code boundaries do not replace database access controls or the production data policy above.
+
+### Queue page render check
+
+Run `HEAVY_SLOTS=1 heavy python3 scripts/sms-queue-render-checks.py` with Java 21+, Tomcat 11
+(`CATALINA_HOME` or `--tomcat-home`) and the cached Maven dependencies. This compiles the current
+view-model and encoder sources, then renders the actual queue JSP and includes in a temporary
+Tomcat bound to loopback. Its 20 cases cover empty/populated queues, hidden rows, demographic-column
+visibility, all time windows and an invalid window, labels, and HTML encoding. It uses synthetic
+models without starting CARLOS or connecting to a database. The service and action tests separately
+cover authorization, filtering and audit writes; this render check does not replace those tests.

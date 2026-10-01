@@ -25,8 +25,8 @@ import io.github.carlos_emr.carlos.sms.SmsProviderType;
 
 /**
  * One grouped count of outbound {@code sms_transaction} rows, for the Administration &gt; SMS queue view.
- * The grouping value is always a machine code (a status name, an error code or a consent reason code),
- * never patient data.
+ * The grouping value comes directly from storage. Provider error and consent reason values can contain
+ * free text; the assembler filters them before display. Keep raw values out of logs.
  *
  * @param providerType the SMS provider the rows belong to
  * @param code         the value the rows share, or {@code null} when they have none (for example a failure
@@ -35,4 +35,8 @@ import io.github.carlos_emr.carlos.sms.SmsProviderType;
  * @since 2026-09-28
  */
 public record SmsQueueCountDto(SmsProviderType providerType, String code, long count) {
+    @Override
+    public String toString() {
+        return "SmsQueueCountDto[redacted]";
+    }
 }

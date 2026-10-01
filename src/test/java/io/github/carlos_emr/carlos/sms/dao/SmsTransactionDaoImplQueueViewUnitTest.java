@@ -85,6 +85,12 @@ class SmsTransactionDaoImplQueueViewUnitTest {
     private TypedQuery<Integer> patientQuery;
 
     @Test
+    void shouldRedactGroupedCode_whenConvertedToString() {
+        SmsQueueCountDto count = new SmsQueueCountDto(SmsProviderType.STUB, "FAKE-patient 4165551212", 1);
+        assertThat(count.toString()).isEqualTo("SmsQueueCountDto[redacted]");
+    }
+
+    @Test
     @DisplayName("should count nothing and skip the query when the overdue or stale cutoff is missing")
     void shouldSkipQuery_whenCutoffIsMissing() {
         SmsTransactionDaoImpl dao = newDao();
