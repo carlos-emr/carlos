@@ -191,7 +191,13 @@ function makeDom() {
     createElement: (tag) => (tag.toLowerCase() === 'form' ? new HTMLFormElement(tag) : new Element(tag)),
     querySelectorAll: (selector) => documentElement.querySelectorAll(selector),
     querySelector: (selector) => documentElement.querySelector(selector),
-    addEventListener: () => {},
+    listeners: {},
+    addEventListener(type, handler) {
+      (this.listeners[type] = this.listeners[type] || []).push(handler);
+    },
+    fire(type) {
+      (this.listeners[type] || []).forEach((handler) => handler());
+    },
   };
 
   class MutationObserver {
@@ -267,6 +273,9 @@ function loadHelper(options = {}) {
   }
   if (options.scriptSrc) {
     dom.document.currentScript = { src: options.scriptSrc };
+  }
+  if (options.readyState) {
+    dom.document.readyState = options.readyState;
   }
 
   const fetchImpl = options.fetchImpl
@@ -564,6 +573,46 @@ test('a page whose forms are all tokenised makes no servlet request', async () =
   await settle();
 
   assert.equal(helper.fetches.length, 0);
+});
+
+test('forms the parser inserts are left to CSRFGuard: nothing is fetched while the page loads', async () => {
+  const helper = loadHelper({ readyState: 'loading' });
+  // A static form arriving during parse, before CSRFGuard's DOMContentLoaded
+  // pass has tokenised it. Reacting here would cost a request per page load.
+  const staticForm = buildForm(helper.dom, { action: '/carlos/messenger/HandleMessages' });
+  helper.dom.document.body.appendChild(staticForm);
+  await settle();
+  assert.equal(helper.fetches.length, 0);
+
+  // CSRFGuard's own pass, then DOMContentLoaded reaches the helper.
+  const token = helper.dom.document.createElement('input');
+  token.setAttribute('name', 'CSRF-TOKEN');
+  token.value = 'PAGE-TOKEN';
+  staticForm.appendChild(token);
+  helper.dom.document.fire('DOMContentLoaded');
+  await settle();
+  assert.equal(helper.fetches.length, 0, 'a page CSRFGuard fully tokenised costs no request');
+
+  // After load, an injected panel form is still picked up.
+  const panel = helper.dom.document.createElement('div');
+  const panelForm = buildForm(helper.dom, { action: '/carlos/eforms/delGroup' });
+  panel.appendChild(panelForm);
+  helper.dom.document.body.appendChild(panel);
+  await settle();
+  assert.equal(panelForm.querySelector('input[name="CSRF-TOKEN"]').value, 'PAGE-TOKEN');
+});
+
+test('a form CSRFGuard missed at load is tokenised by the deferred initial pass', async () => {
+  const helper = loadHelper({ readyState: 'loading', pageToken: 'PAGE-TOKEN' });
+  // e.g. the BC dx search: CSRFGuard threw on the first form and stopped.
+  const missed = buildForm(helper.dom, {
+    action: '/carlos/billing/CA/BC/ViewBillingDigUpdate', inputs: [['250', 'Diabetes']],
+  });
+  helper.dom.document.body.appendChild(missed);
+  helper.dom.document.fire('DOMContentLoaded');
+  await settle();
+
+  assert.equal(missed.querySelector('input[name="CSRF-TOKEN"]').value, 'PAGE-TOKEN');
 });
 
 test('a failed automatic injection warns but never alerts', async () => {

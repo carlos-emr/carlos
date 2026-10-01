@@ -2701,6 +2701,22 @@
       ]
     },
     {
+      "name": "csrf-runtime-forms",
+      "script": "scripts/csrf-runtime-forms-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CSRF_FORMS_DX_SEARCH",
+        "CSRF_FORMS_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "edit-appointment-direct-link",
       "script": "scripts/edit-appointment-direct-link-playwright-checks.js",
       "tiers": [

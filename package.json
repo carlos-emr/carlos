@@ -172,6 +172,7 @@
     "test:echart-note-editor-playwright": "node scripts/echart-note-editor-playwright-checks.js",
     "test:echart-note-soft-wrap-playwright": "node scripts/echart-note-soft-wrap-playwright-checks.js",
     "test:csrf-xhr-token-playwright": "node scripts/csrf-xhr-token-playwright-checks.js",
+    "test:csrf-runtime-forms-playwright": "node scripts/csrf-runtime-forms-playwright-checks.js",
     "test:registry-ichppc-lifecycle-playwright": "node scripts/registry-ichppc-lifecycle-playwright-checks.js",
     "test:about-licence-playwright": "node scripts/about-licence-playwright-checks.js",
     "test:consultation-null-booking-playwright": "node scripts/consultation-null-booking-playwright-checks.js",

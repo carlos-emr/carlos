@@ -384,38 +384,43 @@
         }
         global.__carlosCsrfAutoInjection = true;
 
-        // Deferred one task past DOMContentLoaded so CSRFGuard's own pass (a
-        // DOMContentLoaded listener too) has run first; only forms it left
-        // without a token are touched, so a healthy page makes no request.
-        var initialPass = function () {
+        var observeInsertions = function () {
+            if (typeof global.MutationObserver !== 'function') {
+                return;
+            }
+            new global.MutationObserver(function (mutations) {
+                for (var i = 0; i < mutations.length; i++) {
+                    var added = mutations[i].addedNodes;
+                    for (var j = 0; j < added.length; j++) {
+                        var node = added[j];
+                        if (node.nodeType !== 1) {
+                            continue;
+                        }
+                        var isForm = node.tagName.toLowerCase() === 'form';
+                        if (isForm || (node.querySelector && node.querySelector('form'))) {
+                            injectIntoForms(node, true).catch(warnInjectionFailure);
+                        }
+                    }
+                }
+            }).observe(document.documentElement, { childList: true, subtree: true });
+        };
+
+        // Both halves start one task after DOMContentLoaded. CSRFGuard's own
+        // pass is a DOMContentLoaded listener too, so by then it has run and
+        // only the forms it left without a token are touched: a healthy page
+        // makes no request. Observing earlier would also see every static form
+        // the parser inserts, before CSRFGuard had tokenised any of them.
+        var start = function () {
             setTimeout(function () {
                 injectIntoForms(document, true).catch(warnInjectionFailure);
+                observeInsertions();
             }, 0);
         };
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initialPass);
+            document.addEventListener('DOMContentLoaded', start);
         } else {
-            initialPass();
+            start();
         }
-
-        if (typeof global.MutationObserver !== 'function') {
-            return;
-        }
-        new global.MutationObserver(function (mutations) {
-            for (var i = 0; i < mutations.length; i++) {
-                var added = mutations[i].addedNodes;
-                for (var j = 0; j < added.length; j++) {
-                    var node = added[j];
-                    if (node.nodeType !== 1) {
-                        continue;
-                    }
-                    var isForm = node.tagName.toLowerCase() === 'form';
-                    if (isForm || (node.querySelector && node.querySelector('form'))) {
-                        injectIntoForms(node, true).catch(warnInjectionFailure);
-                    }
-                }
-            }
-        }).observe(document.documentElement, { childList: true, subtree: true });
     }
 
     installAutoInjection();
