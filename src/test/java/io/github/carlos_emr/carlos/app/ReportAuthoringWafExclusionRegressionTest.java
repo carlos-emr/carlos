@@ -60,6 +60,9 @@ class ReportAuthoringWafExclusionRegressionTest {
             Path.of("debian", "assets", "modsecurity", "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"));
 
     /** Every ctl action in a rule, whatever its kind (ruleEngine, ruleRemoveById, ...). */
+    /** A rule id in the report-authoring block's reserved range. */
+    private static final Pattern RULE_ID = Pattern.compile("\\bid:(140\\d)\\b");
+
     private static final Pattern CTL_ACTION = Pattern.compile("ctl:([^,\"\\\\\\s]+)");
 
     /** id, route, exempted {@code tag;argument} pairs (exactly), phase. */
@@ -115,10 +118,20 @@ class ReportAuthoringWafExclusionRegressionTest {
     @Test
     @DisplayName("the report-authoring block should carry no rule beyond the table")
     void shouldMatchTable_forReportAuthoringRuleIds() throws IOException {
-        long rulesInFile = Stream.of(read().split("\n"))
-                .filter(line -> line.matches("\\s*\"id:140\\d,phase:[12],pass,nolog,chain\""))
-                .count();
-        assertThat(rulesInFile).isEqualTo(reportAuthoringRules().count());
+        // Every id in the block's 1400-1409 range on a non-comment line, whatever its phase or
+        // actions, so an extra rule cannot hide behind a different action string.
+        List<String> idsInFile = new ArrayList<>();
+        for (String line : read().split("\n")) {
+            if (line.stripLeading().startsWith("#")) {
+                continue;
+            }
+            Matcher id = RULE_ID.matcher(line);
+            while (id.find()) {
+                idsInFile.add(id.group(1));
+            }
+        }
+        assertThat(idsInFile).containsExactlyInAnyOrderElementsOf(
+                reportAuthoringRules().map(arguments -> (String) arguments.get()[0]).toList());
     }
 
     @Test

@@ -71,7 +71,7 @@ class MessengerJspRouteMigrationTest {
 
     @Test
     @DisplayName("generate preview JSP should post item keys to Doc2PDF and never captured page HTML")
-    void generatePreviewJspShouldPostItemKeysNotHtml() throws Exception {
+    void shouldPostItemKeysNotHtml_forGeneratePreviewJsp() throws Exception {
         String jsp = Files.readString(GENERATE_PREVIEW);
 
         // #4133: the chooser used to load each item into a hidden frame and post its HTML as
@@ -95,7 +95,7 @@ class MessengerJspRouteMigrationTest {
 
     @Test
     @DisplayName("attachment frameset should have no hidden source frame to capture pages into")
-    void attachmentFramesetShouldHaveNoSourceFrame() throws Exception {
+    void shouldHaveNoSourceFrame_inAttachmentFrameset() throws Exception {
         String jsp = Files.readString(ATTACHMENT_FRAMESET);
 
         assertThat(jsp)
@@ -117,7 +117,7 @@ class MessengerJspRouteMigrationTest {
 
     @Test
     @DisplayName("generate preview JSP should localize its labels and encode the locale lang attribute")
-    void generatePreviewJspShouldLocalizeLabels() throws Exception {
+    void shouldLocalizeLabels_inGeneratePreviewJsp() throws Exception {
         String jsp = Files.readString(GENERATE_PREVIEW);
 
         assertThat(jsp)

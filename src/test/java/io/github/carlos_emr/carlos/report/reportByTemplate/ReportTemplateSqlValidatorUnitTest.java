@@ -133,6 +133,15 @@ class ReportTemplateSqlValidatorUnitTest {
     }
 
     @Test
+    @DisplayName("should accept identifiers that only contain a file-access word")
+    void shouldAcceptIdentifiers_whenTheyOnlyContainFileAccessWords() throws Exception {
+        Element report = report("<report title='FAKE' description='FAKE'>"
+                + "<query>SELECT reload_file_count, upload_data, into_outfile_path FROM fake_stats</query></report>");
+
+        assertThat(ReportTemplateSqlValidator.validateReport(report)).isNull();
+    }
+
+    @Test
     @DisplayName("should accept a non-SQL report type with a blank query")
     void shouldAccept_whenNonSqlTypeHasBlankQuery() throws Exception {
         Element report = report("<report title='FAKE' description='FAKE'><type>inr</type><query> </query></report>");

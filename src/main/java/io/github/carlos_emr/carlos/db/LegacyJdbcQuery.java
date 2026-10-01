@@ -59,7 +59,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class LegacyJdbcQuery {
     private static final Pattern FILE_ACCESS_CLAUSE = Pattern.compile(
-            "into\\s+(?:outfile|dumpfile)|load_file|load\\s+data");
+            "\\binto\\s+(?:outfile|dumpfile)\\b|\\bload_file\\b|\\bload\\s+data\\b");
     private static final int MAX_THREAD_RESOURCES_BEFORE_WARNING = 10;
     private static final int MAX_THREAD_RESOURCES_BEFORE_EXCEPTION = 50;
     private static final ThreadLocal<Deque<AutoCloseable>> THREAD_RESOURCES = new ThreadLocal<>();
