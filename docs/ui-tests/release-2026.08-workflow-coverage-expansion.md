@@ -1,0 +1,206 @@
+# Release 2026.08 workflow coverage expansion
+
+This pass added **78 browser checks** for clinician and administrator workflows that
+no existing check drove, and ran every one of them against a packaged CARLOS install
+through the real front door. It implements backlog rows of
+[playwright-coverage-plan-2026.08.md](playwright-coverage-plan-2026.08.md) §2–§4 and
+records what the checks found in
+[app-findings-log.md §10](app-findings-log.md#10-found-while-expanding-workflow-coverage-on-the-packaged-install-october-2026).
+
+**Why the result column is mostly red.** The suite's rule is *report, don't encode*:
+a check asserts the correct behaviour, so a defect makes it fail rather than being
+pinned as expected. Each check proves every reachable step first and puts the step
+that hits a confirmed defect last, so a failure names the defect and everything before
+it is evidence that the rest of the workflow works. When a defect is fixed, the check
+that names it should turn green with no edit; one that still fails has found the next
+problem. The manifest's `notes` field for each failing check says which defect stops it.
+
+## Where it ran
+
+| Item | Value |
+|---|---|
+| Source | `release/2026.08` at `93054a6242` (2026.08.0-alpha18-SNAPSHOT) |
+| Packages | `carlos-emr_2026.09.0~snapshot26_amd64.deb`, `carlos-emr-drugref_2026.09.0~snapshot26_all.deb` built with `dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` container (DrugRef from the `debian/drugref.pin` revision, pinned Chromium), plus `carlos-ctl_1.1.1_all.deb` from `debian/carlos-ctl.pin` |
+| Install | Ubuntu 26.04 container running systemd, `carlos-ctl check` clean; preseed and fixtures as in [deb-install-validation.md §3–§4](deb-install-validation.md), demo dataset loaded, first-login reset completed |
+| Front door | Every run used `BASE_URL=https://127.0.0.1/carlos` (nginx + ModSecurity/CRS blocking) and `EXPECT_FRONT_DOOR=true` |
+| Browser | The packaged Chromium (`/usr/lib/carlos-emr/chromium/chrome`) with Playwright 1.60.0 |
+
+Notes for reproducing it on a host without LXD:
+
+- **systemd in Docker on a cgroup-v1 host.** Start the container `--privileged --cgroupns host`
+  with an entrypoint that remounts `/sys/fs/cgroup` as `cgroup2` and execs `/sbin/init`, as
+  [deb-install-validation.md §2](deb-install-validation.md#2-create-the-test-vm) describes.
+- **Maven Central rate limiting.** Behind a shared egress the build stalled for minutes per
+  artifact on HTTP 429 from `repo.maven.apache.org` and from `repo1.maven.org`, which the
+  `wss4j` POM names as `A_maven.central`. A `settings.xml` mirror of `central,A_maven.central`
+  to `maven-central.storage-download.googleapis.com` removed the stall. This is an environment
+  note, not a packaging change.
+- **Extra properties the run staged.** `login_lock=true` (so `account-lockout-unlock` locks
+  its throwaway user name, not the runner's address) and `rx_fax_enabled=true`, both in
+  `/etc/carlos-emr/carlos.properties` followed by `carlos-ctl restart`. The environment also
+  exported `DOCUMENT_DIR`, `INCOMINGDOCUMENT_DIR` and `MEASUREMENT_CSS_UPLOAD_DIR` (the
+  packaged `oscarMeasurement_css_upload_path` default, which `carlos.properties` leaves commented).
+
+## How the checks were run
+
+Each check was run on its own with `node scripts/<name>-playwright-checks.js` inside the
+container, with the section-6 environment contract of
+[deb-install-validation.md](deb-install-validation.md#6-run-the-suite). The full suite runner
+was not used for this pass; it runs checks one at a time.
+
+Up to three checks ran at once during development. Every check scopes its assertions to
+rows it owns (ids it captured or the run's `FAKE-PW…` marker), so parallel runs do not
+interfere. A check whose `fixtures` text says it **must not run concurrently with other
+checks** changes or reads clinic-wide state (a system property, a clinic-wide list, the
+email sender, global row counts). Those were run alone. The serial suite runner already
+satisfies this, so the manifest needs no extra field.
+
+Many surfaces open as popups, so a check's first click is often the one that matters.
+All of them enter through the control a user clicks, with one deliberate exception noted
+in its row (`report-cdm`, whose page no menu links).
+
+New shared helpers:
+
+- `scripts/lib/throwaway-login-fixture.js`: a disposable login (security, provider and role
+  rows copied from the test login) for checks that lock, change the password of, enrol MFA
+  for, or restrict a user, so the shared account is never touched. Its cleanup also removes
+  the `ProviderPreference` rows a login creates.
+- `scripts/lib/mfa-otp.js`: decodes the enrolment QR in Node and computes RFC 6238 codes
+  (tested against the RFC vectors).
+- `scripts/lib/playwright-harness.js` `login()`: now answers the real MFA challenge (served at
+  `/login` with `#otpInput`, auto-submitted at six digits) and refuses a re-rendered login
+  form instead of treating that landing as success.
+
+## Results
+
+| Outcome | Checks |
+|---|---:|
+| Pass | 21 |
+| Fail on a confirmed application defect | 55 |
+| Skip (surface gated off on the packaged default) | 2 |
+| **Total new checks** | **78** |
+
+Every failing check passes all of its steps before the one that hits the defect its manifest note names. Across the pass the checks confirmed more than sixty distinct application defects, recorded as findings 53–113 of the findings log. The most serious are state changes reachable by a cross-site GET (bulk MRP reassignment, security-role rewrite, bulk note-role update, saved queries, patient sets, preferences, lookup lists, disease registry), missing patient-level authorization on HRM reports, the Ontario billing report rendering the session cookie into the page, drug-drug interaction warnings never being shown in the Rx module, and chart note edits overwriting the previous text instead of adding a revision.
+
+| Check | Plan § | Provinces | Result on the packaged 2026.08 install |
+|---|---|---|---|
+| `account-lockout-unlock` | §2.2 | all | FAIL on confirmed defects. Fails on 2026.08: Unlock Account answers 500 whenever a login is tracked (SecurityDaoImpl.findByProviderSite duplicate provider_no alias). |
+| `admin-role-management` | §2.2 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: TypeError on Assign Role/Rights to Object, the Administration link 403s for plain doctors, and GET FixRolesOnNotes reaches the bulk update (500 on the probe's invalid role). |
+| `login-mfa` | §2.2 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the security record edit page loads a missing admin/bcArStyle.css. Enabling MFA also wipes the PIN (reported, not asserted). |
+| `password-change-preferences` | §2.2 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the change-password page has no server-side password policy. |
+| `provider-record-admin` | §2.2 | all | PASS |
+| `security-record-admin` | §2.2 | all | FAIL on confirmed defects. Fails on 2026.08: the edit page loads a missing admin/bcArStyle.css (console MIME error) and Delete Record throws DetachedObjectException, leaving the login in place. |
+| `session-heartbeat-timeout` | §2.2 | all | PASS |
+| `appointment-group-copy-cut` | §2.3 | all | PASS |
+| `appointment-search-history` | §2.3 | all | PASS |
+| `my-groups` | §2.3 | all | PASS |
+| `schedule-admin-settings` | §2.3 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the schedule date popup preselects the wrong template and Template Code Setting edit truncates apostrophes. |
+| `schedule-views` | §2.3 | all | PASS |
+| `waiting-list` | §2.3 | all | FAIL on confirmed defects. Fails at its first step on 2026.08 until the Master Record stops rendering the waiting list read-only when DEMOGRAPHIC_WAITING_LIST=true (edit.jsp wLReadonly). |
+| `admin-update-demographic-provider` | §2.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: a GET performs the bulk reassignment (HTTP 200). |
+| `demographic-cds-import` | §2.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: a duplicate import is reported as 'Imported Successfully'. Needs xmllint (libxml2-utils). |
+| `demographic-merge` | §2.4 | all | PASS |
+| `demographic-relations-pdf-labels` | §2.4 | all | FAIL on confirmed defects. Fails on 2026.08: the WAF blocks the Messenger attachment preview POST to messenger/Doc2PDF (CRS 949110). |
+| `patient-set-cohort` | §2.4 | all | PASS |
+| `patient-swipe-card-search` | §2.4 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: ValidateSwipeCard answers 500 on a malformed track instead of a bad request. |
+| `antenatal-annual-review-planner` | §2.5 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the risk/checklist editors load a missing antenatalrecord.css. |
+| `decision-support-guidelines` | §2.5 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the guideline list answers 500 (EL char coercion) and the detail page judges every condition by the first condition's cached rule. |
+| `dx-registry-quicklist` | §2.5 | ON | FAIL on confirmed defects. Fails on 2026.08: choosing a named quick list in the registry sidebar answers 500; the later association steps hit the JSON+JSP response and the silently ignored CSV upload. |
+| `dx-registry-status-update` | §2.5 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: choosing a quick list in the Disease Registry report adds none of its codes (quicklistname/quickListName mismatch). |
+| `encounter-templates` | §2.5 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: Insert a Template ▸ Delete throws DetachedObjectException and deletes nothing. |
+| `flowsheet-patient-customization` | §2.5 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the Health Tracker custom print omits patient customisations (and its Preview POST answers 405). |
+| `immunization-schedule-config` | §2.5 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: schedule del/restore forms are nested and dropped by the parser, UI-created templates lose their name, and the pages link missing stylesheets. |
+| `measurement-group-entry` | §2.5 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the group page hides the last value of readings without a measuring instruction (Heart Rate). |
+| `note-browser-documents` | §2.5 | all | FAIL on confirmed defects. Fails on 2026.08: the Note Browser page has a JavaScript syntax error (identifiers split across lines) and its controls POST to a GET-only gate; note edits also overwrite rather than add revisions. |
+| `patient-photo-upload` | §2.5 | all | FAIL on confirmed defects. Fails on 2026.08: a refused upload shows no error message; Clear Photo answers 500 (DetachedObjectException) and deleteImage accepts GET. |
+| `document-refile-combine` | §2.6 | all | FAIL on confirmed defects. Fails on 2026.08: the document Edit popup throws ReferenceError (validDate), Combine PDF posts to a /WEB-INF/ URL (404) and the Document Browser has a JS syntax error. |
+| `fax-queue-admin` | §2.6 | all | PASS |
+| `hrm-report-print-download` | §2.6 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization). |
+| `lab-forwarding-rules` | §2.6 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: the Administration Lab Forwarding Rules page binds its provider selector to the wrong id, so no provider's rules can be loaded or saved. |
+| `lab-manual-entry-cumulative` | §2.6 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: Row Display throws ReferenceError (scanDOM) and loads a missing spinner image. |
+| `billing-on-admin-config` | §2.7 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: Manage Billing Form Add/bill-type/Delete and dx Search Update are refused for missing CSRF tokens, and the code Search update/confirm pages throw script errors. |
+| `billing-on-batch-clipboard` | §2.7 | ON | FAIL on confirmed defects. Fails on 2026.08: Billing Reconciliation ▸ Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable. |
+| `billing-on-correction-delete` | §2.7 | ON | FAIL on confirmed defects. Fails at its Unbill step on 2026.08: the history page submits a runtime-built form without a CSRF token (403). |
+| `billing-on-gst-css-benefit` | §2.7 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: Manage Code Styles drops a hand-typed colour declaration on save. |
+| `billing-on-invoice-3rdparty` | §2.7 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: picking a payer address throws a JavaScript syntax error (double-encoded handler). |
+| `billing-on-ohip-simulation-report` | §2.7 | ON | PASS |
+| `billing-on-payment-status` | §2.7 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: Payment Received omits payments dated on the End Date (< instead of <=), so today's payments never appear with the default range. |
+| `billing-on-ra-import` | §2.7 | ON | FAIL on confirmed defects. Fails on 2026.08: the claims error report page answers 500 (missing bean property), and Billing Reconciliation Report/Summary/Settle post a runtime-built form without a CSRF token (403). |
+| `billing-on-reports-inr-eoy` | §2.7 | ON | FAIL on confirmed defects. Fails on 2026.08: the billing report renders the request headers (including the session cookie) as its column headers; the statement PDF answers 500, the INR update form 405s and the L report renders blank. |
+| `rx-edit-discontinue` | §3.2 | all | PASS |
+| `rx-interactions-renal-luc` | §3.2 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: no drug-drug interaction marker is shown for a DrugRef major interaction (the interaction calls are commented out of the Rx page). |
+| `rx-print-profile` | §3.2 | all | PASS |
+| `consultation-edit-status` | §3.3 | all | PASS |
+| `consultation-services-admin` | §3.3 | all | PASS |
+| `messenger-attachments` | §3.4 | all | FAIL on confirmed defects. Fails on 2026.08: the patient-search page closes itself on load (null-safe encoder vs "null" comparison) and throws a TypeError; through the front door the WAF blocks the Doc2PDF preview/attach POSTs. |
+| `messenger-demographic-link` | §3.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the Search Patient popup closes itself before listing anyone, and Link to Patient posts a runtime-built form without a CSRF token. |
+| `prevention-admin` | §3.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: Preventions Print posts to a /WEB-INF/ URL (404). |
+| `tickler-forward-filters` | §3.4 | all | PASS |
+| `tickler-preferences` | §3.4 | all | FAIL on confirmed defects. Fails on 2026.08: the Preferences link opens the stale-note-date page instead of the tickler preference form (and further defects behind it). |
+| `workflow-tickler-suggested-text` | §3.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the patient tickler list (ticklerDemoMain) answers 500 for a patient with a tickler (LazyInitializationException). The WorkFlow step skips while WORKFLOW is off. |
+| `clinical-forms-save-reopen` | §3.5 | ON | FAIL on confirmed defects. Records each form and fails at the end on 2026.08: a second save/print is refused for a missing CSRF token, Vascular Tracker 404s, Annual print 404s, MMSE image 404s, and the Discharge Summary and Mental Health Form 1 saves throw TypeErrors. |
+| `dashboard-display` | §3.6 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: Assign Tickler 404s on a doubled context path, Add To Disease Registry writes nothing, BulkPatientAction writes on GET, and Drill Down 403s without _dashboardChgUser. |
+| `demographic-report-favourites` | §3.6 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: a GET of report/DemographicReport with query=Save Query writes a saved query (no GET rejection, no CSRF on GET). |
+| `report-age-sex-visit` | §3.6 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: the Provider Service Report form replaces the shell's jQuery and throws on its oscarMonth rule. |
+| `report-by-template` | §3.6 | all | FAIL on confirmed defects. Fails on 2026.08: Delete Template submits a runtime-built form without a CSRF token (403), and the WAF blocks saving a template with <param> (CRS 941160). |
+| `report-by-template-groups` | §3.6 | all | PASS |
+| `report-cdm` | §3.6 | all | FAIL on confirmed defects. Enters the CDM report by address like cdm-measurement-report, because no menu links SetupSelectCDMReport (a finding). Fails at its last step on 2026.08: the frequency report prints nothing, 'patients seen' shows a demographic number, and invalid-date errors are lost. |
+| `report-daysheet-labs` | §3.6 | ON | FAIL on confirmed defects. Fails after its positive steps on 2026.08: report/ViewReportonbilledvisitprovider changes security roles on a tokenless GET; later steps assert the ignored Non Rostered filter and the sort links that drop the time window. |
+| `report-query-by-example` | §3.6 | all | PASS |
+| `admin-api-keygen` | §3.7 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the Key Manager buttons post to /admin/... without the context path (404). |
+| `admin-audit-log` | §3.7 | all | PASS |
+| `admin-email-config` | §3.7 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: Manage Emails Resolve shows RESOLVED but never updates the log row (setResolved is not dispatched). |
+| `admin-facility-messages` | §3.7 | all | PASS |
+| `admin-issue-editor` | §3.7 | all | SKIP: on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08. |
+| `admin-jobs` | §3.7 | all | FAIL on confirmed defects. Fails on 2026.08: clicking a job name raises a page error (javascript:void() link); later steps would fail on the schedule dialog, stored XSS in job names and a DataTables reinitialise alert. |
+| `admin-lookup-lists` | §3.7 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: lookupListManagerAction accepts GET for its mutating methods. |
+| `admin-messages` | §3.7 | all | SKIP: on the packaged default (caisi=off); its later steps have not run on a caisi=on deployment yet. |
+| `admin-sites-clinic-numbers` | §3.7 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: the administration shell Help ignores the saved Help Link. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false). |
+| `measurement-map-admin` | §3.7 | all | FAIL on confirmed defects. Fails at its first step on 2026.08: View Mapping throws ReferenceError (stripe is not defined); the add/remove/remap pages also answer 405. |
+| `measurement-type-group-admin` | §3.7 | all | FAIL on confirmed defects. Fails on 2026.08: the Customize Measurements Add links answer 405 (HttpMethodGuardFilter treats their GET form-openers as mutators). |
+| `provider-preferences-cpp-dx` | §3.7 | ON | PASS |
+| `provider-signature-contact` | §3.7 | all | PASS |
+| `eform-deleted-restore` | §4.1 | all | FAIL on confirmed defects. Fails on 2026.08: Restore posts a JavaScript-built form without a CSRF token (403); independent Delete is also rejected for a missing token. |
+| `eform-groups` | §4.1 | all | FAIL on confirmed defects. Fails on 2026.08: the Add eForm list throws a TypeError on unload (unguarded window.opener), and the group mutators answer 405 / 403 (forward to a GET-only gate; missing CSRF token in the Administration panel). |
+
+## Routes with no UI entry
+
+Per the suite's rule a route with no link gets no check; each is a finding about the route.
+The checks' authors confirmed these by source search and by the absence of an opener on the
+live install:
+
+- **Reports:** `RunClinicalReport` / `RemoveClinicalReport` / `ViewClinicalExport`, the
+  `report/ViewReportForm*` / `ViewReportFilter` / `ViewReportResult` designer chain,
+  `report/ViewGenerateLetters` and the letters chain, `report/printLabDaySheetAction`,
+  `ViewReportecharthistory`, `ViewReportedblist`, `GenerateSpreadsheet`,
+  `ViewOscarReportDxReg`, `ViewSelectCDMReport`, `ViewCDMReport`, `ViewEditCodeDesc`,
+  `oscarReport/reportByTemplate/ViewListTemplates`, `exportTemplateAction`.
+- **Patient sets and records:** `demographic/ViewAddDemoToPatientSet`,
+  `ViewDemographicCohort`, `report/CreateDemographicSet`, `DemographicSetEdit`,
+  `SetEligibility`, `demographic/AddRelation` / `DeleteRelation` (with the new contacts UI on),
+  `messenger/ImportDemographic`, `messenger/Transfer/SelectItems` / `PostItems`.
+- **Chart and clinical:** `casemgmt/ViewIssueSearch`, `ViewShowHistory`, `ViewHistoryview`,
+  `OscarChartPrint`, `encounter/ViewTimeOut`, `encounter/decisionSupport/ViewGuidelineList` /
+  `ViewGuidelineDetail`, `encounter/immunization/ViewSchedule` / `ViewScheduleConfig`,
+  the `adminFlowsheet/ViewFlowsheet*` chain, `SelectMeasurementGroup`, `DeleteData`,
+  `rx/ViewCompleteMedRec`, `rx/ViewInteractionDisplay`, the BC antenatal planner routes.
+- **Documents, labs, eForms:** `documentManager/ViewMultiPageDocDisplay`, `ViewAddDocument`,
+  `oscarMDS/SendMRP`, `eform/efmOpenEformByName`, `efmpatientformlistsingle`.
+- **Administration and preferences:** `admin/ViewLookupLists*`, the waiting-list management
+  page, `provider/ViewProviderDefaultDxCode`, `ViewPreferenceAction`, `UserPreference`,
+  `PrinterList`, `Provider/showPersonal`, `EditAddress` / `EditFaxNum` / `EditPhoneNum`,
+  `appointment/appointmentaddrecordcard` / `appointmentaddrecordprint`,
+  `billingShortcutPg1View` (so no check was written for the billing shortcut).
+- **Billing:** `ViewGenReport`, `ViewGenGroupReport`, `ImportOnRA`, `ViewGenRASummary` /
+  `ViewGenRASummaryDetail`, `BillingInvoice`, `ViewBillingON3rdPayments`,
+  `Add3rdPartyPayment`, `BillingEditWithApptNo`, `inr/DbINRbilling`,
+  `specialtyBilling/fluBilling/DbAddFluBilling`, `ViewBillingOBECEA`.
+- **Gated off on the packaged default:** everything behind `caisi=on` (System Messages,
+  Issue Editor, Facility Messages, Default Encounter Issue, Lookup Field Editor and all of
+  PMmodule, so no PMmodule checks were written), `moveMOHFiles`
+  (`moh_file_management_enabled`), Manage Sites (`multisites`), clinic numbers
+  (`rma_enabled`), and the legacy `/admin/ViewAdmin` page, whose only opener is the month
+  view's Alt+A shortcut, which does not fire in Chromium.
+
+`admin-messages` and `admin-issue-editor` are written and skip on the packaged default for
+the CAISI gate; a `caisi=on` profile is needed to run them, as §4.3 of the plan already says.

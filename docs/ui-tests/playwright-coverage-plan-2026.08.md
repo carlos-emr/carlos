@@ -177,6 +177,19 @@ complement the UI workflows.
 | `record-access` | §2.5, §4.4 | Cross-patient episode read and reassignment refused with 404 and no change; another provider's scratch-pad version neither readable nor deletable, while the owner's is |
 | `lot-number-search` | §3.4 | Administration ▸ Search lot number by prevention, inside its iframe: an exact owned lot returned with punctuation intact, then a repeated no-match search from the results page, with the row unchanged |
 
+**October 2026 expansion: 78 further checks.** A second pass wrote and live-validated
+78 checks for backlog rows of §2.2–§3.7 and §4.1 (authentication and record
+administration, schedule views and settings, merges, imports and patient sets,
+chart templates, Dx registry, flowsheets, immunizations, documents, HRM and labs,
+Ontario billing correction, payments, OHIP and RA, Rx edits and interactions,
+consultation configuration, messenger, reports, dashboards, and most of the
+Administration panel). The table of those checks, their results on the packaged
+install and the routes found to have no UI entry is
+[release-2026.08-workflow-coverage-expansion.md](release-2026.08-workflow-coverage-expansion.md).
+Most of them fail on confirmed application defects by design; findings 53–113 of
+[app-findings-log.md](app-findings-log.md) record each one. Rows of the tables
+below that this pass implemented are covered there rather than re-listed here.
+
 The navigation audits share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
 to the page that broke. The remaining checks exercise workflows or contracts:
