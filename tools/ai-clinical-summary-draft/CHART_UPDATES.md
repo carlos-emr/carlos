@@ -4,7 +4,7 @@ This add-on starts from the **original selected document**, not generated summar
 prose. The eChart header opens a modal containing the authorized patient document
 list, with review links for active text and HTML documents. Choosing a document
 continues inside that modal, one suggestion at a time with Previous/Next controls. The document summary also links to the review page. It is off by default
-and has not been deployed or clinically validated.
+and is available only in the isolated synthetic trial; it has not been clinically validated.
 
 The review page uses CARLOS's shared grey header, white background and standard
 buttons. **Back** returns to the same patient's document list after generation or
@@ -20,35 +20,52 @@ boundary. Direct standalone review links remain available, showing all cards.
 
 ## Scope
 
-- Extract up to 20 exact source passages as optional follow-up reminders or
-  diagnosis/history candidates. An empty result is valid, not evidence that no
-  follow-up is required. The model can misclassify or omit relevant passages.
-- Display accessible Medical history/Ongoing concerns entries and active
-  ticklers beside the proposals. The full source is visible with the selected
-  quotation highlighted; Previous/Next follows the current suggestion and
-  Show passage in document moves focus to the source.
-- Edit text and accept or dismiss **one item at a time**. Ticklers require a
-  confirmed due date and active assignee. History requires Medical history or
-  Ongoing concerns as the destination and is appended as a signed note under the
-  clinician's account, using the existing eChart editing lock.
-- Preserve the exact source passage and document reference in each saved entry,
-  and create its native document link. Never overwrite existing chart entries.
+- Extract up to 100 exact source passages across medical/surgical history, findings,
+  social and family history, risks, medications, allergies, observations/results,
+  care advice, immunizations/screening, patient details and outpatient follow-up.
+  This is a bounded review inventory; the model can still omit or misclassify facts.
+- Display accessible signed, unlocked, unarchived notes from all seven CPP sections,
+  active ticklers, current medications, active allergies, measurements and prevention
+  records. Section permissions, program/role filters and native manager access checks apply.
+  The full source is visible with the selected quotation highlighted.
+- Edit and approve one note or reminder at a time. The seven note destinations are
+  Medical history, Ongoing concerns, Social history, Family history, Risk factors,
+  Other medications and Reminders. Each write rechecks section permissions and uses
+  the existing eChart editing lock, signed-note save and native document link.
+- Medication and allergy candidates stay dedicated-record review items. They have
+  no note-save action. Use the corresponding normal form from eChart. Embedded
+  prescription **and allergy** entry are disabled because their landing pages replace
+  shared Rx session patient/stash state. Safe integration needs patient-bound native
+  mutation paths; opening another modal must not change an existing prescription tab.
+- Prevention and demographic candidates can open their normal patient-specific forms
+  in a nested modal when the clinician has read/write access. Source text remains visible.
+  Those forms perform their own saves; **Done reviewing only closes the review item**
+  and explicitly says it did not save a record. Close asks about unsaved form edits.
+- Measurements/results are offered as note facts; no structured measurement editor
+  is opened because its legacy routes depend on session-wide eChart patient state.
+- Every saved note/reminder preserves its exact source quotation and document reference.
+  Existing chart entries are never overwritten. No structured record is created from
+  a model output or from dismissing a card.
 
-This is not medication reconciliation, prescribing, ordering, ICD coding,
-automatic conflict resolution, or a complete longitudinal problem-list merger.
-Chart comparison is clinician-led. Browser warnings use exact text and a small,
-conservative English paraphrase matcher. Server-side duplicate blocking compares complete normalized entries of the same
-kind; reminders must also have the same due date and assignee. Source annotations
-from earlier workflow saves are excluded from that comparison only when the
-patient, chart target, document and quoted evidence agree with a committed approval
-receipt. Ordinary annotation-like chart text remains part of the entry. Durable receipts
-prevent replaying an accepted proposal. Neither establishes
-clinical equivalence. The comparison excludes restricted notes, other chart
-sections and inactive ticklers. Review the normal chart when needed.
+This does not perform automatic medication reconciliation, prescribing, ordering,
+ICD coding or conflict resolution. Current chart data stays local and is not sent
+back to the model. Readable records are available for clinician-led comparison;
+restricted records, inactive ticklers, discontinued drugs and other modules are
+excluded. Demographics are checked in the native form rather than in a full local
+comparison extract. Review the rest of the normal chart when needed.
+
+Browser warnings use exact text and a small conservative English paraphrase matcher.
+History comparison is restricted to the selected CPP section, and references show
+that section's name. Changing the destination updates the warning. Identical family
+history does not block adding the patient's own medical history. Server-side hard
+blocking compares complete normalized text in the same destination; reminders must
+also have the same due date and assignee. Earlier workflow annotations are stripped
+only when patient, target, document and evidence match a committed approval receipt.
+Receipts also prevent replaying an accepted proposal. Neither check proves clinical equivalence.
 
 Possible duplicates show the original matching passage beside the editable draft,
 with a link to the existing entry. Comparisons update as the draft changes and span
-both history entries and reminders already authorized and displayed on the page.
+the corresponding record kind and note destination already authorized and displayed on the page.
 The local matcher recognizes HTN/hypertension, OA/osteoarthritis,
 COPD/chronic obstructive pulmonary disease, T2DM/type 2 diabetes mellitus,
 GP/general practitioner, physio/physiotherapy and follow-up/review/recheck wording.
@@ -94,9 +111,7 @@ generate proposals, expose source/chart text or change the session review.
 
 The review form pre-fills exact source text and makes editable suggestions without
 another model call. Reminders initially select the signed-in clinician if that
-account is in the active assignee list. History passages beginning with a recognized past-history or resolved-condition
-marker suggest Medical history; other clinical
-findings suggest Ongoing concerns. The clinician can change either selection.
+account is in the active assignee list. Notes suggest the extracted section when available; legacy proposals use the existing Medical history/Ongoing concerns heuristic. The clinician can change the destination. Native medication/allergy fields are not guessed or automatically populated.
 
 Clear intervals such as "in four weeks" and "tomorrow" calculate from the source
 document observation date, which is shown beside the suggested date. An explicit
@@ -276,3 +291,26 @@ cover NHSSYN001–003, signed history, reminders, source links, access auditing 
 replay protection. The run found and fixed the read-only transaction that rejected
 access-audit inserts. All three patient walkthroughs and 75 focused Java tests
 passed; the proposal source was a fixed fixture gateway, with no model inference.
+
+## Broad extraction review
+
+The shared single-document agent transport is reused. Selection returns source ranges
+and destinations; the host copies quotations, expands plain independent lists and
+adds bounded explicit history/allergy/medication/impression sections as fallback.
+Qualified or nested lists stay together. Adjacent negations, conditions and explicit
+source-note headings are retained; some cards therefore overlap. Conditional
+discharge follow-up is not detached from its condition to create a tickler.
+Oversized fallback sections are skipped,
+not truncated; selected evidence must still pass the 2,000 UTF-16-unit limit.
+A full-source reviewer checks context and eligible destinations. It is instructed
+not to suppress paraphrased/repeated facts: exact repeats and identical heading
+variants are handled by the host, and overlaps remain visible for clinician review.
+This reduces lost facts but leaves some duplicate suggestions to dismiss manually.
+
+Each review request retains the entire source. If the candidates exceed the configured
+request-byte budget, they are divided into at most eight bounded batches prepared
+before review starts. Every candidate requires a valid decision; a failed/missing
+batch releases no partial result. This can require more than one review call.
+The synthetic gateway caches exact inputs; changes to extraction or review logic
+invalidate final results. Clinical coverage/accuracy is not established by passing
+software tests or by the number of returned suggestions.

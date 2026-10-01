@@ -74,13 +74,13 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
             IntegrationTestSeedService.ensureProviderExists(em, "999998");
             IntegrationTestSeedService.ensureDemographicExists(em, PATIENT);
             em.createNativeQuery("INSERT INTO program (id, name) SELECT 10016, 'Synthetic program' WHERE NOT EXISTS (SELECT 1 FROM program WHERE id=10016)").executeUpdate();
-            if (em.createQuery("from Issue where code = 'MedHistory'").getResultList().isEmpty()) {
-                var issue = new Issue();
-                issue.setCode("MedHistory");
-                issue.setDescription("Medical history");
-                issue.setRole("doctor");
-                issue.setType("system");
-                em.persist(issue);
+            for (String section : ChartUpdateSections.CODES) {
+                if (em.createQuery("from Issue where code = :code").setParameter("code", section).getResultList().isEmpty()) {
+                    var issue = new Issue();
+                    issue.setCode(section); issue.setDescription(section);
+                    issue.setRole("doctor"); issue.setType("system");
+                    em.persist(issue);
+                }
             }
         });
         receipts = spy(new ChartUpdateReceiptStore());
@@ -138,11 +138,13 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         });
     }
 
-    private ReviewedChartUpdateService.Result apply() {
+    private ReviewedChartUpdateService.Result apply() { return apply("MedHistory"); }
+
+    private ReviewedChartUpdateService.Result apply(String destination) {
         try (var settings = mockStatic(CarlosProperties.class); var logs = mockStatic(LogAction.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
             return service.apply(user, review, review.getToken(), proposal.key(),
-                    new ReviewedChartUpdateService.Approval("Review symptoms.", "2026-10-12", "999998", "MedHistory", true, "fresh"));
+                    new ReviewedChartUpdateService.Approval("Review symptoms.", "2026-10-12", "999998", destination, true, "fresh"));
         }
     }
 
@@ -212,13 +214,16 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         });
     }
 
-    @Test void shouldCommitSignedHistory_withIssueLinkHashAndReceipt() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MedHistory", "Concerns", "SocHistory", "FamHistory", "RiskFactors", "OMeds", "Reminders"})
+    void shouldCommitSignedHistory_withIssueLinkHashAndReceipt(String destination) {
         prepareHistory();
-        var result = apply();
+        var result = apply(destination);
         transactions.executeWithoutResult(status -> {
             var note = em.find(CaseManagementNote.class, result.target());
             assertThat(note.isSigned()).isTrue();
             assertThat(note.getIssues()).hasSize(1);
+            assertThat(note.getIssues().iterator().next().getIssue().getCode()).isEqualTo(destination);
             assertThat(note.getNote()).contains("Reviewed source passage:");
             assertThat(em.createQuery("select count(l) from CaseManagementNoteLink l where l.noteId = :id", Long.class)
                     .setParameter("id", result.target()).getSingleResult()).isEqualTo(1);

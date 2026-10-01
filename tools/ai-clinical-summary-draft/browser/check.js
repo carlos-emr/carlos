@@ -335,12 +335,56 @@ async function run() {
     const reminder = card(page, 'Follow-up reminder');
     assert.equal(await reminder.locator('.chart-match-notice').isVisible(), false);
     await reminder.locator('[name="entryText"]').fill('Previous clinician entry: seasonal symptoms.');
-    assert.equal(await reminder.locator('.chart-match-notice').isVisible(), true);
-    assert.match(await reminder.locator('.chart-match-links').innerText(), /note-1/);
+    assert.equal(await reminder.locator('.chart-match-notice').isVisible(), false, 'A reminder must not be treated as a duplicate of a history note');
     await reminder.locator('[name="entryText"]').fill('New reminder text');
     assert.equal(await reminder.locator('.chart-match-notice').isVisible(), false);
     await history.getByRole('link', { name: 'Show passage in document' }).click();
     await page.screenshot({ path: path.join(runDir, 'source-highlight-chart-match.png'), fullPage: true });
+  });
+  await scenario('broad facts use section-aware comparison and explicit native handoff', async page => {
+    await change(page, 'broad');
+    await generate(page);
+    assert.equal(await page.locator('article').count(), 5);
+    const histories = card(page, 'Chart entry');
+    const social = histories.filter({ hasText: 'Lives with daughter' });
+    assert.equal(await social.locator('[name="destination"]').inputValue(), 'SocHistory');
+    assert.equal(await social.locator('[name="destination"] option').count(), 8);
+    const diagnosis = histories.filter({ hasText: 'Hypertension' });
+    assert.equal(await diagnosis.locator('.chart-match-notice').isVisible(), false);
+    await diagnosis.locator('[name="destination"]').selectOption('FamHistory');
+    assert.equal(await diagnosis.locator('.chart-match-notice').isVisible(), true);
+    assert.match(await diagnosis.locator('.chart-match-links').innerText(), /Family history/);
+    await diagnosis.locator('[name="destination"]').selectOption('MedHistory');
+    assert.equal(await diagnosis.locator('.chart-match-notice').isVisible(), false);
+    for (const name of ['Medications', 'Allergies']) {
+      const native = card(page, name);
+      assert.equal(await native.locator('[name="confirmed"]').count(), 0);
+      assert.equal(await native.getByRole('button', { name: 'Accept and save', exact: true }).count(), 0);
+      assert.equal(await native.locator('.native-review-open').count(), 0);
+      assert.match(await native.innerText(), /Closing this suggestion does not save a record/);
+    }
+    const prevention = page.locator('article[data-destination="Preventions"]');
+    await prevention.getByRole('button', { name: 'Open normal chart form' }).click();
+    const dialog = page.locator('#native-chart-review');
+    await dialog.waitFor({ state: 'visible' });
+    const nativeFrame = page.frameLocator('#native-chart-review iframe');
+    assert.equal(await nativeFrame.locator('[name="demographic_no"]').inputValue(), '3001');
+    assert.equal(await dialog.locator('.native-review-source').textContent(), 'Immunization: influenza given.');
+    await nativeFrame.getByRole('textbox', { name: 'Native draft' }).fill('Unsaved native draft');
+    page.once('dialog', event => event.dismiss());
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    assert.equal(await dialog.isVisible(), true);
+    page.once('dialog', event => event.accept());
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await dialog.waitFor({ state: 'hidden' });
+    assert.equal(context.pages().length, 1);
+    await click(page, card(page, 'Allergies').getByRole('button', { name: 'Done reviewing this item', exact: true }));
+    assert.match(await card(page, 'Allergies').innerText(), /did not save a record/);
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
+    await social.locator('[name="confirmed"]').check();
+    await click(page, social.getByRole('button', { name: 'Accept and save', exact: true }));
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 1, receipts: 1 });
+    assert.match(await page.locator('#chart-entry-note-201 summary').innerText(), /Social history/);
   });
   await scenario('paraphrased chart matches show exact passages and respect clinical qualifiers', async page => {
     await change(page, 'paraphrased-chart');

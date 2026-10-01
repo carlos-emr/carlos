@@ -11,6 +11,7 @@
     const entries = Array.from(document.querySelectorAll('.chart-entry')).map(element => ({
         element, facts: matcher.prepare(element.querySelector('.chart-entry-text').textContent),
         label: element.querySelector('summary').textContent.trim(),
+        kind: element.dataset.kind, destinations: (element.dataset.destinations || '').split(' '),
     }));
     const matches = new Map();
     let active;
@@ -62,7 +63,11 @@
     const compare = card => {
         const input = card.querySelector('[name="entryText"]');
         const draft = matcher.prepare(input?.value ?? evidence(card));
-        const found = entries.map(entry => ({ entry, fact: matcher.find(draft, entry.facts) }))
+        const destination = card.querySelector('[name="destination"]')?.value || card.dataset.destination;
+        const nativeKinds = { Medications: 'medication', Allergies: 'allergy', Preventions: 'prevention' };
+        const found = entries.filter(entry => card.dataset.kind === 'history'
+                ? entry.kind === 'history' && entry.destinations.includes(destination)
+                : entry.kind === (nativeKinds[destination] || card.dataset.kind)).map(entry => ({ entry, fact: matcher.find(draft, entry.facts) }))
             .filter(match => match.fact);
         matches.set(card, found);
         const notice = card.querySelector('.chart-match-notice');
@@ -132,6 +137,7 @@
             compare(card);
             compareProposals();
         });
+        card.querySelector('[name="destination"]')?.addEventListener('change', () => compare(card));
         card.querySelector('[data-show-source]').addEventListener('click', event => {
             event.preventDefault();
             show(card, true);

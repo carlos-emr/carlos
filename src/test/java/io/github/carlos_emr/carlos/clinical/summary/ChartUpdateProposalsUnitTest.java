@@ -99,6 +99,19 @@ class ChartUpdateProposalsUnitTest {
         assertThat(quotations).isEqualTo(21);
     }
 
+    @Test void shouldAcceptBroadReviewedQuotations_fromLongAndShortSyntheticDocuments() throws Exception {
+        var evidence = JSON.readTree(java.nio.file.Files.readString(java.nio.file.Path.of(
+                "tools/ai-clinical-summary-draft/quality/2026-10-01/broad-chart-results.json")));
+        assertThat(evidence.path("runs").size()).isEqualTo(2);
+        for (var trial : evidence.path("runs")) {
+            var accepted = ChartUpdateProposals.validate(trial.path("output"), trial.path("source").asText());
+            assertThat(accepted.size()).isGreaterThan(20).isLessThanOrEqualTo(ChartUpdateProposals.MAX_PROPOSALS);
+            assertThat(accepted).anyMatch(row -> "review".equals(row.kind()));
+            assertThat(accepted).anyMatch(row -> "SocHistory".equals(row.destination()));
+            assertThat(accepted).anyMatch(row -> "FamHistory".equals(row.destination()));
+        }
+    }
+
     @Test void shouldAcceptCompletePassage_afterIndentedListMarker() {
         assertThat(ChartUpdateProposals.completePassage("Plan:\n  - Review in two weeks.", "Review in two weeks.")).isTrue();
         assertThat(ChartUpdateProposals.completePassage("Plan:\r\n  - Review in two weeks.", "Review in two weeks.")).isTrue();

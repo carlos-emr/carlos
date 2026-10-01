@@ -57,7 +57,7 @@
             <button type="button" class="btn btn-secondary btn-sm" data-review-next><fmt:message key="dms.incomingDocs.next"/></button>
         </nav>
         <c:forEach items="${chartUpdateRows}" var="proposal" varStatus="position">
-        <article class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}" data-proposal-key="${carlos:forHtmlAttribute(proposal.key)}">
+        <article class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}" data-proposal-key="${carlos:forHtmlAttribute(proposal.key)}" data-kind="${carlos:forHtmlAttribute(proposal.kind)}" data-destination="${carlos:forHtmlAttribute(proposal.recordDestination)}">
             <div class="card-body">
                 <div class="proposal-heading"><span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/>.</span><h3 class="h5"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></c:when><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3></div>
                 <details class="proposal-evidence" open><summary><fmt:message key="chartUpdates.evidence"/></summary><blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote></details>
@@ -86,7 +86,7 @@
                         <p class="field-help"><fmt:message key="chartUpdates.nativeHelp"/></p>
                         <c:choose><c:when test="${not empty proposal.nativeUrl}">
                             <button type="button" class="btn btn-primary btn-sm native-review-open" data-native-url="${carlos:forHtmlAttribute(pageContext.request.contextPath)}${carlos:forHtmlAttribute(proposal.nativeUrl)}" data-native-title="${carlos:forHtmlAttribute(proposal.recordDestination)}"><fmt:message key="chartUpdates.openForm"/></button>
-                        </c:when><c:otherwise><p class="field-help"><fmt:message key="chartUpdates.nativeUnavailable"/></p></c:otherwise></c:choose>
+                        </c:when><c:otherwise><p class="field-help"><c:choose><c:when test="${proposal.recordDestination == 'Medications' or proposal.recordDestination == 'Allergies'}"><fmt:message key="chartUpdates.rxAllergyHandoff"/></c:when><c:otherwise><fmt:message key="chartUpdates.nativeUnavailable"/></c:otherwise></c:choose></p></c:otherwise></c:choose>
                     </c:when><c:when test="${proposal.kind == 'tickler'}">
                         <div class="proposal-fields"><div>
                         <label class="form-label mt-2" for="due-${carlos:forHtmlAttribute(proposal.key)}"><fmt:message key="chartUpdates.due"/></label>
@@ -154,8 +154,16 @@
         <p class="small"><fmt:message key="chartUpdates.duplicateCoverage"/></p>
         <c:if test="${empty chartUpdateEntries}"><p><fmt:message key="chartUpdates.noEntries"/></p></c:if>
         <c:forEach items="${chartUpdateEntries}" var="entry">
-            <details class="mb-2 chart-entry" id="chart-entry-${carlos:forHtmlAttribute(entry.id)}">
-                <summary><carlos:encode value="${entry.id}"/> · <c:choose><c:when test="${entry.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></summary>
+            <details class="mb-2 chart-entry" data-kind="${carlos:forHtmlAttribute(entry.kind)}" data-destinations="${carlos:forHtmlAttribute(entry.getDestinationCodes())}" id="chart-entry-${carlos:forHtmlAttribute(entry.id)}">
+                <summary><carlos:encode value="${entry.id}"/> · <c:choose>
+                    <c:when test="${not empty entry.destinations}"><c:forEach items="${entry.getDestinations()}" var="section" varStatus="sectionStatus"><c:if test="${not sectionStatus.first}">, </c:if><fmt:message key="chartUpdates.section.${section}"/></c:forEach></c:when>
+                    <c:when test="${entry.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when>
+                    <c:when test="${entry.kind == 'medication'}"><fmt:message key="chartUpdates.section.Medications"/></c:when>
+                    <c:when test="${entry.kind == 'allergy'}"><fmt:message key="chartUpdates.section.Allergies"/></c:when>
+                    <c:when test="${entry.kind == 'prevention'}"><fmt:message key="chartUpdates.section.Preventions"/></c:when>
+                    <c:when test="${entry.kind == 'measurement'}"><fmt:message key="chartUpdates.measurements"/></c:when>
+                    <c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise>
+                </c:choose></summary>
                 <p class="source-text chart-entry-text"><carlos:encode value="${entry.text}"/></p>
             </details>
         </c:forEach>
@@ -165,11 +173,12 @@
 </c:if>
 </div>
 <fmt:message key="chartUpdates.nativeCloseWarning" var="nativeCloseWarning"/>
-<dialog id="native-chart-review" class="native-chart-review" data-close-warning="${carlos:forHtmlAttribute(nativeCloseWarning)}">
-    <header class="page-header-bar page-header-bar--flex"><h2 class="page-header-title"><fmt:message key="chartUpdates.normalForm"/></h2><button type="button" class="btn btn-secondary btn-sm" data-native-close><fmt:message key="global.btnClose"/></button></header>
+<dialog id="native-chart-review" class="native-chart-review" aria-labelledby="native-chart-title" data-close-warning="${carlos:forHtmlAttribute(nativeCloseWarning)}">
+    <header class="page-header-bar page-header-bar--flex"><h2 id="native-chart-title" class="page-header-title"><fmt:message key="chartUpdates.normalForm"/></h2><button type="button" class="btn btn-secondary btn-sm" data-native-close><fmt:message key="global.btnClose"/></button></header>
     <p><fmt:message key="chartUpdates.patient"/>: <carlos:encode value="${chartUpdatePatientLabel}"/> (#<carlos:encode value="${chartUpdatePatient}"/>)</p>
     <details open><summary><fmt:message key="chartUpdates.evidence"/></summary><pre class="source-text native-review-source"></pre></details>
-    <iframe title="${carlos:forHtmlAttribute(nativeCloseWarning)}" referrerpolicy="same-origin"></iframe>
+    <fmt:message key="chartUpdates.normalForm" var="nativeFormTitle"/>
+    <iframe title="${carlos:forHtmlAttribute(nativeFormTitle)}" referrerpolicy="same-origin"></iframe>
 </dialog>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-matching.js"></script>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-evidence.js"></script>

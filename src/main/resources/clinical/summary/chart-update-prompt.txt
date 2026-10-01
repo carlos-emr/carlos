@@ -10,14 +10,14 @@ retain negation and uncertainty. Never convert a relative's disease into the pat
 Prefer one independently reviewable fact per passage. Avoid repeated facts. Keep different
 qualifications or conflicting accounts visible; do not resolve them or invent a diagnosis.
 kind=history appends a signed chart note. Suggested destination is MedHistory, Concerns,
-SocHistory, FamHistory, RiskFactors, OMeds or Reminders. Medication information in OMeds
-is documentation, not a prescription. General findings/care information may go to Concerns.
+SocHistory, FamHistory, RiskFactors or Reminders. General findings/care information may
+go to Concerns. Route all medication facts to the Medications review workflow.
 kind=review presents information for the normal chart form: destination is Medications,
 Allergies, Preventions or Demographics. It does not write those records.
 Measurements and test results are dated chart-note facts in Concerns; do not create measurement records.
 Preventions is for documented immunizations or screening, not general fall-prevention advice.
 Put safety advice, adaptations and community support in RiskFactors, SocHistory or Reminders.
-Current or discharge medications belong in Medications; preserve reported/historical,
+Current, historical or discharge medications belong in Medications; preserve reported/historical,
 stopped, inpatient-only and conflicting medication status. Allergies includes explicit none.
 kind=tickler is an explicit outstanding outpatient follow-up; destination is empty.
 Do not turn medication changes, treatment/investigation orders or inpatient monitoring into

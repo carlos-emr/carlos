@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { readConfig, createRecorder, launchBrowser, newContext, login, createSqlRunner } =
+const { readConfig, createRecorder, launchBrowser, newContext, login, createSqlRunner, withExpectedDialogs } =
   require('../../../scripts/lib/playwright-harness');
 const { openMasterRecord } = require('../../../scripts/master-record-tabs-playwright-checks');
 const { openChart } = require('../../../scripts/echart-navbar-modules-playwright-checks');
@@ -71,9 +71,11 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
         await frame.locator('.review-progress').waitFor();
         row.history = await cards.filter({ has: frame.locator('[name="destination"]') }).count();
         row.reminders = await cards.filter({ has: frame.locator('[name="dueDate"]') }).count();
+        row.nativeReviews = await cards.locator('[name="entryText"][readonly]').count();
         row.agentLabel = await frame.locator('main > p.small').innerText();
         row.defaults = [];
-        assert.equal(row.history + row.reminders, count);
+        let checkedNativeForm = false;
+        assert.equal(row.history + row.reminders + row.nativeReviews, count);
         for (let index = 0; index < count; index++) {
           const quote = await frame.locator('article.proposal:visible .proposal-evidence blockquote').textContent();
           assert(source.includes(quote));
@@ -82,13 +84,6 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
           const card = frame.locator('article.proposal:visible');
           const related = card.locator('.related-proposal-notice');
           const hasRelated = await related.count() ? await related.isVisible() : false;
-          if (/subdural hygroma/i.test(quote) && /confusion/i.test(quote) && document.sha256 === 'fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630') {
-            assert.equal(hasRelated, true, 'Overlapping impressions should be available for comparison');
-            assert(await related.locator('blockquote').count() > 0);
-            await related.locator('summary').first().click();
-            assert.match(await related.locator('blockquote').first().innerText(), /subdural hygroma/i);
-            await chart.screenshot({ path: path.join(output, 'empty-chart-related.png') });
-          }
           if (await card.locator('[name="dueDate"]').count()) {
             const dueDate = await card.locator('[name="dueDate"]').inputValue();
             row.defaults.push({ kind: 'tickler', dueDate, relatedSuggestion: hasRelated,
@@ -99,9 +94,34 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
               expected.setUTCDate(expected.getUTCDate() + days);
               assert.equal(dueDate, expected.toISOString().slice(0, 10));
             }
-          } else {
+          } else if (await card.locator('[name="destination"]').count()) {
             row.defaults.push({ kind: 'history', relatedSuggestion: hasRelated,
               destination: await card.locator('[name="destination"]').inputValue() });
+          } else {
+            const destination = await card.getAttribute('data-destination');
+            row.defaults.push({ kind: 'review', destination, relatedSuggestion: hasRelated });
+            assert.equal(await card.locator('[name="confirmed"]').count(), 0);
+            assert.equal(await card.getByRole('button', { name: 'Accept and save', exact: true }).count(), 0);
+            if (destination === 'Demographics' && !checkedNativeForm && await card.locator('.native-review-open').count()) {
+              await card.locator('.native-review-open').click();
+              const dialog = frame.locator('#native-chart-review');
+              const native = await (await dialog.locator('iframe').elementHandle()).contentFrame();
+              await native.waitForURL(url => url.pathname.includes('/demographic/'), { waitUntil: 'domcontentloaded' });
+              assert.equal(new URL(native.url()).searchParams.get('demographic_no'), String(patient));
+              await native.locator('input[name="demographic_no"]').first().waitFor({ state: 'attached' });
+              assert.equal(await native.locator('input[name="demographic_no"]').first().inputValue(), String(patient));
+              assert.equal(await dialog.locator('.native-review-source').textContent(), quote);
+              const closed = await withExpectedDialogs(chart, () => dialog.getByRole('button', { name: 'Close', exact: true }).click());
+              assert.equal(closed.length, 1);
+              assert.equal(closed[0].type, 'confirm');
+              await dialog.waitFor({ state: 'hidden' });
+              checkedNativeForm = true;
+              row.demographicFormPatientChecked = true;
+            }
+            if (['Medications', 'Allergies'].includes(destination)) {
+              assert.equal(await card.locator('.native-review-open').count(), 0);
+              assert.match(await card.innerText(), /Closing this suggestion does not save a record/);
+            }
           }
           if (index + 1 < count) await frame.getByRole('button', { name: 'Next', exact: true }).click();
         }

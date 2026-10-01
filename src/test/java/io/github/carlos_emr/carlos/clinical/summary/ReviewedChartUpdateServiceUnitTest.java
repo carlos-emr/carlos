@@ -191,7 +191,7 @@ class ReviewedChartUpdateServiceUnitTest {
         assertThatThrownBy(() -> apply(valid())).hasMessageContaining("already recorded");
         prepare("history");
         when(context.load(user, 42)).thenReturn(snapshot("fresh", "source", List.of(
-                new ChartUpdateContext.Entry("note-9", "history", annotated))));
+                new ChartUpdateContext.Entry("note-9", "history", annotated, annotated, "", "", java.util.Set.of("MedHistory")))));
         when(receipts.hasProvenance(3001, "history", 9L, 41, "Original evidence.")).thenReturn(true);
         assertThatThrownBy(() -> apply(approval("Review symptoms", "", "", "MedHistory")))
                 .hasMessageContaining("already recorded");
@@ -232,6 +232,29 @@ class ReviewedChartUpdateServiceUnitTest {
         doThrow(new IllegalStateException("editing lock")).when(receipts).requireNoteLock(user, 3001);
         assertThatThrownBy(() -> apply(approval("History", "", "", "MedHistory"))).hasMessageContaining("editing lock");
         verifyNoInteractions(ticklers, notes);
+    }
+
+    @Test void shouldCompareIdenticalText_onlyWithinTheChosenSection() {
+        prepare("history");
+        var entry = new ChartUpdateContext.Entry("note-9", "history", "Hypertension", "Hypertension", "", "", java.util.Set.of("FamHistory"));
+        when(context.load(user, 42)).thenReturn(snapshot("fresh", "source", List.of(entry)));
+        assertThatThrownBy(() -> apply(approval("Hypertension", "", "", "FamHistory"))).hasMessageContaining("already recorded");
+        var issue = new Issue();
+        issue.setId(7L); issue.setRole("doctor");
+        when(notes.getIssueByCode("MedHistory")).thenReturn(issue);
+        when(notes.saveNote(any(), any(), any(), any(), isNull(), any())).thenAnswer(call -> {
+            ((CaseManagementNote) call.getArgument(1)).setId(456L);
+            return "";
+        });
+        assertThat(apply(approval("Hypertension", "", "", "MedHistory")).target()).isEqualTo(456);
+        verify(notes).saveNote(any(), argThat(note -> note.getIssues().iterator().next().getIssue_id() == 7L), any(), any(), isNull(), any());
+    }
+
+    @Test void shouldRejectSectionWrite_whenPermissionIsRevoked() {
+        prepare("history");
+        doThrow(new SecurityException()).when(context).requireSectionWrite(user, 3001, "SocHistory");
+        assertThatThrownBy(() -> apply(approval("Lives alone", "", "", "SocHistory"))).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(receipts, ticklers, notes);
     }
 
     @Test void shouldAppendSignedHistory_withOriginalEvidence() {

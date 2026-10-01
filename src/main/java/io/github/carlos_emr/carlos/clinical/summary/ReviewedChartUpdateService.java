@@ -91,7 +91,7 @@ public class ReviewedChartUpdateService {
         }
         String text = validateText(approval.text());
         if (fresh.entries().stream().anyMatch(entry -> entry.kind().equals(proposal.kind())
-                && (history || (Objects.equals(entry.dueDate(), approval.dueDate())
+                && ((history && entry.destinations().contains(approval.destination())) || (!history && Objects.equals(entry.dueDate(), approval.dueDate())
                         && Objects.equals(entry.assignee(), approval.assignee())))
                 && matchesEntry(fresh.patientId(), entry, text))) {
             throw new IllegalStateException("Matching text is already recorded. Review the existing entry instead of adding it again.");

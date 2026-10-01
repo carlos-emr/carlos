@@ -215,12 +215,41 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> context.requireSectionWrite(user, 3001, "Allergies")).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test void shouldPreserveReadableSectionMembership_forComparisonAndFingerprint() {
+        var note = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote();
+        note.setId(7L); note.setDemographic_no("3001"); note.setSigned(true);
+        note.setNote("Hypertension"); note.setReporter_caisi_role("1");
+        var code = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
+        code.setCode("FamHistory");
+        var issue = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue();
+        issue.setIssue(code);
+        note.setIssues(new java.util.HashSet<>(java.util.Set.of(issue)));
+        when(notes.getNotes("3001")).thenReturn(List.of(note));
+        when(notes.filterNotes(eq(user), eq("101"), anyList(), eq("10016"))).thenAnswer(call -> call.getArgument(2));
+        when(security.hasPrivilege(user, "_newCasemgmt.familyHistory", "x", 3001)).thenReturn(true);
+        var snapshot = context.load(user, 42);
+        assertThat(snapshot.entries()).hasSize(1);
+        assertThat(snapshot.entries().get(0).destinations()).containsExactly("FamHistory");
+        code.setCode("SocHistory");
+        assertThat(context.load(user, 42).fingerprint()).isNotEqualTo(snapshot.fingerprint());
+        var restricted = new io.github.carlos_emr.carlos.model.security.Secobjprivilege();
+        restricted.setObjectname_code("_SocHistory$3001"); restricted.setPrivilege_code("w");
+        when(security.getSecurityObjects(user)).thenReturn(List.of(restricted));
+        assertThat(context.load(user, 42).entries()).isEmpty();
+    }
+
     @Test void shouldBuildOnlyAuthorizedPatientNativeLinks_withoutClinicalText() {
         assertThat(context.nativeReviewUrl(user, 3001, "Allergies")).isEmpty();
         when(security.hasPrivilege(user, "_allergy", "r", 3001)).thenReturn(true);
         when(security.hasPrivilege(user, "_allergy", "w", 3001)).thenReturn(true);
-        assertThat(context.nativeReviewUrl(user, 3001, "Allergies")).isEqualTo("/rx/showAllergy?demographicNo=3001");
+        assertThat(context.nativeReviewUrl(user, 3001, "Allergies")).isEmpty();
+        when(security.hasPrivilege(user, "_prevention", "r", 3001)).thenReturn(true);
+        when(security.hasPrivilege(user, "_prevention", "w", 3001)).thenReturn(true);
+        assertThat(context.nativeReviewUrl(user, 3001, "Preventions")).isEqualTo("/prevention/ViewPreventionIndex?demographic_no=3001");
         assertThat(context.nativeReviewUrl(user, 3002, "Allergies")).isEmpty();
         assertThat(context.nativeReviewUrl(user, 3001, "Measurements")).isEmpty();
+        when(security.hasPrivilege(user, "_rx", "r", 3001)).thenReturn(true);
+        when(security.hasPrivilege(user, "_rx", "w", 3001)).thenReturn(true);
+        assertThat(context.nativeReviewUrl(user, 3001, "Medications")).isEmpty();
     }
 }

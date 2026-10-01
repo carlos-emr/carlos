@@ -83,11 +83,18 @@ public class ChartUpdateContext {
         this.records = records;
     }
 
-    public record Entry(String id, String kind, String text, String entryText, String dueDate, String assignee) implements Serializable {
+    public record Entry(String id, String kind, String text, String entryText, String dueDate, String assignee,
+            java.util.Set<String> destinations) implements Serializable {
+        public Entry { destinations = java.util.Set.copyOf(destinations); }
         public Entry(String id, String kind, String text) { this(id, kind, text, text, "", ""); }
+        public Entry(String id, String kind, String text, String entryText, String dueDate, String assignee) {
+            this(id, kind, text, entryText, dueDate, assignee, java.util.Set.of());
+        }
         public String getId() { return id; }
         public String getKind() { return kind; }
         public String getText() { return text; }
+        public List<String> getDestinations() { return destinations.stream().sorted().toList(); }
+        public String getDestinationCodes() { return String.join(" ", getDestinations()); }
     }
     public record Snapshot(int documentId, int patientId, String patientLabel, String title, String date, String source,
             String sourceHash, String fingerprint, String program, String role, List<Entry> entries) {
@@ -161,11 +168,14 @@ public class ChartUpdateContext {
         var readableSections = ChartUpdateSections.CODES.stream()
                 .filter(code -> ChartUpdateSections.accessible(security, user, patient, code, "r")).collect(java.util.stream.Collectors.toSet());
         for (CaseManagementNote note : notes.filterNotes(user, user.getLoggedInProviderNo(), candidates, program)) {
-            if (note.getIssues().stream().anyMatch(issue -> issue.getIssue() != null
-                    && readableSections.contains(issue.getIssue().getCode()))) {
-                entries.add(new Entry("note-" + note.getId(), "history", note.getNote()));
+            var destinations = note.getIssues().stream().filter(issue -> issue.getIssue() != null)
+                    .map(issue -> issue.getIssue().getCode()).filter(readableSections::contains)
+                    .collect(java.util.stream.Collectors.toSet());
+            if (!destinations.isEmpty()) {
+                entries.add(new Entry("note-" + note.getId(), "history", note.getNote(), note.getNote(), "", "", destinations));
             }
         }
+
         List<Tickler> activeTicklers = ticklers.findActiveByDemographicNo(patient);
         if (activeTicklers.stream().anyMatch(tickler -> !Objects.equals(tickler.getDemographicNo(), patient))) deny();
         for (Tickler tickler : ticklerAccess.filterTicklersByAccess(activeTicklers, user.getLoggedInProviderNo(), program)) {
@@ -207,10 +217,10 @@ public class ChartUpdateContext {
         if (!ChartUpdateSections.accessible(security, user, patient, destination, "w")) deny();
     }
 
+    // Rx and allergy landing pages replace session-wide patient/stash state; do not embed them.
     public String nativeReviewUrl(LoggedInInfo user, int patient, String destination) {
         String permission = switch (destination) {
-            case "Medications" -> "_rx";
-            case "Allergies" -> "_allergy";
+
             case "Preventions" -> "_prevention";
             case "Demographics" -> "_demographic";
             default -> "";
@@ -218,9 +228,7 @@ public class ChartUpdateContext {
         if (permission.isEmpty() || !security.hasPrivilege(user, permission, "r", patient)
                 || !security.hasPrivilege(user, permission, "w", patient)) return "";
         return switch (destination) {
-            case "Medications" -> "/rx/choosePatient?demographicNo=" + patient + "&providerNo="
-                    + java.net.URLEncoder.encode(user.getLoggedInProviderNo(), java.nio.charset.StandardCharsets.UTF_8);
-            case "Allergies" -> "/rx/showAllergy?demographicNo=" + patient;
+
             case "Preventions" -> "/prevention/ViewPreventionIndex?demographic_no=" + patient;
             case "Demographics" -> "/demographic/DemographicEdit?demographic_no=" + patient;
             default -> "";

@@ -6,14 +6,15 @@
     const proposals = Array.from(document.querySelectorAll('.proposal-form'));
     let submitting = false;
     let edited = false;
+    let discarded = false;
     let workflowFrame;
     try {
         if (window.frameElement?.id === 'chart-update-workflow-frame') workflowFrame = window.frameElement;
     } catch { /* Standalone review still works when framed by another origin. */ }
     window.CarlosChartUpdateReview = {
         get busy() { return submitting; },
-        get dirty() { return edited || !!document.getElementById('native-chart-review')?.open; },
-        discard() { edited = false; },
+        get dirty() { return !discarded && (edited || !!document.getElementById('native-chart-review')?.open); },
+        discard() { edited = false; discarded = true; },
     };
     const notifyState = () => workflowFrame?.dispatchEvent(new Event('chart-update-state'));
     if (workflowFrame) {
@@ -50,6 +51,7 @@
     window.addEventListener('pageshow', () => {
         // Back/forward navigation may restore the previous document and its JavaScript state.
         submitting = false;
+        discarded = false;
         notifyState();
         document.querySelectorAll('form[aria-busy]').forEach(form => form.removeAttribute('aria-busy'));
         document.querySelectorAll('[data-idle-label]').forEach(button => { button.textContent = button.dataset.idleLabel; });

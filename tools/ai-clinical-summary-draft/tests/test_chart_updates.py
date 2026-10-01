@@ -142,7 +142,8 @@ class ChartUpdatesTest(unittest.TestCase):
         source = 'Past Medical History\n- HTN\n- Mild osteoarthritis'
         raw = {'proposals': [{'kind': 'history', 'start_id': 2, 'end_id': 3}]}
         output = updates.resolve_ranges(raw, updates.source_segments(source), source)
-        self.assertEqual(source, output['proposals'][0]['evidence'])
+        self.assertEqual(['Past Medical History\n- HTN', '- Mild osteoarthritis'],
+                         [row['evidence'] for row in output['proposals']])
 
     def test_repeated_history_is_deduplicated_without_rewriting_first_quote(self):
         source = 'History: suspected asthma.\n\nHistory:  suspected asthma.'
@@ -243,6 +244,78 @@ class ChartUpdatesTest(unittest.TestCase):
                 for i, line in lines.items() if line.strip()]
         output = updates.resolve_ranges({'proposals': rows}, lines, source)
         self.assertEqual(30, len(output['proposals']))
+
+    def test_social_support_relatives_are_kept_but_family_disease_is_not_patient_disease(self):
+        source = 'Social History\n- Lives with daughter\n\nFamily History\n- Father: asthma'
+        lines = updates.source_segments(source)
+        for destination in ('MedHistory', 'Allergies', 'Medications', 'SocHistory'):
+            raw = {'proposals': [{'destination': 'SocHistory', 'start_id': 2, 'end_id': 2},
+                                 {'destination': destination, 'start_id': 5, 'end_id': 5}]}
+            result = updates.resolve_ranges(raw, lines, source)
+            self.assertEqual(['Social History\n- Lives with daughter'], [r['evidence'] for r in result['proposals']])
+
+    def test_flat_lists_split_but_shared_conditions_and_nested_lists_stay_intact(self):
+        self.assertEqual(['Social History\n- Retired', '- Lives alone'],
+                         updates.independent_items('Social History\n- Retired\n- Lives alone'))
+        for source in ('Plan\n- If fever, call GP\n- Rest',
+                       'Plan\n- Take medicine\n  - With food\n- Call GP',
+                       'Medications before admission\n- Drug A\n- Drug B'):
+            self.assertEqual([source], updates.independent_items(source))
+
+    def test_fall_prevention_and_non_medication_care_use_chart_sections(self):
+        self.assertEqual('RiskFactors', updates.route_excerpt({'destination': 'Preventions'}, 'Falls prevention advice')['destination'])
+        self.assertEqual('Reminders', updates.route_excerpt({'destination': 'Medications'}, 'Arrange home safety review')['destination'])
+        self.assertEqual('Medications', updates.route_excerpt({'destination': 'Medications'}, 'Repeat serum Na; Drugname 50mg daily')['destination'])
+        self.assertEqual('Medications', updates.route_excerpt({'destination': 'Medications'}, 'Monitor IV medication')['destination'])
+        self.assertEqual('Preventions', updates.route_excerpt({'destination': 'Preventions'}, 'Vaccination and falls prevention')['destination'])
+
+    def test_oversized_inventory_fallback_does_not_discard_valid_selected_fact(self):
+        source = 'Social History\n' + 'long narrative ' * 200 + '\nAllergies\nNone'
+        inventory = updates.section_inventory(updates.source_segments(source))
+        self.assertEqual(['Allergies'], [r['destination'] for r in inventory])
+
+    def test_adjacent_negation_and_note_date_remain_with_selected_facts(self):
+        source = '=== Source note 1 | 2026-01-02 ===\nPatient details.\n\nMedications\n- No regular medications\n- IV paracetamol during ED stay'
+        result = updates.resolve_ranges({'proposals': [
+            {'destination': 'Demographics', 'start_id': 2, 'end_id': 2},
+            {'destination': 'Medications', 'start_id': 6, 'end_id': 6}]}, updates.source_segments(source), source)
+        self.assertEqual('=== Source note 1 | 2026-01-02 ===\nPatient details.', result['proposals'][0]['evidence'])
+        self.assertEqual('Medications\n- No regular medications\n- IV paracetamol during ED stay', result['proposals'][1]['evidence'])
+
+    def test_followup_after_conditional_discharge_does_not_lose_qualification(self):
+        source = 'Plan\n- Discharge if neurologically stable\n- Arrange outpatient follow-up'
+        result = updates.resolve_ranges({'proposals': [{'kind': 'tickler', 'start_id': 3, 'end_id': 3}]}, updates.source_segments(source), source)
+        self.assertEqual([], result['proposals'])
+
+    def test_inventory_stops_at_referral_and_system_review(self):
+        source = 'Family History\nNil significant.\nSystems Review\nNo seizures.\nImpression\nSuspected asthma.\nReferral\nDr. Example'
+        lines = updates.source_segments(source)
+        output = updates.resolve_ranges({'proposals': updates.section_inventory(lines)}, lines, source)
+        self.assertEqual(['Family History\nNil significant.', 'Impression\nSuspected asthma.'], [r['evidence'] for r in output['proposals']])
+
+    def test_heading_duplicates_are_removed_without_paraphrase_or_cross_section_matching(self):
+        rows = [{'kind': 'history', 'destination': 'Concerns', 'evidence': 'Possible asthma.'},
+                {'kind': 'history', 'destination': 'Concerns', 'evidence': 'Impression\nPossible asthma.'},
+                {'kind': 'history', 'destination': 'FamHistory', 'evidence': 'Possible asthma.'},
+                {'kind': 'history', 'destination': 'Concerns', 'evidence': 'Suspected asthma.'}]
+        self.assertEqual(rows[1:], updates.remove_heading_duplicates(rows))
+
+    def test_review_batches_keep_complete_source_and_require_all_decisions(self):
+        source = 'Source document. ' * 40
+        candidates = {str(i): {'kind': 'history', 'evidence': 'fact ' * 50 + str(i)} for i in range(20)}
+        config = dict(self.config, request_bytes=5500)
+        batches = updates.review_batches(config, source, candidates)
+        self.assertGreater(len(batches), 1)
+        seen = {}
+        for batch, payload in batches:
+            self.assertLessEqual(len(json.dumps(payload).encode()), config['request_bytes'])
+            self.assertEqual(source, json.loads(payload['messages'][1]['content'])['source'])
+            seen.update(batch)
+            with self.assertRaisesRegex(ValueError, 'Incomplete'):
+                updates.review_decisions({'decisions': []}, batch)
+        self.assertEqual(candidates, seen)
+        with self.assertRaisesRegex(ValueError, 'budget'):
+            updates.review_batches(dict(config, request_bytes=10), source, candidates)
 
     def test_gateway_route_rejects_unknown_source_before_transport(self):
         gateway = agent.Gateway(self.config, transport=lambda *_: self.fail('Network call'))

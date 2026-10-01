@@ -54,15 +54,20 @@ public final class ChartUpdatesBrowserHarness {
         int revision;
         boolean unavailable;
         boolean originalMissing;
+        boolean broad;
         int reminders;
         int histories;
         final Map<String, ChartUpdateReceipt> receipts = new HashMap<>();
         final List<ChartUpdateContext.Entry> entries = new ArrayList<>(List.of(
-                new ChartUpdateContext.Entry("note-1", "history", "Previous clinician entry: seasonal symptoms.")));
+                historyEntry("note-1", "history", "Previous clinician entry: seasonal symptoms.")));
         ChartUpdateContext.Snapshot snapshot() {
             return new ChartUpdateContext.Snapshot(42, 3001, "Patient, Synthetic", "Synthetic referral", "2026-09-28",
                     source, ChartUpdateProposals.hash(source), "revision-" + revision, "10016", "1", List.copyOf(entries));
         }
+    }
+
+    private static ChartUpdateContext.Entry historyEntry(String id, String kind, String text) {
+        return new ChartUpdateContext.Entry(id, kind, text, text, "", "", Set.of("Concerns"));
     }
 
     public static void main(String[] args) throws Exception {
@@ -128,6 +133,11 @@ public final class ChartUpdatesBrowserHarness {
                 response.getWriter().write("Readable synthetic original");
                 return;
             }
+            if (request.getPathInfo().equals("/native-form") && request.getMethod().equals("GET")) {
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().write("<!doctype html><title>Native form fixture</title><p>Patient #3001</p><input name='demographic_no' value='3001' readonly><input aria-label='Native draft'>");
+                return;
+            }
             if (request.getPathInfo().equals("/stats") && request.getMethod().equals("GET")) {
                 response.setContentType("application/json");
                 response.getWriter().write("{\"reminders\":" + fixture.reminders + ",\"histories\":"
@@ -138,20 +148,26 @@ public final class ChartUpdatesBrowserHarness {
             switch (request.getPathInfo()) {
                 case "/chart-change" -> {
                     fixture.revision++;
-                    fixture.entries.add(new ChartUpdateContext.Entry("note-external", "history", "Synthetic concurrent chart edit."));
+                    fixture.entries.add(historyEntry("note-external", "history", "Synthetic concurrent chart edit."));
+                }
+                case "/broad" -> {
+                    fixture.broad = true;
+                    fixture.source = "Social History\nLives with daughter.\nAllergies: none.\nMedications: Drug A 5 mg daily.\nImmunization: influenza given.\nHypertension";
+                    fixture.entries.add(new ChartUpdateContext.Entry("note-family-only", "history", "Hypertension", "Hypertension", "", "", Set.of("FamHistory")));
+                    fixture.revision++;
                 }
                 case "/repeat-source" -> { fixture.source += "\n" + FOLLOWUP; fixture.revision++; }
                 case "/paraphrased-chart" -> {
-                    fixture.entries.add(new ChartUpdateContext.Entry("note-paraphrase", "history",
+                    fixture.entries.add(historyEntry("note-paraphrase", "history",
                             "No asthma.\nLeft knee osteoarthritis.\nHTN"));
-                    fixture.entries.add(new ChartUpdateContext.Entry("note-markup", "history",
+                    fixture.entries.add(historyEntry("note-markup", "history",
                             "Synthetic <img src=x onerror=window.matchExecuted=true> entry"));
-                    fixture.entries.add(new ChartUpdateContext.Entry("note-family", "history", "Family history:\nHTN"));
-                    fixture.entries.add(new ChartUpdateContext.Entry("note-negated", "history", "No hypertension"));
+                    fixture.entries.add(historyEntry("note-family", "history", "Family history:\nHTN"));
+                    fixture.entries.add(historyEntry("note-negated", "history", "No hypertension"));
                     fixture.revision++;
                 }
                 case "/matching-chart" -> {
-                    fixture.entries.add(new ChartUpdateContext.Entry("note-duplicate", "history",
+                    fixture.entries.add(historyEntry("note-duplicate", "history",
                             HISTORY.toUpperCase(java.util.Locale.ROOT).replace(" ", "  \n")));
                     fixture.revision++;
                 }
@@ -213,18 +229,29 @@ public final class ChartUpdatesBrowserHarness {
                 var issue = new Issue();
                 issue.setId(7L);
                 issue.setRole("doctor");
-                when(notes.getIssueByCode(anyString())).thenReturn(issue);
+                when(notes.getIssueByCode(anyString())).thenAnswer(call -> {
+                    var selected = new Issue(); selected.setId(7L); selected.setRole("doctor"); selected.setCode(call.getArgument(0));
+                    return selected;
+                });
                 when(notes.getRoleName("101", "10016")).thenReturn("doctor");
                 when(notes.saveNote(any(), any(), any(), any(), isNull(), any())).thenAnswer(call -> {
                     CaseManagementNote note = call.getArgument(1);
                     note.setId((long) ++fixture.histories + 200);
-                    fixture.entries.add(new ChartUpdateContext.Entry("note-" + note.getId(), "history", note.getNote()));
+                    fixture.entries.add(new ChartUpdateContext.Entry("note-" + note.getId(), "history", note.getNote(), note.getNote(), "", "",
+                            Set.of(note.getIssues().iterator().next().getIssue().getCode())));
                     fixture.revision++;
                     return "";
                 });
+                when(chart.nativeReviewUrl(user, 3001, "Preventions")).thenReturn("/fixture/native-form?demographic_no=3001");
                 var generator = mock(ChartUpdateProposals.class);
                 when(generator.generate(anyString())).thenReturn(List.of(
                         new ChartUpdateProposals.Proposal("tickler", fixture.source.contains(FOLLOWUP) ? FOLLOWUP : "Plan: review in four weeks."), new ChartUpdateProposals.Proposal("history", HISTORY)));
+                if (fixture.broad) when(generator.generate(anyString())).thenReturn(List.of(
+                        new ChartUpdateProposals.Proposal("history", "Social History\nLives with daughter.", "SocHistory"),
+                        new ChartUpdateProposals.Proposal("review", "Allergies: none.", "Allergies"),
+                        new ChartUpdateProposals.Proposal("review", "Medications: Drug A 5 mg daily.", "Medications"),
+                        new ChartUpdateProposals.Proposal("review", "Immunization: influenza given.", "Preventions"),
+                        new ChartUpdateProposals.Proposal("history", "Hypertension", "MedHistory")));
                 var action = new AiChartUpdates2Action(chart,
                         new ReviewedChartUpdateService(chart, receipts, ticklers, notes, providers), providers, generator);
                 ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
