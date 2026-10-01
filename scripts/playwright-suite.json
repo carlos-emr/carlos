@@ -3192,6 +3192,22 @@
         "FORM_PRINT_NAME",
         "FORM_PRINT_TIMEOUT_MS"
       ]
+    },
+    {
+      "name": "page-script-repairs",
+      "script": "scripts/page-script-repairs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "Stores one owned PDF under DOCUMENT_DIR and turns on the test provider's edoc_browser_in_document_report preference (restored exactly), so run with EXCLUSIVE=1."
     }
   ]
 }
