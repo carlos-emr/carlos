@@ -229,6 +229,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
                     "_admin", "r"),
+            // Report by Template upload stores template SQL; POST-only after the read gate (#4133).
+            Arguments.of("io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action",
+                    "_admin", "r"),
             // --- signature ---
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
                     "_con", "w"),
@@ -348,6 +351,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Report by Template editor (#4133): the bare page permits GET; action=add|edit|delete
+        // must be a POST. Covered by ManageTemplates2ActionUnitTest.
+        "io.github.carlos_emr.carlos.report.reportByTemplate.actions.ManageTemplates2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // Lab display settings (#3977): the view permits GET; dboperation=Save must be a POST.
         // Covered by LabDisplaySettings2ActionUnitTest.

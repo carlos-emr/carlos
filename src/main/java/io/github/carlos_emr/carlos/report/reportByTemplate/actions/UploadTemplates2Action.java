@@ -82,6 +82,20 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_admin or _report)");
         }
+        // An upload stores SQL that later runs against the clinical database, so it is a
+        // write: POST only, and the same _report write ReportManager enforces when it saves.
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (IOException e) {
+                MiscUtils.getLogger().warn("Could not send 405 for template upload", e);
+            }
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
 
         String action = request.getParameter("action");
         String message = "Error: Improper request - Action param missing";
@@ -109,9 +123,11 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
             message = "Error: No file uploaded";
         }
         ReportManager reportManager = new ReportManager();
-        if (action.equals("add")) {
+        // An empty xml means nothing readable was uploaded: keep the message set above instead
+        // of handing an empty document to the parser.
+        if (!xml.isEmpty() && "add".equals(action)) {
             message = reportManager.addTemplate(null, xml, loggedInInfo);
-        } else if (action.equals("edit")) {
+        } else if (!xml.isEmpty() && "edit".equals(action)) {
             String templateId = request.getParameter("templateid");
             message = reportManager.updateTemplate(null, templateId, xml, loggedInInfo);
         }
