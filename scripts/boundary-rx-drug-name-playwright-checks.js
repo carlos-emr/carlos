@@ -52,7 +52,7 @@ async function workflow(s) {
         for (const list of ['pageErrors', 'consoleIssues', 'requestFailures', 'badResponses']) {
           h.assert((s.recorder[list] || []).length === 0, `The product search recorded ${list}: ${JSON.stringify(s.recorder[list]).slice(0, 300)}`);
         }
-        const searchedBody = await searched.text().catch(() => '');
+        const searchedBody = await searched.text();
         h.assert(!searchedBody.toUpperCase().includes(item.pick.toUpperCase()),
           `The DrugRef search response lists "${item.pick}" but the autocomplete menu does not show it`);
         throw new h.SkipCheck(`DrugRef offers no "${item.pick}" for "${item.term}" on this install (offered: ${offered.join(' | ')})`);
