@@ -254,8 +254,10 @@ public interface MessageHandler {
      * {@link #getOBXEmbeddedDocumentData(int, int)} payload with the same normalisation
      * {@code getOBXResult} applies to ordinary results (trimmed, HL7 {@code \.br\} turned into
      * the {@code <br />} marker described on this interface), so views render it with the
-     * {@code htmlWithBreakMarkers} context. When ED.5 is empty this is the handler's own
-     * {@link #getOBXResult(int, int)}, already normalised.
+     * {@code htmlWithBreakMarkers} context. When ED.5 is empty, or
+     * {@link #getOBXDocumentEncoding(int, int)} is not {@code A} (an encoded document is never
+     * shown as text), this is the handler's own {@link #getOBXResult(int, int)}, already
+     * normalised.
      *
      * @param i the OBR group index
      * @param j the OBX index within the group

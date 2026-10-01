@@ -29,7 +29,9 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -76,18 +78,18 @@ class EmbeddedDocumentHandlersUnitTest extends CarlosUnitTestBase {
 
     static Stream<Arguments> handlers() {
         return Stream.of(
-                Arguments.of("AlphaHandler", (Supplier<MessageHandler>) AlphaHandler::new, "2.3"),
-                Arguments.of("BioTestHandler", (Supplier<MessageHandler>) BioTestHandler::new, "2.3"),
-                Arguments.of("CDLHandler", (Supplier<MessageHandler>) CDLHandler::new, "2.3"),
-                Arguments.of("CLSHandler", (Supplier<MessageHandler>) CLSHandler::new, "2.3"),
-                Arguments.of("CMLHandler", (Supplier<MessageHandler>) CMLHandler::new, "2.3"),
-                Arguments.of("ExcellerisOntarioHandler", (Supplier<MessageHandler>) ExcellerisOntarioHandler::new, "2.3.1"),
-                Arguments.of("GDMLHandler", (Supplier<MessageHandler>) GDMLHandler::new, "2.3"),
-                Arguments.of("HHSEmrDownloadHandler", (Supplier<MessageHandler>) HHSEmrDownloadHandler::new, "2.3"),
-                Arguments.of("MDSHandler", (Supplier<MessageHandler>) MDSHandler::new, "2.3"),
-                Arguments.of("MEDITECHHandler", (Supplier<MessageHandler>) MEDITECHHandler::new, "2.3"),
-                Arguments.of("SpireHandler", (Supplier<MessageHandler>) SpireHandler::new, "2.3"),
-                Arguments.of("TRUENORTHHandler", (Supplier<MessageHandler>) TRUENORTHHandler::new, "2.3"));
+                Arguments.of(Named.of("AlphaHandler", (Supplier<MessageHandler>) AlphaHandler::new), "2.3"),
+                Arguments.of(Named.of("BioTestHandler", (Supplier<MessageHandler>) BioTestHandler::new), "2.3"),
+                Arguments.of(Named.of("CDLHandler", (Supplier<MessageHandler>) CDLHandler::new), "2.3"),
+                Arguments.of(Named.of("CLSHandler", (Supplier<MessageHandler>) CLSHandler::new), "2.3"),
+                Arguments.of(Named.of("CMLHandler", (Supplier<MessageHandler>) CMLHandler::new), "2.3"),
+                Arguments.of(Named.of("ExcellerisOntarioHandler", (Supplier<MessageHandler>) ExcellerisOntarioHandler::new), "2.3.1"),
+                Arguments.of(Named.of("GDMLHandler", (Supplier<MessageHandler>) GDMLHandler::new), "2.3"),
+                Arguments.of(Named.of("HHSEmrDownloadHandler", (Supplier<MessageHandler>) HHSEmrDownloadHandler::new), "2.3"),
+                Arguments.of(Named.of("MDSHandler", (Supplier<MessageHandler>) MDSHandler::new), "2.3"),
+                Arguments.of(Named.of("MEDITECHHandler", (Supplier<MessageHandler>) MEDITECHHandler::new), "2.3"),
+                Arguments.of(Named.of("SpireHandler", (Supplier<MessageHandler>) SpireHandler::new), "2.3"),
+                Arguments.of(Named.of("TRUENORTHHandler", (Supplier<MessageHandler>) TRUENORTHHandler::new), "2.3"));
     }
 
     private static MessageHandler init(Supplier<MessageHandler> factory, String version, String obx) throws Exception {
@@ -99,7 +101,7 @@ class EmbeddedDocumentHandlersUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest(name = "{0}")
     @MethodSource("handlers")
     @DisplayName("should return ED.5 and ED.4 and classify the PDF for a standards-compliant ED value")
-    void shouldReadDataComponent_forStandardEdValue(String name, Supplier<MessageHandler> factory, String version) throws Exception {
+    void shouldReadDataComponent_forStandardEdValue(Supplier<MessageHandler> factory, String version) throws Exception {
         MessageHandler handler = init(factory, version,
                 "OBX|2|ED|RPT^Report||^TEXT^PDF^Base64^" + PDF_BASE64 + "||||||F|||20261001100000");
 
@@ -116,7 +118,7 @@ class EmbeddedDocumentHandlersUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest(name = "{0}")
     @MethodSource("handlers")
     @DisplayName("should return a text ED.5 with HL7 line breaks as markers, and the raw value as data")
-    void shouldNormaliseLineBreaks_forTextEdValue(String name, Supplier<MessageHandler> factory, String version) throws Exception {
+    void shouldNormaliseLineBreaks_forTextEdValue(Supplier<MessageHandler> factory, String version) throws Exception {
         MessageHandler handler = init(factory, version,
                 "OBX|2|ED|RPT^Report||^TEXT^PLAIN^A^Line one\\.br\\Line two ||||||F|||20261001100000");
 
@@ -133,7 +135,7 @@ class EmbeddedDocumentHandlersUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest(name = "{0}")
     @MethodSource("handlers")
     @DisplayName("should leave an ordinary result untouched")
-    void shouldReturnResult_forNonEdObservation(String name, Supplier<MessageHandler> factory, String version) throws Exception {
+    void shouldReturnResult_forNonEdObservation(Supplier<MessageHandler> factory, String version) throws Exception {
         MessageHandler handler = init(factory, version,
                 "OBX|2|ED|RPT^Report||^TEXT^PDF^Base64^" + PDF_BASE64 + "||||||F|||20261001100000");
 
@@ -141,5 +143,16 @@ class EmbeddedDocumentHandlersUnitTest extends CarlosUnitTestBase {
         assertThat(handler.getOBXEmbeddedDocumentData(0, 0)).isEqualTo(handler.getOBXResult(0, 0));
         assertThat(handler.getOBXEmbeddedDocumentText(0, 0)).isEqualTo(handler.getOBXResult(0, 0));
         assertThat(handler.getOBXDocumentEncoding(0, 0)).isNull();
+    }
+
+    @Test
+    @DisplayName("should label Excelleris ED text with its OBX-4 sub-ID and normalise its line breaks")
+    void shouldPrefixSubIdToNormalisedText_forExcellerisEdText() throws Exception {
+        ExcellerisOntarioHandler handler = new ExcellerisOntarioHandler();
+        handler.init(message("GENLAB", "2.3.1",
+                "OBX|2|ED|RPT^Report|C|^TEXT^PLAIN^A^Line one\\.br\\Line two ||||||F|||20261001100000"));
+
+        assertThat(handler.getOBXSubId(0, 1)).isEqualTo("C");
+        assertThat(handler.getOBXSubIdWithEmbeddedDocumentText(0, 1)).isEqualTo("C) Line one<br />Line two");
     }
 }

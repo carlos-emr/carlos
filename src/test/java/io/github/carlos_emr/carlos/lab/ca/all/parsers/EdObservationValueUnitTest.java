@@ -116,6 +116,17 @@ class EdObservationValueUnitTest {
     }
 
     @Test
+    @DisplayName("should never return an encoded ED.5 document as display text")
+    void shouldNotReturnPayloadAsText_forBase64EdValue() throws Exception {
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^TEXT^PDF^Base64^" + PDF_BASE64 + "||||||F|||20260930100000");
+
+        assertThat(handler.getOBXEmbeddedDocumentData(0, 1)).isEqualTo(PDF_BASE64);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1))
+                .doesNotContain(PDF_BASE64)
+                .isEqualTo(handler.getOBXResult(0, 1));
+    }
+
+    @Test
     @DisplayName("should keep the OBX-5.1 payload when ED.5 is empty")
     void shouldFallBackToResult_whenDataComponentIsEmpty() throws Exception {
         DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||" + PDF_BASE64 + "||||||F|||20260930100000");

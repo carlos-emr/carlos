@@ -122,14 +122,27 @@ class LabDisplayJspRegressionTest {
                 .contains("title=\"<carlos:encode value=\"${labEmbeddedPdfFrameTitle}\" context=\"htmlAttribute\"/>\"")
                 .contains("<carlos:encode value=\"${labEmbeddedPdfTooLarge}\"/>")
                 .contains("<carlos:encode value=\"${labEmbeddedPdfPreview}\"/>")
-                .contains("<carlos:encode value=\"${labEmbeddedPdfFallback}\"/>")
-                // Every message is resolved into a variable, never written straight into the page.
-                .doesNotContainPattern("<fmt:message key=\"[^\"]+\"\\s*/>");
+                .contains("<carlos:encode value=\"${labEmbeddedPdfFallback}\"/>");
+        // Every message is resolved into a variable, never written straight into the page, in
+        // either the self-closing or the block (<fmt:param>) form.
+        assertThat(fmtMessagesWithoutVar(fragment)).isEmpty();
         // An over-limit PDF shows a note, not a frame, so it must not use up an expanded slot.
         int tooLargeBranch = fragment.indexOf("EmbeddedLabDocumentLoader.Status.TOO_LARGE");
         int frameBranch = fragment.indexOf("<% } else {", tooLargeBranch);
         assertThat(fragment.indexOf("labPdfPreviewCount++")).isGreaterThan(frameBranch);
         assertThat(frameBranch).isGreaterThan(tooLargeBranch);
+    }
+
+    @Test
+    @DisplayName("should flag every fmt:message without var, whatever its form or attribute order")
+    void shouldFlagFmtMessageWithoutVar_inEitherForm() {
+        assertThat(fmtMessagesWithoutVar("<fmt:message key=\"a\"/>")).hasSize(1);
+        assertThat(fmtMessagesWithoutVar("<fmt:message key=\"a\"><fmt:param value=\"1\"/></fmt:message>")).hasSize(1);
+        assertThat(fmtMessagesWithoutVar("<fmt:message\n    key=\"a\" bundle=\"${b}\">x</fmt:message>")).hasSize(1);
+        assertThat(fmtMessagesWithoutVar("<fmt:message key=\"a\" var=\"v\"/>")).isEmpty();
+        assertThat(fmtMessagesWithoutVar("<fmt:message var=\"v\" key=\"a\"><fmt:param value=\"1\"/></fmt:message>")).isEmpty();
+        // A closing tag or another tag with a similar prefix is not a message.
+        assertThat(fmtMessagesWithoutVar("</fmt:message><fmt:messageFormat key=\"a\"/>")).isEmpty();
     }
 
     @Test
@@ -228,6 +241,21 @@ class LabDisplayJspRegressionTest {
                 .contains("<em class=\"lab-embedded-document-unsupported\"><fmt:message key=\"lab.embeddedPdf.notPdf\"/></em>")
                 .doesNotContain("handler.getMsgType().equals(\"ExcellerisON\") || handler.getMsgType().equals(\"PATHL7\")) && handler.getOBXValueType(j, k).equals(\"ED\")")
                 .doesNotContain("&legacy=true");
+    }
+
+    private static final Pattern FMT_MESSAGE_START_TAG = Pattern.compile("<fmt:message(?=[\\s/>])[^>]*>");
+    private static final Pattern VAR_ATTRIBUTE = Pattern.compile("\\svar\\s*=");
+
+    /** Every {@code <fmt:message>} start or self-closing tag that has no {@code var} attribute. */
+    private static List<String> fmtMessagesWithoutVar(String jsp) {
+        Matcher matcher = FMT_MESSAGE_START_TAG.matcher(jsp);
+        List<String> tags = new ArrayList<>();
+        while (matcher.find()) {
+            if (!VAR_ATTRIBUTE.matcher(matcher.group()).find()) {
+                tags.add(matcher.group());
+            }
+        }
+        return tags;
     }
 
     private static List<String> ackLabFuncEncodeContexts(String jsp) {
