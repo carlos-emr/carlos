@@ -99,6 +99,8 @@ async function workflow(s) {
 
   await s.step('the old measurement index from history lists both stored types', async () => {
     const index = await s.popup(history, history.locator('input[onclick*="SetupHistoryIndex"]'), 'vitals-index');
+    await index.waitForLoadState('networkidle').catch(() => {});
+    console.log(index.url(), (await index.locator('body').innerText()).slice(0, 800));
     for (const type of Object.keys(VALUES)) {
       await index.locator('#measurementsHistoryTbl tbody tr').filter({ hasText: new RegExp(`^${type}\\b`) }).first()
         .waitFor({ state: 'visible' });

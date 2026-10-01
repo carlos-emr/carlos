@@ -256,7 +256,8 @@
     "test:dashboard-display-playwright": "node scripts/dashboard-display-playwright-checks.js",
     "test:measurement-group-entry-playwright": "node scripts/measurement-group-entry-playwright-checks.js",
     "test:report-by-template-groups-playwright": "node scripts/report-by-template-groups-playwright-checks.js",
-    "test:report-cdm-playwright": "node scripts/report-cdm-playwright-checks.js"
+    "test:report-cdm-playwright": "node scripts/report-cdm-playwright-checks.js",
+    "test:hrm-report-print-download-playwright": "node scripts/hrm-report-print-download-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

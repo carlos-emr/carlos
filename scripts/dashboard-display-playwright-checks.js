@@ -153,7 +153,7 @@ async function workflow(s) {
         recorder.consoleIssues.splice(i, 1);
       }
     }
-    defects.push(description);
+    if (description) defects.push(description);
     return true;
   }
   function deferConsole(label, pattern, description) {
@@ -242,47 +242,60 @@ async function workflow(s) {
 
   const ticklers = id => `SELECT COUNT(*) FROM tickler WHERE demographic_no=${id} AND message LIKE ${h.sqlString(`%${marker} recall%`)}
     AND status='A' AND priority='High' AND task_assigned_to=${P} AND creator=${P}`;
-  await s.step('Assign Tickler writes one tickler per checked owned patient and none for the unchecked one', async () => {
+  let ticklerForm = null;
+  await s.step('Actions > Assign Tickler requests the tickler form for exactly the checked owned patients', async () => {
     for (const id of [alpha, bravo]) await dashboard.locator(`input.patientChecked[id="${id}"]`).check();
     await dashboard.locator('#actionMenuLink').click();
-    await dashboard.locator('#assignTicklerChecked').click();
+    const [request] = await Promise.all([
+      dashboard.waitForRequest(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname) && r.method() === 'POST'),
+      dashboard.locator('#assignTicklerChecked').click(),
+    ]);
+    h.assert(new URLSearchParams(request.postData() || '').get('demographics') === `${alpha},${bravo}`,
+      'The tickler form request does not carry exactly the checked patients');
     const modal = dashboard.locator('#assignTickler');
     await modal.waitFor({ state: 'visible' });
     const form = modal.locator('#ticklerAddForm');
-    if (!await form.waitFor({ timeout: 5000 }).then(() => true, () => false)) {
-      // Each cause seen is recorded; at least one must explain the missing form.
-      const doubled = deferFailure('dashboard-display', /\/carlos\/carlos\/web\/dashboard\/display\/AssignTickler/, 404,
-        'Drilldown > Actions > Assign Tickler answers HTTP 404: the link href already carries the context path and sendData() prepends ctx again (/carlos/carlos/web/dashboard/display/AssignTickler)');
-      if (doubled) deferConsole('dashboard-display', /^Drilldown request failed/, 'the failed Assign Tickler request is logged as a console error');
-      const purify = deferConsole('dashboard-display', /DOMPurify is required/,
-        'Drilldown > Actions > Assign Tickler shows "Unable to display content safely": DrilldownDisplay.jsp does not load DOMPurify');
-      h.assert(doubled || purify, 'The Assign Tickler dialog showed no tickler form');
-      await modal.locator('.modal-footer button', { hasText: 'Close' }).click();
-      await modal.waitFor({ state: 'hidden' });
+    if (await form.waitFor({ timeout: 5000 }).then(() => true, () => false)) {
+      ticklerForm = form;
       return;
     }
-    h.assert(await form.locator('input[name="demographics"]').inputValue() === `${alpha},${bravo}`,
-      'The tickler form does not carry exactly the checked patients');
-    await form.locator('select[name="ticklerCategoryId"]').selectOption({ index: 0 });
-    await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
-    await form.locator('select[name="priority"]').selectOption('High');
-    await form.locator('input[name="serviceDate"]').fill('12-31-2030');
-    await form.locator('input[name="serviceTime"]').fill('10:30 AM');
-    await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
-    const [response] = await Promise.all([
-      dashboard.waitForResponse(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST'),
-      modal.locator('#saveTicklerBtn').click(),
-    ]);
-    h.assert((await response.json()).success === 'true', 'Assign Tickler did not acknowledge the save');
-    for (const id of [alpha, bravo]) await expectValue(sql, ticklers(id), '1', 'A checked patient did not receive exactly one tickler');
-    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`) === '0', 'The unchecked patient received a tickler');
-    h.assert(sql.value(`SELECT DATE_FORMAT(service_date,'%Y-%m-%d %H:%i') FROM tickler WHERE demographic_no=${alpha}`) === '2030-12-31 10:30',
-      'The tickler service date/time was not stored as entered');
+    // Each cause seen is recorded; at least one must explain the missing form.
+    const doubled = deferFailure('dashboard-display', /\/carlos\/carlos\/web\/dashboard\/display\/AssignTickler/, 404,
+      'Drilldown > Actions > Assign Tickler answers HTTP 404 and shows "Request failed": the link href already carries the context path and drilldownDisplayController.js sendData() prepends ctx again');
+    if (doubled) deferConsole('dashboard-display', /^Drilldown request failed/, null);
+    const purify = deferConsole('dashboard-display', /DOMPurify is required/,
+      'Drilldown > Actions > Assign Tickler shows "Unable to display content safely": DrilldownDisplay.jsp does not load DOMPurify');
+    h.assert(doubled || purify, 'The Assign Tickler dialog showed no tickler form');
+    await modal.locator('.modal-footer button', { hasText: 'Close' }).click();
+    await modal.waitFor({ state: 'hidden' });
   });
+
+  if (ticklerForm) {
+    await s.step('Assign Tickler saves one tickler per checked owned patient and none for the unchecked one', async () => {
+      const form = ticklerForm;
+      h.assert(await form.locator('input[name="demographics"]').inputValue() === `${alpha},${bravo}`,
+        'The tickler form does not carry exactly the checked patients');
+      await form.locator('select[name="ticklerCategoryId"]').selectOption({ index: 0 });
+      await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
+      await form.locator('select[name="priority"]').selectOption('High');
+      await form.locator('input[name="serviceDate"]').fill('12-31-2030');
+      await form.locator('input[name="serviceTime"]').fill('10:30 AM');
+      await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
+      const [response] = await Promise.all([
+        dashboard.waitForResponse(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST'),
+        dashboard.locator('#saveTicklerBtn').click(),
+      ]);
+      h.assert((await response.json()).success === 'true', 'Assign Tickler did not acknowledge the save');
+      for (const id of [alpha, bravo]) await expectValue(sql, ticklers(id), '1', 'A checked patient did not receive exactly one tickler');
+      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`) === '0', 'The unchecked patient received a tickler');
+      h.assert(sql.value(`SELECT DATE_FORMAT(service_date,'%Y-%m-%d %H:%i') FROM tickler WHERE demographic_no=${alpha}`) === '2030-12-31 10:30',
+        'The tickler service date/time was not stored as entered');
+    });
+  }
 
   const dxRows = id => `SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${id} AND dxresearch_code='${DX_CODE}'
     AND coding_system='icd9' AND status='A' AND providerNo=${P}`;
-  await s.step('Add To Disease Registry shows the ICD9 code and registers only the checked owned patients', async () => {
+  await s.step('Add To Disease Registry confirms ICD9 250 and its stored description; the unchecked patient stays unregistered', async () => {
     await dashboard.locator('#actionMenuLink').click();
     await dashboard.locator('#addToDiseaseRegistryChecked').click();
     const modal = dashboard.locator('#modalConfirmAddToDiseaseRegistry');
@@ -291,12 +304,11 @@ async function workflow(s) {
     h.assert((await modal.locator('#icd9description').innerText()).trim()
       === sql.value(`SELECT description FROM icd9 WHERE icd9='${DX_CODE}'`), 'The confirmation shows the wrong ICD9 description');
     await modal.locator('#confirmAddToDiseaseRegistry').click();
-    await modal.waitFor({ state: 'hidden' }).catch(() => {});
-    const saved = await eventually(`SELECT (${dxRows(alpha)})+(${dxRows(bravo)})`, '2');
-    if (!saved) {
-      deferFailure('dashboard-display', /DrilldownDisplay/, 500, 'Confirm posted to the drilldown page instead of BulkPatientAction');
-      defects.push('Drilldown > Actions > Add To Disease Registry > Confirm wrote no dxresearch rows: drilldownDisplayController.js posts to $(this).attr("href"), which the <button> does not have');
+    if (!await eventually(`SELECT (${dxRows(alpha)})+(${dxRows(bravo)})`, '2')) {
+      deferFailure('dashboard-display', /\/web\/dashboard\/display\/DrilldownDisplay$/, 500, null);
+      defects.push('Drilldown > Actions > Add To Disease Registry > Confirm writes no dxresearch rows: drilldownDisplayController.js posts to $(this).attr("href"), which the <button> lacks, so the XHR goes to DrilldownDisplay (HTTP 500)');
       if (await modal.isVisible()) await modal.locator('.modal-footer button', { hasText: 'Cancel' }).click();
+      await modal.waitFor({ state: 'hidden' });
     }
     h.assert(sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${charlie}`) === '0', 'The unchecked patient was registered');
   });
@@ -307,20 +319,20 @@ async function workflow(s) {
     h.assert((await dashboard.locator('.dashboardHeading h2').innerText()).trim() === marker, 'Back did not return to the owned dashboard');
   });
 
-  await s.step('the bulk mutators refuse GET for an owned patient', async () => {
-    const get = path => ctx.request.get(h.appUrl(s.config.baseUrl, path), { maxRedirects: 0 });
-    const tickler = await get(`/web/dashboard/display/AssignTickler?method=saveTickler&demographics=${charlie}&ticklerCategoryId=1`
-      + `&taskAssignedTo=${fixture.providerNo}&priority=High&serviceDate=12-31-2030&serviceTime=10:30%20AM&message=&messageAppend=${encodeURIComponent(marker)}%20recall`);
-    if (sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`) !== '0') {
-      defects.push(`GET web/dashboard/display/AssignTickler?method=saveTickler created a tickler (HTTP ${tickler.status()}); a mutator must refuse GET`);
-    }
-    const dx = await get(`/web/dashboard/display/BulkPatientAction?method=addToDiseaseRegistry&dxUpdateICD9Code=${DX_CODE}&patientIds=${charlie}`);
+  await s.step('AssignTickler refuses a GET save with 405 and writes no tickler', async () => {
+    const response = await ctx.request.get(h.appUrl(s.config.baseUrl, `/web/dashboard/display/AssignTickler?method=saveTickler`
+      + `&demographics=${charlie}&ticklerCategoryId=1&taskAssignedTo=${fixture.providerNo}&priority=High&serviceDate=12-31-2030`
+      + `&serviceTime=10:30%20AM&message=&messageAppend=${encodeURIComponent(marker)}%20recall`), { maxRedirects: 0 });
+    h.assert(response.status() === 405, `GET AssignTickler saveTickler answered HTTP ${response.status()}, expected 405`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`) === '0', 'A GET save created a tickler');
+  });
+
+  await s.step('no deferred dashboard defect remains (plain-user drill down, GET-refusing BulkPatientAction)', async () => {
+    const dx = await ctx.request.get(h.appUrl(s.config.baseUrl,
+      `/web/dashboard/display/BulkPatientAction?method=addToDiseaseRegistry&dxUpdateICD9Code=${DX_CODE}&patientIds=${charlie}`), { maxRedirects: 0 });
     if (sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${charlie}`) !== '0') {
       defects.push(`GET web/dashboard/display/BulkPatientAction?method=addToDiseaseRegistry wrote a dxresearch row (HTTP ${dx.status()}); a mutator must refuse GET`);
     }
-  });
-
-  await s.step('a dashboard user without _dashboardChgUser can drill down', async () => {
     await dashboard.close();
     sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${P} AND objectName='_dashboardChgUser'`);
     const plain = await openDashboard('dashboard-plain');

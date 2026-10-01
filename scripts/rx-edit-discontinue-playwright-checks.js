@@ -246,7 +246,8 @@ async function workflow(s) {
     const warned = await h.withExpectedDialogs(rx, async () => { staged = await stageFromSearch(rx, DRUG_TERM, DRUG_NAME); });
     h.assert(warned.length === 1 && warned[0].type === 'confirm' && /discontinued .* because of doseChange/.test(warned[0].text),
       'Re-prescribing the discontinued drug did not warn with its discontinue reason');
-    await rx.locator(`#instructions_${staged}`).fill(INSTRUCTIONS);
+    // A new script for the same product starts from its last instructions: change them so they parse.
+    await rx.locator(`#instructions_${staged}`).fill('1 tab PO OD x 30 days');
     await Promise.all([rx.waitForResponse(isPost('/rx/UpdateScript')), rx.locator(`label[for="jsonDxSearch_${staged}"]`).click()]);
     await rx.locator('#saveButton').click();
     const modal = rx.frameLocator('#carlosModalBody iframe');

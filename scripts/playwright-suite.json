@@ -3653,8 +3653,13 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owns the runWorkflow patient plus a second FAKE patient (same marker surname) and marker-titled reportTemplates rows; cleanup deletes only marker rows and asserts they are gone.",
+      "notes": "Fails on 2026.08: Delete Template submits a runtime-built form without a CSRF token (403), and the WAF blocks saving a template with <param> (CRS 941160)."
     },
     {
       "name": "admin-facility-messages",
@@ -3998,13 +4003,31 @@
       "provinces": [
         "all"
       ],
+      "timeoutSec": 240,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owns one marker-titled template and one marker-named rbt_groups group; cleanup deletes only marker rows and asserts they are gone."
+    },
+    {
+      "name": "report-cdm",
+      "script": "scripts/report-cdm-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 300,
       "env": [],
       "notes": "Provisional entry: live validation in progress."
     },
     {
-      "name": "report-cdm",
-      "script": "scripts/report-cdm-playwright-checks.js",
+      "name": "hrm-report-print-download",
+      "script": "scripts/hrm-report-print-download-playwright-checks.js",
       "tiers": [
         "core"
       ],
