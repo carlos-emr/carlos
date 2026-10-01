@@ -137,6 +137,8 @@ class TicklerList2ActionUnitTest {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001")).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001")).thenReturn(true);
+        // The patient-level _edoc right passes; the document viewer's program/queue gate denies.
+        when(service.canReadDocument(loggedInInfo, 11)).thenReturn(false);
         TicklerListDTO dto = new TicklerListDTO();
         dto.setId(7);
         dto.setDemographicNo(1001);

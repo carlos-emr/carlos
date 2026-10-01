@@ -105,11 +105,11 @@ let restrictedLabGrants = null;
 
 function restoreRestrictedLabGrants() {
   if (!restrictedLabGrants) return;
-  const grants = restrictedLabGrants;
-  restrictedLabGrants = null;
-  for (const [objectName, role, privilege] of grants) {
+  // Stay pending until every grant is back, so a failed restore is retried by the outer cleanup.
+  for (const [objectName, role, privilege] of restrictedLabGrants) {
     db.execute(`UPDATE secObjPrivilege SET privilege=${sqlString(privilege)} WHERE objectName=${sqlString(objectName)} AND roleUserGroup=${sqlString(role)}`);
   }
+  restrictedLabGrants = null;
 }
 
 function restoreMovedLab() {

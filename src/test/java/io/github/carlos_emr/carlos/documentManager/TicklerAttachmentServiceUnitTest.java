@@ -710,7 +710,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should hide the identifier and name when document-level access is denied")
+        @DisplayName("should list but not name a document whose document-level access is denied")
         void shouldRedactDocument_whenProgramOrQueueReadDenied() {
             when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
             documentOwnedBy(11, DEMOGRAPHIC_NO);

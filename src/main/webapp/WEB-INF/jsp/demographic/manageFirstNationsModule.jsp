@@ -97,6 +97,12 @@
     //<!--
     document.addEventListener('DOMContentLoaded', function () {
 
+        // True once the user has explicitly chosen "--" in the community select.
+        // The blank option makes an empty community a legitimate choice, so the
+        // status-number auto-fill below must not overwrite a deliberate clear; it
+        // still fills a community that was simply never set.
+        var communityClearedByUser = false;
+
         // all that is needed is a full band number OR a Band Name/number, Family Number
         // and family position.
 
@@ -117,7 +123,9 @@
                     // has to tolerate its absence.
                     var communityField = document.getElementById('fNationCom');
                     if (communityField && !communityField.value) {
-                        communityField.value = band;
+                        if (!communityClearedByUser) {
+                            communityField.value = band;
+                        }
                     }
                     if (!document.getElementById('fNationFamilyNumber').value) {
                         document.getElementById('fNationFamilyNumber').value = family;
@@ -154,6 +162,7 @@
             communitySelect.addEventListener('change', function () {
                 var selectedOption = communitySelect.options[communitySelect.selectedIndex];
                 document.getElementById('labelfNationCom').value = selectedOption.text.trim();
+                communityClearedByUser = !communitySelect.value;
             });
         }
 

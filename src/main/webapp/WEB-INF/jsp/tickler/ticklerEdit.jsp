@@ -530,10 +530,13 @@
                     <%
                         Set<TicklerComment> tComments = t.getComments();
                         for (TicklerComment tc : tComments) {
+                            // TicklerComment.provider is @NotFound(IGNORE); an orphaned legacy comment
+                            // has a null provider and must not abort the page.
+                            Provider commentProvider = tc.getProvider();
                     %>
                     <tr class="tickler-comment-row">
                         <td style="white-space:pre-wrap;"><carlos:encode value='<%= tc.getMessage() %>' context="html"/></td>
-                        <td><carlos:encode value='<%= tc.getProvider().getLastName() %>' context="html"/>, <carlos:encode value='<%= tc.getProvider().getFirstName() %>' context="html"/></td>
+                        <td><% if (commentProvider != null) { %><carlos:encode value='<%= commentProvider.getLastName() %>' context="html"/>, <carlos:encode value='<%= commentProvider.getFirstName() %>' context="html"/><% } %></td>
                         <td><%=datetimeFormat.format(tc.getUpdateDate())%></td>
                     </tr>
                     <%}%>
