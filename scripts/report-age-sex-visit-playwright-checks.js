@@ -52,8 +52,13 @@ async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const q = h.sqlString;
   const group = `PW${marker.slice(-8)}`;
+  // The IS NULL flags ride along because mysql -B prints SQL NULL and the string
+  // 'NULL' identically; the restore branches on them, not on the parsed values.
   const reportProviders = `SELECT id,provider_no,team,status FROM reportprovider WHERE action='visitreport' ORDER BY id`;
+  const reportProviderNulls = `SELECT provider_no IS NULL,team IS NULL,status IS NULL FROM reportprovider
+    WHERE action='visitreport' ORDER BY id`;
   const originalReportProviders = sql.rows(reportProviders);
+  const originalNulls = sql.rows(reportProviderNulls);
   let insidePatient;
   let appointment;
   const headers = [];
@@ -65,14 +70,14 @@ async function workflow(s) {
     if (headers.length) sql.execute(`DELETE FROM billing_on_cheader1 WHERE id IN (${headers.join(',')}) AND demographic_name=${q(marker)}`);
     if (appointment) sql.execute(`DELETE FROM appointment WHERE appointment_no=${appointment} AND name=${q(marker)}`);
     const statements = [`DELETE FROM reportprovider WHERE action='visitreport'`];
-    // Restore the exact rows: original ids, and SQL NULL where the snapshot read NULL
-    // (the runner returns NULL as JS null, which q() would write as the text 'null').
-    const literal = (value) => (value === null ? 'NULL' : q(value));
-    for (const [id, providerNo, team, status] of originalReportProviders) {
-      statements.push(`INSERT INTO reportprovider(id,provider_no,team,action,status) VALUES (${Number(id)},${literal(providerNo)},${literal(team)},'visitreport',${literal(status)})`);
-    }
+    // Restore the exact rows: original ids, and SQL NULL only where the column was NULL.
+    originalReportProviders.forEach(([id, ...columns], row) => {
+      const [providerNo, team, status] = columns.map((value, column) => (originalNulls[row][column] === '1' ? 'NULL' : q(value)));
+      statements.push(`INSERT INTO reportprovider(id,provider_no,team,action,status) VALUES (${Number(id)},${providerNo},${team},'visitreport',${status})`);
+    });
     sql.execute(`START TRANSACTION;${statements.join(';')};COMMIT`);
-    h.assert(JSON.stringify(sql.rows(reportProviders)) === JSON.stringify(originalReportProviders),
+    h.assert(JSON.stringify(sql.rows(reportProviders)) === JSON.stringify(originalReportProviders)
+      && JSON.stringify(sql.rows(reportProviderNulls)) === JSON.stringify(originalNulls),
       'The visit-report provider list was not restored');
     sql.execute(`DELETE FROM mygroup WHERE mygroup_no=${q(group)} AND provider_no=${q(provider)}`);
     const owned = [patient, insidePatient].filter(Boolean);

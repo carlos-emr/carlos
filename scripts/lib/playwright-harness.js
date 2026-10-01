@@ -925,10 +925,15 @@ async function login(context, config, recorder, options = {}) {
       // six-digit auto-submit lands, so the loop would type the code a second time.
       const landed = page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame(), timeout: 30000 });
       landed.catch(() => {});
-      await page.locator(MFA_CODE_INPUT).first().fill(code);
-      // The page submits its own form once six digits are typed; press Verify only
-      // when that did not happen, so the one-time challenge is never posted twice.
-      if (!/^\d{6}$/.test(code)) await page.locator('#verifyButton, input[type="submit"], button[type="submit"]').first().click();
+      const codeInput = page.locator(MFA_CODE_INPUT).first();
+      // Only mfa_otp_handler.jsp's #otpInput submits its own form once six digits
+      // are typed; any other code field (and a code that is not six digits) needs
+      // Verify pressed. Never both, so the one-time challenge is posted once.
+      const autoSubmits = await codeInput.evaluate(input => input.id === 'otpInput');
+      await codeInput.fill(code);
+      if (!autoSubmits || !/^\d{6}$/.test(code)) {
+        await page.locator('#verifyButton, input[type="submit"], button[type="submit"]').first().click();
+      }
       await landed;
       await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});

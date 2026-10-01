@@ -153,7 +153,14 @@ async function workflow(s) {
   });
 
   await s.step('ClientImage refuses a GET deleteImage and keeps the stored photo', async () => {
-    const response = await s.context.request.get(`${s.config.baseUrl}/ClientImage?method=deleteImage`,
+    // ClientImage takes no patient parameter: Clear Photo posts only method=deleteImage and the
+    // action deletes the photo of the session's clientId, which the manager page binds from its
+    // demographicNo. Open (and cancel) the manager for the owned patient first so this GET, sent
+    // with the same session cookies, targets exactly the photo the real form would delete.
+    const manager = await openManager();
+    await manager.locator('button.btn-secondary', { hasText: 'Cancel' }).click();
+    if (!manager.isClosed()) await manager.waitForEvent('close');
+    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/ClientImage?method=deleteImage'),
       { maxRedirects: 0, failOnStatusCode: false });
     const status = response.status();
     await response.dispose();

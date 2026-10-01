@@ -86,7 +86,10 @@ async function workflow(s) {
   let dashboardId;
   let indicatorId;
   s.cleanup(() => {
-    const P = h.sqlString(fixture.providerNo || '');
+    // fixture.create() failed before choosing a provider number: nothing below
+    // was created, and an empty provider_no/roleUserGroup would match shared rows.
+    if (!fixture.providerNo) return;
+    const P = h.sqlString(fixture.providerNo);
     const owned = patients.length ? patients.join(',') : '0';
     const ownedMessages = `SELECT message FROM messagelisttbl WHERE provider_no=${P}`;
     sql.execute([

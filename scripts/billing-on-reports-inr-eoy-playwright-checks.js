@@ -15,7 +15,9 @@
  * the L report render (ES.xsl 404) and the INR update form (405 to its own GET opener).
  * Fixtures: runWorkflow FAKE- patient, a FAKE- billable provider + reportprovider row, a billinginr
  * row, four seeded claims, the uploaded L file (DOCUMENT_DIR + ONEDT_INBOX); all removed and
- * re-checked in cleanup. Implements coverage-plan billing-on-reports-inr-eoy.
+ * re-checked in cleanup. Without pdftotext or the MOH inbox only the PDF / L-report step is
+ * reported SKIP; the rest still runs and the check then ends SKIP, never PASS.
+ * Implements coverage-plan billing-on-reports-inr-eoy.
  */
 
 const fs = require('node:fs');
@@ -45,6 +47,15 @@ function unusedProviderNo(sql) {
       + (SELECT COUNT(*) FROM billinginr WHERE provider_no=${h.sqlString(candidate)})`) === '0') return candidate;
   }
   throw new Error('No unused provider number was found');
+}
+
+function pdftotextMissing() {
+  try {
+    execFileSync('pdftotext', ['-v'], { stdio: 'pipe', timeout: 5000 });
+    return false;
+  } catch (error) {
+    return Boolean(error && error.code === 'ENOENT');
+  }
 }
 
 async function openAdminFrame(admin, rel, ready) {
@@ -85,18 +96,25 @@ async function workflow(s) {
     AND billingservice_date<=CURDATE() ORDER BY billingservice_date DESC LIMIT 1`);
   const inrFee = fee(INR_CODE);
   if (!/^\d+\.\d{2}$/.test(inrFee)) throw new h.SkipCheck(`${INR_CODE} has no Ontario fee`);
-  try { execFileSync('pdftotext', ['-v'], { stdio: 'pipe', timeout: 5000 }); } catch {
-    throw new h.SkipCheck('The year-end statement PDF check requires Poppler pdftotext');
-  }
-
+  // Tool and folder prerequisites gate only the step that needs them (optionalStep below),
+  // so a missing pdftotext or MOH inbox does not hide the other steps' results.
+  const pdfSkip = pdftotextMissing() ? 'Poppler pdftotext (poppler-utils) is not installed' : '';
   const inbox = process.env.ONEDT_INBOX
     || (process.env.DOCUMENT_DIR ? path.join(path.dirname(path.resolve(process.env.DOCUMENT_DIR)), 'onEDTDocs', 'inbox') : '');
-  if (!inbox || !fs.existsSync(inbox)) throw new h.SkipCheck('ONEDT_INBOX (the MOH inbox folder) is not set');
+  const inboxSkip = inbox && fs.existsSync(inbox) ? '' : 'ONEDT_INBOX (the MOH inbox folder) is not set or does not exist';
   const mohName = `L${marker.replace(/^FAKE-PW/, '')}.xml`;
+  const skipped = [];
+  /** Run a step, or report it as SKIP (never PASS) when its prerequisite is missing. */
+  async function optionalStep(label, skipReason, body) {
+    if (!skipReason) return s.step(label, body);
+    skipped.push(label);
+    console.log(`  SKIP billing-on-reports-inr-eoy: ${label} -- ${skipReason}`);
+    return undefined;
+  }
 
   s.cleanup(() => {
     // The upload stores the report in DOCUMENT_DIR and copies it into the MOH inbox.
-    const copies = [path.join(inbox, mohName), path.join(process.env.DOCUMENT_DIR || inbox, mohName)];
+    const copies = [inbox, process.env.DOCUMENT_DIR].filter(Boolean).map(dir => path.join(dir, mohName));
     for (const copy of copies) fs.rmSync(copy, { force: true });
     h.assert(copies.every(copy => !fs.existsSync(copy)), 'The owned MOH report files were not removed');
     const headers = sql.rows(`SELECT id FROM billing_on_cheader1 WHERE demographic_no=${patient}`).map(r => r[0]);
@@ -290,7 +308,7 @@ async function workflow(s) {
     }
   });
 
-  await s.step('Print PDF downloads a PDF carrying the same invoices and totals', async () => {
+  await optionalStep('Print PDF downloads a PDF carrying the same invoices and totals', pdfSkip, async () => {
     const downloaded = admin.waitForEvent('download', { timeout: 30000 });
     downloaded.catch(() => {});
     const [answer] = await Promise.all([
@@ -317,18 +335,19 @@ async function workflow(s) {
     h.assert(text.includes(invoiced) && text.includes(paid), 'The PDF does not carry the invoiced and paid totals');
   });
 
-  await s.step('Upload MOH File ▸ an L (outside use) report opens in billingLreport through its XSL', async () => {
-    const upload = await openAdminFrame(admin, '/billing/CA/ON/BillingONUpload', 'input[type="file"][name="file1"]');
-    await upload.locator('input[name="file1"]').setInputFiles({ name: mohName, mimeType: 'text/xml', buffer: Buffer.from(
-      `<?xml version="1.0"?><REPORT><REPORT-DTL><REPORT-NAME>${marker} EDT REPORT</REPORT-NAME>`
-      + `<REPORT-ID>${ids.ohip}</REPORT-ID><REPORT-DATE>${today}</REPORT-DATE></REPORT-DTL></REPORT>\n`) });
-    await frameNavigation(admin, upload, () => upload.locator('input[type="submit"][value="Create Report"]').click());
-    h.assert(fs.existsSync(path.join(inbox, mohName)), 'The uploaded L report was not copied into the MOH inbox');
-    const rendered = await upload.locator('#MOHreport').getByText(`${marker} EDT REPORT`)
-      .waitFor({ timeout: 15000 }).then(() => true, () => false);
-    h.assert(rendered, 'billingLreport did not render the uploaded L report (its XSL transform produced nothing)');
-    h.assert((await upload.locator('#MOHreport').innerText()).includes(ids.ohip), 'The rendered L report does not show its report id');
-  });
+  await optionalStep('Upload MOH File ▸ an L (outside use) report opens in billingLreport through its XSL', inboxSkip,
+    async () => {
+      const upload = await openAdminFrame(admin, '/billing/CA/ON/BillingONUpload', 'input[type="file"][name="file1"]');
+      await upload.locator('input[name="file1"]').setInputFiles({ name: mohName, mimeType: 'text/xml', buffer: Buffer.from(
+        `<?xml version="1.0"?><REPORT><REPORT-DTL><REPORT-NAME>${marker} EDT REPORT</REPORT-NAME>`
+        + `<REPORT-ID>${ids.ohip}</REPORT-ID><REPORT-DATE>${today}</REPORT-DATE></REPORT-DTL></REPORT>\n`) });
+      await frameNavigation(admin, upload, () => upload.locator('input[type="submit"][value="Create Report"]').click());
+      h.assert(fs.existsSync(path.join(inbox, mohName)), 'The uploaded L report was not copied into the MOH inbox');
+      const rendered = await upload.locator('#MOHreport').getByText(`${marker} EDT REPORT`)
+        .waitFor({ timeout: 15000 }).then(() => true, () => false);
+      h.assert(rendered, 'billingLreport did not render the uploaded L report (its XSL transform produced nothing)');
+      h.assert((await upload.locator('#MOHreport').innerText()).includes(ids.ohip), 'The rendered L report does not show its report id');
+    });
 
   await s.step('INR row ▸ patient name opens the INR update form for that row', async () => {
     inr = await openAdminFrame(admin, '/billing/CA/ON/ViewInrReportINR?provider_no=all', 'select[name="provider"]');
@@ -344,6 +363,9 @@ async function workflow(s) {
     h.assert(await popup.locator('input[name="billinginr_no"]').inputValue() === ids.inr
       && await popup.locator('input[name="diag_code"]').inputValue() === INR_DX, 'The INR update form did not load the row');
   });
+
+  // Every other step ran; the outcome must still not read as full coverage.
+  if (skipped.length) throw new h.SkipCheck(`skipped step(s) with a missing prerequisite: ${skipped.join('; ')}`);
 }
 
 if (require.main === module) runWorkflow('billing-on-reports-inr-eoy', workflow, { openPatient: true, openMaster: false });

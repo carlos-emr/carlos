@@ -48,7 +48,7 @@ async function workflow(s) {
   const user = h.sqlString(username);
   const originalHash = fixture.passwordHash;
   // Upper, lower, digit and special: four groups, well over the minimum length, never the old one.
-  const newPassword = `Fake-Pw1${s.marker.slice(-8)}`;
+  const newPassword = `Fake-Pw1${s.marker.slice(-8)}`; // ggignore - synthetic per-run password for the throwaway login, never a real credential
   const hashQuery = `SELECT password FROM security WHERE user_name=${user}`;
   const archiveCount = `SELECT COUNT(*) FROM SecurityArchive WHERE user_name=${user}`;
   const updatePosts = () => recorder.requestLog.filter(entry => entry.method === 'POST'

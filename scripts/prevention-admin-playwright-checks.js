@@ -29,14 +29,17 @@ async function workflow(s) {
   const lot = `PW${marker.slice(-12)}`;
   const comment = `${marker} print comment`;
   const lotWhere = `preventionType=${sqlString(LOT_TYPE)} AND lotNr=${sqlString(lot)} AND providerNo=${sqlString(provider)}`;
-  const snapshot = sql.rows(`SELECT id, value FROM property WHERE name=${sqlString(HIDE_PROPERTY)} ORDER BY id`);
+  // `value IS NULL` rides along because mysql -B prints SQL NULL and the string
+  // 'NULL' identically; the restore branches on the flag, not on the parsed value.
+  const propertyRows = `SELECT id, value, value IS NULL FROM property WHERE name=${sqlString(HIDE_PROPERTY)} ORDER BY id`;
+  const snapshot = sql.rows(propertyRows);
   assert(snapshot.length <= 1, 'hide_prevention_item is duplicated; refusing to change it');
   s.cleanup(() => {
     if (snapshot.length) {
-      sql.execute(`UPDATE property SET value=${snapshot[0][1] === null ? 'NULL' : sqlString(snapshot[0][1])}
+      sql.execute(`UPDATE property SET value=${snapshot[0][2] === '1' ? 'NULL' : sqlString(snapshot[0][1])}
         WHERE id=${snapshot[0][0]}; DELETE FROM property WHERE name=${sqlString(HIDE_PROPERTY)} AND id<>${snapshot[0][0]}`);
     } else sql.execute(`DELETE FROM property WHERE name=${sqlString(HIDE_PROPERTY)}`);
-    assert(JSON.stringify(sql.rows(`SELECT id, value FROM property WHERE name=${sqlString(HIDE_PROPERTY)} ORDER BY id`))
+    assert(JSON.stringify(sql.rows(propertyRows))
       === JSON.stringify(snapshot), 'hide_prevention_item was not restored');
   });
   s.cleanup(() => {

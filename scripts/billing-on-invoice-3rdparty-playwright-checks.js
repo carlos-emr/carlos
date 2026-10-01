@@ -100,7 +100,9 @@ function seedOwnedBill(s, { payProgram, status, code, fee, date, dx = '250' }) {
         + (SELECT COUNT(*) FROM billing_on_item_payment WHERE ch1_id=${id})
         + (SELECT COUNT(*) FROM billing_on_transaction WHERE ch1_id=${id})
         + (SELECT COUNT(*) FROM billing_on_eareport WHERE billing_no=${id})
-        + (SELECT COUNT(*) FROM billing_on_repo WHERE category='billing_on_cheader1' AND h_id=${id})`) === '0',
+        + (SELECT COUNT(*) FROM billing_on_repo WHERE category='billing_on_item' AND h_id IN (${itemIds}))
+        + (SELECT COUNT(*) FROM billing_on_repo WHERE category='billing_on_cheader1' AND h_id=${id})
+        + (SELECT COUNT(*) FROM billing_on_proc WHERE object=${h.sqlString(id)})`) === '0',
       'Owned billing fixture rows were not removed');
     }
   });
@@ -226,7 +228,15 @@ async function pdfText(download, label) {
   h.assert(file, `${label}: the download was not saved`);
   const bytes = fs.readFileSync(file);
   h.assert(bytes.subarray(0, 4).toString('latin1') === '%PDF', `${label}: the download is not a PDF`);
-  return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', timeout: 20000 });
+  try {
+    return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', timeout: 20000 });
+  } catch (error) {
+    // A missing tool is an environment gap, not an application defect: report it as such.
+    if (error && error.code === 'ENOENT') {
+      throw new h.SkipCheck(`${label}: pdftotext (poppler-utils) is not installed; it is needed to read the invoice PDF`);
+    }
+    throw error;
+  }
 }
 
 async function workflow(s) {
@@ -235,12 +245,14 @@ async function workflow(s) {
   const date = billDate();
   const fee = sql.value(`SELECT value FROM billingservice WHERE service_code=${h.sqlString(code)}
     AND billingservice_date<=${h.sqlString(date)} ORDER BY billingservice_date DESC LIMIT 1`);
-  if (!/^\d+(\.\d+)?$/.test(fee) || Number(fee) <= 1) {
-    throw new h.SkipCheck(`private code ${code} has no fee on ${date}; set BILLING_PRIVATE_CODE`);
+  const partial = '40.00';
+  // The payment steps pay `partial` first and then the rest, so the fee must exceed it.
+  if (!/^\d+(\.\d+)?$/.test(fee) || Number(fee) <= Number(partial)) {
+    throw new h.SkipCheck(`private code ${code} has no fee on ${date} above ${partial} (the fee must exceed ${partial}`
+      + ' for the partial-then-full payment); set BILLING_PRIVATE_CODE');
   }
   const total = money(fee);
-  const partial = '40.00';
-  const rest = money(Number(fee) - 40);
+  const rest = money(Number(fee) - Number(partial));
 
   // Owned bill-to address; the UI-added one (last step) is owned by name too.
   const company = `${marker} Insurer`;

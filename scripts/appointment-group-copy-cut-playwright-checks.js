@@ -107,6 +107,9 @@ async function workflow(s) {
 
   // The throwaway's own session: its day sheet shows the marker group's two columns.
   const context = await h.newContext(s.context.browser(), config);
+  // Close this session even when a step throws, before the SQL fixture cleanups
+  // (cleanups run in reverse registration order). Closing twice is harmless.
+  s.cleanup(() => context.close().catch(() => {}));
   context.setDefaultTimeout(20000);
   context.on('page', page => h.wireStrictPage(page, 'group-copy-cut', recorder));
   // The card prints itself on load; record the call instead of opening a print dialog.

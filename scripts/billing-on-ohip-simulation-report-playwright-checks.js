@@ -32,7 +32,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { randomBytes } = require('node:crypto');
+const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -51,7 +51,7 @@ function columnsOf(sql, table) {
 
 function unusedNumber(prefix, digits, taken) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    const tail = String(randomBytes(4).readUInt32BE(0) % (10 ** (digits - prefix.length)))
+    const tail = String(randomInt(0, 10 ** (digits - prefix.length)))
       .padStart(digits - prefix.length, '0');
     if (!taken(prefix + tail)) return prefix + tail;
   }
@@ -129,7 +129,7 @@ function createBillingFixture(s) {
     'The owned billing provider was not created');
 
   // A synthetic HIN on the owned patient: the claim file reads it from the chart.
-  owned.hin = `9${String(randomBytes(4).readUInt32BE(0) % 1e9).padStart(9, '0')}`;
+  owned.hin = `9${String(randomInt(0, 1e9)).padStart(9, '0')}`;
   sql.execute(`UPDATE demographic SET hin=${h.sqlString(owned.hin)}, ver='ZZ', hc_type='ON'
     WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
   h.assert(sql.value(`SELECT hin FROM demographic WHERE demographic_no=${patient}`) === owned.hin,

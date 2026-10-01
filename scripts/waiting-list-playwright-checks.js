@@ -154,7 +154,12 @@ async function workflow(s) {
         { accept: false });
       h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && /remove this patient/i.test(dialogs[0].text),
         'remove did not ask for confirmation');
-      await listPage.waitForTimeout(1500);
+      // Bounded wait for a removal popup: a timeout is the expected no-popup outcome.
+      const popup = await s.context.waitForEvent('page', { timeout: 1500 }).catch(error => {
+        if (error.name === 'TimeoutError') return null;
+        throw error;
+      });
+      if (popup) opened = true;
     } finally { s.context.off('page', onPage); }
     h.assert(!opened, 'A cancelled confirm still opened the removal popup');
     h.assert(await listPage.evaluate(name => window[name], sentinel.marker) === sentinel.token, // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the sentinel name is a module constant

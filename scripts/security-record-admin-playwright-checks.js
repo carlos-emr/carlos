@@ -28,13 +28,20 @@ const { randomInt } = require('node:crypto');
 
 const TIMEOUT = 20000;
 const LINK = 'Search/Edit/Delete Security Records';
+// Logging in creates a ProviderPreference row (keyed providerNo, not provider_no) and the
+// preferences popup can add its children; mirrors lib/throwaway-login-fixture.js.
+const PROVIDER_PREFERENCE_TABLES = ['ProviderPreferenceAppointmentScreenEForm', 'ProviderPreferenceAppointmentScreenForm',
+  'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
 
-// provider_no is varchar(6); choose a high value nobody holds in provider or security.
+// provider_no is varchar(6); choose a high value nobody holds anywhere cleanup deletes by
+// provider number, so leftovers of a deleted provider (audit log, preferences) are never swept up.
 function pickUnusedProviderNo(sql) {
   for (let attempt = 0; attempt < 50; attempt++) {
     const candidate = String(randomInt(700000, 999000));
-    const used = sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(candidate)})
-      + (SELECT COUNT(*) FROM security WHERE provider_no=${h.sqlString(candidate)})`);
+    const c = h.sqlString(candidate);
+    const used = sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${c})
+      + (SELECT COUNT(*) FROM security WHERE provider_no=${c}) + (SELECT COUNT(*) FROM log WHERE provider_no=${c})
+      + ${PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`).join(' + ')}`);
     if (used === '0') return candidate;
   }
   h.assert(false, 'No unused provider number was found in the fixture range');
@@ -82,13 +89,23 @@ async function workflow(s) {
   let securityNo;
   s.cleanup(() => {
     const no = h.sqlString(providerNo);
+    // The run's logins write audit rows under the fixture provider, and refused logins
+    // (no provider yet) write 'failed'/'unlock' rows keyed by the attempted user name;
+    // the same predicate as throwawayLoginFixture's ownedLogPredicate.
+    const ownedLog = `(provider_no=${no} OR (contentId IN (${h.sqlString(userName)},${h.sqlString(renamed)})
+      AND action IN ('failed','unlock')))`;
+    sql.execute(`DELETE FROM log WHERE ${ownedLog}`);
     sql.execute(`DELETE FROM security WHERE provider_no=${no} AND user_name IN (${h.sqlString(userName)},${h.sqlString(renamed)})`);
     for (const table of ['secUserRole', 'program_provider', 'provider_facility', 'providersite', 'property']) {
       sql.execute(`DELETE FROM ${table} WHERE provider_no=${no}`);
     }
+    // Logging in creates ProviderPreference (keyed providerNo) and may add its children.
+    for (const table of PROVIDER_PREFERENCE_TABLES) sql.execute(`DELETE FROM ${table} WHERE providerNo=${no}`);
     sql.execute(`DELETE FROM provider WHERE provider_no=${no} AND last_name=${h.sqlString(s.marker)}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM security WHERE provider_no=${no})
-      + (SELECT COUNT(*) FROM secUserRole WHERE provider_no=${no}) + (SELECT COUNT(*) FROM provider WHERE provider_no=${no})`) === '0',
+      + (SELECT COUNT(*) FROM secUserRole WHERE provider_no=${no}) + (SELECT COUNT(*) FROM provider WHERE provider_no=${no})
+      + (SELECT COUNT(*) FROM log WHERE ${ownedLog})
+      + ${PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${no})`).join(' + ')}`) === '0',
     'Owned security/provider fixtures were not removed');
   });
   const [[hash, pin]] = sql.rows(`SELECT password,pin FROM security WHERE user_name=${h.sqlString(config.testUser)}`);

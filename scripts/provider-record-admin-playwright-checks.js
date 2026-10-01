@@ -104,14 +104,28 @@ async function workflow(s) {
   const no = h.sqlString(providerNo);
   const team = 'PW' + s.marker.slice(-8);
   const officialFirst = 'Official' + s.marker.slice(-6);
+  // Provider number the GET ProviderAddARecord probe names. Owned only if a (wrongly
+  // accepted) GET created it under the probe's own last name.
+  let extra = null;
+  const getLastName = h.sqlString(s.marker + '-GET');
   s.cleanup(() => {
     const owned = sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${no} AND last_name=${h.sqlString(s.marker)}`);
     h.assert(owned === '1' || sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${no}`) === '0',
       'Provider fixture ownership changed; refusing to clean up');
     for (const table of CHILD_TABLES) sql.execute(`DELETE FROM ${table} WHERE provider_no=${no}`);
     sql.execute(`DELETE FROM provider WHERE provider_no=${no} AND last_name=${h.sqlString(s.marker)}`);
-    const remaining = CHILD_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${no})`).join('+');
-    h.assert(sql.value(`SELECT ${remaining}+(SELECT COUNT(*) FROM provider WHERE provider_no=${no})`) === '0',
+    const ownedNos = [no];
+    if (extra) {
+      const x = h.sqlString(extra);
+      if (sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${x} AND last_name=${getLastName}`) !== '0') {
+        for (const table of CHILD_TABLES) sql.execute(`DELETE FROM ${table} WHERE provider_no=${x}`);
+        sql.execute(`DELETE FROM provider WHERE provider_no=${x} AND last_name=${getLastName}`);
+        ownedNos.push(x);
+      }
+    }
+    const remaining = ownedNos.flatMap(p => CHILD_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${p})`)
+      .concat(`(SELECT COUNT(*) FROM provider WHERE provider_no=${p})`)).join('+');
+    h.assert(sql.value(`SELECT ${remaining}+(SELECT COUNT(*) FROM provider WHERE last_name=${getLastName})`) === '0',
       'Owned provider fixtures were not removed');
   });
   // Every column the edit page can write, minus comments (rebuilt from the form's
@@ -202,7 +216,7 @@ async function workflow(s) {
       params: { provider_no: providerNo, last_name: s.marker, first_name: 'Record', provider_type: 'doctor', specialty: 'MUST NOT SAVE',
         team, sex: 'M', status: '1', officialFirstName: 'MUST NOT SAVE' }, maxRedirects: 0 });
     h.assert(update.status() === 405, `ProviderUpdate answered GET with HTTP ${update.status()}, expected 405`);
-    const extra = pickUnusedProviderNo(sql);
+    extra = pickUnusedProviderNo(sql);
     const add = await context.request.get(h.appUrl(config.baseUrl, '/admin/ProviderAddARecord'), {
       params: { provider_no: extra, last_name: s.marker + '-GET', first_name: 'Record', provider_type: 'doctor', sex: 'M' }, maxRedirects: 0 });
     h.assert(add.status() === 405, `ProviderAddARecord answered GET with HTTP ${add.status()}, expected 405`);

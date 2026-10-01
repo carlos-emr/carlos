@@ -157,7 +157,7 @@ async function workflow(s) {
       report.waitForRequest(candidate => candidate.url().includes('combinePDFs') && candidate.method() === 'POST'),
       button.click(),
     ]);
-    h.assert(new URL(request.url()).pathname === new URL(`${s.config.baseUrl}/documentManager/combinePDFs`).pathname,
+    h.assert(new URL(request.url()).pathname === new URL(h.appUrl(s.config.baseUrl, '/documentManager/combinePDFs')).pathname,
       'Combine PDF posts somewhere other than the combinePDFs action');
     const download = await downloaded;
     if (download instanceof Error) throw download;
@@ -213,9 +213,8 @@ async function workflow(s) {
 
   await s.step('DocumentRefile refuses GET and copies nothing', async () => {
     fs.unlinkSync(refiled);
-    const url = new URL(`${s.config.baseUrl}/documentManager/DocumentRefile`);
-    url.search = new URLSearchParams({ refileDocumentNo: docA.id, queueId: '1' }).toString();
-    const response = await s.context.request.get(url.href, { maxRedirects: 0, failOnStatusCode: false });
+    const query = new URLSearchParams({ refileDocumentNo: docA.id, queueId: '1' }).toString();
+    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/documentManager/DocumentRefile?${query}`), { maxRedirects: 0, failOnStatusCode: false });
     h.assert(response.status() === 405, `GET DocumentRefile answered HTTP ${response.status()}, expected 405`);
     h.assert(!fs.existsSync(refiled), 'GET DocumentRefile copied the document');
   });

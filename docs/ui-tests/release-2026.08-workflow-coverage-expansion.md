@@ -9,11 +9,16 @@ records what the checks found in
 
 **Why the result column is mostly red.** The suite's rule is *report, don't encode*:
 a check asserts the correct behaviour, so a defect makes it fail rather than being
-pinned as expected. Each check proves every reachable step first and puts the step
-that hits a confirmed defect last, so a failure names the defect and everything before
-it is evidence that the rest of the workflow works. When a defect is fixed, the check
-that names it should turn green with no edit; one that still fails has found the next
-problem. The manifest's `notes` field for each failing check says which defect stops it.
+pinned as expected. Where the workflow allows it, a check proves the reachable steps
+first and puts the step that hits a confirmed defect last, so a failure names the defect
+and the steps before it are evidence that that part of the workflow works. That is not
+always possible: a defect on the way in (`waiting-list` and `measurement-map-admin` fail
+at their first step) or in the middle (`admin-jobs`, `report-daysheet-labs`) stops the run
+before later steps execute. **Only the steps a run reached are validated;** where a row
+below names later steps, they are written and assert the correct behaviour but have not
+yet run against this install. When a defect is fixed, the check that names it should move
+past it with no edit; one that still fails has found the next problem. The manifest's
+`notes` field for each failing check says which defect stops it.
 
 ## Where it ran
 
@@ -56,8 +61,11 @@ email sender, global row counts). Those were run alone. The serial suite runner 
 satisfies this, so the manifest needs no extra field.
 
 Many surfaces open as popups, so a check's first click is often the one that matters.
-All of them enter through the control a user clicks, with one deliberate exception noted
-in its row (`report-cdm`, whose page no menu links).
+Each workflow enters through the control a user clicks, with one deliberate exception noted
+in its row (`report-cdm`, whose page no menu links). Two kinds of request are made directly
+on purpose and are not workflow entry points: the GET-refusal and missing-token probes,
+which send the forged request a cross-site attacker would, and SQL-seeded fixtures, which
+create the rows a workflow starts from.
 
 New shared helpers:
 
@@ -80,7 +88,7 @@ New shared helpers:
 | Skip (surface gated off on the packaged default) | 2 |
 | **Total new checks** | **78** |
 
-Every failing check passes all of its steps before the one that hits the defect its manifest note names. Across the pass the checks confirmed more than sixty distinct application defects, recorded as findings 53–113 of the findings log. The most serious are state changes reachable by a cross-site GET (bulk MRP reassignment, security-role rewrite, bulk note-role update, saved queries, patient sets, preferences, lookup lists, disease registry), missing patient-level authorization on HRM reports, the Ontario billing report rendering the session cookie into the page, drug-drug interaction warnings never being shown in the Rx module, and chart note edits overwriting the previous text instead of adding a revision.
+Every failing check passes the steps it reaches before the one that hits the defect its manifest note names; steps after that point have not run (see the opening section). Across the pass the checks confirmed more than sixty distinct application defects, recorded as findings 53–113 of the findings log. The most serious are state changes reachable by a cross-site GET (bulk MRP reassignment, security-role rewrite, bulk note-role update, saved queries, patient sets, preferences, lookup lists, disease registry), missing patient-level authorization on HRM reports, the Ontario billing report rendering the session cookie into the page, drug-drug interaction warnings never being shown in the Rx module, and chart note edits overwriting the previous text instead of adding a revision.
 
 | Check | Plan § | Provinces | Result on the packaged 2026.08 install |
 |---|---|---|---|

@@ -203,10 +203,12 @@ async function workflow(s) {
   // owned WAITING row while the account is active. Reported, never asserted.
   let schedulerRunning = null;
   const probe = await context.request.get(h.appUrl(config.baseUrl, '/admin/ManageFax'), {params: {method: 'getFaxSchedularStatus'}, maxRedirects: 0});
-  if (probe.status() === 200) {
-    const json = await probe.json().catch(() => null);
-    if (json && typeof json.isRunning === 'boolean') schedulerRunning = json.isRunning;
-  }
+  try {
+    if (probe.status() === 200) {
+      const json = await probe.json().catch(() => null);
+      if (json && typeof json.isRunning === 'boolean') schedulerRunning = json.isRunning;
+    }
+  } finally { await probe.dispose(); }
   console.log(`  fax scheduler running: ${schedulerRunning === null ? 'unknown' : schedulerRunning}`);
   setActive(true);
   let table = await fetchQueue();

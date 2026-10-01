@@ -97,7 +97,10 @@ async function workflow(s) {
     download = chooser.waitForEvent('download', { timeout: 60000 }).catch(() => null);
     // Hold the page's own Doc2PDF POST (unchanged) until the source-frame facts are
     // proven, so a failure of the conversion is reported by its own step below.
-    held = new Promise(resolve => chooser.route('**/messenger/Doc2PDF', route => resolve(route), { times: 1 }));
+    let release;
+    held = new Promise(resolve => { release = resolve; });
+    // Await the registration so the route is active before the click can fire the POST.
+    await chooser.route('**/messenger/Doc2PDF', route => release(route), { times: 1 });
     await preview.click();
     const rendered = await label;
     h.assert(rendered.status() === 200, 'DemographicPdfLabel did not render for the preview');

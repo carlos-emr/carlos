@@ -61,6 +61,8 @@ async function workflow(s) {
   const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: config.testUser });
   s.cleanup(() => fixture.cleanup());
   const owned = `%${role}%`;
+  // The GET ProviderAddRole probe names this role; a wrongly accepted GET would create it.
+  const roles = `${R},${h.sqlString(`${role}-GET`)}`;
   s.cleanup(() => {
     sql.execute([
       `DELETE FROM MyGroupAccessRestriction WHERE myGroupNo=${G}`,
@@ -69,11 +71,11 @@ async function workflow(s) {
       `DELETE FROM secUserRole WHERE role_name=${R}`,
       `DELETE FROM recyclebin WHERE keyword LIKE ${h.sqlString(owned)}`,
       `DELETE FROM log WHERE content IN ('role','privilege') AND contentId LIKE ${h.sqlString(owned)}`,
-      `DELETE FROM secRole WHERE role_name=${R}`,
+      `DELETE FROM secRole WHERE role_name IN (${roles})`,
     ].join(';'));
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM MyGroupAccessRestriction WHERE myGroupNo=${G})
       + (SELECT COUNT(*) FROM mygroup WHERE mygroup_no=${G}) + (SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${R})
-      + (SELECT COUNT(*) FROM secUserRole WHERE role_name=${R}) + (SELECT COUNT(*) FROM secRole WHERE role_name=${R})
+      + (SELECT COUNT(*) FROM secUserRole WHERE role_name=${R}) + (SELECT COUNT(*) FROM secRole WHERE role_name IN (${roles}))
       + (SELECT COUNT(*) FROM recyclebin WHERE keyword LIKE ${h.sqlString(owned)})
       + (SELECT COUNT(*) FROM log WHERE content IN ('role','privilege') AND contentId LIKE ${h.sqlString(owned)})`) === '0',
     'Owned role, grant, group or audit rows were not removed');

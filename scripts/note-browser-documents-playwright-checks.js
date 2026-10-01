@@ -189,9 +189,8 @@ async function workflow(s) {
   });
 
   await s.step('NoteBrowserDocumentDelete refuses GET and changes nothing', async () => {
-    const url = new URL(`${s.config.baseUrl}/casemgmt/NoteBrowserDocumentDelete`);
-    url.search = new URLSearchParams({ delDocumentNo: docB.id, demographicNo: patient }).toString();
-    const response = await s.context.request.get(url.href, { maxRedirects: 0, failOnStatusCode: false });
+    const query = new URLSearchParams({ delDocumentNo: docB.id, demographicNo: patient }).toString();
+    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/casemgmt/NoteBrowserDocumentDelete?${query}`), { maxRedirects: 0, failOnStatusCode: false });
     const code = response.status();
     await response.dispose();
     h.assert(code === 405, `GET NoteBrowserDocumentDelete answered HTTP ${code}, expected 405`);
