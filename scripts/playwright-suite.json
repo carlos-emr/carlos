@@ -3720,7 +3720,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: the guideline list answers 500 (EL char coercion) and the detail page judges every condition by the first condition's cached rule.",
+      "fixtures": "Owned patient; a marker Drools guideline (dxcodes icd9:2700 AND sex F) mapped to the test provider; one dxresearch row on the owned patient; all deleted by marker or owned id."
     },
     {
       "name": "eform-groups",
@@ -3869,7 +3870,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: the risk/checklist editors load a missing antenatalrecord.css.",
+      "fixtures": "Inserts a marker-named encounterForm row (the shipped Annual form is hidden) and the owned patient's desannualreviewplan rows; both deleted. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "lab-forwarding-rules",
