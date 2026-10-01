@@ -104,7 +104,9 @@ $(document).ready(function() {
                     delete formEl.submit;
                 }
             } else {
-                confirmForm.submit();
+                // Without the helper this panel form has no token, and the POST
+                // would only be refused (403): say so and send nothing (#4130).
+                alert('This page did not finish loading. Please reload it and try again.');
             }
         }
         bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).hide();

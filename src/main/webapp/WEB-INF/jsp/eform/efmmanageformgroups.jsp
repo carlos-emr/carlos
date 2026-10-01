@@ -318,6 +318,16 @@
             <%@ include file="efmFooter.jspf" %>
 
         <script>
+            // newWindow lives on the Administration shell too. Standalone (the
+            // redirect after a group POST, #4130) the form links and the eForm
+            // Generator link would throw without it, so define it only when absent,
+            // with the popup settings efmformmanager.jsp uses.
+            if (typeof window.newWindow !== 'function') {
+                window.newWindow = function (url, id) {
+                    window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=900,height=600,left=200,top=0');
+                };
+            }
+
             // registerFormSubmit lives on the Administration shell. This page is
             // also reached standalone: delGroup / removeFromGroup now redirect here
             // after a POST (#4130), and the unguarded call threw a ReferenceError.

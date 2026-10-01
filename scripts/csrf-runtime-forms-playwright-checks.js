@@ -220,7 +220,13 @@ async function deleteReportTemplate(context, config, recorder, sql, timeout) {
 function dxRows(sql, where) {
   return sql.rows('SELECT diagnosticcode_no, description IS NULL, IFNULL(description, \'\') '
     + `FROM diagnosticcode WHERE ${where} ORDER BY diagnosticcode_no`)
-    .map(([id, isNull, description]) => ({ id: Number(id), description: isNull === '1' ? null : description }));
+    .map(([id, isNull, description]) => ({
+      id: Number(id),
+      // mysql -B prints SQL NULL and the text 'NULL' alike, and the runner reads
+      // both as null; the IS NULL flag tells them apart, so a restore writes back
+      // the four-character string when that is what the row held.
+      description: isNull === '1' ? null : (description === null ? 'NULL' : description),
+    }));
 }
 
 /**
