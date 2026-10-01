@@ -10,7 +10,8 @@
 // is a real PDF whose text carries the owned reason and imported medication; with no active fax
 // sender the Send is refused with an alert and no fax job is queued (nothing leaves the host).
 // Fixtures: FAKE- patient (runWorkflow), FAKE- service, specialist, service link, referral and
-// drug seeded by SQL. Cleanup deletes the referral with its archive/ext rows and every owned row.
+// drug seeded by SQL. Cleanup deletes the referral with its archive/ext rows, the consultation
+// stamp signature the update records for the owned patient (DigitalSignature), and every owned row.
 // EXCLUSIVE: the fax boundary requires that no active fax sender account exists while it runs.
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');

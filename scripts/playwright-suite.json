@@ -3627,7 +3627,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: the Health Tracker custom print omits patient customisations (and its Preview POST answers 405).",
+      "fixtures": "Owned patient with seeded WT/HT measurements; flowsheet_customization rows created through the Health Tracker editor (patient scope); all owned rows removed."
     },
     {
       "name": "immunization-schedule-config",
@@ -3998,7 +3999,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its last step on 2026.08: the group page hides the last value of readings without a measuring instruction (Heart Rate).",
+      "fixtures": "Owned patient; Vitals readings entered through the E-Chart measurement group with a marker comment; measurements and measurementsDeleted rows removed."
     },
     {
       "name": "report-by-template-groups",
