@@ -31,8 +31,9 @@ import java.util.function.Consumer;
 /**
  * Persistence for {@link PatientPortalInviteDelivery}.
  *
- * <p>Every write commits in its own transaction, so each lifecycle step is durable before the
- * network call that follows it.
+ * <p>The lifecycle writes declared here ({@link #claim}, {@link #advance} and {@link #release})
+ * commit in their own transactions, so each step is durable before the network call that follows it.
+ * Inherited {@link AbstractDao} writes use their ordinary transaction semantics.
  *
  * @since 2026-09-22
  */

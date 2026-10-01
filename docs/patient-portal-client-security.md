@@ -112,21 +112,21 @@ records each step in `patient_portal_invite_delivery` before the next network ca
 4. **Send.** The normal email stack sends the message, and the attempt records `SENT`, `SEND_FAILED`
    or `SEND_UNCERTAIN`.
 
-An attempt stopped before the commit is `ABANDONED`, and CARLOS revokes the prepared code on the
+Stopping an attempt before sending claims `ABANDONING`, and CARLOS revokes its code on the
 portal: a live preparation otherwise blocks every new invitation for the patient until it expires.
+Confirmed withdrawal finishes the attempt as `ABANDONED`; a failed withdrawal stays open for retry.
 After the commit, CARLOS never revokes on uncertainty; a refused send is fixed by a resend, which
 issues a new code and keeps the old one valid until the replacement is committed. The uncertain cases
 before the send are a commit whose answer is lost twice, and a commit the portal made that CARLOS could
 not record (a failed database write, or a crash, after which staff stop the attempt). CARLOS withdraws
 the new code, which never left, and records the commit as unconfirmed, never refused: since the portal
 may already have retired the old code while activating the new, the page tells staff that a replaced
-invitation may no longer work and a new one should be sent. When staff stop a queued resend, CARLOS
-first asks the portal whether the invitation it was to replace is still pending (the portal retires it
-and activates the replacement in one step), and records a plain stop if it is.
+invitation may no longer work and a new one should be sent. Every queued attempt stopped by staff
+keeps activation unconfirmed: a remote commit may still complete after a status lookup, so observing
+the earlier invitation pending cannot prove that its replacement was never activated.
 
 Why an attempt stands where it does is stored as an `outcome` code (`PatientPortalInviteDelivery.Outcome`),
-with a separate `revoke_failed` flag when an unused code could not be withdrawn and will expire on its
-own. The row holds no prose and nothing from a portal response; the staff page translates the codes.
+with a separate `revoke_failed` flag when code withdrawal remains unconfirmed and needs a retry. The row holds no prose and nothing from a portal response; the staff page translates the codes.
 
 The email links to `<public_base_url>/auth/activate` and carries the code as text. The code is never
 placed in a URL, a log, or a browser-visible message.
@@ -134,10 +134,11 @@ placed in a URL, a log, or a browser-visible message.
 The code is a credential that activates a patient's account, so CARLOS keeps it no longer than it must.
 It lives in the outbox row only between the store and the send, which is the window the portal's
 contract requires; once the send resolves either way, or staff resolve an unfinished delivery, the
-stored body is replaced with a note saying the code is not kept. One exception: when the send fails
-before the portal activates the code (an archive or permission refusal, say), the code is withdrawn on
-the portal but can stay in that failed outbox row; it can no longer activate anything. The outbound
-email archive, a
+stored body is replaced with a note saying the code is not kept. `EmailManager` also attempts this
+body-only cleanup when a synchronous failure precedes the dispatch gate, including consent snapshot,
+archive or authorization failures. Cleanup failure preserves the send result and is logged without
+email content. Process crashes can still leave stored bodies; this finalizer does not guarantee
+cleanup after process death. The outbound email archive, a
 permanent patient document, never holds it: the service names the code in
 `EmailData.setArchiveRedactions`, and `EmailManager` archives the message with it replaced by
 `[redacted]` and the artifact type suffixed `_REDACTED` (`SMTP_RFC822_REDACTED` or
@@ -171,7 +172,10 @@ cannot cancel or recall an email already in progress. Stopping first atomically 
 looking up or revoking any code. This blocks a paused sender from advancing to `COMMITTED` and
 sending; if the sender already advanced, stopping fails without revoking. The 15-minute wait only
 controls when recovery is offered and is not proof that a sender has stopped. An interrupted
-`ABANDONING` attempt stays unfinished and offers the same stop action again. A preparation whose
+`ABANDONING` attempt stays unfinished and offers the same stop action again. A lost or refused
+withdrawal response also keeps that state, until a retry proves the code revoked or superseded.
+If the portal proves the invitation already activated an account, the stopped attempt records
+`CODE_ALREADY_USED`; it does not invent an email delivery confirmation or chart note. A preparation whose
 response arrives after that claim is discarded and withdrawn without sending. If replay cannot
 identify a lost preparation, list recovery matches its exact delivery operation id; it never guesses
 ownership from another attempt's age or missing invite id. No database row lock

@@ -181,8 +181,9 @@ public class PortalInvite2Action extends PortalJsonAction {
             return badRequest(response, "unsupported invitation channel");
         }
         String overrideReason = request.getParameter("consentOverrideReason");
-        // Measured as EmailData stores it, trimmed, so the limit is the email's and surrounding spaces don't count.
-        if (overrideReason != null && overrideReason.trim().length() > EmailData.CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
+        overrideReason = overrideReason == null ? null : overrideReason.strip();
+        // Validate the same normalized value that is passed to the delivery service.
+        if (overrideReason != null && overrideReason.length() > EmailData.CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
             return badRequest(response, "the consent override reason is too long");
         }
         // The reason is the chart's only record of a consent it does not otherwise hold, so it must be
@@ -201,9 +202,8 @@ public class PortalInvite2Action extends PortalJsonAction {
         }
         PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(session,
                 Set.of(PortalStaffContextResolver.OBJECT_INVITE), patient);
-        // Stored as it was checked: strip() also removes the line separators trim() would keep.
         InviteRequest invite = new InviteRequest(channel, "true".equals(request.getParameter("confirmReplace")),
-                consentOverride, overrideReason == null ? null : overrideReason.strip(),
+                consentOverride, overrideReason,
                 "true".equals(request.getParameter("withdrawStale")));
         try {
             PatientPortalInviteDelivery row = switch (method) {

@@ -27,6 +27,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
@@ -154,7 +156,7 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should archive the message without a value the sender asked it not to keep")
-    void shouldRedactTheArchivedCopy_andSendTheMessageUnchanged() throws Exception {
+    void shouldRedactTheArchivedCopy_beforeSending() throws Exception {
         preparedMessage = "Subject: Subject\r\n\r\nEnter this invitation code: Xy7kQ2mN9pR4tV8w\r\n";
         EmailData email = emailData();
         email.setArchiveRedactions(List.of("Xy7kQ2mN9pR4tV8w"));
@@ -251,6 +253,77 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
         data.setConsentOverride(true);
         data.setConsentOverrideReason("Verbal consent confirmed at the front desk");
         assertThat(emailManager.consentBlockMessage(loggedInInfo, data)).isNull();
+    }
+
+    @Test
+    void shouldKeepDeliveryUnconfirmed_whenTheGateThrowsUnchecked() throws Exception {
+        EmailSendResult result;
+        try (MockedConstruction<EmailSender> senders = recordingSenders()) {
+            result = emailManager.sendEmailWithResult(loggedInInfo, emailData(), emailLog -> {
+                throw new IllegalStateException("gate interrupted");
+            });
+        }
+        assertThat(result.isDeliveryUnconfirmed()).isTrue();
+        assertThat(result.isTransportAccepted()).isFalse();
+        assertThat(events).doesNotContain("send");
+        verify(emailLogDao, never()).transitionEmailStatus(nullable(Integer.class), any(),
+                eq(EmailStatus.FAILED), anyString(), any());
+    }
+
+    @Test
+    void shouldClearInvitationBody_whenConsentSnapshotThrowsBeforeTheGate() throws Exception {
+        EmailData email = invitationEmail();
+        IllegalStateException failure = new IllegalStateException("snapshot failed");
+        doThrow(failure).when(emailLogDao).merge(any(EmailLog.class));
+        try (MockedConstruction<EmailSender> senders = recordingSenders()) {
+            assertThatThrownBy(() -> emailManager.sendEmailWithResult(loggedInInfo, email,
+                    emailLog -> events.add("gate"))).isSameAs(failure);
+        }
+        verify(emailLogDao).replaceBody(42, EmailLog.PORTAL_INVITE_BODY_FORGOTTEN);
+        assertThat(events).doesNotContain("gate", "send");
+    }
+
+    @Test
+    void shouldPreserveOriginalFailure_whenInvitationCleanupAlsoFails() throws Exception {
+        EmailData email = invitationEmail();
+        SecurityException failure = new SecurityException("archive refused");
+        doThrow(failure).when(archiveService).archive(any(), any());
+        doThrow(new IllegalStateException("cleanup failed")).when(emailLogDao).replaceBody(any(Integer.class), anyString());
+        try (MockedConstruction<EmailSender> senders = recordingSenders()) {
+            assertThatThrownBy(() -> emailManager.sendEmailWithResult(loggedInInfo, email,
+                    emailLog -> events.add("gate"))).isSameAs(failure);
+        }
+        verify(emailLogDao).replaceBody(42, EmailLog.PORTAL_INVITE_BODY_FORGOTTEN);
+        assertThat(events).doesNotContain("gate", "send");
+    }
+
+    @Test
+    void shouldPreserveAcceptedOutcome_whenInvitationCleanupFails() throws Exception {
+        EmailData email = invitationEmail();
+        doThrow(new IllegalStateException("cleanup failed")).when(emailLogDao).replaceBody(any(Integer.class), anyString());
+        try (MockedConstruction<EmailSender> senders = recordingSenders()) {
+            assertThat(emailManager.sendEmailWithResult(loggedInInfo, email).isTransportAccepted()).isTrue();
+        }
+        assertThat(events).contains("send");
+    }
+
+    @Test
+    void shouldKeepOrdinaryBody_whenTheSendCompletes() throws Exception {
+        try (MockedConstruction<EmailSender> senders = recordingSenders()) {
+            emailManager.sendEmailWithResult(loggedInInfo, emailData());
+        }
+        verify(emailLogDao, never()).replaceBody(any(), any());
+    }
+
+    private EmailData invitationEmail() {
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", 42);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        EmailData email = emailData();
+        email.setTransactionType(TransactionType.PORTAL_INVITE);
+        email.setBody("Invitation code: live-code");
+        return email;
     }
 
     private MockedConstruction<EmailSender> recordingSenders() {

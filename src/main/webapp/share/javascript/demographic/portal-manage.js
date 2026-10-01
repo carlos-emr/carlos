@@ -61,8 +61,8 @@
             }
             if (delivery.outcome === 'commit_unconfirmed' && delivery.supersededInviteId) {
                 // The portal retires the old code as it activates a replacement, so an unconfirmed
-                // replacement may have taken the old code with it. A queued replacement staff stop is
-                // recorded this way too unless the portal shows it was never activated.
+                // replacement may have taken the old code with it. Every queued replacement staff stop
+                // retains this uncertainty because the remote commit may still have been running.
                 parts.push(text('deliveries.replacementMayBeLost'));
             }
             return parts;
@@ -216,14 +216,13 @@
 
     async function csrfToken() {
         if (window.csrfTokenReady) {
-            try {
-                await window.csrfTokenReady;
-            } catch (ignored) {
-                // The input below is checked either way; a missing token surfaces as a refused POST.
-            }
+            await window.csrfTokenReady;
         }
         var input = document.querySelector('input[name="CSRF-TOKEN"]');
-        return input ? input.value : '';
+        if (!input || !input.value || !input.value.trim()) {
+            throw new Error('CSRF token is unavailable');
+        }
+        return input.value;
     }
 
     async function call(method, path, params) {
@@ -419,7 +418,7 @@
             var actions = row.insertCell();
             if (invite.status === 'pending' && can.invite) {
                 actions.appendChild(button(text('invites.resend'), 'secondary', function () {
-                    // A resend retires this code once the new email is sent, as a replacing invitation does.
+                    // A resend retires this code when the portal activates the replacement, as a replacing invitation does.
                     act('/demographic/portalInvite', inviteParams({method: 'resend', inviteId: invite.inviteId}),
                         text('invites.confirmReplace'));
                 }, true));

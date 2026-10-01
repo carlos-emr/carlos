@@ -50,6 +50,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 
@@ -161,4 +163,15 @@ class EmailManagerChartNoteUnitTest extends CarlosUnitTestBase {
                 .hasMessage("missing required sec object (_demographic)");
         verifyNoInteractions(caseManagementManager);
     }
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldRefuseChartNote_withoutADemographicId(boolean missingDemographic) {
+        when(securityInfoManager.hasPrivilege(any(), eq("_email"), anyString(), nullable(String.class)))
+                .thenReturn(true);
+        emailLog.setDemographic(missingDemographic ? null : new Demographic());
+        assertThatThrownBy(() -> emailManager.addEmailNote(loggedInInfo, emailLog, "any text"))
+                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_demographic)");
+        verifyNoInteractions(caseManagementManager);
+    }
+
 }

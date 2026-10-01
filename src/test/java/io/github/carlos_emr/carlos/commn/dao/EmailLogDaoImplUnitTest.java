@@ -100,7 +100,7 @@ class EmailLogDaoImplUnitTest extends CarlosUnitTestBase {
         ReflectionTestUtils.setField(dao, "entityManager", mock(EntityManager.class));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.replaceBody(42, null))
-                .isInstanceOf(NullPointerException.class);
+                .isInstanceOf(NullPointerException.class).hasMessage("replacement");
     }
 
     private Query wireQueryMock() {

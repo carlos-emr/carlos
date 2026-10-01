@@ -116,7 +116,9 @@ class PatientPortalSpringWiringUnitTest {
                 referenced.add(((RuntimeBeanReference) argument.getValue())
                         .getBeanName());
             }
-            assertThat(referenced).containsAll(expected.keySet());
+            assertThat(referenced).containsExactlyInAnyOrder("patientPortalService", "patientPortalSettings",
+                    "portalInviteSettings", "emailManager", "patientPortalInviteDeliveryDaoImpl",
+                    "emailConfigDaoImpl", "emailLogDaoImpl");
             expected.forEach((name, type) -> assertThat(
                     AnnotationBeanNameGenerator.INSTANCE.generateBeanName(
                             new AnnotatedGenericBeanDefinition(type),

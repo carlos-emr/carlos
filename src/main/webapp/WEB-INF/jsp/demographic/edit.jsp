@@ -1194,7 +1194,7 @@
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_portal.invite,_portal.account" rights="r">
                             <tr>
                                 <td>
-                                    <a href="<%= request.getContextPath() %>/demographic/portalManage?demographicNo=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>">
+                                    <a href="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/demographic/portalManage?demographicNo=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>">
                                         <fmt:message key="demographic.portal.link"/></a>
                                 </td>
                             </tr>

@@ -92,7 +92,7 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         PREPARING,
         /** The portal prepared an inactive token; no email exists yet. */
         PREPARED,
-        /** The email carrying the token is stored and waiting; the portal has not activated the token. */
+        /** The email is stored; portal activation has not been durably confirmed. */
         QUEUED,
         /** The portal activated the token; the email has not been confirmed sent. */
         COMMITTED,
@@ -102,7 +102,7 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         SEND_FAILED,
         /** The token is live and the transport could not say whether it accepted the email. */
         SEND_UNCERTAIN,
-        /** Stopped before the token was activated; nothing reached the patient. */
+        /** Sending was stopped; code withdrawal or prior account activation was confirmed. */
         ABANDONED,
         /** Sending is fenced out; withdrawal may still need to finish after interruption. */
         ABANDONING,
@@ -159,6 +159,8 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         CONFIRMED_NOT_SENT,
         /** Staff stopped the attempt before its code was activated. */
         ABANDONED_BY_STAFF,
+        /** Sending was fenced, but the portal proves this invitation already activated an account. */
+        CODE_ALREADY_USED,
         /** The email was sent, but the note recording it on the chart could not be written. */
         CHART_NOTE_FAILED
     }
@@ -204,7 +206,7 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
     @Column(name = "outcome", length = 32)
     private Outcome outcome;
 
-    /** Whether withdrawing an unused code on the portal failed; the code then expires on its own. */
+    /** Whether code withdrawal remains unconfirmed; abandonment stays open for retry. */
     @Column(name = "revoke_failed", nullable = false)
     private boolean revokeFailed;
 
