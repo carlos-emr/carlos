@@ -6,11 +6,14 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * Uses the document viewer's patient, program and queue checks for tickler links, and additionally
@@ -38,7 +41,8 @@ public class TicklerDocumentAccess {
     }
 
     /**
-     * @throws SecurityException when the viewer would refuse the document, or it is deleted
+     * @throws SecurityException when the viewer would refuse the document, it is deleted, or it
+     *         no longer has any live patient association
      */
     public void requireRead(LoggedInInfo loggedInInfo, int documentNo) {
         // Patient/program/queue first, so no document metadata is consulted for a denied caller.
@@ -47,6 +51,29 @@ public class TicklerDocumentAccess {
         if (document == null || document.getStatus() == 'D') {
             throw new SecurityException("Document is not available");
         }
+        // The shared gate counts every ctl_document row when deciding WHOSE access is needed,
+        // deleted links included (that only adds checks). It does not ask whether the document is
+        // still filed against any patient at all, and must not for its other callers (provider
+        // and unfiled inbox documents are legitimately patient-less there). A tickler link only
+        // ever points at a patient's document, so require at least one live association by the
+        // same rule as attachment ownership (AttachmentSelectionAccess.isLiveDemographicLink).
+        if (!hasLivePatientLink(documentNo)) {
+            throw new SecurityException("Document is not available");
+        }
+    }
+
+    private boolean hasLivePatientLink(int documentNo) {
+        List<Object[]> rows = documentDao.findCtlDocsAndDocsByDocNo(documentNo);
+        if (rows == null) return false;
+        for (Object[] row : rows) {
+            if (row != null && row.length > 1 && row[1] instanceof CtlDocument link && link.getId() != null) {
+                Integer patient = link.getId().getModuleId();
+                if (patient != null && patient > 0 && AttachmentSelectionAccess.isLiveDemographicLink(row, patient)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public boolean canRead(LoggedInInfo loggedInInfo, int documentNo) {
