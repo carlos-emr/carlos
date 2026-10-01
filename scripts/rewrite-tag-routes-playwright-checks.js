@@ -24,12 +24,16 @@ async function resolvedAction(page, selector) {
 
 /** Clicks a control that submits a form answering with an attachment, and returns the PDF bytes. */
 async function submitForDownload(page, control, pathname, label) {
+  const download = page.waitForEvent('download', { timeout: 60000 });
+  // A failed response assertion below must not leave this waiter rejecting unhandled
+  // (it would surface during fixture cleanup); the original promise is still awaited.
+  download.catch(() => {});
   // Matches any POST so a regression to a /WEB-INF/... target is reported with its URL
   // instead of timing out waiting for the expected route.
-  const response = page.waitForResponse(r => r.request().method() === 'POST', { timeout: 60000 });
-  const download = page.waitForEvent('download', { timeout: 60000 });
-  await control.click();
-  const answer = await response;
+  const [answer] = await Promise.all([
+    page.waitForResponse(r => r.request().method() === 'POST', { timeout: 60000 }),
+    control.click(),
+  ]);
   assert(new URL(answer.url()).pathname === pathname,
     `${label} posted to ${new URL(answer.url()).pathname}, not ${pathname}`);
   assert(answer.status() === 200, `${label} answered HTTP ${answer.status()} from ${new URL(answer.url()).pathname}`);
