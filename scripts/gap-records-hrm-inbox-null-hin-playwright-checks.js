@@ -38,7 +38,8 @@ async function workflow(s) {
     const failed = recorder.badResponses.filter(entry => entry.label === 'null-hin-inbox' && /\/web\/inboxhub\/Inboxhub/.test(entry.url));
     h.assert(failed.length === 0, `The Inbox list answered HTTP ${failed[0] && failed[0].status} for an HRM report matched to a patient whose HIN is NULL `
       + '(HRMResultsData.java:180 calls healthNumber.contains on the NULL HIN); the inbox of every provider routed that report is unusable');
-    const rows = await inbox.locator('#inboxhubListModeTableBody tr[data-segment-id]').evaluateAll(trs => trs.map(tr => tr.getAttribute('data-segment-id')));
+    // Segment ids come from separate document, lab and HRM sequences, so match the HRM row type as well as the id.
+    const rows = await inbox.locator('#inboxhubListModeTableBody tr[data-segment-id][data-lab-type="HRM"]').evaluateAll(trs => trs.map(tr => tr.getAttribute('data-segment-id')));
     h.assert(rows.includes(reportId), 'The Inbox list does not show the HRM report routed to the test provider');
   });
 }

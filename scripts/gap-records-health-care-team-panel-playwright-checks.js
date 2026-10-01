@@ -44,6 +44,9 @@ async function workflow(s) {
     await master.locator('#listHealthCareTeam input[value="remove"]').click();
     await master.locator('#listHealthCareTeam input[value="remove"]').waitFor({ state: 'detached', timeout: TIMEOUT });
     await expectValue(sql, `SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${patient} AND deleted=0`, '0', 'Remove left the membership active');
+    // Contact2Action.removeContact keeps the row and marks it deleted; a hard delete would lose the membership history.
+    h.assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE ${owned} AND deleted=1`) === '1',
+      'Remove did not keep exactly one membership row marked deleted (the history was lost)');
     h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(provider)}`) === '1', 'Remove deleted the provider');
   });
 
