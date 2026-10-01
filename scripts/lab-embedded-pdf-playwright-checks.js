@@ -393,6 +393,25 @@ async function workflow(s) {
       'a PDF over the limit is not replaced by the use-download message');
     const download = await fetchRoute(s, `/lab/DownloadEmbeddedDocumentFromLab?${documentQuery(labNo, PDF_SEGMENT)}`);
     h.assert(download.status === 200 && download.body.equals(PDF), 'the size limit wrongly applied to the download');
+  });
+
+  await s.step('pressing Enter in the size field saves through the form, like the Save button', async () => {
+    // Implicit submission bypasses the Save button's onclick; the form's onsubmit must supply the
+    // save intent, and the POST must still carry the CSRFGuard token injected into the form.
+    const size = settingsPage.locator('#lab_pdf_max_size_mb');
+    await size.fill('7');
+    await size.focus();
+    await Promise.all([
+      settingsPage.waitForNavigation({ timeout: TIMEOUT }),
+      size.press('Enter'),
+    ]);
+    await settingsPage.locator('#labDisplaySettingsSaved').waitFor({ timeout: TIMEOUT });
+    h.assert(await settingsPage.locator('#labDisplaySettingsSaveFailed').count() === 0
+      && await settingsPage.locator('#labDisplaySettingsInvalid').count() === 0, 'the Enter-key save reported an error');
+    h.assert(preferences.value('lab_pdf_max_size') === String(7 * 1024 * 1024),
+      'pressing Enter did not store the 7 MB limit');
+    h.assert(await settingsPage.locator('#lab_pdf_max_size_mb').inputValue() === '7',
+      'the page re-rendered after the Enter-key save does not show the saved 7 MB limit');
     await settingsPage.close();
   });
 }
