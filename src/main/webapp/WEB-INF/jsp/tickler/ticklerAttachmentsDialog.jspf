@@ -56,7 +56,8 @@
                 $panel.find('#attachmentNames li').length > 0 && !!assignee && assignee !== sender);
         }
 
-        jQuery(document).on('change', '[name="assignedToProviders"], [name="task_assigned_to"]', updateAssigneeWarning);
+        // Switching the site replaces the assignee options without a change event on them.
+        jQuery(document).on('change', '[name="assignedToProviders"], [name="task_assigned_to"], #site', updateAssigneeWarning);
         jQuery(updateAssigneeWarning);
 
         jQuery(document).on('click', '#manageAttachmentsBtn', function () {

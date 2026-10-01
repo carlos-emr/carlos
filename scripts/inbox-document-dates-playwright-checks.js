@@ -82,7 +82,7 @@ async function workflow(s) {
     const form = await Promise.all(['#inputLastName', '#startDate', '#endDate'].map(selector => inbox.locator(selector).inputValue()));
     const hidden = await Promise.all(['#searchProviderAll', '#findProvider', '#unmatchedId', '#statusId', '#abnormalId']
       .map(selector => inbox.locator(selector).inputValue()));
-    const types = await Promise.all(['#btnDoc', '#btnLab', '#btnHrm'].map(async selector =>
+    const types = await Promise.all(['#btnDoc', '#btnLab', '#btnHRM'].map(async selector =>
       await inbox.locator(selector).count() ? inbox.locator(selector).isChecked() : null));
     assert(rows.includes(`DOC:${documentNo}`),
       `Received-date search silently omitted the matching document (preference=${preference}, SQL match=${matchingDocument}, filters=${filters}, hidden=${hidden}, types=${types}, form=${form}, rows=${rows.length})`);
