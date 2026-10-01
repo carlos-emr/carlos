@@ -212,7 +212,7 @@ class SmsConfigServiceUnitTest {
     void shouldPublishSchedulerSetting_whenSaved() {
         when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
 
-        service().save(new SmsConfigUpdateDto(SmsProviderType.STUB, true, true, "", "", false, Map.of(), false),
+        service().save(new SmsConfigUpdateDto(SmsProviderType.STUB, true, true, "", "", false, Map.of(), false, SmsProviderType.STUB, java.util.Set.of()),
                 "999998");
 
         ArgumentCaptor<SmsConfigChangedEvent> event = ArgumentCaptor.forClass(SmsConfigChangedEvent.class);
@@ -465,16 +465,45 @@ class SmsConfigServiceUnitTest {
         };
     }
 
+    @Test
+    void shouldIgnoreCredentialChanges_whenDisplayedProviderDoesNotMatch() {
+        for (SmsProviderType displayed : new SmsProviderType[] {null, SmsProviderType.CLOUDLI}) {
+            SmsConfig stored = new SmsConfig();
+            stored.setProviderType(SmsProviderType.VOIPMS);
+            stored.setCredential(SmsProviderType.VOIPMS, "field_one", "kept-value");
+            stored.setCredential(SmsProviderType.VOIPMS, "legacy_field", "kept-legacy");
+            when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+            String before = stored.storedCredentials();
+            service().save(new SmsConfigUpdateDto(SmsProviderType.VOIPMS, true, false, "", "", false,
+                    Map.of("field_one", "wrong-value"), true, displayed, java.util.Set.of()), "999998");
+            assertThat(stored.storedCredentials()).isEqualTo(before);
+            assertThat(stored.isEnabled()).isTrue();
+        }
+    }
+
+    @Test
+    void shouldRemoveUninstalledProviderCredentials_withoutActivatingProvider() {
+        SmsConfig stored = new SmsConfig();
+        stored.setCredential(SmsProviderType.CLOUDLI, "account_id", "old-value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+        service().save(new SmsConfigUpdateDto(SmsProviderType.STUB, false, false, "", "", false,
+                Map.of(), false, SmsProviderType.STUB, java.util.Set.of(SmsProviderType.CLOUDLI)), "999998");
+        assertThat(stored.getProviderType()).isEqualTo(SmsProviderType.STUB);
+        assertThat(stored.credentialNames(SmsProviderType.CLOUDLI)).isEmpty();
+        verify(auditRecorder).recordSaved(org.mockito.ArgumentMatchers.same(stored), org.mockito.ArgumentMatchers.eq("999998"),
+                org.mockito.ArgumentMatchers.eq(List.of("credentials:CLOUDLI")));
+    }
+
     private static SmsConfigUpdateDto update(SmsProviderType providerType, boolean enabled, String senderNumber,
                                              String webhookSecret, boolean clearWebhookSecret,
                                              Map<String, String> credentials) {
         return new SmsConfigUpdateDto(providerType, enabled, false, senderNumber, webhookSecret, clearWebhookSecret,
-                credentials, false);
+                credentials, false, providerType, java.util.Set.of());
     }
 
     /** Leaves every other setting as a new row has it, so only the provider and credentials can change. */
     private static SmsConfigUpdateDto credentialsUpdate(SmsProviderType providerType, Map<String, String> credentials,
                                                         boolean clearCredentials) {
-        return new SmsConfigUpdateDto(providerType, false, false, "", "", false, credentials, clearCredentials);
+        return new SmsConfigUpdateDto(providerType, false, false, "", "", false, credentials, clearCredentials, providerType, java.util.Set.of());
     }
 }

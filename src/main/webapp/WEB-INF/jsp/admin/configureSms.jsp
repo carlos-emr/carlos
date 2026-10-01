@@ -152,15 +152,26 @@
                             </div>
                         </div>
                     </c:forEach>
-                    <c:if test="${smsConfig.credentialsStored}">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="clearCredentials" name="clearCredentials"
-                                   value="true"/>
-                            <label class="form-check-label" for="clearCredentials"><fmt:message key="sms.config.clearCredentials"/></label>
-                        </div>
-                    </c:if>
                 </c:otherwise>
             </c:choose>
+            <c:if test="${smsConfig.credentialsStored}">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="clearCredentials" name="clearCredentials"
+                           value="true"/>
+                    <label class="form-check-label" for="clearCredentials"><fmt:message key="sms.config.clearCredentials"/></label>
+                </div>
+            </c:if>
+            <c:forEach items="${smsConfig.otherCredentialProviders}" var="provider">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="removeProviderCredentials"
+                           id="removeCredentials-<carlos:encode value='${provider}' context='htmlAttribute'/>"
+                           value="<carlos:encode value='${provider}' context='htmlAttribute'/>"/>
+                    <label class="form-check-label"
+                           for="removeCredentials-<carlos:encode value='${provider}' context='htmlAttribute'/>">
+                        <fmt:message key="sms.config.removeProviderCredentials"/> <carlos:encode value="${provider}"/>
+                    </label>
+                </div>
+            </c:forEach>
         </fieldset>
 
         <button type="submit" class="btn btn-primary" id="smsConfigSave"><fmt:message key="sms.config.save"/></button>

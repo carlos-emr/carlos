@@ -39,6 +39,11 @@ import jakarta.persistence.Version;
 
 import java.util.Collections;
 import java.util.Date;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -65,6 +70,8 @@ import java.util.TreeMap;
 @Table(name = "sms_config")
 public class SmsConfig extends AbstractModel<Integer> {
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final String GROUPED_FORMAT_KEY = "_carlosCredentialFormat";
+    private static final int GROUPED_FORMAT_VERSION = 1;
 
     /** The only row's id; V1.0.34 refuses any other. */
     public static final int SINGLETON_ID = 1;
@@ -172,7 +179,7 @@ public class SmsConfig extends AbstractModel<Integer> {
 
     /** @return the provider's decrypted credential value, or empty when none is stored */
     public String getCredential(SmsProviderType provider, String name) {
-        return decrypt(credentials().getOrDefault(provider.name(), new TreeMap<>()).get(name));
+        return decrypt(providerCredentials(provider).get(name));
     }
 
     /**
@@ -181,55 +188,70 @@ public class SmsConfig extends AbstractModel<Integer> {
      * dropped.
      */
     public void setCredential(SmsProviderType provider, String name, String value) {
-        // Unreadable stored credentials are replaced rather than blocking the save that repairs them.
-        TreeMap<String, TreeMap<String, String>> credentials = readableCredentials();
+        TreeMap<String, JsonNode> credentials = readableCredentials();
+        TreeMap<String, String> values = readableProviderCredentials(provider);
         if (isBlank(value)) {
-            TreeMap<String, String> providerCredentials = credentials.get(provider.name());
-            if (providerCredentials == null || providerCredentials.remove(name) == null) {
+            if (values.remove(name) == null) {
                 return;
             }
-            if (providerCredentials.isEmpty()) {
-                credentials.remove(provider.name());
-            }
         } else {
-            credentials.computeIfAbsent(provider.name(), unused -> new TreeMap<>()).put(name, encrypt(value));
+            values.put(name, encrypt(value));
+        }
+        if (values.isEmpty()) {
+            credentials.remove(provider.name());
+        } else {
+            credentials.put(provider.name(), JSON.valueToTree(values));
         }
         writeCredentials(credentials);
     }
 
-    /**
-     * @return whether {@code name} is stored for the provider; {@code false} when the stored credentials
-     *         cannot be read
-     */
+    /** Whether a field is stored; unreadable provider entries have no displayable fields. */
     public boolean hasCredential(SmsProviderType provider, String name) {
-        TreeMap<String, String> providerCredentials = readableCredentials().get(provider.name());
-        return providerCredentials != null && providerCredentials.containsKey(name);
+        return readableProviderCredentials(provider).containsKey(name);
     }
 
-    /**
-     * @return the names of the provider's stored credentials (not their values); empty when the stored
-     *         credentials cannot be read, so the settings page can still be opened and saved to replace them
-     */
+    /** Field names only; no credential values are exposed to the settings page. */
     public Set<String> credentialNames(SmsProviderType provider) {
-        TreeMap<String, String> providerCredentials = readableCredentials().get(provider.name());
-        return providerCredentials == null ? Set.of() : Set.copyOf(providerCredentials.keySet());
+        return Set.copyOf(readableProviderCredentials(provider).keySet());
     }
 
     /**
-     * Removes every credential stored for the provider; other providers' credentials are left as they
-     * are. Does nothing when the provider has none, or when the stored credentials cannot be read.
+     * Removes only this provider's entry, including a malformed entry. If the entire stored document is
+     * unreadable, an explicit remove clears it so the administrator can repair the settings.
      */
     public void removeCredentials(SmsProviderType provider) {
-        TreeMap<String, TreeMap<String, String>> credentials = readableCredentials();
+        TreeMap<String, JsonNode> credentials;
+        try {
+            credentials = credentials();
+        } catch (IllegalStateException e) {
+            credentialsJson = null;
+            return;
+        }
         if (credentials.remove(provider.name()) != null) {
             writeCredentials(credentials);
         }
     }
 
-    /** @return {@code false} when credentials are stored but cannot be read and must be entered again */
+    /** Known providers with stored entries, including malformed entries and uninstalled clients. */
+    public Set<SmsProviderType> providersWithCredentials() {
+        Set<String> names = readableCredentials().keySet();
+        return Arrays.stream(SmsProviderType.values()).filter(provider -> names.contains(provider.name()))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    /** Whether removal should be offered even when the provider declares no credential fields. */
+    public boolean hasStoredCredentials(SmsProviderType provider) {
+        try {
+            return credentials().containsKey(provider.name());
+        } catch (IllegalStateException e) {
+            return true;
+        }
+    }
+
+    /** Whether all stored entries have a readable structure; does not decrypt secrets. */
     public boolean credentialsReadable() {
         try {
-            credentials();
+            credentials().values().forEach(SmsConfig::stringValues);
             return true;
         } catch (IllegalStateException e) {
             return false;
@@ -246,16 +268,19 @@ public class SmsConfig extends AbstractModel<Integer> {
         return credentialsJson;
     }
 
-    /**
-     * @return each provider's encrypted credentials as stored (provider name to field name to encrypted
-     *         value), for telling which provider's credentials a save changed; never a credential itself.
-     *         Empty when the stored credentials cannot be read.
-     */
-    public Map<String, Map<String, String>> storedCredentialsByProvider() {
-        Map<String, Map<String, String>> byProvider = new LinkedHashMap<>();
-        readableCredentials().forEach((provider, values) ->
-                byProvider.put(provider, Collections.unmodifiableMap(values)));
-        return Collections.unmodifiableMap(byProvider);
+    /** Per-provider SHA-256 fingerprints for auditing changes without exposing ciphertext. */
+    public Map<String, String> credentialFingerprints() {
+        Map<String, String> fingerprints = new LinkedHashMap<>();
+        readableCredentials().forEach((provider, values) -> {
+            try {
+                byte[] digest = MessageDigest.getInstance("SHA-256")
+                        .digest(values.toString().getBytes(StandardCharsets.UTF_8));
+                fingerprints.put(provider, HexFormat.of().formatHex(digest));
+            } catch (NoSuchAlgorithmException e) {
+                throw new IllegalStateException("SMS credential fingerprint unavailable.");
+            }
+        });
+        return Collections.unmodifiableMap(fingerprints);
     }
 
     public Date getUpdatedAt() {
@@ -278,7 +303,7 @@ public class SmsConfig extends AbstractModel<Integer> {
         return "SmsConfig[redacted]";
     }
 
-    private TreeMap<String, TreeMap<String, String>> readableCredentials() {
+    private TreeMap<String, JsonNode> readableCredentials() {
         try {
             return credentials();
         } catch (IllegalStateException e) {
@@ -286,32 +311,34 @@ public class SmsConfig extends AbstractModel<Integer> {
         }
     }
 
+    private TreeMap<String, String> providerCredentials(SmsProviderType provider) {
+        JsonNode entry = credentials().get(provider.name());
+        return entry == null ? new TreeMap<>() : stringValues(entry);
+    }
+
+    private TreeMap<String, String> readableProviderCredentials(SmsProviderType provider) {
+        try {
+            return providerCredentials(provider);
+        } catch (IllegalStateException e) {
+            return new TreeMap<>();
+        }
+    }
+
     /**
-     * Reads the stored credentials as provider name to field name to encrypted value.
-     * <p>
-     * Two shapes are read. The current one groups by provider: every value of the outer object is an
-     * object of strings. The earlier flat shape, written before credentials were kept per provider, is
-     * one object whose every value is a string; it belongs to the provider the row names, and the next
-     * write stores it grouped. Anything else (not JSON, not an object, a mix of the two shapes, or a
-     * value that is neither) is unreadable.
-     *
-     * @throws IllegalStateException when the stored credentials cannot be read
+     * Groups the old flat shape under its saved provider. Provider entries are otherwise kept intact:
+     * parsing one provider must never discard another provider's malformed or unknown entry.
      */
-    private TreeMap<String, TreeMap<String, String>> credentials() {
+    private TreeMap<String, JsonNode> credentials() {
         JsonNode stored = storedCredentialTree();
-        TreeMap<String, TreeMap<String, String>> byProvider = new TreeMap<>();
+        TreeMap<String, JsonNode> byProvider = new TreeMap<>();
         if (stored == null) {
             return byProvider;
         }
-        if (isFlat(stored)) {
-            byProvider.put(providerType.name(), stringValues(stored));
-            return byProvider;
-        }
-        for (Map.Entry<String, JsonNode> provider : stored.properties()) {
-            TreeMap<String, String> values = stringValues(provider.getValue());
-            if (!values.isEmpty()) {
-                byProvider.put(provider.getKey(), values);
-            }
+        if (!hasGroupedMarker(stored) && isFlat(stored)) {
+            byProvider.put(providerType.name(), stored);
+        } else {
+            stored.properties().stream().filter(entry -> !GROUPED_FORMAT_KEY.equals(entry.getKey()))
+                    .forEach(entry -> byProvider.put(entry.getKey(), entry.getValue()));
         }
         return byProvider;
     }
@@ -320,7 +347,7 @@ public class SmsConfig extends AbstractModel<Integer> {
     private boolean storesFlatCredentials() {
         try {
             JsonNode stored = storedCredentialTree();
-            return stored != null && isFlat(stored);
+            return stored != null && !hasGroupedMarker(stored) && isFlat(stored);
         } catch (IllegalStateException e) {
             return false;
         }
@@ -341,6 +368,17 @@ public class SmsConfig extends AbstractModel<Integer> {
             throw unreadableCredentials();
         }
         return stored;
+    }
+
+    private static boolean hasGroupedMarker(JsonNode stored) {
+        JsonNode marker = stored.get(GROUPED_FORMAT_KEY);
+        if (marker == null) {
+            return false;
+        }
+        if (!marker.isIntegralNumber() || marker.intValue() != GROUPED_FORMAT_VERSION) {
+            throw unreadableCredentials();
+        }
+        return true;
     }
 
     /** The earlier flat shape: a non-empty object whose every value is a string (an encrypted credential). */
@@ -376,9 +414,17 @@ public class SmsConfig extends AbstractModel<Integer> {
                 "Stored SMS credentials are unreadable; re-enter them in Administration > SMS.");
     }
 
-    private void writeCredentials(Map<String, TreeMap<String, String>> credentials) {
+    private void writeCredentials(Map<String, JsonNode> credentials) {
         try {
-            credentialsJson = credentials.isEmpty() ? null : JSON.writeValueAsString(credentials);
+            if (credentials.isEmpty()) {
+                credentialsJson = null;
+            } else {
+                // Removing the last valid object can leave only malformed textual entries. Mark the
+                // grouped shape so those entries never become another provider's legacy flat fields.
+                TreeMap<String, JsonNode> stored = new TreeMap<>(credentials);
+                stored.put(GROUPED_FORMAT_KEY, JSON.valueToTree(GROUPED_FORMAT_VERSION));
+                credentialsJson = JSON.writeValueAsString(stored);
+            }
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("SMS credentials could not be stored.");
         }

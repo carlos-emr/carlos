@@ -221,6 +221,13 @@ public class SmsConfigService {
     private void applyCredentials(SmsConfig config, SmsConfigUpdateDto update) {
         // The provider as set on the row, so a missing choice means STUB here as it does there.
         SmsProviderType provider = config.getProviderType();
+        // Named removals target the displayed provider explicitly, even if it is no longer installed.
+        for (SmsProviderType removed : update.removeProviderCredentials()) {
+            config.removeCredentials(removed);
+        }
+        if (provider != update.credentialsProvider()) {
+            return;
+        }
         if (update.clearCredentials()) {
             config.removeCredentials(provider);
         }
@@ -250,11 +257,11 @@ public class SmsConfigService {
      */
     private record Snapshot(boolean stored, SmsProviderType providerType, boolean enabled, boolean schedulerEnabled,
                             String senderNumber, String webhookSecretStored, String credentialsStored,
-                            boolean credentialsReadable, Map<String, Map<String, String>> credentialsByProvider) {
+                            boolean credentialsReadable, Map<String, String> credentialsByProvider) {
         static Snapshot of(SmsConfig config, boolean stored) {
             return new Snapshot(stored, config.getProviderType(), config.isEnabled(), config.isSchedulerEnabled(),
                     config.getSenderNumber(), config.storedWebhookSecret(), config.storedCredentials(),
-                    config.credentialsReadable(), config.storedCredentialsByProvider());
+                    config.credentialsReadable(), config.credentialFingerprints());
         }
 
         List<String> changedFields(Snapshot after) {

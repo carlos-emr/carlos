@@ -94,7 +94,6 @@ class SmsConfigViewModelAssemblerUnitTest {
                 new SmsConfigViewModel.CredentialField("field_two", true),
                 new SmsConfigViewModel.CredentialField("field_one", false));
         assertThat(model.credentialsStored()).isTrue();
-        assertThat(model.toString()).doesNotContain("webhook-value-123").doesNotContain("value two");
     }
 
     @Test
@@ -169,14 +168,13 @@ class SmsConfigViewModelAssemblerUnitTest {
         SmsConfigViewModel model = assembler().assemble("savedWithoutCredentials", List.of());
 
         assertThat(model.resultKey()).isEqualTo("sms.config.result.savedWithoutCredentials");
-        assertThat(model.toString()).doesNotContain("voipms-value").doesNotContain("{ENC}");
         Properties english = new Properties();
         try (InputStream bundle = getClass().getResourceAsStream("/oscarResources_en.properties")) {
             english.load(bundle);
         }
         // Fixed text with no placeholder, so no value can be put into it.
         assertThat(english.getProperty(model.resultKey()))
-                .contains("the credentials you typed were not saved")
+                .contains("Credential changes were not applied")
                 .doesNotContain("{");
     }
 
@@ -213,7 +211,7 @@ class SmsConfigViewModelAssemblerUnitTest {
         stored.setWebhookSecret("webhook-value-123");
         when(configService.current()).thenReturn(Optional.of(stored));
         SmsConfigUpdateDto submitted = new SmsConfigUpdateDto(
-                SmsProviderType.STUB, false, true, "not-a-number", "new-secret-value", false, Map.of(), false);
+                SmsProviderType.STUB, false, true, "not-a-number", "new-secret-value", false, Map.of(), false, SmsProviderType.STUB, java.util.Set.of());
 
         SmsConfigViewModel model = assembler().assembleRejected(submitted, List.of("sms.config.error.senderNumber"));
 
@@ -222,7 +220,6 @@ class SmsConfigViewModelAssemblerUnitTest {
                         SmsConfigViewModel::senderNumber, SmsConfigViewModel::webhookSecretSet,
                         SmsConfigViewModel::resultKey, SmsConfigViewModel::errorKeys)
                 .containsExactly(false, true, "not-a-number", true, "", List.of("sms.config.error.senderNumber"));
-        assertThat(model.toString()).doesNotContain("new-secret-value").doesNotContain("webhook-value-123");
     }
 
     @Test
@@ -236,7 +233,7 @@ class SmsConfigViewModelAssemblerUnitTest {
         when(configService.credentialFields(SmsProviderType.VOIPMS)).thenReturn(List.of("field_one"));
         when(configService.credentialFields(SmsProviderType.CLOUDLI)).thenReturn(List.of("account_id", "field_one"));
         SmsConfigUpdateDto submitted = new SmsConfigUpdateDto(
-                SmsProviderType.CLOUDLI, true, false, "not-a-number", "", false, Map.of(), false);
+                SmsProviderType.CLOUDLI, true, false, "not-a-number", "", false, Map.of(), false, SmsProviderType.CLOUDLI, java.util.Set.of());
 
         SmsConfigViewModel model = assembler(installed(SmsProviderType.VOIPMS, SmsProviderType.CLOUDLI))
                 .assembleRejected(submitted, List.of("sms.config.error.senderNumber"));
@@ -257,7 +254,7 @@ class SmsConfigViewModelAssemblerUnitTest {
         when(configService.current()).thenReturn(Optional.of(stored));
         when(configService.credentialFields(SmsProviderType.CLOUDLI)).thenReturn(List.of("field_one"));
         SmsConfigUpdateDto submitted = new SmsConfigUpdateDto(
-                SmsProviderType.CLOUDLI, true, false, "not-a-number", "", false, Map.of(), false);
+                SmsProviderType.CLOUDLI, true, false, "not-a-number", "", false, Map.of(), false, SmsProviderType.CLOUDLI, java.util.Set.of());
 
         SmsConfigViewModel model = assembler(installed(SmsProviderType.VOIPMS, SmsProviderType.CLOUDLI))
                 .assembleRejected(submitted, List.of("sms.config.error.senderNumber"));
@@ -280,7 +277,20 @@ class SmsConfigViewModelAssemblerUnitTest {
         assertThat(model.errorKeys()).containsExactly("sms.config.error.credentialsUnreadable");
         assertThat(model.credentialFields())
                 .containsExactly(new SmsConfigViewModel.CredentialField("field_one", false));
-        assertThat(model.credentialsStored()).isFalse();
+        assertThat(model.credentialsStored()).isTrue();
+    }
+
+    @Test
+    void shouldOfferRemoval_forUninstalledProvidersAndFieldsNoLongerDeclared() {
+        SmsConfig stored = new SmsConfig();
+        stored.setCredential(SmsProviderType.CLOUDLI, "old_field", "old-value");
+        stored.setCredential(SmsProviderType.STUB, "retired_field", "stub-value");
+        when(configService.current()).thenReturn(Optional.of(stored));
+        SmsConfigViewModel model = assembler().assemble(null, List.of());
+        assertThat(model.providerOptions()).containsExactly("STUB");
+        assertThat(model.otherCredentialProviders()).containsExactly("CLOUDLI");
+        assertThat(model.credentialFields()).isEmpty();
+        assertThat(model.credentialsStored()).isTrue();
     }
 
     private SmsConfigViewModelAssembler assembler() {

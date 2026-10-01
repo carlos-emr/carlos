@@ -94,14 +94,13 @@ class SmsConfigUnitTest {
         assertThat(stored).contains("field_one", "field_two", "{ENC}")
                 .doesNotContain("value-one").doesNotContain("value two");
         JsonNode grouped = JSON.readTree(stored);
-        assertThat(grouped.properties()).extracting(Map.Entry::getKey).containsExactly("VOIPMS");
+        assertThat(grouped.properties()).extracting(Map.Entry::getKey).containsExactly("VOIPMS", "_carlosCredentialFormat");
         assertThat(grouped.get("VOIPMS").get("field_one").textValue()).startsWith("{ENC}");
         assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_two")).isEqualTo("value two");
         assertThat(config.hasCredential(SmsProviderType.VOIPMS, "field_one")).isTrue();
         assertThat(config.hasCredential(SmsProviderType.VOIPMS, "field_three")).isFalse();
-        assertThat(config.storedCredentialsByProvider().get("VOIPMS"))
-                .containsOnlyKeys("field_one", "field_two")
-                .doesNotContainValue("value-one");
+        assertThat(config.credentialFingerprints().get("VOIPMS"))
+                .matches("[0-9a-f]{64}");
     }
 
     @Test
@@ -144,7 +143,7 @@ class SmsConfigUnitTest {
 
         config.setCredential(SmsProviderType.VOIPMS, "field_one", null);
 
-        assertThat(config.storedCredentialsByProvider()).isEmpty();
+        assertThat(config.credentialFingerprints()).isEmpty();
         assertThat(storedJson(config)).isNull();
     }
 
@@ -160,7 +159,7 @@ class SmsConfigUnitTest {
 
         assertThat(config.credentialNames(SmsProviderType.VOIPMS)).isEmpty();
         assertThat(config.getCredential(SmsProviderType.CLOUDLI, "field_one")).isEqualTo("cloudli-value");
-        assertThat(config.storedCredentialsByProvider()).containsOnlyKeys("CLOUDLI");
+        assertThat(config.credentialFingerprints()).containsOnlyKeys("CLOUDLI");
 
         config.removeCredentials(SmsProviderType.CLOUDLI);
 
@@ -176,7 +175,7 @@ class SmsConfigUnitTest {
         assertThat(config.credentialNames(SmsProviderType.VOIPMS)).containsExactlyInAnyOrder("field_one", "field_two");
         assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("value-one");
         assertThat(config.hasCredential(SmsProviderType.CLOUDLI, "field_one")).isFalse();
-        assertThat(config.storedCredentialsByProvider()).containsOnlyKeys("VOIPMS");
+        assertThat(config.credentialFingerprints()).containsOnlyKeys("VOIPMS");
     }
 
     @Test
@@ -188,7 +187,7 @@ class SmsConfigUnitTest {
         config.setCredential(SmsProviderType.CLOUDLI, "field_one", "cloudli-value");
 
         JsonNode grouped = JSON.readTree(storedJson(config));
-        assertThat(grouped.properties()).extracting(Map.Entry::getKey).containsExactly("CLOUDLI", "VOIPMS");
+        assertThat(grouped.properties()).extracting(Map.Entry::getKey).containsExactly("CLOUDLI", "VOIPMS", "_carlosCredentialFormat");
         assertThat(grouped.get("VOIPMS").get("field_one").textValue()).isEqualTo(flatValue);
         assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_two")).isEqualTo("value two");
         assertThat(config.getCredential(SmsProviderType.CLOUDLI, "field_one")).isEqualTo("cloudli-value");
@@ -204,7 +203,7 @@ class SmsConfigUnitTest {
         assertThat(config.credentialNames(SmsProviderType.CLOUDLI)).isEmpty();
         assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("value-one");
         assertThat(JSON.readTree(storedJson(config)).properties())
-                .extracting(Map.Entry::getKey).containsExactly("VOIPMS");
+                .extracting(Map.Entry::getKey).containsExactly("VOIPMS", "_carlosCredentialFormat");
     }
 
     @Test
@@ -226,10 +225,8 @@ class SmsConfigUnitTest {
             "[\"{ENC}abc\"]",
             "\"{ENC}abc\"",
             "null",
-            "{\"field_one\": 5}",
             "{\"VOIPMS\": {\"field_one\": 5}}",
-            "{\"VOIPMS\": {\"field_one\": {\"deeper\": \"{ENC}abc\"}}}",
-            "{\"field_one\": \"{ENC}abc\", \"CLOUDLI\": {\"field_one\": \"{ENC}abc\"}}"
+            "{\"VOIPMS\": {\"field_one\": {\"deeper\": \"{ENC}abc\"}}}"
     })
     @DisplayName("treats stored credentials it cannot read as unreadable: none shown, and a generic error on use")
     void shouldTreatCredentialsAsUnreadable_whenShapeIsUnknown(String stored) {
@@ -240,7 +237,6 @@ class SmsConfigUnitTest {
         assertThat(config.credentialsReadable()).isFalse();
         assertThat(config.hasCredential(SmsProviderType.VOIPMS, "field_one")).isFalse();
         assertThat(config.credentialNames(SmsProviderType.VOIPMS)).isEmpty();
-        assertThat(config.storedCredentialsByProvider()).isEmpty();
         assertThatThrownBy(() -> config.getCredential(SmsProviderType.VOIPMS, "field_one"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Stored SMS credentials are unreadable; re-enter them in Administration > SMS.")
@@ -256,12 +252,12 @@ class SmsConfigUnitTest {
         config.setProviderType(SmsProviderType.VOIPMS);
         config.removeCredentials(SmsProviderType.VOIPMS);
 
-        assertThat(storedJson(config)).isEqualTo("{not json");
+        assertThat(storedJson(config)).isNull();
 
         config.setCredential(SmsProviderType.VOIPMS, "field_one", "value-one");
 
         assertThat(config.credentialsReadable()).isTrue();
-        assertThat(config.storedCredentialsByProvider()).containsOnlyKeys("VOIPMS");
+        assertThat(config.credentialFingerprints()).containsOnlyKeys("VOIPMS");
         assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("value-one");
     }
 
@@ -272,7 +268,7 @@ class SmsConfigUnitTest {
         ReflectionTestUtils.setField(config, "credentialsJson", "{}");
 
         assertThat(config.credentialsReadable()).isTrue();
-        assertThat(config.storedCredentialsByProvider()).isEmpty();
+        assertThat(config.credentialFingerprints()).isEmpty();
     }
 
     @Test
@@ -294,6 +290,61 @@ class SmsConfigUnitTest {
         config.setCredential(SmsProviderType.CLOUDLI, "field_one", "value-one");
 
         assertThat(config.toString()).isEqualTo("SmsConfig[redacted]");
+    }
+
+    @Test
+    void shouldPreserveUnknownAndMalformedEntries_whenAnotherProviderChanges() throws Exception {
+        SmsConfig config = new SmsConfig();
+        config.setCredential(SmsProviderType.VOIPMS, "field_one", "kept-value");
+        com.fasterxml.jackson.databind.node.ObjectNode tree =
+                (com.fasterxml.jackson.databind.node.ObjectNode) JSON.readTree(storedJson(config));
+        tree.set("RETIRED", JSON.readTree("{\"old\":\"{ENC}unchanged\",\"future\":[1,2]}"));
+        tree.put("CLOUDLI", 5);
+        ReflectionTestUtils.setField(config, "credentialsJson", tree.toString());
+        String unknown = tree.get("RETIRED").toString();
+        String fingerprint = config.credentialFingerprints().get("RETIRED");
+
+        assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("kept-value");
+        assertThat(config.hasCredential(SmsProviderType.CLOUDLI, "field_one")).isFalse();
+        assertThatThrownBy(() -> config.getCredential(SmsProviderType.CLOUDLI, "field_one"))
+                .isInstanceOf(IllegalStateException.class);
+        config.setCredential(SmsProviderType.VOIPMS, "field_two", "new-value");
+        assertThat(JSON.readTree(storedJson(config)).get("RETIRED").toString()).isEqualTo(unknown);
+        assertThat(JSON.readTree(storedJson(config)).get("CLOUDLI").intValue()).isEqualTo(5);
+        config.removeCredentials(SmsProviderType.VOIPMS);
+        assertThat(JSON.readTree(storedJson(config)).get("RETIRED").toString()).isEqualTo(unknown);
+        assertThat(config.credentialFingerprints().get("RETIRED")).isEqualTo(fingerprint);
+        assertThat(config.providersWithCredentials()).containsExactly(SmsProviderType.CLOUDLI);
+        config.removeCredentials(SmsProviderType.CLOUDLI);
+        assertThat(JSON.readTree(storedJson(config)).get("RETIRED").toString()).isEqualTo(unknown);
+    }
+
+    @Test
+    void shouldRepairOnlyMalformedProvider_whenCredentialIsReentered() throws Exception {
+        SmsConfig config = new SmsConfig();
+        ReflectionTestUtils.setField(config, "credentialsJson", "{\"VOIPMS\":5,\"RETIRED\":{\"key\":\"preserve\"}}");
+        config.setCredential(SmsProviderType.VOIPMS, "field_one", "new-value");
+        assertThat(config.getCredential(SmsProviderType.VOIPMS, "field_one")).isEqualTo("new-value");
+        assertThat(JSON.readTree(storedJson(config)).get("RETIRED").get("key").textValue()).isEqualTo("preserve");
+    }
+
+    @Test
+    void shouldKeepGroupedIdentity_whenOnlyTextualMalformedEntriesRemain() throws Exception {
+        SmsConfig config = new SmsConfig();
+        config.setProviderType(SmsProviderType.VOIPMS);
+        ReflectionTestUtils.setField(config, "credentialsJson",
+                "{\"VOIPMS\":{\"field_one\":\"old\"},\"CLOUDLI\":\"damaged\",\"RETIRED\":\"{ENC}unknown\"}");
+        config.removeCredentials(SmsProviderType.VOIPMS);
+        assertThat(config.providersWithCredentials()).containsExactly(SmsProviderType.CLOUDLI);
+        assertThat(config.credentialNames(SmsProviderType.VOIPMS)).isEmpty();
+        config.setCredential(SmsProviderType.VOIPMS, "field_one", "replacement");
+        config.removeCredentials(SmsProviderType.CLOUDLI);
+        config.removeCredentials(SmsProviderType.VOIPMS);
+        assertThat(config.providersWithCredentials()).isEmpty();
+        assertThat(JSON.readTree(storedJson(config)).get("RETIRED").textValue()).isEqualTo("{ENC}unknown");
+        config.setProviderType(SmsProviderType.STUB);
+        assertThat(config.credentialNames(SmsProviderType.STUB)).isEmpty();
+        assertThat(config.credentialFingerprints()).containsOnlyKeys("RETIRED");
     }
 
     /** A row as saved before credentials were kept per provider: one flat object of name to encrypted value. */

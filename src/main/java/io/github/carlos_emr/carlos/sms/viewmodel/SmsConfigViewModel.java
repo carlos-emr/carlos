@@ -35,7 +35,8 @@ import java.util.List;
  * @param senderNumber      the E.164 sender number, or empty
  * @param webhookSecretSet  whether a webhook secret is stored
  * @param credentialFields  the selected provider's credential fields and whether each is stored
- * @param credentialsStored whether any of those fields is stored, so the page offers to remove them
+ * @param credentialsStored whether an entry is stored or unreadable, so the page offers removal
+ * @param otherCredentialProviders other known providers with stored entries, including uninstalled clients
  * @param stored            whether settings have been saved; false means the properties still apply
  * @param systemTestEnabled whether {@code sms.systemTest.enabled} lets the system test send
  * @param resultKey         message key for the last action's result, or empty
@@ -45,12 +46,13 @@ import java.util.List;
 public record SmsConfigViewModel(String providerType, List<String> providerOptions, boolean enabled,
                                  boolean schedulerEnabled, boolean schedulerRunning, String senderNumber,
                                  boolean webhookSecretSet, List<CredentialField> credentialFields,
-                                 boolean credentialsStored, boolean stored, boolean systemTestEnabled,
+                                 boolean credentialsStored, List<String> otherCredentialProviders, boolean stored, boolean systemTestEnabled,
                                  String resultKey, List<String> errorKeys) {
 
     public SmsConfigViewModel {
         providerOptions = providerOptions == null ? List.of() : List.copyOf(providerOptions);
         credentialFields = credentialFields == null ? List.of() : List.copyOf(credentialFields);
+        otherCredentialProviders = otherCredentialProviders == null ? List.of() : List.copyOf(otherCredentialProviders);
         errorKeys = errorKeys == null ? List.of() : List.copyOf(errorKeys);
     }
 

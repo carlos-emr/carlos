@@ -85,6 +85,10 @@ public class SmsConfigViewModelAssembler {
      * @return the page model
      */
     public SmsConfigViewModel assemble(String resultCode, List<String> errorKeys) {
+        return assemble(resultCode, errorKeys, null);
+    }
+
+    private SmsConfigViewModel assemble(String resultCode, List<String> errorKeys, SmsConfigUpdateDto submitted) {
         Optional<SmsConfig> stored = configService.current();
         List<String> messageKeys = new ArrayList<>(errorKeys == null ? List.of() : errorKeys);
         SmsProviderType providerType;
@@ -99,6 +103,11 @@ public class SmsConfigViewModelAssembler {
                 messageKeys.add("sms.config.error.invalidPropertyProvider");
             }
         }
+        if (submitted != null && submitted.providerType() != null
+                && providerClients.registeredProviderTypes().contains(submitted.providerType())) {
+            providerType = submitted.providerType();
+        }
+        SmsProviderType selectedProvider = providerType;
         if (stored.isPresent() && !stored.get().credentialsReadable()) {
             // The page still opens, so the administrator can enter the credentials again and save.
             messageKeys.add("sms.config.error.credentialsUnreadable");
@@ -108,13 +117,17 @@ public class SmsConfigViewModelAssembler {
         return new SmsConfigViewModel(
                 providerType.name(),
                 providerClients.registeredProviderTypes().stream().map(Enum::name).sorted().toList(),
-                stored.map(SmsConfig::isEnabled).orElse(true),
-                stored.map(SmsConfig::isSchedulerEnabled).orElse(schedulerRunning),
+                submitted == null ? stored.map(SmsConfig::isEnabled).orElse(true) : submitted.enabled(),
+                submitted == null ? stored.map(SmsConfig::isSchedulerEnabled).orElse(schedulerRunning) : submitted.schedulerEnabled(),
                 schedulerRunning,
-                stored.map(SmsConfig::getSenderNumber).orElse(""),
+                submitted == null ? stored.map(SmsConfig::getSenderNumber).orElse("")
+                        : submitted.senderNumber() == null ? "" : submitted.senderNumber(),
                 stored.map(SmsConfig::hasWebhookSecret).orElse(false),
                 credentialFields,
-                anyStored(credentialFields),
+                stored.map(config -> config.hasStoredCredentials(selectedProvider)).orElse(false),
+                stored.map(config -> config.providersWithCredentials().stream()
+                        .filter(provider -> provider != selectedProvider).map(Enum::name).sorted().toList())
+                        .orElse(List.of()),
                 stored.isPresent(),
                 systemTestEnabled.getAsBoolean(),
                 resultCode != null && RESULT_CODES.contains(resultCode) ? "sms.config.result." + resultCode : "",
@@ -133,32 +146,7 @@ public class SmsConfigViewModelAssembler {
      * @return the page model
      */
     public SmsConfigViewModel assembleRejected(SmsConfigUpdateDto submitted, List<String> errorKeys) {
-        SmsConfigViewModel page = assemble(null, errorKeys);
-        if (submitted == null) {
-            return page;
-        }
-        // Only an installed provider can be re-selected; otherwise keep the one the page would show anyway.
-        String providerType = submitted.providerType() != null
-                && page.providerOptions().contains(submitted.providerType().name())
-                ? submitted.providerType().name()
-                : page.providerType();
-        List<SmsConfigViewModel.CredentialField> credentialFields =
-                credentialFields(SmsProviderType.valueOf(providerType), configService.current());
-        return new SmsConfigViewModel(
-                providerType,
-                page.providerOptions(),
-                submitted.enabled(),
-                submitted.schedulerEnabled(),
-                page.schedulerRunning(),
-                submitted.senderNumber() == null ? "" : submitted.senderNumber(),
-                page.webhookSecretSet(),
-                credentialFields,
-                anyStored(credentialFields),
-                page.stored(),
-                page.systemTestEnabled(),
-                "",
-                page.errorKeys()
-        );
+        return assemble(null, errorKeys, submitted);
     }
 
     /** The provider's credential fields, each flagged by whether a value is stored for that provider. */
@@ -171,7 +159,4 @@ public class SmsConfigViewModelAssembler {
                 .toList();
     }
 
-    private static boolean anyStored(List<SmsConfigViewModel.CredentialField> credentialFields) {
-        return credentialFields.stream().anyMatch(SmsConfigViewModel.CredentialField::set);
-    }
 }

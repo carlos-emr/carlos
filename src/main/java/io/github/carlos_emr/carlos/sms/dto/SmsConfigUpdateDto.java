@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.sms.dto;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * SMS settings as submitted from Administration &gt; SMS. Secret fields are write-only: a blank
@@ -41,14 +42,18 @@ import java.util.Map;
  *                           the stored ones
  * @param clearCredentials   remove the chosen provider's stored credentials before any typed in the same
  *                           save are stored
+ * @param credentialsProvider the provider whose credential fields were displayed; null means no match
+ * @param removeProviderCredentials explicitly named providers whose stored credentials should be removed
  * @since 2026-09-24
  */
 public record SmsConfigUpdateDto(SmsProviderType providerType, boolean enabled, boolean schedulerEnabled,
                                  String senderNumber, String webhookSecret, boolean clearWebhookSecret,
-                                 Map<String, String> credentials, boolean clearCredentials) {
+                                 Map<String, String> credentials, boolean clearCredentials,
+                                 SmsProviderType credentialsProvider, Set<SmsProviderType> removeProviderCredentials) {
 
     public SmsConfigUpdateDto {
         credentials = credentials == null ? Map.of() : Map.copyOf(credentials);
+        removeProviderCredentials = removeProviderCredentials == null ? Set.of() : Set.copyOf(removeProviderCredentials);
     }
 
     /** Redacted: the record holds secrets. */

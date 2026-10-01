@@ -264,6 +264,7 @@ class ConfigureSms2ActionUnitTest {
         request.setParameter("method", "configure");
         request.setParameter("providerType", "VOIPMS");
         request.setParameter("credential.field_one", FIELD_INPUT);
+        request.setParameter("clearCredentials", "true");
         when(configService.credentialFields(SmsProviderType.VOIPMS)).thenReturn(List.of("field_one"));
         when(validator.validate(any(), any())).thenReturn(List.of());
 
@@ -272,6 +273,8 @@ class ConfigureSms2ActionUnitTest {
         SmsConfigUpdateDto update = savedUpdate();
         assertThat(update.providerType()).isEqualTo(SmsProviderType.VOIPMS);
         assertThat(update.credentials()).isEmpty();
+        assertThat(update.clearCredentials()).isFalse();
+        assertThat(update.credentialsProvider()).isNull();
         assertThat(response.getRedirectedUrl())
                 .isEqualTo("/carlos/admin/ConfigureSms?result=savedWithoutCredentials");
     }
@@ -332,12 +335,11 @@ class ConfigureSms2ActionUnitTest {
 
             assertThat(stored.getProviderType()).isEqualTo(SmsProviderType.CLOUDLI);
             assertThat(stored.storedCredentials()).isNull();
-            assertThat(response.getRedirectedUrl()).doesNotContain(TYPED_CREDENTIAL);
+            assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=savedWithoutCredentials");
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<String>> changed = ArgumentCaptor.forClass(List.class);
             verify(auditRecorder).recordSaved(same(stored), eq("999998"), changed.capture());
             assertThat(changed.getValue()).containsExactly("providerType");
-            assertThat(String.join(",", changed.getValue())).doesNotContain(TYPED_CREDENTIAL);
         } finally {
             EncryptionKeyTestSupport.restoreKey(originalKey);
         }
@@ -482,6 +484,32 @@ class ConfigureSms2ActionUnitTest {
     private void allowWrite() {
         request.setMethod("POST");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.sms", "w", null)).thenReturn(true);
+    }
+
+    @Test
+    void shouldAcceptOnlyKnownProviderRemovals_whenSubmitted() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "STUB");
+        request.setParameter("credentialsProvider", "STUB");
+        request.setParameter("removeProviderCredentials", new String[] {"CLOUDLI", "RETIRED", "<script>", "voipms"});
+        when(validator.validate(any(), any())).thenReturn(List.of());
+        action().execute();
+        assertThat(savedUpdate().removeProviderCredentials()).containsExactly(SmsProviderType.CLOUDLI);
+    }
+
+    @Test
+    void shouldExplainIgnoredCredentials_whenSwitchedProviderSaveIsRejected() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "CLOUDLI");
+        request.setParameter("credentialsProvider", "VOIPMS");
+        request.setParameter("clearCredentials", "true");
+        when(validator.validate(any(), any())).thenReturn(List.of("sms.config.error.senderNumber"));
+        action().execute();
+        verify(assembler).assembleRejected(any(), eq(List.of("sms.config.error.senderNumber",
+                "sms.config.error.credentialsIgnored")));
+        verify(configService, never()).save(any(), any());
     }
 
     private ConfigureSms2Action action() {

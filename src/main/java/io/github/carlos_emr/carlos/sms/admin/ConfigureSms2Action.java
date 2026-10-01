@@ -42,6 +42,9 @@ import org.apache.struts2.ServletActionContext;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -138,12 +141,17 @@ public class ConfigureSms2Action extends ActionSupport {
                 request.getParameter("webhookSecret"),
                 isChecked(request, "clearWebhookSecret"),
                 credentials,
-                credentialsForChosenProvider && clearCredentialsChecked
+                credentialsForChosenProvider && clearCredentialsChecked,
+                parseProvider(request.getParameter(CREDENTIALS_PROVIDER_PARAMETER)),
+                providersToRemove(request)
         );
-        List<String> errors = validator.validate(update, configService.installedProviders());
+        List<String> errors = new ArrayList<>(validator.validate(update, configService.installedProviders()));
         if (!errors.isEmpty()) {
             // Re-displayed with 200: CARLOS's ResponseSanitizationFilter mishandles a JSP body rendered
             // under a 4xx status ("committed mid-chain"), which left the admin a blank page.
+            if (credentialsIgnored) {
+                errors.add("sms.config.error.credentialsIgnored");
+            }
             request.setAttribute("smsConfig", assembler.assembleRejected(update, errors));
             return SUCCESS;
         }
@@ -196,6 +204,13 @@ public class ConfigureSms2Action extends ActionSupport {
                 .filter(type -> type.name().equals(value))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private static Set<SmsProviderType> providersToRemove(HttpServletRequest request) {
+        String[] values = request.getParameterValues("removeProviderCredentials");
+        return values == null ? Set.of() : Arrays.stream(values)
+                .map(ConfigureSms2Action::parseProvider).filter(java.util.Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     private static boolean isChecked(HttpServletRequest request, String name) {
