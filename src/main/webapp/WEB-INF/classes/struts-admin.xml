@@ -124,6 +124,10 @@
         <action name="admin/EchartDisplaySettings" class="io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action">
             <result name="success">/WEB-INF/jsp/admin/echartDisplaySettings.jsp</result>
         </action>
+        <!-- Inline preview of PDFs embedded in HL7 lab results (#3977). -->
+        <action name="admin/LabDisplaySettings" class="io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action">
+            <result name="success">/WEB-INF/jsp/admin/labDisplaySettings.jsp</result>
+        </action>
         <!-- Provider Linking Rules (issue #3971): GET-only view gate plus a POST-only save. -->
         <action name="admin/providerLinkingRules" class="io.github.carlos_emr.carlos.admin.web.ProviderLinkingRules2Action">
             <result name="success">/WEB-INF/jsp/admin/providerLinkingRules.jsp</result>

@@ -209,6 +209,22 @@ public interface MessageHandler {
         return null;
     }
 
+    /**
+     * The payload of an embedded document (see {@link #isOBXEmbeddedDocument(int, int)}): HL7
+     * ED.5 where the parser can read it, otherwise the ordinary {@link #getOBXResult(int, int)}.
+     * Handlers whose {@code getOBXResult} reads OBX-5 component 1 override this, because for a
+     * standards-compliant {@code ED} value component 1 is the (empty) source application and
+     * the document is in component 5.
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return the encoded document, or the result text; may be empty
+     * @since 2026-09-30
+     */
+    default String getOBXEmbeddedDocumentData(int i, int j) {
+        return getOBXResult(i, j);
+    }
+
 
 
     /**
