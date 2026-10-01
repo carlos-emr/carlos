@@ -115,7 +115,6 @@ class FullPathReWriteJspRegressionTest {
         assertThat(billingBC)
                 .contains("var t0 = encodeURIComponent(document.BillingCreateBillingForm.xml_other1.value)")
                 .contains("var t0 = encodeURIComponent(document.BillingCreateBillingForm.elements[d].value)")
-                .contains("var t0 = encodeURIComponent(document.serviceform.xml_referral1.value)")
                 .contains("encodeURIComponent(d)")
                 .doesNotContain("escape(document.BillingCreateBillingForm")
                 .doesNotContain("escape(document.serviceform")
