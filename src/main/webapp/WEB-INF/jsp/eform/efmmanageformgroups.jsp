@@ -40,7 +40,7 @@
     Parameters:
       group_view  - group to show (request parameter, or request attribute from a forward); defaults
                     to the first group.
-      orderby     - form_subject | form_name | file_name; any other value sorts by date.
+      orderby     - form_subject | form_name | file_name; absent or any other value sorts by date.
       scheduleNav - when canonical (ScheduleNav), keeps the schedule-navigation shell.
 
     Every group-changing form is a POST to its action with groupListContextFields, so the actions'
@@ -80,11 +80,12 @@
     }
 
     String orderByRequest = request.getParameter("orderby");
-    String orderBy = "";
-    if (orderByRequest == null) orderBy = EFormUtil.DATE;
-    else if (orderByRequest.equals("form_subject")) orderBy = EFormUtil.SUBJECT;
-    else if (orderByRequest.equals("form_name")) orderBy = EFormUtil.NAME;
-    else if (orderByRequest.equals("file_name")) orderBy = EFormUtil.FILE_NAME;
+    // Anything but the three recognised keys sorts by date: listEForms(..., group, ...) rejects an
+    // unknown sort column with IllegalArgumentException, so an empty default would fail the page.
+    String orderBy = EFormUtil.DATE;
+    if ("form_subject".equals(orderByRequest)) orderBy = EFormUtil.SUBJECT;
+    else if ("form_name".equals(orderByRequest)) orderBy = EFormUtil.NAME;
+    else if ("file_name".equals(orderByRequest)) orderBy = EFormUtil.FILE_NAME;
     // Carried into every group-changing POST so the redirect back (EFormListRedirect.toGroup)
     // keeps this sort order and the schedule-navigation shell (issue #4130). Only the
     // recognised sort keys are echoed.
