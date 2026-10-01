@@ -55,11 +55,10 @@ async function workflow(s) {
 
   const chart = await s.chart();
   const openIndex = () => s.popup(chart, chart.locator('a[onclick*="ViewPreventionIndex"]').first(), 'prevention-index');
-  const hiddenLink = page => page.locator(`a[onclick*="prevention=${HIDDEN_ITEM}&"]`);
+  const hiddenLink = page => page.locator(`div.leftBox a[onclick*="prevention=${HIDDEN_ITEM}&"]`);
 
   await s.step('Enable Print then Print returns a PDF of the patient\'s preventions', async () => {
     const index = await openIndex();
-    console.log('DEBUG', JSON.stringify(await index.locator('div.leftBox li a').evaluateAll(as => as.slice(0, 40).map(a => [a.textContent.trim(), (a.getAttribute('onclick') || '').slice(0, 120)]))));
     assert(await hiddenLink(index).count() === 1, `${HIDDEN_ITEM} is not offered before the list manager hides it`);
     const button = index.locator('input[name="printButton"]');
     await button.click();
@@ -70,8 +69,9 @@ async function workflow(s) {
     const bytes = fs.readFileSync(await outcome.download.path());
     assert(bytes.subarray(0, 4).toString('latin1') === '%PDF', 'Print did not return PDF bytes');
     const text = execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8' });
-    assert(text.includes(marker) && text.includes(comment) && text.includes('Inf'),
-      'Printed PDF does not carry the owned patient, prevention and comment');
+    // prevention_show_comments=false on this install, so the comment ext is not expected in the PDF.
+    assert(text.includes(marker) && text.includes('Inf') && text.includes('2026-02-03'),
+      'Printed PDF does not carry the owned patient, prevention type and date');
     await index.close();
   });
 

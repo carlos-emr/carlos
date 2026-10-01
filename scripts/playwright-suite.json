@@ -3749,8 +3749,11 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "env": [
+        "MEASUREMENT_CSS_UPLOAD_DIR"
+      ],
+      "notes": "Fails on 2026.08: the Customize Measurements Add links answer 405 (HttpMethodGuardFilter treats their GET form-openers as mutators).",
+      "fixtures": "Owns a synthetic patient, FAKEPW<hex> measurement types, groups and a style sheet (DB row plus the file in MEASUREMENT_CSS_UPLOAD_DIR, the server's oscarMeasurement_css_upload_path); removes and verifies all of them. SKIPs when MEASUREMENT_CSS_UPLOAD_DIR is not set."
     },
     {
       "name": "report-age-sex-visit",
@@ -4149,7 +4152,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Provisional entry: live validation in progress."
+      "notes": "Fails at its first step on 2026.08: View Mapping throws ReferenceError (stripe is not defined); the add/remove/remap pages also answer 405.",
+      "fixtures": "Owns two X<hex> LOINC codes and the mapping and recyclebin rows that reference them; maps one existing unmapped measurement type to an owned code only for the run; removes and verifies all of them."
     },
     {
       "name": "provider-preferences-cpp-dx",

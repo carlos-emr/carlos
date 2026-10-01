@@ -90,6 +90,19 @@ function removeOwnedHl7Labs(sql, labNos) {
   'The synthetic lab rows were not all removed');
 }
 
+/**
+ * The Label button's fetch() never reads the action's empty 200 reply, and Chromium cancels the
+ * unread body (CDP loadingFailed canceled=true, net::ERR_ABORTED) after the page already handled
+ * the response. Consume exactly that one entry, only once the database proved the save; any other
+ * failure stays strict.
+ */
+function consumeDiscardedLabelBody(recorder, since) {
+  const added = recorder.requestFailures.slice(since);
+  const index = added.findIndex((entry) => entry.label === 'fwd-lab-display' && entry.resourceType === 'fetch'
+    && entry.errorText === 'net::ERR_ABORTED' && new URL(entry.url).pathname.endsWith('/lab/CA/ALL/createLabLabel'));
+  if (index >= 0) recorder.requestFailures.splice(since + index, 1);
+}
+
 /** Schedule ▸ Inbox (popup or same tab, by deployment), settled. */
 async function openInbox(schedule, recorder, label) {
   const { page } = await ui.clickOpensPopupOrNavigates(schedule, schedule.locator('#inboxLink').first(),
@@ -233,19 +246,18 @@ async function workflow(s) {
       { context: other, recorder, label: 'fwd-lab-display', timeout: TIMEOUT });
     const label = `FAKE ${stamp}`;
     await report.locator(`#acklabel_${labNo}`).fill(label);
-    const cdp = await other.newCDPSession(report); await cdp.send('Network.enable');
-    for (const ev of ['Network.loadingFailed', 'Network.responseReceived', 'Network.loadingFinished', 'Network.dataReceived']) cdp.on(ev, (p) => console.log('DBG', ev, JSON.stringify(p).slice(0, 600)));
+    const failuresBefore = recorder.requestFailures.length;
     const [response] = await Promise.all([
       report.waitForResponse((r) => r.request().method() === 'POST'
         && new URL(r.url()).pathname.endsWith('/lab/CA/ALL/createLabLabel'), { timeout: TIMEOUT }),
       report.locator(`#createLabel_${labNo}`).click(),
     ]);
     h.assert(response.status() === 200, `createLabLabel answered HTTP ${response.status()}`);
-    console.log('DBG', JSON.stringify(await response.allHeaders()));
     await expectValue(sql, `SELECT label FROM hl7TextInfo WHERE lab_no=${labNo}`, label,
       'hl7TextInfo.label does not hold the typed label');
     await report.waitForFunction(({ id, text }) => document.querySelector(`#labelspan_${id} i`)?.textContent.trim() === text,
       { id: labNo, text: label }, { timeout: TIMEOUT });
+    consumeDiscardedLabelBody(recorder, failuresBefore);
   });
 
   await s.step('Unlink detaches the lab from the patient and returns it to both inboxes as new', async () => {

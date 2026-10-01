@@ -24,7 +24,7 @@ const {randomInt} = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
-const {bundleMessage} = require('./lib/throwaway-login-fixture');
+const {bundleMessage, throwawayLoginFixture} = require('./lib/throwaway-login-fixture');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -108,52 +108,74 @@ async function workflow(s) {
   const [statusId, statusCode, statusDesc, statusColor] = statusRow;
   const statusSnapshot = () => JSON.stringify(sql.rows(`SELECT description,color,active FROM appointment_status WHERE id=${Number(statusId)}`));
   const originalStatus = statusSnapshot();
+  const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
+  // The seeded admin role carries _site_access_privacy, which hides Holiday Setting and Template
+  // Code Setting. The throwaway is a doctor plus an owned schedule-administrator role instead.
+  const role = `PW${hex}`;
   let owner = null;
-
+  // Cleanups run in reverse: settings rows go before the throwaway login.
+  s.cleanup(() => fixture.cleanup());
   s.cleanup(() => {
     const statements = [
       `DELETE FROM scheduleholiday WHERE sdate=${q(holidayDate)} AND holiday_name LIKE ${q(`${marker}%`)}`,
       `DELETE FROM scheduletemplatecode WHERE code=${q(code)} AND description LIKE ${q(`${marker}%`)}`,
       `DELETE FROM appointmentType WHERE name=${q(typeName)}`,
       `UPDATE appointment_status SET description=${q(statusDesc)},color=${q(statusColor)},active=${Number(statusRow[4])} WHERE id=${Number(statusId)}`,
+      `DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)}`,
+      `DELETE FROM secRole WHERE role_name=${q(role)}`,
     ];
     if (owner) {
       for (const table of ['scheduletemplate', 'scheduledate', 'rschedule']) statements.push(`DELETE FROM ${table} WHERE provider_no=${q(owner)}`);
-      statements.push(`DELETE FROM provider WHERE provider_no=${q(owner)} AND last_name=${q(marker)}`);
+      statements.push(`DELETE FROM ProviderPreference WHERE providerNo=${q(owner)}`);
     }
     sql.execute(statements.join(';'));
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM scheduleholiday WHERE sdate=${q(holidayDate)} AND holiday_name LIKE ${q(`${marker}%`)})
       + (SELECT COUNT(*) FROM scheduletemplatecode WHERE description LIKE ${q(`${marker}%`)})
       + (SELECT COUNT(*) FROM appointmentType WHERE name=${q(typeName)})
-      + (SELECT COUNT(*) FROM provider WHERE provider_no=${q(owner || '')})
+      + (SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)})
+      + (SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)})
+      + (SELECT COUNT(*) FROM ProviderPreference WHERE providerNo=${q(owner || '')})
+      + (SELECT COUNT(*) FROM scheduletemplate WHERE provider_no=${q(owner || '')})
       + (SELECT COUNT(*) FROM scheduledate WHERE provider_no=${q(owner || '')})
       + (SELECT COUNT(*) FROM rschedule WHERE provider_no=${q(owner || '')})`) === '0', 'Owned schedule settings rows were not removed');
     h.assert(statusSnapshot() === originalStatus, 'The appointment status was not restored to its snapshot');
   });
-  for (let attempt = 0; attempt < 20 && !owner; attempt++) {
-    const candidate = String(randomInt(800000, 899999));
-    if (sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${q(candidate)})
-      + (SELECT COUNT(*) FROM security WHERE provider_no=${q(candidate)})`) === '0') owner = candidate;
-  }
-  h.assert(owner, 'No unused provider number was found for the schedule provider');
+  fixture.create();
+  owner = fixture.providerNo;
+  h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(owner)} AND role_name='doctor'`) === '1',
+    'The test login is not a doctor, so the throwaway has no appointment rights');
+  h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'The owned role already exists');
   const timecode = '_'.repeat(36) + code.repeat(8) + '_'.repeat(52);
-  sql.execute(`INSERT INTO provider (provider_no,last_name,first_name,provider_type,specialty,sex,status,lastUpdateUser,lastUpdateDate)
-      SELECT ${q(owner)},${q(marker)},'Schedule',provider_type,specialty,sex,'1',${q(provider)},NOW() FROM provider WHERE provider_no=${q(provider)};
+  sql.execute(`DELETE FROM secUserRole WHERE provider_no=${q(owner)} AND role_name<>'doctor';
+    INSERT INTO secRole (role_name,description) VALUES (${q(role)},${q(`${marker} schedule admin`)});
+    INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no) VALUES (${q(role)},'_admin.schedule','x',0,${q(provider)});
+    INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate)
+      SELECT provider_no,${q(role)},orgcd,1,NOW() FROM secUserRole WHERE provider_no=${q(owner)} AND role_name='doctor';
+    INSERT INTO ProviderPreference (providerNo,startHour,endHour,everyMin,myGroupNo,colourTemplate,printQrCodeOnPrescriptions,
+      lastUpdated,appointmentScreenLinkNameDisplayLength,defaultDoNotDeleteBilling)
+      VALUES (${q(owner)},8,18,15,${q(owner)},'deepblue',0,NOW(),20,0);
     INSERT INTO scheduletemplate (provider_no,name,summary,timecode) VALUES (${q(owner)},${q(templateName)},${q(`${marker} day`)},${q(timecode)})`);
   h.assert(sql.value(`SELECT COUNT(*) FROM scheduletemplate WHERE provider_no=${q(owner)}`) === '1', 'The owned day template was not seeded');
+  h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(owner)}`) === '2', 'The throwaway roles were not set');
 
-  // ---- administration shell --------------------------------------------------------------------
-  const {page: admin, isPopup} = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
-    {context: s.context, recorder, label: 'administration', timeout: 20000});
-  let daySheet = s.schedule;
+  // ---- administration shell, as the throwaway ---------------------------------------------------
+  const context = await h.newContext(s.context.browser(), s.config);
+  context.setDefaultTimeout(20000);
+  context.on('page', page => h.wireStrictPage(page, 'schedule-admin', recorder));
+  const schedule = await h.login(context, {...s.config, testUser: fixture.username}, recorder, {label: 'throwaway-login'});
+  const {page: admin, isPopup} = await ui.clickOpensPopupOrNavigates(schedule, schedule.locator('#admin-panel,#admin2').first(),
+    {context, recorder, label: 'administration', timeout: 20000});
+  let daySheet = schedule;
   if (!isPopup) {
-    daySheet = await s.context.newPage();
+    // The schedule navigation preference opened Administration in this tab; the day sheet
+    // is the login landing route, so reopen it in a tab of its own (as my-groups does).
+    daySheet = await context.newPage();
     await h.gotoApp(daySheet, s.config.baseUrl, '/provider/providercontrol');
     await h.assertNotErrorPage(daySheet, 'day sheet');
   }
   const scheduleSetting = () => openAdminSection(admin, '/schedule/TemplateSetting', 'select[name="provider_no"]');
   const popupFrom = (frame, selector, label) => ui.clickOpensPopup(admin, frame.locator(selector).first(),
-    {context: s.context, recorder, label, timeout: 20000});
+    {context, recorder, label, timeout: 20000});
 
   async function holidayPopupAtTarget() {
     const frame = await scheduleSetting();
@@ -258,7 +280,7 @@ async function workflow(s) {
     const cell = f.locator(`a[onclick*="/schedule/DatePopup"][onclick*="&day=${hDay}&"]`);
     const cellText = await cell.innerText();
     h.assert(cellText.includes(holidayName) && cellText.includes(templateName), 'The calendar day does not show the owned holiday and template');
-    const popup = await ui.clickOpensPopup(admin, cell, {context: s.context, recorder, label: 'schedule-date-popup', timeout: 20000});
+    const popup = await ui.clickOpensPopup(admin, cell, {context, recorder, label: 'schedule-date-popup', timeout: 20000});
     await popup.locator('select[name="hour"]').waitFor();
     h.assert(await popup.locator('input[name="available"][value="1"]').isChecked(), 'The date popup did not load the day as available');
     await popup.locator('input[name="available"][value="0"]').check();
@@ -344,7 +366,7 @@ async function workflow(s) {
 
   await s.step('the add-appointment form offers the owned type and fills its defaults', async () => {
     const slot = daySheet.locator('a.adhour:not([onclick*="\',\'Yes\',"]):not([onclick*="\',\'Day\',"]):not([onclick*="\',\'Wk\',"]):not([onclick*="\',\'Onc\',"])').first();
-    const popup = await ui.clickOpensPopup(daySheet, slot, {context: s.context, recorder, label: 'add-appointment', timeout: 20000});
+    const popup = await ui.clickOpensPopup(daySheet, slot, {context, recorder, label: 'add-appointment', timeout: 20000});
     await popup.locator('#type-button').waitFor({timeout: 20000});
     await popup.locator('#type-button').click();
     const item = popup.locator('#type-menu li', {hasText: typeName});
@@ -379,7 +401,7 @@ async function workflow(s) {
       `/appointment/appointmentTypeAction?oper=save&name=${encodeURIComponent(typeName)}&duration=15`,
     ];
     for (const probe of probes) {
-      const response = await s.context.request.get(h.appUrl(s.config.baseUrl, probe), {maxRedirects: 0});
+      const response = await context.request.get(h.appUrl(s.config.baseUrl, probe), {maxRedirects: 0});
       h.assert(response.status() === 405, `GET ${probe.split('?')[0]} answered HTTP ${response.status()}`);
     }
     h.assert(holidayRows().length === 0 && codeRow().length === 0 && typeRows().length === 0
