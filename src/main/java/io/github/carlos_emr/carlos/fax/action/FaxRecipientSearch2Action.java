@@ -45,16 +45,20 @@ import org.apache.struts2.ServletActionContext;
 import java.util.List;
 
 /**
- * GET-only JSON autocomplete endpoint returning combined provider, pharmacy and specialist fax recipients.
+ * GET-only JSON autocomplete endpoint returning combined specialist, provider and pharmacy fax recipients.
  *
- * <p>Requires {@code _fax} read privilege. Returns up to {@value #MAX_RESULTS} results.
+ * <p>Requires {@code _fax} read privilege. Returns up to {@value #MAX_RESULTS} results, filled in
+ * that order: specialists first, then active providers with a {@code faxnumber} user property,
+ * then pharmacies, each source using only the rows the earlier ones left.
  *
  * <p>Response shape per item:
  * <ul>
- *   <li>{@code name} – display name (specialist: "Last, First"; pharmacy: "Name (City)")</li>
+ *   <li>{@code name} – display name (specialist and provider: "Last, First", or whichever part is
+ *       present; pharmacy: "Name (City)")</li>
  *   <li>{@code fax}  – fax number string</li>
- *   <li>{@code badge} – label for the Bootstrap badge ("pharmacy" or service description)</li>
- *   <li>{@code type} – "PHARMACY" or "SPECIALIST"</li>
+ *   <li>{@code badge} – label for the Bootstrap badge (specialist: service description, or
+ *       "Specialist" when blank; provider: "Provider"; pharmacy: "pharmacy")</li>
+ *   <li>{@code type} – "SPECIALIST", "PROVIDER" or "PHARMACY"</li>
  * </ul>
  *
  * <p>Specialist entries respect {@code hideFromView}: specialists with that flag set are excluded.
