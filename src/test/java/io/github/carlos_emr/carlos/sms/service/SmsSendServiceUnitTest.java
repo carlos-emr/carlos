@@ -12,6 +12,8 @@ import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -245,6 +247,34 @@ class SmsSendServiceUnitTest {
                     assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
                     assertThat(transaction.getAttemptCount()).isZero();
                 });
+    }
+
+    @Test
+    @DisplayName("send logs only safe diagnostics when the limiter fails and release succeeds")
+    void shouldLogSafeWarning_whenLimiterFailsAndClaimIsReleased() {
+        String sensitiveCanary = "FAKE-PHI query parameters and credential canary";
+        IllegalStateException limiterFailure = new IllegalStateException(
+                sensitiveCanary, new IllegalArgumentException(sensitiveCanary));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())), recorder,
+                type -> { throw limiterFailure; }, new SmsDefaultProviderResolver(() -> "STUB"));
+
+        try (LogCapture logs = LogCapture.forLogger(SmsSendService.class)) {
+            SmsSendResultDto result = service.send(
+                    SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic log regression", "999998"));
+
+            assertThat(result.accepted()).isTrue();
+            assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+            assertThat(logs.events()).singleElement().satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getParameters()).containsExactly(SmsStatus.QUEUED, "IllegalStateException");
+            });
+            assertThat(logs.messages()).containsExactly(
+                    "SMS rate limiter failed; claim release returned QUEUED. Failure type: IllegalStateException");
+            assertThat(logs.messages()).allSatisfy(message -> assertThat(message).doesNotContain(sensitiveCanary));
+        }
     }
 
     @Test
