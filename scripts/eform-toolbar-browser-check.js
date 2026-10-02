@@ -150,6 +150,35 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length,1);
     assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0155');
+    // A native (keyboard) choice on the eForm's own list after a directory pick replaces the
+    // directory recipient's name as well as its number; a retyped name is still kept (below).
+    await open(false, true);
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxRecipient').fill('Example');
+    await pickDirectoryRow();
+    assert.equal(await page.locator('#remoteFaxRecipient').inputValue(),'Example, Specialist');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0199');
+    await page.locator('#faxnumList').focus();
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await page.locator('#faxnumList').inputValue(),'416-555-0102');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0102');
+    assert.equal(await page.locator('#remoteFaxRecipient').inputValue(),'Changed clinic');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length,1);
+    assert.equal(requests[0].get('recipient'),'Changed clinic');
+    assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0102');
+    // The same native list choice keeps a name the clinician typed after the directory pick.
+    await open(false, true);
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxRecipient').fill('Example');
+    await pickDirectoryRow();
+    await page.locator('#remoteFaxRecipient').fill('Typed After Directory');
+    await page.locator('#faxnumList').focus();
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0102');
+    assert.equal(await page.locator('#remoteFaxRecipient').inputValue(),'Typed After Directory');
     // Retyping the name after a directory selection must not keep the selected recipient's number.
     await open();
     await page.locator('#remoteFaxOptions summary').click();
