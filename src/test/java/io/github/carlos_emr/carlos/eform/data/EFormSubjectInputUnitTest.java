@@ -186,6 +186,34 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepTemplateNewFormFlag_whenControlOutsideFormNamesItsOwner() {
+        EForm form = new EForm();
+        form.setFormHtml("<form id='saveEForm'></form>"
+                + "<input id='newForm' name='newForm' form='saveEForm' value='False'>");
+        form.ensureNewFormInput();
+        var document = Jsoup.parse(form.getFormHtml());
+        assertThat(document.select("[name=newForm]")).hasSize(1);
+        assertThat(document.selectFirst("[name=newForm]").val()).isEqualTo("False");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "<form id='saveEForm'><input name='newForm' form='other' value='True'></form><form id='other'></form>",
+            "<form id='saveEForm'><input name='newForm' form='missing' value='True'></form>",
+            "<form id='saveEForm'><input name='newForm' form='box' value='True'></form><div id='box'></div>"})
+    void shouldSupplyNewFormFlag_whenDescendantIsOwnedByNoOrAnotherForm(String html) {
+        EForm form = new EForm();
+        form.setFormHtml(html);
+        form.ensureNewFormInput();
+        form.ensureNewFormInput();
+        var fallback = Jsoup.parse(form.getFormHtml()).getElementById("newForm");
+        assertThat(fallback).isNotNull();
+        assertThat(fallback.parent().id()).isEqualTo("saveEForm");
+        assertThat(fallback.val()).isEqualTo("true");
+        assertThat(fallback.hasAttr("form")).isFalse();
+    }
+
+    @Test
     void shouldSupplyNewFormFlag_whenTemplateHasNone() {
         EForm form = new EForm();
         form.setFormHtml("<form></form>");
