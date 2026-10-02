@@ -166,7 +166,7 @@ public final class EmbeddedLabDocumentLoader {
      * @return the inspection; never {@code null}
      */
     public static Inspection inspect(MessageHandler handler, int obr, int obx, long maxBytes) {
-        Classified classified = classify(handler, obr, obx, maxBytes);
+        Classified classified = classify(handler, obr, obx, maxBytes, false);
         return new Inspection(classified.status(), classified.sizeBytes());
     }
 
@@ -181,29 +181,34 @@ public final class EmbeddedLabDocumentLoader {
      * @return the document, with bytes only for {@link Status#PDF}; never {@code null}
      */
     public static Document load(MessageHandler handler, int obr, int obx, long maxBytes) {
-        Classified classified = classify(handler, obr, obx, maxBytes);
-        if (classified.status() != Status.PDF) {
-            return new Document(classified.status(), null, classified.sizeBytes());
-        }
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream((int) Math.min(classified.sizeBytes(), (long) Integer.MAX_VALUE - 8));
-        decode(classified.compact(), classified.hex(), new byte[PDF_SIGNATURE.length], bytes, false);
-        return new Document(Status.PDF, bytes.toByteArray(), classified.sizeBytes());
+        // One pass: the classifying decode keeps the bytes, so a PDF is not decoded twice.
+        Classified classified = classify(handler, obr, obx, maxBytes, true);
+        return new Document(classified.status(), classified.status() == Status.PDF ? classified.bytes() : null,
+                classified.sizeBytes());
     }
 
-    /** A classification, carrying the normalised payload so {@link #load} decodes it only once more. */
-    private record Classified(Status status, long sizeBytes, String compact, boolean hex) {
+    /**
+     * A classification; {@code bytes} holds the decoded document when the caller asked to keep it
+     * and it was fully decoded, otherwise {@code null}.
+     */
+    private record Classified(Status status, long sizeBytes, byte[] bytes) {
     }
 
-    private static Classified classify(MessageHandler handler, int obr, int obx, long maxBytes) {
+    /**
+     * Classifies the payload; with {@code keepBytes} (only {@link #load}) the one full decode
+     * also collects the decoded bytes. The over-limit path never decodes in full, so it never
+     * buffers either.
+     */
+    private static Classified classify(MessageHandler handler, int obr, int obx, long maxBytes, boolean keepBytes) {
         String payload = payload(handler, obr, obx);
         if (payload == null || payload.isBlank()) {
-            return new Classified(Status.EMPTY, 0, null, false);
+            return new Classified(Status.EMPTY, 0, null);
         }
         String encoding = handler.getOBXDocumentEncoding(obr, obx);
         if ("A".equals(encoding)) {
             // Declared as text (for example PATHL7 CELLPATHR RTF in ED.1): never a PDF, but
             // unlike an undecodable binary it is readable as the result value.
-            return new Classified(Status.TEXT, payload.length(), null, false);
+            return new Classified(Status.TEXT, payload.length(), null);
         }
         String compact = payload.replaceAll("\\s+", "");
         boolean hex = "Hex".equals(encoding);
@@ -225,17 +230,20 @@ public final class EmbeddedLabDocumentLoader {
                 if (headSize < PDF_SIGNATURE.length || !isPdf(head)) {
                     return notPdf(encoding, payload, headSize < 0 ? 0 : estimated, resultFallback);
                 }
-                return new Classified(Status.TOO_LARGE, estimated, null, false);
+                return new Classified(Status.TOO_LARGE, estimated, null);
             }
         }
-        long size = decode(compact, hex, head, null, false);
+        ByteArrayOutputStream sink = keepBytes
+                ? new ByteArrayOutputStream((int) Math.min(estimateDecodedSize(compact, hex), (long) Integer.MAX_VALUE - 8))
+                : null;
+        long size = decode(compact, hex, head, sink, false);
         if (size < PDF_SIGNATURE.length || !isPdf(head)) {
             return notPdf(encoding, payload, Math.max(size, 0), resultFallback);
         }
         if (maxBytes > 0 && size > maxBytes) {
-            return new Classified(Status.TOO_LARGE, size, null, false);
+            return new Classified(Status.TOO_LARGE, size, null);
         }
-        return new Classified(Status.PDF, size, compact, hex);
+        return new Classified(Status.PDF, size, sink == null ? null : sink.toByteArray());
     }
 
     /**
@@ -282,9 +290,9 @@ public final class EmbeddedLabDocumentLoader {
         // The shape rule reads the payload as sent: spaces between words mark text, and the
         // compact form has them stripped.
         if (encoding == null && (resultFallback || !isBase64Shaped(payload))) {
-            return new Classified(Status.TEXT, payload.length(), null, false);
+            return new Classified(Status.TEXT, payload.length(), null);
         }
-        return new Classified(Status.NOT_PDF, sizeBytes, null, false);
+        return new Classified(Status.NOT_PDF, sizeBytes, null);
     }
 
     /**

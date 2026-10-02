@@ -84,7 +84,17 @@ const PDF = Buffer.from([
 /** An ED payload that is not a PDF: it must never be served as one. */
 const HTML_PAYLOAD = Buffer.from('<html><body><script>alert(document.cookie)</script></body></html>', 'ascii');
 
-/** The lab's OBR/OBX layout: OBR 0 holds text results, OBR 1 the PDF, OBR 2 the HTML payload. */
+/**
+ * A sender-declared text ED value (ED.4 A) whose ED.5 carries an HL7 \.br\ line break: both lab
+ * views must show it as two lines, never the escape or an empty cell.
+ */
+const ED_TEXT_LINES = ['Line one', 'Line two'];
+const ED_TEXT_OBX = `OBX|2|ED|EDTXT^Report Note||^TEXT^PLAIN^A^${ED_TEXT_LINES.join('\\.br\\')}||||||F|||20260930100000`;
+
+/**
+ * The lab's OBR/OBX layout: OBR 0 holds the text results (a numeric result and the ED text
+ * value), OBR 1 the PDF, OBR 2 the HTML payload.
+ */
 const PDF_SEGMENT = { segment: 1, group: 0 };
 const HTML_SEGMENT = { segment: 2, group: 0 };
 
@@ -97,6 +107,7 @@ function buildMessage(accession, marker) {
     `ORC|RE||${accession}|||||||||TESTLAB^CARLOS^TEST LAB`,
     obr(1, 'CHEM^Chemistry', 'CHEM1'),
     'OBX|1|NM|GLU^Glucose Random||5.2|mmol/L|3.3-7.7|N|||F|||20260930100000',
+    ED_TEXT_OBX,
     obr(2, 'PDF^Pathology Report', 'PATH'),
     `OBX|1|ED|PDF^Pathology Report||^TEXT^PDF^Base64^${PDF.toString('base64')}||||||F|||20260930100000`,
     obr(3, 'ATT^Attachment', 'PATH'),
@@ -109,6 +120,16 @@ function buildMessage(accession, marker) {
  * headers() keeps one value per name, and through the packaged front door a response carries
  * two Content-Security-Policy headers (the application's and nginx's baseline, both enforced).
  */
+/**
+ * Whether lab-view HTML shows the ED text value as its two lines separated by a real <br>, and
+ * nowhere as the raw \.br\ escape outside the hidden raw-HL7 block.
+ */
+function ajaxShowsEdText(html) {
+  const visible = html.replace(/<pre[^>]*id="rawhl7[^"]*"[^>]*>[\s\S]*?<\/pre>/g, '');
+  return new RegExp(`${ED_TEXT_LINES[0]}\\s*<br\\s*/?>\\s*${ED_TEXT_LINES[1]}`).test(visible)
+    && !visible.includes('\\.br\\');
+}
+
 function headerMap(headersArray) {
   const map = {};
   for (const { name, value } of headersArray) {
@@ -282,6 +303,11 @@ async function workflow(s) {
     h.assert(await report.locator('details.lab-embedded-pdf[open]').count() === 1, 'the first PDF preview is not expanded');
     h.assert(await report.locator('em.lab-embedded-document-unsupported').count() === 1,
       'the non-PDF ED payload does not show the not-a-PDF note');
+    // The ED.4 A text value renders its ED.5 with the \.br\ escape as a real line break.
+    const visible = await report.locator('body').innerText();
+    h.assert(new RegExp(`${ED_TEXT_LINES[0]}\\s*\\n\\s*${ED_TEXT_LINES[1]}`).test(visible),
+      'the ED text value is not shown as two lines');
+    h.assert(!visible.includes('\\.br\\'), 'the ED text value shows the raw HL7 line-break escape');
     // Visible text only: the page also keeps the raw HL7 in a hidden <pre id="rawhl7...">.
     h.assert(!(await report.locator('body').innerText()).includes(HTML_PAYLOAD.toString('base64')),
       'the non-PDF ED payload was printed as encoded bytes');
@@ -338,6 +364,7 @@ async function workflow(s) {
     h.assert((html.match(/class="lab-embedded-pdf-download"/g) || []).length === 1, 'the AJAX lab view has no single Download PDF link');
     h.assert((html.match(/class="lab-embedded-document-unsupported"/g) || []).length === 1,
       'the AJAX lab view does not show the not-a-PDF note for the HTML payload');
+    h.assert(ajaxShowsEdText(html), 'the AJAX lab view does not show the ED text value as two lines');
   });
 
   await s.step("the Inbox's preview mode shows the PDF inside the lab card", async () => {
@@ -419,5 +446,5 @@ async function workflow(s) {
 if (require.main === module) runWorkflow('lab-embedded-pdf', workflow, { openMaster: false });
 module.exports = {
   workflow, buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD, PDF_SEGMENT, HTML_SEGMENT,
-  ownPreferences,
+  ownPreferences, ED_TEXT_LINES, ajaxShowsEdText,
 };
