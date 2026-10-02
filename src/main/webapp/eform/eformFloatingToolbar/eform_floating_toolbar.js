@@ -298,6 +298,9 @@ function eFormValidationBlocked() {
 	// eForm template scripts, so a top-level const could collide with a template's own name.
 	const READONLY_INPUT_TYPES = ["text", "search", "url", "tel", "email", "password", "date", "month",
 		"week", "time", "datetime-local", "number"];
+	// Input types the required attribute applies to; it is ignored on hidden, range, color and the
+	// button types, which are never constraint-validated for it.
+	const REQUIRED_INPUT_TYPES = READONLY_INPUT_TYPES.concat(["checkbox", "radio", "file"]);
 	const ef = getEForm();
 	// moveSubjectReverse() turns the template's subject input into type="hidden", which the browser
 	// excludes from constraint validation, and the toolbar's own subject lives in a separate form
@@ -312,13 +315,21 @@ function eFormValidationBlocked() {
 	// requirement still holds. moveSubjectReverse() has since made the input type="hidden", so
 	// read the template's own type it recorded. (:read-only is broader than the attribute, so
 	// check the property.)
+	// The template's own input type: recorded by moveSubjectReverse() before it hid the input,
+	// otherwise the browser's normalized type (an unknown type such as "textbox" reads as "text").
+	const templateSubjectType = templateSubject && templateSubject.tagName === "INPUT"
+		? (templateSubject.dataset.carlosOriginalType || templateSubject.type) : null;
 	const templateSubjectReadOnly = !!templateSubject && templateSubject.readOnly === true
 		&& (templateSubject.tagName === "TEXTAREA" || (templateSubject.tagName === "INPUT"
-			&& READONLY_INPUT_TYPES.includes(templateSubject.dataset.carlosOriginalType
-				|| (templateSubject.getAttribute("type") || "text").toLowerCase())));
+			&& READONLY_INPUT_TYPES.includes(templateSubjectType)));
+	// A required attribute the browser would ignore on the template's own input (an authored hidden
+	// subject, say) is no constraint at all, so it must not block the toolbar's save either.
+	const templateSubjectRequirementApplies = !!templateSubject
+		&& (templateSubject.tagName !== "INPUT" || REQUIRED_INPUT_TYPES.includes(templateSubjectType));
 	const templateSubjectDisabled = !!templateSubject && ((typeof templateSubject.matches === "function"
 		&& templateSubject.matches(":disabled")) || templateSubjectReadOnly);
-	if (templateSubject && templateSubject.required === true && !templateSubjectDisabled && toolbarSubject
+	if (templateSubject && templateSubject.required === true && templateSubjectRequirementApplies
+			&& !templateSubjectDisabled && toolbarSubject
 			&& typeof toolbarSubject.checkValidity === "function") {
 		toolbarSubject.required = true;
 		if (!toolbarSubject.checkValidity()) {
