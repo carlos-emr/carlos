@@ -19,7 +19,8 @@ No change to CARLOS or OSCAR is needed. The upload uses the lab-upload route bot
 already expose to external lab senders (`lab/newLabUpload`), which is exactly what the
 Mule bridge spoke. CARLOS checksums every upload and answers `409` for a file it already
 imported, which is what makes the tool's retry logic safe. OSCAR 19 records the checksum
-before it imports, so there a `409` that follows a failed attempt is not proof of import; the
+before it imports, so on OSCAR 19 a `409` that follows a failed attempt is not proof of
+import; the
 tool moves such a file to `failed/` for a person to verify (see Operations).
 
 Files:
@@ -393,8 +394,8 @@ tool's real transport against one recording TLS server and compares the request 
 
 On the host side: the same `YYYYMMDD-HHMMSS.xml` file names, the same `xz` compression of
 the kept copy (the script ran `xz` on its own copy and on Mule's done directory; the tool
-compresses into `done/`), one run at a time under a lock, an email on failure. What the script handed to Mule, the tool uploads
-itself.
+compresses into `done/`), one run at a time under a lock, an email on failure. What the
+script handed to Mule, the tool uploads itself.
 
 | `ExcellerisDownload.sh` flag | `excelleris_pull.py` |
 |---|---|
