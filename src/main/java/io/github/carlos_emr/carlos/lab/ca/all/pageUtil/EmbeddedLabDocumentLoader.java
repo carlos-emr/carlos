@@ -233,9 +233,9 @@ public final class EmbeddedLabDocumentLoader {
                 return new Classified(Status.TOO_LARGE, estimated, null);
             }
         }
-        ByteArrayOutputStream sink = keepBytes
-                ? new ByteArrayOutputStream((int) Math.min(estimateDecodedSize(compact, hex), (long) Integer.MAX_VALUE - 8))
-                : null;
+        // Buffers nothing until the decoded bytes start with the PDF signature, and then grows as
+        // it goes: an unvalidated estimate never sizes an allocation.
+        PdfBuffer sink = keepBytes ? new PdfBuffer() : null;
         long size = decode(compact, hex, head, sink, false);
         if (size < PDF_SIGNATURE.length || !isPdf(head)) {
             return notPdf(encoding, payload, Math.max(size, 0), resultFallback);
@@ -243,7 +243,7 @@ public final class EmbeddedLabDocumentLoader {
         if (maxBytes > 0 && size > maxBytes) {
             return new Classified(Status.TOO_LARGE, size, null);
         }
-        return new Classified(Status.PDF, size, sink == null ? null : sink.toByteArray());
+        return new Classified(Status.PDF, size, sink == null ? null : sink.bytes());
     }
 
     /**
@@ -316,6 +316,81 @@ public final class EmbeddedLabDocumentLoader {
         return EdObservationValue.isBase64Shaped(payload);
     }
 
+    /**
+     * The decoded bytes {@link #load} keeps, collected during the one classifying decode. Nothing
+     * is buffered until the first five bytes are the PDF signature: a non-PDF payload, however
+     * large, is only counted. Once confirmed, the buffer grows with the data rather than being
+     * presized from an estimate. {@link #reset} restarts it for the lenient retry.
+     *
+     * <p>No upper bound is applied beyond the caller's {@code maxBytes}: the encoded payload is
+     * already in memory with the message, and decoding yields at most three quarters of it
+     * (base64) or half (hex).</p>
+     */
+    static final class PdfBuffer {
+        private final byte[] prefix = new byte[PDF_SIGNATURE.length];
+        private int prefixLength;
+        private ByteArrayOutputStream out;
+        private boolean rejected;
+
+        void write(byte[] bytes, int offset, int length) {
+            if (rejected || length <= 0) {
+                return;
+            }
+            if (out != null) {
+                out.write(bytes, offset, length);
+                return;
+            }
+            int taken = Math.min(length, prefix.length - prefixLength);
+            System.arraycopy(bytes, offset, prefix, prefixLength, taken);
+            prefixLength += taken;
+            if (prefixLength < prefix.length) {
+                return;
+            }
+            if (!isPdf(prefix)) {
+                rejected = true;
+                return;
+            }
+            out = new ByteArrayOutputStream(8192);
+            out.write(prefix, 0, prefix.length);
+            out.write(bytes, offset + taken, length - taken);
+        }
+
+        void write(byte value) {
+            if (rejected) {
+                return;
+            }
+            if (out != null) {
+                out.write(value);
+                return;
+            }
+            prefix[prefixLength++] = value;
+            if (prefixLength == prefix.length) {
+                if (isPdf(prefix)) {
+                    out = new ByteArrayOutputStream(8192);
+                    out.write(prefix, 0, prefix.length);
+                } else {
+                    rejected = true;
+                }
+            }
+        }
+
+        void reset() {
+            prefixLength = 0;
+            out = null;
+            rejected = false;
+        }
+
+        /** Whether any decoded bytes are held; {@code false} until the signature is confirmed. */
+        boolean isBuffering() {
+            return out != null;
+        }
+
+        /** The buffered document, or {@code null} when the bytes did not start with the signature. */
+        byte[] bytes() {
+            return out == null ? null : out.toByteArray();
+        }
+    }
+
     /** Whether the bytes start with the PDF signature {@code %PDF-}. */
     static boolean isPdf(byte[] bytes) {
         if (bytes == null || bytes.length < PDF_SIGNATURE.length) {
@@ -353,7 +428,7 @@ public final class EmbeddedLabDocumentLoader {
      *
      * @return the decoded size in bytes, or {@code -1} when the payload cannot be decoded
      */
-    private static long decode(String compact, boolean hex, byte[] head, ByteArrayOutputStream sink, boolean headOnly) {
+    private static long decode(String compact, boolean hex, byte[] head, PdfBuffer sink, boolean headOnly) {
         // Hex needs two characters per byte, base64 four per three: a fixed prefix far longer than
         // the signature needs. For base64 the prefix is counted in alphabet characters, because
         // the lenient decoder the full decode falls back to skips everything else; a raw prefix
@@ -416,7 +491,7 @@ public final class EmbeddedLabDocumentLoader {
                 || c == '+' || c == '/' || c == '-' || c == '_';
     }
 
-    private static long drain(InputStream in, byte[] head, ByteArrayOutputStream sink) throws IOException {
+    private static long drain(InputStream in, byte[] head, PdfBuffer sink) throws IOException {
         byte[] buffer = new byte[8192];
         long size = 0;
         int read;
@@ -432,7 +507,7 @@ public final class EmbeddedLabDocumentLoader {
         return size;
     }
 
-    private static long decodeHex(String compact, byte[] head, ByteArrayOutputStream sink) {
+    private static long decodeHex(String compact, byte[] head, PdfBuffer sink) {
         int pairs = compact.length() / 2;
         for (int i = 0; i < pairs; i++) {
             int high = Character.digit(compact.charAt(2 * i), 16);

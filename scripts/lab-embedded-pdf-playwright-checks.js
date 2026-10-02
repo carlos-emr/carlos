@@ -116,11 +116,6 @@ function buildMessage(accession, marker) {
 }
 
 /**
- * Response headers by lower-case name, repeated headers joined by a newline. Playwright's
- * headers() keeps one value per name, and through the packaged front door a response carries
- * two Content-Security-Policy headers (the application's and nginx's baseline, both enforced).
- */
-/**
  * Whether lab-view HTML shows the ED text value as its two lines separated by a real <br>, and
  * nowhere as the raw \.br\ escape outside the hidden raw-HL7 block.
  */
@@ -130,6 +125,11 @@ function ajaxShowsEdText(html) {
     && !visible.includes('\\.br\\');
 }
 
+/**
+ * Response headers by lower-case name, repeated headers joined by a newline. Playwright's
+ * headers() keeps one value per name, and through the packaged front door a response carries
+ * two Content-Security-Policy headers (the application's and nginx's baseline, both enforced).
+ */
 function headerMap(headersArray) {
   const map = {};
   for (const { name, value } of headersArray) {
