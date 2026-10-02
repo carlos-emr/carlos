@@ -41,7 +41,10 @@ emit baseline.format 2
 for entry in 'carlos-emr:carlos-emr' 'drugref:carlos-emr-drugref' 'renderer:carlos-emr-eform-renderer' 'carlos-ctl:carlos-ctl'; do
     package=${entry#*:}
     if ! value=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null); then
-        [[ $package == carlos-ctl ]] || exit 1
+        # carlos-ctl predates its own package on old installs; the renderer
+        # (or its empty transitional successor) is absent on any install that
+        # never had a 2026.08.0-alpha17-or-earlier release.
+        [[ $package == carlos-ctl || $package == carlos-emr-eform-renderer ]] || exit 1
         value=''
     fi
     emit "pkg.${entry%%:*}" "$value"
@@ -92,6 +95,18 @@ for k in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
 done
 value=$(grep -vE "$migrated_keys_re" "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
+# The ACTIVE settings, independent of layout: comments and blank lines dropped,
+# whitespace around '=' normalised, sorted. carlos-ctl's prop_comment/prop_set
+# can move a key without changing it -- e.g. an alpha13 renderer's postrm runs
+# init-config with no browser present (commenting the renderer keys out) and
+# the new carlos-emr's init-config then re-appends them with the same values --
+# and deb-upgrade-verify.sh must not mistake that for a changed setting. The
+# sanctioned one-time migrations are left out here too; the verifier checks
+# those keys one by one.
+value=$(sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' "$CARLOS_ETC_DIR/carlos.properties" \
+    | grep -vE '^([#!]|$)' | sed -E 's/^([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/' \
+    | grep -vE "$migrated_keys_re" | LC_ALL=C sort | sha256sum) || exit 1
+emit cfg.carlos.properties.active.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
 for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"

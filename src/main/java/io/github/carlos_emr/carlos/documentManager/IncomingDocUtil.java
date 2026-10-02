@@ -597,8 +597,12 @@ public final class IncomingDocUtil {
             try {
                 try (PdfReader reader = new PdfReader(filePathName);
                      OutputStream fos = work.output()) {
-                    int rotatedegrees = (reader.getPageRotation(Integer.parseInt(MyPdfPageNumber)) + degrees) % 360;
-                    reader.getPageN(Integer.parseInt(MyPdfPageNumber)).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
+                    // Range-check before touching the page: getPageN returns null outside the
+                    // document, which surfaced as a NullPointerException instead of a bad request.
+                    int page = parsePageNumber(MyPdfPageNumber, reader.getNumberOfPages());
+                    // floorMod keeps a negative rotation (e.g. -90 on an upright page) in 0..359.
+                    int rotatedegrees = Math.floorMod(reader.getPageRotation(page) + degrees, 360);
+                    reader.getPageN(page).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
                     PdfStamper stp = new PdfStamper(reader, fos);
                     stp.close();
                 }
@@ -658,7 +662,7 @@ public final class IncomingDocUtil {
                 try (PdfReader reader = new PdfReader(filePathName);
                      OutputStream fos = work.output()) {
                     for (int p = 1; p <= reader.getNumberOfPages(); ++p) {
-                        int rotatedegrees = (reader.getPageRotation(p) + degrees) % 360;
+                        int rotatedegrees = Math.floorMod(reader.getPageRotation(p) + degrees, 360);
                         reader.getPageN(p).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
                     }
                     PdfStamper stp = new PdfStamper(reader, fos);
@@ -1087,7 +1091,7 @@ public final class IncomingDocUtil {
             PdfCopy extractCopy) throws IOException {
         for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
             if ("1".equals(extractList.get(pageNumber))) {
-                extractCopy.addPage(copy.getImportedPage(reader, pageNumber));
+                extractCopy.addPage(extractCopy.getImportedPage(reader, pageNumber));
             } else {
                 copy.addPage(copy.getImportedPage(reader, pageNumber));
             }
@@ -1280,6 +1284,22 @@ public final class IncomingDocUtil {
         return entryMode;
     }
 
+    /** Page actions {@link #doPagesAction} dispatches; any other nonempty name is a no-op there. */
+    private static final Set<String> PAGE_ACTIONS = Set.of(
+            "Rotate90", "Rotate180", "RotateM90", "RotateAll90", "RotateAll180", "RotateAllM90",
+            "DeletePage", "DeletePDF", "ExtractPagePDF");
+
+    /**
+     * Reports whether {@code pdfAction} names a page action {@link #doPagesAction} performs.
+     * Request boundaries use this to reject unknown names with 400 instead of silently ignoring them.
+     *
+     * @param pdfAction String the requested action name; may be null
+     * @return boolean true only for one of the nine supported action names (case-sensitive)
+     */
+    public static boolean isSupportedPageAction(String pdfAction) {
+        return pdfAction != null && PAGE_ACTIONS.contains(pdfAction);
+    }
+
     /** Source-lease or shared-parser admission timed out before mutation; no edit was accepted. */
     public static final class PageEditAdmissionBusyException extends IOException {
         private static final long serialVersionUID = 1L;
@@ -1406,8 +1426,15 @@ public final class IncomingDocUtil {
             } catch (BoundedPdfTask.BusyException | PageEditAdmissionBusyException busy) {
                 throw busy;
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-                throw e;
+                logger.error("Incoming document extraction failed: {}", LogSafe.exceptionTrace(e));
+                // An occupied extract name is the one failure the user can fix themselves; its
+                // message names only the queue file they are already looking at.
+                if (e.getCause() instanceof FileAlreadyExistsException) {
+                    throw e;
+                }
+                // Filesystem exceptions may contain patient document names. Keep the
+                // visible error localized and the log free of exception messages.
+                throw new Exception(props.getString("dms.incomingDocs.cannotExtractPage"));
             }
         }
     }

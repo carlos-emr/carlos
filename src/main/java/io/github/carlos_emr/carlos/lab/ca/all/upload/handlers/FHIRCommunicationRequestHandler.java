@@ -39,8 +39,6 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -52,8 +50,6 @@ import org.hl7.fhir.dstu3.model.CodeableConcept;
 import org.hl7.fhir.dstu3.model.CommunicationRequest;
 
 import org.hl7.fhir.dstu3.model.Reference;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 
 import io.github.carlos_emr.CarlosProperties;
@@ -70,6 +66,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -228,35 +225,6 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
      * @param documentDir the document directory the file must lie in before it is deleted
      */
     static void discardOnRollback(File saved, File documentDir) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status != STATUS_ROLLED_BACK) {
-                    return;
-                }
-                File target;
-                try {
-                    target = PathValidationUtils.validateExistingPath(saved, documentDir);
-                } catch (RuntimeException outsideDocumentDir) {
-                    logger.warn("Not removing a rolled-back FHIR document PDF outside DOCUMENT_DIR: {}",
-                            LogSafe.exceptionTrace(outsideDocumentDir));
-                    return;
-                }
-                try {
-                    Files.deleteIfExists(target.toPath());
-                } catch (IOException | RuntimeException e) {
-                    // No row references this file any more. Retry the delete when the JVM shuts down
-                    // rather than forget it; there is no persistent cleanup queue for uploads to hand
-                    // it to. exceptionTrace, not the throwable: the message is the path, whose name
-                    // embeds the CommunicationRequest identifier.
-                    logger.warn("Could not remove a rolled-back FHIR document PDF; retrying at shutdown: {}",
-                            LogSafe.exceptionTrace(e));
-                    target.deleteOnExit();
-                }
-            }
-        });
+        FileUploadCheck.discardOnRollback(saved, documentDir);
     }
 }

@@ -55,7 +55,11 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Comment;
 import org.jsoup.nodes.Entities;
+import org.jsoup.nodes.Node;
+import org.jsoup.select.NodeFilter;
+import org.jsoup.select.NodeTraversor;
 import java.nio.charset.StandardCharsets;
 
 import io.github.carlos_emr.carlos.documentManager.LocalOnlyUserAgent;
@@ -137,6 +141,20 @@ public class Doc2PDF {
 
         // Flying Saucer attempts to execute script content during rendering, causing errors
         doc.select("script").remove();
+        // Comments render nothing, but an HTML comment may legally contain "--" (the drug
+        // profile page has one) while an XML comment may not, so the XHTML handed to Flying
+        // Saucer would fail to parse and the whole item would be lost.
+        NodeTraversor.filter(new NodeFilter() {
+            @Override
+            public FilterResult head(Node node, int depth) {
+                return node instanceof Comment ? FilterResult.REMOVE : FilterResult.CONTINUE;
+            }
+
+            @Override
+            public FilterResult tail(Node node, int depth) {
+                return FilterResult.CONTINUE;
+            }
+        }, doc);
         // XHTML requires alt attributes on all img elements; missing ones cause validation failures
         doc.select("img:not([alt])").attr("alt", "");
         // Flying Saucer's form renderer crashes on input elements without an explicit type attribute

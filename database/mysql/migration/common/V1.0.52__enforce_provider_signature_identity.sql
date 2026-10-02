@@ -35,24 +35,24 @@ PREPARE signature_column_statement FROM @signature_column_guard;
 EXECUTE signature_column_statement;
 DEALLOCATE PREPARE signature_column_statement;
 
-CREATE TEMPORARY TABLE carlos_signature_identity_v1_0_44 LIKE providerExt;
-ALTER TABLE carlos_signature_identity_v1_0_44
+CREATE TEMPORARY TABLE carlos_signature_identity_v1_0_52 LIKE providerExt;
+ALTER TABLE carlos_signature_identity_v1_0_52
     ADD UNIQUE INDEX signature_identity_validation (provider_no);
-INSERT INTO carlos_signature_identity_v1_0_44 (provider_no, signature)
+INSERT INTO carlos_signature_identity_v1_0_52 (provider_no, signature)
 SELECT DISTINCT BINARY provider_no, BINARY signature FROM providerExt
 WHERE provider_no IS NOT NULL;
 -- NULL provider IDs have no mapped identity and remain outside the unique rule.
 -- Preserve their multiplicity, even when their signature values are identical.
-INSERT INTO carlos_signature_identity_v1_0_44 (provider_no, signature)
+INSERT INTO carlos_signature_identity_v1_0_52 (provider_no, signature)
 SELECT provider_no, signature FROM providerExt
 WHERE provider_no IS NULL;
 
 START TRANSACTION;
 DELETE FROM providerExt;
 INSERT INTO providerExt (provider_no, signature)
-SELECT provider_no, signature FROM carlos_signature_identity_v1_0_44;
+SELECT provider_no, signature FROM carlos_signature_identity_v1_0_52;
 COMMIT;
-DROP TEMPORARY TABLE carlos_signature_identity_v1_0_44;
+DROP TEMPORARY TABLE carlos_signature_identity_v1_0_52;
 
 -- An adopted database may already enforce this identity under a different name.
 SET @signature_identity_present = (

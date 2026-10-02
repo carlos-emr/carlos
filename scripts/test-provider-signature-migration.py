@@ -13,7 +13,7 @@ import unittest
 import uuid
 
 MIGRATION = (Path(__file__).resolve().parents[1] /
-             'database/mysql/migration/common/V1.0.44__enforce_provider_signature_identity.sql').read_text()
+             'database/mysql/migration/common/V1.0.52__enforce_provider_signature_identity.sql').read_text()
 
 # A conflict must be refused by the staging table's validation index, before
 # providerExt is rewritten. A refusal from the final providerExt index would

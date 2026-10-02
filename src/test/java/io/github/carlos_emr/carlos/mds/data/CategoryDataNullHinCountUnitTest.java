@@ -1,0 +1,163 @@
+/* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
+package io.github.carlos_emr.carlos.mds.data;
+
+import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import jakarta.persistence.EntityManagerFactory;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.UUID;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+
+/**
+ * Runs the inbox summary count queries of {@link CategoryData} against a real (H2, MySQL mode)
+ * database so SQL {@code NULL} semantics are exercised, not just the SQL text.
+ *
+ * <p>A patient whose {@code demographic.hin} is NULL must be counted by a name search that
+ * supplies no health number, since {@code d.hin LIKE '%%'} is never true for NULL; and must be
+ * excluded once a non-empty health number is supplied. This mirrors the list-side coverage in
+ * {@code InboxResultsDaoIntegrationTest} for the abnormal, lab and document summary counts.
+ *
+ * <p>The test DataSource makes exactly one dialect rewrite: it drops the MySQL/MariaDB-only
+ * {@code SELECT HIGH_PRIORITY} scheduling hint, which H2 (even in MySQL mode) rejects as a syntax
+ * error. Every predicate, join, {@code GROUP BY} and bound value is the production statement.
+ */
+@Tag("unit")
+@Tag("lab")
+@Tag("aggregate")
+@DisplayName("CategoryData summary counts for a patient without a HIN")
+class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
+    private static final String PROVIDER = "999998";
+    private static final int PATIENT = 501;
+    private static final int OTHER_PATIENT = 502;
+
+    private final String url = "jdbc:h2:mem:categorydata_" + UUID.randomUUID().toString().replace("-", "")
+            + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+    private Connection keepAlive;
+
+    @BeforeEach
+    void setUpDatabase() throws SQLException {
+        keepAlive = DriverManager.getConnection(url);
+        try (Statement ddl = keepAlive.createStatement()) {
+            ddl.execute("CREATE TABLE demographic (demographic_no INT PRIMARY KEY, last_name VARCHAR(30),"
+                    + " first_name VARCHAR(30), hin VARCHAR(20))");
+            ddl.execute("CREATE TABLE ctl_document (module VARCHAR(30), module_id INT, document_no INT, status CHAR(1))");
+            ddl.execute("CREATE TABLE providerLabRouting (id INT AUTO_INCREMENT PRIMARY KEY, provider_no VARCHAR(6),"
+                    + " lab_no INT, status CHAR(1), lab_type VARCHAR(3))");
+            ddl.execute("CREATE TABLE patientLabRouting (id INT AUTO_INCREMENT PRIMARY KEY, demographic_no INT,"
+                    + " lab_no INT, lab_type VARCHAR(3))");
+            ddl.execute("CREATE TABLE hl7TextInfo (id INT AUTO_INCREMENT PRIMARY KEY, lab_no INT, result_status VARCHAR(1),"
+                    + " accessionNum VARCHAR(20), obr_date VARCHAR(20))");
+        }
+        // Fixture rows are bound, not concatenated, per the parameterized-SQL rule.
+        // The patient under test has no health number; a second patient with the same name has one.
+        insert("INSERT INTO demographic VALUES (?, 'Synthetic', 'Nohin', ?)", PATIENT, null);
+        insert("INSERT INTO demographic VALUES (?, 'Synthetic', 'Nohin', ?)", OTHER_PATIENT, "9876543210");
+        // One document for each patient.
+        insert("INSERT INTO ctl_document VALUES ('demographic', ?, ?, 'A')", PATIENT, 11);
+        insert("INSERT INTO ctl_document VALUES ('demographic', ?, ?, 'A')", OTHER_PATIENT, 12);
+        insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'DOC')", PROVIDER, 11);
+        insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'DOC')", PROVIDER, 12);
+        // One abnormal HL7 lab for each patient.
+        insert("INSERT INTO patientLabRouting (demographic_no, lab_no, lab_type) VALUES (?, ?, 'HL7')", PATIENT, 21);
+        insert("INSERT INTO patientLabRouting (demographic_no, lab_no, lab_type) VALUES (?, ?, 'HL7')", OTHER_PATIENT, 22);
+        insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'HL7')", PROVIDER, 21);
+        insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'HL7')", PROVIDER, 22);
+        insert("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (?, 'A', ?)", 21, "ACC-21");
+        insert("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (?, 'A', ?)", 22, "ACC-22");
+        registerMock(DataSource.class, hintStrippingDataSource());
+        registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
+        registerMock(EntityManagerFactory.class, mock(EntityManagerFactory.class));
+    }
+
+    private void insert(String sql, Object... values) throws SQLException {
+        try (PreparedStatement statement = keepAlive.prepareStatement(sql)) {
+            for (int i = 0; i < values.length; i++) {
+                statement.setObject(i + 1, values[i]);
+            }
+            statement.executeUpdate();
+        }
+    }
+
+    @AfterEach
+    void tearDownDatabase() throws SQLException {
+        LegacyJdbcQuery.releaseThreadResources();
+        try (Statement drop = keepAlive.createStatement()) {
+            drop.execute("SHUTDOWN");
+        }
+        keepAlive.close();
+    }
+
+    @Test
+    @DisplayName("should count a patient without a HIN when the search supplies no HIN")
+    void shouldCountPatientWithoutHin_whenNoHinSupplied() throws SQLException {
+        CategoryData data = search("");
+
+        assertThat(data.getDocumentCountForPatientSearch()).isEqualTo(2);
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(2);
+        assertThat(data.getAbnormalCount(true)).isEqualTo(2);
+        assertThat(data.getPatientList()).extracting(PatientInfo::getId)
+                .containsExactlyInAnyOrder(PATIENT, OTHER_PATIENT);
+    }
+
+    @Test
+    @DisplayName("should exclude a patient without a HIN when the search supplies a HIN")
+    void shouldExcludePatientWithoutHin_whenHinSupplied() throws SQLException {
+        CategoryData data = search("9876543210");
+
+        assertThat(data.getDocumentCountForPatientSearch()).isEqualTo(1);
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(1);
+        assertThat(data.getAbnormalCount(true)).isEqualTo(1);
+        assertThat(data.getPatientList()).extracting(PatientInfo::getId).containsExactly(OTHER_PATIENT);
+    }
+
+    @Test
+    @DisplayName("should count nothing when the supplied HIN matches no patient")
+    void shouldCountNothing_whenSuppliedHinMatchesNoPatient() throws SQLException {
+        CategoryData data = search("1111111111");
+
+        assertThat(data.getDocumentCountForPatientSearch()).isZero();
+        assertThat(data.getLabCountForPatientSearch()).isZero();
+        assertThat(data.getAbnormalCount(true)).isZero();
+        assertThat(data.getPatientList()).isEmpty();
+    }
+
+    private static CategoryData search(String hin) {
+        return new CategoryData("Synthetic", "Nohin", hin, true, true, PROVIDER, "N", "all", null, null);
+    }
+
+    /** Opens real H2 connections whose statements have only the MySQL priority hint removed. */
+    private DataSource hintStrippingDataSource() {
+        DataSource dataSource = mock(DataSource.class, invocation -> {
+            if (!"getConnection".equals(invocation.getMethod().getName())) return null;
+            Connection real = DriverManager.getConnection(url);
+            return Proxy.newProxyInstance(Connection.class.getClassLoader(), new Class<?>[] {Connection.class},
+                    (proxy, method, args) -> {
+                        if ("prepareStatement".equals(method.getName()) && args != null && args[0] instanceof String sql) {
+                            // H2 cannot parse the MySQL-only priority hint; it has no effect on results.
+                            args[0] = sql.replace("SELECT HIGH_PRIORITY ", "SELECT ");
+                        }
+                        try {
+                            return method.invoke(real, args);
+                        } catch (InvocationTargetException e) {
+                            throw e.getCause();
+                        }
+                    });
+        });
+        return dataSource;
+    }
+}

@@ -171,6 +171,11 @@
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     thisEForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
 
+    // Load fax compatibility before template ready/onload handlers and before the asynchronous toolbar.
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/eforms/faxControl.js");
+    thisEForm.addHeadJavascript(request.getContextPath()+"/js/faxRecipientAutocomplete.js");
+    thisEForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css", "all");
+
     thisEForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     thisEForm.addCSS(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.css", "all");
     thisEForm.addBodyJavascript(request.getContextPath()+"/eform/eformFloatingToolbar/eform_floating_toolbar.js");
@@ -178,9 +183,14 @@
     thisEForm.addHiddenInputElement("context", request.getContextPath());
     thisEForm.addHiddenInputElement("demographicNo", demographic_no);
     thisEForm.addHiddenInputElement("fid", fid);
-    thisEForm.ensureSubjectInput();
+    // A new instance has no saved subject. thisEForm was loaded from the catalog, so its
+    // getFormSubject() is the template's catalog description; supplying that would pre-fill
+    // (and save) a subject the clinician never chose. Start templates without a control empty.
+    thisEForm.ensureSubjectInput("");
     thisEForm.addHiddenInputElement("fdid", request.getParameter("fdid"));
-    thisEForm.addHiddenInputElement("newForm", "true");
+    // Preserve the template's value and name: Galaxy forms commonly test for the exact "True"
+    // spelling before initializing signatures and fax numbers, then submit "False" on save.
+    thisEForm.ensureNewFormInput();
 
     // Add email consent properties
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

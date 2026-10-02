@@ -39,6 +39,7 @@ import java.util.Date;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.LabReportInformationDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.LabReportInformation;
 import io.github.carlos_emr.carlos.utility.DateUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -445,6 +446,65 @@ public class LabResultData implements Comparable<LabResultData> {
         return new CompareId();
     }
 
+
+    /**
+     * Keys ({@link #labKey}) of the labs attached to a consultation, consultation response or eForm,
+     * for the CML, MDS and PathNet (BCP) "attached vs. not attached" split.
+     *
+     * <p>Source-qualified rows match only a routing of the same source and patient. Different
+     * sources may share a number and both remain attached. For legacy rows without a stored
+     * source, recover a key only when this patient's joined routings identify one lab source;
+     * foreign-patient and document routings never count.</p>
+     *
+     * @param attachmentRoutingRows {@code findLabs} rows: {@code [attachment, PatientLabRouting]}
+     * @param demographicNo the patient whose listing is being built
+     * @return the unambiguous {@code "TYPE:number"} keys; never {@code null}
+     */
+    public static java.util.Set<String> attachedLabKeys(java.util.List<Object[]> attachmentRoutingRows, String demographicNo) {
+        java.util.Map<Integer, java.util.Set<String>> typesByLabNo = new java.util.HashMap<>();
+        java.util.Set<String> keys = new java.util.HashSet<>();
+        if (attachmentRoutingRows != null && demographicNo != null) {
+            for (Object[] row : attachmentRoutingRows) {
+                if (row == null || row.length < 2 || !(row[1] instanceof PatientLabRouting routing)) {
+                    continue;
+                }
+                if (routing.getDemographicNo() == null || !demographicNo.trim().equals(routing.getDemographicNo().toString())
+                        || routing.getLabType() == null || DOCUMENT.equals(routing.getLabType())) {
+                    continue;
+                }
+                String storedSource = switch (row[0]) {
+                    case io.github.carlos_emr.carlos.commn.model.ConsultDocs doc -> doc.getLabType();
+                    case io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc doc -> doc.getLabType();
+                    case io.github.carlos_emr.carlos.commn.model.EFormDocs doc -> doc.getLabType();
+                    case null, default -> null;
+                };
+                if (storedSource != null) {
+                    if (storedSource.equals(routing.getLabType())) {
+                        keys.add(labKey(storedSource, String.valueOf(routing.getLabNo())));
+                    }
+                    continue;
+                }
+                typesByLabNo.computeIfAbsent(routing.getLabNo(), k -> new java.util.HashSet<>()).add(routing.getLabType());
+            }
+        }
+        for (java.util.Map.Entry<Integer, java.util.Set<String>> entry : typesByLabNo.entrySet()) {
+            if (entry.getValue().size() == 1) {
+                keys.add(labKey(entry.getValue().iterator().next(), String.valueOf(entry.getKey())));
+            }
+        }
+        return keys;
+    }
+
+    /**
+     * The {@code "TYPE:number"} key {@link #attachedLabKeys} produces, for a candidate lab.
+     *
+     * @param labType the listing's lab type, e.g. {@link #CML}
+     * @param labNumber the candidate's lab number ({@link #segmentID})
+     * @return the key
+     */
+    public static String labKey(String labType, String labNumber) {
+        return labType + ":" + labNumber;
+    }
 
     public class CompareId implements Comparator<LabResultData> {
 

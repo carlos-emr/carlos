@@ -130,7 +130,19 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
         }
     }
 
-    /** The surrounding transaction owns all recipients; no partial forwarding is reported as success. */
+    /**
+     * Adds the item to the recipient's inbox and follows the recipient's forwarding rules.
+     *
+     * <p>Only rules that apply to {@code labType} are followed, both for forwarding and for the
+     * "file" status ({@link IncomingLabRules#appliesToLabType(String)}): a rule scoped to HL7 or
+     * HRM must not route a document. Active rules are those with {@code archive = '0'}, as in
+     * {@link IncomingLabRulesDao#findCurrentByProviderNo(String)}, which HRM routing and the lab
+     * file-status lookup use. Forwarding chains are followed transitively; cycles terminate on
+     * the visited set.</p>
+     *
+     * <p>The surrounding transaction owns all recipients; no partial forwarding is reported as
+     * success.</p>
+     */
     @SuppressWarnings("unchecked")
     @Override
     public void addToProviderInboxStrict(String providerNo, Integer labNo, String labType) {
@@ -147,6 +159,7 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
             rulesQuery.setParameter(1, currentProvider);
 
             for (IncomingLabRules rules : (List<IncomingLabRules>) rulesQuery.getResultList()) {
+                if (!rules.appliesToLabType(labType)) continue;
                 String status = rules.getStatus();
                 String frwdProvider = rules.getFrwdProviderNo();
 

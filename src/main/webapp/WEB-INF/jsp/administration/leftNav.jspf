@@ -271,6 +271,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 				<li><a href="${ctx}/admin/labForwardingRules" class="contentLink"><fmt:message key="admin.admin.labFwdRules"/></a></li>
 				</security:oscarSec>
 				<li><a href='javascript:void(0);' class="xlink" rel="${carlos:forHtmlAttribute(ctx)}/admin/providerLinkingRules"><fmt:message key="admin.admin.providerLinkingRules"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${carlos:forHtmlAttribute(ctx)}/admin/LabDisplaySettings"><fmt:message key="admin.admin.labDisplaySettings"/></a></li>
 
 				<li><a href="${ctx}/admin/ViewAddQueue" class="contentLink"><fmt:message key="admin.admin.AddNewQueue"/></a></li>
 			</ul>
@@ -983,6 +984,23 @@ $(document).ready(function(){
 			|| document.getElementById('collapse'+show);
 		if (panel) {
 			bootstrap.Collapse.getOrCreateInstance(panel).show();
+		}
+
+		// eForm group mutators made in schedule mode return through this shell
+		// (EFormGroupRedirect) and name the group to reopen; without it the
+		// panel would open on the first group instead. The value is decoded and
+		// re-encoded so only that one parameter can reach the panel URL.
+		var groupView = getUrlVars()["group_view"];
+		if (pageToLoad && show === 'FormsGroups' && groupView) {
+			try {
+				groupView = decodeURIComponent(groupView.replace(/\+/g, ' '));
+			} catch (e) {
+				groupView = null;
+			}
+			if (groupView) {
+				pageToLoad += (pageToLoad.indexOf('?') >= 0 ? '&' : '?')
+					+ 'group_view=' + encodeURIComponent(groupView);
+			}
 		}
 
 		//load request page or load default

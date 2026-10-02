@@ -33,8 +33,8 @@ Contents
 0. Getting the packages
 -----------------------
 
-Release builds of the packages (carlos-emr for amd64, carlos-emr-drugref, and
-the empty transitional carlos-emr-eform-renderer) are attached to every CARLOS
+Release builds of the packages (carlos-emr for amd64 and carlos-emr-drugref)
+are attached to every CARLOS
 GitHub release
 (https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
 workflow, alongside their .sha256 checksums and build-provenance
@@ -64,24 +64,27 @@ Fetching them from a shell (a server has no browser; from WSL this is far
 easier than copying files across): on the release page, right-click each
 asset and copy its link address, or build the URLs from the tag. <tag> is the
 release tag as GitHub shows it (2026.08.0-alpha14); <version> is that tag as
-it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha14):
+it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha14);
+<ctl-version> is the carlos-ctl release the CARLOS release re-attaches (for example 1.1.1):
 
   R=https://github.com/carlos-emr/carlos/releases/download/<tag>
   wget $R/carlos-emr_<version>_amd64.deb $R/carlos-emr_<version>_amd64.deb.sha256 \
        $R/carlos-emr-drugref_<version>_all.deb $R/carlos-emr-drugref_<version>_all.deb.sha256 \
-       $R/carlos-emr-eform-renderer_<version>_all.deb $R/carlos-emr-eform-renderer_<version>_all.deb.sha256
+       $R/carlos-ctl_<ctl-version>_all.deb $R/carlos-ctl_<ctl-version>_all.deb.sha256
 
 Verify, then install:
 
   sha256sum -c carlos-emr_<version>_amd64.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-  sha256sum -c carlos-emr-eform-renderer_<version>_all.deb.sha256
+  sha256sum -c carlos-ctl_<ctl-version>_all.deb.sha256
   sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
-      ./carlos-emr-drugref_<version>_all.deb ./carlos-emr-eform-renderer_<version>_all.deb
+      ./carlos-emr-drugref_<version>_all.deb ./carlos-ctl_<ctl-version>_all.deb
 
 Releases up to and including 2026.08.0-alpha13 publish carlos-emr as _all.deb
 and the renderer as a real carlos-emr-eform-renderer_<version>_amd64.deb; adjust
-the names above for those.
+the names above for those. Releases 2026.08.0-alpha14 through alpha17 also
+attached an empty transitional carlos-emr-eform-renderer_<version>_all.deb;
+later releases do not build it.
 
 On releases up to and including 2026.08.0-alpha12 the .sha256 files name the
 package with the build-time '~' spelling (carlos-emr_2026.08.0~alpha12_all.deb)
@@ -98,10 +101,10 @@ before installing. Later releases record the published name directly.
 carlos-emr is built for amd64 only: it carries the pinned Chromium that renders
 saved eForms to PDF (eForm print, fax and archive have no other path), run as
 the carlos-emr-render-browser service. carlos-emr-eform-renderer, the separate
-renderer package through 2026.08.0-alpha13, is now an empty transitional
-package. Include it when UPGRADING such an install, so that the documented
-`--no-remove` command upgrades the old renderer package instead of stopping on
-its removal; it can be removed afterwards. On a fresh install it does nothing.
+renderer package through 2026.08.0-alpha13, is replaced by carlos-emr and is
+no longer built, not even as a transitional package; see "Upgrading from
+2026.08.0-alpha13 or earlier" below. A transitional copy left installed by
+alpha14 through alpha17 owns no files and can be removed at any time.
 
 apt normally prints this while installing a local .deb, and it is harmless:
 
@@ -398,7 +401,15 @@ messages, ticklers and the rest of the survey in ids 1010 and 1100-1199 — and,
 through a GENERATED companion file, from the narrative cells of the encounter
 forms (Rourke, BCAR, the mental-health assessments and the rest:
 REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf, ids 1200-1399, one rule per
-save route and form class). Two things are left inspected ON PURPOSE. The
+save route and form class). The two report-authoring tools whose input IS SQL
+-- Query By Example (and its favourites) and the Report by Template editor --
+are exempted from the SQLi family on their specific arguments (ids 1400-1402;
+the template document from the XSS family too). The application checks the
+statement shape itself: before any QBE query runs (a favourite is stored text
+that only ever runs through that same check), and when a template is saved as
+well as before it runs. Those application checks are the only control on these
+arguments: the WAF no longer inspects them, malicious SQL included. Two things are left
+inspected ON PURPOSE. The
 survey rules (1100-1199) and the generated form rules (1200-1399) keep the XSS
 family ON every argument they exempt, so raw HTML markup pasted into a
 referral or a master-record note still answers 403: that layer is defence in
@@ -734,16 +745,15 @@ returns only after the application (and DrugRef, if installed) answers, so a
 `carlos-ctl check` straight afterwards reflects the finished system.
 
 Upgrading from 2026.08.0-alpha13 or earlier: the eForm renderer, then its own
-package, is now part of carlos-emr. Include
-carlos-emr-eform-renderer_<version>_all.deb (the empty transitional package)
-in the same apt command, with --no-remove, so the old renderer package is
-upgraded rather than removed (with --no-remove, leaving it out makes apt stop
-instead). The render token carries over: the postinst moves it from
+package, is now part of carlos-emr, and no transitional package is shipped,
+so apt must remove the old renderer package. Run the upgrade WITHOUT
+--no-remove and check that carlos-emr-eform-renderer is the only package apt
+proposes to remove. The render token carries over: the postinst moves it from
 /etc/carlos-emr/render-browser.env to /etc/carlos-emr/renderer.env, and the
 browser now runs as carlos-emr-render-browser.service with its home in
 /var/lib/carlos-emr/renderer. Removing or purging the old renderer package,
-now or later, touches none of those -- though purging an old renderer that apt
-REMOVED runs its old script, which re-applies the configuration and restarts
+now or later, touches none of those -- though purging the removed old
+renderer later runs its old script, which re-applies the configuration and restarts
 the EMR once, so do it outside clinic hours.
 
 Your conffiles are offered as three-way merges. Your credential files are left

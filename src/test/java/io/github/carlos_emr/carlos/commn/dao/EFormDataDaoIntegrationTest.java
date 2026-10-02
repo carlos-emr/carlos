@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -123,6 +124,41 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(efd);
         entityManager.flush();
         return efd;
+    }
+
+    private void addResidentValue(EFormData form, String resident) {
+        EFormValue value = new EFormValue();
+        value.setFormDataId(form.getId());
+        value.setFormId(form.getFormId());
+        value.setDemographicId(form.getDemographicId());
+        value.setVarName("residentId");
+        value.setVarValue(resident);
+        entityManager.persist(value);
+    }
+
+    @Test
+    void shouldFindOnlyCurrentResidentNotes_withSelectedFormsAndDateRange() {
+        EFormData included = createAndPersist(DEMO_NO, FORM_ID, true, today);
+        addResidentValue(included, "resident-a");
+        addResidentValue(included, "resident-a"); // Duplicate values must not duplicate the note.
+        addResidentValue(createAndPersist(DEMO_NO, FORM_ID, true, today), "resident-b");
+        addResidentValue(createAndPersist(DEMO_NO, FORM_ID_2, true, today), "resident-a");
+        addResidentValue(createAndPersist(DEMO_NO, FORM_ID, false, today), "resident-a");
+        addResidentValue(createAndPersist(DEMO_NO, FORM_ID, true, yesterday), "resident-a");
+        addResidentValue(createAndPersist(DEMO_NO, FORM_ID, true, nextWeek), "resident-a");
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(eFormDataDao.findFieldNoteIdsForResident(new TreeSet<>(List.of(FORM_ID)), today, nextWeek, "resident-a"))
+                .containsExactly(included.getId());
+    }
+
+    @Test
+    void shouldReturnNoResidentNotes_withoutSelectedFormsOrResident() {
+        assertThat(eFormDataDao.findFieldNoteIdsForResident(new TreeSet<>(), today, nextWeek, "resident-a")).isEmpty();
+        assertThat(eFormDataDao.findFieldNoteIdsForResident(null, today, nextWeek, "resident-a")).isEmpty();
+        assertThat(eFormDataDao.findFieldNoteIdsForResident(new TreeSet<>(List.of(FORM_ID)), today, nextWeek, null)).isEmpty();
+        assertThat(eFormDataDao.findFieldNoteIdsForResident(new TreeSet<>(List.of(FORM_ID)), today, nextWeek, " ")).isEmpty();
     }
 
     // ========================================================================
@@ -682,6 +718,30 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).contains(DEMO_NO);
+        }
+    }
+
+    @Nested
+    @DisplayName("Ownership lookup (issue #3867)")
+    class OwnershipLookup {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return only fdids belonging to the patient")
+        void shouldReturnOwnedFdids_forDemographic() {
+            EFormData own = createAndPersist(DEMO_NO, FORM_ID, true, today);
+            EFormData foreign = createAndPersist(DEMO_NO + 1, FORM_ID, true, today);
+
+            List<Integer> owned = eFormDataDao.findFdidsForDemographic(DEMO_NO, List.of(own.getId(), foreign.getId(), 987654));
+
+            assertThat(owned).containsExactly(own.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty without querying for an empty id list")
+        void shouldReturnEmpty_forEmptyIdList() {
+            assertThat(eFormDataDao.findFdidsForDemographic(DEMO_NO, List.of())).isEmpty();
         }
     }
 }

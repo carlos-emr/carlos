@@ -37,17 +37,18 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.EnumMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDao;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.AttachmentSelectionAccess;
@@ -60,6 +61,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -90,6 +92,7 @@ import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ConsultationRequestConverter;
@@ -117,6 +120,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -157,7 +161,16 @@ public class ConsultationWebService extends AbstractServiceImpl {
     DemographicManager demographicManager;
 
     @Autowired
+    private DemographicDao demographicDao;
+
+    @Autowired
     private DocumentManager documentManager;
+
+    @Autowired
+    private AttachmentOwnershipService attachmentOwnershipService;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
     @Autowired
     ProviderDao providerDao;
@@ -210,10 +223,19 @@ public class ConsultationWebService extends AbstractServiceImpl {
     public ConsultationRequestTo1 getRequest(@QueryParam("requestId") Integer requestId, @QueryParam("demographicId") Integer demographicId, @DefaultValue("false") @QueryParam("datesAsTimestamp") boolean datesAsTimestamp) {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
 
+        if (requestId == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
         if (requestId > 0) {
-            request = requestConverter.getAsTransferObject(getLoggedInInfo(), consultationManager.getRequest(getLoggedInInfo(), requestId));
+            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            requirePatientConsultRead(stored.getDemographicId());
+            request = requestConverter.getAsTransferObject(getLoggedInInfo(), stored);
             request.setAttachments(getRequestAttachments(requestId, request.getDemographicId(), ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requirePatientConsultRead(demographicId);
             request.setDemographicId(demographicId);
 
             RxInformation rx = new RxInformation();
@@ -253,15 +275,36 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getRequestAttachments(@QueryParam("requestId") Integer requestId, @QueryParam("demographicId") Integer demographicIdInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicId = demographicIdInt.toString();
+        if (requestId == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
+        // Issue #3867: for a stored consultation the patient is the stored one, not the parameter,
+        // and attached rows (looked up by consultation id alone) are listed only while they belong
+        // to that patient, so a legacy foreign row is never returned.
+        Integer ownerDemographicNo = demographicIdInt;
+        if (requestId != null && requestId > 0) {
+            ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            ownerDemographicNo = stored.getDemographicId();
+        }
+        requirePatientConsultRead(ownerDemographicNo);
+        String demographicId = ownerDemographicNo.toString();
 
         List<EDoc> edocs = EDocUtil.listDocs(getLoggedInInfo(), demographicId, requestId.toString(), attached);
+        if (attached) {
+            edocs = attachmentOwnershipService.retainAttachable(DocumentType.DOC, ownerDemographicNo, edocs, EDoc::getDocId);
+        }
         getDocuments(edocs, attached, attachments);
 
         List<EFormData> eforms = EFormUtil.listPatientEFormsShowLatestOnly(demographicId);
         getEformsForRequest(eforms, attached, attachments, requestId);
 
         List<LabResultData> labs = new CommonLabResultData().populateLabResultsData(getLoggedInInfo(), demographicId, requestId.toString(), attached);
+        if (attached) {
+            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, ownerDemographicNo, labs, LabResultData::getSegmentID);
+        }
         getLabs(labs, demographicId, attached, attachments);
 
         return attachments;
@@ -289,7 +332,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getId() != null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Please use /updateConsultation service for existing consultations").build();
         }
-        if (data.getDemographicId() == null || data.getDemographicId() <= 0 || demographicManager.getDemographic(loggedInInfo, data.getDemographicId()) == null) {
+        if (data.getDemographicId() == null || data.getDemographicId() <= 0) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
+        }
+        requirePatientConsultWrite(loggedInInfo, data.getDemographicId(), SecurityInfoManager.WRITE);
+        // Existence only; DemographicManager would add a _demographic read gate (HTTP 500 on denial).
+        if (demographicDao.getDemographicById(data.getDemographicId()) == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
         }
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
@@ -333,7 +381,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getId() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Please use /createConsultation service for new consultations").build();
         }
-        if (data.getDemographicId() == null || data.getDemographicId() <= 0 || demographicManager.getDemographic(loggedInInfo, data.getDemographicId()) == null) {
+        if (data.getDemographicId() == null || data.getDemographicId() <= 0) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
+        }
+        requirePatientConsultWrite(loggedInInfo, data.getDemographicId(), SecurityInfoManager.UPDATE);
+        // Existence only; DemographicManager would add a _demographic read gate (HTTP 500 on denial).
+        if (demographicDao.getDemographicById(data.getDemographicId()) == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
         }
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
@@ -403,17 +456,24 @@ public class ConsultationWebService extends AbstractServiceImpl {
     public ConsultationResponseTo1 getResponse(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNo) {
         ConsultationResponseTo1 response = new ConsultationResponseTo1();
 
+        if (responseId == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
         if (responseId > 0) {
             ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
-            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
-
+            if (responseD == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
             demographicNo = responseD.getDemographicNo();
+            requirePatientConsultRead(demographicNo);
+            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
             ProfessionalSpecialist referringDoctorD = consultationManager.getProfessionalSpecialist(responseD.getReferringDocId());
             response.setReferringDoctor(specialistConverter.getAsTransferObject(getLoggedInInfo(), referringDoctorD));
 
             response.setAttachments(getResponseAttachments(responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requirePatientConsultRead(demographicNo);
             response.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
             RxInformation rx = new RxInformation();
             String info = rx.getAllergies(getLoggedInInfo(), demographicNo.toString());
@@ -438,15 +498,35 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getResponseAttachments(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNoInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicNo = demographicNoInt.toString();
+        if (responseId == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
+        // Same rule as getRequestAttachments (issue #3867): the stored response's patient, and
+        // attached rows only while they belong to that patient.
+        Integer ownerDemographicNo = demographicNoInt;
+        if (responseId != null && responseId > 0) {
+            ConsultationResponse stored = consultationManager.getResponse(getLoggedInInfo(), responseId);
+            if (stored == null) {
+                throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+            }
+            ownerDemographicNo = stored.getDemographicNo();
+        }
+        requirePatientConsultRead(ownerDemographicNo);
+        String demographicNo = ownerDemographicNo.toString();
 
         List<EDoc> edocList = EDocUtil.listResponseDocs(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
+        if (attached) {
+            edocList = attachmentOwnershipService.retainAttachable(DocumentType.DOC, ownerDemographicNo, edocList, EDoc::getDocId);
+        }
         getDocuments(edocList, attached, attachments);
 
         List<EFormData> eformList = EFormUtil.listPatientEFormsShowLatestOnly(demographicNo);
         getEformsForResponse(eformList, attached, attachments, responseId);
 
         List<LabResultData> labs = new CommonLabResultData().populateLabResultsDataConsultResponse(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
+        if (attached) {
+            labs = attachmentOwnershipService.retainAttachable(DocumentType.LAB, ownerDemographicNo, labs, LabResultData::getSegmentID);
+        }
         getLabs(labs, demographicNo, attached, attachments);
 
         return attachments;
@@ -469,14 +549,29 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     private ConsultationResponseTo1 saveResponseInTransaction(ConsultationResponseTo1 data) {
         if (data == null) throw new IllegalArgumentException("Consultation response is required");
-        ConsultationResponse response = null;
-
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        ConsultationResponse stored = null;
+        Integer patient;
         if (data.getId() == null) { //new consultation response
-            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data);
+            patient = data.getDemographic() == null ? null : data.getDemographic().getDemographicNo();
         } else {
-            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data, consultationManager.getResponse(getLoggedInInfo(), data.getId()));
+            stored = consultationManager.getResponse(loggedInInfo, data.getId());
+            if (stored == null) throw new IllegalArgumentException("Consultation response is unavailable");
+            // The stored patient owns the response; the converter rejects a different submitted one.
+            patient = stored.getDemographicNo();
         }
-        consultationManager.saveConsultationResponse(getLoggedInInfo(), response);
+        if (patient == null || patient <= 0) throw new IllegalArgumentException("Invalid consultation response patient");
+        requirePatientConsultWrite(loggedInInfo, patient, stored == null ? SecurityInfoManager.WRITE : SecurityInfoManager.UPDATE);
+        // Existence only: DemographicManager.getDemographic would add its own _demographic read
+        // check and fail with a plain RuntimeException (HTTP 500) after the checks above passed.
+        if (demographicDao.getDemographicById(patient) == null) {
+            throw new IllegalArgumentException("Unknown consultation response patient");
+        }
+
+        ConsultationResponse response = stored == null
+                ? responseConverter.getAsDomainObject(loggedInInfo, data)
+                : responseConverter.getAsDomainObject(loggedInInfo, data, stored);
+        consultationManager.saveConsultationResponse(loggedInInfo, response);
         if (data.getId() == null) data.setId(response.getId());
 
         //save attachments
@@ -558,6 +653,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
             List<ConsultationAttachment> attachments = consultationManager.getEReferAttachments(getLoggedInInfo(), httpServletRequest, httpServletResponse, demographicNo);
             httpServletResponse.setContentType("application/json");
             response = Response.ok().entity(attachments).build();
+        } catch (SecurityException e) {
+            response = Response.status(Response.Status.FORBIDDEN).build();
         } catch (Exception e) {
             response = Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("An error occurred while generating the attachment data: " + e.getMessage()).build();
         }
@@ -584,6 +681,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
         filter.setAppointmentStartDate(convertJSONDate(json.get("appointmentStartDate") != null ? json.get("appointmentStartDate").asText() : null));
         filter.setDemographicNo(json.get("demographicNo") != null ? json.get("demographicNo").asInt() : null);
         filter.setMrpNo(json.get("mrpNo") != null ? json.get("mrpNo").asInt() : null);
+        // Issue #3976: same Consultant filter as the Consultations list page (specialist specId).
+        filter.setConsultantId(json.get("consultantId") != null ? json.get("consultantId").asInt() : null);
         filter.setNumToReturn(json.get("numToReturn") != null ? json.get("numToReturn").asInt() : null);
         filter.setReferralEndDate(convertJSONDate(json.get("referralEndDate") != null ? json.get("referralEndDate").asText() : null));
         filter.setReferralStartDate(convertJSONDate(json.get("referralStartDate") != null ? json.get("referralStartDate").asText() : null));
@@ -988,6 +1087,30 @@ public class ConsultationWebService extends AbstractServiceImpl {
             attachment.setLabType(LabAttachmentReference.resolve(value, patient, patientLabRoutingDao).source());
         }
         return restricted;
+    }
+
+    /**
+     * Requires patient-scoped consultation write/update rights and chart access before a REST save
+     * touches that patient's consultation. The manager only checks the role-level privilege.
+     *
+     * @throws SecurityException mapped by the save endpoints to HTTP 403
+     */
+    private void requirePatientConsultWrite(LoggedInInfo loggedInInfo, int demographicNo, String privilege) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", privilege, demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+    }
+
+    private void requirePatientConsultRead(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
     }
 
     private void markAttachmentSaveFailure(List<ConsultationAttachmentTo1> attachments,

@@ -113,8 +113,11 @@ for k in cfg.carlos-emr.env.sha cfg.backup.env.sha cfg.tls.cert.sha cfg.province
 # postinst is allowed to make on the upgrade that first writes each sentinel:
 # the old stock health_tracker=false becomes true (.health-tracker-default-migrated),
 # and each OSCAR_DEFAULT_MIGRATIONS key's old stock line becomes the OSCAR
-# installer value (.oscar-feature-defaults-migrated). Anything else touching
-# the file is still a failure. Keep the pairs in step with debian/carlos-emr.postinst.
+# installer value (.oscar-feature-defaults-migrated). The one other tolerated
+# difference is layout alone -- the same active settings, with keys commented
+# out and re-appended unchanged -- which the cfg.carlos.properties.active.sha
+# digest isolates. Any other changed, added or removed active setting is still
+# a failure. Keep the pairs in step with debian/carlos-emr.postinst.
 OSCAR_DEFAULT_MIGRATIONS=(
   'new_flowsheet_enabled=false|new_flowsheet_enabled=true'
   'workflow_enhance=false|workflow_enhance=true'
@@ -154,6 +157,13 @@ elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] \
     && [ -n "$(g "$PRE" cfg.carlos.properties.otherKeys.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.otherKeys.sha)" = "$(g "$POST" cfg.carlos.properties.otherKeys.sha)" ]; then
   ok "cfg.carlos.properties.sha changed only by the one-time stock-default migrations (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none})"
+elif [ -n "$(g "$PRE" cfg.carlos.properties.active.sha 2>/dev/null || true)" ] \
+    && [ "$(g "$PRE" cfg.carlos.properties.active.sha)" = "$(g "$POST" cfg.carlos.properties.active.sha)" ] \
+    && [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ]; then
+  # Same active settings apart from any sanctioned migration, different bytes:
+  # a key was commented out and re-appended with its old value (see
+  # deb-upgrade-baseline.sh).
+  ok "cfg.carlos.properties layout changed but every active setting is preserved (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none})"
 else
   bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults changed:${od_changed:- none})"
 fi

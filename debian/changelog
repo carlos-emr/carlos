@@ -1,3 +1,15 @@
+carlos-emr (2026.09.0~snapshot26) resolute; urgency=medium
+
+  * The empty transitional carlos-emr-eform-renderer package is no longer
+    built or attached to releases; only 2026.08.0~alpha14 through alpha17
+    shipped it. carlos-emr keeps its Breaks/Replaces on the old renderer, so
+    an upgrade from 2026.08.0~alpha13 or earlier still takes over its files,
+    but apt now removes the old package instead of upgrading it: run that
+    upgrade without --no-remove. A transitional copy already installed owns
+    no files and can stay or be removed.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 28 Sep 2026 23:06:10 +0000
+
 carlos-emr (2026.09.0~snapshot25) resolute; urgency=medium
 
   * The carlos-ctl administration command is its own package now, built from

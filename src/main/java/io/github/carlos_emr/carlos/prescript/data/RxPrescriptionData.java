@@ -2321,7 +2321,9 @@ public class RxPrescriptionData {
             f.setRepeat(this.getRepeat());
             f.setNosubs(this.getNosubsInt() != 0);
             f.setPrn(this.getPrnInt() != 0);
-            f.setSpecial(this.getSpecial());
+            // A newly staged custom drug may have no instructions yet. The favorites
+            // column is NOT NULL; normalize before both duplicate lookup and persistence.
+            f.setSpecial(this.getSpecial() == null ? "" : this.getSpecial());
             f.setGn(this.getGN());
             f.setAtc(this.getAtcCode());
             f.setRegionalIdentifier(this.getRegionalIdentifier());

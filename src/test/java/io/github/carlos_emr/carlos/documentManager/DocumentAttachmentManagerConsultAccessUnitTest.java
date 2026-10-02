@@ -95,6 +95,7 @@ class DocumentAttachmentManagerConsultAccessUnitTest extends CarlosUnitTestBase 
         int demographicNo = 123;
         int requestId = 456;
 
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
                 .thenReturn(true);
         var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);

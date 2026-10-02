@@ -50,7 +50,7 @@ V1.0.41. Apply V1.0.42 and then V1.0.43 with normal Flyway ordering; no `outOfOr
 `V1.0.23.1__widen_email_config.sql` widens `emailConfig.configDetails` to `TEXT` to match the
 entity mapping. `V1.0.29__rename_placeholder_demo_clinic.sql` replaces the seeded placeholder
 clinic name.
-`V1.0.44__enforce_provider_signature_identity.sql` repairs exact duplicate provider
+`V1.0.52__enforce_provider_signature_identity.sql` repairs exact duplicate provider
 signature rows for assigned providers and enforces the mapped provider identity.
 Every unassigned NULL-provider row is retained, including identical rows. Conflicting signatures,
 and a `providerExt` with columns beyond `provider_no` and `signature`, fail before source changes. See the parent README for preparation and recovery instructions.
@@ -58,10 +58,10 @@ and a `providerExt` with columns beyond `provider_no` and `signature`, fail befo
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.44`.
-The next unallocated version for ANY location is `V1.0.45` (see `../README.md`). Consult every active
-branch inventory before assigning a version. Never edit a published migration or silently enable
-out-of-order application during promotion.
+next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.52`.
+`V1.0.47`–`V1.0.51` are claimed by open pull requests, so the next unallocated version for ANY
+location is `V1.0.53` (see `../README.md`). Consult every active branch inventory before assigning a
+version. Never edit a published migration or silently enable out-of-order application during promotion.
 
 Messenger membership coordination (PR #3986, issue #3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations
@@ -80,6 +80,14 @@ Deploy the migrations present in the release in version order. V1.0.39 has no de
 the attachment migrations now numbered V1.0.42/V1.0.43. Its original SQL header describes the
 planned merge order; that comment is retained to preserve the migration checksum. The release
 ordering here supersedes it.
+
+## V1.0.45 — Consultation request list indexes
+
+Issue #3976 adds Consultant and Provider (MRP) filters to the Consultations list.
+`V1.0.45__consultation_request_indexes.sql` adds idempotent `CREATE INDEX IF NOT EXISTS`
+secondary indexes on `consultationRequests` for `(status, referalDate)`,
+`(status, appointmentDate)`, `(specId)` and `(serviceId)`; V1.0.3 already covers
+`(demographicNo)` and `(sendTo, status)`. Schema-only, no data change, online InnoDB index adds.
 
 ## V1.0.40 — Complete lab labels
 

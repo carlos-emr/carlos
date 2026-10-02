@@ -25,8 +25,12 @@ import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
+import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
+import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
+import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action;
 import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -193,6 +197,10 @@ class MutatorActionGetRejectionContractUnitTest {
             // a method=cancel body param). Registered explicitly — the encounter package is not scanned.
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
                     "_con", "r"),
+            // Ocean eReferral attach/edit queues patient records for an external service; rejects
+            // GET/HEAD before auth. Registered explicitly (the encounter package is not scanned).
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action",
+                    "_con", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -220,6 +228,9 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
+                    "_admin", "r"),
+            // Report by Template upload stores template SQL; POST-only after the read gate (#4133).
+            Arguments.of("io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action",
                     "_admin", "r"),
             // --- signature ---
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
@@ -340,7 +351,19 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Incoming PDF navigation permits GET; pdfAction mutations require POST and write access.
+        // Focused method/privilege tests: ViewIncomingDocuments2ActionUnitTest.
+        "io.github.carlos_emr.carlos.documentManager.gate.ViewIncomingDocuments2Action",
+        // Report by Template editor (#4133): the bare page permits GET; action=add|edit|delete
+        // must be a POST. Covered by ManageTemplates2ActionUnitTest.
+        "io.github.carlos_emr.carlos.report.reportByTemplate.actions.ManageTemplates2Action",
+        // Message view (#4133): viewing permits GET; linkMsgDemo=true writes a msgDemoMap row and
+        // must be a POST. Covered by MsgViewMessage2ActionUnitTest.
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
+        // Lab display settings (#3977): the view permits GET; dboperation=Save must be a POST.
+        // Covered by LabDisplaySettings2ActionUnitTest.
+        "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
         // BC supplementary billing: view permits GET; edit/delete require POST.
         // Covered by SupServiceCodeAssoc2ActionUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2Action",
@@ -501,6 +524,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
+        "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
         // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
@@ -541,6 +565,8 @@ class MutatorActionGetRejectionContractUnitTest {
         // encounter slice: EctConsultationFormFax2Action queues PHI faxes; the encounter package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
+        // encounter slice: ERefer2Action queues attachments for Ocean eReferral (issue #3867).
+        "io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action",
         // security slice: MfaActions2Action's resetMfa is a POST-only privileged mutation; the security
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
@@ -749,6 +775,12 @@ class MutatorActionGetRejectionContractUnitTest {
             throws Exception {
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));
+        }
+        if (actionClass.equals(ERefer2Action.class)) {
+            return new ERefer2Action(mock(SecurityInfoManager.class),
+                    (DocumentAttachmentManager) autoMocks.computeIfAbsent(DocumentAttachmentManager.class, Mockito::mock),
+                    (EReferAttachmentDao) autoMocks.computeIfAbsent(EReferAttachmentDao.class, Mockito::mock),
+                    (AttachmentOwnershipService) autoMocks.computeIfAbsent(AttachmentOwnershipService.class, Mockito::mock));
         }
         if (actionClass.equals(SecurityDelete2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);

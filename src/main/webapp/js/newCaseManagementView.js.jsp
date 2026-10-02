@@ -500,7 +500,6 @@
     var notesOffset = 0;              // current offset into the full notes list
     var notesIncrement = 20;          // batch size for each pagination fetch
     var notesRetrieveOk = false;      // true when the last fetch returned at least one note
-    var notesCurrentTop = null;       // ID of topmost note element before pagination insert
     var notesScrollCheckInterval = null;
     /*
      * Fetches still in flight, and the id of the most recent one. Loads can overlap: a
@@ -538,13 +537,66 @@
     }
 
     /**
-     * ID of the topmost note element, or null when the notes list is empty
-     * (a brand-new chart renders only the new-note editor).
+     * Records where the topmost note sits in the notes pane, so a batch of older notes
+     * inserted above it can be followed by a scroll that keeps the reader on that note.
+     *
+     * Must run immediately before the insert (CarlosAjax.updater calls onSuccess first),
+     * not when the request is sent: the reader may scroll while the fetch is in flight,
+     * and restoring a position measured back then would yank the pane away from them.
+     *
+     * The anchor is the first note that is rendered and reaches into the visible pane, not
+     * simply the first child: ChartNotesAjax.jsp emits notes hidden by the
+     * encounter.hide_* properties and hidden issues as display:none, and a note with no
+     * layout box never moves, so anchoring to one would leave the pane jumping as before.
+     *
+     * @param {HTMLElement} notesContainer - The #encMainDiv the batch is about to go into
+     * @return {?{element: HTMLElement, top: number}} the anchor note and its distance from
+     *     the top of the visible pane, or null when there is nothing to anchor to (no note
+     *     is rendered, or a filter/save reload replaced the container this load targets)
      */
-    function notesTopElementId() {
-        var notesContainer = $("encMainDiv");
-        var firstChild = notesContainer && notesContainer.children[0];
-        return firstChild ? firstChild.id : null;
+    function notesCaptureScrollAnchor(notesContainer) {
+        var wrapper = $("encMainDivWrapper");
+        if (!wrapper || !notesContainer || !wrapper.contains(notesContainer)) {
+            return null;
+        }
+        var paneTop = wrapper.getBoundingClientRect().top;
+        var anchor = null;
+        for (var child = notesContainer.firstElementChild; child; child = child.nextElementSibling) {
+            if (child.getClientRects().length === 0) {
+                continue; // display:none — no box to follow
+            }
+            anchor = child;
+            if (child.getBoundingClientRect().bottom > paneTop) {
+                break; // first rendered note still (at least partly) in view
+            }
+        }
+        if (!anchor) {
+            return null;
+        }
+        return {
+            element: anchor,
+            top: anchor.getBoundingClientRect().top - paneTop
+        };
+    }
+
+    /**
+     * Scrolls the notes pane so the anchor note is back where the reader last saw it,
+     * after older notes were inserted above it.
+     *
+     * The adjustment is the anchor's movement, measured against the pane itself, rather
+     * than the scrollHeight delta: a browser that already applied its own scroll anchoring
+     * (possible when the pane was not at scrollTop 0) reports no movement, and the
+     * restore then does nothing instead of scrolling twice.
+     *
+     * @param {?{element: HTMLElement, top: number}} scrollAnchor - from notesCaptureScrollAnchor
+     */
+    function notesRestoreScrollAnchor(scrollAnchor) {
+        var wrapper = $("encMainDivWrapper");
+        if (!scrollAnchor || !wrapper || !wrapper.contains(scrollAnchor.element)) {
+            return;
+        }
+        var top = scrollAnchor.element.getBoundingClientRect().top - wrapper.getBoundingClientRect().top;
+        wrapper.scrollTop += top - scrollAnchor.top;
     }
 
     /**
@@ -561,7 +613,6 @@
         }
         notesOffset += notesIncrement;
         notesRetrieveOk = false;
-        notesCurrentTop = notesTopElementId();
         if (notesOffset < MAXNOTES) {
             notesLoader(notesOffset, notesIncrement, demographicNo);
         } else {
@@ -572,7 +623,6 @@
     function notesLoadAll() {
         notesOffset += notesIncrement;
         notesRetrieveOk = false;
-        notesCurrentTop = notesTopElementId();
         if (notesOffset < MAXNOTES) {
             notesLoader(notesOffset, MAXNOTES, demographicNo);
         }
@@ -585,10 +635,10 @@
      * Fetches a batch of clinical notes via AJAX and inserts them at the top of #encMainDiv.
      *
      * On initial load (offset === 0), scrolls to the bottom to show the most recent notes.
-     * Pagination loads (offset > 0) do not scroll at all — scrollTop is left untouched
-     * while the older batch is inserted above, so a reader parked at the top of the pane
-     * ends up looking at the notes that just arrived. (notesCurrentTop records the previous
-     * top note for a scroll restore that was never written; nothing reads it today.)
+     * Pagination loads (offset > 0) keep the reader's place: the batch lands above the
+     * note that was on top, and the pane is scrolled by however far that note moved, so it
+     * stays exactly where it was on screen. Browser scroll anchoring cannot do this — the
+     * poll only pages when scrollTop is 0, and at 0 there is no anchor to preserve.
      *
      * Callers are never turned away: a filter or save reload replaces #encMainDiv and issues
      * a new initial load while an earlier one may still be pending, and the newest load must
@@ -610,13 +660,21 @@
         if (params2.length > 0) {
             params = params + "&" + params2;
         }
-        CarlosAjax.updater("encMainDiv",
+        var notesContainer = $("encMainDiv");
+        var scrollAnchor = null;
+        CarlosAjax.updater(notesContainer,
             ctx + "/CaseManagementView",
             {
                 method: 'post',
                 postBody: params,
                 evalScripts: true,
                 insertion: 'top',
+                onSuccess: function () {
+                    // Runs just before the batch is inserted — see notesCaptureScrollAnchor.
+                    if (offset > 0) {
+                        scrollAnchor = notesCaptureScrollAnchor(notesContainer);
+                    }
+                },
                 onComplete: function () {
                     notesLoadsInFlight--;
                     if (notesLoadsInFlight === 0) {
@@ -637,13 +695,15 @@
                     if (!notesRetrieveOk) {
                         stopNotesScrollCheck();
                     }
-                    // Only the initial load scrolls, to the newest notes at the bottom.
-                    // Pagination loads leave scrollTop alone (see the note above).
+                    // The initial load scrolls to the newest notes at the bottom; a
+                    // pagination load puts the reader back on the note they were reading.
                     if (offset === 0) {
                         var wrapper = $("encMainDivWrapper");
                         if (wrapper) {
                             wrapper.scrollTop = wrapper.scrollHeight;
                         }
+                    } else {
+                        notesRestoreScrollAnchor(scrollAnchor);
                     }
                 }
             });
