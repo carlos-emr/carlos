@@ -1269,10 +1269,14 @@ class Archive:
         return dest
 
     def mark_failed(self, path: Path) -> Path:
-        """Move a file the EMR definitively rejected out of the retry path."""
+        """Move a file the EMR definitively rejected out of the retry path,
+        durably: the operator-visible record of the failure must survive a
+        crash as surely as the file itself did."""
         dest = self._unique(self.cfg.failed_dir, path.name)
         os.rename(path, dest)
         self._forget_attempts(path)
+        self._fsync_dir(self.cfg.failed_dir)
+        self._fsync_dir(self.cfg.inbox_dir)
         return dest
 
     def _forget_attempts(self, path: Path) -> None:
@@ -1824,7 +1828,7 @@ class Notifier:
             f"Detail: {detail}\n\n"
             f"Log:    {self.cfg.log_file}\n"
             f"Inbox:  {self.cfg.inbox_dir} (files here have been pulled but not yet imported)\n"
-            f"Failed: {self.cfg.failed_dir} (files CARLOS rejected; need a person)\n"
+            f"Failed: {self.cfg.failed_dir} (files the EMR rejected or could not take; need a person)\n"
         )
         subprocess.run(
             [self.cfg.sendmail, "-t", "-oi"],
@@ -2123,12 +2127,12 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--config", required=True, type=Path, help="path to the INI config (mode 0600)"
     )
-    parser.add_argument(
-        "--check-config", action="store_true", help="validate config, keys and PFX; no network"
-    )
     # One operating mode at a time: a dry run must prove the whole documented
     # path, so it cannot be combined with a partial mode.
     mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--check-config", action="store_true", help="validate config, keys and PFX; no network"
+    )
     mode.add_argument(
         "--dry-run", action="store_true", help="log in and out of both systems; no pull, no upload"
     )

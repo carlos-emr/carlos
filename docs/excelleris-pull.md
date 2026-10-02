@@ -59,7 +59,12 @@ Excelleris --(mutual TLS GET)--> inbox/ --(AES + RSA + MD5withRSA multipart POST
                                    |                                                  |
                                    +------------- 200 or 409 -------------------------+
                                    v
-                                 done/*.xml.xz   (failed/ on 4xx or 5xx)
+                                 done/*.xml.xz
+
+  400 / 403 / 406 (or 409 after a failed attempt on OSCAR 19, or a file too large
+  for the EMR)                                  -> failed/ at once
+  5xx, 429, a login redirect, an unreadable reply -> stays in inbox/, retried next
+                                                   run, failed/ after max_upload_attempts
 ```
 
 ## One-time setup in the EMR

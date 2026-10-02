@@ -2091,9 +2091,16 @@ class PemBundleTest(unittest.TestCase):
 
 class DryRunExclusivityTest(unittest.TestCase):
     def test_dry_run_cannot_combine_with_partial_modes(self):
-        for extra in ("--no-upload", "--upload-only"):
+        for extra in ("--no-upload", "--upload-only", "--check-config"):
             with self.assertRaises(SystemExit):
                 ep.parse_args(["--config", "x", "--dry-run", extra])
+
+    def test_check_config_is_a_mode_of_its_own(self):
+        # "--check-config --dry-run" used to exit 0 without the dry run.
+        for extra in ("--no-upload", "--upload-only"):
+            with self.assertRaises(SystemExit):
+                ep.parse_args(["--config", "x", "--check-config", extra])
+        self.assertTrue(ep.parse_args(["--config", "x", "--check-config"]).check_config)
 
 
 if __name__ == "__main__":
