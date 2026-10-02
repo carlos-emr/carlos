@@ -172,6 +172,24 @@ class EdObservationValueUnitTest {
     }
 
     @Test
+    @DisplayName("should ignore whitespace at the edges of an undeclared ED.5, as HAPI keeps a sender's trailing spaces")
+    void shouldIgnoreEdgeWhitespace_forUndeclaredDataShape() throws Exception {
+        String png = Base64.getEncoder().encodeToString(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
+        for (String ed5 : new String[] {png + " ", png + "\t", "NONE ", " NONE"}) {
+            DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^TEXT^PLAIN^^" + ed5 + "||||||F|||20260930100000");
+
+            // An image with a trailing space stays binary; a lone token is treated like "NONE".
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status()).as("[%s]", ed5)
+                    .isEqualTo(EmbeddedLabDocumentLoader.Status.NOT_PDF);
+            assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).as("[%s]", ed5).doesNotContain(ed5.trim());
+        }
+        // Spaces inside the value still mark text.
+        DefaultGenericHandler worded = handler("OBX|2|ED|RPT^Report||^TEXT^PLAIN^^ NO GROWTH ||||||F|||20260930100000");
+        assertThat(EmbeddedLabDocumentLoader.inspect(worded, 0, 1, 0).status()).isEqualTo(EmbeddedLabDocumentLoader.Status.TEXT);
+        assertThat(worded.getOBXEmbeddedDocumentText(0, 1)).isEqualTo("NO GROWTH");
+    }
+
+    @Test
     @DisplayName("should keep an undeclared base64-shaped ED.5 that is not a PDF undisplayable")
     void shouldClassifyNotPdf_forUndeclaredBase64ShapedData() throws Exception {
         String png = Base64.getEncoder().encodeToString(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});

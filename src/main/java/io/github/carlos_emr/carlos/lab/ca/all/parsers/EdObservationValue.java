@@ -121,8 +121,14 @@ public final class EdObservationValue {
      * as text; anything else undeclared is text.
      *
      * <ul>
-     *   <li>Line breaks (senders wrap base64 at 76 or 80 columns) are ignored; any other
-     *       whitespace, such as the spaces between words, means text.</li>
+     *   <li>Line breaks (senders wrap base64 at 76 or 80 columns) and leading or trailing
+     *       whitespace are ignored; whitespace inside the value, such as the spaces between
+     *       words, means text. Edge whitespace carries no meaning: HAPI keeps a sender's trailing
+     *       spaces or tabs in the component, and the decoder drops all whitespace, so a real
+     *       image ending in a space must stay binary. A lone token such as {@code "NONE "} is
+     *       therefore treated like {@code "NONE"}, which undeclared in ED.5 cannot be told from
+     *       base64; the same value as a legacy OBX-5.1 result is still shown as text
+     *       ({@link MessageHandler#isOBXEmbeddedDocumentResultFallback(int, int)}).</li>
      *   <li>Characters are the standard or the URL-safe alphabet ({@code - _}), both of which
      *       the lenient decoder reads, with at most two {@code =} only at the end.</li>
      *   <li>Padded input is a multiple of four characters; unpadded input may stop short of one,
@@ -137,6 +143,7 @@ public final class EdObservationValue {
         if (payload == null) {
             return false;
         }
+        // Line breaks anywhere, and whitespace only at the edges; interior spaces survive.
         String compact = payload.replaceAll("[\\r\\n]+", "").trim();
         int length = compact.length();
         if (length == 0) {
