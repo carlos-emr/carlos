@@ -50,11 +50,8 @@ public class AttachmentSelectionAccess {
             }
             int id = Integer.parseInt(value);
             boolean owned = switch (type) {
-                case DOC -> documents.findCtlDocsAndDocsByDocNo(id).stream().anyMatch(row ->
-                        row.length > 1 && row[0] instanceof Document document && document.getStatus() != 'D'
-                                && row[1] instanceof CtlDocument link && !"D".equals(link.getStatus()) && link.getId() != null
-                                && "demographic".equals(link.getId().getModule())
-                                && Integer.valueOf(patient).equals(link.getId().getModuleId()));
+                case DOC -> documents.findCtlDocsAndDocsByDocNo(id).stream()
+                        .anyMatch(row -> isLiveDemographicLink(row, patient));
                 case EFORM -> {
                     var form = eforms.find(id);
                     yield form != null && Integer.valueOf(patient).equals(form.getDemographicId());
@@ -69,6 +66,25 @@ public class AttachmentSelectionAccess {
             if (!owned) throw new IllegalArgumentException("Attachment does not belong to this patient");
         }
         return true;
+    }
+
+    /**
+     * Whether one {@code findCtlDocsAndDocsByDocNo} row is a live patient association of that
+     * document: the document itself is not deleted ({@code document.status 'D'}, set by
+     * {@code EDocUtil.deleteDocument}) and its {@code ctl_document} demographic link is not
+     * deleted either ({@code NULL} is a live legacy status). Same rule as
+     * {@code CtlDocumentDao.findDocumentNosForDemographic}; shared so every attachment
+     * ownership check (consult/eForm selection, tickler attachments) agrees.
+     *
+     * @param row Object[] a {@code [Document, CtlDocument]} pair
+     * @param patient int the demographic number the document must be filed against
+     * @return boolean true only for a live, non-deleted link to {@code patient}
+     */
+    static boolean isLiveDemographicLink(Object[] row, int patient) {
+        return row != null && row.length > 1 && row[0] instanceof Document document && document.getStatus() != 'D'
+                && row[1] instanceof CtlDocument link && !"D".equals(link.getStatus()) && link.getId() != null
+                && "demographic".equals(link.getId().getModule())
+                && Integer.valueOf(patient).equals(link.getId().getModuleId());
     }
 
     /** Uploads have no stored ID yet, so require read permission before creating a file. */

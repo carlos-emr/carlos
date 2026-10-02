@@ -205,7 +205,14 @@ async function main() {
     // Closing a destination can legitimately refresh one module and insert
     // links ahead of later items. Preserve each original destination/handler
     // and module ancestry, rather than treating its first DOM index as stable.
-    const items = dedupe(await catalogueLinks(chartPage, { selector: NAVBAR_SELECTOR, identity: true }));
+    const catalogued = dedupe(await catalogueLinks(chartPage, { selector: NAVBAR_SELECTOR, identity: true }));
+    // These rows are replaced as the Preventions box refreshes. Their routes,
+    // including the saved-record transition, are exercised by the dedicated
+    // echart-prevention-row-links workflow. Auditing a stale copy here can only
+    // report that its original node vanished after another module was opened.
+    const preventionRows = catalogued.filter(item => /addPreventionData/.test(item.identity?.onclick || ''));
+    const items = catalogued.filter(item => !preventionRows.includes(item));
+    console.log(`  delegated ${preventionRows.length} live Preventions row link(s) to echart-prevention-row-links`);
     assert(items.length > 0,
       'The eChart navigation loaded but offered no navigable links');
 

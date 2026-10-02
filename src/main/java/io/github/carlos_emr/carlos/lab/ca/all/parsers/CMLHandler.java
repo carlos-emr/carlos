@@ -226,6 +226,12 @@ public class CMLHandler implements MessageHandler {
         }
     }
 
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
+    @Override
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX();
+    }
+
     @Override
     public String getOBXResult(int i, int j){
         return getObxField(i, j, 5, 1); // OBX-5: Observation Value

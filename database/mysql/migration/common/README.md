@@ -50,8 +50,9 @@ V1.0.41. Apply V1.0.42 and then V1.0.43 with normal Flyway ordering; no `outOfOr
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.43`.
-The next unallocated version for ANY location is `V1.0.44` (see `../README.md`).
+next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.45`.
+The next unallocated version for ANY location is `V1.0.46` (see `../README.md`; `V1.0.44` is
+claimed by open PR #3694).
 
 Messenger membership coordination (#3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations
@@ -70,6 +71,14 @@ Deploy the migrations present in the release in version order. V1.0.39 has no de
 the attachment migrations now numbered V1.0.42/V1.0.43. Its original SQL header describes the
 planned merge order; that comment is retained to preserve the migration checksum. The release
 ordering here supersedes it.
+
+## V1.0.45 — Consultation request list indexes
+
+Issue #3976 adds Consultant and Provider (MRP) filters to the Consultations list.
+`V1.0.45__consultation_request_indexes.sql` adds idempotent `CREATE INDEX IF NOT EXISTS`
+secondary indexes on `consultationRequests` for `(status, referalDate)`,
+`(status, appointmentDate)`, `(specId)` and `(serviceId)`; V1.0.3 already covers
+`(demographicNo)` and `(sendTo, status)`. Schema-only, no data change, online InnoDB index adds.
 
 ## V1.0.40 — Complete lab labels
 

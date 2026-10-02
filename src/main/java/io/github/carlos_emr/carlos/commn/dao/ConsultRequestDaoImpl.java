@@ -146,7 +146,14 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
 
         if (filter.getMrpNo() != null && filter.getMrpNo() > 0) {
             sql.append("and d.providerNo = :mrpNo ");
-            queryWithParams.addParam("mrpNo", filter.getMrpNo());
+            // demographic.provider_no is a varchar: bind the text form so the parameter type
+            // matches the column instead of relying on an Integer-to-String coercion.
+            queryWithParams.addParam("mrpNo", String.valueOf(filter.getMrpNo()));
+        }
+
+        if (filter.getConsultantId() != null && filter.getConsultantId() > 0) {
+            sql.append("and specialist.id = :consultantId ");
+            queryWithParams.addParam("consultantId", filter.getConsultantId());
         }
 
         String orderBy = "cr.referralDate";

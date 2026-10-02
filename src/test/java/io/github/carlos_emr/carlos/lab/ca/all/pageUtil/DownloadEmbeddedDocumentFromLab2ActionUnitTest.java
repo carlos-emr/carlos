@@ -30,6 +30,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 
@@ -40,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PathL7EmbeddedDocumentMessage;
+import io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettings;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -127,7 +129,7 @@ class DownloadEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase 
         assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"Lab-789.pdf\"");
         assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
         assertThat(response.getContentAsByteArray()).isEqualTo(PathL7EmbeddedDocumentMessage.PDF);
-        logActionMock.verify(() -> LogAction.addLog(loggedInInfo, LogConst.READ,
+        logActionMock.verify(() -> LogAction.addLogStrict(loggedInInfo, LogConst.READ,
                 AbstractEmbeddedLabDocumentAction.AUDIT_CONTENT, "789", "55", "segment=1,group=0,disposition=attachment"));
     }
 
@@ -135,6 +137,24 @@ class DownloadEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase 
     @DisplayName("should apply no size limit to downloads")
     void shouldApplyNoSizeLimit_forDownload() {
         assertThat(action().maxBytes()).isLessThanOrEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("should download a PDF larger than the default inline preview limit in full")
+    void shouldServeWholePdf_whenLargerThanPreviewLimit() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any())).thenReturn(true);
+        // The view route refuses this size with 413 under the default settings; the download must not.
+        byte[] large = Arrays.copyOf(PathL7EmbeddedDocumentMessage.PDF,
+                Math.toIntExact(LabPdfPreviewSettings.DEFAULT_MAX_BYTES + 1));
+        storeLab(PathL7EmbeddedDocumentMessage.message().replace(
+                Base64.getEncoder().encodeToString(PathL7EmbeddedDocumentMessage.PDF),
+                Base64.getEncoder().encodeToString(large)));
+
+        assertThat(action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentLength()).isEqualTo(large.length);
+        assertThat(response.getContentAsByteArray()).isEqualTo(large);
     }
 
     @Test

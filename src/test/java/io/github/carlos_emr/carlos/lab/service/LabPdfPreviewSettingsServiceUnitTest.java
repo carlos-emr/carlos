@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.lab.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,7 +37,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Unit tests for {@link LabPdfPreviewSettingsService}.
@@ -85,37 +88,35 @@ class LabPdfPreviewSettingsServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should insert rows that do not exist yet")
-    void shouldPersistNewRows_whenSavingFirstTime() {
+    @DisplayName("should store both settings through the DAO upsert, never find-then-insert")
+    void shouldUpsertBothRows_whenSaving() {
         service.save(new LabPdfPreviewSettings(false, 2L * 1024 * 1024));
 
-        ArgumentCaptor<SystemPreferences> saved = ArgumentCaptor.forClass(SystemPreferences.class);
-        verify(dao, org.mockito.Mockito.times(2)).persist(saved.capture());
-        assertThat(saved.getAllValues())
-                .extracting(SystemPreferences::getName, SystemPreferences::getValue)
-                .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple("lab_pdf_inline_preview", "false"),
-                        org.assertj.core.groups.Tuple.tuple("lab_pdf_max_size", "2097152"));
+        InOrder order = inOrder(dao);
+        order.verify(dao).upsertPreference(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_inline_preview, "false");
+        order.verify(dao).upsertPreference(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_max_size, "2097152");
+        verify(dao, never()).findPreferenceByName(any());
+        verify(dao, never()).persist(any());
         verify(dao, never()).merge(any());
     }
 
     @Test
-    @DisplayName("should update rows that already exist")
-    void shouldMergeExistingRows_whenSaving() {
-        SystemPreferences preview = new SystemPreferences("lab_pdf_inline_preview", "false");
-        SystemPreferences size = new SystemPreferences("lab_pdf_max_size", "1");
-        // AbstractModel.equals needs an id; stored rows always have one.
-        preview.setId(1);
-        size.setId(2);
-        when(dao.findPreferenceByName(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_inline_preview)).thenReturn(preview);
-        when(dao.findPreferenceByName(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_max_size)).thenReturn(size);
-
+    @DisplayName("should store true and a plain byte count when the preview is on")
+    void shouldUpsertEnabledAndByteCount_whenPreviewOn() {
         service.save(new LabPdfPreviewSettings(true, 1024));
 
-        assertThat(preview.getValue()).isEqualTo("true");
-        assertThat(size.getValue()).isEqualTo("1024");
-        verify(dao).merge(preview);
-        verify(dao).merge(size);
-        verify(dao, never()).persist(any());
+        verify(dao).upsertPreference(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_inline_preview, "true");
+        verify(dao).upsertPreference(LAB_DISPLAY_PREFERENCE_KEYS.lab_pdf_max_size, "1024");
+    }
+
+    @Test
+    @DisplayName("should save at REPEATABLE READ, which the race-free upsert depends on")
+    void shouldRequestRepeatableRead_forSave() throws Exception {
+        Transactional transactional = LabPdfPreviewSettingsService.class
+                .getMethod("save", LabPdfPreviewSettings.class).getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.isolation()).isEqualTo(Isolation.REPEATABLE_READ);
+        assertThat(transactional.readOnly()).isFalse();
     }
 }

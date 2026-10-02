@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.tickler.dao;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.TicklerComment;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -75,6 +76,35 @@ public class TicklerDaoQueryIntegrationTest extends TicklerDaoBaseIntegrationTes
             if (!results.isEmpty()) {
                 assertThat(results).allMatch(t -> t.getDemographicNo().equals(1001));
             }
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should return comments that the patient tickler view can render after detachment")
+        void shouldInitializeComments_whenSearchingPatientTicklers() {
+            Tickler tickler = entityManager.createQuery(
+                    "select t from Tickler t where t.demographicNo = :demographicNo", Tickler.class)
+                    .setParameter("demographicNo", 1001)
+                    .getSingleResult();
+            TicklerComment comment = new TicklerComment();
+            comment.setTicklerNo(tickler.getId());
+            comment.setProviderNo("999998");
+            comment.setMessage("Visible patient tickler comment");
+            entityManager.persist(comment);
+            entityManager.flush();
+            entityManager.clear();
+
+            Calendar range = Calendar.getInstance();
+            range.add(Calendar.DAY_OF_MONTH, -1);
+            Date begin = range.getTime();
+            range.add(Calendar.DAY_OF_MONTH, 2);
+            List<Tickler> results = ticklerDao.search_tickler_bydemo(1001, "A", begin, range.getTime());
+            assertThat(results).hasSize(1);
+
+            Tickler found = results.getFirst();
+            entityManager.detach(found);
+            assertThat(found.getComments()).extracting(TicklerComment::getMessage)
+                    .contains("Visible patient tickler comment");
         }
     }
 

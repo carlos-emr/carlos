@@ -74,8 +74,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *       payload: 404.</li>
  *   <li>Decoded content that is not a PDF ({@code %PDF-}): 415.</li>
  *   <li>A PDF over the preview limit (inline only): 413.</li>
+ *   <li>A GET whose read audit record cannot be persisted: 500, before any PDF header.</li>
  *   <li>Otherwise {@code application/pdf} with {@code nosniff}, {@code no-store} and a
- *       restrictive per-response CSP; a GET writes the bytes and a read audit record.</li>
+ *       restrictive per-response CSP; a GET writes the read audit record, then the bytes.</li>
  * </ol>
  *
  * <p>Error statuses are set without a body (and without {@code sendError}, which would render the
@@ -99,6 +100,7 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
      */
     static final String CONTENT_SECURITY_POLICY = "default-src 'none'; frame-ancestors 'self'; sandbox";
 
+    // At most nine digits, so Integer.valueOf below cannot overflow (max 999,999,999).
     private static final Pattern INDEX = Pattern.compile("\\d{1,9}");
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -150,7 +152,9 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
         Integer segment = index(request.getParameter("segment"));
         Integer group = index(request.getParameter("group"));
         String legacy = request.getParameter("legacy");
-        if (labNo == null || segment == null || group == null
+        // segment/group are zero-based indexes, but labNo is an hl7TextMessage primary key: 0 is
+        // never a stored identity, so refuse it before either DAO is queried.
+        if (labNo == null || labNo <= 0 || segment == null || group == null
                 || (legacy != null && !"true".equals(legacy) && !"false".equals(legacy))) {
             return status(response, HttpServletResponse.SC_BAD_REQUEST);
         }
@@ -173,9 +177,23 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
             return status(response, HttpServletResponse.SC_NOT_FOUND);
         }
 
-        EmbeddedLabDocumentLoader.Document document =
-                EmbeddedLabDocumentLoader.load(handler, segment, group, maxBytes());
-        switch (document.status()) {
+        // HEAD writes no body, so it classifies through the non-retaining inspect() (a streaming
+        // byte count) rather than load(): the download has no size cap, and a HEAD must not cost a
+        // full in-memory copy of a large report just to answer with headers.
+        EmbeddedLabDocumentLoader.Document document = null;
+        EmbeddedLabDocumentLoader.Status status;
+        long contentLength;
+        if (head) {
+            EmbeddedLabDocumentLoader.Inspection inspection =
+                    EmbeddedLabDocumentLoader.inspect(handler, segment, group, maxBytes());
+            status = inspection.status();
+            contentLength = inspection.sizeBytes();
+        } else {
+            document = EmbeddedLabDocumentLoader.load(handler, segment, group, maxBytes());
+            status = document.status();
+            contentLength = document.bytes() == null ? 0 : document.bytes().length;
+        }
+        switch (status) {
             case EMPTY:
                 return status(response, HttpServletResponse.SC_NOT_FOUND);
             case NOT_PDF:
@@ -189,9 +207,23 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
                 break;
         }
 
-        byte[] bytes = document.bytes();
+        // Audit the read before any header or body is written (direct-response contract), with
+        // the strict variant: the best-effort LogAction.addLog never throws, so a failed audit
+        // would otherwise still serve the PDF. An unaudited read is refused with a bare 500, like
+        // every other error path here (no sendError, whose HTML page would land in the frame).
+        if (!head) {
+            try {
+                LogAction.addLogStrict(loggedInInfo, LogConst.READ, AUDIT_CONTENT, String.valueOf(labNo), demographicNo,
+                        "segment=" + segment + ",group=" + group + ",disposition=" + disposition());
+            } catch (RuntimeException e) {
+                logger.error("Refused embedded lab document: the read audit failed for labNo={}",
+                        LogSafe.sanitize(String.valueOf(labNo)), e);
+                return status(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+        }
+
         response.setContentType("application/pdf");
-        response.setContentLength(bytes.length);
+        response.setContentLengthLong(contentLength);
         response.setHeader("Content-Disposition", disposition() + "; filename=\"Lab-" + labNo.intValue() + ".pdf\"");
         noStore(response);
         response.setHeader("X-Content-Type-Options", "nosniff");
@@ -200,10 +232,8 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
             return NONE;
         }
 
-        LogAction.addLog(loggedInInfo, LogConst.READ, AUDIT_CONTENT, String.valueOf(labNo), demographicNo,
-                "segment=" + segment + ",group=" + group + ",disposition=" + disposition());
         OutputStream output = response.getOutputStream();
-        output.write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- verified %PDF- bytes served as application/pdf with nosniff
+        output.write(document.bytes()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- verified %PDF- bytes served as application/pdf with nosniff
         output.flush();
         return NONE;
     }

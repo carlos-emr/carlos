@@ -29,26 +29,32 @@
 
 package io.github.carlos_emr.carlos.lab;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.IOUtils;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.FileUploadCheckDao;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -85,9 +91,9 @@ public final class FileUploadCheck {
     /**
      * Reports whether a file's content is already recorded, without swallowing failures.
      *
-     * <p>{@link #addFile} answers {@link #UNSUCCESSFUL_SAVE} both for a checksum it already holds
-     * and for any failure it catches, so a caller that must tell a real duplicate from a failed
-     * check asks this afterwards.</p>
+     * <p>A failed lookup throws rather than answering {@code false} or {@code true}: a database
+     * fault must never read as "already uploaded" (which a sender treats as delivered) nor as
+     * "new" (which would store a second copy).</p>
      *
      * @param is the file content; read to the end but not closed
      * @return {@code true} only when a checksum row exists for the content
@@ -98,8 +104,7 @@ public final class FileUploadCheck {
     }
 
     /**
-     * Records a file's checksum, without the duplicate check or failure swallowing of
-     * {@link #addFile}.
+     * Records a file's checksum without a duplicate check, propagating every failure.
      *
      * <p>For a caller that has already confirmed the content is new and records it inside its own
      * transaction, so the checksum commits or rolls back together with what the file produced.
@@ -165,17 +170,17 @@ public final class FileUploadCheck {
     /**
      * Stores an upload once: its checksum exists exactly when what it produced does.
      *
-     * <p>{@link #addFile} commits the checksum before the caller parses and saves the file, so a
-     * failure part-way either leaves a checksum that refuses every retry as a duplicate, or must be
-     * undone by a separate cleanup that can itself fail. Here the checksum is recorded with
-     * {@link #recordFile} in the same transaction as the store step's writes: both commit, or both
-     * roll back, including when the step rejects the content or throws. A commit whose outcome is
-     * unknown likewise left both or neither.</p>
+     * <p>Committing the checksum before the caller parses and saves the file (as the retired
+     * {@code addFile} did) meant a failure part-way left a checksum that refused every retry as a
+     * duplicate, unless a separate cleanup, which could itself fail, removed it. Here the checksum is
+     * recorded with {@link #recordFile} in the same transaction as the store step's writes: both
+     * commit, or both roll back, including when the step rejects the content or throws. A commit
+     * whose outcome is unknown likewise left both or neither.</p>
      *
-     * <p>The lookup and the transaction run while holding the content's lock stripe, which
-     * {@link #addFile} also takes for the same content. No other upload of the same bytes in the
-     * same application instance can therefore see this content's checksum before it commits, or
-     * claim the content in between; uploads on other stripes are not held up. The lock does not
+     * <p>The lookup and the transaction run while holding the content's lock stripe. No other
+     * upload of the same bytes in the same application instance can therefore see this content's
+     * checksum before it commits, or claim the content in between; uploads on other stripes are
+     * not held up. The lock does not
      * reach across servers. This method owns an independent transaction, suspending any caller
      * transaction until the upload has committed or rolled back. The duplicate lookup also runs
      * in that transaction, avoiding a stale snapshot from the caller. The transaction reads at
@@ -242,11 +247,119 @@ public final class FileUploadCheck {
         }
     }
 
-    // FindSecBugs WEAK_MESSAGE_DIGEST_MD5: MD5 is this class's duplicate-detection key (addFile
-    // stores it), never a password, signature or integrity check; it must match what addFile wrote.
+    /**
+     * {@link #storeIfNew} for an upload the caller has already written to disk, removing that file
+     * whenever nothing can reference it.
+     *
+     * <p>Entry points save the upload (usually under {@code DOCUMENT_DIR}) before storing it, so
+     * the handler can parse it from disk and a stored lab keeps it as its archive. Without this, a
+     * duplicate, a failed duplicate lookup, a rejected parse or a rolled-back store each left an
+     * orphan copy behind, and every sender retry wrote another. The file is removed when:</p>
+     * <ul>
+     *   <li>the content was {@linkplain StoreOutcome#ALREADY_RECORDED already recorded};</li>
+     *   <li>the store step never ran, because the duplicate lookup failed or the transaction could
+     *       not start; or</li>
+     *   <li>the store step ran and its transaction is confirmed rolled back
+     *       ({@linkplain StoreOutcome#REJECTED rejected}, or it threw).</li>
+     * </ul>
+     * <p>It is kept after a commit, and after a commit whose outcome is unknown, because the stored
+     * rows may then reference it. The caller must have created {@code saved} exclusively for this
+     * upload (the lab savers use {@code CREATE_NEW}), so removing it can never discard another
+     * upload's file. A delete that fails is logged and retried when the JVM shuts down.</p>
+     *
+     * @param saved the file this upload wrote; also the content that is checked and recorded
+     * @param savedDir the directory {@code saved} must lie in before it is ever deleted
+     * @param name the file name to record with the checksum
+     * @param provider the uploading provider number
+     * @param store writes what the upload produces, through DAOs that join the transaction
+     * @return what happened to the upload, as {@link #storeIfNew} reports it
+     * @throws LookupFailedException if the duplicate lookup fails; the saved file was removed
+     * @throws Exception whatever {@link #storeIfNew} threw
+     */
+    public static StoreOutcome storeSavedFileIfNew(File saved, File savedDir, String name, String provider,
+            ContentStore store) throws Exception {
+        AtomicBoolean storeRan = new AtomicBoolean();
+        try {
+            return storeIfNew(name, () -> Files.newInputStream(saved.toPath()), provider, checksumId -> {
+                storeRan.set(true);
+                // Registered before the store step runs, so a step that throws is covered too.
+                discardOnRollback(saved, savedDir);
+                return store.store(checksumId);
+            });
+        } finally {
+            // A duplicate, a failed lookup or a transaction that never started: the store step did
+            // not run, so nothing was recorded or stored and nothing references the file. Once it
+            // ran, the rollback synchronization above decides.
+            if (!storeRan.get()) {
+                discardUnreferenced(saved, savedDir);
+            }
+        }
+    }
+
+    /**
+     * Removes {@code saved} if the surrounding transaction rolls back.
+     *
+     * <p>A commit, a commit whose outcome is unknown (the rows may reference the file) or no active
+     * transaction synchronization keeps the file.</p>
+     *
+     * @param saved a file written exclusively for the current upload
+     * @param savedDir the directory {@code saved} must lie in before it is deleted
+     */
+    public static void discardOnRollback(File saved, File savedDir) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    discardUnreferenced(saved, savedDir);
+                }
+            }
+        });
+    }
+
+    /**
+     * Deletes a saved upload that no stored row references.
+     *
+     * @param saved a file written exclusively for the current upload, or {@code null}
+     * @param savedDir the directory {@code saved} must lie in before it is deleted
+     * @return {@code true} when no such file remains
+     */
+    public static boolean discardUnreferenced(File saved, File savedDir) {
+        if (saved == null) {
+            return true;
+        }
+        File target;
+        try {
+            target = PathValidationUtils.validateExistingPath(saved, savedDir);
+        } catch (RuntimeException outsideSavedDir) {
+            MiscUtils.getLogger().warn("Not removing an unstored lab upload outside its upload directory: {}",
+                    LogSafe.exceptionTrace(outsideSavedDir));
+            return false;
+        }
+        if (target == null) {
+            return false;
+        }
+        try {
+            Files.deleteIfExists(target.toPath());
+            return true;
+        } catch (IOException | RuntimeException e) {
+            // No row references this file. Retry the delete at shutdown rather than forget it; there
+            // is no persistent cleanup queue for uploads. exceptionTrace, not the throwable: the
+            // message is the path, whose generated name embeds the sender's lab filename.
+            MiscUtils.getLogger().warn("Could not remove an unstored lab upload; retrying at shutdown: {}",
+                    LogSafe.exceptionTrace(e));
+            target.deleteOnExit();
+            return false;
+        }
+    }
+
+    // FindSecBugs WEAK_MESSAGE_DIGEST_MD5: MD5 is this class's duplicate-detection key (recordFile
+    // stores it), never a password, signature or integrity check; it must match the existing rows.
     @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_MD5",
-            justification = "MD5 is the stored duplicate-detection key written by addFile, not a security control")
-    @SuppressWarnings("java:S4790") // Sonar: same MD5 duplicate-detection key as addFile, not a security control.
+            justification = "MD5 is the stored duplicate-detection key written by recordFile, not a security control")
+    @SuppressWarnings("java:S4790") // Sonar: same MD5 duplicate-detection key as recordFile, not a security control.
     private static String contentKey(InputStream is) throws IOException {
         return DigestUtils.md5Hex(is);
     }
@@ -279,50 +392,6 @@ public final class FileUploadCheck {
         }
 
         return fileInfo;
-    }
-
-    public static final int UNSUCCESSFUL_SAVE = -1;
-
-    /**
-     * Used to add a new file to the database, checks to see if it already has been added
-     */
-    public static int addFile(String name, InputStream is, String provider) {
-        int fileUploaded = UNSUCCESSFUL_SAVE;
-        try {
-            String md5sum = DigestUtils.md5Hex(IOUtils.toByteArray(is));
-            fileUploaded = recordIfNew(name, md5sum, provider);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        MiscUtils.getLogger().debug("returning " + fileUploaded);
-        return fileUploaded;
-    }
-
-    /**
-     * The locked part of {@link #addFile}: checks and records the checksum under the same stripe
-     * {@link #storeIfNew} takes, so neither sees the other's in-flight claim on these bytes.
-     *
-     * @return the new row's id, or {@link #UNSUCCESSFUL_SAVE} when the checksum was already recorded
-     */
-    private static int recordIfNew(String name, String md5sum, String provider) {
-        ReentrantLock lock = contentLock(md5sum);
-        lock.lock();
-        try {
-            if (hasFileBeenUploaded(md5sum)) {
-                return UNSUCCESSFUL_SAVE;
-            }
-            io.github.carlos_emr.carlos.commn.model.FileUploadCheck f = new io.github.carlos_emr.carlos.commn.model.FileUploadCheck();
-            f.setProviderNo(provider);
-            f.setFilename(name);
-            f.setMd5sum(md5sum);
-            f.setDateTime(new Date());
-
-            FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
-            dao.persist(f);
-            return f.getId();
-        } finally {
-            lock.unlock();
-        }
     }
 
 }

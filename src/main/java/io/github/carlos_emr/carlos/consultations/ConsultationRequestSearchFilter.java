@@ -50,6 +50,8 @@ public class ConsultationRequestSearchFilter {
     private Date appointmentEndDate;
     private Integer demographicNo;
     private Integer mrpNo;
+    /** {@code professionalSpecialists.specId} the request was sent to; null or non-positive means any. */
+    private Integer consultantId;
     private String urgency;
     private SORTMODE sortMode = SORTMODE.ReferralDate;
     private SORTDIR sortDir = SORTDIR.desc;
@@ -127,6 +129,14 @@ public class ConsultationRequestSearchFilter {
 
     public void setMrpNo(Integer mrpNo) {
         this.mrpNo = mrpNo;
+    }
+
+    public Integer getConsultantId() {
+        return consultantId;
+    }
+
+    public void setConsultantId(Integer consultantId) {
+        this.consultantId = consultantId;
     }
 
     public String getUrgency() {

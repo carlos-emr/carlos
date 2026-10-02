@@ -84,7 +84,17 @@ const PDF = Buffer.from([
 /** An ED payload that is not a PDF: it must never be served as one. */
 const HTML_PAYLOAD = Buffer.from('<html><body><script>alert(document.cookie)</script></body></html>', 'ascii');
 
-/** The lab's OBR/OBX layout: OBR 0 holds text results, OBR 1 the PDF, OBR 2 the HTML payload. */
+/**
+ * A sender-declared text ED value (ED.4 A) whose ED.5 carries an HL7 \.br\ line break: both lab
+ * views must show it as two lines, never the escape or an empty cell.
+ */
+const ED_TEXT_LINES = ['Line one', 'Line two'];
+const ED_TEXT_OBX = `OBX|2|ED|EDTXT^Report Note||^TEXT^PLAIN^A^${ED_TEXT_LINES.join('\\.br\\')}||||||F|||20260930100000`;
+
+/**
+ * The lab's OBR/OBX layout: OBR 0 holds the text results (a numeric result and the ED text
+ * value), OBR 1 the PDF, OBR 2 the HTML payload.
+ */
 const PDF_SEGMENT = { segment: 1, group: 0 };
 const HTML_SEGMENT = { segment: 2, group: 0 };
 
@@ -97,11 +107,22 @@ function buildMessage(accession, marker) {
     `ORC|RE||${accession}|||||||||TESTLAB^CARLOS^TEST LAB`,
     obr(1, 'CHEM^Chemistry', 'CHEM1'),
     'OBX|1|NM|GLU^Glucose Random||5.2|mmol/L|3.3-7.7|N|||F|||20260930100000',
+    ED_TEXT_OBX,
     obr(2, 'PDF^Pathology Report', 'PATH'),
     `OBX|1|ED|PDF^Pathology Report||^TEXT^PDF^Base64^${PDF.toString('base64')}||||||F|||20260930100000`,
     obr(3, 'ATT^Attachment', 'PATH'),
     `OBX|1|ED|ATT^Attachment||^TEXT^HTML^Base64^${HTML_PAYLOAD.toString('base64')}||||||F|||20260930100000`,
   ].join('\r') + '\r';
+}
+
+/**
+ * Whether lab-view HTML shows the ED text value as its two lines separated by a real <br>, and
+ * nowhere as the raw \.br\ escape outside the hidden raw-HL7 block.
+ */
+function ajaxShowsEdText(html) {
+  const visible = html.replace(/<pre[^>]*id="rawhl7[^"]*"[^>]*>[\s\S]*?<\/pre>/g, '');
+  return new RegExp(`${ED_TEXT_LINES[0]}\\s*<br\\s*/?>\\s*${ED_TEXT_LINES[1]}`).test(visible)
+    && !visible.includes('\\.br\\');
 }
 
 /**
@@ -179,17 +200,27 @@ function seedLab(s) {
 /** Snapshot both preview preferences and restore them exactly, whatever the check changes. */
 function ownPreferences(s) {
   const names = "name IN ('lab_pdf_inline_preview','lab_pdf_max_size')";
-  const before = s.sql.rows(`SELECT id, name, IFNULL(HEX(value),'NULL') FROM SystemPreferences WHERE ${names} ORDER BY id`);
-  for (const [id, , hex] of before) {
-    h.assert(/^\d+$/.test(id) && (hex === 'NULL' || /^[0-9A-F]*$/i.test(hex)), 'Unexpected preference snapshot');
+  // updateDate is snapshotted too: set() and the admin save both stamp it, and a run must leave
+  // existing rows exactly as it found them. `mysql -B` prints SQL NULL as the token NULL, which
+  // the harness reads as JS null (and cannot tell from the string 'NULL'), so each nullable column
+  // is selected with a companion IS NULL flag and never through an IFNULL(...,'NULL') sentinel --
+  // the convention of demographic-edit-update-playwright-checks.js.
+  const columns = "id, name, IFNULL(HEX(value),''), value IS NULL, "
+    + "IFNULL(DATE_FORMAT(updateDate,'%Y-%m-%d %H:%i:%s'),''), updateDate IS NULL";
+  const before = s.sql.rows(`SELECT ${columns} FROM SystemPreferences WHERE ${names} ORDER BY id`);
+  for (const [id, , hex, valueNull, updated, updatedNull] of before) {
+    h.assert(/^\d+$/.test(id) && /^[01]$/.test(valueNull) && /^[01]$/.test(updatedNull)
+      && /^[0-9A-F]*$/i.test(hex)
+      && (updatedNull === '1' || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(updated)), 'Unexpected preference snapshot');
   }
   s.cleanup(() => {
     const ids = before.map(row => row[0]);
     s.sql.execute(`DELETE FROM SystemPreferences WHERE ${names}${ids.length ? ` AND id NOT IN(${ids.join(',')})` : ''}`);
-    for (const [id, , hex] of before) {
-      s.sql.execute(`UPDATE SystemPreferences SET value=${hex === 'NULL' ? 'NULL' : `UNHEX('${hex}')`} WHERE id=${id}`);
+    for (const [id, , hex, valueNull, updated, updatedNull] of before) {
+      s.sql.execute(`UPDATE SystemPreferences SET value=${valueNull === '1' ? 'NULL' : `UNHEX('${hex}')`},
+        updateDate=${updatedNull === '1' ? 'NULL' : `'${updated}'`} WHERE id=${id}`);
     }
-    h.assert(JSON.stringify(s.sql.rows(`SELECT id, name, IFNULL(HEX(value),'NULL') FROM SystemPreferences
+    h.assert(JSON.stringify(s.sql.rows(`SELECT ${columns} FROM SystemPreferences
       WHERE ${names} ORDER BY id`)) === JSON.stringify(before), 'the lab display preferences were not restored exactly');
   });
   return {
@@ -240,9 +271,10 @@ async function openLabFromInbox(s, labNo, label) {
 }
 
 async function workflow(s) {
-  // The Inbox patient search matches a routed lab through d.hin LIKE '%...%', which a NULL HIN
-  // never satisfies; the owned fixture patient has none, so give it an empty one.
-  s.sql.execute(`UPDATE demographic SET hin='' WHERE demographic_no=${s.patient} AND hin IS NULL`);
+  // The owned fixture patient has no HIN (NULL): the Inbox patient search must still find it.
+  // Assert that premise, or this check would silently stop covering the NULL-HIN search.
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${s.patient} AND hin IS NULL`) === '1',
+    'The fixture patient must have a NULL HIN for the Inbox search check');
   const labNo = seedLab(s);
   const preferences = ownPreferences(s);
   // Start from the shipped defaults whatever this database holds.
@@ -272,6 +304,11 @@ async function workflow(s) {
     h.assert(await report.locator('details.lab-embedded-pdf[open]').count() === 1, 'the first PDF preview is not expanded');
     h.assert(await report.locator('em.lab-embedded-document-unsupported').count() === 1,
       'the non-PDF ED payload does not show the not-a-PDF note');
+    // The ED.4 A text value renders its ED.5 with the \.br\ escape as a real line break.
+    const visible = await report.locator('body').innerText();
+    h.assert(new RegExp(`${ED_TEXT_LINES[0]}\\s*\\n\\s*${ED_TEXT_LINES[1]}`).test(visible),
+      'the ED text value is not shown as two lines');
+    h.assert(!visible.includes('\\.br\\'), 'the ED text value shows the raw HL7 line-break escape');
     // Visible text only: the page also keeps the raw HL7 in a hidden <pre id="rawhl7...">.
     h.assert(!(await report.locator('body').innerText()).includes(HTML_PAYLOAD.toString('base64')),
       'the non-PDF ED payload was printed as encoded bytes');
@@ -328,6 +365,7 @@ async function workflow(s) {
     h.assert((html.match(/class="lab-embedded-pdf-download"/g) || []).length === 1, 'the AJAX lab view has no single Download PDF link');
     h.assert((html.match(/class="lab-embedded-document-unsupported"/g) || []).length === 1,
       'the AJAX lab view does not show the not-a-PDF note for the HTML payload');
+    h.assert(ajaxShowsEdText(html), 'the AJAX lab view does not show the ED text value as two lines');
   });
 
   await s.step("the Inbox's preview mode shows the PDF inside the lab card", async () => {
@@ -383,11 +421,31 @@ async function workflow(s) {
       'a PDF over the limit is not replaced by the use-download message');
     const download = await fetchRoute(s, `/lab/DownloadEmbeddedDocumentFromLab?${documentQuery(labNo, PDF_SEGMENT)}`);
     h.assert(download.status === 200 && download.body.equals(PDF), 'the size limit wrongly applied to the download');
+  });
+
+  await s.step('pressing Enter in the size field saves through the form, like the Save button', async () => {
+    // Implicit submission bypasses the Save button's onclick; the form's onsubmit must supply the
+    // save intent, and the POST must still carry the CSRFGuard token injected into the form.
+    const size = settingsPage.locator('#lab_pdf_max_size_mb');
+    await size.fill('7');
+    await size.focus();
+    await Promise.all([
+      settingsPage.waitForNavigation({ timeout: TIMEOUT }),
+      size.press('Enter'),
+    ]);
+    await settingsPage.locator('#labDisplaySettingsSaved').waitFor({ timeout: TIMEOUT });
+    h.assert(await settingsPage.locator('#labDisplaySettingsSaveFailed').count() === 0
+      && await settingsPage.locator('#labDisplaySettingsInvalid').count() === 0, 'the Enter-key save reported an error');
+    h.assert(preferences.value('lab_pdf_max_size') === String(7 * 1024 * 1024),
+      'pressing Enter did not store the 7 MB limit');
+    h.assert(await settingsPage.locator('#lab_pdf_max_size_mb').inputValue() === '7',
+      'the page re-rendered after the Enter-key save does not show the saved 7 MB limit');
     await settingsPage.close();
   });
 }
 
 if (require.main === module) runWorkflow('lab-embedded-pdf', workflow, { openMaster: false });
 module.exports = {
-  workflow, buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD, PDF_SEGMENT, HTML_SEGMENT,
+  workflow, buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, ownPreferences, PDF, HTML_PAYLOAD,
+  PDF_SEGMENT, HTML_SEGMENT, ED_TEXT_LINES, ajaxShowsEdText,
 };
