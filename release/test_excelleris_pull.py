@@ -501,6 +501,23 @@ class ArchiveTest(TempEnv):
         self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
         self.assertEqual(archive.admit_foreign_files("20261001-090600"), (0, 0))  # idempotent
 
+    def test_symlinks_in_the_inbox_are_ignored(self):
+        archive = ep.Archive(self.cfg)
+        outside = self.tmp / "outside.xml"
+        outside.write_bytes(b"<HL7Messages/>")
+        outside.chmod(0o644)
+        link = self.cfg.inbox_dir / "Jane Doe.xml"
+        link.symlink_to(outside)
+        generated_link = self.cfg.inbox_dir / "20261001-090000.xml"
+        generated_link.symlink_to(outside)
+        with self.assertLogs(ep.log, level="WARNING") as captured:
+            self.assertEqual(archive.admit_foreign_files("20261001-090500"), (0, 0))
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        self.assertTrue(any("symbolic link" in line for line in captured.output))
+        self.assertEqual(archive.inbox_files(), [])  # the generated-looking link is not listed
+        self.assertEqual(stat.S_IMODE(outside.stat().st_mode), 0o644)  # untouched
+        self.assertTrue(link.is_symlink() and generated_link.is_symlink())
+
     def test_rename_failure_names_no_file_and_keeps_the_pair(self):
         archive = ep.Archive(self.cfg)
         foreign = self.cfg.inbox_dir / "Jane Doe 1234567890.xml"
@@ -1708,6 +1725,15 @@ class TruncatedBodyTest(unittest.TestCase):
         transport = ep.HttpTransport(5, None, False)
         with self.assertRaisesRegex(ep.TransportError, "truncated"):
             transport.request("POST", f"http://127.0.0.1:{port}/lab/newLabUpload.do", body=b"x")
+
+    def test_announced_length_above_the_cap_is_refused(self):
+        # An empty body behind a huge Content-Length must not pass as an
+        # empty, successful OSCAR 19 reply.
+        port = self._serve_once(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 999999999\r\nConnection: close\r\n\r\n"
+        )
+        with self.assertRaisesRegex(ep.TransportError, "size cap"):
+            ep.HttpTransport(5, None, False).request("GET", f"http://127.0.0.1:{port}/")
 
     def test_complete_body_passes(self):
         port = self._serve_once(

@@ -888,7 +888,11 @@ def _read_capped(resp) -> bytes:
             expected = int(declared)
         except ValueError:
             expected = -1
-        if 0 <= expected <= MAX_RESPONSE_BYTES and len(data) < expected:
+        if expected > MAX_RESPONSE_BYTES:
+            # Announced above the cap: refuse it outright rather than let a
+            # connection that closes at once pass as an empty, successful body.
+            raise TransportError("response exceeded size cap")
+        if 0 <= expected and len(data) < expected:
             raise TransportError(
                 f"response truncated: {len(data)} of the {expected} bytes announced arrived"
             )
@@ -1316,8 +1320,14 @@ class Archive:
         return sorted(
             p
             for p in self.cfg.inbox_dir.glob("*.xml")
-            if p.is_file() and self._GENERATED_NAME.match(p.name)
+            if self._is_regular(p) and self._GENERATED_NAME.match(p.name)
         )
+
+    @staticmethod
+    def _is_regular(p: Path) -> bool:
+        # A symbolic link placed in inbox/ is never followed: chmod and the
+        # upload would otherwise act on a file outside the inbox.
+        return p.is_file() and not p.is_symlink()
 
     def _unique(self, directory: Path, name: str) -> Path:
         """A path in ``directory`` that does not exist yet.
@@ -1502,10 +1512,13 @@ class Archive:
         return admitted, unadmitted
 
     def _foreign_files(self) -> list[Path]:
+        links = sum(1 for p in self.cfg.inbox_dir.glob("*.xml") if p.is_symlink())
+        if links:
+            log.warning("%d symbolic link(s) in the inbox ignored; copy the file in instead", links)
         return sorted(
             p
             for p in self.cfg.inbox_dir.glob("*.xml")
-            if p.is_file() and not self._GENERATED_NAME.match(p.name)
+            if self._is_regular(p) and not self._GENERATED_NAME.match(p.name)
         )
 
     def sweep_leftovers(self) -> int:
