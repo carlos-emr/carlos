@@ -54,6 +54,8 @@
     - parentAjaxId:         Encounter navbar element ID for reload notification
     - docNo/labNo/eFormNo/hrmNo/formNo + attachmentsSubmitted (POST only):
                             Picker selections (ticklerAttachmentsPanel.jspf), see #3984
+    - rendered<Type> + attachmentsRendered (POST only):
+                            The stored attachments this page rendered; only these can be detached
 
     @since CARLOS EMR 2026
 --%>

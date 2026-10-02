@@ -30,7 +30,8 @@
     pre-checks the picker from the form's ".delegateAttachment" inputs, and on Save and Close
     rewrites those inputs from the checked boxes, updates the visible name lists and sets the
     attachmentsSubmitted marker. Restricted items have no client-side identifiers; the service
-    preserves them when their type is submitted without values.
+    detaches only the stored rows the panel's ".renderedAttachment" inputs list, so a restricted
+    row is preserved even if access is granted before the save. Those inputs are never rewritten.
 
     @since 2026-09-26
 --%>
