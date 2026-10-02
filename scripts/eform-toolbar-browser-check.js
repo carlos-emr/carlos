@@ -608,14 +608,25 @@ const server = http.createServer((req, res) => {
       await page.waitForURL('**/eform/addEForm');
       assert.equal(requests[0].get('subject'), 'Referral', selectVariant);
     }
-    // A disabled select subject is neither validated nor submitted, so non-option text does not
-    // block the save (and no subject is posted).
-    await open(false, false, false, 'empty-disabled-select');
-    await page.locator('#remote_eform_subject').fill('Not an option');
-    await page.locator('#remoteSubmitButton').click();
-    await page.waitForURL('**/eform/addEForm');
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0].get('subject'), null);
+    // A disabled select subject, directly or through a disabled fieldset, is neither validated nor
+    // submitted, so non-option text does not block the save (and no subject is posted).
+    for (const disabledBy of ['attribute', 'fieldset']) {
+      await open(false, false, false, disabledBy === 'attribute' ? 'empty-disabled-select' : 'empty-optional-select');
+      if (disabledBy === 'fieldset') {
+        await page.evaluate(() => {
+          const subject = document.getElementById('subject');
+          const fieldset = document.createElement('fieldset');
+          fieldset.disabled = true;
+          subject.replaceWith(fieldset);
+          fieldset.append(subject);
+        });
+      }
+      await page.locator('#remote_eform_subject').fill('Not an option');
+      await page.locator('#remoteSubmitButton').click();
+      await page.waitForURL('**/eform/addEForm');
+      assert.equal(requests.length, 1, disabledBy);
+      assert.equal(requests[0].get('subject'), null, disabledBy);
+    }
     // A required text subject still blocks an empty toolbar subject.
     await open();
     const textUrl = page.url();
