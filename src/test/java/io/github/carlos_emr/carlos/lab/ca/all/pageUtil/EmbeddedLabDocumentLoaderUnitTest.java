@@ -377,6 +377,38 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should return exactly the decoded document from the single classifying decode")
+    void shouldReturnExactBytes_fromSingleDecodePass() throws Exception {
+        byte[] document = (new String(PDF, StandardCharsets.US_ASCII) + "x".repeat(30000)).getBytes(StandardCharsets.US_ASCII);
+        String base64 = Base64.getEncoder().encodeToString(document);
+        String hex = HexFormat.of().formatHex(document);
+        MessageHandler[] handlers = {
+                handlerReturning(base64, "Base64"),
+                handlerReturning(base64.replaceAll("(.{76})", "$1\r\n"), null),
+                // Strict decoding fails only after several 8 KB reads have been written: the lenient
+                // retry must start from an empty buffer, not append to the partial strict output.
+                handlerReturning(base64.substring(0, 30000) + "*" + base64.substring(30000), null),
+                handlerReturning(hex, "Hex"),
+                handlerReturning(hex + "a", "Hex"),
+        };
+        for (MessageHandler handler : handlers) {
+            for (long limit : new long[] {0, document.length}) {
+                Document loaded = EmbeddedLabDocumentLoader.load(handler, 0, 0, limit);
+                assertThat(loaded.status()).isEqualTo(Status.PDF);
+                assertThat(loaded.bytes()).isEqualTo(document);
+                assertThat(loaded.sizeBytes()).isEqualTo(document.length);
+            }
+            Document overLimit = EmbeddedLabDocumentLoader.load(handler, 0, 0, document.length - 1);
+            assertThat(overLimit.status()).isEqualTo(Status.TOO_LARGE);
+            assertThat(overLimit.bytes()).isNull();
+        }
+        // Classifications that are not a PDF still carry no bytes.
+        assertThat(EmbeddedLabDocumentLoader.load(handlerReturning("Report to follow.", null), 0, 0, 0).bytes()).isNull();
+        assertThat(EmbeddedLabDocumentLoader.load(handlerReturning(
+                Base64.getEncoder().encodeToString("<html></html>".getBytes(StandardCharsets.US_ASCII)), "Base64"), 0, 0, 0).bytes()).isNull();
+    }
+
+    @Test
     @DisplayName("should estimate the decoded size exactly for strict and lenient base64 and for hex")
     void shouldEstimateDecodedSize_fromEncodedLength() {
         for (int length = 0; length <= 7; length++) {
