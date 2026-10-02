@@ -190,7 +190,7 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `base_url` | yes | EMR base URL including the context path, no trailing slash. |
 | `username` | carlos: yes; oscar19: optional | Service account login, 1 to 30 letters or digits. For `oscar19`, leaving all three credentials empty uploads without a session, as Mule did. Set all three or none. |
 | `password` | as above | Service account password. |
-| `pin` | as above | Four digits. |
+| `pin` | as above | Digits only: exactly four on CARLOS, at least four on OSCAR 19. |
 | `service` | yes, unless `key_pair_file` names it | Key name registered in Key Manager. The EMR picks the upload handler from the key's type. |
 | `key_pair_file` | alternative to the two keys | The `keyPair.key` file the Create Key page downloads (service name, client private key, server public key). Mode 0600. Cannot be combined with the keys below. |
 | `client_private_key` or `client_private_key_file` | one of, unless `key_pair_file` | Base64 PKCS#8 private key from the Key Manager JSON endpoint. PEM armour and line breaks are tolerated. |
@@ -258,9 +258,12 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 - **`inbox/`** holds pulls that Excelleris has acknowledged but the EMR has not yet
   accepted. The next run retries them before pulling anything new. A non-empty inbox after
   a run always comes with an alert. A transient EMR failure (5xx, a proxy error, a session
-  bounce) leaves the file here with a `.attempts` sidecar that counts one attempt per run (a
-  run retries the backlog before and after the pull, but counts it once); after
-  `max_upload_attempts` such runs it moves to `failed/` so a file that fails every time still surfaces.
+  bounce, a connection that dropped during the upload) leaves the file here with a
+  `.attempts` sidecar that counts one attempt per run (a run retries the backlog before and
+  after the pull, but counts it once); after `max_upload_attempts` such runs it moves to
+  `failed/` so a file that fails every time still surfaces. A connection failure on one file
+  does not stop the others: the tool goes on to the next file, and only gives up on the pass
+  (keeping the rest for the next run) after two files in a row could not be sent.
 - **`done/`** holds `.xml.xz` copies of imported pulls until `retention_days` expires.
 - **`failed/`** holds files the EMR rejected for a reason in the request itself (400, 403, a
   406 signature failure), files that exhausted their transient-failure attempts, pulls too
@@ -296,6 +299,7 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `could not obtain a CSRF token` | The CARLOS session was not established, or the base URL is wrong. |
 | `above the ... limit ... accepts` | The pull (or an inbox file) is larger than the configured flavour's multipart limit; it was parked in `failed/` without an upload attempt. See Known limits. |
 | `attempt counter` | A `.attempts` sidecar in `inbox/` is unreadable or malformed. Fix or delete it; the run resumes next time. |
+| `unreachable` | The EMR could not be reached (login failed to connect, or two files in a row could not be sent). Everything in `inbox/` waits for the next run. |
 | `duplicate (409) after an earlier failed attempt` | OSCAR 19 only. The checksum was recorded by an attempt that then failed; the results may not be in the EMR. Verify in the EMR inbox (see Operations). |
 | `signature validation failed` (406) | `service` does not match the key name, or the client private key is not the one the EMR generated for it. |
 | `upload-source validation` (403, CARLOS) | CARLOS refused the upload before checking the signature; see the CARLOS log. |

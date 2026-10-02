@@ -1778,16 +1778,18 @@ class CarlosSession:
         """Map the reply to (status, detail), accepting 200 only when it is
         really an upload result.
 
-        A non-200 status speaks for itself. With HTTP 200, an ``<outcome>``
-        document (``uploadComplete.jsp``, what the Mule bridge parsed) is the
-        result; a bare 200 is a success only when ``status_in_code`` is set
-        (OSCAR 19 with ``use_http_response_code``: ``sendError(200)`` and no
-        body). Anything else with HTTP 200, such as the HTML page Struts
+        With ``status_in_code`` (OSCAR 19, ``use_http_response_code``) the
+        status is the action's answer: a non-200 speaks for itself and a bare
+        200 (``sendError(200)``, no body) is a success. Without it (CARLOS)
+        the action always answers 200 with an ``<outcome>`` document
+        (``uploadComplete.jsp``, what the Mule bridge parsed), so only that
+        document is a result: a bare status, 409 included, came from a proxy,
+        a filter or Struts, not from the action, and is retried rather than
+        believed. Anything else with HTTP 200, such as the HTML page Struts
         renders when the multipart layer refuses the request, is not a
-        success, whatever the status says; treating it as one would archive
-        an unimported file.
+        success either; treating it as one would archive an unimported file.
         """
-        if resp.status != 200:
+        if status_in_code and resp.status != 200:
             return resp.status, cls._DETAIL.get(resp.status, f"HTTP {resp.status}")
         match = cls._OUTCOME_RE.search(resp.body)
         if match:
@@ -1796,6 +1798,11 @@ class CarlosSession:
             if status is None:
                 return 0, f"unrecognised <outcome> in the upload reply ({len(text)} bytes)"
             return status, cls._DETAIL.get(status, f"HTTP {status}")
+        if resp.status != 200:
+            return 0, (
+                f"HTTP {resp.status} with no <outcome> document (the upload action answers "
+                "200 with one; this reply came from elsewhere): retrying"
+            )
         if status_in_code and not resp.body.strip():
             return 200, cls._DETAIL[200]
         return 0, (
@@ -1975,6 +1982,7 @@ def upload_step(
                     cfg.carlos_flavour,
                     " and CSRF token" if session.uses_csrf else "",
                 )
+            consecutive_transport_failures = 0
             for path in files:
                 size = path.stat().st_size
                 if not fits_upload_limit(cfg.carlos_flavour, size):
@@ -2015,11 +2023,14 @@ def upload_step(
                         continue
                 try:
                     outcome = session.upload(path)
-                except TransportError:
+                except TransportError as exc:
                     # The request may have reached the EMR before the connection
                     # died (a timeout during a slow import, say). Count it, so
                     # the OSCAR 19 rule below knows a 409 may follow an import
                     # that never completed.
+                    consecutive_transport_failures += 1
+                    failures.append(f"{path.name}: {exc}; left in inbox for retry")
+                    log.error("%s: %s: %s", cfg.carlos_flavour, path.name, exc)
                     try:
                         attempts = archive.bump_attempts(path, run_token)
                     except OSError as exc:
@@ -2047,7 +2058,19 @@ def upload_step(
                                 path.name,
                                 attempts,
                             )
-                    raise
+                    if consecutive_transport_failures >= 2:
+                        # Two files in a row could not be sent: the EMR, not the
+                        # file, is the problem. Stop the pass rather than time
+                        # out once per file; everything left is retried next run.
+                        failures.append(
+                            f"{cfg.carlos_flavour} unreachable ({exc}); remaining inbox files "
+                            "kept for retry"
+                        )
+                        break
+                    # One file may be the problem (too large for a proxy, say):
+                    # go on to the next so it does not hold up the others.
+                    continue
+                consecutive_transport_failures = 0
                 if outcome.accepted:
                     if (
                         outcome.status == 409
@@ -2145,7 +2168,10 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
                 # (including a pull stored just before its ack failed), so
                 # record it and still run the upload below.
                 failures.append(f"{exc.step}: {exc.detail}")
-        if not opts.no_upload:
+        if not opts.no_upload and not opts.upload_only:
+            # Second pass for what the pull just stored. With --upload-only
+            # the first pass already took the whole inbox; a second one would
+            # only re-send, in the same run, the files it just failed on.
             failures += upload_step(cfg, archive, run_token, opts, make_transport)
         if not opts.dry_run:  # a dry run touches no data, retained archives included
             archive.purge()

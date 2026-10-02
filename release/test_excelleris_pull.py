@@ -786,15 +786,61 @@ class OrchestrationTest(_OrchestrationBase):
         self.assertEqual(rc, ep.EXIT_FAILED)
 
     def test_rejected_upload_goes_to_failed_and_duplicate_is_fine(self):
-        self.script["POST /carlos/lab/newLabUpload"] = ok("", 403)
+        self.script["POST /carlos/lab/newLabUpload"] = outcome("validation failed")
         rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
         self.assertEqual(rc, ep.EXIT_FAILED)
         self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
         self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
 
-        self.script["POST /carlos/lab/newLabUpload"] = ok("", 409)
+        self.script["POST /carlos/lab/newLabUpload"] = outcome("uploaded previously")
         rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
         self.assertEqual(rc, ep.EXIT_OK)
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 1)
+
+    def test_bare_409_without_a_document_is_not_a_duplicate_on_carlos(self):
+        # CARLOS's action answers 200 with an <outcome> document; a bare 409
+        # came from a proxy or a filter, not from the action, and is retried.
+        self.script["POST /carlos/lab/newLabUpload"] = ok("", 409)
+        rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 1)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.attempts"))), 1)
+        self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
+        self.assertEqual(list(self.cfg.failed_dir.glob("*")), [])
+
+    def test_one_file_breaking_the_connection_does_not_block_the_others(self):
+        archive = ep.Archive(self.cfg)
+        archive.save_inbox("20260101-000000", PULL_WITH_RESULTS)
+        archive.save_inbox("20260101-000001", PULL_WITH_RESULTS)
+        archive.save_inbox("20260101-000002", PULL_WITH_RESULTS)
+        self.script["POST /carlos/lab/newLabUpload"] = _replies(
+            ep.TransportError("connection reset"), outcome("uploaded"), outcome("uploaded")
+        )
+        rc = ep.run(self.cfg, ep.RunOptions(upload_only=True), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload"), 3)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 1)  # the broken one
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.attempts"))), 1)
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 2)
+
+    def test_two_consecutive_connection_failures_stop_the_pass(self):
+        archive = ep.Archive(self.cfg)
+        archive.save_inbox("20260101-000000", PULL_WITH_RESULTS)
+        archive.save_inbox("20260101-000001", PULL_WITH_RESULTS)
+        archive.save_inbox("20260101-000002", PULL_WITH_RESULTS)
+        self.script["POST /carlos/lab/newLabUpload"] = _replies(
+            ep.TransportError("connection reset"),
+            ep.TransportError("connection reset"),
+            outcome("uploaded"),
+        )
+        with self.assertLogs(ep.log, level="ERROR") as captured:
+            rc = ep.run(self.cfg, ep.RunOptions(upload_only=True), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload"), 2)  # third skipped
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 3)  # all kept
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.attempts"))), 2)
+        self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
+        self.assertTrue(any("unreachable" in line for line in captured.output), captured.output)
 
     def test_carlos_down_keeps_file_for_retry_then_retries_first(self):
         self.script["POST /carlos/login"] = ep.TransportError("connection refused")
@@ -2056,7 +2102,9 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
 class CarlosDuplicateAfterFailureTest(_OrchestrationBase):
     def test_409_after_a_500_is_an_import_on_carlos(self):
         # storeIfNew commits the checksum with the import, so a 409 is proof.
-        self.script["POST /carlos/lab/newLabUpload"] = _replies(ok("", 500), ok("", 409))
+        self.script["POST /carlos/lab/newLabUpload"] = _replies(
+            outcome("upload failed"), outcome("uploaded previously")
+        )
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
         self.script["excelleris:pull"] = ok("<HL7Messages/>")
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
