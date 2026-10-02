@@ -21,6 +21,7 @@ import datetime as dt
 import email
 import lzma
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -1665,7 +1666,7 @@ class LiveServersTest(TempEnv):
         pages = [c[1].get("Page", c[1].get("Logout"))[0] for c in self.excelleris.log]
         self.assertEqual(pages, ["Login", "HL7", "HL7", "Yes"])
         self.assertEqual(self.excelleris.acks, ["Positive"])
-        self.assertTrue(all(c[3] == ep.USER_AGENTS[self.product] for c in self.excelleris.log))
+        self.assertTrue(all(c[3] == ep.user_agent(self.product) for c in self.excelleris.log))
         # CARLOS: login, upload decrypted and verified, logout via POST.
         kinds = [c[0] for c in self.carlos.log]
         self.assertEqual(kinds, ["login", "upload", "logout"])
@@ -1743,22 +1744,32 @@ class ConfigFlavourTest(TempEnv):
         self.write_conf(c, srv, extra_carlos="flavour = oscar19")
         cfg = ep.load_config(self.conf)
         self.assertEqual(cfg.excelleris_product, "CARLOS")
-        self.assertEqual(cfg.excelleris_user_agent, ep.USER_AGENT_CARLOS_SCRIPT)
+        self.assertEqual(cfg.excelleris_user_agent, ep.user_agent("CARLOS"))
         self.write_conf(
             c, srv, extra_carlos="flavour = oscar19", extra_excelleris="product = OSCAR"
         )
         self.assertEqual(ep.load_config(self.conf).excelleris_product, "OSCAR")
 
     def test_user_agent_shape(self):
-        self.assertEqual(
-            ep.user_agent("OSCAR"),
-            "Mozilla\\/5.0 (Windows NT 10.0; OSCAR19; 1.0.4) Gecko\\/20100101 Firefox\\/128.0",
+        # The format Excelleris' interface notes require, application name and
+        # this tool's version in the parenthesised field, no stray backslashes
+        # (the shell scripts' strings carried one before every slash).
+        required = re.compile(
+            r"^Mozilla/5\.0 \(Windows NT 6\.2; ([A-Za-z0-9]+); ([0-9][0-9A-Za-z.\-]*)\) "
+            r"Gecko/20100101 Firefox/32\.0$"
         )
-        # Byte-exact with the two shell scripts, stray backslashes included.
+        for product, app in (("carlos", "CARLOS"), ("OSCAR", "OSCAR19"), ("oscar19", "OSCAR19")):
+            ua = ep.user_agent(product)
+            self.assertNotIn("\\", ua)
+            m = required.match(ua)
+            self.assertIsNotNone(m, ua)
+            self.assertEqual(m.groups(), (app, ep.VERSION))
         self.assertEqual(
-            ep.user_agent("carlos"),
-            "Mozilla\\/5.0 (Windows NT 6.2; CARLOS; 1.0.6) Gecko\\/20100101 Firefox\\/32.0",
+            ep.user_agent(),
+            f"Mozilla/5.0 (Windows NT 6.2; CARLOS; {ep.VERSION}) Gecko/20100101 Firefox/32.0",
         )
+        with self.assertRaises(ep.ConfigError):
+            ep.user_agent("Mule")
 
 
 class ExcellerisProductHeaderTest(ExcellerisSessionTest):
@@ -1771,7 +1782,7 @@ class ExcellerisProductHeaderTest(ExcellerisSessionTest):
             pass
         for _m, _u, headers, _b in t.calls:
             # Exactly curl's default Accept plus the User-Agent, nothing else.
-            self.assertEqual(headers, {"Accept": "*/*", "User-Agent": ep.USER_AGENT_OSCAR19_SCRIPT})
+            self.assertEqual(headers, {"Accept": "*/*", "User-Agent": ep.user_agent("OSCAR")})
 
 
 class Oscar19SessionTest(TempEnv):
@@ -1849,7 +1860,7 @@ class LiveOscar19Test(LiveServersTest):
         upload = self.carlos.log[1]
         self.assertIsNone(upload[3], "no CSRF header must reach OSCAR 19")
         self.assertEqual(upload[4], "/carlos/lab/newLabUpload")  # the fake stripped .do
-        self.assertTrue(all(c[3] == ep.USER_AGENT_OSCAR19_SCRIPT for c in self.excelleris.log))
+        self.assertTrue(all(c[3] == ep.user_agent("OSCAR") for c in self.excelleris.log))
 
     def test_retry_after_failed_import(self):
         """OSCAR 19: the checksum was recorded before the failed parse, so the
@@ -1873,32 +1884,45 @@ class LiveOscar19Test(LiveServersTest):
 
 
 class RedirectPolicyTest(unittest.TestCase):
-    """Redirects are followed only on the same https origin; the session
-    cookie and the reply must never leave the mutually authenticated endpoint."""
+    """Every redirect is followed, as Excelleris' interface notes require,
+    with the method and body kept: a redirected POST is re-sent as a POST.
+    Only https targets are followed, since the same notes require TLS 1.2+."""
 
-    def _redirect(self, handler, newurl):
-        req = urllib.request.Request("https://lab.example/hl7pull.aspx?Login=x")
-        return handler.redirect_request(req, None, 302, "Found", {}, newurl)
+    def _redirect(self, newurl, method="GET", data=None, code=302):
+        req = urllib.request.Request(
+            "https://lab.example/hl7pull.aspx?Login=x",
+            data=data,
+            method=method,
+            headers={"User-Agent": "ua", "Content-Type": "text/plain"},
+        )
+        return ep._FollowRedirects().redirect_request(req, None, code, "Found", {}, newurl)
 
-    def test_same_origin_https_is_followed(self):
-        req = self._redirect(ep._SameOriginRedirect(), "https://lab.example/other.aspx?p=1")
-        self.assertEqual(req.full_url, "https://lab.example/other.aspx?p=1")
-
-    def test_other_origins_and_plain_http_are_refused(self):
+    def test_redirects_to_any_https_host_are_followed(self):
         for newurl in (
-            "http://lab.example/hl7pull.aspx",
+            "https://lab.example/other.aspx?p=1",
             "https://other.example/hl7pull.aspx",
             "https://lab.example:8443/hl7pull.aspx",
-            "https://lab.example.evil/hl7pull.aspx",
+            "https://vpn.appliance.example/portal?next=1",
         ):
-            with self.assertRaisesRegex(ep.TransportError, "another origin"):
-                self._redirect(ep._SameOriginRedirect(), newurl)
+            req = self._redirect(newurl)
+            self.assertEqual(req.full_url, newurl)
+            self.assertEqual(req.get_method(), "GET")
+            self.assertEqual(req.get_header("User-agent"), "ua")
+
+    def test_a_redirected_post_stays_a_post_with_its_body(self):
+        for code in (301, 302, 303, 307, 308):
+            req = self._redirect("https://other.example/upload", "POST", b"a=1&b=2", code)
+            self.assertEqual(req.get_method(), "POST", code)
+            self.assertEqual(req.data, b"a=1&b=2")
+            self.assertEqual(req.get_header("Content-type"), "text/plain")
+
+    def test_plain_http_is_refused(self):
+        with self.assertRaisesRegex(ep.TransportError, "non-https"):
+            self._redirect("http://lab.example/hl7pull.aspx")
 
     def test_transport_wires_the_policy(self):
         following = ep.HttpTransport(5, None, True)
-        self.assertTrue(
-            any(isinstance(h, ep._SameOriginRedirect) for h in following._opener.handlers)
-        )
+        self.assertTrue(any(isinstance(h, ep._FollowRedirects) for h in following._opener.handlers))
         self.assertFalse(any(isinstance(h, ep._NoRedirect) for h in following._opener.handlers))
         pinned = ep.HttpTransport(5, None, False)
         self.assertTrue(any(isinstance(h, ep._NoRedirect) for h in pinned._opener.handlers))
@@ -2178,7 +2202,7 @@ class LiveOscar19AsCarlosTest(LiveOscar19Test):
         upload = self.carlos.log[1]
         self.assertIsNone(upload[3], "no CSRF header must reach OSCAR 19")
         self.assertEqual(upload[4], "/carlos/lab/newLabUpload")  # .do route, stripped by the fake
-        self.assertTrue(all(c[3] == ep.USER_AGENT_CARLOS_SCRIPT for c in self.excelleris.log))
+        self.assertTrue(all(c[3] == ep.user_agent("CARLOS") for c in self.excelleris.log))
 
 
 class LiveOscar19SessionlessTest(LiveOscar19Test):
@@ -2202,7 +2226,7 @@ class LiveOscar19SessionlessTest(LiveOscar19Test):
         self.assertEqual([c[0] for c in self.carlos.log], ["upload"])  # no login, no logout
         self.assertEqual(self.carlos.seen, [PULL_WITH_RESULTS])
         self.assertEqual(self.excelleris.acks, ["Positive"])
-        self.assertTrue(all(c[3] == ep.USER_AGENT_CARLOS_SCRIPT for c in self.excelleris.log))
+        self.assertTrue(all(c[3] == ep.user_agent("CARLOS") for c in self.excelleris.log))
 
     def test_dry_run_live(self):
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(dry_run=True)), ep.EXIT_OK)
@@ -2263,7 +2287,17 @@ class _RawRecorder:
                     if not chunk:
                         break
                     data += chunk
-                self.heads.append(data.split(b"\r\n\r\n", 1)[0])
+                head, _, body = data.partition(b"\r\n\r\n")
+                # Drain a POST body before answering: closing with unread bytes
+                # in flight makes the kernel reset the connection, and the
+                # client then never sees the reply.
+                match = re.search(rb"\r\ncontent-length: *(\d+)", head, re.IGNORECASE)
+                while match and len(body) < int(match.group(1)):
+                    chunk = tls.recv(4096)
+                    if not chunk:
+                        break
+                    body += chunk
+                self.heads.append(head)
                 tls.sendall(self._reply(data))
                 tls.close()
             except OSError:
@@ -2271,6 +2305,89 @@ class _RawRecorder:
 
     def close(self):
         self.sock.close()
+
+
+class _RedirectingRecorder(_RawRecorder):
+    """A TLS stand-in that answers its /hop path with a redirect to ``target``
+    and records every request head, so a redirect across hosts can be
+    followed for real, over TLS, with the method and body checked."""
+
+    def __init__(self, ctx: ssl.SSLContext, target: str = "", code: int = 302):
+        self.target, self.code = target, code
+        super().__init__(ctx)
+
+    def _reply(self, head: bytes) -> bytes:  # type: ignore[override]
+        path = head.split(b" ", 2)[1].decode()
+        if path.startswith("/hop") and self.target:
+            return (
+                b"HTTP/1.1 %d Found\r\nLocation: %s\r\nContent-Length: 0\r\n"
+                b"Connection: close\r\n\r\n" % (self.code, self.target.encode())
+            )
+        return super()._reply(head)
+
+
+class LiveRedirectTest(TempEnv):
+    """The real transport, over TLS, against two stand-ins on different
+    ports: a redirect from one to the other is followed, a POST is re-sent
+    as a POST with its body, and a plain-http target is refused."""
+
+    def setUp(self):
+        super().setUp()
+        self._env = {k: os.environ.get(k) for k in ("NO_PROXY", "no_proxy")}
+        os.environ["NO_PROXY"] = os.environ["no_proxy"] = "localhost,127.0.0.1"
+        server_pem, self.ca_pem, client_pem = _tls_material(self.tmp, self.pfx)
+        ctx = _excelleris_server_context(server_pem, client_pem)
+        self.landing = _RedirectingRecorder(ctx)
+        self.first = _RedirectingRecorder(ctx, f"https://localhost:{self.landing.port}/landed")
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, url=f"https://localhost:{self.first.port}/hl7pull.aspx")
+        text = self.conf.read_text().replace(
+            "[excelleris]\n", f"[excelleris]\nca_file = {self.ca_pem}\n", 1
+        )
+        self.conf.write_text(
+            text
+        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        self.cfg = ep.load_config(self.conf)
+
+    def tearDown(self):
+        self.first.close()
+        self.landing.close()
+        for k, v in self._env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        super().tearDown()
+
+    def _transport(self, cert):
+        return ep.default_transport(
+            self.cfg.excelleris_timeout, cert.ssl_context(self.cfg.excelleris_ca_file), True
+        )
+
+    def test_a_post_redirected_to_another_host_is_re_posted_there(self):
+        with ep.ClientCertificate.from_config(self.cfg) as cert:
+            resp = self._transport(cert).request(
+                "POST",
+                f"https://localhost:{self.first.port}/hop",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                body=b"Page=HL7&ACK=Positive",
+            )
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(len(self.first.heads), 1)
+        self.assertEqual(len(self.landing.heads), 1)
+        self.assertTrue(self.first.heads[0].startswith(b"POST /hop HTTP/1.1"))
+        landed = self.landing.heads[0]
+        self.assertTrue(landed.startswith(b"POST /landed HTTP/1.1"), landed)
+        self.assertIn(b"\r\nContent-Length: 21\r\n", landed)
+        self.assertIn(b"\r\nContent-Type: application/x-www-form-urlencoded\r\n", landed)
+        self.assertIn(b"\r\nHost: localhost:%d\r\n" % self.landing.port, landed)
+
+    def test_a_redirect_to_plain_http_is_a_transport_error(self):
+        self.first.target = f"http://localhost:{self.landing.port}/landed"
+        with ep.ClientCertificate.from_config(self.cfg) as cert:
+            with self.assertRaisesRegex(ep.TransportError, "non-https"):
+                self._transport(cert).request("GET", f"https://localhost:{self.first.port}/hop")
+        self.assertEqual(self.landing.heads, [])
 
 
 @unittest.skipUnless(shutil.which("curl"), "curl not installed")
@@ -2324,10 +2441,12 @@ class ShellScriptWireParityTest(TempEnv):
         del self.recorder.heads[:]
 
         # ExcellerisDownload.sh, step by step. --cacert and --noproxy only make the
-        # stand-in reachable; they add nothing to the request.
+        # stand-in reachable; they add nothing to the request. The User-Agent is
+        # the tool's: the script's string is not in the format Excelleris
+        # requires (see user_agent), so that header differs on purpose.
         jar = self.tmp / "cookie.txt"
         common = [
-            "curl", "-s", "-S", "-G", "-L", "-A", ep.USER_AGENT_CARLOS_SCRIPT,
+            "curl", "-s", "-S", "-G", "-L", "-A", ep.USER_AGENT,
             "--cert-type", "P12", "--cert", f"{self.pfx}:pfx-secret",
             "--cacert", str(self.ca_pem), "--noproxy", "*",
         ]  # fmt: skip

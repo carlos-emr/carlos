@@ -32,10 +32,12 @@ pfx_password =
 # client_cert_file = /etc/carlos-excelleris/client_certificate.pem
 # client_key_file = /etc/carlos-excelleris/client_key.pem
 
-# Which shell script's User-Agent to send, byte for byte. CARLOS (the default)
-# sends what release/ExcellerisDownload.sh sends; OSCAR sends what the OSCAR 19
-# package's ExcellerisDownload.sh sends. This is independent of the flavour
-# below: changing the EMR that receives the results never changes this header.
+# The application name Excelleris sees in the User-Agent header, which it uses
+# to enable features per client. The header is sent in the format Excelleris
+# requires, Mozilla/5.0 (Windows NT 6.2; <name>; <tool version>) Gecko/20100101
+# Firefox/32.0, with CARLOS (the default) or OSCAR19 (product = OSCAR) as the
+# name. This is independent of the flavour below: changing the EMR that
+# receives the results never changes this header.
 product = CARLOS
 
 # Or override the whole header. A site that completed Excelleris conformance

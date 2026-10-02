@@ -187,8 +187,8 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `client_cert_file` and `client_key_file` | alternative to `pfx_file` | The certificate (with chain) and the unencrypted private key extracted from the PFX, as PEM. The key file must be mode 0600. Cannot be combined with `pfx_file`. |
 | `timeout_seconds` | no | Per-request timeout, default 60, minimum 5. |
 | `ca_file` | no | Extra PEM bundle to trust, for a TLS-intercepting proxy or a test endpoint. Server verification is never disabled. Must be a regular file owned by the service user or root and not writable by group or other. |
-| `product` | no | `CARLOS` (default) or `OSCAR`: which shell script's User-Agent to send, byte for byte (the CARLOS `ExcellerisDownload.sh` or the OSCAR 19 package's). Independent of `[carlos] flavour`: the EMR behind the tool never changes the header Excelleris sees. |
-| `user_agent` | no | The whole User-Agent header, sent verbatim; overrides `product`. For a site that must keep a string it was conformance-tested under. |
+| `product` | no | `CARLOS` (default) or `OSCAR`: the application name in the User-Agent header, `CARLOS` or `OSCAR19` (the OSCAR 19 script's name). The header is in the format Excelleris requires, `Mozilla/5.0 (Windows NT 6.2; <name>; <tool version>) Gecko/20100101 Firefox/32.0`, so Excelleris can enable features per client. Independent of `[carlos] flavour`: the EMR behind the tool never changes the header Excelleris sees. |
+| `user_agent` | no | The whole User-Agent header, sent verbatim; overrides `product`. For a site that must keep a string it was conformance-tested under. Keep it in the format above. |
 
 ### `[carlos]`
 
@@ -354,7 +354,7 @@ enrolment with LifeLabs or a new key in OSCAR. Default install root is `/opt/gof
 | `volumes/secrets/*.pfx` | The PFX LifeLabs issued (uploaded there before the extract step) | `[excelleris] pfx_file`, `pfx_password`, if the passphrase is still known |
 | `volumes/secrets/client_certificate*.pem` and `client_key*.pem` | The PEM pair the extract step produced (`openssl pkcs12 -clcerts` / `-nocerts -nodes`) | `[excelleris] client_cert_file`, `client_key_file`, when the PFX or its passphrase is gone. The key file must be mode 0600. |
 | `volumes/secrets/root_certificate*.pem` | LifeLabs root for the **test** host; production uses public CAs | `[excelleris] ca_file` only for the test host; leave unset for production |
-| `rover_config.json` → `app_name`, `app_version` | The User-Agent LifeLabs conformance-tested the site under (`GoFetchRover`, `1.0.0-alpha`) | `[excelleris] user_agent` with that exact string if the site wants to keep it; otherwise `product` selects one of the two shell scripts' exact headers |
+| `rover_config.json` → `app_name`, `app_version` | The User-Agent LifeLabs conformance-tested the site under (`GoFetchRover`, `1.0.0-alpha`) | `[excelleris] user_agent` with that exact string if the site wants to keep it; otherwise `product` selects the application name (`CARLOS` or `OSCAR19`) and the tool's version fills the header |
 | `volumes/keys/<Service>.key` | The OSCAR Key Manager download, one per lab; `LifelabsHL7` (type `ExcellerisON`) for Ontario, `LifelabsRover` (type `EXCELLERIS`) for BC in their naming | `[carlos] key_pair_file` pointing at the LifeLabs one. The service name inside the file is used; `service` may stay empty. |
 | `volumes/LabProperties.properties` → `oscarURL` | `https://host:8443/oscar/lab/newLabUpload.do` | `[carlos] base_url` = that URL without `/lab/newLabUpload.do`; `flavour = oscar19` when the URL ends in `.do` |
 | `LabProperties.properties` → `smtpServer`, `recipientEmailAddress` | Mule's error mail | `[alerts] email`; delivery is through the host's sendmail rather than an SMTP setting |
@@ -423,9 +423,8 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
 - The same four `GET`s in the same order, with the same query strings byte for byte
   (parameter names and order included): `Page=Login&Mode=Silent&UserID=…&Password=…`,
   `Page=HL7&Query=NewRequests&Pending=Yes`, `Page=HL7&ACK=Positive|Negative`, `Logout=Yes`.
-- The same request headers: `Host`, the User-Agent (`product = CARLOS`, the default, is the
-  script's string byte for byte, escaped slashes included), `Accept: */*` (curl's default),
-  and the session cookie Excelleris set at login. The tool's HTTP library adds two transport
+- The same request headers: `Host`, `Accept: */*` (curl's default), and the session cookie
+  Excelleris set at login. The tool's HTTP library adds two transport
   headers curl does not send, `Accept-Encoding: identity` and `Connection: close`; they
   govern compression and connection reuse only. curl negotiates HTTP/2 where a server offers
   it; the tool always speaks HTTP/1.1.
@@ -439,11 +438,27 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
   is an alert here, where the script only logged it.
 - One difference by design: a password is URL-encoded. The script sent it raw, which broke
   on `&`, `+`, `%`, `#` and spaces. For any other password the bytes are identical.
-- One difference by design: redirects. The script's `curl -L` followed a `Location` header
-  anywhere, plain `http://` and other hosts included (its cookie engine decided per
-  destination whether the session cookie went along). The tool follows a redirect only to the
-  same `https://` host and port as the configured URL and reports any other as a transport
-  failure (negative acknowledgment, alert, retry next run).
+- One difference by design: the User-Agent. The script's string carries a literal backslash
+  before every slash (`Mozilla\/5.0 (...) Gecko\/20100101 Firefox\/32.0`: bash keeps `\/`
+  verbatim inside double quotes), which is not the format Excelleris requires. The tool sends
+  the clean format with its own version (see `product` above).
+- Redirects: followed, as with the script's `curl -L`, to any `https://` destination, with
+  the cookie jar deciding per destination which cookies go along, and with the method and
+  body kept (a redirected POST is re-sent as a POST). A `Location` pointing at plain
+  `http://` is refused as a transport failure (negative acknowledgment, alert, retry next
+  run), since Excelleris requires TLS 1.2 or better on every hop.
+
+### Excelleris EMR interface requirements
+
+Excelleris' notes for EMR clients, and where the tool meets each:
+
+| Requirement | How the tool meets it |
+|---|---|
+| URLs and DNS names are not hard-coded; updatable in configuration | `[excelleris] url` and `[carlos] base_url` are required settings with no default in the code. |
+| TLS 1.2 or better | Every TLS context the tool builds pins TLS 1.2 as the minimum, the client-certificate one included; server verification is never disabled. |
+| Send back all cookies the server issues | One cookie jar per Excelleris session; every cookie set by the server or an appliance in front of it is returned on the following requests under normal cookie rules. |
+| Follow all redirects; a redirected POST is re-sent as a POST | Followed to any `https://` destination with the original method and body (the four Excelleris operations are GETs, so a POST redirect only arises if that ever changes). Plain `http://` targets are refused, per the TLS requirement. |
+| User-Agent `Mozilla/5.0 (Windows NT 6.2; [ApplicationName]; [VersionID]) Gecko/20100101 Firefox/32.0` | Sent in exactly that format with `CARLOS` (or `OSCAR19`) and the tool's version; `[excelleris] user_agent` overrides it for a site conformance-tested under another string. |
 
 `ShellScriptWireParityTest` in the test file runs curl with the script's exact flags and the
 tool's real transport against one recording TLS server and compares the request heads.

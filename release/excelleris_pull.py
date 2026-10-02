@@ -185,30 +185,28 @@ except ImportError:  # pragma: no cover - exercised only on a mis-provisioned ho
 VERSION = "2.0.0"
 
 # Excelleris requires a User-Agent that identifies the destination software.
-# The strings below are the exact bytes the two ExcellerisDownload.sh scripts
-# send, backslashes included: bash keeps "\/" verbatim inside double quotes,
-# so that is what Excelleris has been receiving from every clinic running
-# them, and that is what this tool sends too. Nothing on the Excelleris side
-# sees a change. The version numbers inside are the scripts' own, on purpose.
-USER_AGENT_CARLOS_SCRIPT = (
-    "Mozilla\\/5.0 (Windows NT 6.2; CARLOS; 1.0.6) Gecko\\/20100101 Firefox\\/32.0"
-)
-USER_AGENT_OSCAR19_SCRIPT = (
-    "Mozilla\\/5.0 (Windows NT 10.0; OSCAR19; 1.0.4) Gecko\\/20100101 Firefox\\/128.0"
-)
-USER_AGENTS = {"CARLOS": USER_AGENT_CARLOS_SCRIPT, "OSCAR": USER_AGENT_OSCAR19_SCRIPT}
+# The User-Agent format Excelleris' EMR interface notes require, with the
+# application name and version in the parenthesised field, so that Excelleris
+# can enable or disable features per client:
+#   Mozilla/5.0 (Windows NT 6.2; [ApplicationName]; [VersionID]) Gecko/20100101 Firefox/32.0
+# The two ExcellerisDownload.sh scripts sent this with a literal backslash
+# before each slash (bash keeps "\/" verbatim inside double quotes), which is
+# not the required format. This tool sends the clean form with its own
+# version; ``[excelleris] user_agent`` replaces the whole string when a site
+# must keep another one.
+USER_AGENT_FORMAT = "Mozilla/5.0 (Windows NT 6.2; {app}; {version}) Gecko/20100101 Firefox/32.0"
+USER_AGENT_APPLICATIONS = {"CARLOS": "CARLOS", "OSCAR": "OSCAR19"}
 
 
 def user_agent(product: str = "CARLOS") -> str:
-    """The header Excelleris sees: the CARLOS script's bytes for ``CARLOS``,
-    the OSCAR 19 script's bytes for ``OSCAR`` (also accepted as ``OSCAR19``).
-    ``[excelleris] user_agent`` replaces the whole string when a site needs
-    something else."""
+    """The header Excelleris sees: application name ``CARLOS`` for ``CARLOS``,
+    ``OSCAR19`` (the OSCAR 19 script's name) for ``OSCAR`` (also accepted as
+    ``OSCAR19``), and this tool's version, in the required format."""
     key = product.strip().upper()
     if key == "OSCAR19":
         key = "OSCAR"
     try:
-        return USER_AGENTS[key]
+        return USER_AGENT_FORMAT.format(app=USER_AGENT_APPLICATIONS[key], version=VERSION)
     except KeyError:
         raise ConfigError("[excelleris] product must be CARLOS or OSCAR") from None
 
@@ -658,10 +656,10 @@ def load_config(path: Path) -> Config:
 
     # The name Excelleris sees is a setting of its own, never derived from the
     # flavour: changing the EMR behind the tool must not change the header a
-    # clinic has been sending. Default: the CARLOS script's bytes.
+    # clinic has been sending. Default: the application name CARLOS.
     product = optional("excelleris", "product", "") or "CARLOS"
     product = {"OSCAR19": "OSCAR"}.get(product.strip().upper(), product.strip().upper())
-    if product not in USER_AGENTS:
+    if product not in USER_AGENT_APPLICATIONS:
         raise ConfigError("[excelleris] product must be CARLOS or OSCAR")
     # A site that passed Excelleris conformance testing under another tool's
     # header (GoFetchRover sends its own name and version) may keep that exact
@@ -811,26 +809,34 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-class _SameOriginRedirect(urllib.request.HTTPRedirectHandler):
-    """Follow a redirect only when it stays on the same https origin.
+class _FollowRedirects(urllib.request.HTTPRedirectHandler):
+    """Follow every redirect the server issues, keeping the method and body.
 
-    The URL was validated once, at configuration time; a Location header is
-    a second URL that urllib would otherwise trust blindly. A redirect to
-    plain http or to another host would carry the session cookie, and the
-    reply that follows it (a lab result, say), off the mutually
-    authenticated endpoint. The shell script's ``curl -L`` followed anything;
-    this follows only what cannot leave that endpoint and reports the rest.
+    Excelleris' EMR interface notes require it: their SSL VPN appliance may
+    redirect, the client must follow, and a redirected POST must be re-sent
+    as a POST to the new URL. urllib's own handler would turn a redirected
+    POST into a GET without its body, so the new request is built here with
+    the original method, body and headers; the cookie jar then decides per
+    destination which cookies go along, as curl's engine did for the shell
+    script's ``curl -L``. The same notes require TLS 1.2 or better on every
+    hop, so a Location pointing at anything but ``https://`` is refused.
+    urllib's redirect limit still applies.
     """
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401
-        origin = urllib.parse.urlsplit(req.full_url)
-        target = urllib.parse.urlsplit(newurl)
-        if target.scheme != "https" or target.netloc.lower() != origin.netloc.lower():
+        if urllib.parse.urlsplit(newurl).scheme != "https":
             raise TransportError(
-                f"refused a redirect from {_safe_url(req.full_url)} to another origin "
+                f"refused a redirect from {_safe_url(req.full_url)} to a non-https URL "
                 f"({_safe_url(newurl)})"
             )
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+        return urllib.request.Request(
+            newurl,
+            data=req.data,
+            headers=dict(req.headers),
+            origin_req_host=req.origin_req_host,
+            unverifiable=True,
+            method=req.get_method(),
+        )
 
 
 class HttpTransport:
@@ -849,10 +855,10 @@ class HttpTransport:
         self.timeout = timeout
         self.cookies = http.cookiejar.CookieJar()
         handlers: list[urllib.request.BaseHandler] = [
-            urllib.request.HTTPSHandler(context=ssl_context or ssl.create_default_context()),
+            urllib.request.HTTPSHandler(context=ssl_context or server_verifying_context()),
             urllib.request.HTTPCookieProcessor(self.cookies),
         ]
-        handlers.append(_SameOriginRedirect() if follow_redirects else _NoRedirect())
+        handlers.append(_FollowRedirects() if follow_redirects else _NoRedirect())
         self._opener = urllib.request.build_opener(*handlers)
 
     def request(
@@ -1143,8 +1149,14 @@ def load_pem_certificates(data: bytes) -> list:
 
 def server_verifying_context(ca_file: Optional[Path] = None) -> ssl.SSLContext:
     """A context that verifies the peer (no "-k"), optionally trusting one
-    extra PEM bundle on top of the system store for sites behind a private CA."""
+    extra PEM bundle on top of the system store for sites behind a private CA.
+
+    TLS 1.2 is the floor, pinned here rather than left to the interpreter's
+    default: Excelleris requires TLS 1.2 or better, and every context the tool
+    uses (the client-certificate one included) is built from this one.
+    """
     ctx = ssl.create_default_context()
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     if ca_file is not None:
         ctx.load_verify_locations(cafile=str(ca_file))
     return ctx
