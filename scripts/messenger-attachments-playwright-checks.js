@@ -4,7 +4,8 @@
  * Messenger attachments: chart items rendered to PDF, and transferred chart items.
  * User path: Master Record ▸ E-Chart ▸ Messenger "+" ▸ Attach Patient
  * (messenger/attachmentFrameset ▸ messenger/PreviewPDF) ▸ Preview / tick items ▸
- * Attach (messenger/Doc2PDF) ▸ Send to self; Schedule ▸ Msg ▸ message ▸ Attachment
+ * Attach (messenger/Doc2PDF, which renders the ticked items on the server from their keys,
+ * carlos-emr/carlos#4133) ▸ Send to self; Schedule ▸ Msg ▸ message ▸ Attachment
  * (messenger/ViewPDFAttach ▸ messenger/ViewPDFFile). And for a received message
  * carrying transferred chart items: message ▸ Attachment (messenger/ViewAttach) ▸
  * Save Attachments (messenger/AdjustAttachments) ▸ Compose ▸ Send.
@@ -131,8 +132,8 @@ async function workflow(s) {
   let attach;
   let main;
   const openAttachments = async () => {
-    // A frameset has no body text, so the generic popup helper's blank-page guard
-    // cannot judge it; the main frame's form is asserted instead.
+    // The host page is only the chooser's frame, so the generic popup helper's blank-page
+    // guard cannot judge it; the main frame's form is asserted instead.
     [attach] = await Promise.all([
       s.context.waitForEvent('page', { timeout: TIMEOUT }),
       compose.locator('input[name="attachDemo"]').click(),
@@ -141,8 +142,12 @@ async function workflow(s) {
     await attach.waitForURL(/\/messenger\/attachmentFrameset/, { timeout: TIMEOUT });
     await attach.waitForLoadState('domcontentloaded');
     h.assert(new URL(attach.url()).pathname.endsWith('/messenger/attachmentFrameset'), 'Attach Patient did not open the attachment frameset');
-    await attach.locator('frame[name="main"]').waitFor({ state: 'attached' });
-    main = attach.frame({ name: 'main' });
+    await attach.locator('iframe[name="main"]').waitFor({ state: 'attached' });
+    // The frame element can be attached a tick before Playwright registers its Frame.
+    const deadline = Date.now() + TIMEOUT;
+    while (!(main = attach.frame({ name: 'main' })) && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
     h.assert(main, 'The attachment frameset has no main frame');
     await main.waitForURL(/\/messenger\/PreviewPDF/, { timeout: TIMEOUT });
     await main.locator('form[action$="/messenger/Doc2PDF"]').waitFor({ timeout: TIMEOUT });
@@ -231,10 +236,12 @@ async function workflow(s) {
 
   await s.step('Attach Patient opens the frameset whose PreviewPDF page lists the patient items', async () => {
     await openAttachments();
-    const uris = await main.locator('input[name="uriArray"]').evaluateAll(inputs => inputs.map(input => input.value));
-    h.assert(uris.some(uri => uri.includes(`/demographic/DemographicPdfLabel?demographic_no=${patient}`))
-      && uris.some(uri => uri.includes(`/rx/ViewPrintDrugProfile2?demographic_no=${patient}`)),
-      'The attachment page did not offer the patient information and prescriptions of the chart patient');
+    // Items are offered by key; the server maps each to its route (no page URLs in the form).
+    const keys = await main.locator('input[name="item"]').evaluateAll(inputs => inputs.map(input => input.value));
+    h.assert(keys.includes('demographic') && keys.includes('prescriptions'),
+      'The attachment page did not offer the patient information and prescriptions');
+    h.assert(await main.locator('input[name="demographic_no"]').inputValue() === String(patient),
+      'The attachment page is for another patient');
     h.assert((await main.locator('body').innerText()).toLowerCase().includes(s.marker.toLowerCase()), 'The attachment page did not name the patient');
     // Close asks for confirmation and closes the whole frameset window.
     const dialogs = await h.withExpectedDialogs(attach, async () => {
@@ -258,8 +265,8 @@ async function workflow(s) {
     await expandItem(items);
   });
 
-  // Kept after every other provable step: the hand-over page (msgSearchDemo.jsp)
-  // runs write2Parent on load even with no patient chosen and throws (see report).
+  // The hand-over page (msgSearchDemo.jsp) once ran write2Parent on load with no
+  // patient chosen and threw; it now writes back only when a patient was picked.
   await s.step('Save Attachments keeps the items and hands over to the patient search without a script error', async () => {
     h.assert(itemsPage && !itemsPage.isClosed(), 'The transferred-items window is not open');
     const items = itemsPage;
@@ -298,15 +305,15 @@ async function workflow(s) {
     await items.close();
   });
 
-  // From here on every step posts rendered chart HTML to messenger/Doc2PDF, which
-  // the front-door WAF blocks in this build (see report); kept last so all of the
-  // above is proven first. The steps assert the correct behaviour.
-  await s.step('Preview posts the rendered patient page to Doc2PDF and streams a PDF without attaching', async () => {
+  // Doc2PDF receives item keys and renders the pages itself (#4133); before that it took
+  // browser-posted page HTML, which the front-door WAF refused.
+  await s.step('Preview posts the patient-information key to Doc2PDF and streams a PDF without attaching', async () => {
     await openAttachments();
-    const preview = main.locator('button[data-preview-uri*="/demographic/DemographicPdfLabel"]');
+    const preview = main.locator('button[data-preview-item="demographic"]');
     const captured = await capturePdf(attach, '/messenger/Doc2PDF', () => preview.click());
     const post = new URLSearchParams(captured.post);
-    h.assert(post.get('isPreview') === 'true' && (post.get('srcText') || '').length > 0, 'Preview did not post the rendered patient page');
+    h.assert(post.get('isPreview') === 'true' && post.get('previewItem') === 'demographic' && !post.has('srcText'),
+      'Preview did not post the patient-information key (and only the key)');
     h.assert(sent(pdfSubject).length === 0, 'Previewing wrote a message');
     // Let the frames finish loading so closing the window aborts nothing.
     await attach.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
@@ -315,9 +322,8 @@ async function workflow(s) {
 
   await s.step('ticking the patient information and prescriptions and Attach renders both and returns to compose', async () => {
     await openAttachments();
-    const rows = main.locator('tr', { has: main.locator('input[name="indexArray"]') });
-    for (const route of ['/demographic/DemographicPdfLabel', '/rx/ViewPrintDrugProfile2']) {
-      await rows.filter({ has: main.locator(`input[name="uriArray"][value*="${route}"]`) }).locator('input[name="indexArray"]').check();
+    for (const key of ['demographic', 'prescriptions']) {
+      await main.locator(`input[name="item"][value="${key}"]`).check();
     }
     const posts = [];
     const onRequest = request => {
@@ -331,16 +337,21 @@ async function workflow(s) {
         main.locator('button[name="Attach"]').click(),
       ]);
     } finally { s.context.off('request', onRequest); }
-    // generatePreviewPDF.jsp re-submits itself from an inline script between renders,
-    // which cancels its own csrfguard script load; consume exactly those aborts.
+    // Wait for the refreshed compose page first, so every request event of the closed
+    // window has been delivered before the aborts are consumed.
+    await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible' });
+    // The result page closes its own window at once, which cancels that page's csrfguard
+    // script load; consume exactly those aborts.
     for (let i = s.recorder.requestFailures.length - 1; i >= since; i--) {
       const entry = s.recorder.requestFailures[i];
       if (entry.label === 'messenger-attachments' && entry.resourceType === 'script' && entry.errorText === 'net::ERR_ABORTED'
         && new URL(entry.url).pathname.endsWith('/csrfguard')) s.recorder.requestFailures.splice(i, 1);
     }
-    h.assert(posts.length === 2 && posts.every(body => new URLSearchParams(body).get('isAttaching') === 'true'),
-      `Attach did not render exactly the two ticked items (saw ${posts.length} renders)`);
-    await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible' });
+    // One request carries both keys; the server renders each ticked item.
+    const body = posts.length === 1 ? new URLSearchParams(posts[0]) : null;
+    h.assert(body && JSON.stringify(body.getAll('item')) === JSON.stringify(['demographic', 'prescriptions'])
+      && body.get('isPreview') !== 'true' && !body.has('srcText'),
+      `Attach did not post exactly the two ticked item keys in one request (saw ${posts.length} requests)`);
   });
 
   let pdfMessageId;
@@ -366,8 +377,8 @@ async function workflow(s) {
     await downloadStoredPdf(pdfMessageId, titles, 0);
   });
 
-  // Asserted separately: in this build the prescriptions page fails to render
-  // (Doc2PDF XHTML parse error) and is stored as a BAD "(N/A)" entry (see report).
+  // Asserted separately: the drug-profile page's "--" HTML comment used to break the XHTML
+  // parse, storing this item as a BAD "(N/A)" entry; Doc2PDF now strips comments (#4133).
   await s.step('the current prescriptions item was rendered to a PDF too', async () => {
     const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${pdfMessageId}`);
     h.assert((stored.match(/<STATUS>OK<\/STATUS>/g) || []).length === 2, 'The current prescriptions attachment was stored as a failed render');
