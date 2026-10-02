@@ -1284,6 +1284,22 @@ public final class IncomingDocUtil {
         return entryMode;
     }
 
+    /** Page actions {@link #doPagesAction} dispatches; any other nonempty name is a no-op there. */
+    private static final Set<String> PAGE_ACTIONS = Set.of(
+            "Rotate90", "Rotate180", "RotateM90", "RotateAll90", "RotateAll180", "RotateAllM90",
+            "DeletePage", "DeletePDF", "ExtractPagePDF");
+
+    /**
+     * Reports whether {@code pdfAction} names a page action {@link #doPagesAction} performs.
+     * Request boundaries use this to reject unknown names with 400 instead of silently ignoring them.
+     *
+     * @param pdfAction String the requested action name; may be null
+     * @return boolean true only for one of the nine supported action names (case-sensitive)
+     */
+    public static boolean isSupportedPageAction(String pdfAction) {
+        return pdfAction != null && PAGE_ACTIONS.contains(pdfAction);
+    }
+
     /** Source-lease or shared-parser admission timed out before mutation; no edit was accepted. */
     public static final class PageEditAdmissionBusyException extends IOException {
         private static final long serialVersionUID = 1L;
