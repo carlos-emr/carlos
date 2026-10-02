@@ -396,7 +396,9 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
 - The same client certificate from the same PFX, with server verification on.
 - The same acknowledgment rule: positive only when the pull holds at least one `<Message>`
   (the script tested the first line for `<Message `; the tool parses the document), negative
-  otherwise, including after a failed download; `ReturnCode="0"` accepted.
+  otherwise, including after a failed download; `ReturnCode="0"` accepted. One difference: an
+  acknowledgment reply that is neither form (a maintenance page, say) is an alert here, where the
+  script only logged it.
 - One difference by design: a password is URL-encoded. The script sent it raw, which broke
   on `&`, `+`, `%`, `#` and spaces. For any other password the bytes are identical.
 

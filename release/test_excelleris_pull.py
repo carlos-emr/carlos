@@ -531,12 +531,15 @@ class ExcellerisSessionTest(TempEnv):
             with self.assertRaisesRegex(ep.StepError, "Positive ack failed"):
                 s.ack(True)
 
-    def test_unrecognised_ack_reply_is_lenient_but_http_error_is_not(self):
-        # The shell script only ever logged the ack reply; an unknown 200 body
-        # must not alert on every run, but a non-200 is a real refusal.
-        t = FakeTransport(self.script(**{"excelleris:ack:Negative": ok("OK")}))
+    def test_unrecognised_ack_reply_is_an_error(self):
+        # A maintenance or proxy page with HTTP 200 is not an acknowledgment
+        # that registered; the shell script only logged it, the tool alerts.
+        t = FakeTransport(
+            self.script(**{"excelleris:ack:Negative": ok("<html>maintenance</html>")})
+        )
         with ep.ExcellerisSession(self.cfg, t) as s:
-            s.ack(False)  # no exception
+            with self.assertRaisesRegex(ep.StepError, "unrecognised .*reply"):
+                s.ack(False)
         t = FakeTransport(self.script(**{"excelleris:ack:Negative": ok("", 500)}))
         with ep.ExcellerisSession(self.cfg, t) as s:
             with self.assertRaisesRegex(ep.StepError, "Negative ack rejected"):
@@ -752,6 +755,14 @@ class OrchestrationTest(_OrchestrationBase):
         labels = self.labels()
         self.assertIn("excelleris:ack:Negative", labels)
         self.assertEqual(labels.count("POST /carlos/lab/newLabUpload"), 1)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+
+    def test_pull_transport_failure_still_sends_negative_ack(self):
+        self.script["excelleris:pull"] = ep.TransportError("read timed out")
+        rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertIn("excelleris:ack:Negative", self.labels())
+        self.assertIn("excelleris:logout", self.labels())
         self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
 
     def test_store_failure_sends_negative_ack(self):
@@ -1883,6 +1894,20 @@ class RetryClassificationTest(_OrchestrationBase):
         self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)
         ep.run(cfg, ep.RunOptions(), self.factory)
         self.assertEqual(list(cfg.inbox_dir.glob("*")), [])  # sidecar removed too
+        self.assertEqual(len(list(cfg.failed_dir.glob("*.xml"))), 1)
+
+    def test_persistent_transport_failures_are_parked_after_the_cap(self):
+        text = self.conf.read_text().replace("[carlos]\n", "[carlos]\nmax_upload_attempts = 2\n", 1)
+        self.conf.write_text(
+            text
+        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        cfg = ep.load_config(self.conf)
+        self.script["POST /carlos/lab/newLabUpload"] = ep.TransportError("connection reset")
+        self.assertEqual(ep.run(cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # attempt 1 of 2
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.assertEqual(ep.run(cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(list(cfg.inbox_dir.glob("*")), [])  # gave up, sidecar gone
         self.assertEqual(len(list(cfg.failed_dir.glob("*.xml"))), 1)
 
     def test_recovery_clears_the_attempt_count(self):

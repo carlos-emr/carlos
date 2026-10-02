@@ -1171,14 +1171,14 @@ class ExcellerisSession:
                 raise StepError("excelleris ack", f"{value} ack failed (ReturnCode={code})")
             log.info("excelleris: %s acknowledgment accepted", value.lower())
             return
-        # HTTP 200 with a body neither the guide nor the shell script describes.
-        # The shell script treated this as success by only ever logging; keep
-        # that leniency (no false alert every run) but make it visible.
-        log.warning(
-            "excelleris: %s acknowledgment returned an unrecognised %d-byte reply; "
-            "treating as accepted",
-            value.lower(),
-            len(resp.body),
+        # HTTP 200 with a body neither the guide nor the shell script describes:
+        # a maintenance or proxy page, say. The shell script only ever logged
+        # the reply; here an acknowledgment that cannot be read is an
+        # acknowledgment that may not have registered, which someone must
+        # hear about. The body is not logged (it is not ours to keep).
+        raise StepError(
+            "excelleris ack",
+            f"{value} ack returned an unrecognised {len(resp.body)}-byte reply (HTTP 200)",
         )
 
 
@@ -1886,14 +1886,15 @@ def pull_step(
                     return None
                 try:
                     body = session.pull()
-                except StepError:
+                except (StepError, TransportError):
                     # The shell script sent a negative ack when the download
                     # itself failed; keep that so Excelleris sees the session
                     # end the same way. Best effort: the pull error is the one
-                    # to report.
+                    # to report, whether it was an HTTP status or a timeout,
+                    # a reset or a truncated body.
                     try:
                         session.ack(False)
-                    except StepError as ack_exc:
+                    except (StepError, TransportError) as ack_exc:
                         log.warning("excelleris: negative ack after failed pull: %s", ack_exc)
                     raise
                 summary = inspect_pull(body)
@@ -2020,7 +2021,7 @@ def upload_step(
                     # the OSCAR 19 rule below knows a 409 may follow an import
                     # that never completed.
                     try:
-                        archive.bump_attempts(path, run_token)
+                        attempts = archive.bump_attempts(path, run_token)
                     except OSError as exc:
                         # The transport error is still the one to report; say
                         # that the count may be short so a later 409 is treated
@@ -2030,6 +2031,22 @@ def upload_step(
                             f"{path.name}: attempt marker could not be written after a failed "
                             f"send ({exc}); if the next run reports a duplicate, verify the EMR inbox"
                         )
+                    else:
+                        if attempts >= cfg.max_upload_attempts:
+                            # The same cap as a transient status: a file that
+                            # breaks the connection every time (too large for
+                            # a proxy, say) must surface, not retry forever.
+                            dest = archive.mark_failed(path)
+                            failures.append(
+                                f"{path.name}: the upload connection failed {attempts} times "
+                                f"(max_upload_attempts); moved to {dest}"
+                            )
+                            log.error(
+                                "%s: %s: gave up after %d failed connections",
+                                cfg.carlos_flavour,
+                                path.name,
+                                attempts,
+                            )
                     raise
                 if outcome.accepted:
                     if (
