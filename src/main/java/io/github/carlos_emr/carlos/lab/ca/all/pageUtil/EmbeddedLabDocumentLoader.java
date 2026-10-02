@@ -36,6 +36,7 @@ import java.util.Objects;
 
 import org.apache.commons.codec.binary.Base64InputStream;
 
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.EdObservationValue;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 
@@ -303,18 +304,9 @@ public final class EmbeddedLabDocumentLoader {
      * a length that is a multiple of four, and at most two {@code =} only at the end.
      */
     static boolean isBase64Shaped(String compact) {
-        int length = compact.length();
-        if (length == 0 || length % 4 != 0) {
-            return false;
-        }
-        int padding = compact.endsWith("==") ? 2 : compact.endsWith("=") ? 1 : 0;
-        for (int i = 0; i < length - padding; i++) {
-            char c = compact.charAt(i);
-            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/')) {
-                return false;
-            }
-        }
-        return true;
+        // One rule, shared with MessageHandler#getOBXEmbeddedDocumentText, so a payload classed
+        // TEXT here is the text the views then show.
+        return EdObservationValue.isBase64Shaped(compact);
     }
 
     /** Whether the bytes start with the PDF signature {@code %PDF-}. */
