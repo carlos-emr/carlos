@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.A
 import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.Item;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.util.Doc2PDF;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -186,7 +187,10 @@ public class MsgAttachPDF2Action extends ActionSupport {
             return NONE;
         }
         String patientName = demographic.getLastName() + ", " + demographic.getFirstName();
-        ResourceBundle labels = MsgPdfAttachmentResolver.labels(request.getLocale());
+        // Negotiated across every Accept-Language preference (English otherwise), as the chooser's
+        // labels are: request.getLocale() keeps only the first and would let the stored titles
+        // fall back to the server locale instead.
+        ResourceBundle labels = MsgPdfAttachmentResolver.labels(LocaleUtils.resolveBundleLocale(request));
 
         if (isPreview) {
             return preview(loggedInInfo, demographicNo, patientName, labels);

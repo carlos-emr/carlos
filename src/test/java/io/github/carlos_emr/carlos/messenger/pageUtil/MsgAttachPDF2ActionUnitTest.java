@@ -356,6 +356,19 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should title stored PDFs in the first Accept-Language preference that has a bundle")
+        void shouldUseNegotiatedLocale_forServerTitles() throws Exception {
+            // German has no bundle; the second preference, French, must win over the server locale.
+            request.addHeader("Accept-Language", "de-DE, fr;q=0.8");
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"prescriptions"});
+
+            action.execute();
+
+            assertThat(bean.getPDFAttachment()).contains("<TITLE>Ordonnances en cours</TITLE>");
+        }
+
+        @Test
         @DisplayName("should number the stored PDFs 0, 1, ... and leave the counters reset")
         void shouldAssignDistinctFileIds_whenAttachingSeveralItems() throws Exception {
             MsgAttachPDF2Action action = newAction();
