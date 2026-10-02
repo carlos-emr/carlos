@@ -123,6 +123,17 @@ class Frm2ActionUnsupportedFormUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should answer 400 when the form class is refused and other parameters are malformed")
+    void shouldAnswerBadRequest_whenOtherParametersMalformed() {
+        // The class is refused before formId / demographic_no are parsed, so these cannot turn it into a 500.
+        mockRequest.setParameter("form_class", "Alpha");
+        mockRequest.setParameter("formId", "not-a-number");
+
+        assertThat(new Frm2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+    }
+
+    @Test
     @DisplayName("should not echo the rejected class name into the error message")
     void shouldNotEchoClassName_inErrorMessage() {
         // The value is caller-controlled and the container renders this message into an error

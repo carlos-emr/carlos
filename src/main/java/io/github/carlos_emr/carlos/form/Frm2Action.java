@@ -82,6 +82,32 @@ public final class Frm2Action extends ActionSupport {
         String actionForward = where;
         boolean saveSuccess = Boolean.FALSE;
         String formClassName = request.getParameter("form_class");
+        FrmRecordFactory recorder = new FrmRecordFactory();
+        rec = recorder.factory(formClassName);
+
+        // factory() returns null by design: it is the guard on reflective instantiation and
+        // refuses any class not on ALLOWED_FORM_CLASSES, as well as one that fails to
+        // instantiate. Every use of rec below dereferences it, so a refused class raised a
+        // NullPointerException that the catch at the end of this method downgraded to the
+        // "failure" forward — surfacing to the clinician as "CARLOS Error: 500" for what is
+        // really a request naming a form this build cannot service. The chart can reach this:
+        // the form selector offers ALPHA and formAlpha carries rows, but no FrmAlphaRecord
+        // exists. Answer it as a client error and stop, rather than resolving a named result
+        // after the response is written (see the direct-response contract in CLAUDE.md).
+        // Issue #3735. This runs before formId / demographic_no are parsed so a malformed
+        // request naming an unsupported class is still refused with 400 rather than a 500.
+        if (rec == null) {
+            log.warn("Unsupported form class {}", LogSafe.sanitize(formClassName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            // The rejected class name is logged, not echoed: it is attacker-controllable
+            // request input and the container renders this message into an error page.
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "unsupported form");
+            } catch (IOException e) {
+                log.error("Could not send 400 for unsupported form class", e);
+            }
+            return NONE;
+        }
+
         String submitType = request.getParameter("submit");
         String id = request.getParameter("formId");
         Integer formId = null;
@@ -98,27 +124,6 @@ public final class Frm2Action extends ActionSupport {
         try {
 
             Integer demographicNo = Integer.parseInt(request.getParameter("demographic_no").trim());
-
-            FrmRecordFactory recorder = new FrmRecordFactory();
-            rec = recorder.factory(formClassName);
-
-            // factory() returns null by design: it is the guard on reflective instantiation and
-            // refuses any class not on ALLOWED_FORM_CLASSES, as well as one that fails to
-            // instantiate. Every use of rec below dereferences it, so a refused class raised a
-            // NullPointerException that the catch at the end of this method downgraded to the
-            // "failure" forward — surfacing to the clinician as "CARLOS Error: 500" for what is
-            // really a request naming a form this build cannot service. The chart can reach this:
-            // the form selector offers ALPHA and formAlpha carries rows, but no FrmAlphaRecord
-            // exists. Answer it as a client error and stop, rather than resolving a named result
-            // after the response is written (see the direct-response contract in CLAUDE.md).
-            // Issue #3735.
-            if (rec == null) {
-                log.warn("Unsupported form class {}", LogSafe.sanitize(formClassName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                // The rejected class name is logged, not echoed: it is attacker-controllable
-                // request input and the container renders this message into an error page.
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "unsupported form");
-                return NONE;
-            }
 
             Properties props = new Properties();
 
