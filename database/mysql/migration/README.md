@@ -81,7 +81,12 @@ copies signatures into a temporary table with a unique provider key before chang
 distinct text for that provider, including case, trailing-space
 or a NULL versus text value, produces a duplicate-key failure with the source untouched.
 Confirm the intended text with the affected provider and resolve the conflicting rows
-from the backup; do not pick an arbitrary signature. For the DEB deployment, inspect
+from the backup; do not pick an arbitrary signature.
+The same duplicate-key failure, with the source untouched, also occurs when two provider
+numbers differ in bytes but compare equal under the column collation (for example `T099`,
+`t099` and `T099 `), even when their signatures match. The rows are not merged, because they
+may belong to different providers. Check each value against `provider.provider_no`, correct
+or remove the row whose number does not match the provider record, and then retry. For the DEB deployment, inspect
 `sudo carlos-ctl db-info` and the migration error. Once the data conflict is resolved and
 all published migration files are unchanged, run `sudo carlos-ctl db-repair`, then
 `sudo carlos-ctl db-migrate` and `sudo carlos-ctl db-validate`. Do not use repair to accept
@@ -97,6 +102,13 @@ Values in such a column would otherwise be replaced by defaults. MySQL's invisib
 `my_row_id` primary key carries no data and is not counted. Decide with the site whether
 the extra column is still needed, move or drop it from a backed-up database, and then use the
 same repair-and-retry steps.
+
+The final step names its unique index `providerExt_provider_no_uq`. If an adopted
+`providerExt` already has an index with that name that is not a full-column unique index on
+`provider_no` alone, the migration stops before changing anything with an unknown-column error
+naming `providerExt_provider_no_uq_name_taken_resolve_before_signature_repair`. Otherwise the
+index creation would fail only after the repaired rows were committed. Rename or drop that site
+index on a backed-up database, then use the same repair-and-retry steps.
 
 The executable isolated-database regression is
 `python3 scripts/test-provider-signature-migration.py` from the repository root, using a

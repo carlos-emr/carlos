@@ -195,5 +195,20 @@ class SignatureIdentityMigration(unittest.TestCase):
                                       "AND index_name='providerExt_provider_no_uq'"), '0')
 
 
+    def test_nonunique_index_holding_the_identity_name_is_refused_before_rows_change(self):
+        # Without the pre-flight guard the final CREATE UNIQUE INDEX would fail on
+        # the duplicate name only after the repaired rows had been committed.
+        for index in ('KEY providerExt_provider_no_uq (provider_no)',
+                      'UNIQUE KEY providerExt_provider_no_uq (provider_no, signature)'):
+            with self.subTest(index=index):
+                self.run_sql('DROP TABLE providerExt')
+                self.run_sql('CREATE TABLE providerExt (provider_no VARCHAR(6), signature VARCHAR(255), '
+                             + index + ') DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci')
+                self.run_sql("INSERT INTO providerExt VALUES ('T099','Doctor'),('T100','Other')")
+                before = self.snapshot()
+                self.run_sql(MIGRATION, success=False, error='providerExt_provider_no_uq_name_taken')
+                self.assertEqual(self.snapshot(), before)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

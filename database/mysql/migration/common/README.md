@@ -53,7 +53,10 @@ clinic name.
 `V1.0.52__enforce_provider_signature_identity.sql` repairs exact duplicate provider
 signature rows for assigned providers and enforces the mapped provider identity.
 Every unassigned NULL-provider row is retained, including identical rows. Conflicting signatures,
-and a `providerExt` with columns beyond `provider_no` and `signature`, fail before source changes. See the parent README for preparation and recovery instructions.
+provider numbers that differ in bytes but compare equal under the column collation, a
+`providerExt` with columns beyond `provider_no` and `signature`, and a site index already named
+`providerExt_provider_no_uq` that is not the provider identity all fail before source changes.
+See the parent README for preparation and recovery instructions.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration

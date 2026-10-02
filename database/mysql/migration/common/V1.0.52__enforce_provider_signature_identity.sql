@@ -35,6 +35,26 @@ PREPARE signature_column_statement FROM @signature_column_guard;
 EXECUTE signature_column_statement;
 DEALLOCATE PREPARE signature_column_statement;
 
+-- The final step names its index providerExt_provider_no_uq. A site index
+-- already holding that name but not enforcing the full provider_no identity
+-- would make that CREATE fail only after the rows were rewritten and
+-- committed, so refuse it here while providerExt is still untouched.
+SET @signature_index_name_taken = (
+    SELECT COUNT(*) FROM (
+        SELECT index_name FROM information_schema.statistics
+        WHERE table_schema = DATABASE() AND table_name = 'providerExt'
+            AND index_name = 'providerExt_provider_no_uq'
+        GROUP BY index_name
+        HAVING NOT (COUNT(*) = 1 AND MIN(non_unique) = 0
+            AND MIN(column_name) = 'provider_no' AND MIN(sub_part) IS NULL)
+    ) conflicting_indexes
+);
+SET @signature_index_name_guard = IF(@signature_index_name_taken = 0, 'SELECT 1',
+    'SELECT providerExt_provider_no_uq_name_taken_resolve_before_signature_repair FROM providerExt');
+PREPARE signature_index_name_statement FROM @signature_index_name_guard;
+EXECUTE signature_index_name_statement;
+DEALLOCATE PREPARE signature_index_name_statement;
+
 CREATE TEMPORARY TABLE carlos_signature_identity_v1_0_52 LIKE providerExt;
 ALTER TABLE carlos_signature_identity_v1_0_52
     ADD UNIQUE INDEX signature_identity_validation (provider_no);
