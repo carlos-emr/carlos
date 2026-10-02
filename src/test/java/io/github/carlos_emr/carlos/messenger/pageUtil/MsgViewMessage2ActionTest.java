@@ -197,6 +197,7 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
         addRequestParameter("messageID", "100");
         addRequestParameter("linkMsgDemo", "true");
         addRequestParameter("demographic_no", "invalid"); // converts to 0
+        getMockRequest().setMethod("POST");
 
         MsgDisplayMessage msg = createMockMessage("100");
         when(mockMessagingManager.getInboxMessage(any(LoggedInInfo.class), eq(100)))
@@ -219,6 +220,7 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
         addRequestParameter("messageID", "100");
         addRequestParameter("linkMsgDemo", "true");
         addRequestParameter("demographic_no", "42");
+        getMockRequest().setMethod("POST");
 
         MsgDisplayMessage msg = createMockMessage("100");
         when(mockMessagingManager.getInboxMessage(any(LoggedInInfo.class), eq(100)))
@@ -235,6 +237,27 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
         InOrder order = inOrder(mockDemoManager);
         order.verify(mockDemoManager).attachDemographicToMessage(any(), eq(100), eq(42));
         order.verify(mockDemoManager).getAttachedDemographicNameMap(any(), eq(100));
+    }
+
+    @Test
+    @DisplayName("should refuse a GET that asks to link a patient, before any read or write")
+    void shouldReturn405_whenLinkMsgDemoRequestedByGet() throws Exception {
+        // Given - a crafted ViewMessage link (CSRFGuard does not validate GET)
+        allowPrivilege("_msg", "r");
+        addRequestParameter("messageID", "100");
+        addRequestParameter("linkMsgDemo", "true");
+        addRequestParameter("demographic_no", "42");
+        getMockRequest().setMethod("GET");
+
+        // When
+        String result = executeAction(action);
+
+        // Then
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(405);
+        assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+        verify(mockDemoManager, never()).attachDemographicToMessage(any(), anyInt(), anyInt());
+        verify(mockMessagingManager, never()).setMessageRead(any(), anyLong(), any());
     }
 
     private MsgDisplayMessage createMockMessage(String messageId) {

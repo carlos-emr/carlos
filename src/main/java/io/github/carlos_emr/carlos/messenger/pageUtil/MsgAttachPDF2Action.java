@@ -181,24 +181,31 @@ public class MsgAttachPDF2Action extends ActionSupport {
         if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("missing required patient access");
         }
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, String.valueOf(demographicNo));
-        if (demographic == null) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Patient not found");
-            return NONE;
-        }
-        String patientName = demographic.getLastName() + ", " + demographic.getFirstName();
         // Negotiated across every Accept-Language preference (English otherwise), as the chooser's
         // labels are: request.getLocale() keeps only the first and would let the stored titles
         // fall back to the server locale instead.
         ResourceBundle labels = MsgPdfAttachmentResolver.labels(LocaleUtils.resolveBundleLocale(request));
 
         if (isPreview) {
-            return preview(loggedInInfo, demographicNo, patientName, labels);
+            return preview(loggedInInfo, demographicNo, labels);
         }
-        return attach(loggedInInfo, demographicNo, patientName, labels);
+        return attach(loggedInInfo, demographicNo, labels);
     }
 
-    private String preview(LoggedInInfo loggedInInfo, int demographicNo, String patientName, ResourceBundle labels)
+    /**
+     * The patient's display name for the demographic item's title. Looked up only for that item
+     * and only after its own privilege check: {@link DemographicManager#getDemographic} enforces
+     * {@code _demographic} read, which a user attaching only prescriptions or the encounter need
+     * not hold.
+     *
+     * @return the name, or {@code null} when the patient does not exist
+     */
+    private String patientName(LoggedInInfo loggedInInfo, int demographicNo) {
+        Demographic demographic = demographicManager.getDemographic(loggedInInfo, String.valueOf(demographicNo));
+        return demographic == null ? null : demographic.getLastName() + ", " + demographic.getFirstName();
+    }
+
+    private String preview(LoggedInInfo loggedInInfo, int demographicNo, ResourceBundle labels)
             throws IOException {
         Optional<Item> item = Item.fromKey(previewItem);
         if (item.isEmpty()) {
@@ -208,6 +215,14 @@ public class MsgAttachPDF2Action extends ActionSupport {
         // Authorize before resolving: resolving the encounter item looks the chart up, and a
         // caller without _eChart read must not learn from the response whether one exists.
         requireItemPrivilege(loggedInInfo, item.get(), demographicNo);
+        String patientName = "";
+        if (item.get() == Item.DEMOGRAPHIC) {
+            patientName = patientName(loggedInInfo, demographicNo);
+            if (patientName == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Patient not found");
+                return NONE;
+            }
+        }
         Optional<Attachment> attachment = resolver.resolve(item.get(), demographicNo, patientName, labels);
         if (attachment.isEmpty()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown attachment item");
@@ -222,7 +237,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
         return NONE;
     }
 
-    private String attach(LoggedInInfo loggedInInfo, int demographicNo, String patientName, ResourceBundle labels)
+    private String attach(LoggedInInfo loggedInInfo, int demographicNo, ResourceBundle labels)
             throws IOException {
         MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
         if (bean == null) {
@@ -243,6 +258,14 @@ public class MsgAttachPDF2Action extends ActionSupport {
         }
         for (Item item : selected) {
             requireItemPrivilege(loggedInInfo, item, demographicNo);
+        }
+        String patientName = "";
+        if (selected.contains(Item.DEMOGRAPHIC)) {
+            patientName = patientName(loggedInInfo, demographicNo);
+            if (patientName == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Patient not found");
+                return NONE;
+            }
         }
 
         // Render every item first and only then replace the set, so a failure part-way through

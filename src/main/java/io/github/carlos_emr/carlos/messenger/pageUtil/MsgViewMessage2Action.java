@@ -173,6 +173,17 @@ public class MsgViewMessage2Action extends ActionSupport {
         String demographic_no = request.getParameter("demographic_no");
         String boxType = request.getParameter("boxType") == null ? "" : request.getParameter("boxType");
 
+        // Linking a patient writes a msgDemoMap row, so it is POST-only: CSRFGuard does not
+        // validate GET, and a crafted ViewMessage link must not attach a patient to a message.
+        // Viewing a message stays a GET.
+        boolean linkRequested = linkMsgDemo != null && demographic_no != null
+                && linkMsgDemo.equalsIgnoreCase("true");
+        if (linkRequested && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         // Validate messagePosition as a non-negative integer to prevent trust boundary violation
         int parsedPosition = 0;
         String rawPosition = request.getParameter("messagePosition");
@@ -228,12 +239,10 @@ public class MsgViewMessage2Action extends ActionSupport {
 
         // Handle demographic linking if requested. Done before the attached-patient list below is
         // read, so the page shown after Link to Patient already lists the patient just linked.
-        if (linkMsgDemo != null && demographic_no != null) {
-            if (linkMsgDemo.equalsIgnoreCase("true")) {
-                Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
-                if (parsedDemoNo > 0) {
-                    messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageNo, parsedDemoNo);
-                }
+        if (linkRequested) {
+            Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
+            if (parsedDemoNo > 0) {
+                messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageNo, parsedDemoNo);
             }
         }
 

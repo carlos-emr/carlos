@@ -56,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -369,6 +370,36 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             action.execute();
 
             assertThat(bean.getPDFAttachment()).contains("<TITLE>Ordonnances en cours</TITLE>");
+        }
+
+        @Test
+        @DisplayName("should attach prescriptions without _demographic read, never looking the patient up")
+        void shouldAttachPrescriptions_withoutDemographicRead() throws Exception {
+            // DemographicManager.getDemographic enforces _demographic read; only the demographic
+            // item's title needs the patient's name, so the other items must not depend on it.
+            deny("_demographic", "r");
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"prescriptions"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(renderedRoutes).containsExactly("/rx/ViewPrintDrugProfile2?demographic_no=" + PATIENT);
+            verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyString());
+        }
+
+        @Test
+        @DisplayName("should answer 404 and attach nothing when the demographic item's patient does not exist")
+        void shouldReturn404_whenDemographicItemPatientMissing() throws Exception {
+            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            when(demographicManager.getDemographic(loggedInInfo, String.valueOf(PATIENT))).thenReturn(null);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(renderedRoutes).isEmpty();
+            assertThat(bean.getPDFAttachment()).contains("FAKE earlier attachment");
         }
 
         @Test
