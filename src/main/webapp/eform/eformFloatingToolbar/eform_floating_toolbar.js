@@ -106,7 +106,10 @@ function getEForm() {
  * There the one case that matters is a template's own newForm submit button: it would post its
  * value beside the fallback, and for a button associated with the form from outside it the
  * fallback comes first, so the server would read true. The fallback is therefore set aside for a
- * native submission whose submitter is an enabled newForm button (see below). A template newForm
+ * native submission whose submitter is an enabled newForm submit button (not an image button, which
+ * posts newForm.x/newForm.y rather than newForm; see below). The form-level default
+ * (data-carlos-newform-default) is supplied there by a temporary input, for native submissions and
+ * the toolbar's save; a template script's own form.submit() bypasses both. A template newForm
  * checkbox or list box that starts contributing after load still posts beside the fallback there.
  */
 const eformFormDataEventSupported = typeof window.FormDataEvent === "function";
@@ -118,28 +121,55 @@ function disableNewFormFallbacks() {
 // The server places the fallback inside the form, which is parsed before this body-end script.
 disableNewFormFallbacks();
 
+/**
+ * Without the formdata event: supplies the form's data-carlos-newform-default for one submission
+ * when nothing else would submit newForm (the template's control disabled, say), through a
+ * temporary hidden input removed on the next tick. {@code submitter} is the submit button, if any.
+ */
+function supplyLegacyNewFormDefault(form, submitter) {
+    if (eformFormDataEventSupported || !form.hasAttribute("data-carlos-newform-default")) {
+        return;
+    }
+    const submitterContributes = submitter && submitter.name === "newForm" && submitter.type !== "image"
+        && !submitter.disabled && submitter.form === form;
+    if (submitterContributes || new FormData(form).getAll("newForm").length > 0) {
+        return;
+    }
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "newForm";
+    input.value = form.getAttribute("data-carlos-newform-default");
+    form.appendChild(input);
+    setTimeout(function () { input.remove(); }, 0);
+}
+
 if (!eformFormDataEventSupported) {
     // These browsers also lack SubmitEvent.submitter, so the submitter is taken from the click that
     // starts a native submission (implicit Enter submission dispatches that click too).
-    let pendingNewFormSubmitter = null;
+    let pendingSubmitter = null;
     document.addEventListener("click", function (event) {
         const control = event.target instanceof Element
             ? event.target.closest("button, input[type=submit], input[type=image]") : null;
-        if (!control || control.name !== "newForm" || (control.type !== "submit" && control.type !== "image")) {
+        if (!control || (control.type !== "submit" && control.type !== "image")) {
             return;
         }
-        pendingNewFormSubmitter = control;
-        setTimeout(function () { pendingNewFormSubmitter = null; }, 0);
+        pendingSubmitter = control;
+        setTimeout(function () { pendingSubmitter = null; }, 0);
     }, true);
     // Bubble phase on document: runs after the template's own submit handlers, which may cancel the
-    // submission or disable the button. Only an enabled submitter still posts its value, and only
-    // then is the fallback set aside -- for this submission alone, so a cancelled or later save
-    // still has it.
+    // submission or disable the button. Only an enabled newForm submit button still posts its value,
+    // and only then is the fallback set aside -- for this submission alone, so a cancelled or later
+    // save still has it. An image button posts newForm.x/newForm.y, never newForm, so it keeps the
+    // fallback.
     document.addEventListener("submit", function (event) {
         const form = event.target;
-        const submitter = event.submitter || pendingNewFormSubmitter;
-        if (event.defaultPrevented || !(form instanceof HTMLFormElement) || !submitter
-            || submitter.name !== "newForm" || submitter.disabled || submitter.form !== form) {
+        if (event.defaultPrevented || !(form instanceof HTMLFormElement)) {
+            return;
+        }
+        const submitter = event.submitter || pendingSubmitter;
+        supplyLegacyNewFormDefault(form, submitter);
+        if (!submitter || submitter.name !== "newForm" || submitter.type === "image"
+            || submitter.disabled || submitter.form !== form) {
             return;
         }
         const fallbacks = Array.from(form.querySelectorAll("input[data-carlos-newform-fallback]"))
@@ -151,7 +181,8 @@ if (!eformFormDataEventSupported) {
 
 document.addEventListener("formdata", function (event) {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement) || !event.formData || event.formData.getAll("newForm").length > 0) {
+    // Only the formdata mode reconciles here; the compatibility path above owns it otherwise.
+    if (!eformFormDataEventSupported || !(form instanceof HTMLFormElement) || !event.formData || event.formData.getAll("newForm").length > 0) {
         return;
     }
     const fallback = form.querySelector("input[data-carlos-newform-fallback]");
@@ -170,6 +201,8 @@ function submitEForm() {
 		showErrorAlert();
 		return false;
 	}
+	// form.submit() fires no submit event, so the compatibility path supplies the default here.
+	supplyLegacyNewFormDefault(ef, null);
 	ef.submit();
 	return true;
 }
