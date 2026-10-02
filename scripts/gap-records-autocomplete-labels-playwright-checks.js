@@ -15,10 +15,12 @@ async function workflow(s) {
   const page = await s.context.newPage();
   await h.gotoApp(page, s.config.baseUrl, '/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAdd');
   await h.assertNotErrorPage(page, 'flowsheet creation');
-  const providerName = s.sql.value(`SELECT last_name FROM provider WHERE provider_no=${h.sqlString(s.provider)}`);
+  const [providerName, providerFirstName] = s.sql.rows(`SELECT last_name,first_name FROM provider WHERE provider_no=${h.sqlString(s.provider)}`)[0];
+  // Comma-separated name search meets the widget minimum even for short surnames.
+  const providerQuery = providerName.length >= 3 ? providerName : `${providerName}, ${providerFirstName}`;
   for (const [scope, input, query, selectedId, expectedId] of [
     ['patient', '#demographicAC', s.marker, '#demographicNo', s.patient],
-    ['provider', '#autocompleteprov', providerName, '#fwdProviders', s.provider],
+    ['provider', '#autocompleteprov', providerQuery, '#fwdProviders', s.provider],
   ]) {
     await s.step(`${scope} suggestions render highlighted labels and select the correct record`, async () => {
       if (scope === 'patient') {
@@ -43,7 +45,10 @@ async function workflow(s) {
       h.assert(matches.length === 1, 'Autocomplete did not uniquely identify the intended record');
       const row = suggestions.nth(matches[0]);
       await row.waitFor({ state: 'visible' });
-      h.assert(await row.locator('span.match').count() > 0, 'The match highlight was rendered as literal HTML');
+      // A combined last/first query spans fields, so the formatter does not highlight it.
+      if (scope === 'patient' || providerQuery === providerName) {
+        h.assert(await row.locator('span.match').count() > 0, 'The match highlight was rendered as literal HTML');
+      }
       h.assert(!(await row.innerText()).includes('<span'), 'Suggestion contains literal formatting markup');
       if (scope === 'patient') {
         h.assert((await row.innerText()).includes(hostileName), 'Patient name markup was not preserved as text');
