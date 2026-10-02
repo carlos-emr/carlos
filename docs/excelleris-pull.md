@@ -105,6 +105,9 @@ things. Two parts of the setup are simpler than on CARLOS:
   `admin/keygen/getPublicKey.json?id=<service>`, the server public key from
   `admin/keygen/keyManager.jsp`.
 - `base_url` is the OSCAR context path, for example `https://emr.example.ca/oscar`.
+- `[excelleris]` is the same section whatever the flavour. `product` keeps its default of
+  `CARLOS` on OSCAR 19 unless set; `product = OSCAR` sends the OSCAR 19 package script's
+  header instead.
 
 The OSCAR 19 contract above was verified against the shipped artifact as well as the branch:
 the `oscar-emr` 19-99~5040 package carries the Bitbucket build 5040 WAR byte for byte
@@ -169,14 +172,14 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `client_cert_file` and `client_key_file` | alternative to `pfx_file` | The certificate (with chain) and the unencrypted private key extracted from the PFX, as PEM. The key file must be mode 0600. Cannot be combined with `pfx_file`. |
 | `timeout_seconds` | no | Per-request timeout, default 60, minimum 5. |
 | `ca_file` | no | Extra PEM bundle to trust, for a TLS-intercepting proxy or a test endpoint. Server verification is never disabled. Must be a regular file owned by the service user or root and not writable by group or other. |
-| `product` | no | `CARLOS` or `OSCAR`: which shell script's User-Agent to send, byte for byte (the CARLOS `ExcellerisDownload.sh` or the OSCAR 19 package's). Defaults to `OSCAR` when `flavour = oscar19`, else `CARLOS`. |
+| `product` | no | `CARLOS` (default) or `OSCAR`: which shell script's User-Agent to send, byte for byte (the CARLOS `ExcellerisDownload.sh` or the OSCAR 19 package's). Independent of `[carlos] flavour`: the EMR behind the tool never changes the header Excelleris sees. |
 | `user_agent` | no | The whole User-Agent header, sent verbatim; overrides `product`. For a site that must keep a string it was conformance-tested under. |
 
 ### `[carlos]`
 
 | Key | Required | Meaning |
 |---|---|---|
-| `flavour` | no | `carlos` (default) or `oscar19`. |
+| `flavour` | no | `carlos` (default) or `oscar19`. Selects the EMR routes and the CSRF step only; it has no effect on the `[excelleris]` section. |
 | `base_url` | yes | EMR base URL including the context path, no trailing slash. |
 | `username` | carlos: yes; oscar19: optional | Service account login, 1 to 30 letters or digits. For `oscar19`, leaving all three credentials empty uploads without a session, as Mule did. Set all three or none. |
 | `password` | as above | Service account password. |
@@ -355,9 +358,23 @@ and `mule-config*.xml`), so the comparison is against the actual bridge, not a g
 | 8 second connection timeout, no read timeout. | Configurable timeout on connect and read. |
 | For MDS results, appended the audit text to a `CURHST.0` file. | Not implemented. MDS is a different lab feed; an Excelleris upload's audit is always `success`. |
 
-## Switching from `ExcellerisDownload.sh`
+## Replacing `ExcellerisDownload.sh` with `excelleris_pull.py`
 
-Only if a site chooses to move from the shell-and-Mule option to this one.
+Only if a site chooses to move from the shell-and-Mule option to this one. The tool takes
+the shell script's cron slot as is: the same Excelleris requests in the same order (login,
+one `Pending=Yes` query, one acknowledgment, logout), the same positive/negative
+acknowledgment rule (a positive ack only when the pull holds at least one `<Message>`; the
+script tested the first line for `<Message `, the tool parses the document),
+the same User-Agent bytes (`product = CARLOS`, the default), the same `YYYYMMDD-HHMMSS.xml`
+file names and `.xz` archives, and one run at a time under a lock. What the script handed
+to Mule, the tool uploads itself.
+
+| `ExcellerisDownload.sh` flag | `excelleris_pull.py` |
+|---|---|
+| `-s` (suppress the Mule hand-off) | `--no-upload` |
+| `-a` (push the backlog even when nothing was pulled) | Not needed: every run uploads whatever is in `inbox/` before and after the pull. |
+| `-v` | `-v` / `--verbose` |
+| `-h` | `--help` |
 
 | `config_inc.txt` | `pull.conf` |
 |---|---|
@@ -379,6 +396,23 @@ Deliberate changes from the shell script:
 - Every network call has a timeout.
 - Every error path alerts. The shell script's `set -e` silently killed most of its own error
   handling, including the email.
+
+## Moving a site from OSCAR 19 to CARLOS
+
+A site that runs the tool against OSCAR 19 keeps the same installation when the EMR
+changes. What carries over and what changes in `pull.conf`:
+
+| Item | On the move |
+|---|---|
+| `[excelleris]` (credentials, certificate, `url`, `product` / `user_agent`, `timeout_seconds`) | Unchanged. The header Excelleris sees is the same before and after. |
+| `[carlos] flavour` | `oscar19` → `carlos`. |
+| `[carlos] base_url` | The CARLOS context path. |
+| `[carlos] username`, `password`, `pin` | Required on CARLOS: a provider login with `_lab` write access, no MFA, one facility, no pending password reset. |
+| `[carlos] service`, `key_pair_file` or the two keys | Unchanged when the database was imported with `carlos-ctl`: the OSCAR 19 import copies the `publicKeys` and `oscarKeys` tables (both are listed as copied in `debian/assets/o19-manifest/o19_preflight.json`), so the service name, the client private key and the server public key stay valid. A CARLOS set up with a fresh database needs a new key from its Key Manager instead. |
+| `[paths] state_dir`, `log_file`, `[alerts]` | Unchanged. Files still in `inbox/` at the switch are uploaded to CARLOS by the next run; `done/` keeps its retention. |
+
+Run `--check-config` after editing, then `--dry-run` to prove the CARLOS login and CSRF
+token before the first scheduled run.
 
 ## Security notes
 

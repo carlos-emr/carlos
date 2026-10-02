@@ -32,11 +32,10 @@ pfx_password =
 # client_cert_file = /etc/carlos-excelleris/client_certificate.pem
 # client_key_file = /etc/carlos-excelleris/client_key.pem
 
-# Which shell script's User-Agent to send, byte for byte: CARLOS sends what
-# release/ExcellerisDownload.sh sends, OSCAR sends what the OSCAR 19 package's
-# ExcellerisDownload.sh sends. Set it to whatever Excelleris has been seeing
-# from this clinic, regardless of which flavour below receives the results.
-# Unset, it follows the flavour (OSCAR for oscar19, else CARLOS).
+# Which shell script's User-Agent to send, byte for byte. CARLOS (the default)
+# sends what release/ExcellerisDownload.sh sends; OSCAR sends what the OSCAR 19
+# package's ExcellerisDownload.sh sends. This is independent of the flavour
+# below: changing the EMR that receives the results never changes this header.
 product = CARLOS
 
 # Or override the whole header. A site that completed Excelleris conformance

@@ -1204,14 +1204,16 @@ class ConfigFlavourTest(TempEnv):
         with self.assertRaisesRegex(ep.ConfigError, "product must be CARLOS or OSCAR"):
             ep.load_config(self.conf)
 
-    def test_product_follows_flavour_unless_set(self):
+    def test_product_defaults_to_carlos_forEveryFlavour(self):
         _, _, c, srv = make_keys()
         self.write_conf(c, srv, extra_carlos="flavour = oscar19")
-        self.assertEqual(ep.load_config(self.conf).excelleris_product, "OSCAR")
+        cfg = ep.load_config(self.conf)
+        self.assertEqual(cfg.excelleris_product, "CARLOS")
+        self.assertEqual(cfg.excelleris_user_agent, ep.USER_AGENT_CARLOS_SCRIPT)
         self.write_conf(
-            c, srv, extra_carlos="flavour = oscar19", extra_excelleris="product = CARLOS"
+            c, srv, extra_carlos="flavour = oscar19", extra_excelleris="product = OSCAR"
         )
-        self.assertEqual(ep.load_config(self.conf).excelleris_product, "CARLOS")
+        self.assertEqual(ep.load_config(self.conf).excelleris_product, "OSCAR")
 
     def test_user_agent_shape(self):
         self.assertEqual(
@@ -1461,8 +1463,25 @@ class OutcomeBodyTest(unittest.TestCase):
         self.assertEqual(self.classify(503, b"<html>maintenance</html>"), 503)
 
 
+class LiveOscar19AsCarlosTest(LiveOscar19Test):
+    """OSCAR 19 routes with the CARLOS script's User-Agent: the product
+    setting is independent of the flavour on the wire, not only in config."""
+
+    product = "CARLOS"
+
+    def test_full_pipeline_over_tls(self):
+        LiveServersTest.test_full_pipeline_over_tls(self)
+        upload = self.carlos.log[1]
+        self.assertIsNone(upload[3], "no CSRF header must reach OSCAR 19")
+        self.assertEqual(upload[4], "/carlos/lab/newLabUpload")  # .do route, stripped by the fake
+        self.assertTrue(all(c[3] == ep.USER_AGENT_CARLOS_SCRIPT for c in self.excelleris.log))
+
+
 class LiveOscar19SessionlessTest(LiveOscar19Test):
-    """The OSCAR 19 live run with no EMR credentials at all, as Mule ran."""
+    """The OSCAR 19 live run with no EMR credentials at all, as Mule ran, and
+    with the default (CARLOS) User-Agent."""
+
+    product = "CARLOS"
 
     def setUp(self):
         super().setUp()
@@ -1479,6 +1498,7 @@ class LiveOscar19SessionlessTest(LiveOscar19Test):
         self.assertEqual([c[0] for c in self.carlos.log], ["upload"])  # no login, no logout
         self.assertEqual(self.carlos.seen, [PULL_WITH_RESULTS])
         self.assertEqual(self.excelleris.acks, ["Positive"])
+        self.assertTrue(all(c[3] == ep.USER_AGENT_CARLOS_SCRIPT for c in self.excelleris.log))
 
     def test_dry_run_live(self):
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(dry_run=True)), ep.EXIT_OK)

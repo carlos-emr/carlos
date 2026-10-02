@@ -89,7 +89,7 @@ RUNNING AGAINST OSCAR 19 INSTEAD
   Its Key Manager is at ``admin/keygen/``; the private key is also available
   from ``admin/keygen/getPublicKey.json?id=<service>``. ``[excelleris]
   product`` sets the product name Excelleris sees in the User-Agent ("CARLOS"
-  or "OSCAR") independently of the flavour.
+  by default, or "OSCAR") independently of the flavour.
 
 ONE-TIME SETUP ON THE HOST
 ==========================
@@ -581,11 +581,10 @@ def load_config(path: Path) -> Config:
         _require_trusted_file(path, f"[{section}] ca_file")
         return path
 
-    # Unless the clinic sets it, the name Excelleris sees follows the EMR
-    # generation being fed; an explicit value always wins.
-    product = optional("excelleris", "product", "") or (
-        "OSCAR" if flavour == FLAVOUR_OSCAR19 else "CARLOS"
-    )
+    # The name Excelleris sees is a setting of its own, never derived from the
+    # flavour: changing the EMR behind the tool must not change the header a
+    # clinic has been sending. Default: the CARLOS script's bytes.
+    product = optional("excelleris", "product", "") or "CARLOS"
     product = {"OSCAR19": "OSCAR"}.get(product.strip().upper(), product.strip().upper())
     if product not in USER_AGENTS:
         raise ConfigError("[excelleris] product must be CARLOS or OSCAR")
