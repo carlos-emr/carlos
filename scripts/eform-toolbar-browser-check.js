@@ -37,7 +37,7 @@ const fixture = (owned = false, withList = false, newFormVariant = '', subjectVa
 </head><body><form name="saveEForm" action="/eform/addEForm" method="post"${newFormVariant === 'named' ? ' data-carlos-newform-default="true"' : ''}>
 <input id="context" value="" type="hidden"><input id="fid" value="1" type="hidden">
 <input id="demographicNo" value="1" type="hidden">${subjectVariant === 'required-hidden' ? '' : '<label for="subject">Subject</label>'}
-<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : subjectVariant === 'readonly-textbox' ? ' type="textbox" readonly' : subjectVariant === 'required-hidden' ? ' type="hidden"' : subjectVariant === 'required-checkbox' ? ' type="checkbox"' : ''}></span>
+<span id="nativeSubjectRow">Subject: ${subjectVariant === 'empty-textarea' ? '<textarea id="subject" name="subject" required></textarea>' : subjectVariant === 'empty-select' ? '<select id="subject" name="subject" required><option value="">Choose</option><option value="Referral">Referral</option></select>' : `<input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : subjectVariant === 'readonly-textbox' ? ' type="textbox" readonly' : subjectVariant === 'required-hidden' ? ' type="hidden"' : subjectVariant === 'required-checkbox' ? ' type="checkbox"' : ''}>`}</span>
 ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : ''}
 ${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option><option value="">No list recipient</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
@@ -98,7 +98,8 @@ const server = http.createServer((req, res) => {
       assert.equal(await page.locator('#subject').isVisible(),false);
       assert.equal(await page.locator('label[for=subject]').isVisible(),false);
       assert.equal((await page.locator('#nativeSubjectRow').innerText()).trim(), '');
-      assert.equal(await page.locator('#remote_eform_subject').inputValue(),'Designer subject');
+      assert.equal(await page.locator('#remote_eform_subject').inputValue(),
+        subjectVariant.startsWith('empty-') ? '' : 'Designer subject');
       assert.equal(await page.locator('input[name=pdfButton]').isVisible(),false);
       assert.equal(await page.locator('#oscar-spinner-screen').isVisible(),false);
       await page.waitForFunction(() => document.getElementById('toolbarWrapper').getBoundingClientRect().top >= document.getElementById('lastPage').getBoundingClientRect().bottom);
@@ -579,6 +580,31 @@ const server = http.createServer((req, res) => {
       // both post the (empty) toolbar subject, never the authored value.
       assert.equal(requests[0].get('subject'), '', checkboxVariant);
     }
+    // A required textarea or select subject that starts empty is only hidden, so it still takes part
+    // in form validation: the toolbar value must reach it first, or every save is blocked.
+    for (const [emptyVariant, typed] of [['empty-textarea', 'Typed subject'], ['empty-select', 'Referral']]) {
+      await open(false, false, false, emptyVariant);
+      await page.locator('#remote_eform_subject').fill(typed);
+      await page.locator('#remoteSubmitButton').click();
+      await page.waitForURL('**/eform/addEForm');
+      assert.equal(requests.length, 1, emptyVariant);
+      assert.equal(requests[0].get('subject'), typed, emptyVariant);
+    }
+    // Text that is none of a required select's options blocks on the toolbar field, with the
+    // select's own message, and clears once the clinician edits it.
+    await open(false, false, false, 'empty-select');
+    const selectUrl = page.url();
+    await page.locator('#remote_eform_subject').fill('Not an option');
+    await page.locator('#remoteSubmitButton').click();
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'remote_eform_subject');
+    assert.equal(await page.evaluate(() => document.getElementById('remote_eform_subject').validity.customError), true);
+    assert.equal(page.url(), selectUrl);
+    assert.equal(requests.length, 0);
+    await page.locator('#remote_eform_subject').fill('Referral');
+    assert.equal(await page.evaluate(() => document.getElementById('remote_eform_subject').validity.customError), false);
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests[0].get('subject'), 'Referral');
     // A required text subject still blocks an empty toolbar subject.
     await open();
     const textUrl = page.url();
