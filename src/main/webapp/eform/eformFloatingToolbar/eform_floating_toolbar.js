@@ -1067,6 +1067,11 @@ function initializeFaxRecipient() {
         if (fax.dataset.edited === 'true') return;
         const chosen = selectedEformFaxRecipient();
         fax.value = chosen.fax;
+        // A number the clinician typed into the form's own other-fax field is theirs, like one
+        // typed here, so editing the recipient name must keep it. Numbers from a list, the
+        // designer or the directory stay tied to their recipient.
+        if (chosen.manual) fax.dataset.typed = 'true';
+        else delete fax.dataset.typed;
         if (name.dataset.edited !== 'true') name.value = chosen.name;
     }
     const fromForm = document.getElementById('remoteFaxFromForm');
