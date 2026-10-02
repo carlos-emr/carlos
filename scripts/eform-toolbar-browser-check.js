@@ -16,7 +16,7 @@ const toolbar = read('WEB-INF/jsp/eform/eformFloatingToolbar/eform_floating_tool
 const errors = [];
 let requests = [];
 let searches = [];
-const fixture = (owned = false, withList = false, newFormButton = false) => `<!doctype html><html><head>
+const fixture = (owned = false, withList = false, newFormButton = false, subjectVariant = '') => `<!doctype html><html><head>
 <script src="/library/jquery/jquery-3.7.1.min.js"></script>
 <script>jQuery(function(){ document.getElementById('otherFaxInput').value='416-555-0123'; });</script>
 <script src="/library/eforms/faxControl.js"></script>
@@ -27,7 +27,7 @@ const fixture = (owned = false, withList = false, newFormButton = false) => `<!d
 </head><body><form name="saveEForm" action="/eform/addEForm" method="post">
 <input id="context" value="" type="hidden"><input id="fid" value="1" type="hidden">
 <input id="demographicNo" value="1" type="hidden"><label for="subject">Subject</label>
-<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required></span>
+<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : ''}></span>
 ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : ''}
 ${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option><option value="">No list recipient</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
@@ -46,7 +46,7 @@ const server = http.createServer((req, res) => {
   if (req.url.startsWith('/eform/eformFloatingToolbar/eform_floating_toolbar') && !req.url.endsWith('.js') && !req.url.endsWith('.css')) {
     setTimeout(() => {res.setHeader('Content-Type', 'text/html'); res.end(toolbar);}, 600); return;
   }
-  if (req.url.startsWith('/fixture')) {res.setHeader('Content-Type','text/html'); res.end(fixture(req.url.includes('owned=owned'), req.url.includes('selection=list'), req.url.includes('newform=button'))); return;}
+  if (req.url.startsWith('/fixture')) {res.setHeader('Content-Type','text/html'); res.end(fixture(req.url.includes('owned=owned'), req.url.includes('selection=list'), req.url.includes('newform=button'), (req.url.match(/subject=([a-z-]+)/) || [])[1] || '')); return;}
   if (req.url.startsWith('/fax/SearchFaxRecipient')) {
     searches.push(req.url);
     res.setHeader('Content-Type', 'application/json');
@@ -78,9 +78,9 @@ const server = http.createServer((req, res) => {
         throw error;
       });
     }
-    async function open(owned=false, withList=false, newFormButton=false) {
+    async function open(owned=false, withList=false, newFormButton=false, subjectVariant='') {
       requests=[];
-      await gotoApp(page, validateBaseUrl(`http://127.0.0.1:${server.address().port}`), `/fixture?owned=${owned ? 'owned' : 'no'}&selection=${withList ? 'list' : 'no'}&newform=${newFormButton ? 'button' : 'no'}`);
+      await gotoApp(page, validateBaseUrl(`http://127.0.0.1:${server.address().port}`), `/fixture?owned=${owned ? 'owned' : 'no'}&selection=${withList ? 'list' : 'no'}&newform=${newFormButton ? 'button' : 'no'}&subject=${subjectVariant || 'plain'}`);
       await page.locator('#remoteFaxButton').waitFor();
       assert.equal(await page.locator('#otherFaxInput').count(),1);
       assert.equal(await page.locator('#otherFaxInput').inputValue(),'416-555-0123');
@@ -432,6 +432,20 @@ const server = http.createServer((req, res) => {
       // readonly one still submits (empty).
       assert.equal(requests[0].get('subject'), disable === 'readonly' ? '' : null);
     }
+    // Template-authored readonly: a text subject is exempt, but readonly does not apply to a
+    // checkbox, so a required readonly checkbox subject still enforces the requirement.
+    await open(false, false, false, 'readonly-text');
+    await page.locator('#remote_eform_subject').fill('');
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    await open(false, false, false, 'readonly-checkbox');
+    const checkboxUrl = page.url();
+    await page.locator('#remote_eform_subject').fill('');
+    await page.locator('#remoteSubmitButton').click();
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'remote_eform_subject');
+    assert.equal(page.url(), checkboxUrl);
+    assert.equal(requests.length, 0);
     // A template subject without the constraint still saves with an empty subject.
     await open();
     await page.evaluate(() => { document.getElementById('subject').required = false; });

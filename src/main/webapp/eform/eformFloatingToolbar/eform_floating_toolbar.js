@@ -209,6 +209,10 @@ function editorStillLoading() {
  * known until the save is actually attempted, so by this point the flag is already on the form and
  * a later plain Save would otherwise ride it into a download/fax/email.</p>
  */
+/** Input types the readonly attribute applies to (HTML spec); it is ignored on all others. */
+const READONLY_INPUT_TYPES = ["text", "search", "url", "tel", "email", "password", "date", "month",
+	"week", "time", "datetime-local", "number"];
+
 function eFormValidationBlocked() {
 	const ef = getEForm();
 	// moveSubjectReverse() turns the template's subject input into type="hidden", which the browser
@@ -219,11 +223,17 @@ function eFormValidationBlocked() {
 	const toolbarSubject = document.getElementById("remote_eform_subject");
 	// A disabled template subject (directly or through a disabled fieldset) is barred from
 	// native constraint validation, so its requirement must not carry over either.
-	// A readonly input or textarea is barred as well. (:read-only is broader: it also matches
-	// controls the attribute does not apply to, so check the property on those two elements.)
+	// A readonly textarea, or a readonly input of a type readonly applies to, is barred as well;
+	// on other input types (checkbox, radio, file, range, color...) readonly is ignored, so their
+	// requirement still holds. moveSubjectReverse() has since made the input type="hidden", so
+	// read the template's own type it recorded. (:read-only is broader than the attribute, so
+	// check the property.)
+	const templateSubjectReadOnly = !!templateSubject && templateSubject.readOnly === true
+		&& (templateSubject.tagName === "TEXTAREA" || (templateSubject.tagName === "INPUT"
+			&& READONLY_INPUT_TYPES.includes(templateSubject.dataset.carlosOriginalType
+				|| (templateSubject.getAttribute("type") || "text").toLowerCase())));
 	const templateSubjectDisabled = !!templateSubject && ((typeof templateSubject.matches === "function"
-		&& templateSubject.matches(":disabled"))
-		|| (["INPUT", "TEXTAREA"].includes(templateSubject.tagName) && templateSubject.readOnly === true));
+		&& templateSubject.matches(":disabled")) || templateSubjectReadOnly);
 	if (templateSubject && templateSubject.required === true && !templateSubjectDisabled && toolbarSubject
 			&& typeof toolbarSubject.checkValidity === "function") {
 		toolbarSubject.required = true;
@@ -901,7 +911,15 @@ function moveSubjectReverse() {
     if (caption?.nodeType === Node.TEXT_NODE) {
         caption.textContent = caption.textContent.replace(/\bSubject:\s*$/i, '');
     }
-    if (subjectElement.tagName === "INPUT") subjectElement.type = "hidden";
+    if (subjectElement.tagName === "INPUT") {
+        // Record the template's own type before hiding the field: the save-time subject check
+        // needs it to know whether readonly applied (an unknown or missing type is text).
+        if (!subjectElement.dataset.carlosOriginalType) {
+            const type = (subjectElement.getAttribute("type") || "text").toLowerCase();
+            subjectElement.dataset.carlosOriginalType = type;
+        }
+        subjectElement.type = "hidden";
+    }
     subjectElement.hidden = true;
     let localSubject = document.getElementById("remote_eform_subject");
     if (localSubject) {
