@@ -29,6 +29,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.EmbeddedLabDocumentLoader;
+
 /**
  * Unit tests for {@link EdObservationValue} through {@link DefaultGenericHandler}: a handler whose
  * {@code getOBXResult} reads OBX-5 component 1 still yields the ED.5 document and its ED.4
@@ -133,6 +135,17 @@ class EdObservationValueUnitTest {
 
         assertThat(handler.getOBXEmbeddedDocumentData(0, 1)).isEqualTo(PDF_BASE64);
         assertThat(handler.getOBXDocumentEncoding(0, 1)).isNull();
+    }
+
+    @Test
+    @DisplayName("should show legacy OBX-5.1 text of an ED value as its text")
+    void shouldClassifyLegacyResultAsText_whenDataComponentIsEmpty() throws Exception {
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||Report to follow, see note.||||||F|||20260930100000");
+
+        assertThat(handler.getOBXDocumentEncoding(0, 1)).isNull();
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status())
+                .isEqualTo(EmbeddedLabDocumentLoader.Status.TEXT);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).isEqualTo("Report to follow, see note.");
     }
 
     @Test
