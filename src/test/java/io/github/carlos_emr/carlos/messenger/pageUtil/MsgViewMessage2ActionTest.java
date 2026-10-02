@@ -258,6 +258,8 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
         assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
         verify(mockDemoManager, never()).attachDemographicToMessage(any(), anyInt(), anyInt());
         verify(mockMessagingManager, never()).setMessageRead(any(), anyLong(), any());
+        verify(mockMessagingManager, never()).getInboxMessage(any(), anyInt());
+        verify(mockDemoManager, never()).getAttachedDemographicNameMap(any(), anyInt());
     }
 
     private MsgDisplayMessage createMockMessage(String messageId) {

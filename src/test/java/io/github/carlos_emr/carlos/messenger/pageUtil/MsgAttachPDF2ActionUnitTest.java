@@ -397,7 +397,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
-            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
             assertThat(renderedRoutes).isEmpty();
             assertThat(bean.getPDFAttachment()).contains("FAKE earlier attachment");
         }
