@@ -19,6 +19,7 @@ import io
 import dataclasses
 import datetime as dt
 import email
+import email.utils
 import lzma
 import os
 import re
@@ -453,6 +454,12 @@ class ClientCertificateTest(TempEnv):
 # ---------------------------------------------------------------------------
 
 
+def _umask() -> int:
+    current = os.umask(0)
+    os.umask(current)
+    return current
+
+
 class ArchiveTest(TempEnv):
     def test_directories_and_files_are_private(self):
         archive = ep.Archive(self.cfg)
@@ -671,6 +678,59 @@ class ArchiveTest(TempEnv):
         self.assertEqual(
             [p.name for p in archive.inbox_files()], ["20261001-090000.xml", "20261001-090100.xml"]
         )
+
+    def test_forgive_attempt_takes_back_only_its_own_run(self):
+        archive = ep.Archive(self.cfg)
+        f = archive.save_inbox("20261001-090000", b"<HL7Messages/>")
+        self.assertEqual(archive.bump_attempts(f, "run-1"), 1)
+        archive.forgive_attempt(f, "run-2")  # not this run's: untouched
+        self.assertEqual(archive.attempts(f), 1)
+        archive.forgive_attempt(f, "run-1")
+        self.assertEqual(archive.attempts(f), 0)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*.attempts")), [])
+        archive.bump_attempts(f, "run-1")
+        self.assertEqual(archive.bump_attempts(f, "run-2"), 2)
+        archive.forgive_attempt(f, "run-2")
+        self.assertEqual(archive.attempts(f), 1)
+        self.assertEqual(archive.bump_attempts(f, "run-2"), 2)  # counts again after forgiving
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*.tmp")), [])
+
+    def test_symlinked_state_directories_are_refused(self):
+        real = self.tmp / "elsewhere"
+        real.mkdir()
+        if self.cfg.state_dir.exists():
+            shutil.rmtree(self.cfg.state_dir)
+        self.cfg.state_dir.symlink_to(real)
+        with self.assertRaisesRegex(ep.ConfigError, "symbolic link"):
+            ep.Archive(self.cfg)
+        self.assertEqual(stat.S_IMODE(real.stat().st_mode), 0o755 & ~_umask())
+        self.cfg.state_dir.unlink()
+        self.cfg.state_dir.mkdir(mode=0o700)
+        self.cfg.inbox_dir.symlink_to(real)
+        with self.assertRaisesRegex(ep.ConfigError, "symbolic link"):
+            ep.Archive(self.cfg)
+        self.assertEqual(list(real.iterdir()), [])
+
+    def test_state_directory_owned_by_someone_else_is_refused(self):
+        self.cfg.state_dir.mkdir(mode=0o750, exist_ok=True)
+        with mock.patch.object(ep.os, "geteuid", return_value=os.geteuid() + 1):
+            with self.assertRaisesRegex(ep.ConfigError, "owned by uid"):
+                ep.Archive(self.cfg)
+        self.assertEqual(stat.S_IMODE(self.cfg.state_dir.stat().st_mode), 0o750)  # untouched
+
+    def test_own_state_directory_is_accepted_and_tightened(self):
+        self.cfg.state_dir.mkdir(mode=0o755, exist_ok=True)
+        os.chmod(self.cfg.state_dir, 0o755)
+        ep.Archive(self.cfg)
+        for d in (self.cfg.state_dir, self.cfg.inbox_dir, self.cfg.done_dir, self.cfg.failed_dir):
+            self.assertEqual(stat.S_IMODE(d.stat().st_mode), 0o700, d)
+
+    def test_a_file_where_the_state_directory_should_be_is_refused(self):
+        if self.cfg.state_dir.exists():
+            shutil.rmtree(self.cfg.state_dir)
+        self.cfg.state_dir.write_text("not a directory")
+        with self.assertRaisesRegex(ep.ConfigError, "not a directory"):
+            ep.Archive(self.cfg)
 
     def test_purge_respects_retention(self):
         archive = ep.Archive(self.cfg)
@@ -1149,6 +1209,17 @@ class OrchestrationTest(_OrchestrationBase):
         self.assertTrue(stuck.exists())
         self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
         self.assertTrue(any("could not be removed" in line for line in captured.output))
+
+    def test_a_bad_state_dir_is_a_configuration_error_not_a_crash(self):
+        real = self.tmp / "elsewhere"
+        real.mkdir()
+        if self.cfg.state_dir.exists():
+            shutil.rmtree(self.cfg.state_dir)
+        self.cfg.state_dir.symlink_to(real)
+        with self.assertLogs(ep.log, level="ERROR") as captured:
+            self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_CONFIG)
+        self.assertTrue(any("step 'configuration'" in line for line in captured.output))
+        self.assertEqual(self.labels(), [])  # nothing was contacted
 
     def test_run_alerts_when_a_purge_fails(self):
         archive = ep.Archive(self.cfg)
@@ -2647,13 +2718,42 @@ class RetryClassificationTest(_OrchestrationBase):
         self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # attempt 1 of 2
         failures = ep.upload_step(
             cfg, ep.Archive(cfg), "run-2", ep.RunOptions(upload_only=True), self.factory
-        )
+        ).failures
         self.assertEqual(list(cfg.inbox_dir.glob("*")), [])  # gave up, sidecar gone
         self.assertEqual(len(list(cfg.failed_dir.glob("*.xml"))), 1)
         # One line for the file, saying where it went; nothing claims it was kept.
         self.assertEqual(len(failures), 1, failures)
         self.assertIn("moved to", failures[0])
         self.assertNotIn("left in inbox", failures[0])
+
+    def test_429_stops_the_pass_and_charges_no_attempt(self):
+        archive = ep.Archive(self.cfg)
+        for i in range(3):
+            archive.save_inbox(f"20261001-09000{i}", PULL_WITH_RESULTS)
+        self.script["POST /carlos/lab/newLabUpload"] = ok("", 429, {"Retry-After": "30"})
+        with self.assertLogs(ep.log, level="ERROR") as captured:
+            self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        # One request, then the pass stopped; the pull still ran and was stored;
+        # no second pass; nothing was charged an attempt.
+        self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload"), 1)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 4)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*.attempts")), [])
+        alert = next(line for line in captured.output if "ALERT" in line)
+        self.assertIn("rate limited (429), retry after 30 s", alert)
+        self.assertIn("3 inbox file(s) kept for the next run, no attempt charged", alert)
+
+    def test_retry_after_header_is_read_in_both_forms(self):
+        self.assertEqual(ep._retry_after_seconds({"Retry-After": "30"}), 30)
+        self.assertEqual(ep._retry_after_seconds({"retry-after": " 7 "}), 7)
+        self.assertIsNone(ep._retry_after_seconds({}))
+        self.assertIsNone(ep._retry_after_seconds({"Retry-After": "soon"}))
+        later = email.utils.format_datetime(
+            dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=90),
+            usegmt=True,
+        )
+        self.assertTrue(85 <= ep._retry_after_seconds({"Retry-After": later}) <= 90)
+        past = "Wed, 21 Oct 2015 07:28:00 GMT"
+        self.assertEqual(ep._retry_after_seconds({"Retry-After": past}), 0)
 
     def test_recovery_clears_the_attempt_count(self):
         self.script["POST /carlos/lab/newLabUpload"] = ok("", 503)
@@ -2791,6 +2891,14 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
         self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
         self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
+
+    def test_429_takes_back_the_in_flight_marker(self):
+        # OSCAR 19 counts the attempt before sending; a 429 gives it back.
+        self.script["POST /carlos/lab/newLabUpload.do"] = ok("", 429)
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 1)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*.attempts")), [])
+        self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload.do"), 1)
 
     def test_first_seen_409_is_parked_without_proof_of_an_import(self):
         # The checksum may have been left by Mule, a manual upload or another

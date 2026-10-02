@@ -141,6 +141,7 @@ import argparse
 import base64
 import configparser
 import dataclasses
+import datetime
 import fcntl
 import hashlib
 import http.client
@@ -163,6 +164,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+import email.utils
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Callable, Optional
@@ -1362,10 +1364,38 @@ class Archive:
         self.cfg = cfg
         self.untightened: set[Path] = set()  # inbox files whose mode could not be tightened
         for d in (cfg.state_dir, cfg.inbox_dir, cfg.done_dir, cfg.failed_dir):
+            self._own_directory(d)
+
+    @staticmethod
+    def _own_directory(d: Path) -> None:
+        """Create ``d`` owner-only, or accept it only if it is this tool's.
+
+        The state tree holds PHI, so it is tightened to 0700. That must never
+        land on something else: a ``state_dir`` pointing at another service's
+        directory would strip that service's group access, and a symbolic link
+        would send every write and chmod outside the intended tree. So a
+        directory that already exists is accepted only when it is a real
+        directory (not a link) owned by the user this tool runs as; anything
+        else is a configuration error, reported before a byte is written.
+        """
+        try:
+            st = os.lstat(d)
+        except FileNotFoundError:
             d.mkdir(
                 parents=True, exist_ok=True, mode=0o700
             )  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- 0700 is owner-only; the rule's 0644 default would expose PHI
             os.chmod(d, 0o700)
+            return
+        if stat.S_ISLNK(st.st_mode):
+            raise ConfigError(f"[paths] state directory {d} is a symbolic link; use the real path")
+        if not stat.S_ISDIR(st.st_mode):
+            raise ConfigError(f"[paths] state directory {d} exists and is not a directory")
+        if st.st_uid != os.geteuid():
+            raise ConfigError(
+                f"[paths] state directory {d} is owned by uid {st.st_uid}, not the user this "
+                f"tool runs as (uid {os.geteuid()}); it must be a directory dedicated to this tool"
+            )
+        os.chmod(d, 0o700)
 
     def save_inbox(self, run_id: str, data: bytes) -> Path:
         """Write a pull atomically: temp file, fsync, rename, directory fsync.
@@ -1544,6 +1574,35 @@ class Archive:
         os.replace(tmp, sidecar)
         self._fsync_dir(self.cfg.inbox_dir)
         return count
+
+    def forgive_attempt(self, path: Path, run_token: str) -> None:
+        """Take back the attempt ``bump_attempts`` recorded for this run, if it
+        is the last one on record.
+
+        For a 429: the in-flight marker written before an OSCAR 19 upload
+        counted an attempt that the EMR then refused to even consider. Only
+        this run's own count is taken back, atomically and durably like the
+        bump; a marker left by a crashed run stays, which errs on the side of
+        the retry cap.
+        """
+        sidecar = self._attempts_file(path)
+        count, last_run = self._read_attempts(path)
+        if last_run != run_token or count <= 0:
+            return
+        count -= 1
+        if count == 0:
+            sidecar.unlink(missing_ok=True)
+            self._fsync_dir(self.cfg.inbox_dir)
+            return
+        tmp = sidecar.with_name(sidecar.name + ".tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as fh:
+            # The token is cleared so a later failure in this run counts again.
+            fh.write(f"{count} -\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, sidecar)
+        self._fsync_dir(self.cfg.inbox_dir)
 
     LEFTOVER_PATTERNS = ("*.xml.part", "*.attempts.tmp")
     # Names this tool gives inbox files: a run id, the "-manual" mark for a
@@ -1884,11 +1943,19 @@ class UploadOutcome:
 
     status: int
     detail: str
+    retry_after: Optional[int] = None  # seconds, from a 429's Retry-After header
 
     # Statuses the upload action sends for a reason intrinsic to this request:
     # 400 no file, 403 upload-source rejection (CARLOS), 406 signature failure.
     # Re-sending the same bytes cannot change them.
     PERMANENT = (400, 403, 406)
+
+    @property
+    def rate_limited(self) -> bool:
+        """The EMR (or a proxy) throttled the request: a queue-wide signal
+        that says nothing about this file, so no attempt is charged and the
+        rest of the backlog waits for the next run."""
+        return self.status == 429
 
     @property
     def accepted(self) -> bool:
@@ -2143,7 +2210,10 @@ class CarlosSession:
             "POST", self._url(self.routes["upload"] or ""), headers=headers, body=body
         )
         status, detail = self._classify_reply(resp, status_in_code)
-        return UploadOutcome(status, detail)
+        retry_after = _retry_after_seconds(resp.headers) if status == 429 else None
+        if retry_after is not None:
+            detail = f"{detail}, retry after {retry_after} s"
+        return UploadOutcome(status, detail, retry_after)
 
     _OUTCOME_STATUS = {
         "uploaded": 200,
@@ -2160,6 +2230,7 @@ class CarlosSession:
         403: "upload rejected by the EMR's upload-source validation (not a key problem)",
         406: "signature validation failed (service name / client key mismatch)",
         409: "uploaded previously (duplicate, already imported)",
+        429: "rate limited (429)",
         500: "the EMR could not import the file (see its log)",
     }
 
@@ -2200,6 +2271,11 @@ class CarlosSession:
         renders when the multipart layer refuses the request, is not a
         success either; treating it as one would archive an unimported file.
         """
+        if resp.status == 429:
+            # Never the upload action's answer on either flavour: CARLOS'
+            # RateLimitFilter (30 requests a minute on this route, with
+            # Retry-After) or a proxy. It throttles the queue, not the file.
+            return 429, cls._DETAIL[429]
         if resp.status != 200:
             if status_in_code:
                 return resp.status, cls._DETAIL.get(resp.status, f"HTTP {resp.status}")
@@ -2222,6 +2298,30 @@ class CarlosSession:
             f"HTTP 200 with a {len(resp.body)}-byte reply that is not an upload result "
             "(no <outcome> document: request refused before the upload action ran?)"
         )
+
+
+def _retry_after_seconds(headers: dict[str, str]) -> Optional[int]:
+    """The Retry-After header as whole seconds, or None when absent or unreadable.
+
+    RFC 9110 allows a delay in seconds or an HTTP-date; CARLOS' RateLimitFilter
+    sends seconds. The value is reported in the alert, not slept on: the run
+    ends and cron brings the next one.
+    """
+    value = next((v for k, v in headers.items() if k.lower() == "retry-after"), None)
+    if value is None:
+        return None
+    value = value.strip()
+    if value.isdigit():
+        return int(value)
+    try:
+        when = email.utils.parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=datetime.timezone.utc)
+    return max(0, int((when - datetime.datetime.now(datetime.timezone.utc)).total_seconds()))
 
 
 # ---------------------------------------------------------------------------
@@ -2366,14 +2466,23 @@ OSCAR19_409_UNPROVEN = (
 )
 
 
+@dataclasses.dataclass
+class UploadPass:
+    """What one upload pass reports back to ``run``."""
+
+    failures: list[str]
+    rate_limited: bool = False  # the EMR throttled the pass: no second pass this run
+
+
 def upload_step(
     cfg: Config,
     archive: Archive,
     run_token: str,
     opts: RunOptions,
     make_transport=default_transport,
-) -> list[str]:
-    """Upload every inbox file to CARLOS. Returns a list of failure descriptions.
+) -> UploadPass:
+    """Upload every inbox file to CARLOS. Returns the pass's failure
+    descriptions and whether the EMR throttled it (see ``UploadPass``).
 
     ``run_token`` identifies this run for the attempt counter (see
     ``Archive.bump_attempts``)."""
@@ -2382,8 +2491,9 @@ def upload_step(
         files = []
     elif not files:
         log.info("inbox empty; nothing to upload")
-        return []
+        return UploadPass([])
     failures: list[str] = []
+    rate_limited = False
     envelope = LabUploadEnvelope(cfg.client_private_key, cfg.server_public_key)
     transport = make_transport(
         cfg.carlos_timeout, server_verifying_context(cfg.carlos_ca_file), False
@@ -2522,6 +2632,27 @@ def upload_step(
                     dest = archive.mark_failed(path)
                     failures.append(f"{path.name}: {outcome.detail}; moved to {dest}")
                     log.error("%s: %s rejected: %s", cfg.carlos_flavour, path.name, outcome.detail)
+                elif outcome.rate_limited:
+                    # A queue-wide signal (CARLOS allows 30 uploads a minute on
+                    # this route): sending the rest would be refused the same
+                    # way and charge each file an attempt it never had. Stop
+                    # the pass, charge nothing (the OSCAR 19 in-flight marker
+                    # is taken back), and let the next run continue.
+                    if cfg.carlos_flavour == FLAVOUR_OSCAR19:
+                        archive.forgive_attempt(path, run_token)
+                    remaining = len(archive.inbox_files())
+                    failures.append(
+                        f"{cfg.carlos_flavour} {outcome.detail}; {remaining} inbox file(s) "
+                        "kept for the next run, no attempt charged"
+                    )
+                    log.error(
+                        "%s: %s: pass stopped, %d file(s) wait for the next run",
+                        cfg.carlos_flavour,
+                        outcome.detail,
+                        remaining,
+                    )
+                    rate_limited = True
+                    break
                 else:
                     # Transient: keep it in the inbox and retry next run, up to
                     # the cap, so an EMR outage never strands an acknowledged
@@ -2548,7 +2679,7 @@ def upload_step(
         # failure: report it, keep the inbox, and let the run go on to the pull
         # (the pull stores before it acks, so it is safe without an EMR).
         failures.append(f"{exc.step}: {exc.detail}; inbox files kept for retry")
-    return failures
+    return UploadPass(failures, rate_limited)
 
 
 def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
@@ -2600,8 +2731,11 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
                     "and were not sent; see the log"
                 )
         # Retry first: a backlog from a CARLOS outage goes in before new work.
+        throttled = False
         if not opts.no_upload and not opts.dry_run:
-            failures += upload_step(cfg, archive, run_token, opts, make_transport)
+            backlog = upload_step(cfg, archive, run_token, opts, make_transport)
+            failures += backlog.failures
+            throttled = backlog.rate_limited
         if not opts.upload_only:
             try:
                 pull_step(cfg, archive, run_id, opts, make_transport)
@@ -2610,11 +2744,12 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
                 # (including a pull stored just before its ack failed), so
                 # record it and still run the upload below.
                 failures.append(f"{exc.step}: {exc.detail}")
-        if not opts.no_upload and not opts.upload_only:
+        if not opts.no_upload and not opts.upload_only and not throttled:
             # Second pass for what the pull just stored. With --upload-only
             # the first pass already took the whole inbox; a second one would
-            # only re-send, in the same run, the files it just failed on.
-            failures += upload_step(cfg, archive, run_token, opts, make_transport)
+            # only re-send, in the same run, the files it just failed on. After
+            # a 429 the EMR would refuse it too: the pull waits for next run.
+            failures += upload_step(cfg, archive, run_token, opts, make_transport).failures
         if not opts.dry_run:  # a dry run touches no data, retained archives included
             _, unpurged = archive.purge()
             if unpurged:

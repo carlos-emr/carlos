@@ -64,8 +64,10 @@ Excelleris --(mutual TLS GET)--> inbox/ --(AES + RSA + MD5withRSA multipart POST
 
   400 / 403 / 406 (or 409 on OSCAR 19 without the same bytes in done/, or a file
   too large for the EMR)                        -> failed/ at once
-  5xx, 429, a login redirect, an unreadable reply -> stays in inbox/, retried next
+  5xx, a login redirect, an unreadable reply     -> stays in inbox/, retried next
                                                    run, failed/ after max_upload_attempts
+  429 (rate limited)                             -> the pass stops; everything left
+                                                   waits for the next run, nothing charged
 ```
 
 ## One-time setup in the EMR
@@ -205,13 +207,13 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `server_public_key` or `server_public_key_file` | one of, unless `key_pair_file` | Base64 X.509 public key from the Key Manager page. |
 | `timeout_seconds` | no | Per-request timeout, default 120, minimum 5. |
 | `ca_file` | no | PEM bundle for an EMR served under a private CA. Must be a regular file owned by the service user or root and not writable by group or other. |
-| `max_upload_attempts` | no | Runs with a transient upload failure (5xx, 429, a redirect to the login page, an unreadable reply) tolerated for one file before it moves to `failed/`. Default 24, minimum 1. Permanent rejections (400, 403, 406) go to `failed/` at once. |
+| `max_upload_attempts` | no | Runs with a transient upload failure (5xx, a redirect to the login page, an unreadable reply) tolerated for one file before it moves to `failed/`. Default 24, minimum 1. Permanent rejections (400, 403, 406) go to `failed/` at once. A 429 is not charged to any file (see Operations). |
 
 ### `[paths]`
 
 | Key | Required | Meaning |
 |---|---|---|
-| `state_dir` | yes | Absolute path. The tool creates `inbox/`, `done/` and `failed/` under it (mode 0700) and `run.lock` (mode 0600). Lab results live here: keep it on local, encrypted storage and out of any backup that is not itself PHI-grade. |
+| `state_dir` | yes | Absolute path to a directory dedicated to this tool. The tool creates it, and `inbox/`, `done/` and `failed/` under it, mode 0700, plus `run.lock` (mode 0600). A directory that already exists is accepted only if it is a real directory (not a symbolic link) owned by the user the tool runs as; otherwise the run stops with a configuration error before anything is written or any permission is changed, so a mistaken path cannot tighten another service's directory or send PHI through a link. Lab results live here: keep it on local, encrypted storage and out of any backup that is not itself PHI-grade. |
 | `log_file` | yes | Absolute path. Never contains result content or credentials. |
 | `retention_days` | no | Days to keep compressed, already-imported pulls in `done/`. Default 90. `0` keeps forever and logs a warning every run. |
 
@@ -301,6 +303,13 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
   with an alert. Check the EMR inbox for the results; if they are missing, an administrator
   must delete the file's row from the `fileUploadCheck` table before the same bytes can be
   uploaded again. If they are there, delete the parked file.
+- **Rate limiting.** CARLOS allows 30 requests a minute on the upload route (its
+  `RateLimitFilter`, with a `Retry-After` header); a proxy may throttle too. A `429` is a
+  signal about the queue, not the file, so the tool stops the upload pass at once, charges no
+  file an attempt (on OSCAR 19 the in-flight marker is taken back), skips the second pass of
+  that run, and alerts with the `Retry-After` value and the number of files waiting. The next
+  run continues from where it stopped, oldest first. A backlog of more than 30 files on CARLOS
+  therefore drains over several runs rather than burning attempts.
 - **Interrupted runs.** A pull is written to `inbox/` as a `.xml.part` file and renamed into
   place before Excelleris is acknowledged; a kill, reboot or power loss in between leaves the
   `.part` behind. Each run removes such leftovers (and stale `.attempts.tmp` files) first, under
@@ -330,6 +339,8 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `unreachable` | The EMR could not be reached (login failed to connect, or two files in a row could not be sent). Everything in `inbox/` waits for the next run. |
 | `duplicate (409) with no record in done/` | OSCAR 19 only. The EMR already holds the file's checksum but this tool has no archive of an import of those bytes; the results may not be in the EMR. Verify in the EMR inbox (see Operations). |
 | `could not be removed` | A temp file left by an interrupted run could not be deleted from `inbox/`; see the log line for the error. |
+| `rate limited (429)` | The EMR or a proxy throttled the upload pass; the files named as kept wait for the next run and were not charged an attempt. Only a concern if it repeats every run (then the run cadence or the backlog needs attention). |
+| `state directory ... symbolic link` / `owned by uid` / `not a directory` | `[paths] state_dir` (or `inbox/`, `done/`, `failed/` under it) is not a dedicated directory owned by the service user. Nothing was written or changed. Fix the path or the ownership. |
 | `past retention could not be removed` | A `done/` archive older than `retention_days` could not be deleted, so imported results stayed on disk past their retention; see the log line for the error. |
 | `signature validation failed` (406) | `service` does not match the key name, or the client private key is not the one the EMR generated for it. |
 | `upload-source validation` (403, CARLOS) | CARLOS refused the upload before checking the signature; see the CARLOS log. |
