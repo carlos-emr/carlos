@@ -15,14 +15,21 @@ const ui = require('./lib/playwright-ui');
 const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { SKIP_ITEMS } = require('./master-record-tabs-playwright-checks');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
-const { payload, inspect, Findings, Seeder, walkLinks, openMasterByChartNo } = require('./lib/xss-poison-helpers');
-const { seedPatient, purgeSupport } = require('./lib/xss-poison-patient');
+const { payload, inspect, Findings, Seeder, walkLinks, freeProviderNo } = require('./lib/xss-poison-helpers');
+const { seedPatient } = require('./lib/xss-poison-patient');
+
+// Create Invoice puts the patient's name into the request URL, and the front door's WAF refuses the markup
+// there (CRS 949110, 403) before the application renders anything; the billing screens are walked with clean
+// patient names by xss-poison-billing instead.
+const FRONT_DOOR_SKIP = [{ match: /^\s*Create Invoice\s*$/i }];
 
 async function workflow(s) {
   const fields = {};
-  let n = 0;
+  // Payload numbers start at 700: each check owns its own range, so a concurrent xss-poison run's rows on a
+  // shared list are never mistaken for this run's (inspect() ignores a number it did not create).
+  let n = 700;
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
-  const seed = new Seeder(s.sql, s.cleanup);
+  const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-8);
   const chartNo = `XP${hex.slice(0, 6)}`;
   let demo;
@@ -30,7 +37,7 @@ async function workflow(s) {
     // One provider per role the Edit form offers (doctor, nurse, midwife); the role lists come from secUserRole.
     const providerNos = [];
     for (const [i, role] of ['doctor', 'nurse', 'midwife'].entries()) {
-      const no = String(700000 + ((parseInt(hex, 16) + i * 7) % 99990));
+      const no = freeProviderNo(s.sql, 700000 + ((parseInt(hex, 16) + i * 1000) % 98000));
       providerNos.push(no);
       seed.insert('provider', {
         provider_no: no, last_name: P(`${role} last name`, 30), first_name: P(`${role} first name`, 30), provider_type: role,
@@ -40,7 +47,6 @@ async function workflow(s) {
     }
     const provNo = providerNos[0];
     demo = seedPatient(seed, P, provNo, chartNo);
-    s.cleanup(() => purgeSupport(s.sql, demo));
     seed.insert('demographicExt', { demographic_no: Number(demo), provider_no: '999998', key_val: 'phoneComment', value: P('patient phone comment'), date_time: { raw: 'NOW()' } }, { key: 'id' });
     for (const key of ['hPhoneExt', 'wPhoneExt', 'cytolNum', 'demo_cell']) {
       seed.insert('demographicExt', { demographic_no: Number(demo), provider_no: '999998', key_val: key, value: P(`patient ${key}`, 20), date_time: { raw: 'NOW()' } }, { key: 'id' });
@@ -84,7 +90,7 @@ async function workflow(s) {
   await step('walk every Master Record link', async () => {
     const items = dedupe(await catalogueLinks(master));
     h.assert(items.length > 0, 'The Master Record offered no links');
-    await walkLinks({ context: s.context, recorder: s.recorder, host: master, items, findings: f, fields, timeout: 40000, label: 'master', skip: SKIP_ITEMS,
+    await walkLinks({ context: s.context, recorder: s.recorder, host: master, items, findings: f, fields, timeout: 40000, label: 'master', skip: [...SKIP_ITEMS, ...FRONT_DOOR_SKIP],
       beforeClose: page => releaseChartLocks(s.context, s.config.baseUrl, [page]).catch(() => {}) });
   });
   await step('the walk found no output-encoding defect', async () => { f.assertNone('Master Record walk'); });

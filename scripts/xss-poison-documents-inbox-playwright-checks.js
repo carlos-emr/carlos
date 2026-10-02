@@ -14,26 +14,32 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const ui = require('./lib/playwright-ui');
 const { payload, inspect, Findings, Seeder, openMasterByChartNo } = require('./lib/xss-poison-helpers');
-const { seedPatient, purgeSupport } = require('./lib/xss-poison-patient');
+const { seedPatient } = require('./lib/xss-poison-patient');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 
 async function workflow(s) {
   const fields = {};
-  let n = 0;
+  // Payload numbers start at 400: each check owns its own range, so a concurrent xss-poison run's rows on a
+  // shared list are never mistaken for this run's (inspect() ignores a number it did not create).
+  let n = 400;
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
-  const seed = new Seeder(s.sql, s.cleanup);
+  const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-8);
   const chartNo = `XD${hex.slice(0, 6)}`;
   let doc;
   await s.step('seed the poisoned patient and document', async () => {
     const demo = seedPatient(seed, P, '999998', chartNo);
-    s.cleanup(() => purgeSupport(s.sql, demo));
     doc = seed.insert('document', { doctype: 'consult', docdesc: P('document description'), docfilename: 'xp.pdf', doccreator: '999998', responsible: '999998',
       source: P('document source', 60), sourceFacility: P('document source facility', 120), updatedatetime: { raw: 'NOW()' }, status: 'A', contenttype: 'application/pdf',
       contentdatetime: { raw: 'NOW()' }, public1: 0, observationdate: { raw: 'CURDATE()' }, number_of_pages: 1, restrictToProgram: 0, abnormal: 0, reviewer: '' }, { key: 'document_no' });
     seed.insert('ctl_document', { module: 'demographic', module_id: Number(demo), document_no: Number(doc), status: 'A' }, { where: `module='demographic' AND module_id=${demo} AND document_no=${doc}` });
     seed.insert('providerLabRouting', { provider_no: '999998', lab_no: Number(doc), status: 'N', lab_type: 'DOC' }, { key: 'id' });
     seed.insert('patientLabRouting', { demographic_no: Number(demo), lab_no: Number(doc), lab_type: 'DOC', created: { raw: 'NOW()' }, dateModified: { raw: 'NOW()' } }, { key: 'id' });
+    // A second document filed under the test provider, so the eDoc provider list (Schedule > eDoc) has one to show.
+    const own = seed.insert('document', { doctype: P('provider document type', 60), docdesc: P('provider document description'), docfilename: 'xp.pdf', doccreator: '999998', responsible: '999998',
+      source: P('provider document source', 60), sourceFacility: '', updatedatetime: { raw: 'NOW()' }, status: 'A', contenttype: 'application/pdf',
+      contentdatetime: { raw: 'NOW()' }, public1: 0, observationdate: { raw: 'CURDATE()' }, number_of_pages: 1, restrictToProgram: 0, abnormal: 0, reviewer: '' }, { key: 'document_no' });
+    seed.insert('ctl_document', { module: 'provider', module_id: 999998, document_no: Number(own), status: 'A' }, { where: `module='provider' AND module_id=999998 AND document_no=${own}` });
   });
   const f = new Findings(s.recorder);
   const step = f.stepper(s);

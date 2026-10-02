@@ -7,13 +7,13 @@
 // half through the same catalogue as admin-index-links, and asserts per item: literal text visible, no
 // `[data-xp]` element in any frame, no script error. Findings are collected and the check fails once.
 const h = require('./playwright-harness');
-const { runWorkflow } = require('./workflow-session');
 const ui = require('./playwright-ui');
 const { catalogueLinks, dedupe } = require('./playwright-link-audit');
-const { payload, inspect, Findings, Seeder, walkLinks, clickAdminItem, waitForProviderCache } = require('./xss-poison-helpers');
+const { payload, Findings, Seeder, walkLinks, waitForProviderCache, freeProviderNo, trackServiceScript } = require('./xss-poison-helpers');
 
-// The schedule top bar repeats inside the panel; those openers have their own checks.
-const TOP_BAR = /^(Schedule|Search|Inbox|U|Tickler1|Msg|Consultations|eDoc|Report|Administration|Administration Panel|doctor carlosdoc|Messages)$/i;
+// The schedule top bar repeats inside the panel; those openers have their own checks. Inbox, Tickler and Msg carry
+// a live count suffix ("Tickler3") that changes with whatever other checks left open.
+const TOP_BAR = /^(Schedule|Search|Inbox\d*|U|Tickler\d*|Msg\d*|Consultations\d*|eDoc|Report|Administration|Administration Panel|doctor carlosdoc|Messages)$/i;
 const SKIP = [
   { match: /update\s*drugref/i }, { match: /database\/document download/i }, { match: /^log\s*out$/i },
 ];
@@ -22,10 +22,11 @@ async function workflow(s, part = 1) {
   const fields = {};
   let n = part === 2 ? 100 : 0;
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
-  const seed = new Seeder(s.sql, s.cleanup);
+  const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-6);
-  const provNo = String(800000 + (parseInt(hex, 16) % 99999));
+  let provNo;
   await s.step('seed inert-markup rows across the administration tables', async () => {
+    provNo = freeProviderNo(s.sql, 800000 + (parseInt(hex, 16) % 99000));
     seed.insert('provider', {
       provider_no: provNo, last_name: P('provider last', 30), first_name: P('provider first', 30), provider_type: 'doctor',
       sex: 'F', specialty: P('provider specialty', 40), team: P('provider team', 20), address: P('provider address', 40),
@@ -47,19 +48,19 @@ async function workflow(s, part = 1) {
     seed.insert('documentDescriptionTemplate', { doctype: 'consult', description: P('document description template'), descriptionShortcut: P('doc template shortcut', 20), provider_no: '999998' }, { key: 'id' });
     seed.insert('ctl_doctype', { module: 'demographic', doctype: P('document type', 60), status: 'A' }, { key: 'id' });
     seed.insert('queue', { name: P('queue name', 40) }, { key: 'id' });
-    seed.insert('eform', { form_name: P('eform name'), file_name: P('eform file name'), subject: P('eform subject'), form_date: { raw: 'CURDATE()' }, form_time: { raw: 'CURTIME()' }, form_creator: '999998', status: 1, form_html: '<html><body>xp</body></html>', showLatestFormOnly: 0, patient_independent: 0 }, { key: 'fid' });
-    const fid = s.sql.value(`SELECT MAX(fid) FROM eform WHERE form_creator='999998' AND form_html='<html><body>xp</body></html>'`);
+    const fid = seed.insert('eform', { form_name: P('eform name'), file_name: P('eform file name'), subject: P('eform subject'), form_date: { raw: 'CURDATE()' }, form_time: { raw: 'CURTIME()' }, form_creator: '999998', status: 1, form_html: '<html><body>xp</body></html>', showLatestFormOnly: 0, patient_independent: 0 }, { key: 'fid' });
     seed.insert('eform_groups', { fid, group_name: P('eform group name', 20) }, { key: 'id' });
     seed.insert('reportTemplates', { templatetitle: P('report template title', 80), templatedescription: P('report template description'), templatesql: 'SELECT 1', templatexml: '<report id="9990" title="xp" description="xp" active="1"><query>SELECT 1</query><parameters/></report>', active: 1, type: 'sql', uuid: `xp${hex}` }, { key: 'templateid' });
     seed.insert('measurementType', { type: `X${hex}`, typeDisplayName: P('measurement display name'), typeDescription: P('measurement description'), measuringInstruction: P('measuring instruction'), validation: 'Numeric Value Between 1 and 2', createDate: { raw: 'NOW()' } }, { key: 'id' });
     seed.insert('measurementGroup', { name: P('measurement group name', 100), typeDisplayName: P('measurement group type') }, { key: 'id' });
-    seed.insert('encountertemplate', { encountertemplate_name: P('encounter template name', 50), encountertemplate_value: P('encounter template value'), creator: '999998', createdatetime: { raw: 'NOW()' } }, { where: `encountertemplate_name LIKE '%data-xp%' AND creator='999998'` });
+    const templateName = P('encounter template name', 50);
+    seed.insert('encountertemplate', { encountertemplate_name: templateName, encountertemplate_value: P('encounter template value'), creator: '999998', createdatetime: { raw: 'NOW()' } }, { where: `encountertemplate_name=${h.sqlString(templateName)}` });
     seed.insert('appointmentType', { name: P('appointment type name', 50), notes: P('appointment type notes', 80), reason: P('appointment type reason', 80), location: P('appointment type location'), resources: '', duration: 15 }, { key: 'id' });
     seed.insert('tickler_category', { category: P('tickler category', 55), description: P('tickler category description'), active: { raw: 'b\'1\'' } }, { key: 'id' });
     seed.insert('billing_payment_type', { payment_type: P('payment type', 25) }, { key: 'id' });
     seed.insert('cssStyles', { name: P('service code style name'), style: 'color:red', status: 'A' }, { key: 'id' });
     seed.insert('clinic_location', { clinic_location_no: `X${hex}`, clinic_no: 1, clinic_location_name: P('billing location', 40) }, { key: 'id' });
-    seed.insert('consultationServices', { serviceDesc: P('consult service'), active: '1' }, { key: 'serviceId' });
+    trackServiceScript(seed, seed.insert('consultationServices', { serviceDesc: P('consult service'), active: '1' }, { key: 'serviceId' }));
     seed.insert('Institution', { name: P('institution name'), address: P('institution address'), city: P('institution city', 100) }, { key: 'id' });
     seed.insert('ServiceClient', { name: P('rest client name'), clientKey: `k${hex}`, clientSecret: `s${hex}`, uri: P('rest client uri'), lifetime: 1 }, { key: 'id' });
     seed.insert('billingservice', { service_code: `X${hex}`.slice(0, 6), description: P('billing service description'), value: '1.00', billingservice_date: { raw: 'CURDATE()' }, region: 'ON' }, { key: 'billingservice_no' });

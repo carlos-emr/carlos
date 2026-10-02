@@ -13,27 +13,30 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const ui = require('./lib/playwright-ui');
-const { payload, inspect, Findings, Seeder, openMasterByChartNo, walkLinks } = require('./lib/xss-poison-helpers');
-const { seedPatient, purgeSupport } = require('./lib/xss-poison-patient');
+const { payload, inspect, Findings, Seeder, openMasterByChartNo, walkLinks, trackServiceScript } = require('./lib/xss-poison-helpers');
+const { seedPatient } = require('./lib/xss-poison-patient');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 
 async function workflow(s) {
   const fields = {};
-  let n = 0;
+  // Payload numbers start at 800: each check owns its own range, so a concurrent xss-poison run's rows on a
+  // shared list are never mistaken for this run's (inspect() ignores a number it did not create).
+  let n = 800;
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
-  const seed = new Seeder(s.sql, s.cleanup);
+  const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-8);
   const chartNo = `XM${hex.slice(0, 6)}`;
-  let demo; let msg; let req;
+  let demo; let msg; let req; let bodyField;
   await s.step('seed the poisoned patient, message, consultation request and specialist', async () => {
     demo = seedPatient(seed, P, '999998', chartNo);
-    s.cleanup(() => purgeSupport(s.sql, demo));
     const d = Number(demo);
+    bodyField = n + 1;
     msg = seed.insert('messagetbl', { thedate: { raw: 'CURDATE()' }, theime: { raw: 'CURTIME()' }, themessage: P('message body'), thesubject: P('message subject', 128),
       sentby: P('message sender', 62), sentto: P('message recipients'), sentbyNo: '999998', sentByLocation: 145, actionstatus: 'N', type: 2 }, { key: 'messageid' });
     seed.insert('messagelisttbl', { message: Number(msg), provider_no: '999998', status: 'new', remoteLocation: 145, destinationFacilityId: 0, sourceFacilityId: 0 }, { key: 'id' });
     seed.insert('msgDemoMap', { messageID: Number(msg), demographic_no: d }, { key: 'id' });
     const service = seed.insert('consultationServices', { serviceDesc: P('consultation service'), active: '1' }, { key: 'serviceId' });
+    trackServiceScript(seed, service);
     const spec = seed.insert('professionalSpecialists', { fName: P('specialist first name', 32), lName: P('specialist last name', 32), proLetters: P('specialist letters', 20), address: P('specialist address'),
       phone: '555', fax: '555', website: P('specialist website', 128), email: P('specialist email', 128), specType: P('specialist type', 128), lastUpdated: { raw: 'NOW()' }, annotation: P('specialist annotation'),
       salutation: '', institutionId: 0, departmentId: 0, hideFromView: 0, deleted: 0 }, { key: 'specId' });
@@ -45,6 +48,9 @@ async function workflow(s) {
   });
   const f = new Findings(s.recorder);
   const step = f.stepper(s);
+  // The message body is Markdown composed in the Toast UI editor and shown through its viewer with DOMPurify
+  // (ViewMessage.jsp), so inert markup in it is meant to render; every other field must stay literal text.
+  f.richText.push({ field: bodyField, path: '/messenger/ViewMessage' });
   const topBar = async (selector, label) => ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator(selector).first(),
     { context: s.context, label, recorder: s.recorder, timeout: 20000 });
   await step('Msg inbox, the message view and Compose show stored values as text', async () => {

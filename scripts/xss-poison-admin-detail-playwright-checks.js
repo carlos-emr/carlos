@@ -13,19 +13,22 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const ui = require('./lib/playwright-ui');
-const { payload, inspect, Findings, Seeder, clickAdminItem } = require('./lib/xss-poison-helpers');
+const { payload, inspect, Findings, Seeder, clickAdminItem, freeProviderNo } = require('./lib/xss-poison-helpers');
 
 async function workflow(s) {
   const fields = {};
-  let n = 0;
+  // Payload numbers start at 200: each check owns its own range, so a concurrent xss-poison run's rows on a
+  // shared list are never mistaken for this run's (inspect() ignores a number it did not create).
+  let n = 200;
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
-  const seed = new Seeder(s.sql, s.cleanup);
+  const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-6);
-  const provNo = String(500000 + (parseInt(hex, 16) % 99999));
+  let provNo;
   const grp = `XD${hex}`.slice(0, 8);
   const lookupName = `xd${hex}`;
   let templateId;
   await s.step('seed inert-markup rows for the second-level administration pages', async () => {
+    provNo = freeProviderNo(s.sql, 500000 + (parseInt(hex, 16) % 99000));
     seed.insert('provider', {
       provider_no: provNo, last_name: P('provider last', 30), first_name: P('provider first', 30), provider_type: 'doctor',
       sex: 'F', specialty: P('provider specialty', 40), team: P('provider team', 20), address: P('provider address', 40),
@@ -42,7 +45,8 @@ async function workflow(s) {
     seed.insert('quickList', { quickListName: P('dx quick list name'), createdByProvider: '999998', dxResearchCode: '250', codingSystem: 'icd9' }, { key: 'id' });
     seed.insert('ctl_doctype', { module: 'demographic', doctype: P('document type', 60), status: 'A' }, { key: 'id' });
     seed.insert('documentDescriptionTemplate', { doctype: 'consult', description: P('document description template'), descriptionShortcut: P('doc template shortcut', 20), provider_no: '999998' }, { key: 'id' });
-    seed.insert('encountertemplate', { encountertemplate_name: P('encounter template name', 50), encountertemplate_value: P('encounter template value'), creator: '999998', createdatetime: { raw: 'NOW()' } }, { where: `encountertemplate_name LIKE '%data-xp%' AND creator='999998'` });
+    const templateName = P('encounter template name', 50);
+    seed.insert('encountertemplate', { encountertemplate_name: templateName, encountertemplate_value: P('encounter template value'), creator: '999998', createdatetime: { raw: 'NOW()' } }, { where: `encountertemplate_name=${h.sqlString(templateName)}` });
     templateId = seed.insert('reportTemplates', { templatetitle: P('report template title', 80), templatedescription: P('report template description'), templatesql: 'SELECT 1', templatexml: '<report id="9991" title="xp" description="xp" active="1"><query>SELECT 1</query><parameters/></report>', active: 1, type: 'sql', uuid: `xd${hex}` }, { key: 'templateid' });
   });
   const f = new Findings(s.recorder);

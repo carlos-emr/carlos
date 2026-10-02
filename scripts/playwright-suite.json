@@ -7160,6 +7160,206 @@
       "env": [],
       "fixtures": "One marker-named provider with a security row (password hash and PIN copied from the test login) and a doctor role, seeded by SQL and removed by cleanup, which asserts them gone. No demo row touched. The edit page's known missing admin/bcArStyle.css (ISSUES L19) is consumed explicitly.",
       "notes": "Fails at the last step: session A's stale Update Record clears the Force password reset session B had just set (securityupdate.jsp:103-123 copies every posted control onto the row with no comparison against the rendered state). Delete-while-editing is not driven because Delete Record itself fails (known, L20)."
+    },
+    {
+      "name": "xss-poison-master-record",
+      "script": "scripts/xss-poison-master-record-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "One owned FAKE patient (chart number XP...) whose text columns, extension values, custom fields, contact, relationship and tickler carry inert markup, and three providers (doctor, nurse, midwife) with poisoned names. Inserts GLOBALLY VISIBLE poisoned rows while it runs (three active providers): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected to FAIL at the last step (findings 117, 118): the Master Record view prints official/spoken language, contact role, cytology number, phone extensions, cell, email, health card type and the alert raw (demographic/edit-view.jsp:295,310,416,508,530,734,740,746,794,810), the Edit form's doctor/nurse/midwife selects print provider names raw (demographic/edit-form-clinical.jsp:260,277,294), and Documents and Manage Contacts print the patient name raw through <oscar:nameage> (DemographicNameAgeTag.java:66 out.print without encoding; documentManager/documentReport.jsp:475, demographic/ManageContacts.jsp:362). Search results, Appointment/Billing/Enrollment History, Consultations, Prescriptions, Preventions, Tickler and eForms encode. Create Invoice is skipped: the WAF refuses its URL, which carries the patient name (CRS 949110). Under parallel load the walk can time out mid-catalogue; run it alone."
+    },
+    {
+      "name": "xss-poison-echart",
+      "script": "scripts/xss-poison-echart-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "One owned FAKE patient (chart number XE...) with a progress note, seven CPP notes, allergy, drug, measurement, prevention, document, eForm instance, tickler and consultation request whose text carries inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected to FAIL at the last step (findings 117, 119): the E-Chart left navbar prints item titles raw (encounter/LeftNavBarDisplay.jsp:338) and the Rx, Tickler and eForm modules build those titles from stored text without encoding (EctDisplayRx2Action.java:112/123, EctDisplayTickler2Action.java:96/104, EctDisplayEForm2Action.java:123); Medications prints drug instructions raw (rx/ListDrugs.jsp:326); Disease Registry prints the patient name raw through <oscar:nameage> (oscarResearch/oscarDxResearch/dxResearch.jsp:247, DemographicNameAgeTag.java:66). Notes, CPP, allergies, preventions, documents, consultations, eForm list and tickler list encode. A navbar item whose text is a payload is sometimes not clickable in time (noted, not counted)."
+    },
+    {
+      "name": "xss-poison-schedule",
+      "script": "scripts/xss-poison-schedule-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1200,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "One owned FAKE patient, an active doctor with a schedule today, two appointments, a tickler with a comment and suggested text, a schedule template and template code, a holiday and a day reason on a free day this month, an appointment type, an appointment-reason lookup item and a waiting list. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an active provider, an appointment type, a schedule code, a holiday, a lookup item): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected to FAIL at the last step (finding 123): the month view's provider select prints the truncated provider name raw (provider/appointmentprovideradminmonth.jsp:592,619), so a cut-off payload becomes an element inside the option. Day sheet, week view, appointment edit popup and card, tickler list and edit popup, Add Appointment and appointment Search encode."
+    },
+    {
+      "name": "xss-poison-documents-inbox",
+      "script": "scripts/xss-poison-documents-inbox-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "One owned FAKE patient with a poisoned document routed to the test provider's inbox, and a second poisoned document filed under the test provider (eDoc list). Neither has a file behind it; the ManageDocument preview answer is ignored as a fixture limit. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected to FAIL at the last step (finding 117): Master Record > Documents prints the patient name raw through <oscar:nameage> (documentManager/documentReport.jsp:475; DemographicNameAgeTag.java:66). Inbox, the eDoc provider list and the document Edit popup encode."
+    },
+    {
+      "name": "xss-poison-eform",
+      "script": "scripts/xss-poison-eform-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "One owned FAKE patient, a poisoned eForm template and a patient-independent template with current and deleted instances, an eForm group and a security role. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an eForm template, an eForm group, a role): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). The group Delete confirmation is only opened and dismissed. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected to FAIL at the last step (finding 121): Manage eForms' upload form prints role names raw in its select (eform/partials/upload.jsp:127); the eForm Groups Delete confirmation re-parses the attribute-encoded group name as HTML (efmmanageformgroups.jsp:148 into efmFooter.jspf:70 .html()); Patient-independent eForms prints instance name and subject raw (eform/efmmanageindependent.jsp:149,151). The Deleted eForms list also throws TypeError on unload (window.opener cut by COOP, known finding 77). The template editor, group view, patient eForm list and Add eForm list encode."
+    },
+    {
+      "name": "xss-poison-messenger-consult",
+      "script": "scripts/xss-poison-messenger-consult-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "One owned FAKE patient, a message to the test provider attached to that patient, a consultation service with a specialist and a consultation request, all carrying inert markup. Inserts GLOBALLY VISIBLE poisoned rows while it runs (a consultation service and specialist): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Cleanup also strips the service's lines from the shared specialistsJavascript cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected to FAIL at the last step (findings 117, 120): the Msg inbox prints the linked patient's name raw through <oscar:nameage> (messenger/DisplayMessages.jsp:610; DemographicNameAgeTag.java:66), and the consultation request form writes the saved letterhead name into a script string unescaped (encounter/oscarConsultationRequest/ConsultationFormRequest.jsp:3525), a SyntaxError that stops the page script. The message body is Markdown rendered through DOMPurify by design (ViewMessage.jsp), so markup there is noted, not counted. The message view, consultation list and Master Record > Consultations encode."
+    },
+    {
+      "name": "xss-poison-billing",
+      "script": "scripts/xss-poison-billing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "Uses the billing fixture of billing-on-ohip-simulation-report (owned provider and claim; patient and provider last names stay clean so billing URLs pass the WAF) and poisons its claim header and provider first name, plus a service code, diagnostic code, billing location, payment type, billing form and third-party payer. Inserts GLOBALLY VISIBLE poisoned rows while it runs (billing codes, location, payment type, billing form): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected PASS on 2026.08: Billing History, the Create Invoice form, Invoice Reports, Billing Correction, Add Billing Location, Manage Payment Type and Manage Billing Form encode the stored values they show. The seeded service code, diagnostic code and third-party payer are not shown by any surface this walk reaches (coverage gap, not a finding)."
+    },
+    {
+      "name": "xss-poison-admin-detail",
+      "script": "scripts/xss-poison-admin-detail-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "A poisoned active provider with a group, a group row for the test provider, a lookup list and item, a dx quick list, a document type, a document description template, an encounter template and a report template. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an active provider and the lists above): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected to FAIL at the last step (finding 122): Search/Edit/Delete Groups prints group member names raw (admin/admindisplaymygroup.jsp:117) and Document Description Template prints document types raw in its select (admin/displayDocumentDescriptionTemplate.jsp:291). Provider search results, the provider edit form and Insert a Template encode."
+    },
+    {
+      "name": "xss-poison-admin-users-billing",
+      "script": "scripts/xss-poison-admin-users-billing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1500,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "Part 1 of the Administration walk (scripts/lib/xss-poison-admin-walk.js, payload numbers from 1): about 35 poisoned rows across provider, group, role, job, lookup, quick-list, document-template, queue, eForm, report-template, measurement, appointment-type, tickler-category, billing, consultation-service, institution, REST-client, lot-number, guideline, waiting-list and system-message tables. Inserts GLOBALLY VISIBLE poisoned rows while it runs (all of them, including an active provider): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected to FAIL at the last step (finding 121): Manage eForms' upload form prints role names raw (eform/partials/upload.jsp:127). The other items of the first half of the menu (users, billing, labs, forms) encode the seeded values they show."
+    },
+    {
+      "name": "xss-poison-admin-reports-system",
+      "script": "scripts/xss-poison-admin-reports-system-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1500,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "Part 2 of the Administration walk (scripts/lib/xss-poison-admin-walk.js, payload numbers from 101): the same poisoned row set as part 1. Inserts GLOBALLY VISIBLE poisoned rows while it runs (all of them, including an active provider): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Expected to FAIL at the last step (finding 122): raw stored values on Report by Template (oscarReport/reportByTemplate/homePage.jsp:129,131), Age-Sex Report (oscarReport/oscarReportAgeSex.jsp:192), Disease Registry report (oscarReport/oscarReportDxReg.jsp:168,247), Add a Group (admin/adminnewgroup.jsp:177), Access Control (admin/groupnoacl.jsp:162,180), Document Description Template (admin/displayDocumentDescriptionTemplate.jsp:291), Manage Faxes (admin/manageFaxes.jsp:371), Demographic Export (demographic/demographicExport.jsp:483), Fix notes with invalid role (admin/fixRolesOnNotes.jsp:93) and Jobs Management (admin/jobs.jsp:214, finding 63)."
     }
   ]
 }

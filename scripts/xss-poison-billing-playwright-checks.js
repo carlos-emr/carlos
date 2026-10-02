@@ -23,9 +23,11 @@ const q = h.sqlString;
 
 async function workflow(s) {
   const fields = {};
-  let n = 0;
+  // Payload numbers start at 300: each check owns its own range, so a concurrent xss-poison run's rows on a
+  // shared list are never mistaken for this run's (inspect() ignores a number it did not create).
+  let n = 300;
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
-  const seed = new Seeder(s.sql, s.cleanup);
+  const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-8);
   const owned = createBillingFixture(s);
   const date = billDate();

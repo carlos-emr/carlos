@@ -171,6 +171,48 @@ Every failing check passes the steps it reaches before the one that hits the def
 | `eform-deleted-restore` | §4.1 | all | FAIL on confirmed defects. Fails on 2026.08: Restore posts a JavaScript-built form without a CSRF token (403); independent Delete is also rejected for a missing token. |
 | `eform-groups` | §4.1 | all | FAIL on confirmed defects. Fails on 2026.08: the Add eForm list throws a TypeError on unload (unguarded window.opener), and the group mutators answer 405 / 403 (forward to a GET-only gate; missing CSRF token in the Administration panel). |
 
+## Stored-markup (xss-poison) sweep
+
+Ten further checks walk the screens a clinician and an administrator use with **stored values that
+contain markup**, to find output-encoding defects that a check typing ordinary text cannot see. Each
+check INSERTs its own FAKE rows (a patient, providers, list entries, documents, messages ...) whose
+text columns carry an inert payload, `FAKE-XP<i data-xp="N">q</i> "dq" 'sq' \back &amp; </script data-xp>`
+(shorter variants for narrow columns; `N` names the field). The rows go in by SQL so the WAF does not
+refuse them, the way imported or legacy data arrives. The check then enters every surface through the
+controls a user clicks and asserts, per page and frame: the value is shown literally, no `[data-xp]`
+element exists, no inline handler or script block carrying the payload fails to compile, and no
+script error was raised. Findings are collected across the walk and the check fails once at the end,
+so one run reports every defect it reached. Shared code: `scripts/lib/xss-poison-helpers.js`,
+`xss-poison-patient.js`, `xss-poison-admin-walk.js`.
+
+**Report, don't encode** applies as everywhere else: a check passes when the screen encodes and fails
+at the defect. The one allowance is a field a page renders as sanitised rich text by design (the
+Messenger body is Markdown shown through DOMPurify): markup there is noted, not counted.
+
+**Fixture lifecycle.** The fixtures are global while a check runs (an active provider shows up on
+every provider select), and other checks' forms that echo them back are refused by the WAF, so run an
+`xss-poison-*` check alone; the suite runner is sequential. Every row is recorded by its key in a
+per-run ledger under `$TMPDIR/carlos-xss-poison` (`XSS_POISON_LEDGER_DIR`) and cleanup deletes exactly
+those keys and asserts them gone, also after a failed run. Natural-key inserts refuse a key that
+already exists. A run killed outright is recovered by key, from its ledger, by the next `xss-poison`
+run; when no other `xss-poison` run is alive that run also sweeps every row carrying `<i data-xp=`
+(with the rows hanging off such patients and providers) and asserts none is left. Each check owns a
+range of payload numbers, so a concurrent run's rows are never attributed to it.
+`scripts/xss-poison-helpers.test.js` pins these rules.
+
+| Check | Provinces | Result on the packaged 2026.08 install |
+|---|---|---|
+| `xss-poison-master-record` | all | FAIL on confirmed defects (findings 117, 118): Master Record view and Edit form, Documents and Manage Contacts print stored values raw. Create Invoice is skipped because the WAF refuses its URL, which carries the patient name. |
+| `xss-poison-echart` | all | FAIL on confirmed defects (findings 117, 119): left navbar titles (Rx, Tickler, eForms), the Rx drug list and the Disease Registry header. |
+| `xss-poison-schedule` | all | FAIL on a confirmed defect (finding 123): the month view's provider select. Day sheet, week view, appointment popups, tickler list and edit, Add Appointment and Search encode. |
+| `xss-poison-documents-inbox` | all | FAIL on a confirmed defect (finding 117): Master Record ▸ Documents. Inbox, eDoc provider list and document Edit encode. |
+| `xss-poison-eform` | all | FAIL on confirmed defects (finding 121); the Deleted eForms list also hits finding 77 (TypeError on unload). |
+| `xss-poison-messenger-consult` | all | FAIL on confirmed defects (findings 117, 120): Msg inbox patient name; the consultation form's letterhead script breaks. |
+| `xss-poison-billing` | ON | PASS: Billing History, Create Invoice, Invoice Reports, Billing Correction and the billing administration lists encode. The seeded service code, diagnostic code and payer are not shown by any surface it reaches. |
+| `xss-poison-admin-detail` | all | FAIL on confirmed defects (finding 122): group members and document types. |
+| `xss-poison-admin-users-billing` | all | FAIL on a confirmed defect (finding 121): the eForm upload form's role select. |
+| `xss-poison-admin-reports-system` | all | FAIL on confirmed defects (findings 63, 122): ten Administration report and system pages. |
+
 ## Routes with no UI entry
 
 Per the suite's rule a route with no link gets no check; each is a finding about the route.

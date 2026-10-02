@@ -16,19 +16,20 @@ const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { NAVBAR_SELECTOR, SKIP_ITEMS, openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { payload, inspect, Findings, Seeder, openMasterByChartNo, walkLinks } = require('./lib/xss-poison-helpers');
-const { seedPatient, purgeSupport } = require('./lib/xss-poison-patient');
+const { seedPatient } = require('./lib/xss-poison-patient');
 
 async function workflow(s) {
   const fields = {};
-  let n = 0;
+  // Payload numbers start at 500: each check owns its own range, so a concurrent xss-poison run's rows on a
+  // shared list are never mistaken for this run's (inspect() ignores a number it did not create).
+  let n = 500;
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
-  const seed = new Seeder(s.sql, s.cleanup);
+  const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-8);
   const chartNo = `XE${hex.slice(0, 6)}`;
   let demo;
   await s.step('seed the poisoned patient and chart rows', async () => {
     demo = seedPatient(seed, P, '999998', chartNo);
-    s.cleanup(() => purgeSupport(s.sql, demo));
     const d = Number(demo);
     const note = (text, extra = {}) => seed.insert('casemgmt_note', {
       update_date: { raw: 'NOW()' }, observation_date: { raw: 'NOW()' }, demographic_no: d, provider_no: '999998', note: text,

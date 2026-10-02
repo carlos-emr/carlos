@@ -78,6 +78,12 @@ class Findings {
     this.coverage = [];
     this.seenInjected = new Set();
     this.ignoredPaths = [];
+    // Fields a surface renders as sanitised rich text BY DESIGN (Markdown through DOMPurify): inert markup in
+    // them is expected to become markup there, so it is noted, not reported. Each entry is { field, path }.
+    this.richText = [];
+  }
+  isRichText(field, url) {
+    return this.richText.some(r => String(r.field) === String(field) && String(url).endsWith(r.path));
   }
   mark() {
     const r = this.recorder;
@@ -143,6 +149,10 @@ async function inspect(findings, surface, page, fields = {}, since = null) {
     const key = `${a.url}|${i.id}`;
     if (findings.seenInjected.has(key)) continue;
     findings.seenInjected.add(key);
+    if (findings.isRichText(i.id, a.url)) {
+      findings.note(surface, `field ${i.id} (${fields[i.id]}) rendered as sanitised rich text on ${a.url} (by design)`);
+      continue;
+    }
     findings.add(surface, 'MARKUP-INJECTED', `field ${i.id} (${fields[i.id] || '?'}) became <${i.tag}> (in ${i.context}) on ${a.url}`);
   }
   for (const a of all) for (const x of a.handlers || []) {
@@ -167,7 +177,7 @@ async function inspect(findings, surface, page, fields = {}, since = null) {
     // A page may legitimately cut a long value short ("..."); only the first 32 characters carry the markup
     // characters under test, so an intact head is still proof of encoding.
     if (TIERS.some(tier => { const lit = norm(tier(n)).toLowerCase(); return text.includes(lit) || (lit.length > 40 && text.includes(lit.slice(0, 32))); })) okFields.push(n);
-    else if (!injectedIds.has(String(n))) {
+    else if (!injectedIds.has(String(n)) && !all.some(a => findings.isRichText(n, a.url))) {
       const at = Math.max(text.indexOf(`data-xp="${n}"`), text.indexOf(`data-xp=${n}>`));
       findings.add(surface, 'TEXT-MANGLED', `field ${n} (${name}) visible but not literally: ...${text.slice(Math.max(0, at - 12), at + 70)}`);
     }
@@ -178,57 +188,306 @@ async function inspect(findings, surface, page, fields = {}, since = null) {
 
 module.exports = { payload, inspect, Findings, norm, frameFacts, TIERS };
 
+/*
+ * FIXTURE LIFECYCLE. Poisoned rows are global: a provider, a lookup item or a document type carrying the
+ * payload shows up on screens other checks drive, and their forms then echo it back into a POST the WAF
+ * refuses. So every row has to go, including after a run that was killed (SIGKILL skips runCheck's cleanup).
+ *
+ *   1. Each row is recorded by the key it was created with, never by a broad filter, and cleanup deletes
+ *      exactly those keys and asserts each one is gone. Natural-key inserts refuse to start when the key
+ *      already exists, so a collision can never make cleanup delete a row this run did not create.
+ *   2. The recorded keys are also written to a ledger file (one per run, under LEDGER_DIR) as they are
+ *      created. A later run deletes a dead run's ledger rows by key before it seeds.
+ *   3. A row committed in the instant before a kill, or left by a run that predates the ledger, is caught by
+ *      the payload sweep: every row whose text carries `<i data-xp=` (all payload tiers do; real data never
+ *      does), with the rows that hang off such patients, providers, documents, messages and lists. The sweep
+ *      runs only when no other xss-poison run is alive, and seeding waits behind the same lock, so one run's
+ *      sweep can never take another run's live fixture.
+ */
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const LEDGER_DIR = process.env.XSS_POISON_LEDGER_DIR || path.join(os.tmpdir(), 'carlos-xss-poison');
+const MARK = '<i data-xp=';
+const LIKE = `LIKE ${h.sqlString(`%${MARK}%`)}`;
+// Rows the sweep rewrites instead of deleting: a fixture owned by another helper (the billing check poisons
+// the first name of the billing fixture's own provider, and its claim header), and the single shared
+// consultation-service script cache (EctConConstructSpecialistsScriptsFile), which only loses its lines.
+const NEUTRALISE = new Set(['provider', 'demographic', 'billing_on_cheader1']);
+const SWEPT = 'FAKE-XP-swept';
+
+function sleepSync(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+
+function pidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  if (pid === process.pid) return true;
+  try { process.kill(pid, 0); } catch (error) { if (error.code !== 'EPERM') return false; }
+  // A recycled pid belongs to some other program; only a live xss-poison run keeps its ledger.
+  try { return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').includes('xss-poison'); } catch { return true; }
+}
+
+/** Cross-process mutex (an atomic mkdir), so a sweep and another run's seeding never interleave. */
+function withLock(body) {
+  fs.mkdirSync(LEDGER_DIR, { recursive: true, mode: 0o700 });
+  const lock = path.join(LEDGER_DIR, '.lock');
+  const deadline = Date.now() + 180000;
+  for (;;) {
+    try { fs.mkdirSync(lock); break; } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      let holder = NaN; let age = 0;
+      try { holder = Number(fs.readFileSync(path.join(lock, 'pid'), 'utf8')); } catch { /* not written yet */ }
+      try { age = Date.now() - fs.statSync(lock).mtimeMs; } catch { continue; }
+      if ((!Number.isNaN(holder) && !pidAlive(holder)) || age > 600000) { fs.rmSync(lock, { recursive: true, force: true }); continue; }
+      h.assert(Date.now() < deadline, 'Another xss-poison run held the fixture lock for three minutes');
+      sleepSync(250);
+    }
+  }
+  try {
+    fs.writeFileSync(path.join(lock, 'pid'), String(process.pid));
+    return body();
+  } finally { fs.rmSync(lock, { recursive: true, force: true }); }
+}
+
+function readLedgers() {
+  let names = [];
+  try { names = fs.readdirSync(LEDGER_DIR).filter(n => n.endsWith('.json')); } catch { return []; }
+  return names.map(name => {
+    const file = path.join(LEDGER_DIR, name);
+    try { return { file, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { return { file, pid: 0, entries: [] }; }
+  });
+}
+
+/** Runs one recorded cleanup entry and proves it took effect. */
+function undo(sql, entry) {
+  if (entry.statement) {
+    sql.execute(entry.statement);
+    if (entry.verify) h.assert(sql.value(entry.verify) === '0', `${entry.table} fixture text was not removed`);
+    return;
+  }
+  sql.execute(`DELETE FROM ${entry.table} WHERE ${entry.where}`);
+  h.assert(sql.value(`SELECT COUNT(*) FROM ${entry.table} WHERE ${entry.where}`) === '0', `${entry.table} fixture row was not removed`);
+}
+
+function undoAll(sql, entries) {
+  const failures = [];
+  for (const entry of [...entries].reverse()) {
+    if (!entry || (!entry.where && !entry.statement)) continue;
+    try { undo(sql, entry); } catch (error) { failures.push(error.message); }
+  }
+  return failures;
+}
+
+/** Text columns of every base table, for the sweep and its proof. */
+function textColumns(sql) {
+  return sql.rows(`SELECT c.TABLE_NAME, c.COLUMN_NAME FROM information_schema.COLUMNS c
+    JOIN information_schema.TABLES t ON t.TABLE_SCHEMA=c.TABLE_SCHEMA AND t.TABLE_NAME=c.TABLE_NAME AND t.TABLE_TYPE='BASE TABLE'
+    WHERE c.TABLE_SCHEMA=DATABASE() AND c.DATA_TYPE IN ('char','varchar','tinytext','text','mediumtext','longtext')
+    ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION`).reduce((map, [table, column]) => {
+    (map[table] = map[table] || []).push(column);
+    return map;
+  }, {});
+}
+
+/** Tables that still hold a payload row, with the matching row count. */
+function payloadTables(sql, columns = textColumns(sql)) {
+  const tables = Object.keys(columns);
+  const found = {};
+  // One UNION per slice keeps each statement well inside the runner's 30s and output limits.
+  for (let i = 0; i < tables.length; i += 60) {
+    const union = tables.slice(i, i + 60).map(t => `SELECT ${h.sqlString(t)}, COUNT(*) FROM \`${t}\` WHERE ${columns[t].map(c => `\`${c}\` ${LIKE}`).join(' OR ')}`).join(' UNION ALL ');
+    for (const [table, count] of sql.rows(union)) if (count !== '0') found[table] = Number(count);
+  }
+  return found;
+}
+
 /**
- * Owned fixture rows. Every row is removed by the key it was created with, never by a broad filter, and
- * cleanup asserts each one is gone. `register` is called before the first insert so a failed run still
- * cleans up whatever was created.
+ * Removes every payload row an aborted run left behind, children first, then proves none is left.
+ * Only called under the lock and only when no other xss-poison run is alive.
+ */
+function sweepPayloadRows(sql) {
+  const P = `SELECT demographic_no FROM demographic WHERE last_name ${LIKE}`;
+  const V = `SELECT provider_no FROM provider WHERE last_name ${LIKE}`;
+  const DOC = `SELECT document_no FROM document WHERE docdesc ${LIKE}`;
+  const MSG = `SELECT messageid FROM messagetbl WHERE thesubject ${LIKE} OR themessage ${LIKE}`;
+  const sub = q => `SELECT * FROM (${q}) x`; // MariaDB refuses a subquery on the table being deleted from
+  const children = [
+    `DELETE FROM casemgmt_issue_notes WHERE note_id IN (SELECT note_id FROM casemgmt_note WHERE demographic_no IN (${P}) OR note ${LIKE})`,
+    `DELETE FROM casemgmt_issue WHERE demographic_no IN (${P})`,
+    `DELETE FROM casemgmt_note WHERE demographic_no IN (${P})`,
+    `DELETE FROM preventionsExt WHERE prevention_id IN (SELECT id FROM preventions WHERE demographic_no IN (${P}))`,
+    `DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE demographic_no IN (${P}) OR message ${LIKE})`,
+    `DELETE FROM ctl_document WHERE document_no IN (${DOC}) OR (module='demographic' AND module_id IN (${P}))`,
+    `DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${DOC})`,
+    `DELETE FROM patientLabRouting WHERE (lab_type='DOC' AND lab_no IN (${DOC})) OR demographic_no IN (${P})`,
+    `DELETE FROM messagelisttbl WHERE message IN (${MSG})`,
+    `DELETE FROM msgDemoMap WHERE messageID IN (${MSG}) OR demographic_no IN (${P})`,
+    `DELETE FROM eform_data WHERE fid IN (SELECT fid FROM eform WHERE form_name ${LIKE})`,
+    `DELETE FROM eform_groups WHERE fid IN (SELECT fid FROM eform WHERE form_name ${LIKE})`,
+    `DELETE FROM waitingList WHERE listID IN (SELECT ID FROM waitingListName WHERE name ${LIKE})`,
+    `DELETE FROM LookupListItem WHERE lookupListId IN (SELECT id FROM LookupList WHERE listTitle ${LIKE})`,
+    `DELETE FROM serviceSpecialists WHERE serviceId IN (SELECT serviceId FROM consultationServices WHERE serviceDesc ${LIKE}) OR specId IN (SELECT specId FROM professionalSpecialists WHERE lName ${LIKE})`,
+    `DELETE FROM DemographicContact WHERE demographicNo IN (${P})`,
+    `DELETE FROM secUserRole WHERE provider_no IN (${V})`,
+    `DELETE FROM mygroup WHERE provider_no IN (${V})`,
+    `DELETE FROM scheduledate WHERE provider_no IN (${V})`,
+    `DELETE FROM scheduletemplate WHERE provider_no IN (${V})`,
+    `DELETE FROM appointment WHERE provider_no IN (${V}) OR demographic_no IN (${P})`,
+    `DELETE FROM provider WHERE provider_no IN (${sub(V)})`,
+  ];
+  for (const [table, column] of PATIENT_TABLES) children.push(`DELETE FROM ${table} WHERE ${column} IN (${P})`);
+  children.push(`DELETE FROM demographic WHERE demographic_no IN (${sub(P)})`);
+  sql.execute(children.join(';\n'));
+  // The consultation-service script cache is one shared row: drop only the lines that carry a payload.
+  sql.execute(`UPDATE specialistsJavascript SET javascriptString=REGEXP_REPLACE(javascriptString, '(?m)^[KD]\\\\([-0-9]+,[^\\n]*data-xp[^\\n]*\\n', '') WHERE javascriptString LIKE '%data-xp%'`);
+  // Whatever still carries the payload is a standalone fixture row (a role, a queue, a lookup item ...).
+  const columns = textColumns(sql);
+  for (const table of Object.keys(payloadTables(sql, columns))) {
+    const cols = columns[table];
+    const where = cols.map(c => `\`${c}\` ${LIKE}`).join(' OR ');
+    if (NEUTRALISE.has(table)) sql.execute(`UPDATE \`${table}\` SET ${cols.map(c => `\`${c}\`=IF(\`${c}\` ${LIKE}, ${h.sqlString(SWEPT)}, \`${c}\`)`).join(', ')} WHERE ${where}`);
+    else if (table !== 'specialistsJavascript') sql.execute(`DELETE FROM \`${table}\` WHERE ${where}`);
+  }
+  const left = payloadTables(sql, columns);
+  h.assert(Object.keys(left).length === 0, `xss-poison sweep left payload rows in ${Object.keys(left).join(', ')}`);
+}
+
+// Rows an opened chart (or this sweep's own fixtures) add under a patient; removed by patient number.
+const PATIENT_TABLES = [
+  ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'], ['demographicExt', 'demographic_no'],
+  ['demographicArchive', 'demographic_no'], ['demographiccust', 'demographic_no'], ['measurementsDeleted', 'demographicNo'],
+  ['demographicaccessory', 'demographic_no'], ['eChart', 'demographicNo'], ['allergies', 'demographic_no'], ['drugs', 'demographic_no'],
+  ['measurements', 'demographicNo'], ['preventions', 'demographic_no'], ['eform_data', 'demographic_no'], ['tickler', 'demographic_no'],
+  ['consultationRequests', 'demographicNo'], ['relationships', 'demographic_no'], ['waitingList', 'demographic_no'],
+  ['reportagesex', 'demographic_no'], ['log', 'demographic_no'],
+];
+
+/**
+ * Owned fixture rows (see FIXTURE LIFECYCLE above). `cleanup` is the session's registration hook; the
+ * Seeder registers itself before its first insert so a failed run still removes whatever it created.
  */
 class Seeder {
-  constructor(sql, cleanup) {
+  constructor(sql, cleanup, marker = `pid${process.pid}`) {
     this.sql = sql;
     this.rows = [];
+    this.ledger = path.join(LEDGER_DIR, `${String(marker).replace(/[^A-Za-z0-9-]/g, '')}.json`);
+    this.opened = false;
     cleanup(() => this.cleanup());
   }
+
+  /** Recover dead runs, sweep when alone, then claim this run's ledger, all under the lock. */
+  open() {
+    if (this.opened) return;
+    withLock(() => {
+      const ledgers = readLedgers().filter(l => l.file !== this.ledger);
+      for (const dead of ledgers.filter(l => !pidAlive(l.pid))) {
+        const failures = undoAll(this.sql, dead.entries || []);
+        h.assert(failures.length === 0, `Recovering an aborted xss-poison run failed: ${failures.join('; ')}`);
+        fs.rmSync(dead.file, { force: true });
+      }
+      if (!ledgers.some(l => pidAlive(l.pid))) sweepPayloadRows(this.sql);
+      this.opened = true;
+      this.save();
+    });
+  }
+
+  save() {
+    fs.writeFileSync(this.ledger, JSON.stringify({ pid: process.pid, started: new Date().toISOString(), entries: this.rows }), { mode: 0o600 });
+  }
+
+  /** Record a cleanup that deletes `table` rows matching `where` (rows the application may add later). */
+  track(table, where) {
+    this.open();
+    this.rows.push({ table, where });
+    this.save();
+  }
+
+  /** Record an arbitrary cleanup statement and a COUNT query that must return 0 afterwards. */
+  trackStatement(table, statement, verify) {
+    this.open();
+    this.rows.push({ table, statement, verify });
+    this.save();
+  }
+
   lit(value) {
     if (value === null || value === undefined) return 'NULL';
     if (typeof value === 'number') return String(value);
     if (value && value.raw) return value.raw;
     return h.sqlString(value);
   }
-  /** Insert one row. `key` is the auto-increment column; pass `where` for a natural key. */
+
+  /**
+   * Insert one row. `key` names the auto-increment column; a natural-key row passes `where` instead, and
+   * the insert is refused when that key already exists, so cleanup can only ever delete this run's row.
+   */
   insert(table, values, { key = null, where = null } = {}) {
+    this.open();
     const cols = Object.keys(values);
-    const entry = { table, where };
-    this.rows.push(entry);
-    const statement = `INSERT INTO ${table} (${cols.map(c => `\`${c}\``).join(",")}) VALUES (${cols.map(c => this.lit(values[c])).join(',')})`;
+    const statement = `INSERT INTO ${table} (${cols.map(c => `\`${c}\``).join(',')}) VALUES (${cols.map(c => this.lit(values[c])).join(',')})`;
     try {
       if (key) {
         const id = h.insertId(this.sql, statement, table);
-        entry.where = `${key}=${id}`;
+        this.rows.push({ table, where: `${key}=${id}` });
+        this.save();
         return id;
       }
       h.assert(where, `${table}: natural-key fixture needs a where clause`);
+      h.assert(this.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${where}`) === '0', `${table}: the fixture key is already taken`);
       this.sql.execute(statement);
+      this.rows.push({ table, where });
+      this.save();
       return null;
     } catch (error) {
       // The runner withholds SQL text on purpose; name only the table so the fixture can be fixed.
-      throw new Error(`xss-poison fixture insert into ${table} failed (${String(error.message).slice(0, 60)})`);
+      throw new Error(`xss-poison fixture insert into ${table} failed (${String(error.message).slice(0, 80)})`);
     }
   }
+
   cleanup() {
-    const failures = [];
-    for (const { table, where } of [...this.rows].reverse()) {
-      if (!where) continue;
-      try {
-        this.sql.execute(`DELETE FROM ${table} WHERE ${where}`);
-        h.assert(this.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${where}`) === '0', `${table} fixture row was not removed`);
-      } catch (error) { failures.push(error.message); }
-    }
+    const failures = undoAll(this.sql, this.rows);
+    if (failures.length === 0) fs.rmSync(this.ledger, { force: true });
+    else this.save();
     h.assert(failures.length === 0, failures.join('; '));
+    if (!this.opened) return;
+    // Pages can copy a stored value into rows of their own (an audit row, a regenerated cache). When this is
+    // the only xss-poison run alive, prove the database holds no payload at all, sweeping what the walk left.
+    withLock(() => {
+      if (readLedgers().some(l => l.file !== this.ledger && pidAlive(l.pid))) return;
+      const residue = payloadTables(this.sql);
+      if (Object.keys(residue).length) {
+        console.log(`  NOTE cleanup: payload copies the application wrote were swept from ${Object.keys(residue).join(', ')}`);
+        sweepPayloadRows(this.sql);
+      }
+    });
   }
 }
 
+/**
+ * The consultation-service picker script is cached in one shared row and regenerated by the consultation
+ * settings pages, so a seeded service ends up inside it. Strip exactly that service's K()/D() lines.
+ */
+function trackServiceScript(seed, serviceId) {
+  h.assert(/^[1-9]\d*$/.test(String(serviceId)), 'service script cleanup needs an owned service id');
+  seed.trackStatement('specialistsJavascript',
+    `UPDATE specialistsJavascript SET javascriptString=REGEXP_REPLACE(javascriptString, '(?m)^[KD]\\\\(${serviceId},[^\\n]*\\n', '') WHERE javascriptString LIKE '%(${serviceId},%'`,
+    `SELECT COUNT(*) FROM specialistsJavascript WHERE javascriptString LIKE '%K(${serviceId},%' OR javascriptString LIKE '%D(${serviceId},%'`);
+}
+
+/** First provider number from `start` that no provider row uses (the hash-derived number can collide). */
+function freeProviderNo(sql, start) {
+  for (let no = start; no < start + 500; no += 1) {
+    if (sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(String(no))}`) === '0') return String(no);
+  }
+  throw new Error('No free fixture provider number');
+}
+
 module.exports.Seeder = Seeder;
+module.exports.freeProviderNo = freeProviderNo;
+module.exports.trackServiceScript = trackServiceScript;
+module.exports.sweepPayloadRows = sweepPayloadRows;
+module.exports.payloadTables = payloadTables;
+module.exports.PATIENT_TABLES = PATIENT_TABLES;
+module.exports.MARK = MARK;
 
 /**
  * Schedule > Search > Chart No > result row > Master Demographic File, entered by clicks. `onResults` gets

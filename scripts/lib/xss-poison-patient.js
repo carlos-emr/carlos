@@ -1,14 +1,16 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 // Owned patient fixture whose text columns carry the inert xss-poison markup. Shared by the Master
-// Record, E-Chart and schedule sweeps. The patient is found through its chart number, never its name,
-// so no markup has to be typed into a search box (the WAF would refuse it, and that is not the point).
-const h = require('./playwright-harness');
+// Record, E-Chart, schedule, document, eForm and messenger sweeps. The patient is found through its chart
+// number, never its name, so no markup has to be typed into a search box (the WAF would refuse it, and
+// that is not the point).
 
-// Tables an opened chart can add rows to; removed by demographic number before the parent row.
+// Rows the application itself may add under the patient while the sweep walks the chart (locks, temp
+// saves, archive copies, audit rows). They are recorded right after the patient row, so the Seeder (which
+// unwinds in reverse) removes them after this run's own child rows and before the patient itself.
 const SUPPORT = [
   ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'], ['demographicExt', 'demographic_no'],
   ['demographicArchive', 'demographic_no'], ['demographiccust', 'demographic_no'], ['measurementsDeleted', 'demographicNo'],
-  ['demographicaccessory', 'demographic_no'], ['eChart', 'demographicNo'],
+  ['demographicaccessory', 'demographic_no'], ['eChart', 'demographicNo'], ['reportagesex', 'demographic_no'], ['log', 'demographic_no'],
 ];
 
 function seedPatient(seed, P, provider, chartNo) {
@@ -22,18 +24,8 @@ function seedPatient(seed, P, provider, chartNo) {
     year_of_birth: '1980', month_of_birth: '01', date_of_birth: '02', sex: 'F', patient_status: 'AC', hc_type: P('patient health card type', 20),
     roster_status: 'NR', roster_enrolled_to: P('patient roster enrolled to', 20), provider_no: provider, chart_no: chartNo, lastUpdateDate: { raw: 'NOW()' },
   }, { key: 'demographic_no' });
-  // Support rows are removed first (the Seeder unwinds in reverse order, so register the parent LAST by
-  // inserting these before it is deleted). A single entry removes every support table for this patient.
-  seed.rows.push({
-    table: 'demographicExt', where: `demographic_no=${demographicNo}`,
-  });
+  for (const [table, column] of SUPPORT) seed.track(table, `${column}=${demographicNo}`);
   return demographicNo;
 }
 
-/** Remove support rows an opened chart may have created; call from a cleanup registered AFTER the seed. */
-function purgeSupport(sql, demographicNo) {
-  h.assert(/^[1-9]\d*$/.test(String(demographicNo)), 'purge needs an owned demographic number');
-  sql.execute(SUPPORT.map(([table, column]) => `DELETE FROM ${table} WHERE ${column}=${demographicNo}`).join(';'));
-}
-
-module.exports = { seedPatient, purgeSupport, SUPPORT };
+module.exports = { seedPatient, SUPPORT };

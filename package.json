@@ -443,7 +443,17 @@
     "test:concurrency-rx-discontinue-playwright": "node scripts/concurrency-rx-discontinue-playwright-checks.js",
     "test:concurrency-chart-note-takeover-playwright": "node scripts/concurrency-chart-note-takeover-playwright-checks.js",
     "test:concurrency-chart-note-other-provider-playwright": "node scripts/concurrency-chart-note-other-provider-playwright-checks.js",
-    "test:concurrency-security-record-playwright": "node scripts/concurrency-security-record-playwright-checks.js"
+    "test:concurrency-security-record-playwright": "node scripts/concurrency-security-record-playwright-checks.js",
+    "test:xss-poison-master-record-playwright": "node scripts/xss-poison-master-record-playwright-checks.js",
+    "test:xss-poison-echart-playwright": "node scripts/xss-poison-echart-playwright-checks.js",
+    "test:xss-poison-schedule-playwright": "node scripts/xss-poison-schedule-playwright-checks.js",
+    "test:xss-poison-documents-inbox-playwright": "node scripts/xss-poison-documents-inbox-playwright-checks.js",
+    "test:xss-poison-eform-playwright": "node scripts/xss-poison-eform-playwright-checks.js",
+    "test:xss-poison-messenger-consult-playwright": "node scripts/xss-poison-messenger-consult-playwright-checks.js",
+    "test:xss-poison-billing-playwright": "node scripts/xss-poison-billing-playwright-checks.js",
+    "test:xss-poison-admin-detail-playwright": "node scripts/xss-poison-admin-detail-playwright-checks.js",
+    "test:xss-poison-admin-users-billing-playwright": "node scripts/xss-poison-admin-users-billing-playwright-checks.js",
+    "test:xss-poison-admin-reports-system-playwright": "node scripts/xss-poison-admin-reports-system-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

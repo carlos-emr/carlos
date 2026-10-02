@@ -13,21 +13,25 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const ui = require('./lib/playwright-ui');
-const { payload, inspect, Findings, Seeder, waitForProviderCache } = require('./lib/xss-poison-helpers');
-const { seedPatient, purgeSupport } = require('./lib/xss-poison-patient');
+const { payload, inspect, Findings, Seeder, waitForProviderCache, freeProviderNo } = require('./lib/xss-poison-helpers');
+const { seedPatient } = require('./lib/xss-poison-patient');
 
 async function workflow(s) {
   const fields = {};
-  let n = 0;
+  // Payload numbers start at 900: each check owns its own range, so a concurrent xss-poison run's rows on a
+  // shared list are never mistaken for this run's (inspect() ignores a number it did not create).
+  let n = 900;
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
-  const seed = new Seeder(s.sql, s.cleanup);
+  const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-8);
-  const provNo = String(600000 + (parseInt(hex, 16) % 99999));
+  let provNo;
   const today = s.sql.value('SELECT CURDATE()');
   const monthDay = s.sql.value(`SELECT d FROM (SELECT DATE_ADD(CURDATE(), INTERVAL x DAY) d FROM (SELECT 2 x UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t) c
-    WHERE MONTH(d)=MONTH(CURDATE()) AND NOT EXISTS (SELECT 1 FROM scheduledate WHERE sdate=d AND provider_no='999998') LIMIT 1`);
+    WHERE MONTH(d)=MONTH(CURDATE()) AND NOT EXISTS (SELECT 1 FROM scheduledate WHERE sdate=d AND provider_no='999998')
+    AND NOT EXISTS (SELECT 1 FROM scheduleholiday WHERE sdate=d) LIMIT 1`);
   let demo; let ticklerField;
   await s.step('seed inert-markup rows for the schedule surfaces', async () => {
+    provNo = freeProviderNo(s.sql, 600000 + (parseInt(hex, 16) % 99000));
     seed.insert('provider', {
       provider_no: provNo, last_name: P('doctor last name', 30), first_name: P('doctor first name', 30), provider_type: 'doctor',
       sex: 'F', specialty: '', status: '1', lastUpdateDate: { raw: 'NOW()' },
@@ -37,7 +41,6 @@ async function workflow(s) {
     seed.insert('scheduledate', { sdate: today, provider_no: provNo, available: 'Y', priority: '1', reason: P('doctor day reason'), hour: 'Public', creator: '999998', status: 'A' }, { key: 'id' });
     if (monthDay) seed.insert('scheduledate', { sdate: monthDay, provider_no: '999998', available: 'Y', priority: '1', reason: P('own day reason'), hour: 'Standard', creator: '999998', status: 'A' }, { key: 'id' });
     demo = seedPatient(seed, P, '999998', `XP${hex.slice(0, 6)}`);
-    s.cleanup(() => purgeSupport(s.sql, demo));
     const base = { appointment_date: today, end_time: '16:59:00', name: P('appointment name', 50), demographic_no: Number(demo), notes: P('appointment notes'),
       reason: P('appointment reason', 80), location: P('appointment location'), resources: P('appointment resources'), type: P('appointment type', 50),
       status: 't', creator: P('appointment creator', 50), remarks: P('appointment remarks', 50), urgency: P('appointment urgency', 30), lastupdateuser: '999998',
@@ -47,7 +50,7 @@ async function workflow(s) {
     seed.insert('appointmentType', { name: P('appointment type name', 50), notes: P('appointment type notes', 80), reason: P('appointment type reason', 80), location: P('appointment type location'), resources: '', duration: 15 }, { key: 'id' });
     seed.insert('LookupListItem', { lookupListId: 1, value: String(900000 + (parseInt(hex, 16) % 99999)), label: P('appointment reason lookup label'), displayOrder: 99, active: 1, createdBy: '999998' }, { key: 'id' });
     seed.insert('scheduletemplatecode', { code: '~', description: P('schedule code description', 80), duration: '15', color: '#ffcc00', confirm: 'No', bookinglimit: 1 }, { key: 'id' });
-    if (monthDay) seed.insert('scheduleholiday', { sdate: monthDay, holiday_name: P('holiday name', 100) }, { where: `sdate='${monthDay}' AND holiday_name LIKE '%data-xp%'` });
+    if (monthDay) seed.insert('scheduleholiday', { sdate: monthDay, holiday_name: P('holiday name', 100) }, { where: `sdate='${monthDay}'` });
     const tmsg = P('tickler message');
     ticklerField = n;
     const t = seed.insert('tickler', { demographic_no: Number(demo), message: tmsg, status: 'A', update_date: { raw: 'NOW()' }, service_date: { raw: 'DATE_SUB(NOW(), INTERVAL 1 DAY)' }, creator: '999998', priority: 'Normal', task_assigned_to: '999998' }, { key: 'tickler_no' });
@@ -82,8 +85,8 @@ async function workflow(s) {
     let since = f.mark();
     await inspect(f, 'appointment edit popup', popup, fields, since);
     since = f.mark();
-    await Promise.all([popup.waitForURL(/appointmentviewrecordcard/, { timeout: 20000 }), popup.locator('a.btn', { hasText: /Print Card/i }).click()]);
-    await popup.waitForLoadState('domcontentloaded');
+    await ui.clickAndAwaitReload(popup, popup.locator('a.btn', { hasText: /Print Card/i }), { timeout: 20000, label: 'Print Card' });
+    h.assert(/appointmentviewrecordcard/i.test(popup.url()), 'Print Card did not open the appointment card');
     await inspect(f, 'appointment card', popup, fields, since);
     await popup.close();
   });

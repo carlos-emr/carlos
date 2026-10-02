@@ -306,6 +306,26 @@ each check covers and the routes found to have no UI entry, is
 | 115 | Billing History ▸ Unbill decides whether to refuse only from the client-posted `billCode`: `BillingDeleteNoAppt2Action` never reads `billing_on_cheader1.status`, so a `_billing` writer posting `billCode=O` for a bill in status B (submitted to OHIP) or S would mark it deleted | Source reading of `BillingDeleteNoAppt2Action`; `billing-on-correction-delete` proves only the honest refusal (a status-B bill posted with its stored code is refused). The forged-code post was not sent, to protect the demo data | `needs-live-check` |
 | 116 | Customize Measurements ▸ Delete style sheet removes only `measurementGroupStyle` rows; an unused style sheet's `measurementCSSLocation` row and uploaded file stay, and the copy-without-replace upload then refuses the same name | Source reading of `EctDeleteMeasurementStyleSheet2Action` and `EctAddMeasurementStyleSheet2Action` (`Files.copy` without `REPLACE_EXISTING`); `measurement-type-group-admin` asserts the correct behaviour, but on 2026.08 it stops earlier at the documented 405 | `needs-live-check` |
 
+## 11. Found by the stored-markup (xss-poison) sweep (October 2026)
+
+Each row was confirmed live on the same packaged install as §10 by an `xss-poison-*` check
+(see [release-2026.08-workflow-coverage-expansion.md](release-2026.08-workflow-coverage-expansion.md#stored-markup-xss-poison-sweep)),
+then traced to the line that prints the value. The fixture text is inert (`<i data-xp="N">`, quotes,
+a backslash, `&amp;`, `</script data-xp>`), INSERTed so the WAF does not refuse it, as imported or
+legacy data would arrive. A finding here means the stored value became an element in the page or
+broke its script; none of the payloads can run code, so these are encoding defects, not demonstrated
+exploits.
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 117 | `<oscar:nameage>` prints the patient's name unencoded; 19 JSPs use it, among them the eDoc patient document list, the Disease Registry, Manage Contacts and the Msg inbox | `DemographicNameAgeTag.java:66` (`out.print(nameage)`); live: `xss-poison-documents-inbox`, `xss-poison-master-record`, `xss-poison-echart`, `xss-poison-messenger-consult` (`documentReport.jsp:475`, `dxResearch.jsp:247`, `ManageContacts.jsp:362`, `DisplayMessages.jsp:610`) | `open` |
+| 118 | Master Record view and Edit form print stored patient and provider values unencoded: official/spoken language, contact role, cytology number, phone extensions, cell, email, health card type, the alert, and the doctor/nurse/midwife select labels | `xss-poison-master-record` (`demographic/edit-view.jsp:295,310,416,508,530,734,740,746,794,810`; `edit-form-clinical.jsp:260,277,294`) | `open` |
+| 119 | The E-Chart left navbar prints item titles raw, and the Rx, Tickler and eForm modules build those titles from stored text without encoding; the Rx drug list prints drug instructions raw | `xss-poison-echart` (`encounter/LeftNavBarDisplay.jsp:338`; `EctDisplayRx2Action.java:112,123`, `EctDisplayTickler2Action.java:96,104`, `EctDisplayEForm2Action.java:123`; `rx/ListDrugs.jsp:326`) | `open` |
+| 120 | The consultation request form writes the saved letterhead name into a script string unescaped, so a name with a double quote is a SyntaxError that stops the form's script | `xss-poison-messenger-consult` (`ConsultationFormRequest.jsp:3525`, `switchProvider("${pageScope.consultUtil.letterheadName}")`) | `open` |
+| 121 | eForm administration prints stored names unencoded: role names in the upload form's select, patient-independent instance names and subjects; the group Delete confirmation re-parses the attribute-encoded group name as HTML | `xss-poison-eform`, `xss-poison-admin-users-billing` (`eform/partials/upload.jsp:127`; `efmmanageindependent.jsp:149,151`; `efmmanageformgroups.jsp:148` read back by `efmFooter.jspf:70` with `.html()`) | `open` |
+| 122 | Administration lists print stored names unencoded: group members, document types, report-template titles and descriptions, and the provider/role/quick-list selects of Age-Sex, Disease Registry, Add a Group, Access Control, Manage Faxes, Demographic Export and Fix notes with invalid role | `xss-poison-admin-detail`, `xss-poison-admin-reports-system` (`admindisplaymygroup.jsp:117`, `displayDocumentDescriptionTemplate.jsp:291`, `reportByTemplate/homePage.jsp:129,131`, `oscarReportAgeSex.jsp:192`, `oscarReportDxReg.jsp:168,247`, `adminnewgroup.jsp:177`, `groupnoacl.jsp:162,180`, `manageFaxes.jsp:371`, `demographicExport.jsp:483`, `fixRolesOnNotes.jsp:93`); Jobs Management is finding 63 | `open` |
+| 123 | The schedule month view's provider select prints the (truncated) provider name unencoded | `xss-poison-schedule` (`provider/appointmentprovideradminmonth.jsp:592,619`): the cut-off payload became an element inside the option | `open` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is
