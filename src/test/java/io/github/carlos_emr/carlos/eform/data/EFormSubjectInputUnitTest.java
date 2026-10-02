@@ -135,6 +135,9 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
             "<select name='newForm' size='99999999999'><option value='True'>True</option></select>",
             "<button type='button' name='newForm' value='False'>Toggle</button>",
             "<button type='submit' name='newForm' value='False' disabled>Save</button>",
+            "<button name='newForm' value='False'>Save</button>",
+            "<button type='submit' name='newForm' value='False'>Save</button>",
+            "<input type='submit' name='newForm' value='False'>",
             "<select name='newForm'><option value='True' selected>True</option><option value='x' selected disabled>x</option></select>"})
     void shouldSupplyNewFormFlag_whenNewFormControlWouldNotBeSubmitted(String control) {
         EForm form = new EForm();
@@ -161,10 +164,7 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
             "<select name='newForm' size='1'><option value='True'>True</option></select>",
             "<select name='newForm' size='0'><option value='True'>True</option></select>",
             "<select name='newForm' size='00000001'><option value='True'>True</option></select>",
-            "<select name='newForm' size='2'><option value='True' selected>True</option></select>",
-            "<button name='newForm' value='False'>Save</button>",
-            "<button type='submit' name='newForm' value='False'>Save</button>",
-            "<input type='submit' name='newForm' value='False'>"})
+            "<select name='newForm' size='2'><option value='True' selected>True</option></select>"})
     void shouldKeepTemplateNewFormFlag_whenNewFormControlIsSubmitted(String control) {
         EForm form = new EForm();
         form.setFormHtml("<form>" + control + "</form>");
@@ -223,6 +223,17 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
         assertThat(fallback.parent().id()).isEqualTo("saveEForm");
         assertThat(fallback.val()).isEqualTo("true");
         assertThat(fallback.hasAttr("form")).isFalse();
+    }
+
+    @Test
+    void shouldMarkFallback_forThePageScriptToDropOnNewFormSubmitter() {
+        EForm form = new EForm();
+        form.setFormHtml("<form><button name='newForm' value='False'>Save</button></form>");
+        form.ensureNewFormInput();
+        var fallback = Jsoup.parse(form.getFormHtml()).getElementById("newForm");
+        assertThat(fallback).isNotNull();
+        assertThat(fallback.hasAttr(EForm.NEW_FORM_FALLBACK_ATTRIBUTE)).isTrue();
+        assertThat(EForm.NEW_FORM_FALLBACK_ATTRIBUTE).isEqualTo("data-carlos-newform-fallback");
     }
 
     @Test

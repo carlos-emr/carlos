@@ -1467,6 +1467,9 @@ public class EForm extends EFormBase {
         addHiddenInputElement(id, null, null, value, null);
     }
 
+    /** Marks the server-added newForm fallback input for the eForm page script. */
+    public static final String NEW_FORM_FALLBACK_ATTRIBUTE = "data-carlos-newform-fallback";
+
     /**
      * Preserve a template's case-sensitive newForm flag and its submitted name.
      *
@@ -1486,8 +1489,12 @@ public class EForm extends EFormBase {
         if (form == null || hasSubmittableNewFormControl(form)) {
             return;
         }
+        // Marked so the eForm page script can drop it from a native submission whose submitter
+        // is the template's own newForm button (see eform_floating_toolbar.js); every other
+        // path, including the toolbar's submitter-less form.submit(), posts it.
         Element fallback = form.appendElement("input").attr("type", "hidden")
-                .attr("name", "newForm").attr("value", "true");
+                .attr("name", "newForm").attr("value", "true")
+                .attr(NEW_FORM_FALLBACK_ATTRIBUTE, "");
         // getElementById is case-sensitive, matching the browser.
         if (getDocument().getElementById("newForm") == null) {
             fallback.attr("id", "newForm");
@@ -1495,7 +1502,7 @@ public class EForm extends EFormBase {
     }
 
     /**
-     * True when the form already supplies a value named exactly {@code newForm}, i.e. a control it
+     * True when the form already submits a value named exactly {@code newForm}, i.e. a control it
      * owns (a descendant, or one elsewhere that names it with {@code form=}; a descendant assigned
      * to another form does not count) is successful by that name (HTML forms spec): an input
      * other than the button, reset and image types, a select that would submit at least one
@@ -1504,22 +1511,20 @@ public class EForm extends EFormBase {
      * unchecked box, a select with nothing to submit) contributes no parameter, so it must not
      * suppress the fallback.
      *
-     * <p>A submit button named {@code newForm} ({@code <button>} without a non-submit type, or
-     * {@code <input type=submit>}) also counts. It submits its value only when it is the
-     * submitter, which a static hidden input cannot know; a fallback beside it would post two
-     * conflicting values whenever that button is used, so the template's own button is trusted
-     * to supply the flag, as it was before the fallback existed.
+     * <p>A submit button named {@code newForm} does not count: it submits its value only when it
+     * is the submitter, and the toolbar saves through {@code form.submit()}, which has none. The
+     * fallback is added beside it and the page script removes the fallback from a submission
+     * that button makes, so every path posts {@code newForm} exactly once.
      */
     private static boolean hasSubmittableNewFormControl(Element form) {
-        String controls = "input[name], select[name], textarea[name], button[name]";
+        String controls = "input[name], select[name], textarea[name]";
         Document document = form.ownerDocument();
         Elements candidates = document != null ? document.select(controls) : form.select(controls);
         return candidates.stream()
                 .filter(control -> "newForm".equals(control.attr("name")))
                 .filter(control -> formOwner(control) == form)
                 .filter(control -> !control.is(
-                        "input[type=button], input[type=reset], input[type=image], "
-                        + "button[type=button], button[type=reset]"))
+                        "input[type=button], input[type=submit], input[type=reset], input[type=image]"))
                 .filter(control -> !control.hasAttr("disabled"))
                 .filter(control -> !disabledByFieldset(control))
                 .filter(control -> !control.is("input[type=checkbox], input[type=radio]")
