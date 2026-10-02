@@ -83,7 +83,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *
  * <p>The invite code is stored by CARLOS only in the body of the email's outbox row, and only until the
  * send settles or staff resolve the delivery, when it is replaced there; a crash in the middle of a send
- * leaves it in that row until then. It is never stored on the attempt, in the archive, or on the chart. A
+ * leaves it in that row until then. {@link PortalInviteCodeSweeper} periodically retries removal for
+ * emails recorded SUCCESS or BLOCKED; ambiguous outcomes remain untouched. The code is never stored
+ * on the attempt, in the archive, or on the chart. A
  * lost prepare response is recovered by retrying with the same operation id, which the portal answers
  * with the same token.
  *

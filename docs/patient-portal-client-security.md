@@ -140,8 +140,43 @@ stored body is replaced with a note saying the code is not kept. `EmailManager` 
 body-only cleanup when a synchronous failure precedes the dispatch gate, including consent snapshot,
 archive or authorization failures. Cleanup failure preserves the send result and is logged without
 email content. Process crashes can still leave stored bodies; this finalizer does not guarantee
-cleanup after process death. The outbound email archive, a
-permanent patient document, never holds it: the service names the code in
+cleanup after process death.
+
+When cleanup does not happen because CARLOS stops mid-send or the body replacement fails, CARLOS retries cleanup for emails whose transport is known to
+have settled: `SUCCESS` (transport returned) or `BLOCKED` (consent refused dispatch). `FAILED` is
+excluded because staff abandonment can also write it while the original preparation is still running.
+It checks all ages, including expired codes, in batches of at most 200 ids. Cleanup runs
+at startup and every 15 minutes after the preceding run completes. Each run processes at most 200
+rows, continuing from the preceding batch, then starts a new pass after reaching the end. A row must have been unchanged for 15 minutes. Both selection and the atomic
+body-only update check eligibility, so a concurrent status change cannot be overwritten. Failures are
+retried on a later pass without requiring another invitation; logs contain counts and exception class
+names, never credentials.
+
+**Remaining draft limitation (#4083):** an idle timestamp does not prove that a sender on another
+server has stopped. Failed, unfinished, or manually resolved emails are excluded from automatic cleanup,
+regardless of age. This draft therefore does not promise a deadline for clearing every crash leftover,
+or that every email older than seven days is clear. These cases need a separate, verified maintenance
+procedure. Expiry of the portal token does not erase its saved body or existing database backups.
+
+Administrators with database read access can check for remaining bodies without displaying any code.
+Run this count-only query against the CARLOS database:
+
+```sql
+SELECT COUNT(*) AS invitation_bodies_remaining
+FROM emailLog
+WHERE transactionType = 'PORTAL_INVITE'
+  AND (body IS NULL OR body <> CAST(REPLACE(TO_BASE64(
+    'This invitation''s code is not kept by CARLOS. Resend the invitation to issue a new code.'
+  ), CHAR(10), '') AS BINARY));
+```
+
+The count includes every age and status. A nonzero count is conservative: it includes active sends,
+unknown outcomes, null bodies, and any body that does not exactly match the removal note. Zero verifies
+that every current invitation row has the removal note at the time of the query; it says nothing about
+older backups. Do not print the bodies to investigate the count.
+
+The outbound email archive, a permanent patient
+document, never holds it: the service names the code in
 `EmailData.setArchiveRedactions`, and `EmailManager` archives the message with it replaced by
 `[redacted]` and the artifact type suffixed `_REDACTED` (`SMTP_RFC822_REDACTED` or
 `API_PAYLOAD_REDACTED`), so the copy is never mistaken for the

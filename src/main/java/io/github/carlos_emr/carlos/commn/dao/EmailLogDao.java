@@ -66,11 +66,24 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
      * Replaces the stored body of one email, in its own transaction.
      *
      * <p>Used to drop a one-time credential from the outbox once it can no longer be needed: the row
-     * stays as the record that the email existed, without keeping what it carried.
+     * stays as the record that the email existed, without keeping what it carried. Only the body column
+     * is written, so a status change made at the same time by another request is never overwritten.
      *
-     * @return the number of rows changed
+     * @return the number of rows matched: 0 when the row is missing
      */
     public int replaceBody(Integer id, String replacement);
+
+    /**
+     * Lists at most {@code limit} uncleared, transport-settled emails before the cutoff, after the id.
+     * SUCCESS proves transport returned; BLOCKED proves consent refused it before dispatch. FAILED
+     * can also be written by staff abandonment, so it is excluded alongside PENDING and RESOLVED.
+     */
+    List<Integer> findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType type,
+            Date changedBefore, String body, int afterId, int limit);
+
+    /** Rechecks type, transport-settled status and cutoff atomically before replacing only the body. */
+    int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
+            String replacement);
 
     /**
      * Atomically changes an email status only when the persisted row is still in the expected

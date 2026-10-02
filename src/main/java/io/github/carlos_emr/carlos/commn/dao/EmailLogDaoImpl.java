@@ -225,6 +225,40 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
                 .setParameter("id", id)
                 .executeUpdate();
     }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+    public List<Integer> findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType type,
+            Date changedBefore, String body, int afterId, int limit) {
+        return entityManager.createQuery("SELECT e.id FROM EmailLog e WHERE e.transactionType = :type "
+                        + "AND e.status IN :settledStatuses AND e.timestamp < :changedBefore AND e.id > :afterId "
+                        + "AND (e.body IS NULL OR e.body <> :body) ORDER BY e.id", Integer.class)
+                .setParameter("type", type)
+                .setParameter("settledStatuses", List.of(EmailLog.EmailStatus.SUCCESS,
+                        EmailLog.EmailStatus.BLOCKED))
+                .setParameter("changedBefore", changedBefore)
+                .setParameter("afterId", afterId)
+                .setParameter("body", encodeBody(Objects.requireNonNull(body, "body")))
+                .setMaxResults(limit)
+                .getResultList();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
+            String replacement) {
+        return entityManager.createQuery("UPDATE EmailLog e SET e.body = :body WHERE e.id = :id "
+                        + "AND e.transactionType = :type AND e.status IN :settledStatuses AND e.timestamp < :changedBefore "
+                        + "AND (e.body IS NULL OR e.body <> :body)")
+                .setParameter("id", id)
+                .setParameter("type", type)
+                .setParameter("settledStatuses", List.of(EmailLog.EmailStatus.SUCCESS,
+                        EmailLog.EmailStatus.BLOCKED))
+                .setParameter("changedBefore", changedBefore)
+                .setParameter("body", encodeBody(Objects.requireNonNull(replacement, "replacement")))
+                .executeUpdate();
+    }
+
     /** The stored form of a body, as {@link EmailLog#setBody(String)} writes it. */
     private static byte[] encodeBody(String body) {
         return Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
