@@ -118,6 +118,8 @@
             (function ($) {
                 $(function () {
                     var demo = $("#demographicNo").val();
+                    var preferredListReady = false;
+                    $(".pharmacyItem").attr("aria-disabled", "true").css("pointer-events", "none");
 					if(demo != null && demo !== "") {
 						$.post("<%=request.getContextPath() + "/rx/managePharmacy?method=getPharmacyFromDemographic&demographicNo="%>" + demo,
                         function (data) {
@@ -265,6 +267,8 @@
                                     }
                                 });
                             }
+                            preferredListReady = true;
+                            $(".pharmacyItem").attr("aria-disabled", "false").css("pointer-events", "");
                             HideSpin(true);
                         }, "json");
 					}
@@ -294,16 +298,24 @@
                     filterPharmacies();
 
                     $(".pharmacyItem").click(function () {
+                        if (!preferredListReady) return;
                         var pharmId = $(this).attr("pharmId");
 
-                        $("#preferredList div").each(function () {
+                        var preferredPharmacies = $("#preferredList > div[pharmId]");
+                        var alreadySelected = false;
+                        preferredPharmacies.each(function () {
                             if ($(this).attr("pharmId") == pharmId) {
-                                alert("Selected pharamacy is already selected");
+                                alreadySelected = true;
                                 return false;
                             }
                         });
+                        if (alreadySelected) {
+                            alert("Selected pharmacy is already selected");
+                            return;
+                        }
 
-                        var data = "pharmId=" + pharmId + "&demographicNo=" + demo + "&preferredOrder=" + ($("#preferredList div").length + 1);
+                        // Count pharmacy entries only; an empty list contains placeholder divs.
+                        var data = "pharmId=" + pharmId + "&demographicNo=" + demo + "&preferredOrder=" + (preferredPharmacies.length + 1);
                         ShowSpin(true);
                         $.post("<%=request.getContextPath() + "/rx/managePharmacy?method=setPreferred"%>", data, function (data) {
                             if (data.id) {

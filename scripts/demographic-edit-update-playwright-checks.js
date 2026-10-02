@@ -258,7 +258,16 @@ async function main() {
     // before the POST has even started would race the write it is meant to
     // observe -- and the comparison would then blame the application for
     // dropping a field it had simply not stored yet.
-    await clickAndAwaitReload(masterPage, save, { timeout, label: 'Update Record' });
+    const [update] = await Promise.all([
+      masterPage.waitForResponse(response =>
+        new URL(response.url()).pathname.endsWith('/demographic/DemographicUpdate')
+          && response.request().method() === 'POST', { timeout }),
+      clickAndAwaitReload(masterPage, save, { timeout, label: 'Update Record' }),
+    ]);
+    // The edit action normally redirects after accepting the POST. Verify the
+    // database below instead of treating its 302 as a rejected write.
+    assert(update.status() < 400,
+      `Update Record was refused with HTTP ${update.status()}; no patient changes were saved`);
 
     // 1. The write reached the database.
     const [after] = sql.rows(

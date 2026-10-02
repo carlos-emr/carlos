@@ -75,6 +75,36 @@ async function workflow(s) {
     await unchangedAfter(payload({ referringDoctor: null }));
     await unchangedAfter(payload({ demographic: { demographicNo: 0 } }));
   });
+  await s.step('new response for an unknown patient is rejected without creating a row', async () => {
+    const unknown = Number(s.sql.value('SELECT COALESCE(MAX(demographic_no),0)+1000 FROM demographic'));
+    h.assert(Number.isSafeInteger(unknown) && unknown > patient, 'No unused patient number');
+    const before = s.sql.value(`SELECT COUNT(*) FROM consultationResponse WHERE referralReason=${quote(s.marker)}`);
+    await post(payload({ id: null, demographic: { demographicNo: unknown }, attachments: null }), 400);
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM consultationResponse WHERE referralReason=${quote(s.marker)}`) === before,
+      'A response was created for an unknown patient');
+  });
+  await s.step('new response for the owned patient is created under that patient', async () => {
+    const response = await s.context.request.post(endpoint,
+      { data: payload({ id: null, demographic: { demographicNo: patient }, attachments: null }) });
+    h.assert(response.status() === 200, `new saveResponse expected HTTP 200, received ${response.status()}`);
+    const createdId = Number((await response.json()).id);
+    await response.dispose();
+    h.assert(Number.isSafeInteger(createdId) && createdId > 0 && createdId !== responseId, 'New response id was not returned');
+    s.cleanup(() => s.sql.execute(`DELETE FROM consultResponseDoc WHERE responseId=${createdId};
+      DELETE FROM consultationResponse WHERE responseId=${createdId} AND demographicNo=${patient}
+      AND referralReason=${quote(s.marker)}`));
+    h.assert(s.sql.value(`SELECT demographicNo FROM consultationResponse WHERE responseId=${createdId}`) === String(patient),
+      'New response was not saved under the submitted patient');
+  });
+  await s.step('reads without a consultation id return 400 instead of a server error', async () => {
+    for (const path of [`getRequest?demographicId=${patient}`, `getResponse?demographicNo=${patient}`,
+      `getRequestAttachments?demographicId=${patient}&attached=true`,
+      `getResponseAttachments?demographicNo=${patient}&attached=true`]) {
+      const response = await s.context.request.get(`${s.config.baseUrl}/ws/rs/consults/${path}`);
+      h.assert(response.status() === 400, `${path.split('?')[0]} expected HTTP 400, received ${response.status()}`);
+      await response.dispose();
+    }
+  });
   const requestId = Number(s.sql.value(`INSERT INTO consultationRequests
     (demographicNo,providerNo,reason,lastUpdateDate) VALUES
     (${patient},${quote(s.provider)},${quote(s.marker)},NOW()); SELECT LAST_INSERT_ID()`));

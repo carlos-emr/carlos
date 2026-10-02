@@ -219,7 +219,19 @@ async function main({throwIfCancelled = () => {}} = {}) {
       container.scrollTop = container.scrollHeight;
       container.dispatchEvent(new Event('scroll'));
     });
-    await inbox.locator('#ajaxErrorToast.show').waitFor({ timeout });
+    const errorToast = inbox.locator('#ajaxErrorToast.show');
+    await errorToast.waitFor({ state: 'attached', timeout });
+    const toastVisibility = await errorToast.evaluate(element => {
+      const layers = [];
+      for (let current = element; current && layers.length < 5; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        layers.push({ tag: current.tagName, id: current.id, display: style.display,
+          visibility: style.visibility, opacity: style.opacity });
+      }
+      return layers;
+    });
+    assert(await errorToast.isVisible(),
+      `Paging failed, but its retry toast is hidden: ${JSON.stringify(toastVisibility)}`);
     await inbox.waitForFunction(() => !window.isFetchingData, null, { timeout });
     assert(await inbox.evaluate(expected => window.page === expected, failedPage),
       'failed paging advanced past the missing results');
@@ -233,8 +245,18 @@ async function main({throwIfCancelled = () => {}} = {}) {
     assert(retryRequests.length === 2 && retryRequests.every(value => value === failedPage),
       'failure/retry must request the same next page exactly twice without overlap');
     const retriedCards = await shownCards(inbox);
-    assert(retriedCards.length > after.length && new Set(retriedCards).size === retriedCards.length,
-      'retry did not append distinct results from the failed page');
+    const reportedTotal = Number(await inbox.locator('#totalResultsCount').inputValue());
+    const hasMoreAfterRetry = await inbox.evaluate(() => window.hasMoreData);
+    assert(retriedCards.length >= after.length
+      && retriedCards.slice(0, after.length).every((identity, index) => identity === after[index])
+      && new Set(retriedCards).size === retriedCards.length,
+    'retry lost or duplicated a previously loaded preview card');
+    // The boundary re-sync can already have filled the entire result set. In
+    // that case the next page is legitimately empty: the retry must still use
+    // the failed page number and account for every result, not append a card.
+    assert(retriedCards.length > after.length
+      || (!hasMoreAfterRetry && Number.isInteger(reportedTotal) && retriedCards.length === reportedTotal),
+      `retry skipped results from page ${failedPage} (loaded=${retriedCards.length}, total=${reportedTotal}, hasMore=${hasMoreAfterRetry})`);
     const expectedFailures = recorder.badResponses.slice(badStart);
     assert(expectedFailures.length === 1 && expectedFailures[0].status === 503
       && expectedFailures[0].method === 'POST' && VIEW_PATTERN.test(expectedFailures[0].url),

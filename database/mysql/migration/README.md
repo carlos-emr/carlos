@@ -36,6 +36,9 @@ migration/
            V1.0.41__rtl_provider_stamp_fields.sql
            V1.0.42__tickler_docs.sql
            V1.0.43__consultation_eform_lab_sources.sql
+           V1.0.45__consultation_request_indexes.sql
+           V1.0.46__field_note_report_privilege.sql
+           V1.0.47__align_measurements_deleted_columns.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -51,16 +54,16 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.43`.
-The next unallocated number for ANY location — shared or province — is `V1.0.44`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.47`.
+The next unallocated number for ANY location — shared or province — is `V1.0.48`.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
 The V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
 do not enable `outOfOrder` to fill gaps. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — including `common/V1.0.43` on either province after this change. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.43`) but would silently
+run — including `common/V1.0.45` on either province after this change. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.45`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province.
@@ -71,6 +74,11 @@ other province.
 before any database, whether a dev container, a CI fixture or a packaged snapshot, has migrated to
 `V1.0.32` or later. Otherwise the rule above applies: a PR merged after that point must renumber
 above the high-water mark.
+
+**`V1.0.44` is claimed by open PR #3694** (provider signature identity), so the consultation
+request indexes (#3976) were numbered `common/V1.0.45` rather than colliding with it. The same rule
+applies again: if any database has migrated to `V1.0.45` before #3694 merges, #3694 must renumber
+above the high-water mark instead of landing below it.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 
@@ -141,8 +149,9 @@ Messenger membership coordination (#3964) adds
 `common/V1.0.39__track_automatic_mrp_routing.sql`. Full lab labels add
 `common/V1.0.40__widen_lab_labels.sql`. The Rich Text Letter signature-stamp inputs reach
 upgraded installs through `common/V1.0.41__rtl_provider_stamp_fields.sql`. Tickler and
-consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`. The next
-unallocated version is `V1.0.44`. Apply/merge these forward migrations in version order; if their merge
+consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`. The
+Consultations list filter indexes (#3976) add `common/V1.0.45` (`V1.0.44` is claimed by open
+PR #3694). The next unallocated version is `V1.0.46`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

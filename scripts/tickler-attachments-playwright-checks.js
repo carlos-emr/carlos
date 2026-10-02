@@ -101,6 +101,16 @@ function liveRows(ticklerNo) {
 
 // Set while step 6 has moved the stored lab's routing to another patient; restored on cleanup.
 let movedLabFixture = null;
+let restrictedLabGrants = null;
+
+function restoreRestrictedLabGrants() {
+  if (!restrictedLabGrants) return;
+  // Stay pending until every grant is back, so a failed restore is retried by the outer cleanup.
+  for (const [objectName, role, privilege] of restrictedLabGrants) {
+    db.execute(`UPDATE secObjPrivilege SET privilege=${sqlString(privilege)} WHERE objectName=${sqlString(objectName)} AND roleUserGroup=${sqlString(role)}`);
+  }
+  restrictedLabGrants = null;
+}
 
 function restoreMovedLab() {
   if (!movedLabFixture) {
@@ -251,6 +261,61 @@ async function postEditForm(page, fields) {
     // the source (delegate_labNoHL7123 / labNoHL7123) and the value carries it as "HL7:123".
     assert(await editPage.locator(`#delegate_labNo${storedLabType}${picked.L}`).inputValue() === `${storedLabType}:${picked.L}`,
       'lab delegate input does not carry the lab source');
+    // Sender warning follows the selected recipient and does not imply that assigning a
+    // tickler grants access to its attachments.
+    const assignee = editPage.locator('#assignedToProviders');
+    const originalAssignee = await assignee.inputValue();
+    const otherAssignee = await assignee.locator('option').evaluateAll((options, sender) =>
+      options.map(option => option.value).find(value => value && value !== sender), providerNo);
+    if (otherAssignee) {
+      await assignee.selectOption(otherAssignee);
+      assert(await editPage.locator('#attachmentAssigneeWarning').isVisible(),
+        'a sender assigning attachments to another provider received no access warning');
+      if (await assignee.locator(`option[value="${providerNo}"]`).count()) {
+        await assignee.selectOption(providerNo);
+        assert(!(await editPage.locator('#attachmentAssigneeWarning').isVisible()),
+          'the warning remained when the sender assigned the tickler to themself');
+      }
+      await assignee.selectOption(originalAssignee);
+    }
+
+    // A recipient without lab read rights must see that an attachment exists, but its lab
+    // source and identifier must never appear in the edit form. Saving after opening the
+    // picker must retain the row; the service distinguishes an empty unreadable type from
+    // an intentional deletion by checking the recipient's own permissions.
+    const roles = db.rows(`SELECT role_name FROM secUserRole WHERE provider_no=${sqlString(providerNo)}`).map(([role]) => role);
+    roles.push(providerNo);
+    const roleList = roles.map(sqlString).join(',');
+    const labObjects = ['_lab', `_lab$${demographicNo}`].map(sqlString).join(',');
+    const grants = db.rows(`SELECT objectName, roleUserGroup, privilege FROM secObjPrivilege WHERE objectName IN (${labObjects}) AND roleUserGroup IN (${roleList})`);
+    if (grants.length) {
+      restrictedLabGrants = grants;
+      try {
+        db.execute(`UPDATE secObjPrivilege SET privilege='d' WHERE objectName IN (${labObjects}) AND roleUserGroup IN (${roleList})`);
+        const restrictedPage = await openEdit(context, recorder, ticklerNo, 'tickler-edit-restricted-lab');
+        const labGroup = restrictedPage.locator('#attachmentGroup_labNo');
+        assert(await labGroup.locator('li.restricted').count() === 1,
+          'a lab-restricted recipient was not told an attachment exists');
+        assert(await labGroup.locator('input[value], li[data-delegate-id]').count() === 0,
+          'the restricted lab group exposed an attachment identifier');
+        assert(await restrictedPage.locator('.tickler-attachments input[name="labNo"]').count() === 0,
+          'the restricted lab identifier was serialized into the form');
+        assert((await restrictedPage.locator('#attachmentCount').innerText()).trim() === String(expectedCount),
+          'the attachment count excluded the restricted lab');
+        await openPicker(restrictedPage);
+        await saveAndClosePicker(restrictedPage);
+        assert((await restrictedPage.locator('#attachmentCount').innerText()).trim() === String(expectedCount),
+          'closing the picker lost the restricted attachment count');
+        await submitEditForm(restrictedPage);
+        await restrictedPage.close();
+        assert(liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.documentNo === picked.L),
+          'saving the restricted form detached the lab');
+      } finally {
+        restoreRestrictedLabGrants();
+      }
+    } else {
+      console.log('SKIP restricted lab check: test provider has no direct or role-based _lab grant to lower');
+    }
     await openPicker(editPage);
     const docBox = editPage.locator(`#attachDocumentsForm #docNo${picked.D}`);
     assert(await docBox.isChecked(), 'stored document was not pre-checked in the picker');
@@ -470,6 +535,7 @@ async function postEditForm(page, fields) {
       process.exitCode = 1;
     }
   } finally {
+    restoreRestrictedLabGrants();
     cleanupRows();
     db.dispose();
     await browser.close();

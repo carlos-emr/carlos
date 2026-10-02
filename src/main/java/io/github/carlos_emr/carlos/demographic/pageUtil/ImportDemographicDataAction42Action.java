@@ -141,6 +141,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -4579,6 +4580,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
     }
 
+    /** The handlers whose last lab number a CDS lab import can route to the patient. */
+    static boolean isImportableLabHandler(MessageHandler handler) {
+        return handler instanceof CMLHandler || handler instanceof GDMLHandler || handler instanceof MDSHandler
+                || handler instanceof ExcellerisOntarioHandler || handler instanceof PATHL7Handler;
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void importLabs(LoggedInInfo loggedInInfo, LaboratoryResults[] labResultArr) {
@@ -4604,9 +4611,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                 HL7CreateFile hl7CreateFile = new HL7CreateFile(demographic);
                 String observationMsg = hl7CreateFile.generateHL7(Arrays.asList(reportResults));
 
-                InputStream formFileIs = null;
-                InputStream localFileIs = null;
-
                 Integer labNo = null;
                 try {
                     String type = hl7CreateFile.LAB_TYPE;
@@ -4620,48 +4624,40 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                     }
                     File file = PathValidationUtils.validateExistingDocumentPath(filePath);
 
-                    localFileIs = new FileInputStream(file);
-
-                    int checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), localFileIs, admProviderNo);
-
-                    if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                        logger.debug("File uploaded successfully");
-                        logger.debug("Type: {}", type);
-                        MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
-                        if (msgHandler != null) {
-                            logger.debug("MESSAGE HANDLER " + msgHandler.getClass().getName());
+                    MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
+                    logger.debug("Type: {}", type);
+                    if (!isImportableLabHandler(msgHandler)) {
+                        FileUploadCheck.discardUnreferenced(file, PathValidationUtils.getRequiredDocumentDirectory());
+                        importErrors.add("Unregcognized lab facility: " + type);
+                    } else {
+                        // The checksum commits with the parsed lab or not at all: a parse that fails
+                        // or returns nothing rolls both back, so re-importing is not skipped as a
+                        // duplicate, and a failed duplicate lookup is reported as an error instead of
+                        // silently skipping the lab. The generated file is removed unless the stored
+                        // lab may reference it.
+                        AtomicReference<Integer> parsedLabNo = new AtomicReference<>();
+                        FileUploadCheck.StoreOutcome stored = FileUploadCheck.storeSavedFileIfNew(file,
+                                PathValidationUtils.getRequiredDocumentDirectory(), file.getName(), admProviderNo,
+                                checksumId -> {
+                                    if (msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath,
+                                            checksumId, "") == null) {
+                                        return false;
+                                    }
+                                    parsedLabNo.set(msgHandler.getLastLabNo());
+                                    return true;
+                                });
+                        if (stored == FileUploadCheck.StoreOutcome.STORED) {
+                            labNo = parsedLabNo.get();
+                            logger.info("successfully added lab");
+                            addOneEntry(LABS);
+                        } else if (stored == FileUploadCheck.StoreOutcome.REJECTED) {
+                            importErrors.add("Error adding lab");
                         }
-
-                        if (msgHandler instanceof CMLHandler && ((CMLHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((CMLHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof GDMLHandler && ((GDMLHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((GDMLHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof MDSHandler && ((MDSHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((MDSHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof ExcellerisOntarioHandler && ((ExcellerisOntarioHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((ExcellerisOntarioHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof PATHL7Handler && ((PATHL7Handler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((PATHL7Handler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else {
-                            importErrors.add("Unregcognized lab facility: " + type);
-                        }
+                        // ALREADY_RECORDED: the same lab content was imported before; skipped as before.
                     }
                 } catch (Exception e) {
                     logger.error("Error: ", e);
                     importErrors.add("Error adding lab");
-                } finally {
-                    IOUtils.closeQuietly(formFileIs);
-                    IOUtils.closeQuietly(localFileIs);
                 }
 
 

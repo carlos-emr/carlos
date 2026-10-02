@@ -97,4 +97,54 @@ class EFormListRedirectUnitTest {
                     .doesNotContainPattern("<result name=\"[^\"]+\">/eform/");
         }
     }
+
+    @Test
+    @DisplayName("should target the groups page for the named group, keeping sort and schedule nav")
+    void shouldTargetGroupPage_withGroupViewAndContext() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getParameter("orderby")).thenReturn("form_name");
+        when(request.getParameter("scheduleNav")).thenReturn("1");
+        when(request.getParameter("groupName")).thenReturn("ignored: not echoed by name");
+
+        assertThat(EFormListRedirect.toGroup(request, "Intake & ${1+1}"))
+                .isEqualTo("/eform/efmmanageformgroups?orderby=form_name&group_view=Intake+%26+%24%7B1%2B1%7D&scheduleNav=1");
+    }
+
+    @Test
+    @DisplayName("should drop a non-canonical schedule nav value rather than echo it")
+    void shouldDropScheduleNav_whenValueNotCanonical() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getParameter("scheduleNav")).thenReturn("true&x=1");
+
+        assertThat(EFormListRedirect.toGroup(request, "G")).isEqualTo("/eform/efmmanageformgroups?group_view=G");
+    }
+
+    @Test
+    @DisplayName("should target the default group when the group was deleted")
+    void shouldTargetDefaultGroup_whenGroupNameAbsent() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+
+        assertThat(EFormListRedirect.toGroup(request, null)).isEqualTo("/eform/efmmanageformgroups");
+        assertThat(EFormListRedirect.toGroup(request, "")).isEqualTo("/eform/efmmanageformgroups");
+    }
+
+    @Test
+    @DisplayName("should redirect, not forward, after every eForm group change")
+    void shouldRedirect_forGroupActions() throws IOException {
+        // Issue #4130: these forwarded (keeping POST) to the GET-only groups page, so a
+        // successful add, remove or delete ended on a 405 once the CSRF token reached them.
+        String xml = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
+        for (String action : new String[] {
+                "eform/addGroup", "eform/addToGroup", "eforms/removeFromGroup", "eforms/delGroup"}) {
+            Matcher m = Pattern.compile(
+                    "<action name=\"" + Pattern.quote(action) + "\"[^>]*>(.*?)</action>",
+                    Pattern.DOTALL).matcher(xml);
+            assertThat(m.find()).as(action + " mapping").isTrue();
+            String body = m.group(1).replaceAll("(?s)<!--.*?-->", "");
+            assertThat(body)
+                    .as(action + " results")
+                    .contains("<result name=\"success\" type=\"redirect\">${redirectTarget}</result>")
+                    .doesNotContainPattern("<result name=\"[^\"]+\">/eform/");
+        }
+    }
 }

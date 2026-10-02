@@ -124,6 +124,7 @@
     <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
     <script src="<%=request.getContextPath() %>/messenger/messenger-common.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <!-- css -->
     <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -187,15 +188,17 @@ function popup(demographicNo, msgId, providerNo, action) {
 
       if ( action == "writeToEncounter") {
           win = window.open("","<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>");
-          if ( win.pasteToEncounterNote && win.demographicNo == demographicNo ) {
+          // A popup blocker leaves win null; fall through to the other paths
+          // (and the POST below) instead of stopping at a TypeError.
+          if ( win && win.pasteToEncounterNote && win.demographicNo == demographicNo ) {
             txt = fmtOscarMsg();
             win.pasteToEncounterNote(txt);
           } else if ( noteEditor != undefined ){
-        	win.close();
+        	if (win) { win.close(); }
         	txt = "\n" + fmtOscarMsg();
         	noteEditor.value = noteEditor.value + txt;
           } else if ( noteEditor == undefined && ngApp != undefined ){
-        	  win.close();
+        	  if (win) { win.close(); }
         	  txt = "\n" + fmtOscarMsg();
         	  var openerRef = window.parent.opener || window.opener;
         	  if (openerRef) {
@@ -204,20 +207,15 @@ function popup(demographicNo, msgId, providerNo, action) {
         	      openerRef.location.href = newAngJsPath;
         	  }
           } else {
-              win.close();
-              var writeForm = document.createElement('form');
-              writeForm.method = 'post';
-              writeForm.action = 'WriteToEncounter';
-              writeForm.target = "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
-              var writeFields = {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'};
-              for (var k in writeFields) {
-                  var inp = document.createElement('input');
-                  inp.type = 'hidden'; inp.name = k; inp.value = writeFields[k];
-                  writeForm.appendChild(inp);
-              }
-              document.body.appendChild(writeForm);
-              var popUp = window.open('', writeForm.target, windowprops);
-              writeForm.submit();
+              if (win) { win.close(); }
+              var writeTarget = "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
+              // Open the popup inside the click handler (popup blockers), then
+              // post into it. carlosPostForm attaches the CSRF token, which
+              // CSRFGuard cannot inject into a runtime-built form in time (#4130).
+              var popUp = window.open('', writeTarget, windowprops);
+              carlosPostForm('WriteToEncounter',
+                  {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'},
+                  {target: writeTarget, popup: popUp});
               if (popUp != null) {
                   if (popUp.opener == null) {
                       popUp.opener = self;
@@ -227,17 +225,9 @@ function popup(demographicNo, msgId, providerNo, action) {
           }
       }
       else if ( action == "linkToDemographic"){
-          var linkForm = document.createElement('form');
-          linkForm.method = 'post';
-          linkForm.action = 'ViewMessage';
-          var linkFields = {'linkMsgDemo': 'true', 'demographic_no': demographicNo, 'messageID': msgId, 'providerNo': providerNo};
-          for (var lk in linkFields) {
-              var li = document.createElement('input');
-              li.type = 'hidden'; li.name = lk; li.value = linkFields[lk];
-              linkForm.appendChild(li);
-          }
-          document.body.appendChild(linkForm);
-          linkForm.submit();
+          // carlosPostForm attaches the CSRF token (#4130).
+          carlosPostForm('ViewMessage',
+              {'linkMsgDemo': 'true', 'demographic_no': demographicNo, 'messageID': msgId, 'providerNo': providerNo});
       }
   }
 
@@ -522,7 +512,7 @@ function fmtOscarMsg() {
 
 											<c:if test="${ demoattached.key eq demographic_no }">
 												<input
-													onclick="javascript:popup('${ fn:escapeXml(demographic_no) }', '${ fn:escapeXml(messageID) }', '${ fn:escapeXml(providerNo) }');"
+													onclick="popup('${carlos:forJavaScriptAttribute(demographic_no)}', '${carlos:forJavaScriptAttribute(messageID)}', '${carlos:forJavaScriptAttribute(providerNo)}', 'writeToEncounter');"
 													class="btn DoNotPrint" type="button"  name="writeToEncounter"
 													value="<fmt:message key="messenger.ViewMessage.writeToE" />">
 											 </c:if>

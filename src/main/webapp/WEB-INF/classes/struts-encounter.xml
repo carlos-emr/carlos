@@ -409,6 +409,8 @@
         <action name="encounter/ViewConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequests2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
         </action>
+        <!-- Consultant type-ahead on the Consultations list (issue #3976): read-only JSON, _con r, returns NONE. -->
+        <action name="encounter/consultation/searchConsultants" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultantSearch2Action"/>
         <action name="encounter/ViewRequest" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action">
             <result name="failESend">/encounter/ViewRequest</result>
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>

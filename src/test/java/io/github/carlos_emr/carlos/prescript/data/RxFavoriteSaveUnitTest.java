@@ -15,6 +15,29 @@ import static org.mockito.Mockito.*;
 @Tag("prescription")
 class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"Take one tablet twice daily"})
+    void shouldStoreOptionalInstructions_whenAddingStagedDrug(String instructions) {
+        FavoriteDao dao = mock(FavoriteDao.class);
+        registerMock(FavoriteDao.class, dao);
+        doAnswer(invocation -> {
+            Favorite saved = invocation.getArgument(0);
+            saved.setId(42);
+            return null;
+        }).when(dao).persist(any(Favorite.class));
+        var prescription = new RxPrescriptionData().newPrescription("999998", 1);
+        prescription.setCustomName("Synthetic custom drug");
+        prescription.setSpecial(instructions);
+
+        assertThat(prescription.AddToFavorites("999998", "Synthetic favorite")).isTrue();
+
+        String expected = instructions == null ? "" : instructions;
+        verify(dao).findDuplicate(argThat(favorite -> expected.equals(favorite.getSpecial())));
+        verify(dao).persist(argThat((Favorite favorite) -> expected.equals(favorite.getSpecial())
+                && "Synthetic custom drug".equals(favorite.getCustomName())));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void shouldPreserveDispensingFlag_whenLoadingSavingAndUsingFavorite(boolean dispenseInternal) {
         FavoriteDao dao = mock(FavoriteDao.class);

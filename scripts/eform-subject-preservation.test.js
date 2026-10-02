@@ -53,6 +53,30 @@ for (const asset of ['src/main/webapp/WEB-INF/eform-assets/editControl2.js', 'sr
     assert.match(defaultLoader, /setLetterTemplateSubject\(selected, true\)/);
     assert.match(source.slice(source.indexOf('function loadTemplate(')), /setLetterTemplateSubject\(selected, false\)/);
   });
+  test(`${asset}: the default template keeps a subject typed into the toolbar before it loads`, () => {
+    const subject = {value: '', dispatchEvent() { throw new Error('must not overwrite the toolbar'); }};
+    const toolbar = {value: 'Typed & "early" <subject>'};
+    const byId = {subject, remote_eform_subject: toolbar};
+    const context = vm.createContext({document: {getElementById: id => byId[id] || null}, Event});
+    vm.runInContext(code, context);
+    context.setLetterTemplateSubject('blank.rtl', true);
+    context.setLetterTemplateSubject('Referral.rtl', true);
+    assert.equal(subject.value, '');
+    assert.equal(toolbar.value, 'Typed & "early" <subject>');
+  });
+  test(`${asset}: an unchanged default subject dispatches nothing, an explicit choice still syncs`, () => {
+    const events = [];
+    const subject = {value: '', dispatchEvent: event => events.push(event)};
+    const byId = {subject, remote_eform_subject: {value: ''}};
+    const context = vm.createContext({document: {getElementById: id => byId[id] || null}, Event});
+    vm.runInContext(code, context);
+    context.setLetterTemplateSubject('blank.rtl', true);
+    assert.equal(events.length, 0);
+    byId.remote_eform_subject.value = 'Typed later';
+    context.setLetterTemplateSubject('Referral.rtl', false);
+    assert.equal(subject.value, 'Referral');
+    assert.equal(events.length, 1);
+  });
 }
 
 test('the asynchronously loaded toolbar receives the current subject after its input exists', () => {
@@ -63,6 +87,7 @@ test('the asynchronously loaded toolbar receives the current subject after its i
   let remote;
   const subject = {value: 'Saved & "quoted" subject'};
   const context = vm.createContext({
+    Node: {TEXT_NODE: 3},
     document: {
       forms: [{elements: {subject}}],
       getElementById: () => remote,
@@ -70,6 +95,7 @@ test('the asynchronously loaded toolbar receives the current subject after its i
     },
     XMLHttpRequest: function () { request = this; this.open = () => {}; this.send = () => {}; },
     hideAdminPreviewSaveButton() {}, handleEmailPrivilege() {},
+    initializeFaxRecipient() {}, positionToolbarAfterForm() {},
     jQuery: () => ({empty: () => ({append() {}}), length: 0}),
   });
   vm.runInContext(include + reverse, context);
@@ -81,4 +107,32 @@ test('the asynchronously loaded toolbar receives the current subject after its i
   request.responseText = '<input id="remote_eform_subject">';
   request.onreadystatechange();
   assert.equal(remote.value, subject.value);
+});
+
+/** Loads the toolbar's moveSubject() against a stub form subject and optional toolbar input. */
+function loadMoveSubject(remote, subject) {
+  const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/eform/eformFloatingToolbar/eform_floating_toolbar.js'), 'utf8');
+  const move = source.slice(source.indexOf('function moveSubject('), source.indexOf('function moveSubjectReverse('));
+  const context = vm.createContext({
+    document: {forms: [{elements: {subject}}], getElementById: id => (id === 'remote_eform_subject' ? remote : null)},
+  });
+  vm.runInContext(move, context);
+  return context;
+}
+
+test('saving without a toolbar input keeps the form subject instead of writing "undefined"', () => {
+  const subject = {value: 'Saved & "quoted" subject'};
+  loadMoveSubject(null, subject).moveSubject();
+  assert.equal(subject.value, 'Saved & "quoted" subject');
+});
+
+test('saving copies the toolbar subject into the form verbatim, including an intentional clear', () => {
+  const subject = {value: 'Old'};
+  const remote = {value: 'Follow-up & <results>'};
+  const context = loadMoveSubject(remote, subject);
+  context.moveSubject();
+  assert.equal(subject.value, 'Follow-up & <results>');
+  remote.value = '';
+  context.moveSubject();
+  assert.equal(subject.value, '');
 });

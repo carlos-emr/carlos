@@ -1381,6 +1381,23 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
         @Test
         @Tag("query")
+        @DisplayName("should include late end-date notes and exclude next-day notes in usage reports")
+        void shouldIncludeEntireEndDate_whenUsageReportSuppliesInclusiveBoundary() {
+            Date start = createDate(2026, 5, 1);
+            Date selectedEnd = createDate(2026, 5, 31);
+            Date inclusiveEnd = io.github.carlos_emr.carlos.report.UsageReportSupport.inclusiveEnd(selectedEnd);
+            Date exclusiveEnd = io.github.carlos_emr.carlos.report.UsageReportSupport.exclusiveEnd(selectedEnd);
+            createNote("30001", "Last second on selected date", new Date(exclusiveEnd.getTime() - 1000));
+            createNote("30002", "First millisecond on following date", exclusiveEnd);
+            hibernateTemplate.flush();
+
+            assertThat(caseManagementNoteDAO.getNoteCountForProviderForDateRange("999998", start, inclusiveEnd))
+                    .isEqualTo(1);
+        }
+
+
+        @Test
+        @Tag("query")
         @DisplayName("should count distinct notes for provider within date range")
         void shouldCountDistinctNotes_forProviderInDateRange() {
             // Given - create notes for target provider within date range

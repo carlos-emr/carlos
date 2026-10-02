@@ -266,7 +266,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         query.setParameter(4, endDate);
 
         List<Tickler> results = query.getResultList();
-
+        // The patient tickler view renders comments after this DAO call returns.
+        // Initialize the batched collection while the persistence context is open.
+        initializeTicklerComments(results);
         return results;
     }
 

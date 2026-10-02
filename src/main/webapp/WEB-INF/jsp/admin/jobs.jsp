@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Administration > Jobs Management: list, create, edit, enable / disable, cancel and
+        schedule OscarJob rows through the /ws/rs/jobs REST service.
+
+    Features:
+        Job rows are built with DOM APIs (the stored name is text, never markup). The schedule
+        dialog restores a stored six-field cron exactly or, when it cannot, explains why and
+        disables Save so the stored schedule is never rewritten.
+
+    Parameters:
+        None (all data is loaded from /ws/rs/jobs; _admin r to view).
+
+    @since CARLOS heritage page; documented 2026-10 for issue #4131
+--%>
 <!DOCTYPE html>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -55,6 +70,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.jobs.OscarJobExecutingManager" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message key="admin.jobs.scheduleNotEditable" var="msgScheduleNotEditable"/>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -104,70 +121,163 @@
                     }, "json");
             }
 
+            // Each schedule request gets a sequence number; only the latest one may fill the
+            // dialog. Otherwise clicking job A then job B could show A's schedule under B's id,
+            // and Save would write A's schedule onto B.
+            var scheduleRequestSeq = 0;
+            // False while the dialog shows a stored schedule it cannot represent exactly; Save is
+            // then refused so opening and saving can never rewrite the job's real schedule.
+            var scheduleEditable = true;
+
+            function resetScheduleDialog() {
+                ['minute', 'hour', 'day', 'month', 'weekday'].forEach(function (type) {
+                    $('input:radio[name=' + type + '_chooser]')[0].checked = true;
+                    $('#' + type + ' option:selected').prop('selected', false);
+                    $('#' + type).attr('disabled', 'disabled');
+                });
+                $('#scheduleDialog .validateTips').text('');
+                setScheduleEditable(true);
+            }
+
+            function setScheduleEditable(editable) {
+                scheduleEditable = editable;
+                $('.ui-dialog:has(#scheduleDialog) .ui-dialog-buttonpane button.btn-primary').prop('disabled', !editable);
+            }
+
             function scheduleJob(jobId) {
-                $('#scheduleJobId').val(jobId);
-
-                $('input:radio[name=minute_chooser]')[0].checked = true;
-                $('input:radio[name=hour_chooser]')[0].checked = true;
-                $('input:radio[name=day_chooser]')[0].checked = true;
-                $('input:radio[name=month_chooser]')[0].checked = true;
-                $('input:radio[name=weekday_chooser]')[0].checked = true;
-
-                $("#minute option:selected").removeAttr("selected");
-                $("#hour option:selected").removeAttr("selected");
-                $("#day option:selected").removeAttr("selected");
-                $("#month option:selected").removeAttr("selected");
-                $("#weekday option:selected").removeAttr("selected");
-
-                $("#minute").attr('disabled', 'disabled');
-                $("#hour").attr('disabled', 'disabled');
-                $("#day").attr('disabled', 'disabled');
-                $("#month").attr('disabled', 'disabled');
-                $("#weekday").attr('disabled', 'disabled');
-
+                var request = ++scheduleRequestSeq;
                 //do we already have an existing cronExpression
-                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/job/" + jobId, {async: false},
+                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/job/" + jobId, {},
                     function (xml) {
-                        var existingCron = xml.jobs.cronExpression;
-                        if (existingCron != undefined && existingCron.length > 0) {
-                            var parts = existingCron.split(' ');
-                            //ignore seconds parts[0]
-                            setCronPart(parts[1], 'minute');
-                            setCronPart(parts[2], 'hour');
-                            setCronPart(parts[3], 'day');
-                            setCronPart(parts[4], 'month');
-                            setCronPart(parts[5], 'weekday');
-
-                            $('#scheduleDialog').dialog('open');
-                        } else {
-                            $('#scheduleDialog').dialog('open');
+                        if (request !== scheduleRequestSeq) {
+                            return;
                         }
+                        // OscarJobResponse serialises "jobs" as an array (one element for
+                        // job/{id}); reading cronExpression off the array itself was always
+                        // undefined, so the dialog opened on "every minute" and Save then
+                        // overwrote the stored schedule with 0 * * * * *.
+                        var job = firstJob(xml);
+                        if (!job) {
+                            return;
+                        }
+                        resetScheduleDialog();
+                        // Bound to the job whose schedule was loaded, not to the click.
+                        $('#scheduleJobId').val(job.id);
+                        var existingCron = job.cronExpression;
+                        if (existingCron != undefined && existingCron.length > 0) {
+                            var parsed = parseCronExpression(existingCron);
+                            if (parsed) {
+                                ['minute', 'hour', 'day', 'month', 'weekday'].forEach(function (type) {
+                                    setCronPart(parsed[type], type);
+                                });
+                            } else {
+                                setScheduleEditable(false);
+                                $('#scheduleDialog .validateTips')
+                                    .text('${carlos:forJavaScript(msgScheduleNotEditable)} ' + existingCron);
+                            }
+                        }
+                        $('#scheduleDialog').dialog('open');
+                        setScheduleEditable(scheduleEditable);
                     });
             }
 
-            function setCronPart(value, type) {
-                if (value == '*') {
+            /** The single job in a job/{id} response, whether "jobs" arrives as an array or an object. */
+            function firstJob(xml) {
+                if (!xml || !xml.jobs) {
+                    return null;
+                }
+                return Array.isArray(xml.jobs) ? xml.jobs[0] : xml.jobs;
+            }
+
+            // Parses a stored six-field cron expression (seconds minute hour day month weekday,
+            // the only form saveCrontabExpression writes) into what the dialog's pickers show.
+            // Each field becomes null ("every") or the exact list of option values it means.
+            // Returns null when ANY field cannot be shown exactly, for example a five-field Unix
+            // expression, seconds other than 0, names (MON-FRI, JAN), or Spring's W, L and #
+            // forms, so the caller can refuse to save instead of silently rewriting the schedule.
+            // Ranges (1-5) and steps (*/15, 0-30/10) are expanded; weekday 7 is Sunday (0).
+            function parseCronExpression(expression) {
+                var fields = String(expression).trim().split(/\s+/);
+                if (fields.length !== 6 || fields[0] !== '0') {
+                    return null;
+                }
+                var parsed = {};
+                var types = ['minute', 'hour', 'day', 'month', 'weekday'];
+                for (var i = 0; i < types.length; i++) {
+                    var values = expandCronPart(fields[i + 1], types[i]);
+                    if (values === undefined) {
+                        return null;
+                    }
+                    parsed[types[i]] = values;
+                }
+                return parsed;
+            }
+
+            // One field: null for "every" (* or ?), an array of option values, or undefined
+            // when the field cannot be represented exactly by the select.
+            function expandCronPart(value, type) {
+                if (value == '*' || value == '?') {
+                    return null;
+                }
+                var options = $('#' + type + ' option').map(function () {
+                    return parseInt(this.value, 10);
+                }).get();
+                var min = Math.min.apply(null, options);
+                var max = Math.max.apply(null, options);
+                // Spring accepts 0-7 for the weekday, 0 and 7 both being Sunday.
+                var limit = (type == 'weekday') ? 7 : max;
+                var number = function (text) {
+                    return /^\d+$/.test(text) ? parseInt(text, 10) : NaN;
+                };
+                var seen = {};
+                var items = value.split(',');
+                for (var i = 0; i < items.length; i++) {
+                    var match = /^(\*|\d+(?:-\d+)?)(?:\/(\d+))?$/.exec(items[i]);
+                    if (!match) {
+                        return undefined;
+                    }
+                    var step = match[2] === undefined ? 1 : number(match[2]);
+                    var from;
+                    var to;
+                    if (match[1] == '*') {
+                        from = min;
+                        to = max;
+                    } else if (match[1].indexOf('-') > 0) {
+                        from = number(match[1].substring(0, match[1].indexOf('-')));
+                        to = number(match[1].substring(match[1].indexOf('-') + 1));
+                    } else {
+                        from = number(match[1]);
+                        to = match[2] === undefined ? from : max;
+                    }
+                    if (isNaN(from) || isNaN(to) || isNaN(step) || step < 1 || from < min || to > limit || from > to) {
+                        return undefined;
+                    }
+                    for (var v = from; v <= to; v += step) {
+                        var option = (type == 'weekday' && v == 7) ? 0 : v;
+                        if (option < min || option > max) {
+                            return undefined;
+                        }
+                        seen[option] = true;
+                    }
+                }
+                return Object.keys(seen).map(Number).sort(function (a, b) { return a - b; }).map(String);
+            }
+
+            function setCronPart(values, type) {
+                if (values === null) {
                     $('input:radio[name=' + type + '_chooser]')[0].checked = true;
                 } else {
                     $('input:radio[name=' + type + '_chooser]')[1].checked = true;
                     $("#" + type).removeAttr('disabled');
-                    var mins = value.split(',');
-                    $('#' + type).val(mins);
-
+                    $('#' + type).val(values);
                 }
             }
 
             function editJob(jobId) {
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/job/" + jobId, {},
                     function (xml) {
-                        if (xml.jobs) {
-                            var job;
-                            if (xml.jobs instanceof Array) {
-                                job = xml.jobs[0];
-                            } else {
-                                job = xml.jobs;
-                            }
-
+                        var job = firstJob(xml);
+                        if (job) {
                             $('#jobName').val(job.name);
                             $('#jobType').val(job.oscarJobTypeId);
                             $('#jobDescription').val(job.description);
@@ -193,6 +303,49 @@
                 $("#jobTable tbody tr").remove();
             }
 
+            /** A control link: href="#" keeps it focusable, and the handler cancels the navigation. */
+            function jobLink(label, handler) {
+                return $('<a href="#"></a>').text(label).on('click', function (e) {
+                    e.preventDefault();
+                    handler();
+                });
+            }
+
+            /**
+             * Builds one job row with DOM APIs. The stored job name is set with text(), never
+             * concatenated into HTML, so a name containing markup is shown literally. The
+             * numeric id is coerced before it reaches a handler.
+             */
+            function jobRow(job) {
+                var jobId = parseInt(job.id, 10);
+                var scheduled = job.cronExpression != undefined && job.cronExpression != null;
+                var row = $('<tr></tr>');
+
+                var calendar = $('<i class="fa-solid fa-calendar"></i>').addClass(scheduled ? 'blue' : 'red');
+                row.append($('<td></td>').append(jobLink('', function () { scheduleJob(jobId); })
+                    .attr('aria-label', '<fmt:message key="admin.jobs.scheduleJob"/>').append(calendar)));
+                row.append($('<td></td>').append($('<u></u>').append(jobLink(job.name, function () { editJob(jobId); }))));
+                row.append($('<td></td>').append(jobLink('<fmt:message key="admin.jobs.cancel"/>', function () { cancelJob(jobId); })));
+
+                var status = $('<td></td>');
+                if (job.enabled == true) {
+                    status.append(document.createTextNode('<fmt:message key="admin.jobs.enabledStatus"/> ('))
+                        .append(jobLink('<fmt:message key="admin.jobs.disable"/>', function () { updateJobStatus(jobId, false); }))
+                        .append(document.createTextNode(')'));
+                } else {
+                    status.append($('<span class="red"></span>').text('<fmt:message key="admin.jobs.disabledStatus"/>'))
+                        .append(document.createTextNode(' ('))
+                        .append(jobLink('<fmt:message key="admin.jobs.enable"/>', function () { updateJobStatus(jobId, true); }))
+                        .append(document.createTextNode(')'));
+                }
+                row.append(status);
+                row.append($('<td></td>').text('<fmt:message key="admin.jobs.notAvailable"/>'));
+                row.append($('<td></td>').text((job.nextPlannedExecutionDate == null)
+                    ? '<fmt:message key="admin.jobs.notAvailable"/>'
+                    : String(new Date(job.nextPlannedExecutionDate))));
+                return row;
+            }
+
             function listJobs() {
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/all", {},
                     function (xml) {
@@ -207,20 +360,7 @@
                             }
 
                             for (var i = 0; i < arr.length; i++) {
-                                var job = arr[i];
-                                var extraClass = (job.cronExpression != undefined) ? "blue" : "red";
-                                var html = '<tr>';
-                                html += '<td><a onclick="scheduleJob(' + job.id + ');"><i class="fa-solid fa-calendar ' + extraClass + '"></i></a></td>';
-                                html += '<td><u><a href="javascript:void();" onclick="editJob(' + job.id + ');">' + job.name + '</a></u></td>';
-                                html += '<td><a onclick="cancelJob(' + job.id + ');"><fmt:message key="admin.jobs.cancel"/></a></td>';
-                                html += '<td>' + ((job.enabled == true)
-                                    ? '<fmt:message key="admin.jobs.enabledStatus"/> (<a onclick="updateJobStatus(' + job.id + ',false)"><fmt:message key="admin.jobs.disable"/></a>)'
-                                    : '<span color="red"><fmt:message key="admin.jobs.disabledStatus"/></span> (<a onclick="updateJobStatus(' + job.id + ',true)"><fmt:message key="admin.jobs.enable"/></a>)') + '</td>';
-                                html += '<td><fmt:message key="admin.jobs.notAvailable"/></td>';
-                                html += '<td>' + ((job.nextPlannedExecutionDate == null) ? '<fmt:message key="admin.jobs.notAvailable"/>' : new Date(job.nextPlannedExecutionDate)) + '</td>';
-                                html += '</tr>';
-
-                                jQuery('#jobTable tbody').append(html);
+                                jQuery('#jobTable tbody').append(jobRow(arr[i]));
                             }
                         } else {
                             alert('<fmt:message key="admin.jobs.errorRetrievingJobs"/>');
@@ -306,7 +446,9 @@
                     buttons: {
                         "<fmt:message key="admin.jobs.save"/>": {
                             class: "btn btn-primary", text: "<fmt:message key="admin.jobs.save"/>", click: function () {
-                                //TODO: validate the fields.
+                                if (!scheduleEditable) {
+                                    return;
+                                }
                                 //submit the crontab-form , close the dialog.
                                 $.post('<%= request.getContextPath() %>/ws/rs/jobs/saveCrontabExpression', $('#crontab-form').serialize(), function (data) {
                                     listJobs();
@@ -450,7 +592,8 @@
 
                         <select name="minute" id="minute" multiple="multiple" disabled="disabled" style="width:120px">
                             <%
-                                for (int x = 0; x < 59; x++) {
+                                // Cron minutes are 0-59 inclusive.
+                                for (int x = 0; x <= 59; x++) {
                             %>
                             <option value="<%=x%>"><%=x%>
                             </option>
@@ -504,7 +647,8 @@
 
                         <select name="day" id="day" multiple="multiple" disabled="disabled" style="width:120px">
                             <%
-                                for (int x = 1; x < 30; x++) {
+                                // Cron days of the month are 1-31 inclusive.
+                                for (int x = 1; x <= 31; x++) {
                             %>
                             <option value="<%=x%>"><%=x%>
                             </option>

@@ -337,6 +337,10 @@ async function assertPreviewRenders(hostFrame, label) {
     const originalPreview = nullPage.frames().find((frame) => frame.url().includes('/rx/ViewPreview2'));
     const originalText = await originalPreview.locator('input[name="rx_no_newlines"]').inputValue();
     const originalUrl = originalPreview.url();
+    const originalPreviewUrl = new URL(originalUrl);
+    assert(originalPreviewUrl.origin === config.baseUrl.origin
+      && originalPreviewUrl.pathname === `${config.baseUrl.pathname}/rx/ViewPreview2`,
+    'saved preview URL did not stay on the configured application preview route');
     const alternateCandidates = sql(`SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo} AND p.script_no<>${scriptId} GROUP BY p.script_no HAVING SHA2(GROUP_CONCAT(COALESCE(d.special,'') ORDER BY d.drugid),256) <> (SELECT SHA2(GROUP_CONCAT(COALESCE(special,'') ORDER BY drugid),256) FROM drugs WHERE script_no=${scriptId} AND demographic_no=${demographicNo}) ORDER BY p.script_no`).split(/\r?\n/).filter((id) => /^\d+$/.test(id));
     const reprintLinks = await rxPage.locator('#reprint a[onclick*="reprint2("]').evaluateAll((links) =>
       links.map((link) => (link.getAttribute('onclick').match(/reprint2\('(\d+)'\)/) || [])[1]));
@@ -403,7 +407,8 @@ async function assertPreviewRenders(hostFrame, label) {
     }
     const pinnedPage = await context.newPage();
     wirePage(pinnedPage, 'rx-pinned-preview', recorder);
-    await pinnedPage.goto(originalUrl, { waitUntil: 'networkidle' });
+    await gotoApp(pinnedPage, config.baseUrl,
+      `/rx/ViewPreview2${originalPreviewUrl.search}`, 'networkidle');
     assert(await pinnedPage.locator('input[name="rx_no_newlines"]').inputValue() === originalText,
       'an older preview changed drugs after a newer same-patient reprint');
 

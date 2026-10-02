@@ -38,6 +38,7 @@ import java.util.Deque;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
 
@@ -57,6 +58,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * of returning JDBC cursors.</p>
  */
 public final class LegacyJdbcQuery {
+    private static final Pattern FILE_ACCESS_CLAUSE = Pattern.compile(
+            "\\binto\\s+(?:outfile|dumpfile)\\b|\\bload_file\\b|\\bload\\s+data\\b");
     private static final int MAX_THREAD_RESOURCES_BEFORE_WARNING = 10;
     private static final int MAX_THREAD_RESOURCES_BEFORE_EXCEPTION = 50;
     private static final ThreadLocal<Deque<AutoCloseable>> THREAD_RESOURCES = new ThreadLocal<>();
@@ -345,11 +348,8 @@ public final class LegacyJdbcQuery {
             }
         }
 
-        String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
-        for (String phrase : blockedPhrases) {
-            if (normalizedSqlSyntax.contains(phrase)) {
-                throw new SQLException("Unsafe SQL detected: prohibited keyword");
-            }
+        if (containsFileAccessClause(normalizedSqlSyntax)) {
+            throw new SQLException("Unsafe SQL detected: prohibited keyword");
         }
     }
 
@@ -373,12 +373,24 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Unsafe SQL detected: comment or statement separator");
         }
 
-        String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
-        for (String phrase : blockedPhrases) {
-            if (normalized.contains(phrase)) {
-                throw new SQLException("Unsafe SQL detected: prohibited keyword");
-            }
+        // Quoted literals are data ("SELECT 'load_file' AS label" reads no file), as in the
+        // generic validator; the control-token scan above already refused anything ambiguous.
+        if (containsFileAccessClause(stripQuotedSqlSections(sql).toLowerCase(Locale.ROOT))) {
+            throw new SQLException("Unsafe SQL detected: prohibited keyword");
         }
+    }
+
+    /**
+     * File reads and writes the SELECT validators refuse. MariaDB accepts any whitespace
+     * between the words of {@code INTO OUTFILE}, {@code INTO DUMPFILE} and {@code LOAD DATA}
+     * (a newline or a tab as readily as one space), so they are matched as tokens separated by
+     * whitespace, not as literal single-spaced phrases. Comments, the other separator MariaDB
+     * accepts there, are refused before this runs.
+     *
+     * @param lowerCaseSql SQL already folded to lower case
+     */
+    private static boolean containsFileAccessClause(String lowerCaseSql) {
+        return FILE_ACCESS_CLAUSE.matcher(lowerCaseSql).find();
     }
 
     private static Object[] toObjects(LegacyJdbcParameter[] params) {
