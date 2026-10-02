@@ -8,6 +8,9 @@ import java.io.IOException;
 public interface ClinicalSummaryAgent {
     String displayName();
 
+    /** True only for an orchestrating service whose host, rather than its model, supplies the processing audit. */
+    default boolean providesChartCoverageAudit() { return false; }
+
     /**
      * Revalidate the backend and return an immutable model/configuration revision for caching.
      * Null opts out: an agent display name alone cannot identify changing downstream models.

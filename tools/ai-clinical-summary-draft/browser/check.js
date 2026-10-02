@@ -341,6 +341,49 @@ async function run() {
     await history.getByRole('link', { name: 'Show passage in document' }).click();
     await page.screenshot({ path: path.join(runDir, 'source-highlight-chart-match.png'), fullPage: true });
   });
+  await scenario('coverage audit links to modal cards without changing drafts or approvals', async page => {
+    await change(page, 'broad');
+    await page.goto(`${base}/fixture/echart`);
+    await page.getByRole('link', { name: 'Review chart updates', exact: true }).click();
+    const frame = page.frameLocator('#chart-update-workflow-frame');
+    await frame.getByRole('link', { name: 'Review chart updates', exact: true }).click();
+    await frame.getByRole('button', { name: 'Generate new proposals', exact: true }).click();
+    await frame.locator('.review-steps:not([hidden])').waitFor();
+    await frame.locator('article.proposal:visible [name="entryText"]').fill('Draft social history');
+    const audit = frame.locator('#coverage-audit');
+    await audit.locator(':scope > summary').click();
+    assert.match(await audit.innerText(), /1 source sections processed/);
+    assert.match(await audit.innerText(), /not a count of clinical facts or proof of completeness/);
+    await audit.locator('.coverage-section > summary').click();
+    assert.match(await audit.locator('.coverage-gap').textContent(), /Unselected finding <img/);
+    await audit.locator('.coverage-rejected > summary').click();
+    assert.match(await audit.locator('.coverage-rejected').innerText(), /Untrusted explanation <script>/);
+    assert.equal(await audit.locator('script, img').count(), 0);
+    await audit.getByRole('link', { name: 'Suggestion 3', exact: true }).click();
+    assert.equal(await frame.locator('[data-review-position]').textContent(), '3 / 5');
+    assert.equal(await frame.locator('article.proposal:visible').getAttribute('data-kind'), 'review');
+    await audit.getByRole('link', { name: 'Suggestion 1', exact: true }).click();
+    assert.equal(await frame.locator('article.proposal:visible [name="entryText"]').inputValue(), 'Draft social history');
+    assert.equal(await frame.locator('article.proposal:visible [name="confirmed"]').isChecked(), false);
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
+  });
+  await scenario('coverage remains visible when no suggestions survive', async page => {
+    await change(page, 'broad');
+    await change(page, 'empty-coverage');
+    await generate(page);
+    assert.equal(await page.locator('article.proposal').count(), 0);
+    await page.locator('#coverage-audit > summary').click();
+    await page.locator('.coverage-section > summary').click();
+    assert.equal(await page.locator('.coverage-gap').textContent(), await page.locator('#chart-update-source').textContent());
+    assert.equal(await page.locator('[data-review-proposal]').count(), 0);
+    assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
+  });
+  await scenario('legacy results honestly show the coverage audit as unavailable', async page => {
+    await generate(page);
+    await page.locator('#coverage-audit > summary').click();
+    assert.match(await page.locator('#coverage-audit').innerText(), /no section coverage audit/);
+    assert.equal(await page.locator('.coverage-section').count(), 0);
+  });
   await scenario('broad facts use section-aware comparison and explicit native handoff', async page => {
     await change(page, 'broad');
     await generate(page);

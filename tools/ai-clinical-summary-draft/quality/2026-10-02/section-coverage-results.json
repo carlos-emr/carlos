@@ -1,0 +1,2347 @@
+{
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "note": "Exact allowlisted synthetic NHS documents. Counts measure review suggestions, not independent clinical facts or proven completeness. Usage lists the successful final requests including reused responses; it excludes earlier development attempts. No chart entries were approved.",
+  "runs": [
+    {
+      "document": 44,
+      "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "source": "Clerking Doctor\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion following minor fall\n\nHistory of Presenting Complaint\n- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)\n- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours\n- Unable to remember recent events clearly\n- Denies headache, visual changes, N&V, or limb weakness\n- No reported CP, palpitations, or SOB\n\nReview of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall\n- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes\n\nPast Medical History\n- HTN\n- Mild osteoarthritis\n\nMedications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort\n\nAllergies\nNone\n\nSocial History\n- Lives alone in a ground-floor flat\n- Independent with activities of daily living\n- Retired accountant\n- Non-smoker\n- Drinks alcohol occasionally, approximately 6 units per week\n- No recreational drug use\n\nFamily History\n- Father: Deceased, history of MI at age 67\n- Motherr: Deceased, history of HTN and stroke\n- No known family history of neurodegenerative or psychiatric disorders\n\nOn Examination\n- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- No meningeal signs\n\nObservations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air\n\nInvestigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned\n\nTest Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None\n\nImpression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration\n\nPlan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patientâ€™s stay\n\nAdmitting Consultant\nDr. Ismel Siddique (Neurology Consultant)\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274",
+      "output": {
+        "proposals": [
+          {
+            "kind": "history",
+            "evidence": "Past Medical History\n- HTN",
+            "destination": "MedHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Mild osteoarthritis",
+            "destination": "MedHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No LOC reported but recalls feeling dazed afterward",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Unable to remember recent events clearly",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Denies headache, visual changes, N&V, or limb weakness",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Denies headache, visual changes, N&V, or limb weakness\n- No reported CP, palpitations, or SOB",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Endo: No polyuria, polydipsia, or heat/cold intolerance",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- No meningeal signs",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Investigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Test Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Social History\n- Lives alone in a ground-floor flat",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Independent with activities of daily living",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Retired accountant",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Non-smoker",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Drinks alcohol occasionally, approximately 6 units per week",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No recreational drug use",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "Family History\n- Father: Deceased, history of MI at age 67",
+            "destination": "FamHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Motherr: Deceased, history of HTN and stroke",
+            "destination": "FamHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No known family history of neurodegenerative or psychiatric disorders",
+            "destination": "FamHistory"
+          },
+          {
+            "kind": "review",
+            "evidence": "Medications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort",
+            "destination": "Medications"
+          },
+          {
+            "kind": "review",
+            "evidence": "Allergies\nNone",
+            "destination": "Allergies"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert but mildly confused, GCS 14/15 (disoriented to time)",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Appears dehydrated with dry mucous membranes",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No obvious signs of head trauma or external injuries",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- No meningeal signs",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- U&E: Mild hyponatremia (Na 132 mmol/L)",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "review",
+            "evidence": "Medications\n- No regular medications",
+            "destination": "Medications"
+          }
+        ],
+        "coverage": {
+          "version": 1,
+          "sections": [
+            {
+              "start": 0,
+              "end": 966
+            },
+            {
+              "start": 966,
+              "end": 1016
+            },
+            {
+              "start": 1016,
+              "end": 1142
+            },
+            {
+              "start": 1142,
+              "end": 1158
+            },
+            {
+              "start": 1158,
+              "end": 1380
+            },
+            {
+              "start": 1380,
+              "end": 2433
+            },
+            {
+              "start": 2433,
+              "end": 2500
+            },
+            {
+              "start": 2500,
+              "end": 2789
+            },
+            {
+              "start": 2789,
+              "end": 2898
+            },
+            {
+              "start": 2898,
+              "end": 3605
+            },
+            {
+              "start": 3605,
+              "end": 3624
+            }
+          ],
+          "rejected": []
+        }
+      },
+      "seconds": 0.02,
+      "calls": [
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 2358,
+            "completion_tokens": 425,
+            "total_tokens": 2783,
+            "cost": 0.0007787,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0007787,
+              "upstream_inference_prompt_cost": 0.0003537,
+              "upstream_inference_completions_cost": 0.000425
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 3394,
+            "completion_tokens": 459,
+            "total_tokens": 3853,
+            "cost": 0.0009681,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0009681,
+              "upstream_inference_prompt_cost": 0.0005091,
+              "upstream_inference_completions_cost": 0.000459
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 4069,
+            "completion_tokens": 1245,
+            "total_tokens": 5314,
+            "cost": 0.00185535,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00185535,
+              "upstream_inference_prompt_cost": 0.00061035,
+              "upstream_inference_completions_cost": 0.001245
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "document": 43,
+      "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+      "source": "=== Source note 1 | 2026-01-02 ===\nPatient Philip Paul Cook, a 49-year-old male, arrived via A&E at 21: 15 on 02/01/26 with a chief complaint of acute confusion after a minor fall. Assessed by Nurse Dawn Yvonne Gibbs. GCS scored at 14/15, with mild disorientation noted. Past medical history includes HTN and mild osteoarthritis. No allergies reported. Triage category assigned as Category 2 - Emergency (requires rapid assessment and treatment within 10 minutes). Decision made to proceed with initialtriage and neurological observation.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 2 | 2026-01-02 ===\nPerformed a briefneuro assessment at 21:30. Paftient remains disoriented with GCS score of 14/15, which was initially recorded upon arrival in the ED. No other focal neuro deficits noted. Assessment conducted by Nurse Dawn Yvonne Gibbs. Chief complaint is acute confusion after minor fall. Escalated for CT head scan to rule out intracranial injury.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 3 | 2026-01-02 ===\nNeurologicakl observations conducted by Nurse Dawn Yvonne Gibbs at 22 :00 for a 49-year-old male patient, Philip Paul Cook, presenting with acute confusion after a minor fall. GCS recorded as 14/15 with mild decrease noted and disorientation documented. Findings documented by Nurse Gibbs. Decision made to expedite CT head scan to confirm the cause of acute confusion and assess for intracranial pathology.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 4 | 2026-01-02 ===\nPatient reviewed on 2026-01-02 at 23:15 by Nurse Dawn Yvone Gibbs. Routine neurological observations were completed, with GCS score recorded as 14/15. Mild disorientation was noted, and pupillary response to light was slightly delayed bilaterally. No acute deterioration observed. Patient to be handed over to the medical team for admission and further neurologicaal monitoring.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 5 | 2026-01-02 ===\nPatient\nPhilip Paul Cook\n\nAge\n49\n\nSex\nMale\n\nNHS No.\n457031170\n\nDate/Time\n02/01/26 23:45\n\nSeen By\nDr. Kareem Ahmed\n\nPresenting Complaint\nAcuteconfusion post minor fall Pt reports confusion following an unwitnessed minor afll earlier today. No LOC. No c/o of headache, nausea, or limb weakness. States he felt unsteady but denies vertigo. Unable to recall details of fall. No prior confusion or similar events. The fall occurred earlier on the same day as the ED presentation.\n\nPast Medical History\n- HTN\n- Mild osteoarthritis\n\nMedications\nNil\n\nAllergies\nNil known\n\nSocial History\nLives alone. Independent with ADLs. No carers.\n\nFamily History\nNil significant.\n\nSystems Review\nCNS: Noh/o seizures, severe headache, or focal deficits. No recent visual changes. CVS: No CP or palpitations. Resp: No SOB or cough. GI: No N/V or abdo pain. GU: No dysuria or haematuria. MSK: Reports joint stiffness secondary to OA but no acute issues.\n\nOn Examination\nAlert but disoriented to time/place. GCS 14/15 (E4V4M6). Pupils equal, reactive bilaterally, with slightly delayed reaction to light. No focal neuro deficits. Normal ton e/power/sensation bilaterally. Gait unassessed in ED due to confusion. No signs of trauma to head. No papilledema. No neck stiffness. CVS/Resp/Abdo exam unremarkable.\n\nObservations\nBP 132/84\nHR 78\nRR 16\nTemp 36.8Â°C\nSPO2 97% onn RA\n\nInvestigations\nCThead: Subdural hygroma, no MLS. No acute bleed.\n\nTest Results\nFBC, U&Es, LFTs, CRP all WNL.\n\nImpression\nSubdural hygroma causing acute confusion, likely secondary to minor fall.\n\nReferral\nAccepted by Neuro Ward (Bed A01). Detailed handover provided to Dr. Kenneth Brian Lamb from the neuro team, sumarizing ED findings, including mechanism of injury, CT results, and initial management.\n\nPlan\n- IV paracetamol 1g QID for pain control.\n- Monitor neuro obs closely for any signs of deterioration.\n- No ABx. No surg intervention required.\n- Transfer to Neuro Ward for further care and obs.\n\n\nDr. Kareem Ahmed (ED Consultant) \nGMC number: 1695439\n\n=== Source note 6 | 2026-01-03 ===\nClerking Doctor\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion following minor fall\n\nHistory of Presenting Complaint\n- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)\n- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours\n- Unable to remember recent events clearly\n- Denies headache, visual changes, N&V, or limb weakness\n- No reported CP, palpitations, or SOB\n\nReview of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall\n- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes\n\nPast Medical History\n- HTN\n- Mild osteoarthritis\n\nMedications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort\n\nAllergies\nNone\n\nSocial History\n- Lives alone in a ground-floor flat\n- Independent with activities of daily living\n- Retired accountant\n- Non-smoker\n- Drinks alcohol occasionally, approximately 6 units per week\n- No recreational drug use\n\nFamily History\n- Father: Deceased, history of MI at age 67\n- Motherr: Deceased, history of HTN and stroke\n- No known family history of neurodegenerative or psychiatric disorders\n\nOn Examination\n- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- No meningeal signs\n\nObservations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air\n\nInvestigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned\n\nTest Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None\n\nImpression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration\n\nPlan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patientâ€™s stay\n\nAdmitting Consultant\nDr. Ismel Siddique (Neurology Consultant)\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 7 | 2026-01-03 ===\nClinician Leading Ward Round\nDr. Ismel Siddique (Consultant)\n\nPresenting Complaint\nAcute confusion after minor fall Hx noted thank you\n\nIssues\n1. Subdural Hygroma\n-CT head confirmed subdural hygroma\n-No midline shift\n-Mild gait instability likely related to fall\n\nOn Review\nPatient reports feeling confused but denies headache or significant pain.\n\nInvestigations\nCT head confirmedsubdural hygroma without midline shift. Mild hyponatraemia (Na 132 mmol/L). Patient noted to be slightly dehydrated. Sodium correction plan initiated with IV 0.9% NaCl.\n\nObservations\nHR 84\nBP 132/78\nRR 16\nTemp 36.8\nSpO2 98% on air\n\nOn Examination\nPPatient alert but mildly disoriented. General appearance unremarkable. A: Patent airway, no stridor or obstruction. B: Resp effort normal, equal air entry, no added sounds. C: Warm peripheries, cap refill <2s, reg pulse. D: GCS 14/15 (E4, V4, M6); CNs intact; mild gait instability. E: No skin changes, no oedema noted.\n\nPlan\n1. Start ceftriaxone 2g IV OD for 5 days (prophylactic). 2. Refer to physio for mobility and balance assesment. 3. Continue IV 0.9% sodium chloride to manage mild hyponatraemia and dehydration. 4. Monitor hydration status and repeat U&Es in 48 hours.\n\n\nDr. Ismel Siddique (Consultant) \nGMC number: 1430645\n\n=== Source note 8 | 2026-01-03 ===\n10:00 03/01/2026. Physio assessment conducted by Judith Ada Wells for Philip Cook. Focus: post-fall mobility and balance. Guided exercises included sit-to-stand transitions, tandem walking, and balance drills. Mild unsteadiness on tandem walking was noted. Tasks were comlpleted with minimal assistance. No acute neuro signs were observed. Plan: daily physio sessions focusing on balance and gait training. Goal: improve stability and reduce fall risk.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 9 | 2026-01-03 ===\nAssessed by OT Sylvia Gwendoline Field at 11:30. Mild difficulty noted with fine motor tasks (e.g., fastening buttons). Patient managed ADLs with verbal prompts. Button hook tool recommended. Follow-up OT session scheduled to monitor progress.\nTherapist Sylvia Gwendoline Field (Occupational Therapist) \n\n=== Source note 10 | 2026-01-03 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Confirmed on CT scan with no midline shift\n-Neurological status stable with no tfocal deficits\n-Mild fatigue reported by the patient\n\nToday\n\nOn Review\nPatient reports mild fatigue but denies new or worsening symptoms. No headache, nausea, or vision changes.\n\nInvestigations\nNone\n\nObservations\nHR: 82\nBP: 128/78\nRR: 16\nTemp: 36.7\nSpO2: 98% on air\n\nOn Examination\n- Alert, mildly fatigued but engaging well during review\n- CN II-XII grossly intact\n- No focal neurological deficits identified\n-Limb power 5/5 bilaterally with normal tone and reflexes\n- Gait not formally assessed during WR but no obvious instability noted\n\nPlan\n- Encourage oral fluid intake to address mild hyponatremia\n- Repeat U&Es in 24 hours to monitor Na levels\n- Continue prophylactic ceftriaxone 2g IV OD (day 2 of 5)\n- Daily physio to focus on balance and gait training\n- OT follow-upp to assess progress with fine motor tasks\n- Provide button hook tool to assist with dressing as recommended by OT\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 11 | 2026-01-03 ===\n16:30 03/01/26. Pt seen for 2nd physio session post-adm. Focus: gait stability. Exercises: slow walking w/ Zimmer frame; emphasis on wt distribution + step coordination. Req mod assist but showed slight improvement vs 1st session. No acute neuro sx observed. Plan: cont 2x daily physio sessions to improve balance + mobility. No new meds. Therapist: Judith Ada Wels.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 12 | 2026-01-03 ===\nProvided education on fall prevention. Discussed home safety, safe use of assistive devices, and identifying environmental hazards. No changes to treatment or meds. Theerapy sessions to continue as planned.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 13 | 2026-01-04 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Sodium 132 mmol/L\n-Decision to start sodium chloride supplementation\n\nToday\n\nOn Review\nPatient reports feling well and denies new symptoms. No confusion or new complaints noted.\n\nInvestigations\nSodium remains slightly low at 132 mmol/L. Other blood tests within normal limits.\n\nObservations\nHR: 78\nBP: 128/82\nRR: 16\nTemp: 36.8\nSpO2: 98% on air\n\nOn Examination\n- Pt alert, oriented, and cooperative\n- No focal neurological deficits observed\n- Gait remains mildly unsteady; no acute worsening\n- CVS , resp, and abdo examinations unremarkable\n\nPlan\n- Initiate oral sodium supplementation with NaCl 1 g tablets TID\n- Encourage increased oral fluid intake\n- Repeat blood Na levels in 24 hours to monitor progress\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 14 | 2026-01-04 ===\nPt seen 10:30 for physio. Focus: lower limb strength. Ex: seated leg raides, resistance band work. Guidance given on posture to prevent strain. Pt tolerated ex well. No acute distress or neuro Sx. Goal: improve mobility in preparation for independnet mobility. Plan: progress to dynamic balance ex next session to further enhance mobility. Judith Ada Wells (PT).\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 15 | 2026-01-04 ===\nSocial worker Sylvia Gwendoline Field met with the patient to discuss discharge planning. Assessed home safety and identified potential support needs. Next step: Social worker to coordinate with OT for a bhome safety visit prior to discharge.\nSocial Worker Sylvia Gwendoline Field \n\n=== Source note 16 | 2026-01-04 ===\nPatient Philip Paul Cook was seen on 2026-01-04 at 15:00 for an OT session. The focus of the session was on adaptations for ADLs. The patient practiced bed-to-chair transfers and the use of utensils to address reduced dexterity. Energy conservation techniques were demonstrated and practiced. The patient was engaged and able to follow instructions, though mild difficulty with fine mootr tasks was noted. To support independence, a long-handled reacher and adaptive cutlery will be proivded. The next session will build on the skills practiced and assess the need for home adaptations. - Sylvia Gwendoline Field (OT)\nTherapist Sylvia Gwendoline Field \n\n=== Source note 17 | 2026-01-04 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-No midline shift on CT scan\n-Stable neurological status\n2. Mild Hyponatremia\n-Serum sodium 133 mmol/L\n-Previosly noted as 132 mmol/L\n\nToday\n\nOn Review\nPatient reports mild evening headaches. No other concerns. Feeling otherwise stable.\n\nInvestigations\nNone\n\nObservations\nHR: 74\nBP: 126/78\nRR: 16\nTemp: 36.7\nSpO2: 97% (room air)\n\nOn Examination\n- Alert and oriented. Appears comfortable at rest.\n- Neurological examination: Cranial nerves II-XII intact. No motor or sensory deficits. Normal coordination and reflexes. Gait unassessed during this encounter.\n- Cardiovascular examination: Dual heart sounds, no murmurs.\n- Respiratory examination: Clearr breath sounds bilaterally, no added sounds.\n- Abdominal examination: Soft, non-tender, no organomegaly.\n\nPlan\n- Restrict fluid intake to 1.5L per day to address hyponatremia.\n- Prescribe paracetamol 1g PO PRN (maximum 4 doses per day) for headache management.\n- Start oralsodium supplementation with NaCl 1g tablets TID.\n- Repeat serum Na levels in 24 hours.\n- Review progress in the next WR.\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 18 | 2026-01-05 ===\n05/01/26, 09:30. Physio session with Judith Ada Wells. Focus: balance training using balance boards and parallel bars. Session included guided weight-shifting exercises aimed at improving stability and reducing fall risk. The patient, Philip Cook, required minimal assistance and demonstratedsteady progress in maintaining postureduring dynamic movements. Plan: Next session to include more advanced balance tasks, such as single-leg stance exercises, to further improve stability.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 19 | 2026-01-05 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Confirmed on CT scan\n-No midline shift\n-Mild evening headaches reported\n2. Hyponatremia\n-Serum sodium 133 mmol/L\n-Mild imbalance likely due to overhydration\n-Fluid restriction initiated\n\nToday\n\nOn Review\nPatient reports feeling more confident in mobility after physio. No new complaints.\n\nInvestigations\nNo new imaging or ECG conducted during thhis ward round. Serum Na 133 mmol/L\n\nObservations\nHR: 78\nBP: 132/84\nRR: 16\nTemp: 36.8\nSpO2: 97%\n\nOn Examination\n- Alert and oriented\n- No focal neurological deficits\n- Gait slightly unsteadg but improving with physio\n- Mild residual balance issues noted during tandem walking\n\nPlan\n- Implement fluid restriction to 1.5L/day to address mild hyponatremia\n- Prescribe sodium chloride tablets 600 mg TID for electrolyte cprrection\n- Continue physio to improve mobility and balance\n- Recheck serum Na levels in 24 hours\n- PRN paracetamol 1g PO (up to 4 doses/day) for mild headaches\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 20 | 2026-01-05 ===\n05/01/26, 13:30. OT session with Sylvia Gwendoline Field. Focus: cognitive rehabilitation post-SDH. Philip Cook engaged in memory exercises, problem-solving tasks, and attention training. Mild cognitive difficulties noted; no significant fatigue or distress. Strategies introduced for daily planning and organisatuon. Next steps: continue daily cognitive rehab sessions. Plan: progressively increase task complexity to enhance cognitive function.\nTherapist Sylvia Gwendoline Field \n\n=== Source note 21 | 2026-01-05 ===\n16:00 - Dr. Hasan met pt's spouse (Maria Cook). Updated on pt's cond, tx progress, and therapy outcomes. Discussed d/c options incl home care + f/u plans. Tentative d/c: 09/01/26, dep on stable neuro status + completion of therapy.\nDr. Lynn Beverley Hassan (Consultant) \nGMC number: 1229817\n\n=== Source note 22 | 2026-01-06 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Confirmed on CT scan without midline shift\n-Mild hyponatremia (serum sodium 132 mmol/L)\n\nToday\n\nOn Review\nPatkent reports no new symptoms. Feeling well and engaging with therapy. Confident in mobility progress.\n\nInvestigations\nNo new imaging or ECG performed during this ward round. Serum sodium remains slightly low at 132 mmol/L (from bloods conducted previously).\n\nObservations\nHR: 7\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 9 8%\n\nOn Examination\n- Alert, oriented, and cooperative\n- No focal neurological deficits\n- Gait steady with minimal assistance\n- No signs of distress or acute discomfort\n\nPlan\n- Continue oral sodium suplpementation (sodium chloride tablets 1 g TID)\n- Initiate d/c planning with arrangements for home safety assessments and therapy continuation\n- Repeat serum Na+ levels in 24 hours to assess response to treatment\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 23 | 2026-01-06 ===\n06/01/26, 10:30. Physio session with Therapist Judith Ada Wells. The patient mobilized with a rollator frame under guidance. Structured exercises included gait drills, balance training, and posture correction. The patient demonstrated moderate improvement in mobility and confidence with the rollator frame but required occasional verbal cues to maintain proper posture and pacing. Plan: Continue physio sessions twice daily with a focus on independent ambulation to prepare fo r discharge.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 24 | 2026-01-06 ===\n- Speech and language therapist (Julie Irene Hayes) assessed cognitive-communication skills.\n- Focused on memory recall, attention, and word-finding abilities.\n- Mild short-term memory (STM) recall difficulties identified, potentially impacting effective comunication in complex scenarios.\n- Recommended ongoing cognitive rehabilitation exercises targeting STM andattention.\n- Plan to reassess progress in 48 hours.\nTherapist Julie Irene Hayes (Speech and Language) \n\n=== Source note 25 | 2026-01-06 ===\n06/01/26, 14:30. Session with OT Sylvia Gwendoline Field. Focused on ADLs: dressing, bed-chair transfers. Pt guided through tasks using adaptive techniques/tools, including the use of a button hook tool and long-handled reacher. Techniques for energy conservation during daily tasks were also demonstrated. Sim: enhance independence and safety, considering mild cognitive difficulties that may impact task execution. Pt engaged, followed instructions, and demonstrated good compliance. No difficulties noted with compliance, although occasional verbal prompts were required for task completion. Next: progress review in next OT session. Assess need forhome adaptations post-discharge. No changes to meds or treatment plan.\nTherapist Sylvia Gwendoline Field \n\n=== Source note 26 | 2026-01-06 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Serum sodium: 132 mmol/L\n-Likely related to fluid management\n\nToday\n\nOn Review\nPatient reports no new symptoms. Feels stable and notes improved mobility with assistive device.\n\nInvestigations\nN new imaging studies performed. Recent blood tests showed serum Na: 132 mmol/L (reference range 135-145 mmol/L). No other significant abnormalities noted.\n\nObservations\nHR: 78\nBP: 128/75\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\n- Alert and comfortable at rest\n- No focal neurological deficits\n- Gait improving with assistive device\n- CVS: Heart sounds dual, no murmurs\n- Resp: Cheest clear to auscultation, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- Extremities: No oedema, no tenderness\n\nPlan\n- Adjust fluid intake to 1.5L/day to address mild hyponatremia\n- Sodium chloride tablets (600 mg TDS) for next 48 hours\n- Continue active physiotherapy (PT) sessions focusing on independent mobility\n- Discharge planning to proceed as schedulled for 09/01/26\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 27 | 2026-01-07 ===\nPt attended AM physio session (09:30) with Judith Ada Wells. Focus: gait training. Exercises included balance drills, step training, and walking with a rollator to improve stability and confidence in mobility. Mild improvement in gait symmetry was noted. Pt was able to complete short distances with minimal asist. Plan: continue daily physio sessions pre-discharge to enhance mobility and balance. No meds were initiated or adjusted during this session.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 28 | 2026-01-07 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Serum sodium 132 mmol/L\n-Likely related to fludi balance management\n-Oral sodium supplementation initiated\n\nToday\n\nOn Review\nPatient reports feeling well. Mobilizing with assistance, no new concerns.\n\nInvestigations\nNo new investigations. Serum Na remains at 132 mmol/L.\n\nObservations\nHR: 78\nBP: 135/85\nRR: 16\nTemp: 36.8\nSpO2: 97% on room air\n\nOn Examination\n- Alert, comfortable at rest, no signs o distress\n- No focal neurological deficits (FND)\n- Normal tone, power 5/5 in all four limbs\n- Gait assessment reveals mild unsteadiness, mobilizing with assistance\n- Cranial nerve examination unremarkable\n\nPlan\n- Increase oral sodium intake to address persistent mild hyponatremia (Na+)\n- Encourage consumption of electrolyte-rich fluids\n- Finalise discharge paperwork\n- Confirm follow-up physio and community care arrangements\n- Review for discharge tomorrow ifstable\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 29 | 2026-01-07 ===\n07/01/26, 14:00. OT: Sylvia Gwendoline Field. Focus: Home nav post-d/c. Pt assessed for safe use of grab rails, stairs, basic ADLs (e.g., meal prep). Practical demo: adaptive toolz (grabber, non-slip mats). Pt practiced under supervision. Outcome: Safe w/ walking aid, recommended grabber + non-slip mats for home use. To be provided 08/01/26 final OT session.\nTherapist Sylvia Gwendoline Field \n\n=== Source note 30 | 2026-01-07 ===\nDischarge instructions given to the patient. Medication use explained: paracetamol 500mg, 1-2 tablets every 4-6 hours PRN pain, max 8 tablets/24 hours. Advised to follow up with GP post-discharge for routine review. Instructed o contact hospital for worsening symptoms such as severe headache or confusion.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 31 | 2026-01-08 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Stable neurological status\n-No symptoms of headache, dizziness, or confusion\n-Improved mobility with physiotherapy\n\nToday\n\nOn Review\nPatient reports feeling well. No sgmptoms of headache, dizziness, or confusion. Mobility significantly improved with physio.\n\nInvestigations\nNo new imaging or ECG findings. Recent blood tests show no abnormalities.\n\nObservations\nHR: 76\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\n- Patient appears alert and well, engaging appropriately with no signs of distress\n- Neuro exam normal with no focal deficits\n-Gait assessed to be stable; patient mobilising independently with confidence\n\nPlan\n- Prescribe paracetamol 500 mg PRN for mild MSK discomfort during recovery at home (7-day course)\n- Continue with discharge planning; anticipate discharge on 09/01/26 if neurological status remains stable\n- Arrange follow-up in the cmomunity for physio and GP review post-discharge\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 32 | 2026-01-08 ===\n08/01/26, 10:30. Physio session w/ Judith Ada Wells. Focus: sairs + safe transfers. Aim: simulate home env. Pt assessed for ind mobility and ability to perform tasks idnependently. Able to navigate stairs + transfers w/o assist. Verbal guidance provided re: fall prev + optimal techniques. Pt safe for d/c w/ independent mobility. No further IP physio req. Advised to attend OP physio for ongoing rehab for continued progress. No acute issues noted. Plan: d/c physio, arrange OP f/u sessions.\nTherapist Judith Ada Wells (Physical) \n\n=== Source note 33 | 2026-01-08 ===\nSocial worker liaised with me to confirm home care arrangements. Daily visits by the community care team (CCT) are finalised. Arrangements agreed with the patient and NOK. Patient cleared for dishcarge.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z\n\n=== Source note 34 | 2026-01-08 ===\nSession conducted on 2026-01-08 at 14:00 by Therapist Sylvia Gwendoline Field (OT). Adaptive tools provided to enhance safety and independence at home. Items included a long-handled reacher, non-slip mat for meal preparation, and a shower chair. Demonstrations were given for effective use of each tool, and the patient practiced under supervision, performing tasks successfuly. These tools were specifically recommended for discharge and home use to support independence. No new meds prescribed. Patient cleared for discharge prep. Home safety adaptations deemed sufficient.\nTherapist Sylvia Gwendoline Field (Occupational Therapist) \n\n=== Source note 35 | 2026-01-09 ===\nClinician Leading Ward Round\nDr. Kelly Nicola Hayward (SpR)\n\nPresenting Complaint\nAcute confusion after minor fall\n\nIssues\n1. Subdural Hygroma\n-Neurological status stable with no new symptoms\n-Significant improvement in mobility with walking aid\n-Mild hyponatremia (serum sodium: 132-133 mmol/L) addressed with oral sodium supplementation\n\nToday\n\nOn Review\nPatient feels well and reports no headaches, confusion, or dizziness. Confirms confidence in mobility with walking stick.\n\nInvestigations\nRecent blood tests showed mild hyponatremia (serum sodium: 132-133 mmol/L). Sodium levels have improved but remain slightly below normal range.\n\nObservations\nHR: 78\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 98% on air\n\nOn Examination\n- Alert and oriented to time, place, and person\n- General appearance: Comfortable, no signs of distress\n- Neurological : Cranial nerves II-XII intact, no focal neuro deficits\n- Gait: Amulating safely with walking stick, mild unsteadiness noted but no risk of falls\n- Cardiovascular: Heart sounds dual, no murmurs\n- Respiratory: Chest clear to auscultation\n- Abdomen: Soft, non-tender, no organomegaly\n- Mobility: Able to navigate stairs and perform transfers independently with assistive tools\n- No signs of dehydration or fluid overload\n\nPlan\n- Discharge today with advice on fall prevention and avoidance of anticoagulants unless prescribed by a healthcare provider\n- Prescribe paracetamol 500mg, 1-2 tablets PO QDS PRN for mild headaches for 14 days\n- Arrange follow-up appointment in neurology OPD in 2 weeks\n- Provide adaptive tools, including a long-handled reacher, non-slip mat, and shower chair, for home safety\n- Finalize discharge summary and ensure community care team visits are arranged\n- Advise patient to seek medical attention if experiencing severe headache, confusion, or neurological symptoms\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 36 | 2026-01-09 ===\nDischarge summary completed by Dr. Siddique and provided to Mr. Cook. Included diagn osis, hospital stay summary, follow-up care instructions. Paracetamol 1g QDS prescribed for pain. Advised to follow up with GP in 7 days to assess recovery and monitor sx.\nDr. Ismel Siddique (Consultant) \nGMC number: 1430645\n\n=== Source note 37 | 2026-01-09 ===\nContacted GP, Dr. Elsi Llewelyn, o update on d/c and ensure continuity of care. Informed of f/u appointment and advised to review progress at next GP visit.\nNurse Dawn Yvonne Gibbs \nNMC number: 28R0973Z",
+      "output": {
+        "proposals": [
+          {
+            "kind": "review",
+            "evidence": "=== Source note 1 | 2026-01-02 ===\nPatient Philip Paul Cook, a 49-year-old male, arrived via A&E at 21: 15 on 02/01/26 with a chief complaint of acute confusion after a minor fall.",
+            "destination": "Demographics"
+          },
+          {
+            "kind": "review",
+            "evidence": "=== Source note 5 | 2026-01-02 ===\nPatient\nPhilip Paul Cook\n\nAge\n49\n\nSex\nMale\n\nNHS No.\n457031170",
+            "destination": "Demographics"
+          },
+          {
+            "kind": "history",
+            "evidence": "Past medical history includes HTN and mild osteoarthritis.",
+            "destination": "MedHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "Past Medical History\n- HTN",
+            "destination": "MedHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Mild osteoarthritis",
+            "destination": "MedHistory"
+          },
+          {
+            "kind": "review",
+            "evidence": "No allergies reported.",
+            "destination": "Allergies"
+          },
+          {
+            "kind": "review",
+            "evidence": "Allergies\nNil known",
+            "destination": "Allergies"
+          },
+          {
+            "kind": "history",
+            "evidence": "Social History\nLives alone. Independent with ADLs. No carers.",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "Social History\n- Lives alone in a ground-floor flat",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Independent with activities of daily living",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Retired accountant",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Non-smoker",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Drinks alcohol occasionally, approximately 6 units per week",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No recreational drug use",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "Family History\n- Father: Deceased, history of MI at age 67",
+            "destination": "FamHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Motherr: Deceased, history of HTN and stroke",
+            "destination": "FamHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No known family history of neurodegenerative or psychiatric disorders",
+            "destination": "FamHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "GCS scored at 14/15, with mild disorientation noted.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 2 | 2026-01-02 ===\nPerformed a briefneuro assessment at 21:30. Paftient remains disoriented with GCS score of 14/15, which was initially recorded upon arrival in the ED.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "GCS recorded as 14/15 with mild decrease noted and disorientation documented.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 4 | 2026-01-02 ===\nPatient reviewed on 2026-01-02 at 23:15 by Nurse Dawn Yvone Gibbs. Routine neurological observations were completed, with GCS score recorded as 14/15. Mild disorientation was noted, and pupillary response to light was slightly delayed bilaterally.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Presenting Complaint\nAcuteconfusion post minor fall Pt reports confusion following an unwitnessed minor afll earlier today. No LOC. No c/o of headache, nausea, or limb weakness. States he felt unsteady but denies vertigo. Unable to recall details of fall. No prior confusion or similar events.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Examination\nAlert but disoriented to time/place. GCS 14/15 (E4V4M6). Pupils equal, reactive bilaterally, with slightly delayed reaction to light. No focal neuro deficits.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nBP 132/84\nHR 78\nRR 16\nTemp 36.8Â°C\nSPO2 97% onn RA",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Investigations\nCThead: Subdural hygroma, no MLS. No acute bleed.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Test Results\nFBC, U&Es, LFTs, CRP all WNL.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No LOC reported but recalls feeling dazed afterward",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Unable to remember recent events clearly",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Denies headache, visual changes, N&V, or limb weakness",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Investigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Test Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Findings documented by Nurse Gibbs.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "review",
+            "evidence": "Medications\n- No regular medications",
+            "destination": "Medications"
+          },
+          {
+            "kind": "review",
+            "evidence": "Medications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort",
+            "destination": "Medications"
+          },
+          {
+            "kind": "review",
+            "evidence": "Plan\n- IV paracetamol 1g QID for pain control.",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Monitor neuro obs closely for any signs of deterioration.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "review",
+            "evidence": "- No ABx. No surg intervention required.",
+            "destination": "Medications"
+          },
+          {
+            "kind": "review",
+            "evidence": "Plan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patientâ€™s stay",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 7 | 2026-01-03 ===\nClinician Leading Ward Round\nDr. Ismel Siddique (Consultant)\n\nPresenting Complaint\nAcute confusion after minor fall Hx noted thank you\n\nIssues\n1. Subdural Hygroma\n-CT head confirmed subdural hygroma\n-No midline shift\n-Mild gait instability likely related to fall",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Review\nPatient reports feeling confused but denies headache or significant pain.\n\nInvestigations\nCT head confirmedsubdural hygroma without midline shift. Mild hyponatraemia (Na 132 mmol/L). Patient noted to be slightly dehydrated. Sodium correction plan initiated with IV 0.9% NaCl.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR 84\nBP 132/78\nRR 16\nTemp 36.8\nSpO2 98% on air",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Examination\nPPatient alert but mildly disoriented. General appearance unremarkable. A: Patent airway, no stridor or obstruction. B: Resp effort normal, equal air entry, no added sounds. C: Warm peripheries, cap refill <2s, reg pulse. D: GCS 14/15 (E4, V4, M6); CNs intact; mild gait instability. E: No skin changes, no oedema noted.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "review",
+            "evidence": "Plan\n1. Start ceftriaxone 2g IV OD for 5 days (prophylactic). 2. Refer to physio for mobility and balance assesment. 3. Continue IV 0.9% sodium chloride to manage mild hyponatraemia and dehydration. 4. Monitor hydration status and repeat U&Es in 48 hours.",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "Focus: post-fall mobility and balance. Guided exercises included sit-to-stand transitions, tandem walking, and balance drills. Mild unsteadiness on tandem walking was noted. Tasks were comlpleted with minimal assistance. No acute neuro signs were observed.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Plan: daily physio sessions focusing on balance and gait training. Goal: improve stability and reduce fall risk.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 9 | 2026-01-03 ===\nAssessed by OT Sylvia Gwendoline Field at 11:30. Mild difficulty noted with fine motor tasks (e.g., fastening buttons). Patient managed ADLs with verbal prompts. Button hook tool recommended. Follow-up OT session scheduled to monitor progress.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "1. Subdural Hygroma\n-Confirmed on CT scan with no midline shift\n-Neurological status stable with no tfocal deficits\n-Mild fatigue reported by the patient",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Review\nPatient reports mild fatigue but denies new or worsening symptoms. No headache, nausea, or vision changes.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR: 82\nBP: 128/78\nRR: 16\nTemp: 36.7\nSpO2: 98% on air",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert, mildly fatigued but engaging well during review",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- CN II-XII grossly intact",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No focal neurological deficits identified\n-Limb power 5/5 bilaterally with normal tone and reflexes",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Gait not formally assessed during WR but no obvious instability noted",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Plan\n- Encourage oral fluid intake to address mild hyponatremia",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Repeat U&Es in 24 hours to monitor Na levels",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "review",
+            "evidence": "- Continue prophylactic ceftriaxone 2g IV OD (day 2 of 5)",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Daily physio to focus on balance and gait training",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "- OT follow-upp to assess progress with fine motor tasks",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Provide button hook tool to assist with dressing as recommended by OT",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "Exercises: slow walking w/ Zimmer frame; emphasis on wt distribution + step coordination. Req mod assist but showed slight improvement vs 1st session. No acute neuro sx observed.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Plan: cont 2x daily physio sessions to improve balance + mobility. No new meds.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 12 | 2026-01-03 ===\nProvided education on fall prevention. Discussed home safety, safe use of assistive devices, and identifying environmental hazards. No changes to treatment or meds. Theerapy sessions to continue as planned.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "1. Subdural Hygroma\n-",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "2. Mild Hyponatremia\n-Sodium 132 mmol/L\n-Decision to start sodium chloride supplementation",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Review\nPatient reports feling well and denies new symptoms. No confusion or new complaints noted.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Investigations\nSodium remains slightly low at 132 mmol/L. Other blood tests within normal limits.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR: 78\nBP: 128/82\nRR: 16\nTemp: 36.8\nSpO2: 98% on air",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Pt alert, oriented, and cooperative",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No focal neurological deficits observed",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No focal neurological deficits observed\n- Gait remains mildly unsteady; no acute worsening",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No focal neurological deficits observed\n- Gait remains mildly unsteady; no acute worsening\n- CVS , resp, and abdo examinations unremarkable",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "review",
+            "evidence": "Plan\n- Initiate oral sodium supplementation with NaCl 1 g tablets TID",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Encourage increased oral fluid intake",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Repeat blood Na levels in 24 hours to monitor progress",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "Focus: lower limb strength. Ex: seated leg raides, resistance band work. Guidance given on posture to prevent strain. Pt tolerated ex well. No acute distress or neuro Sx.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Plan: progress to dynamic balance ex next session to further enhance mobility. Judith Ada Wells (PT).",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 15 | 2026-01-04 ===\nSocial worker Sylvia Gwendoline Field met with the patient to discuss discharge planning. Assessed home safety and identified potential support needs. Next step: Social worker to coordinate with OT for a bhome safety visit prior to discharge.",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 16 | 2026-01-04 ===\nPatient Philip Paul Cook was seen on 2026-01-04 at 15:00 for an OT session. The focus of the session was on adaptations for ADLs. The patient practiced bed-to-chair transfers and the use of utensils to address reduced dexterity. Energy conservation techniques were demonstrated and practiced. The patient was engaged and able to follow instructions, though mild difficulty with fine mootr tasks was noted. To support independence, a long-handled reacher and adaptive cutlery will be proivded. The next session will build on the skills practiced and assess the need for home adaptations. - Sylvia Gwendoline Field (OT)\nTherapist Sylvia Gwendoline Field",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "1. Subdural Hygroma\n-No midline shift on CT scan\n-Stable neurological status",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "2. Mild Hyponatremia\n-Serum sodium 133 mmol/L\n-Previosly noted as 132 mmol/L",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Review\nPatient reports mild evening headaches. No other concerns. Feeling otherwise stable.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR: 74\nBP: 126/78\nRR: 16\nTemp: 36.7\nSpO2: 97% (room air)",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert and oriented. Appears comfortable at rest.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Neurological examination: Cranial nerves II-XII intact. No motor or sensory deficits. Normal coordination and reflexes. Gait unassessed during this encounter.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Cardiovascular examination: Dual heart sounds, no murmurs.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Cardiovascular examination: Dual heart sounds, no murmurs.\n- Respiratory examination: Clearr breath sounds bilaterally, no added sounds.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Cardiovascular examination: Dual heart sounds, no murmurs.\n- Respiratory examination: Clearr breath sounds bilaterally, no added sounds.\n- Abdominal examination: Soft, non-tender, no organomegaly.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Plan\n- Restrict fluid intake to 1.5L per day to address hyponatremia.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "review",
+            "evidence": "- Prescribe paracetamol 1g PO PRN (maximum 4 doses per day) for headache management.",
+            "destination": "Medications"
+          },
+          {
+            "kind": "review",
+            "evidence": "- Start oralsodium supplementation with NaCl 1g tablets TID.",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Repeat serum Na levels in 24 hours.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Review progress in the next WR.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 18 | 2026-01-05 ===\n05/01/26, 09:30. Physio session with Judith Ada Wells. Focus: balance training using balance boards and parallel bars. Session included guided weight-shifting exercises aimed at improving stability and reducing fall risk. The patient, Philip Cook, required minimal assistance and demonstratedsteady progress in maintaining postureduring dynamic movements. Plan: Next session to include more advanced balance tasks, such as single-leg stance exercises, to further improve stability.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "1. Subdural Hygroma\n-CT head confirmed subdural hygroma",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "1. Subdural Hygroma\n-Confirmed on CT scan\n-No midline shift",
+            "destination": "MedHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "Issues\n1. Subdural Hygroma\n-Confirmed on CT scan\n-No midline shift\n-Mild evening headaches reported",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "2. Hyponatremia\n-Serum sodium 133 mmol/L\n-Mild imbalance likely due to overhydration\n-Fluid restriction initiated",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Review\nPatient reports feeling more confident in mobility after physio. No new complaints.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Serum Na 133 mmol/L",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR: 78\nBP: 132/84\nRR: 16\nTemp: 36.8\nSpO2: 97%",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert and oriented",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No focal neurological deficits",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No focal neurological deficits\n- Gait slightly unsteadg but improving with physio",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Mild residual balance issues noted during tandem walking",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Plan\n- Implement fluid restriction to 1.5L/day to address mild hyponatremia",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "review",
+            "evidence": "- Prescribe sodium chloride tablets 600 mg TID for electrolyte cprrection",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Continue physio to improve mobility and balance",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Recheck serum Na levels in 24 hours",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "review",
+            "evidence": "- PRN paracetamol 1g PO (up to 4 doses/day) for mild headaches",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 21 | 2026-01-05 ===\n16:00 - Dr. Hasan met pt's spouse (Maria Cook). Updated on pt's cond, tx progress, and therapy outcomes. Discussed d/c options incl home care + f/u plans. Tentative d/c: 09/01/26, dep on stable neuro status + completion of therapy.",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "1. Subdural Hygroma\n-Confirmed on CT scan without midline shift\n-Mild hyponatremia (serum sodium 132 mmol/L)",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Review\nPatkent reports no new symptoms. Feeling well and engaging with therapy. Confident in mobility progress.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Serum sodium remains slightly low at 132 mmol/L (from bloods conducted previously).",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR: 7\nBP: 128/78\nRR: 16\nTemp: 36.8\nSpO2: 9 8%",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert, oriented, and cooperative",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No focal neurological deficits\n- Gait steady with minimal assistance",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- No signs of distress or acute discomfort",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "review",
+            "evidence": "Plan\n- Continue oral sodium suplpementation (sodium chloride tablets 1 g TID)",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Initiate d/c planning with arrangements for home safety assessments and therapy continuation",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Repeat serum Na+ levels in 24 hours to assess response to treatment",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 23 | 2026-01-06 ===\n06/01/26, 10:30. Physio session with Therapist Judith Ada Wells. The patient mobilized with a rollator frame under guidance. Structured exercises included gait drills, balance training, and posture correction. The patient demonstrated moderate improvement in mobility and confidence with the rollator frame but required occasional verbal cues to maintain proper posture and pacing. Plan: Continue physio sessions twice daily with a focus on independent ambulation to prepare fo r discharge.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 24 | 2026-01-06 ===\n- Speech and language therapist (Julie Irene Hayes) assessed cognitive-communication skills.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Focused on memory recall, attention, and word-finding abilities.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Mild short-term memory (STM) recall difficulties identified, potentially impacting effective comunication in complex scenarios.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Recommended ongoing cognitive rehabilitation exercises targeting STM andattention.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Plan to reassess progress in 48 hours.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Focused on ADLs: dressing, bed-chair transfers. Pt guided through tasks using adaptive techniques/tools, including the use of a button hook tool and long-handled reacher. Techniques for energy conservation during daily tasks were also demonstrated. Sim: enhance independence and safety, considering mild cognitive difficulties that may impact task execution. Pt engaged, followed instructions, and demonstrated good compliance. No difficulties noted with compliance, although occasional verbal prompts were required for task completion. Next: progress review in next OT session. Assess need forhome adaptations post-discharge.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "2. Mild Hyponatremia\n-Serum sodium: 132 mmol/L\n-Likely related to fluid management",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Review\nPatient reports no new symptoms. Feels stable and notes improved mobility with assistive device.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Recent blood tests showed serum Na: 132 mmol/L (reference range 135-145 mmol/L). No other significant abnormalities noted.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR: 78\nBP: 128/75\nRR: 16\nTemp: 36.8\nSpO2: 98% on room air\n\nOn Examination\n- Alert and comfortable at rest\n- No focal neurological deficits\n- Gait improving with assistive device\n- CVS: Heart sounds dual, no murmurs\n- Resp: Cheest clear to auscultation, no added sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- Extremities: No oedema, no tenderness",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Plan\n- Adjust fluid intake to 1.5L/day to address mild hyponatremia",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "review",
+            "evidence": "- Sodium chloride tablets (600 mg TDS) for next 48 hours",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Continue active physiotherapy (PT) sessions focusing on independent mobility",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Discharge planning to proceed as schedulled for 09/01/26",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "Focus: gait training. Exercises included balance drills, step training, and walking with a rollator to improve stability and confidence in mobility. Mild improvement in gait symmetry was noted. Pt was able to complete short distances with minimal asist. Plan: continue daily physio sessions pre-discharge to enhance mobility and balance.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "2. Mild Hyponatremia\n-Serum sodium 132 mmol/L\n-Likely related to fludi balance management\n-Oral sodium supplementation initiated",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Review\nPatient reports feeling well. Mobilizing with assistance, no new concerns.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Serum Na remains at 132 mmol/L.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR: 78\nBP: 135/85\nRR: 16\nTemp: 36.8\nSpO2: 97% on room air",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "Observations\nHR: 78\nBP: 135/85\nRR: 16\nTemp: 36.8\nSpO2: 97% on room air\n\nOn Examination\n- Alert, comfortable at rest, no signs o distress\n- No focal neurological deficits (FND)\n- Normal tone, power 5/5 in all four limbs\n- Gait assessment reveals mild unsteadiness, mobilizing with assistance\n- Cranial nerve examination unremarkable",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "1. Subdural Hygroma\n-Confirmed on CT scan",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "On Review\nPatient reports feeling well. Mobilizing with assistance, no new concerns.\n\nInvestigations\nNo new investigations. Serum Na remains at 132 mmol/L.\n\nObservations\nHR: 78\nBP: 135/85\nRR: 16\nTemp: 36.8\nSpO2: 97% on room air",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert, comfortable at rest, no signs o distress",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert, comfortable at rest, no signs o distress\n- No focal neurological deficits (FND)",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Alert, comfortable at rest, no signs o distress\n- No focal neurological deficits (FND)\n- Normal tone, power 5/5 in all four limbs",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Gait assessment reveals mild unsteadiness, mobilizing with assistance",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Cranial nerve examination unremarkable",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "review",
+            "evidence": "Plan\n- Increase oral sodium intake to address persistent mild hyponatremia (Na+)",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "- Encourage consumption of electrolyte-rich fluids",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 30 | 2026-01-07 ===\nDischarge instructions given to the patient. Medication use explained: paracetamol 500mg, 1-2 tablets every 4-6 hours PRN pain, max 8 tablets/24 hours. Advised to follow up with GP post-discharge for routine review. Instructed o contact hospital for worsening symptoms such as severe headache or confusion.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "review",
+            "evidence": "Plan\n- Prescribe paracetamol 500 mg PRN for mild MSK discomfort during recovery at home (7-day course)\n- Continue with discharge planning; anticipate discharge on 09/01/26 if neurological status remains stable",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "Verbal guidance provided re: fall prev + optimal techniques. Pt safe for d/c w/ independent mobility.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "history",
+            "evidence": "=== Source note 33 | 2026-01-08 ===\nSocial worker liaised with me to confirm home care arrangements. Daily visits by the community care team (CCT) are finalised. Arrangements agreed with the patient and NOK. Patient cleared for dishcarge.",
+            "destination": "SocHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "Adaptive tools provided to enhance safety and independence at home. Items included a long-handled reacher, non-slip mat for meal preparation, and a shower chair. Demonstrations were given for effective use of each tool, and the patient practiced under supervision, performing tasks successfuly. These tools were specifically recommended for discharge and home use to support independence.",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "review",
+            "evidence": "Plan\n- Discharge today with advice on fall prevention and avoidance of anticoagulants unless prescribed by a healthcare provider\n- Prescribe paracetamol 500mg, 1-2 tablets PO QDS PRN for mild headaches for 14 days",
+            "destination": "Medications"
+          },
+          {
+            "kind": "tickler",
+            "evidence": "- Arrange follow-up appointment in neurology OPD in 2 weeks",
+            "destination": ""
+          },
+          {
+            "kind": "history",
+            "evidence": "- Advise patient to seek medical attention if experiencing severe headache, confusion, or neurological symptoms",
+            "destination": "Reminders"
+          },
+          {
+            "kind": "tickler",
+            "evidence": "Advised to follow up with GP in 7 days to assess recovery and monitor sx.",
+            "destination": ""
+          },
+          {
+            "kind": "review",
+            "evidence": "Medications\nNil",
+            "destination": "Medications"
+          },
+          {
+            "kind": "history",
+            "evidence": "Family History\nNil significant.",
+            "destination": "FamHistory"
+          },
+          {
+            "kind": "history",
+            "evidence": "Impression\nSubdural hygroma causing acute confusion, likely secondary to minor fall.",
+            "destination": "Concerns"
+          },
+          {
+            "kind": "review",
+            "evidence": "Allergies\nNone",
+            "destination": "Allergies"
+          },
+          {
+            "kind": "history",
+            "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration",
+            "destination": "Concerns"
+          }
+        ],
+        "coverage": {
+          "version": 1,
+          "sections": [
+            {
+              "start": 0,
+              "end": 564
+            },
+            {
+              "start": 564,
+              "end": 586
+            },
+            {
+              "start": 586,
+              "end": 996
+            },
+            {
+              "start": 996,
+              "end": 1018
+            },
+            {
+              "start": 1018,
+              "end": 1486
+            },
+            {
+              "start": 1486,
+              "end": 1508
+            },
+            {
+              "start": 1508,
+              "end": 1947
+            },
+            {
+              "start": 1947,
+              "end": 1969
+            },
+            {
+              "start": 1969,
+              "end": 2480
+            },
+            {
+              "start": 2480,
+              "end": 2530
+            },
+            {
+              "start": 2530,
+              "end": 2547
+            },
+            {
+              "start": 2547,
+              "end": 2568
+            },
+            {
+              "start": 2568,
+              "end": 2631
+            },
+            {
+              "start": 2631,
+              "end": 2679
+            },
+            {
+              "start": 2679,
+              "end": 2761
+            },
+            {
+              "start": 2761,
+              "end": 2789
+            },
+            {
+              "start": 2789,
+              "end": 2812
+            },
+            {
+              "start": 2812,
+              "end": 2837
+            },
+            {
+              "start": 2837,
+              "end": 2867
+            },
+            {
+              "start": 2867,
+              "end": 3288
+            },
+            {
+              "start": 3288,
+              "end": 3353
+            },
+            {
+              "start": 3353,
+              "end": 3368
+            },
+            {
+              "start": 3368,
+              "end": 3463
+            },
+            {
+              "start": 3463,
+              "end": 3758
+            },
+            {
+              "start": 3758,
+              "end": 3993
+            },
+            {
+              "start": 3993,
+              "end": 4014
+            },
+            {
+              "start": 4014,
+              "end": 5015
+            },
+            {
+              "start": 5015,
+              "end": 5065
+            },
+            {
+              "start": 5065,
+              "end": 5191
+            },
+            {
+              "start": 5191,
+              "end": 5207
+            },
+            {
+              "start": 5207,
+              "end": 5429
+            },
+            {
+              "start": 5429,
+              "end": 6482
+            },
+            {
+              "start": 6482,
+              "end": 6549
+            },
+            {
+              "start": 6549,
+              "end": 6838
+            },
+            {
+              "start": 6838,
+              "end": 6947
+            },
+            {
+              "start": 6947,
+              "end": 7654
+            },
+            {
+              "start": 7654,
+              "end": 7675
+            },
+            {
+              "start": 7675,
+              "end": 8059
+            },
+            {
+              "start": 8059,
+              "end": 8261
+            },
+            {
+              "start": 8261,
+              "end": 8409
+            },
+            {
+              "start": 8409,
+              "end": 8454
+            },
+            {
+              "start": 8454,
+              "end": 8511
+            },
+            {
+              "start": 8511,
+              "end": 8559
+            },
+            {
+              "start": 8559,
+              "end": 8621
+            },
+            {
+              "start": 8621,
+              "end": 8660
+            },
+            {
+              "start": 8660,
+              "end": 8951
+            },
+            {
+              "start": 8951,
+              "end": 8972
+            },
+            {
+              "start": 8972,
+              "end": 9089
+            },
+            {
+              "start": 9089,
+              "end": 9346
+            },
+            {
+              "start": 9346,
+              "end": 9413
+            },
+            {
+              "start": 9413,
+              "end": 9500
+            },
+            {
+              "start": 9500,
+              "end": 9840
+            },
+            {
+              "start": 9840,
+              "end": 10279
+            },
+            {
+              "start": 10279,
+              "end": 10300
+            },
+            {
+              "start": 10300,
+              "end": 10313
+            },
+            {
+              "start": 10313,
+              "end": 10320
+            },
+            {
+              "start": 10320,
+              "end": 10331
+            },
+            {
+              "start": 10331,
+              "end": 10338
+            },
+            {
+              "start": 10338,
+              "end": 10641
+            },
+            {
+              "start": 10641,
+              "end": 11042
+            },
+            {
+              "start": 11042,
+              "end": 11063
+            },
+            {
+              "start": 11063,
+              "end": 11155
+            },
+            {
+              "start": 11155,
+              "end": 11178
+            },
+            {
+              "start": 11178,
+              "end": 11357
+            },
+            {
+              "start": 11357,
+              "end": 11437
+            },
+            {
+              "start": 11437,
+              "end": 11506
+            },
+            {
+              "start": 11506,
+              "end": 11774
+            },
+            {
+              "start": 11774,
+              "end": 11796
+            },
+            {
+              "start": 11796,
+              "end": 12178
+            },
+            {
+              "start": 12178,
+              "end": 12277
+            },
+            {
+              "start": 12277,
+              "end": 12290
+            },
+            {
+              "start": 12290,
+              "end": 12297
+            },
+            {
+              "start": 12297,
+              "end": 12308
+            },
+            {
+              "start": 12308,
+              "end": 12315
+            },
+            {
+              "start": 12315,
+              "end": 12540
+            },
+            {
+              "start": 12540,
+              "end": 12757
+            },
+            {
+              "start": 12757,
+              "end": 12778
+            },
+            {
+              "start": 12778,
+              "end": 12839
+            },
+            {
+              "start": 12839,
+              "end": 12867
+            },
+            {
+              "start": 12867,
+              "end": 13010
+            },
+            {
+              "start": 13010,
+              "end": 13074
+            },
+            {
+              "start": 13074,
+              "end": 13217
+            },
+            {
+              "start": 13217,
+              "end": 13403
+            },
+            {
+              "start": 13403,
+              "end": 13536
+            },
+            {
+              "start": 13536,
+              "end": 14226
+            },
+            {
+              "start": 14226,
+              "end": 14643
+            },
+            {
+              "start": 14643,
+              "end": 14664
+            },
+            {
+              "start": 14664,
+              "end": 14677
+            },
+            {
+              "start": 14677,
+              "end": 14684
+            },
+            {
+              "start": 14684,
+              "end": 14695
+            },
+            {
+              "start": 14695,
+              "end": 14702
+            },
+            {
+              "start": 14702,
+              "end": 15162
+            },
+            {
+              "start": 15162,
+              "end": 15500
+            },
+            {
+              "start": 15500,
+              "end": 15521
+            },
+            {
+              "start": 15521,
+              "end": 15611
+            },
+            {
+              "start": 15611,
+              "end": 15912
+            },
+            {
+              "start": 15912,
+              "end": 16079
+            },
+            {
+              "start": 16079,
+              "end": 16548
+            },
+            {
+              "start": 16548,
+              "end": 16641
+            },
+            {
+              "start": 16641,
+              "end": 16654
+            },
+            {
+              "start": 16654,
+              "end": 16661
+            },
+            {
+              "start": 16661,
+              "end": 16672
+            },
+            {
+              "start": 16672,
+              "end": 16679
+            },
+            {
+              "start": 16679,
+              "end": 16881
+            },
+            {
+              "start": 16881,
+              "end": 17232
+            },
+            {
+              "start": 17232,
+              "end": 17253
+            },
+            {
+              "start": 17253,
+              "end": 17346
+            },
+            {
+              "start": 17346,
+              "end": 17606
+            },
+            {
+              "start": 17606,
+              "end": 17659
+            },
+            {
+              "start": 17659,
+              "end": 17772
+            },
+            {
+              "start": 17772,
+              "end": 17962
+            },
+            {
+              "start": 17962,
+              "end": 18079
+            },
+            {
+              "start": 18079,
+              "end": 18100
+            },
+            {
+              "start": 18100,
+              "end": 18492
+            },
+            {
+              "start": 18492,
+              "end": 18648
+            },
+            {
+              "start": 18648,
+              "end": 18661
+            },
+            {
+              "start": 18661,
+              "end": 18667
+            },
+            {
+              "start": 18667,
+              "end": 18678
+            },
+            {
+              "start": 18678,
+              "end": 18685
+            },
+            {
+              "start": 18685,
+              "end": 18873
+            },
+            {
+              "start": 18873,
+              "end": 19166
+            },
+            {
+              "start": 19166,
+              "end": 19187
+            },
+            {
+              "start": 19187,
+              "end": 19604
+            },
+            {
+              "start": 19604,
+              "end": 19754
+            },
+            {
+              "start": 19754,
+              "end": 20258
+            },
+            {
+              "start": 20258,
+              "end": 20351
+            },
+            {
+              "start": 20351,
+              "end": 20600
+            },
+            {
+              "start": 20600,
+              "end": 20888
+            },
+            {
+              "start": 20888,
+              "end": 21053
+            },
+            {
+              "start": 21053,
+              "end": 21433
+            },
+            {
+              "start": 21433,
+              "end": 21480
+            },
+            {
+              "start": 21480,
+              "end": 21605
+            },
+            {
+              "start": 21605,
+              "end": 21618
+            },
+            {
+              "start": 21618,
+              "end": 21625
+            },
+            {
+              "start": 21625,
+              "end": 21636
+            },
+            {
+              "start": 21636,
+              "end": 21643
+            },
+            {
+              "start": 21643,
+              "end": 21973
+            },
+            {
+              "start": 21973,
+              "end": 22286
+            },
+            {
+              "start": 22286,
+              "end": 22307
+            },
+            {
+              "start": 22307,
+              "end": 22403
+            },
+            {
+              "start": 22403,
+              "end": 22657
+            },
+            {
+              "start": 22657,
+              "end": 22838
+            },
+            {
+              "start": 22838,
+              "end": 23242
+            },
+            {
+              "start": 23242,
+              "end": 23313
+            },
+            {
+              "start": 23313,
+              "end": 23326
+            },
+            {
+              "start": 23326,
+              "end": 23333
+            },
+            {
+              "start": 23333,
+              "end": 23344
+            },
+            {
+              "start": 23344,
+              "end": 23351
+            },
+            {
+              "start": 23351,
+              "end": 23646
+            },
+            {
+              "start": 23646,
+              "end": 23959
+            },
+            {
+              "start": 23959,
+              "end": 23980
+            },
+            {
+              "start": 23980,
+              "end": 24032
+            },
+            {
+              "start": 24032,
+              "end": 24061
+            },
+            {
+              "start": 24061,
+              "end": 24165
+            },
+            {
+              "start": 24165,
+              "end": 24254
+            },
+            {
+              "start": 24254,
+              "end": 24413
+            },
+            {
+              "start": 24413,
+              "end": 24493
+            },
+            {
+              "start": 24493,
+              "end": 24781
+            },
+            {
+              "start": 24781,
+              "end": 24803
+            },
+            {
+              "start": 24803,
+              "end": 25242
+            },
+            {
+              "start": 25242,
+              "end": 25332
+            },
+            {
+              "start": 25332,
+              "end": 25345
+            },
+            {
+              "start": 25345,
+              "end": 25352
+            },
+            {
+              "start": 25352,
+              "end": 25363
+            },
+            {
+              "start": 25363,
+              "end": 25370
+            },
+            {
+              "start": 25370,
+              "end": 25624
+            },
+            {
+              "start": 25624,
+              "end": 25961
+            },
+            {
+              "start": 25961,
+              "end": 25982
+            },
+            {
+              "start": 25982,
+              "end": 26070
+            },
+            {
+              "start": 26070,
+              "end": 26101
+            },
+            {
+              "start": 26101,
+              "end": 26246
+            },
+            {
+              "start": 26246,
+              "end": 26467
+            },
+            {
+              "start": 26467,
+              "end": 26551
+            },
+            {
+              "start": 26551,
+              "end": 26815
+            },
+            {
+              "start": 26815,
+              "end": 26837
+            },
+            {
+              "start": 26837,
+              "end": 27510
+            },
+            {
+              "start": 27510,
+              "end": 28026
+            },
+            {
+              "start": 28026,
+              "end": 28041
+            },
+            {
+              "start": 28041,
+              "end": 28186
+            },
+            {
+              "start": 28186,
+              "end": 28199
+            },
+            {
+              "start": 28199,
+              "end": 28206
+            },
+            {
+              "start": 28206,
+              "end": 28217
+            },
+            {
+              "start": 28217,
+              "end": 28224
+            },
+            {
+              "start": 28224,
+              "end": 28807
+            },
+            {
+              "start": 28807,
+              "end": 29431
+            },
+            {
+              "start": 29431,
+              "end": 29452
+            },
+            {
+              "start": 29452,
+              "end": 29778
+            },
+            {
+              "start": 29778,
+              "end": 29799
+            },
+            {
+              "start": 29799,
+              "end": 30017
+            },
+            {
+              "start": 30017,
+              "end": 30037
+            }
+          ],
+          "rejected": [
+            {
+              "evidence": "Dr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274",
+              "reason": "Quotation contains only staff name and GMC number; no patient chart fact, medication, or clinical data."
+            },
+            {
+              "evidence": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration\n\nPlan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patientâ€™s stay\n\nAdmitting Consultant\nDr. Ismel Siddique (Neurology Consultant)\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274\n\n=== Source note 7 | 2026-01-03 ===\nClinician Leading Ward Round\nDr. Ismel Siddique (Consultant)",
+              "reason": "Quotation contains only staff signature and GMC number; no patient chart fact, medication, or clinical data."
+            },
+            {
+              "evidence": "Dr. Ismel Siddique (Consultant) \nGMC number: 1430645",
+              "reason": "Quotation contains only staff name and GMC number; no patient chart fact, medication, or clinical data."
+            },
+            {
+              "evidence": "Dr. Kelly Nicola Hayward (Specialty Registrar)",
+              "reason": "Quotation contains only staff name; no patient chart fact, medication, or clinical data."
+            },
+            {
+              "evidence": "Issues\n1. Subdural Hygroma\n-\n2. Mild Hyponatremia\n-Serum sodium 132 mmol/L\n-Likely related to fludi balance management\n-Oral sodium supplementation initiated\n\nToday\n\nOn Review\nPatient reports feeling well. Mobilizing with assistance, no new concerns.\n\nInvestigations\nNo new investigations. Serum Na remains at 132 mmol/L.\n\nObservations\nHR: 78\nBP: 135/85\nRR: 16\nTemp: 36.8\nSpO2: 97% on room air\n\nOn Examination\n- Alert, comfortable at rest, no signs o distress\n- No focal neurological deficits (FND)\n- Normal tone, power 5/5 in all four limbs\n- Gait assessment reveals mild unsteadiness, mobilizing with assistance\n- Cranial nerve examination unremarkable\n\nPlan\n- Increase oral sodium intake to address persistent mild hyponatremia (Na+)\n- Encourage consumption of electrolyte-rich fluids\n- Finalise discharge paperwork\n- Confirm follow-up physio and community care arrangements\n- Review for discharge tomorrow ifstable\n\n\nDr. Kelly Nicola Hayward (Specialty Registrar) \nGMC number: 1746274",
+              "reason": "Incorrect destination: This is a comprehensive clinical review note containing history, findings, and plans, not demographic data."
+            },
+            {
+              "evidence": "2. Mild Hyponatremia\n-Serum sodium 132 mmol/L\n-Likely related to fludi balance management\n-Oral sodium supplementation initiated\n\nToday\n\nOn Review\nPatient reports feeling well. Mobilizing with assistance, no new concerns.\n\nInvestigations\nNo new investigations. Serum Na remains at 132 mmol/L.\n\nObservations\nHR: 78\nBP: 135/85\nRR: 16\nTemp: 36.8\nSpO2: 97% on room air",
+              "reason": "Incorrect destination: This contains current clinical issues (hyponatremia) and active review data, not just past medical history."
+            }
+          ]
+        }
+      },
+      "seconds": 0.35,
+      "calls": [
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 11442,
+            "completion_tokens": 6832,
+            "total_tokens": 18274,
+            "cost": 0.0085483,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0085483,
+              "upstream_inference_prompt_cost": 0.0017163,
+              "upstream_inference_completions_cost": 0.006832
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 12666,
+            "completion_tokens": 7213,
+            "total_tokens": 19879,
+            "cost": 0.0091129,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0091129,
+              "upstream_inference_prompt_cost": 0.0018999,
+              "upstream_inference_completions_cost": 0.007213
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 12280,
+            "completion_tokens": 7216,
+            "total_tokens": 19496,
+            "cost": 0.009058,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.009058,
+              "upstream_inference_prompt_cost": 0.001842,
+              "upstream_inference_completions_cost": 0.007216
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 14182,
+            "completion_tokens": 2104,
+            "total_tokens": 16286,
+            "cost": 0.0042313,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0042313,
+              "upstream_inference_prompt_cost": 0.0021273,
+              "upstream_inference_completions_cost": 0.002104
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 12015,
+            "completion_tokens": 1096,
+            "total_tokens": 13111,
+            "cost": 0.00289825,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00289825,
+              "upstream_inference_prompt_cost": 0.00180225,
+              "upstream_inference_completions_cost": 0.001096
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 13607,
+            "completion_tokens": 1744,
+            "total_tokens": 15351,
+            "cost": 0.00378505,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00378505,
+              "upstream_inference_prompt_cost": 0.00204105,
+              "upstream_inference_completions_cost": 0.001744
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 11308,
+            "completion_tokens": 7275,
+            "total_tokens": 18583,
+            "cost": 0.0089712,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0089712,
+              "upstream_inference_prompt_cost": 0.0016962,
+              "upstream_inference_completions_cost": 0.007275
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 11442,
+            "completion_tokens": 484,
+            "total_tokens": 11926,
+            "cost": 0.0022003,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0022003,
+              "upstream_inference_prompt_cost": 0.0017163,
+              "upstream_inference_completions_cost": 0.000484
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 11432,
+            "completion_tokens": 1954,
+            "total_tokens": 13386,
+            "cost": 0.0036688,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0036688,
+              "upstream_inference_prompt_cost": 0.0017148,
+              "upstream_inference_completions_cost": 0.001954
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 11826,
+            "completion_tokens": 1875,
+            "total_tokens": 13701,
+            "cost": 0.0036489,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0036489,
+              "upstream_inference_prompt_cost": 0.0017739,
+              "upstream_inference_completions_cost": 0.001875
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 11306,
+            "completion_tokens": 1995,
+            "total_tokens": 13301,
+            "cost": 0.0036909,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0036909,
+              "upstream_inference_prompt_cost": 0.0016959,
+              "upstream_inference_completions_cost": 0.001995
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        },
+        {
+          "reused": true,
+          "model": "qwen/qwen3.5-35b-a3b",
+          "provider": "Parasail",
+          "usage": {
+            "prompt_tokens": 11976,
+            "completion_tokens": 2122,
+            "total_tokens": 14098,
+            "cost": 0.0039184,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0039184,
+              "upstream_inference_prompt_cost": 0.0017964,
+              "upstream_inference_completions_cost": 0.002122
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

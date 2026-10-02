@@ -27,5 +27,11 @@ Each evidence is an EXACT contiguous passage with its complete qualifications an
 heading needed to interpret it. Never alter spelling, numbers, negation, relatives or dates.
 Do not discard clinically useful facts just because the chart is empty or the passage is
 outside a section titled History. Do not invent missing dates, codes, units or assignees.
-At most 100 proposals, each at most 2000 UTF-16 units. An empty result is valid. This is
+At most 200 proposals, each at most 2000 UTF-16 units. An empty result is valid. This is
 an extraction aid, not proof of completeness. No automatic chart changes are authorized.
+
+Coverage is optional metadata supplied only by an orchestration service after section selection,
+a second omission pass and full-source candidate review. A model must return proposals only;
+never invent processing metadata. Service coverage version 1 partitions the entire source using
+zero-based UTF-16 start/end offsets (end exclusive) and includes rejected exact quotations with
+reviewer reasons. This audit reports processing and quoted text, never proof of clinical completeness.

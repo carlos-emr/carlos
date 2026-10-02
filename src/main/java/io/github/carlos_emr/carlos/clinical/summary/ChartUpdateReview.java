@@ -37,6 +37,7 @@ public final class ChartUpdateReview implements Serializable {
     private final int patient;
     private final String sourceHash;
     private final String agentName;
+    private final ChartUpdateCoverage coverage;
     private final long expiresAt = Instant.now().plusSeconds(900).getEpochSecond();
     private final Map<String, ChartUpdateProposals.Proposal> proposals = new LinkedHashMap<>();
     private final Map<String, String> outcomes = new LinkedHashMap<>();
@@ -65,13 +66,19 @@ public final class ChartUpdateReview implements Serializable {
 
     public ChartUpdateReview(String provider, ChartUpdateContext.Snapshot snapshot,
             List<ChartUpdateProposals.Proposal> candidates, String agentName, String suggestedAssignee) {
+        this(provider, snapshot, new ChartUpdateProposals.Report(candidates, null), agentName, suggestedAssignee);
+    }
+
+    public ChartUpdateReview(String provider, ChartUpdateContext.Snapshot snapshot,
+            ChartUpdateProposals.Report report, String agentName, String suggestedAssignee) {
         this.provider = provider;
         this.agentName = agentName;
+        coverage = report.coverage();
         document = snapshot.documentId();
         patient = snapshot.patientId();
         sourceHash = snapshot.sourceHash();
         fingerprint = snapshot.fingerprint();
-        candidates.forEach(candidate -> {
+        report.proposals().forEach(candidate -> {
             proposals.put(candidate.key(), candidate);
             suggestions.put(candidate.key(), ChartUpdateSuggestions.suggest(candidate, snapshot.date(), suggestedAssignee));
         });
@@ -97,6 +104,7 @@ public final class ChartUpdateReview implements Serializable {
     public int getDocument() { return document; }
     public int getPatient() { return patient; }
     public String getSourceHash() { return sourceHash; }
+    public ChartUpdateCoverage getCoverage() { return coverage; }
     public String getAgentName() { return agentName; }
     public String getFingerprint() { return fingerprint; }
     public Map<String, ChartUpdateProposals.Proposal> getProposals() {

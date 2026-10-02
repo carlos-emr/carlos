@@ -20,7 +20,7 @@ boundary. Direct standalone review links remain available, showing all cards.
 
 ## Scope
 
-- Extract up to 100 exact source passages across medical/surgical history, findings,
+- Extract up to 200 exact source passages across medical/surgical history, findings,
   social and family history, risks, medications, allergies, observations/results,
   care advice, immunizations/screening, patient details and outpatient follow-up.
   This is a bounded review inventory; the model can still omit or misclassify facts.
@@ -154,11 +154,15 @@ de-identify a source document.
 The bundled OpenRouter extractor selects numbered source ranges; the host copies
 the original text, including line breaks and spelling. It uses the same reference
 selection approach as the single-document summarizer, while retaining the separate
-chart-proposal contract. It does not extract from a generated summary. A second
-model pass reviews each candidate against the full source for eligibility, source
-context and completed/superseded follow-up. It does not suppress repeated facts;
+chart-proposal contract. It does not extract from a generated summary. The service
+partitions the source into sections and processes bounded groups. Each group has an
+initial selection and a second pass to find missed facts. Both passes retain the whole
+source, numbering only the working range and nearby context to control request size.
+A subsequent model pass reviews each candidate against the full source for eligibility,
+source context and completed/superseded follow-up. It does not suppress repeated facts;
 exact duplicates are handled by the host and overlapping passages by the clinician. Every candidate needs a valid decision
-before any output is released. Empty candidate lists need only one call.
+before any output is released. Even an empty initial selection receives the omission check.
+The final candidate review is skipped only when both selection passes and section fallbacks are empty.
 
 Numbered list markers remain attached to their own item. If a proposed reminder
 spans an unqualified multi-item plan, the host separates independent follow-up
@@ -171,7 +175,7 @@ and excludes recognized family-history sections from patient history. These are
 bounded checks, not semantic deduplication or clinical verification; unfamiliar
 headings, lost qualifications, omissions and model classification errors remain
 possible. The Java evidence validator, chart comparison and per-entry approval
-remain authoritative. The public limit is 100 proposals.
+remain authoritative. The public limit is 200 proposals; exceeding it fails without returning a partial inventory.
 If the first selected history bullet immediately follows a recognized past-history
 heading, the host retains that heading in the exact quotation. This preserves the
 context used by the form's Medical History destination suggestion.
@@ -315,3 +319,53 @@ batch releases no partial result. This can require more than one review call.
 The synthetic gateway caches exact inputs; changes to extraction or review logic
 invalidate final results. Clinical coverage/accuracy is not established by passing
 software tests or by the number of returned suggestions.
+
+
+## Section coverage audit
+
+The orchestration service runs at most eight selection groups (two calls per group)
+and eight final review batches. Source headings, note boundaries and bounded paragraph
+ranges define at most 256 sections. All sections partition the original text without
+removing whitespace. Selection and review requests remain subject to the configured
+byte budget and gateway deadline. Any failed request, malformed response, excess
+candidate count or missing reviewer decision stops generation without partial output.
+
+The service adds coverage metadata after all passes finish. Java validates its complete,
+ordered UTF-16 partition and exact rejected quotations. The configured HTTP service owns
+this processing audit. Direct Ollama completions cannot attest to multiple passes; their
+coverage fields are ignored and the UI says that no audit is available. Older HTTP results
+remain usable with the same unavailable notice. Model, contract and implementation changes
+invalidate the synthetic gateway caches; older accepted quotations are never relabelled
+as having passed the new omission check.
+
+The modal's **Document coverage review** shows each source section, links to retained
+suggestions, exact text fragments without a retained suggestion, and AI reviewer rejection
+reasons. Counts and gaps are derived locally from source quotations. Repeated occurrences
+of the same exact quotation link to the same suggestion; this is text coverage, not a count
+of facts. A retained quotation may itself contain additional facts requiring attention.
+Gap fragments can lose surrounding context, so the entire section is shown beside them and
+they are never offered as standalone clinical assertions or approval actions. Rejection
+reasons are untrusted AI explanations, displayed as escaped text.
+
+The panel also states the remaining workflow limits: chart notes do not populate structured
+measurements, results, diagnoses, procedures, referrals or orders. Medication, allergy,
+prevention and demographic suggestions require the normal forms. Coverage navigation preserves
+review drafts and never approves a change. Current-chart comparison remains local; it is not
+sent to the selector, omission check or reviewer. This audit does not establish clinical
+completeness or replace clinician review.
+
+
+The [October 2 synthetic extraction results](quality/2026-10-02/section-coverage-results.json)
+retain 169 suggestions from the 4,537-word, 37-note compilation and 42 from the
+561-word clerking note (earlier results: 88 and 34). Their audits contain 190 and
+11 source sections; the long-record reviewer rejected six candidates. All 211 retained
+quotations pass CARLOS's existing Java evidence-boundary checks. These counts include
+related and overlapping passages; they do not measure unique facts or clinical recall.
+The results are cached for the isolated AIFACT005 trial. No clinical changes were approved.
+
+Source-boundary restoration preserves numeric/timestamp prefixes, unpunctuated section
+headings and adjacent signatures when needed. It stops at explicit patient/family section
+boundaries and reapplies family routing after expansion. A restored paragraph may contain
+more than one fact; its classification still needs full-source AI and clinician review.
+Unclear prescription/follow-up boundaries may be omitted from reminder suggestions and
+remain visible as source text in the audit.

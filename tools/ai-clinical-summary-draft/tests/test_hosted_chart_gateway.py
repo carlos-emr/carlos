@@ -23,7 +23,7 @@ class HostedChartGatewayTest(unittest.TestCase):
                            sources=[dict(id='document', title='Document', text=source)])
             with patch.object(gateway, 'complete', return_value={'proposals': []}) as complete:
                 gateway.run_chart_updates(request)
-                self.assertEqual(1, complete.call_count)
+                self.assertEqual(2, complete.call_count)
             request['request_id'] = str(uuid.uuid4())
             self.assertEqual(request['request_id'], gateway.run_chart_updates(request)['request_id'])
             self.assertEqual(1, gateway.cache_hits)

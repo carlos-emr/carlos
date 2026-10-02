@@ -56,3 +56,10 @@ summary:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset
 .native-chart-review > :not(iframe) { flex-shrink: 0; }
 .native-chart-review iframe { width: 100%; flex: 1 1 auto; min-height: 160px; height: auto; border: 1px solid #ccc; }
 .native-chart-review .native-review-source { max-height: 15vh; overflow: auto; white-space: pre-wrap; }
+
+.coverage-audit { border: 1px solid #9db6cf; padding: .6rem; margin-bottom: 1rem; background: #f5f8fb; }
+.coverage-audit summary { cursor: pointer; color: #24496d; }
+.coverage-section, .coverage-rejected { border-top: 1px solid #c5d3e0; margin-top: .5rem; padding-top: .5rem; }
+.coverage-audit blockquote { max-height: 18rem; overflow: auto; margin: .5rem 0; padding: .5rem; background: white; }
+.coverage-section a { display: inline-block; margin: .3rem; }
+.coverage-gap { border-left: 3px solid #986e1c; }

@@ -55,6 +55,7 @@ public final class ChartUpdatesBrowserHarness {
         boolean unavailable;
         boolean originalMissing;
         boolean broad;
+        boolean emptyCoverage;
         int reminders;
         int histories;
         final Map<String, ChartUpdateReceipt> receipts = new HashMap<>();
@@ -150,9 +151,10 @@ public final class ChartUpdatesBrowserHarness {
                     fixture.revision++;
                     fixture.entries.add(historyEntry("note-external", "history", "Synthetic concurrent chart edit."));
                 }
+                case "/empty-coverage" -> fixture.emptyCoverage = true;
                 case "/broad" -> {
                     fixture.broad = true;
-                    fixture.source = "Social History\nLives with daughter.\nAllergies: none.\nMedications: Drug A 5 mg daily.\nImmunization: influenza given.\nHypertension";
+                    fixture.source = "Social History\nLives with daughter.\nAllergies: none.\nMedications: Drug A 5 mg daily.\nImmunization: influenza given.\nHypertension\n\nUnselected finding <img src=x onerror=window.auditExecuted=true>.";
                     fixture.entries.add(new ChartUpdateContext.Entry("note-family-only", "history", "Hypertension", "Hypertension", "", "", Set.of("FamHistory")));
                     fixture.revision++;
                 }
@@ -244,14 +246,24 @@ public final class ChartUpdatesBrowserHarness {
                 });
                 when(chart.nativeReviewUrl(user, 3001, "Preventions")).thenReturn("/fixture/native-form?demographic_no=3001");
                 var generator = mock(ChartUpdateProposals.class);
-                when(generator.generate(anyString())).thenReturn(List.of(
-                        new ChartUpdateProposals.Proposal("tickler", fixture.source.contains(FOLLOWUP) ? FOLLOWUP : "Plan: review in four weeks."), new ChartUpdateProposals.Proposal("history", HISTORY)));
-                if (fixture.broad) when(generator.generate(anyString())).thenReturn(List.of(
+                List<ChartUpdateProposals.Proposal> generated = List.of(
+                        new ChartUpdateProposals.Proposal("tickler", fixture.source.contains(FOLLOWUP) ? FOLLOWUP : "Plan: review in four weeks."), new ChartUpdateProposals.Proposal("history", HISTORY));
+                if (fixture.broad) generated = List.of(
                         new ChartUpdateProposals.Proposal("history", "Social History\nLives with daughter.", "SocHistory"),
                         new ChartUpdateProposals.Proposal("review", "Allergies: none.", "Allergies"),
                         new ChartUpdateProposals.Proposal("review", "Medications: Drug A 5 mg daily.", "Medications"),
                         new ChartUpdateProposals.Proposal("review", "Immunization: influenza given.", "Preventions"),
-                        new ChartUpdateProposals.Proposal("history", "Hypertension", "MedHistory")));
+                        new ChartUpdateProposals.Proposal("history", "Hypertension", "MedHistory"));
+                ChartUpdateCoverage coverage = null;
+                if (fixture.broad) {
+                    var audit = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode().put("version", 1);
+                    audit.putArray("sections").addObject().put("start", 0).put("end", fixture.source.length());
+                    audit.putArray("rejected").addObject().put("evidence", "Unselected finding <img src=x onerror=window.auditExecuted=true>.")
+                            .put("reason", "Untrusted explanation <script>window.auditExecuted=true</script>");
+                    coverage = ChartUpdateCoverage.parse(audit, fixture.source);
+                }
+                if (fixture.emptyCoverage) generated = List.of();
+                when(generator.generateReport(anyString())).thenReturn(new ChartUpdateProposals.Report(generated, coverage));
                 var action = new AiChartUpdates2Action(chart,
                         new ReviewedChartUpdateService(chart, receipts, ticklers, notes, providers), providers, generator);
                 ActionContext.of().withServletRequest(request).withServletResponse(response).bind();

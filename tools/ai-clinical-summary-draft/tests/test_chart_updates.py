@@ -35,14 +35,14 @@ class ChartUpdatesTest(unittest.TestCase):
             requests.append(payload)
             return ({'proposals': [{'kind': 'history', 'start_id': 1, 'end_id': 1},
                                    {'kind': 'tickler', 'start_id': 2, 'end_id': 2}]}
-                    if len(requests) == 1 else {'decisions': [{'id': i, 'keep': True, 'reason': 'Eligible'} for i in ['1', '2']]})
+                    if len(requests) <= 2 else {'decisions': [{'id': i, 'keep': True, 'reason': 'Eligible'} for i in ['1', '2']]})
         response = updates.run(self.config, self.request, self.notes, complete)
-        self.assertEqual(output, response['output'])
+        self.assertEqual(output['proposals'], response['output']['proposals'])
         self.assertEqual(self.request['request_id'], response['request_id'])
-        self.assertEqual({'segments': {'1': self.source.splitlines(keepends=True)[0],
-                                   '2': self.source.splitlines(keepends=True)[1]}},
-                         json.loads(requests[0]['messages'][1]['content']))
-        self.assertEqual(2, len(requests))
+        self.assertEqual({'1': self.source.splitlines(keepends=True)[0],
+                          '2': self.source.splitlines(keepends=True)[1]},
+                         json.loads(requests[0]['messages'][1]['content'])['segments'])
+        self.assertEqual(3, len(requests))
         self.assertFalse(requests[0]['provider']['allow_fallbacks'])
         self.assertTrue(requests[0]['provider']['zdr'])
 
@@ -78,7 +78,8 @@ class ChartUpdatesTest(unittest.TestCase):
                 {'kind': 'tickler', 'start_id': 1, 'end_id': len(parts)}]}, parts, source)
 
     def test_followup_can_be_selected_without_neighbouring_prescription(self):
-        source = 'Prescribe drug A. Advised to follow up with GP in 7 days.\r\n'
+        # Use an unambiguous sentence ending; a trailing initial requires its context.
+        source = 'Prescribe paracetamol. Advised to follow up with GP in 7 days.\r\n'
         segments = updates.source_segments(source)
         self.assertEqual(source, ''.join(segments.values()))
         output = updates.resolve_ranges({'proposals': [
@@ -157,21 +158,21 @@ class ChartUpdatesTest(unittest.TestCase):
         source = self.source + '\nLater: follow-up completed.'
         request = copy.deepcopy(self.request)
         request['sources'][0]['text'] = source
-        replies = [{'proposals': [{'kind': 'tickler', 'start_id': 2, 'end_id': 2}]}, {'decisions': [{'id': '1', 'keep': False, 'reason': 'Completed later'}]}]
+        replies = [{'proposals': [{'kind': 'tickler', 'start_id': 2, 'end_id': 2}]}, {'proposals': []}, {'decisions': [{'id': '1', 'keep': False, 'reason': 'Completed later'}]}]
         seen = []
         def complete(payload):
             seen.append(payload)
             return replies.pop(0)
         result = updates.run(self.config, request, [('TEST', '', source)], complete)
         self.assertEqual([], result['output']['proposals'])
-        self.assertIn('Later: follow-up completed.', seen[1]['messages'][1]['content'])
+        self.assertIn('Later: follow-up completed.', seen[2]['messages'][1]['content'])
 
     def test_review_must_be_valid_before_any_proposals_are_released(self):
         valid = {'id': '1', 'keep': True, 'reason': 'Eligible'}
         for review in ({'decisions': [dict(valid, id='unknown')]}, {'decisions': [valid, valid]},
                        {'decisions': [dict(valid, keep='yes')]}, {'decisions': []},
                        {'decisions': [valid], 'extra': True}):
-            replies = [{'proposals': [{'kind': 'history', 'start_id': 1, 'end_id': 1}]}, review]
+            replies = [{'proposals': [{'kind': 'history', 'start_id': 1, 'end_id': 1}]}, {'proposals': []}, review]
             with self.subTest(review=review), self.assertRaises(ValueError):
                 updates.run(self.config, self.request, self.notes, lambda _: replies.pop(0))
 
@@ -179,7 +180,7 @@ class ChartUpdatesTest(unittest.TestCase):
         with patch('chart_updates.distill.payload', wraps=updates.distill.payload) as payload:
             result = updates.run(self.config, self.request, self.notes, lambda _: {'proposals': []})
             self.assertEqual([], result['output']['proposals'])
-            self.assertEqual(1, payload.call_count)
+            self.assertEqual(2, payload.call_count)
 
     def test_rejects_disclosure_before_network_call(self):
         for source in ('real patient data', self.source[:20], self.source + '\nextra metadata'):
@@ -408,12 +409,12 @@ class ChartUpdatesTest(unittest.TestCase):
             with patch.object(gateway, 'complete', return_value=output) as complete:
                 with opener.open(Request(url, json.dumps(request).encode(),
                                          {'Content-Type': 'application/json'}), timeout=5) as response:
-                    self.assertEqual(output, json.load(response)['output'])
+                    self.assertEqual(output['proposals'], json.load(response)['output']['proposals'])
                 request['sources'][0]['text'] = 'Unapproved clinical text'
                 with self.assertRaises(HTTPError) as error:
                     opener.open(Request(url, json.dumps(request).encode()), timeout=5)
                 self.assertEqual(400, error.exception.code)
-                self.assertEqual(1, complete.call_count)
+                self.assertEqual(2, complete.call_count)
         finally:
             server.shutdown()
             thread.join()

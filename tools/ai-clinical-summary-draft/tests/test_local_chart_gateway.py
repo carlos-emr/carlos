@@ -54,7 +54,7 @@ class LocalChartGatewayTest(unittest.TestCase):
             second = self.gateway.generate(request)
         self.assertEqual(first['output'], second['output'])
         self.assertEqual(request['request_id'], second['request_id'])
-        self.assertEqual(2, self.calls.count('/api/generate'))
+        self.assertEqual(3, self.calls.count('/api/generate'))
 
     def test_rejected_evidence_is_retained_without_another_model_call(self):
         self.output['proposals'][0]['start_id'] = 999
@@ -71,7 +71,7 @@ class LocalChartGatewayTest(unittest.TestCase):
             self.gateway.generate(self.request)
             self.version = 'changed'
             self.gateway.generate(self.request)
-        self.assertEqual(6, self.calls.count('/api/generate'))
+        self.assertEqual(9, self.calls.count('/api/generate'))
 
     def test_model_unavailability_returns_502_without_leaking_transport_details(self):
         server = HTTPServer(('127.0.0.1', 0), local.agent.handler_for(self.gateway))

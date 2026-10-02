@@ -110,7 +110,7 @@ public final class AiChartUpdates2Action extends ActionSupport {
             if ("generate".equals(operation)) {
                 LogAction.addLogSynchronous(user, "ChartUpdates.generate", "documentId=" + document);
                 var engine = generator == null ? new ChartUpdateProposals() : generator;
-                var proposals = engine.generate(snapshot.source());
+                var proposals = engine.generateReport(snapshot.source());
                 var after = context.load(user, document);
                 if (!snapshot.fingerprint().equals(after.fingerprint())) {
                     throw new IllegalStateException("The source or chart changed during generation. Generate proposals again.");
@@ -217,6 +217,11 @@ public final class AiChartUpdates2Action extends ActionSupport {
         });
         request.setAttribute("chartUpdateReview", review);
         request.setAttribute("chartUpdateRows", rows);
+        if (review.getCoverage() != null) {
+            request.setAttribute("chartUpdateCoverage", review.getCoverage().sections(snapshot.source(),
+                    List.copyOf(review.getProposals().values())));
+            request.setAttribute("chartUpdateRejected", review.getCoverage().getRejected());
+        }
         request.setAttribute("chartUpdateRemaining", rows.size() - review.getOutcomes().size());
     }
 

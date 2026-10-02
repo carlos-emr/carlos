@@ -40,7 +40,7 @@ import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentP
 /** The model selects source passages; the host owns identity, comparison, review and writes. */
 public final class ChartUpdateProposals {
     public static final String ENABLED = "clinical.ai_chart_updates.enabled";
-    public static final int MAX_PROPOSALS = 100;
+    public static final int MAX_PROPOSALS = 200;
     private static final Semaphore CAPACITY = new Semaphore(1);
     private final ClinicalSummaryAgent agent;
 
@@ -56,7 +56,13 @@ public final class ChartUpdateProposals {
     public ChartUpdateProposals(ClinicalSummaryAgent agent) { this.agent = agent; }
     public String displayName() { return agent.displayName(); }
 
+    public record Report(List<Proposal> proposals, ChartUpdateCoverage coverage) {}
+
     public List<Proposal> generate(String source) throws ClinicalSummaryGenerationException {
+        return generateReport(source).proposals();
+    }
+
+    public Report generateReport(String source) throws ClinicalSummaryGenerationException {
         if (source == null || source.isBlank()) throw new IllegalArgumentException("Readable source required");
         if (!CAPACITY.tryAcquire()) throw new ClinicalSummaryGenerationException("Another proposal request is running. Try again shortly.");
         try {
@@ -69,7 +75,13 @@ public final class ChartUpdateProposals {
             if (JSON.writeValueAsBytes(request).length > agent.requestBytes()) {
                 throw new ClinicalSummaryGenerationException("This document exceeds the configured request budget. No partial proposals were generated.");
             }
-            return validate(agent.generate(request), source);
+            JsonNode output = agent.generate(request);
+            // A direct model cannot attest that additional passes ran. Only the configured
+            // orchestration service may supply an audit; legacy/direct results stay usable.
+            if (!agent.providesChartCoverageAudit() && output instanceof ObjectNode object && output.has("coverage")) {
+                output = object.deepCopy().without("coverage");
+            }
+            return new Report(validate(output, source), ChartUpdateCoverage.parse(output.get("coverage"), source));
         } catch (IOException | RuntimeException invalid) {
             throw new ClinicalSummaryGenerationException("Proposals could not be generated or failed source validation. Nothing was saved.");
         } finally {
@@ -78,7 +90,9 @@ public final class ChartUpdateProposals {
     }
 
     public static List<Proposal> validate(JsonNode output, String source) {
-        ClinicalSummaryAgentProtocol.exactFields(output, Set.of("proposals"));
+        ClinicalSummaryAgentProtocol.exactFields(output, output != null && output.has("coverage")
+                ? Set.of("proposals", "coverage") : Set.of("proposals"));
+        if (output.has("coverage")) ChartUpdateCoverage.parse(output.get("coverage"), source);
         JsonNode rows = output.path("proposals");
         if (!rows.isArray() || rows.size() > MAX_PROPOSALS) throw new IllegalArgumentException("Invalid proposals");
         List<Proposal> result = new ArrayList<>();

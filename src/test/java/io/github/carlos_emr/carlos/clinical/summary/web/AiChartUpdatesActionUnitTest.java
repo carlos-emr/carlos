@@ -69,7 +69,7 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
                 "source", "fresh", "10016", "1", List.of());
         when(context.load(user, 42)).thenReturn(snapshot);
         proposal = new ChartUpdateProposals.Proposal("tickler", "Review symptoms.");
-        when(generator.generate(snapshot.source())).thenReturn(List.of(proposal));
+        when(generator.generateReport(snapshot.source())).thenReturn(new ChartUpdateProposals.Report(List.of(proposal), null));
         review = new ChartUpdateReview("101", snapshot, List.of(proposal));
         request.getSession().setAttribute(ChartUpdateReview.SESSION_KEY, review);
         request.setParameter("reviewToken", review.getToken());

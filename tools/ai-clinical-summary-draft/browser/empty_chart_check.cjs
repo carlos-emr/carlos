@@ -74,6 +74,16 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
         row.nativeReviews = await cards.locator('[name="entryText"][readonly]').count();
         row.agentLabel = await frame.locator('main > p.small').innerText();
         row.defaults = [];
+        const audit = frame.locator('#coverage-audit');
+        await audit.locator(':scope > summary').click();
+        row.coverageSections = await audit.locator('.coverage-section').count();
+        assert(row.coverageSections > 0, 'This trial requires a section coverage audit');
+        assert.match(await audit.innerText(), /second check for omissions/);
+        const sectionTexts = await audit.locator('.coverage-section > blockquote:not(.coverage-gap)').allTextContents();
+        assert.equal(sectionTexts.join(''), source, 'Coverage sections must retain the complete original text');
+        row.textGaps = await audit.locator('.coverage-gap').count();
+        row.rejected = await audit.locator('.coverage-rejected blockquote').count();
+        await audit.locator(':scope > summary').click();
         let checkedNativeForm = false;
         assert.equal(row.history + row.reminders + row.nativeReviews, count);
         for (let index = 0; index < count; index++) {

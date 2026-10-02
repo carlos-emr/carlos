@@ -43,6 +43,16 @@
             };
             previous.addEventListener('click', () => { if (index > 0) { index--; show(true); } });
             next.addEventListener('click', () => { if (index < cards.length - 1) { index++; show(true); } });
+            document.querySelectorAll('[data-review-proposal]').forEach(link => {
+                link.addEventListener('click', event => {
+                    const target = cards.findIndex(card => card.dataset.proposalKey === link.dataset.reviewProposal);
+                    if (target < 0) return;
+                    event.preventDefault();
+                    index = target;
+                    show(true);
+                    cards[index].scrollIntoView({ block: 'nearest' });
+                });
+            });
             steps.hidden = false;
             show(false);
         }

@@ -51,13 +51,47 @@
         <c:if test="${empty chartUpdateRows}"><p><fmt:message key="chartUpdates.none"/></p></c:if>
         <p><a href="#current-chart-title"><fmt:message key="chartUpdates.current"/></a></p>
         <p class="suggestions-help"><fmt:message key="chartUpdates.suggestionsHelp"/></p>
+        <details class="coverage-audit" id="coverage-audit">
+            <summary><fmt:message key="chartUpdates.audit.title"/></summary>
+            <p><fmt:message key="chartUpdates.audit.help"/></p>
+            <p><fmt:message key="chartUpdates.audit.workflows"/></p>
+            <c:choose><c:when test="${not empty chartUpdateCoverage}">
+                <p><fmt:message key="chartUpdates.audit.processed"><fmt:param value="${chartUpdateCoverage.size()}"/></fmt:message></p>
+                <c:forEach items="${chartUpdateCoverage}" var="section" varStatus="sectionNumber">
+                    <details class="coverage-section">
+                        <summary><fmt:message key="chartUpdates.audit.section"><fmt:param value="${sectionNumber.count}"/><fmt:param value="${section.links.size()}"/><fmt:param value="${section.gaps.size()}"/></fmt:message></summary>
+                        <h3 class="h5"><fmt:message key="chartUpdates.evidence"/></h3>
+                        <blockquote class="source-text"><carlos:encode value="${section.text}"/></blockquote>
+                        <c:forEach items="${section.links}" var="link">
+                            <a href="#proposal-${carlos:forHtmlAttribute(link.key)}" data-review-proposal="${carlos:forHtmlAttribute(link.key)}"><fmt:message key="chartUpdates.audit.suggestion"><fmt:param value="${link.number}"/></fmt:message></a>
+                            <c:if test="${link.nativeRecord}"> (<fmt:message key="chartUpdates.section.${link.destination}"/>: <fmt:message key="chartUpdates.audit.normalForm"/>)</c:if>
+                        </c:forEach>
+                        <c:if test="${not empty section.gaps}">
+                            <h3 class="h5"><fmt:message key="chartUpdates.audit.gaps"/></h3>
+                            <p><fmt:message key="chartUpdates.audit.gapsHelp"/></p>
+                            <c:forEach items="${section.gaps}" var="gap"><blockquote class="source-text coverage-gap"><carlos:encode value="${gap}"/></blockquote></c:forEach>
+                        </c:if>
+                    </details>
+                </c:forEach>
+                <c:if test="${not empty chartUpdateRejected}">
+                    <details class="coverage-rejected">
+                        <summary><fmt:message key="chartUpdates.audit.rejected"><fmt:param value="${chartUpdateRejected.size()}"/></fmt:message></summary>
+                        <p><fmt:message key="chartUpdates.audit.rejectedHelp"/></p>
+                        <c:forEach items="${chartUpdateRejected}" var="rejected">
+                            <blockquote class="source-text"><carlos:encode value="${rejected.evidence}"/></blockquote>
+                            <p><carlos:encode value="${rejected.reason}"/></p>
+                        </c:forEach>
+                    </details>
+                </c:if>
+            </c:when><c:otherwise><p><fmt:message key="chartUpdates.audit.unavailable"/></p></c:otherwise></c:choose>
+        </details>
         <nav class="review-steps" aria-label="${carlos:forHtmlAttribute(chartUpdateWorkflowLabel)}" hidden>
             <button type="button" class="btn btn-secondary btn-sm" data-review-previous><fmt:message key="dms.incomingDocs.previous"/></button>
             <span data-review-position role="status"></span>
             <button type="button" class="btn btn-secondary btn-sm" data-review-next><fmt:message key="dms.incomingDocs.next"/></button>
         </nav>
         <c:forEach items="${chartUpdateRows}" var="proposal" varStatus="position">
-        <article class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}" data-proposal-key="${carlos:forHtmlAttribute(proposal.key)}" data-kind="${carlos:forHtmlAttribute(proposal.kind)}" data-destination="${carlos:forHtmlAttribute(proposal.recordDestination)}">
+        <article id="proposal-${carlos:forHtmlAttribute(proposal.key)}" class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}" data-proposal-key="${carlos:forHtmlAttribute(proposal.key)}" data-kind="${carlos:forHtmlAttribute(proposal.kind)}" data-destination="${carlos:forHtmlAttribute(proposal.recordDestination)}">
             <div class="card-body">
                 <div class="proposal-heading"><span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/>.</span><h3 class="h5"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></c:when><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3></div>
                 <details class="proposal-evidence" open><summary><fmt:message key="chartUpdates.evidence"/></summary><blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote></details>
