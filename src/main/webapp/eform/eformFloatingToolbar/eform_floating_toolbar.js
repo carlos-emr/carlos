@@ -345,6 +345,26 @@ function eFormValidationBlocked() {
 			return true;
 		}
 	}
+	// A textarea or select template subject is only hidden (moveSubjectReverse() can make only an
+	// input type="hidden"), so it still takes part in the full-form validation below, while
+	// moveSubject() copies the toolbar's value into it only after this check. Mirror it first, or a
+	// required subject that started empty blocks every save on a control the clinician cannot see.
+	if (templateSubject && toolbarSubject
+			&& (templateSubject.tagName === "TEXTAREA" || templateSubject.tagName === "SELECT")) {
+		templateSubject.value = toolbarSubject.value;
+		// A select takes only one of its options; any other toolbar text leaves it unselected. Its
+		// own message would go to a hidden control, so show it on the toolbar field instead.
+		if (templateSubject.tagName === "SELECT" && typeof templateSubject.checkValidity === "function"
+				&& !templateSubject.checkValidity() && typeof toolbarSubject.setCustomValidity === "function") {
+			toolbarSubject.setCustomValidity(templateSubject.validationMessage);
+			toolbarSubject.addEventListener("input", function () { toolbarSubject.setCustomValidity(""); },
+				{ once: true });
+			toolbarSubject.reportValidity();
+			HideSpin();
+			clearWorkflowFlags();
+			return true;
+		}
+	}
 	// No resolvable form, or a browser/form without the constraint API: nothing can be asserted, so
 	// never block on it — the pre-existing submit paths stay exactly as they were.
 	if (!ef || typeof ef.checkValidity !== "function" || ef.checkValidity()) {
