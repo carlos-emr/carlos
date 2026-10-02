@@ -666,6 +666,7 @@
                                                                                 <c:if test="${ not empty patientConsent.optout}">
                                                                                     <li>
                                                                                         <c:if test="${ patientConsent.consentType.active }">
+                          			<%-- Admin-entered text, spliced in as bare script before. nhpup sets innerHTML, so encode for HTML, then for a JS string in an attribute. --%>
                           			<span class="popup label"
                                           onmouseover="nhpup.popup('${carlos:forJavaScriptAttribute(carlos:forHtmlContent(patientConsent.consentType.description))}',{'width':350} );">
 										${carlos:forHtml(patientConsent.consentType.name)}
@@ -679,7 +680,7 @@
 
                                                                                                 <c:otherwise>
                                                                                                     <span class="info"
-                                                                                                          style="color:green;">Consented:${carlos:forHtml(patientConsent.consentDate)}</span>
+                                                                                                          style="color:green;">Consented<c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if>:${carlos:forHtml(patientConsent.consentDate)}</span>
                                                                                                 </c:otherwise>
                                                                                             </c:choose>
 

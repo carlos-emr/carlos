@@ -489,6 +489,48 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
+        @DisplayName("should name the consent types whose consent change the save refused")
+        void shouldSetConsentNotSavedNames_whenSaveRefusedConsent() throws Exception {
+            io.github.carlos_emr.carlos.commn.model.ConsentType email =
+                    new io.github.carlos_emr.carlos.commn.model.ConsentType();
+            email.setId(7);
+            email.setType("email_consent");
+            email.setName("Email <b>consent</b>");
+            when(mockPatientConsentManager.getActiveConsentTypes()).thenReturn(List.of(email));
+            addRequestParameter("consentNotSaved", "7,99");
+
+            executeAction(action);
+
+            // The name is stored raw and encoded by the page; an id the page does not show is dropped.
+            assertThat(mockRequest.getAttribute("consentNotSavedNames"))
+                    .isEqualTo(List.of("Email <b>consent</b>"));
+        }
+
+        @Test
+        @DisplayName("should ignore a consentNotSaved value that is not digits and commas")
+        void shouldNotSetConsentNotSavedNames_whenParameterIsMalformed() throws Exception {
+            io.github.carlos_emr.carlos.commn.model.ConsentType email =
+                    new io.github.carlos_emr.carlos.commn.model.ConsentType();
+            email.setId(7);
+            email.setType("email_consent");
+            email.setName("Email consent");
+            when(mockPatientConsentManager.getActiveConsentTypes()).thenReturn(List.of(email));
+            addRequestParameter("consentNotSaved", "7<script>");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute("consentNotSavedNames")).isNull();
+        }
+
+        @Test
+        @DisplayName("should set no warning on an ordinary page load")
+        void shouldNotSetConsentNotSavedNames_whenParameterIsAbsent() throws Exception {
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute("consentNotSavedNames")).isNull();
+        }
+
+        @Test
         @DisplayName("should coerce null service admissions to an empty list")
         void shouldCoerceNullServiceAdmissions_toEmptyList() throws Exception {
             when(mockAdmissionManager.getCurrentServiceProgramAdmission(12345)).thenReturn(null);

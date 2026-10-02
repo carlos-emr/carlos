@@ -42,6 +42,8 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.ChartConsentOutcome;
+import io.github.carlos_emr.carlos.managers.ChartConsentRequest;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.provider.model.PreventionManager;
@@ -279,38 +281,6 @@ public class DemographicUpdate2Action extends ActionSupport {
             return "validationError";
         }
 
-        if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
-            PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
-            List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
-            boolean explicitConsent = Boolean.TRUE;
-            for (ConsentType consentType : consentTypes) {
-                String type = consentType.getType();
-                String consentRecord = request.getParameter(type);
-                int deleteme = 0;
-                String deleteConsentParam = request.getParameter("deleteConsent_" + type);
-                if (!org.apache.commons.lang3.StringUtils.isEmpty(deleteConsentParam)) {
-                    try {
-                        deleteme = Integer.parseInt(deleteConsentParam);
-                    } catch (NumberFormatException e) {
-                        logger.warn("DemographicUpdate2Action: invalid deleteConsent_{} value={}, defaulting to 0", type, deleteConsentParam);
-                    }
-                }
-                if (consentRecord != null) {
-                    boolean optOut;
-                    try {
-                        optOut = Integer.parseInt(consentRecord) == 1;
-                    } catch (NumberFormatException e) {
-                        logger.warn("DemographicUpdate2Action: invalid consent record value={}, defaulting to false", consentRecord);
-                        optOut = false;
-                    }
-                    patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),
-                            consentType.getId(), explicitConsent, optOut);
-                } else if (deleteme == 1) {
-                    patientConsentManager.deleteConsent(loggedInInfo, demographic.getDemographicNo(), consentType.getId());
-                }
-            }
-        }
-
         List<DemographicExt> extensions = new ArrayList<>();
         extensions.add(new DemographicExt(request.getParameter("demo_cell_id"), proNo, demographicNo, "demo_cell", request.getParameter("demo_cell")));
         extensions.add(new DemographicExt(request.getParameter("aboriginal_id"), proNo, demographicNo, "aboriginal", request.getParameter("aboriginal")));
@@ -374,6 +344,17 @@ public class DemographicUpdate2Action extends ActionSupport {
             }
         }
 
+        // Consent is persisted only once the form has passed every check above; a form rejected as
+        // a HIN duplicate must not have recorded, for instance, a confirmed explicit consent.
+        // A consent choice made against a record that has since changed is refused for that consent
+        // type; the rest of the chart is still saved, and the page the save ends on says so.
+        List<ConsentType> consentNotSaved = new ArrayList<>();
+        if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
+            consentNotSaved = saveConsents(request, loggedInInfo, demographic.getDemographicNo(),
+                    SpringUtils.getBean(PatientConsentManager.class));
+        }
+        String editRedirectUrl = editRedirectUrl(request.getContextPath(), demographicNo, consentNotSaved);
+
         for (DemographicExt extension : extensions) {
             demographicExtDao.saveEntity(extension);
         }
@@ -435,7 +416,7 @@ public class DemographicUpdate2Action extends ActionSupport {
                     listIdInt = Integer.parseInt(listId);
                 } catch (NumberFormatException e) {
                     logger.warn("DemographicUpdate2Action: invalid list_id={}, treating as 0", listId);
-                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
+                    response.sendRedirect(editRedirectUrl);
                     return null;
                 }
                 List<WaitingList> waitingListList = waitingListDao.findByWaitingListIdAndDemographicId(
@@ -449,19 +430,157 @@ public class DemographicUpdate2Action extends ActionSupport {
                     request.setAttribute("wlReferralDate", StringUtils.noNull(request.getParameter("waiting_list_referral_date")));
                     request.setAttribute("addToWl", Boolean.TRUE);
                     request.setAttribute("needsWlConfirm", Boolean.valueOf(!apptList.isEmpty()));
+                    // This path forwards to a page that posts on to the waiting list, which then
+                    // redirects to the chart; the page carries the refused consent types along.
+                    if (!consentNotSaved.isEmpty()) {
+                        request.setAttribute(ConsentNotSavedNotice.PARAMETER,
+                                ConsentNotSavedNotice.parameterValue(consentNotSaved));
+                    }
                     return SUCCESS;
                 } else {
-                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
+                    response.sendRedirect(editRedirectUrl);
                     return null;
                 }
             } else {
-                response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
+                response.sendRedirect(editRedirectUrl);
                 return null;
             }
         } else {
-            response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
+            response.sendRedirect(editRedirectUrl);
             return null;
         }
+    }
+
+    /**
+     * Applies the chart's consent section for every active consent type.
+     *
+     * <p>Every demographic save re-posts each type's pre-checked radio, so an Opt-in here is not
+     * evidence that anyone just asked the patient, and re-saving never changes whether an existing
+     * record is explicit. Only the separate {@code recordExplicit_<type>} checkbox, ticked with
+     * Opt-in selected, upgrades one (#3858). A record created here, when staff pick a choice for a
+     * type that had none, is explicit as before: that choice is the staff member's own entry.</p>
+     *
+     * <p>A radio value other than 0 (opt in) or 1 (opt out) leaves that type unchanged. It used to
+     * default to opt-in, which recorded consent nobody gave.</p>
+     *
+     * <p>The page also posts, for each type, the consent record it showed
+     * ({@code consentShownId_<type>} and {@code consentShownChoice_<type>}). A choice is applied
+     * only while that record still decides the patient's consent; if a colleague has changed it
+     * since the page was loaded, the consent change for that type is refused and nothing else is
+     * affected. A form that posts neither field, or only one, is applied without that check.</p>
+     *
+     * @return the consent types whose consent change was refused; empty when none was
+     */
+    static List<ConsentType> saveConsents(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo,
+                                          PatientConsentManager patientConsentManager) {
+        List<ConsentType> refused = new ArrayList<>();
+        for (ConsentType consentType : patientConsentManager.getActiveConsentTypes()) {
+            String type = consentType.getType();
+            String consentRecord = request.getParameter(type);
+            ChartConsentRequest.Choice choice;
+            if (consentRecord != null) {
+                Boolean optOut = parseConsentChoice(consentRecord);
+                if (optOut == null) {
+                    logger.warn("DemographicUpdate2Action: ignoring an unrecognised choice for consent type id {}",
+                            consentType.getId());
+                    continue;
+                }
+                choice = optOut ? ChartConsentRequest.Choice.OPT_OUT : ChartConsentRequest.Choice.OPT_IN;
+            } else {
+                String delete = request.getParameter("deleteConsent_" + type);
+                if (!"1".equals(delete)) {
+                    if (delete != null && !delete.isEmpty() && !"0".equals(delete)) {
+                        logger.warn("DemographicUpdate2Action: ignoring an unrecognised clear flag for consent type id {}",
+                                consentType.getId());
+                    }
+                    continue;
+                }
+                choice = ChartConsentRequest.Choice.CLEAR;
+            }
+
+            String shownIdValue = request.getParameter("consentShownId_" + type);
+            String shownChoiceValue = request.getParameter("consentShownChoice_" + type);
+            boolean shownSent = shownIdValue != null && shownChoiceValue != null;
+            Integer shownId = null;
+            Boolean shownOptOut = null;
+            if (shownSent) {
+                try {
+                    shownId = parseShownId(shownIdValue);
+                    shownOptOut = parseShownChoice(shownChoiceValue);
+                } catch (IllegalArgumentException e) {
+                    // Without a readable shown record the choice cannot be checked, so it is not
+                    // applied. The values are not logged: they are raw request input.
+                    logger.warn("DemographicUpdate2Action: consent change refused, unreadable shown record for consent type id {}",
+                            consentType.getId());
+                    // Recorded against the patient too, as the manager records its own refusals.
+                    LogAction.addLogSynchronous(loggedInInfo, "DemographicUpdate2Action.saveConsents", "consent", null,
+                            demographicNo, " Demographic: " + demographicNo + " ConsentTypeId: " + consentType.getId()
+                                    + " refused: the consent the page showed could not be read");
+                    refused.add(consentType);
+                    continue;
+                }
+            }
+
+            boolean explicitRequested = choice == ChartConsentRequest.Choice.OPT_IN
+                    && "1".equals(request.getParameter("recordExplicit_" + type));
+            ChartConsentOutcome outcome = patientConsentManager.saveChartConsent(loggedInInfo, demographicNo,
+                    consentType.getId(),
+                    new ChartConsentRequest(choice, explicitRequested, shownSent, shownId, shownOptOut));
+            if (outcome == ChartConsentOutcome.STALE) {
+                logger.warn("DemographicUpdate2Action: consent change refused, the record changed after the page was loaded, for consent type id {}",
+                        consentType.getId());
+                refused.add(consentType);
+            } else if (outcome == ChartConsentOutcome.EXPLICIT_NOT_RECORDED) {
+                // Staff ticked the box, so they believe it happened; leave a trace when it did not.
+                logger.warn("DemographicUpdate2Action: explicit consent was requested but not recorded for consent type id {}",
+                        consentType.getId());
+            }
+        }
+        return refused;
+    }
+
+    /**
+     * Builds the chart page URL a save redirects to, naming the consent types whose consent change
+     * was refused so the page can say so. Only consent type ids are added, nothing about the patient.
+     */
+    static String editRedirectUrl(String contextPath, int demographicNo, List<ConsentType> consentNotSaved) {
+        return ConsentNotSavedNotice.appendTo(
+                contextPath + "/demographic/DemographicEdit?demographic_no=" + demographicNo,
+                ConsentNotSavedNotice.parameterValue(consentNotSaved));
+    }
+
+    /** Returns the id, or null for an empty value: the page showed no record. */
+    private static Integer parseShownId(String value) {
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (!trimmed.matches("\\d{1,9}")) {
+            throw new IllegalArgumentException("consent shown id");
+        }
+        return Integer.valueOf(trimmed);
+    }
+
+    /** Returns true for opt-out, false for opt-in, or null for an empty value: the page showed no record. */
+    private static Boolean parseShownChoice(String value) {
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        Boolean optOut = parseConsentChoice(trimmed);
+        if (optOut == null) {
+            throw new IllegalArgumentException("consent shown choice");
+        }
+        return optOut;
+    }
+
+    /** Returns true for opt-out ("1"), false for opt-in ("0"), and null for anything else. */
+    private static Boolean parseConsentChoice(String value) {
+        return switch (value.trim()) {
+            case "0" -> Boolean.FALSE;
+            case "1" -> Boolean.TRUE;
+            default -> null;
+        };
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

@@ -841,11 +841,27 @@
                         consentDate.style.display = "none";
                     }
 
+                    // A cleared consent cannot also be confirmed as explicit (#3858).
+                    setExplicitConsentBox(radioBtnName, false);
+
                     // is the user trying to clear an old consent or are they just curious what the clear button does.
                     if (preset === "true") {
                         // set the delete parameter to update the deleted status in the database entry.
                         document.getElementById("deleteConsent_" + radioBtnName).value = 1;
                     }
+                }
+            }
+
+            // The "patient confirmed consent directly" box only means something with Opt-in selected
+            // (#3858). The server ignores it otherwise; this keeps the form from suggesting it counts.
+            function setExplicitConsentBox(consentType, enabled) {
+                var box = document.getElementById("recordExplicit_" + consentType);
+                if (!box) {
+                    return;
+                }
+                box.disabled = !enabled;
+                if (!enabled) {
+                    box.checked = false;
                 }
             }
 
@@ -1034,6 +1050,22 @@
         pageContext.setAttribute("demographic", demographic, PageContext.PAGE_SCOPE);
     %>
     <div id="editDemographicWrapper" style="margin: 0 auto;">
+        <%-- The save that led here kept the chart but refused a consent change made against a
+             consent record that someone else had changed since the page was opened. The names are
+             looked up by DemographicEdit2Action from validated consent type ids; the request
+             parameter itself is never written to the page. --%>
+        <c:if test="${ not empty requestScope.consentNotSavedNames }">
+            <div id="consentNotSavedWarning" role="alert"
+                 style="margin:8px;padding:10px 14px;border:2px solid #b35900;background-color:#fff4e5;color:#000;font-weight:bold;">
+                <fmt:message key="demographic.demographiceditdemographic.msgConsentNotSaved"/>
+                <ul style="margin:6px 0;">
+                    <c:forEach items="${ requestScope.consentNotSavedNames }" var="consentNotSavedName">
+                        <li><carlos:encode value="${ consentNotSavedName }"/></li>
+                    </c:forEach>
+                </ul>
+                <fmt:message key="demographic.demographiceditdemographic.msgConsentNotSavedReview"/>
+            </div>
+        </c:if>
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn" colspan="2">
