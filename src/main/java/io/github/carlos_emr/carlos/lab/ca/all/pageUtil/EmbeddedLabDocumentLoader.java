@@ -88,8 +88,8 @@ public final class EmbeddedLabDocumentLoader {
         NOT_PDF,
         /**
          * A payload the sender declares as text (ED.4 {@code A}), or, with no declared encoding, a
-         * non-PDF payload not even shaped like base64 (legacy text in OBX-5.1); readable as the
-         * result value.
+         * non-PDF OBX-5.1 result (legacy text) or a non-PDF payload not even shaped like base64;
+         * readable as the result value.
          */
         TEXT,
         /** No payload at all. */
@@ -206,22 +206,30 @@ public final class EmbeddedLabDocumentLoader {
         }
         String compact = payload.replaceAll("\\s+", "");
         boolean hex = "Hex".equals(encoding);
+        boolean resultFallback = handler.isOBXEmbeddedDocumentResultFallback(obr, obx);
         byte[] head = new byte[PDF_SIGNATURE.length];
         if (maxBytes > 0) {
             long estimated = estimateDecodedSize(compact, hex);
             if (estimated > maxBytes) {
                 // Over the limit by its encoded length alone: decode only far enough to read the
-                // signature, so an oversized payload costs no more than a small one.
+                // signature, so an oversized payload costs no more than a small one. Hex is
+                // validated in full first (a linear scan, nothing decoded), because the full
+                // decode the download endpoint runs refuses any non-digit; base64 needs no such
+                // check, since the lenient decoder that full decode falls back to accepts any
+                // input and yields the same leading bytes as the capped prefix.
+                if (hex && !isDecodableHex(compact)) {
+                    return notPdf(encoding, compact, payload, 0, resultFallback);
+                }
                 long headSize = decode(compact, hex, head, null, true);
                 if (headSize < PDF_SIGNATURE.length || !isPdf(head)) {
-                    return notPdf(encoding, compact, payload, headSize < 0 ? 0 : estimated);
+                    return notPdf(encoding, compact, payload, headSize < 0 ? 0 : estimated, resultFallback);
                 }
                 return new Classified(Status.TOO_LARGE, estimated, null, false);
             }
         }
         long size = decode(compact, hex, head, null, false);
         if (size < PDF_SIGNATURE.length || !isPdf(head)) {
-            return notPdf(encoding, compact, payload, Math.max(size, 0));
+            return notPdf(encoding, compact, payload, Math.max(size, 0), resultFallback);
         }
         if (maxBytes > 0 && size > maxBytes) {
             return new Classified(Status.TOO_LARGE, size, null, false);
@@ -257,17 +265,37 @@ public final class EmbeddedLabDocumentLoader {
     }
 
     /**
-     * A payload that is not a PDF. With no declared ED.4 encoding (a legacy feed that puts the
-     * value in OBX-5.1) and a payload that is not even shaped like base64, it is the sender's
-     * text, shown as the result value as it was before ED documents were detected; otherwise it
-     * is undisplayable binary (an image, say). Base64-shaped text stays {@link Status#NOT_PDF}:
-     * without a declared encoding it cannot be told from encoded bytes.
+     * A payload that is not a PDF. It is the sender's text, shown as the result value as it was
+     * before ED documents were detected, when no ED.4 encoding is declared and either
+     * <ul>
+     *   <li>the payload is the handler's OBX-5.1 result because ED.5 is empty
+     *       ({@link MessageHandler#isOBXEmbeddedDocumentResultFallback(int, int)}): a legacy feed's
+     *       result value, such as {@code NONE}, even when it happens to be base64-shaped; or</li>
+     *   <li>it is not even shaped like base64.</li>
+     * </ul>
+     * Otherwise it is undisplayable binary (an image, say): an undeclared, base64-shaped ED.5
+     * cannot be told from encoded bytes.
      */
-    private static Classified notPdf(String encoding, String compact, String payload, long sizeBytes) {
-        if (encoding == null && !isBase64Shaped(compact)) {
+    private static Classified notPdf(String encoding, String compact, String payload, long sizeBytes,
+            boolean resultFallback) {
+        if (encoding == null && (resultFallback || !isBase64Shaped(compact))) {
             return new Classified(Status.TEXT, payload.length(), null, false);
         }
         return new Classified(Status.NOT_PDF, sizeBytes, null, false);
+    }
+
+    /**
+     * Whether {@link #decodeHex} would decode {@code compact}: every character of its complete
+     * pairs is a hex digit (an unmatched final character is dropped, never checked).
+     */
+    static boolean isDecodableHex(String compact) {
+        int end = compact.length() / 2 * 2;
+        for (int i = 0; i < end; i++) {
+            if (Character.digit(compact.charAt(i), 16) < 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

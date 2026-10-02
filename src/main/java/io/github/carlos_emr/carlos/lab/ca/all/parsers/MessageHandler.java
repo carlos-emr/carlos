@@ -250,6 +250,23 @@ public interface MessageHandler {
     }
 
     /**
+     * Whether {@link #getOBXEmbeddedDocumentData(int, int)} is the handler's OBX-5.1
+     * {@link #getOBXResult(int, int)} because ED.5 is empty, rather than an ED component. Such a
+     * payload is a legacy feed's result value: when it is not a PDF it is shown as text, as it
+     * was before ED documents were detected, even if it happens to look like base64. The default
+     * answers from {@link #getOBXSegment(int, int)} and is {@code false} when the segment is not
+     * exposed (PATHL7, for example, decodes its ED values itself).
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return {@code true} when the payload is known to be the OBX-5.1 fallback
+     * @since 2026-10-02
+     */
+    default boolean isOBXEmbeddedDocumentResultFallback(int i, int j) {
+        return EdObservationValue.resultFallback(this, i, j, () -> getOBXSegment(i, j));
+    }
+
+    /**
      * An embedded document declared as text (ED.4 {@code A}), ready for display: the
      * {@link #getOBXEmbeddedDocumentData(int, int)} payload with the same normalisation
      * {@code getOBXResult} applies to ordinary results (trimmed, HL7 {@code \.br\} turned into

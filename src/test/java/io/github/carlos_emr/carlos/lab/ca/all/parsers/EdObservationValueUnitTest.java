@@ -149,6 +149,29 @@ class EdObservationValueUnitTest {
     }
 
     @Test
+    @DisplayName("should show a base64-shaped legacy OBX-5.1 value such as NONE as its text")
+    void shouldClassifyBase64ShapedResultAsText_whenDataComponentIsEmpty() throws Exception {
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||NONE||||||F|||20260930100000");
+
+        assertThat(handler.isOBXEmbeddedDocumentResultFallback(0, 1)).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status())
+                .isEqualTo(EmbeddedLabDocumentLoader.Status.TEXT);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).isEqualTo("NONE");
+    }
+
+    @Test
+    @DisplayName("should keep an undeclared base64-shaped ED.5 that is not a PDF undisplayable")
+    void shouldClassifyNotPdf_forUndeclaredBase64ShapedData() throws Exception {
+        String png = Base64.getEncoder().encodeToString(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^IM^PNG^^" + png + "||||||F|||20260930100000");
+
+        assertThat(handler.isOBXEmbeddedDocumentResultFallback(0, 1)).isFalse();
+        assertThat(handler.getOBXDocumentEncoding(0, 1)).isNull();
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status())
+                .isEqualTo(EmbeddedLabDocumentLoader.Status.NOT_PDF);
+    }
+
+    @Test
     @DisplayName("should leave ordinary results untouched")
     void shouldReturnResult_forNonEdObservation() throws Exception {
         DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^TEXT^PDF^Base64^" + PDF_BASE64 + "||||||F|||20260930100000");

@@ -110,6 +110,29 @@ final class EdObservationValue {
         return text.trim().replace(LINE_BREAK_ESCAPE, "<br />");
     }
 
+    /**
+     * Whether the embedded-document payload is the handler's {@code getOBXResult} because the
+     * OBX is {@code ED} and its segment is reachable but ED.5 is empty: the value a legacy feed
+     * sends in OBX-5.1. {@code false} when the segment cannot be reached, since the payload's
+     * origin is then unknown.
+     */
+    static boolean resultFallback(MessageHandler handler, int i, int j, ObxLookup lookup) {
+        if (!handler.isOBXEmbeddedDocument(i, j)) {
+            return false;
+        }
+        Segment obx;
+        try {
+            obx = lookup.obx();
+        } catch (Exception unavailable) {
+            return false;
+        }
+        if (obx == null) {
+            return false;
+        }
+        String data = component(() -> obx, 5);
+        return data == null || data.isBlank();
+    }
+
     private static String component(ObxLookup lookup, int component) {
         try {
             Segment obx = lookup.obx();
