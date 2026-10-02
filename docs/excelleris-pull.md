@@ -10,7 +10,7 @@ It is one of two Excelleris options shipped under `release/`:
 | Option | Pull | Hand-off to the EMR | Choose it when |
 |---|---|---|---|
 | `ExcellerisDownload.sh` | `curl` with the clinic certificate | Drops the file for a Mule 1.3.3 / `hl7_file_management` bridge to upload | The site already runs the Mule bridge and wants to keep that pipeline. |
-| `excelleris_pull.py` | Python, same protocol | Uploads directly over the EMR's lab-upload route | The site has no bridge, or wants to retire it. |
+| `excelleris_pull.py` | Python, same protocol | Uploads directly over the EMR's lab-upload route | The site has no bridge, or prefers not to run one. |
 
 Both speak the same Excelleris protocol and both end at the same EMR upload action; the
 difference is whether Mule sits in between. This guide covers the Python option.
@@ -40,8 +40,9 @@ A run is normally started by cron or a systemd timer every few minutes.
    write them to the inbox (fsync'd, mode 0600), and only then send Excelleris a positive
    acknowledgment. An empty pull, an error document, a failed pull or a failed write gets a
    negative acknowledgment, so Excelleris keeps the results pending.
-3. **Upload.** Log in to the EMR, obtain a CSRF token (CARLOS only), and post each inbox file
-   as the signed and encrypted envelope the EMR's lab upload action expects.
+3. **Upload.** Log in to the EMR (CARLOS always; OSCAR 19 only when credentials are
+   configured), obtain a CSRF token (CARLOS only), and post each inbox file as the signed and
+   encrypted envelope the EMR's lab upload action expects.
 4. **Housekeeping.** Uploaded files are compressed into `<state_dir>/done`; files the EMR
    definitively rejected move to `<state_dir>/failed` for a person to look at; `done` files
    older than the retention window are purged.
@@ -126,9 +127,11 @@ build 5036 disassemble to exactly the behaviour described.
    chmod 600 /etc/carlos-excelleris/pull.conf
    ```
 
-5. Put the Excelleris PFX beside it, also mode 0600. If you keep the two keys in files
-   rather than inline (`client_private_key_file`, `server_public_key_file`), those files
-   must be 0600 too.
+5. Put the Excelleris PFX beside it, also mode 0600. If only the PEM pair extracted from the
+   PFX is available (a GoFetchRover installation keeps one), use `client_cert_file` and
+   `client_key_file` instead; the key file must be 0600. If you keep the two EMR keys in
+   files rather than inline (`client_private_key_file`, `server_public_key_file`), those
+   files must be 0600 too.
 6. Validate offline, then prove the credentials and network path without pulling anything:
 
    ```sh
@@ -155,11 +158,13 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `url` | yes | Pull endpoint. Ontario test `https://api.ontest.excelleris.com/hl7pull.aspx`, Ontario production `https://api.on.excelleris.com/hl7pull.aspx`, BC replaces `on` with `bc`. |
 | `user_id` | yes | Clinic Excelleris user id. |
 | `password` | yes | Clinic Excelleris password. Any characters; it is URL-encoded correctly. |
-| `pfx_file` | yes | Path to the PFX Excelleris issued, mode 0600. |
+| `pfx_file` | yes, unless the PEM pair is given | Path to the PFX Excelleris issued, mode 0600. |
 | `pfx_password` | no | PFX passphrase. |
+| `client_cert_file` and `client_key_file` | alternative to `pfx_file` | The certificate (with chain) and the unencrypted private key extracted from the PFX, as PEM. The key file must be mode 0600. Cannot be combined with `pfx_file`. |
 | `timeout_seconds` | no | Per-request timeout, default 60, minimum 5. |
 | `ca_file` | no | Extra PEM bundle to trust, for a TLS-intercepting proxy or a test endpoint. Server verification is never disabled. |
 | `product` | no | `CARLOS` or `OSCAR`: which shell script's User-Agent to send, byte for byte (the CARLOS `ExcellerisDownload.sh` or the OSCAR 19 package's). Defaults to `OSCAR` when `flavour = oscar19`, else `CARLOS`. |
+| `user_agent` | no | The whole User-Agent header, sent verbatim; overrides `product`. For a site that must keep a string it was conformance-tested under. |
 
 ### `[carlos]`
 
@@ -202,7 +207,7 @@ excelleris_pull.py --config PATH [--check-config] [--dry-run] [--no-upload | --u
 | Flag | Effect | Old script equivalent |
 |---|---|---|
 | `--check-config` | Validate config, keys, PFX and CA bundles. No network. | none |
-| `--dry-run` | Log in and out of both systems. No pull, no upload. | none |
+| `--dry-run` | Log in and out of Excelleris, and of the EMR where credentials are configured. No pull, no upload. | none |
 | `--no-upload` | Pull and acknowledge only; leave files in the inbox. | `-s` |
 | `--upload-only` | Upload whatever is in the inbox; do not pull. | `-a` |
 | `-v` | Debug logging. Adds request metadata only, never payloads. | `-v` |
@@ -364,9 +369,9 @@ Deliberate changes from the shell script:
 
 - Excelleris mandates credentials in the query string of a GET. That is their protocol. The
   URL is built in memory, sent over mutual TLS, and never written to a log or an error.
-- The PFX is unpacked to a PEM in a private temporary directory for the lifetime of one run,
-  because Python's `ssl` module can only load a client certificate from a file. The file is
-  0600 and deleted in a `finally`.
+- The PFX, or the PEM pair, is combined into one PEM in a private temporary directory for the
+  lifetime of one run, because Python's `ssl` module can only load a client certificate from
+  a file. The file is 0600 and deleted in a `finally`.
 - The upload envelope (AES-128-ECB payload, RSA PKCS#1 v1.5 wrapped key, MD5withRSA
   signature) is the legacy format the EMR's `LabUpload2Action` decrypts. It is kept in one
   class, `LabUploadEnvelope`, so it can be swapped when CARLOS issue #3413 lands a modern

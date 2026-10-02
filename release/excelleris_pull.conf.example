@@ -83,7 +83,7 @@ service = excelleris
 # key_pair_file = /etc/carlos-excelleris/keyPair.key
 # ... OR give the two keys separately below.
 
-# Keys as base64 copied from CARLOS. Either paste inline or point at a file
+# Keys as base64 copied from the EMR. Either paste inline or point at a file
 # (mode 0600) with the *_file variant; PEM armour and line breaks are tolerated.
 #   client_private_key: "base64EncodedPrivateKey" from
 #                       <base_url>/admin/keygen/getPublicKey?id=<service>
