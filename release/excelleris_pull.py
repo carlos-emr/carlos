@@ -1233,13 +1233,17 @@ def inspect_pull(body: bytes) -> PullSummary:
             declared_count = -1
         if declared_count < 0:
             return PullSummary(
-                count, None, f"pull declares a MessageCount that is not a number ({declared!r})"
+                # The attribute's text is payload content and is not echoed:
+                # a malformed reply could carry anything in it.
+                count,
+                None,
+                "pull declares a MessageCount that is not a number",
             )
         if declared_count != count:
             return PullSummary(
                 count,
                 None,
-                f"pull declares MessageCount={declared} but contains {count} Message elements",
+                f"pull declares MessageCount={declared_count} but contains {count} Message elements",
             )
     return PullSummary(count, None, None)
 
@@ -2287,7 +2291,8 @@ class CarlosSession:
         """
         if resp.status == 429:
             # Never the upload action's answer on either flavour: CARLOS'
-            # RateLimitFilter (30 requests a minute on this route, with
+            # RateLimitFilter (30 requests a minute on this route when it is
+            # enabled in enforce mode; off in the shipped default; with
             # Retry-After) or a proxy. It throttles the queue, not the file.
             return 429, cls._DETAIL[429]
         if resp.status != 200:
@@ -2651,7 +2656,8 @@ def upload_step(
                     failures.append(f"{path.name}: {outcome.detail}; moved to {dest}")
                     log.error("%s: %s rejected: %s", cfg.carlos_flavour, path.name, outcome.detail)
                 elif outcome.rate_limited:
-                    # A queue-wide signal (CARLOS allows 30 uploads a minute on
+                    # A queue-wide signal (CARLOS, with its rate-limit filter
+                    # enforcing, allows 30 uploads a minute on
                     # this route): sending the rest would be refused the same
                     # way and charge each file an attempt it never had. Stop
                     # the pass, charge nothing (the OSCAR 19 in-flight marker

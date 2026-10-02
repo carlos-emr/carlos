@@ -303,13 +303,15 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
   with an alert. Check the EMR inbox for the results; if they are missing, an administrator
   must delete the file's row from the `fileUploadCheck` table before the same bytes can be
   uploaded again. If they are there, delete the parked file.
-- **Rate limiting.** CARLOS allows 30 requests a minute on the upload route (its
-  `RateLimitFilter`, with a `Retry-After` header); a proxy may throttle too. A `429` is a
+- **Rate limiting.** CARLOS' rate-limit filter, when it is enabled in enforce mode
+  (`WAF_RATE_LIMIT_ENABLED=true` and `WAF_RATE_LIMIT_MODE=enforce`; the shipped default is
+  off, and detect mode only logs), allows 30 requests a minute on the upload route and
+  answers `429` with a `Retry-After` header; a proxy may throttle too. A `429` is a
   signal about the queue, not the file, so the tool stops the upload pass at once, charges no
   file an attempt (on OSCAR 19 the in-flight marker is taken back), skips the second pass of
   that run, and alerts with the `Retry-After` value and the number of files waiting. The next
-  run continues from where it stopped, oldest first. A backlog of more than 30 files on CARLOS
-  therefore drains over several runs rather than burning attempts.
+  run continues from where it stopped, oldest first. Where the limit is enforced, a backlog
+  of more than 30 files therefore drains over several runs rather than burning attempts.
 - **Interrupted runs.** A pull is written to `inbox/` as a `.xml.part` file and renamed into
   place before Excelleris is acknowledged; a kill, reboot or power loss in between leaves the
   `.part` behind. Each run removes such leftovers (and stale `.attempts.tmp` files) first, under

@@ -259,12 +259,15 @@ class InspectPullTest(unittest.TestCase):
         self.assertFalse(s.has_results)
         self.assertIn("MessageCount=3", s.problem)
         self.assertIn("2 Message elements", s.problem)
-        for bad in (b"unknown", b"-1", b"2.0", b"", "\u00b2".encode()):  # superscript two
+        for bad in (b"unknown", b"-1", b"2.0", b"", "\u00b2".encode(), b"JANE DOE 123"):
             s = ep.inspect_pull(
                 PULL_WITH_RESULTS.replace(b'MessageCount="2"', b'MessageCount="' + bad + b'"')
             )
             self.assertFalse(s.has_results, bad)
             self.assertIn("not a number", s.problem, bad)
+            # The attribute's text is payload content: never quoted in the problem.
+            self.assertNotIn(bad.decode(), s.problem or "", bad) if bad else None
+        self.assertNotIn("JANE", s.problem)
         # A matching count, or no count at all, is fine.
         self.assertIsNone(ep.inspect_pull(PULL_WITH_RESULTS).problem)
         self.assertIsNone(ep.inspect_pull(b"<HL7Messages><Message/></HL7Messages>").problem)
