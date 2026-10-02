@@ -19,8 +19,9 @@ No change to CARLOS or OSCAR is needed. The upload uses the lab-upload route bot
 already expose to external lab senders (`lab/newLabUpload`), which is exactly what the
 Mule bridge spoke. CARLOS checksums every upload and answers `409` for a file it already
 imported, which is what makes the tool's retry logic safe. OSCAR 19 records the checksum
-before it imports, so on OSCAR 19 a `409` that follows a failed attempt is not proof of
-import; the tool moves such a file to `failed/` for a person to verify (see Operations).
+before it imports, so on OSCAR 19 a `409` is not proof of import; the tool takes it as one
+only when `done/` holds an archive of the same bytes (its own record of an earlier import)
+and otherwise moves the file to `failed/` for a person to verify (see Operations).
 
 Files:
 
@@ -61,8 +62,8 @@ Excelleris --(mutual TLS GET)--> inbox/ --(AES + RSA + MD5withRSA multipart POST
                                    v
                                  done/*.xml.xz
 
-  400 / 403 / 406 (or 409 after a failed attempt on OSCAR 19, or a file too large
-  for the EMR)                                  -> failed/ at once
+  400 / 403 / 406 (or 409 on OSCAR 19 without the same bytes in done/, or a file
+  too large for the EMR)                        -> failed/ at once
   5xx, 429, a login redirect, an unreadable reply -> stays in inbox/, retried next
                                                    run, failed/ after max_upload_attempts
 ```
@@ -276,29 +277,36 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 - **`done/`** holds `.xml.xz` copies of imported pulls until `retention_days` expires.
 - **`failed/`** holds files the EMR rejected for a reason in the request itself (400, 403, a
   406 signature failure), files that exhausted their transient-failure attempts, pulls too
-  large for the EMR's upload limit (see Known limits), and, on OSCAR 19, a `409` that followed
-  a failed attempt. They are not retried. Fix the cause, then move the file back into
+  large for the EMR's upload limit (see Known limits), and, on OSCAR 19, a `409` for a file
+  `done/` holds no copy of. They are not retried. Fix the cause, then move the file back into
   `inbox/` or run it through the EMR's own upload page.
 - **A corrupt `.attempts` sidecar** (unreadable, or not a number) keeps its file in `inbox/`
   unsent for that run and puts an alert line naming it in the run's failure mail; the other
-  inbox files and the pull go ahead. The counter guards the OSCAR 19 `409` rule, so it is
-  never silently treated as zero. Fix or delete the sidecar.
+  inbox files and the pull go ahead. The counter is the retry cap, so it is never silently
+  treated as zero. Fix or delete the sidecar.
 - **Files placed in `inbox/` by hand** (a `*.xml` moved back from `failed/`, or one produced
   elsewhere) are uploaded on the next run. A file whose name the tool did not generate is
   first renamed to `<run id>-manual.xml` so that only tool-made names ever appear in logs and
   alert mail; the original name is not logged.
-- **Duplicates** are harmless. If a positive acknowledgment was lost and Excelleris re-sends,
-  the EMR answers `409` and the tool treats that as success. One exception, on OSCAR 19 only:
-  its upload action records the file's checksum before it parses, so a `409` that follows an
-  earlier failed attempt (a 5xx, or a connection lost mid-upload) does not prove the results
-  were imported. The tool moves that file to `failed/` and alerts. Check the EMR inbox for
-  the results; if they are missing, an administrator must delete the file's row from the
-  `fileUploadCheck` table before the same bytes can be uploaded again.
+- **Duplicates** are harmless on CARLOS. If a positive acknowledgment was lost and Excelleris
+  re-sends, CARLOS answers `409` and the tool treats that as success, because CARLOS records
+  the checksum together with the import. OSCAR 19's upload action records the checksum before
+  it parses, so there a `409` only says the bytes were seen before: by this tool's own attempt
+  that then failed (a 5xx, or a connection lost mid-upload), or, before the tool was installed,
+  by the Mule bridge, a manual upload or another sender whose import failed. On OSCAR 19 the
+  tool therefore accepts a `409` only when `done/` still holds an archive of the same bytes,
+  its own record of an earlier successful import (so a re-send after a lost acknowledgment is
+  still handled quietly, within `retention_days`). Any other OSCAR 19 `409` goes to `failed/`
+  with an alert. Check the EMR inbox for the results; if they are missing, an administrator
+  must delete the file's row from the `fileUploadCheck` table before the same bytes can be
+  uploaded again. If they are there, delete the parked file.
 - **Interrupted runs.** A pull is written to `inbox/` as a `.xml.part` file and renamed into
   place before Excelleris is acknowledged; a kill, reboot or power loss in between leaves the
   `.part` behind. Each run removes such leftovers (and stale `.attempts.tmp` files) first, under
-  the run lock, and logs one warning per file. Nothing is lost: Excelleris was never told the
-  pull was stored, so it sends those results again.
+  the run lock, and logs one warning per file; one it cannot remove is reported (by kind and
+  error, never by a name the tool did not make) and alerted, and stays for the next run.
+  Nothing is lost: Excelleris was never told the pull was stored, so it sends those results
+  again.
 - **Lock contention** (exit 3) means the previous run is still working, usually because the
   EMR is slow. It is not a failure and does not email.
 - **Logs** carry one `>>>>>` line per run start and one `<<<<<` line per finish. Nothing
@@ -319,7 +327,8 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `above the ... limit ... accepts` | The pull (or an inbox file) is larger than the configured flavour's multipart limit; it was parked in `failed/` without an upload attempt. See Known limits. |
 | `attempt counter` | A `.attempts` sidecar in `inbox/` is unreadable or malformed. Fix or delete it; the run resumes next time. |
 | `unreachable` | The EMR could not be reached (login failed to connect, or two files in a row could not be sent). Everything in `inbox/` waits for the next run. |
-| `duplicate (409) after an earlier failed attempt` | OSCAR 19 only. The checksum was recorded by an attempt that then failed; the results may not be in the EMR. Verify in the EMR inbox (see Operations). |
+| `duplicate (409) with no record in done/` | OSCAR 19 only. The EMR already holds the file's checksum but this tool has no archive of an import of those bytes; the results may not be in the EMR. Verify in the EMR inbox (see Operations). |
+| `could not be removed` | A temp file left by an interrupted run could not be deleted from `inbox/`; see the log line for the error. |
 | `signature validation failed` (406) | `service` does not match the key name, or the client private key is not the one the EMR generated for it. |
 | `upload-source validation` (403, CARLOS) | CARLOS refused the upload before checking the signature; see the CARLOS log. |
 | `instead of an upload result` | The EMR answered HTTP 200 with a page, not a result: usually the multipart layer refused the request (size limit). The file stays in `inbox/`. |
@@ -368,7 +377,9 @@ enrolment with LifeLabs or a new key in OSCAR. Default install root is `/opt/gof
 4. Run `--check-config`, then `--dry-run` against the same `base_url` GoFetchRover used,
    then one real pull against the LifeLabs test host if the site still has test
    credentials. A result file that GoFetchRover had already handed to Mule is answered
-   with 409 by OSCAR and treated as success (no failed attempt of this tool precedes it).
+   with 409 by OSCAR; since this tool has no record of importing it, it is parked in
+   `failed/` with an alert, to be checked once in the EMR inbox (Mule's import either
+   succeeded, in which case delete the parked file, or failed, in which case see Operations).
 5. Schedule the tool and remove the Rover cron, or the whole `rover` service from
    `docker-compose.yml`.
 

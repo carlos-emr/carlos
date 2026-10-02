@@ -142,6 +142,7 @@ import base64
 import configparser
 import dataclasses
 import fcntl
+import hashlib
 import http.client
 import http.cookiejar
 import logging
@@ -1443,9 +1444,9 @@ class Archive:
         when there is none.
 
         Fails closed: a sidecar that exists but cannot be read or parsed is not
-        "zero attempts". On OSCAR 19 that zero would let a 409 pass as an
-        import after a failed attempt, so it raises instead and the file stays
-        in the inbox until a person fixes or deletes the sidecar.
+        "zero attempts": that would silently restart the retry cap, so it
+        raises instead and the file stays in the inbox until a person fixes or
+        deletes the sidecar.
         """
         sidecar = self._attempts_file(path)
         try:
@@ -1594,8 +1595,8 @@ class Archive:
             if self._is_regular(p) and not self._GENERATED_NAME.match(p.name)
         )
 
-    def sweep_leftovers(self) -> int:
-        """Remove temp files a killed run left in inbox/ and say how many.
+    def sweep_leftovers(self) -> tuple[int, int]:
+        """Remove temp files a killed run left in inbox/: (removed, could not remove).
 
         ``save_inbox`` and ``bump_attempts`` write to a temp name and rename;
         a SIGKILL, reboot or power loss between the two leaves the temp file,
@@ -1604,13 +1605,27 @@ class Archive:
         rename), so it will be sent again, and it may hold results: delete it
         rather than keep PHI on disk indefinitely. Call this with the run lock
         held, so the temp file cannot belong to a run still in progress.
+
+        A file that cannot be removed is reported by kind and errno only and
+        left for the next run: the exception would otherwise carry its path,
+        which for a hand-named file may be a patient's name, into the log.
         """
-        removed = 0
+        removed = kept = 0
         for p in self._leftovers():
-            p.unlink()
+            try:
+                p.unlink()
+            except OSError as exc:
+                kept += 1
+                log.error(
+                    "could not remove %s left by an interrupted run (%s); it stays until it "
+                    "can be removed",
+                    self._loggable_name(p),
+                    exc.strerror or type(exc).__name__,
+                )
+                continue
             removed += 1
             log.warning("removed %s left by an interrupted run", self._loggable_name(p))
-        return removed
+        return removed, kept
 
     def report_leftovers(self) -> int:
         """Dry-run counterpart of ``sweep_leftovers``: log, do not delete."""
@@ -1620,20 +1635,23 @@ class Archive:
             log.warning("dry run: %s was left by an interrupted run (kept)", self._loggable_name(p))
         return found
 
-    _GENERATED_LEFTOVER = re.compile(r"^\d{8}-\d{6}(-manual)?(-\d+)*\.xml(\.part|\.attempts\.tmp)$")
+    _GENERATED_LEFTOVER = re.compile(
+        r"^\d{8}-\d{6}(-manual)?(-\d+)*\.xml(\.part|\.attempts\.tmp|\.xz)$"
+    )
+    _KINDS = (".attempts.tmp", ".xml.part", ".xml.xz", ".xz")
 
     @classmethod
     def _loggable_name(cls, p: Path) -> str:
         """The file's name if this tool made it, else a description of its kind.
 
-        A leftover is normally one of this tool's own temp files, but a file
-        placed under one of these suffixes by hand would carry a name chosen
-        by a person, which may hold a patient's name or number: the same rule
-        as for inbox files, only tool-made names are ever quoted.
+        A leftover or archive is normally one of this tool's own files, but a
+        file placed under one of these suffixes by hand would carry a name
+        chosen by a person, which may hold a patient's name or number: the same
+        rule as for inbox files, only tool-made names are ever quoted.
         """
         if cls._GENERATED_LEFTOVER.match(p.name):
             return p.name
-        kind = ".attempts.tmp" if p.name.endswith(".attempts.tmp") else ".xml.part"
+        kind = next((k for k in cls._KINDS if p.name.endswith(k)), "")
         return f"a {kind} file with a name not made by this tool"
 
     def _leftovers(self) -> list[Path]:
@@ -1655,12 +1673,51 @@ class Archive:
         cutoff = time.time() - days * 86400
         removed = 0
         for p in self.cfg.done_dir.glob("*.xz"):
-            if p.is_file() and p.stat().st_mtime < cutoff:
-                p.unlink()
-                removed += 1
+            try:
+                if self._is_regular(p) and p.stat().st_mtime < cutoff:
+                    p.unlink()
+                    removed += 1
+            except OSError as exc:
+                # Same naming rule as the inbox: a hand-placed archive's path
+                # must not reach the log through the exception's message.
+                log.error(
+                    "could not purge %s (%s)",
+                    self._loggable_name(p),
+                    exc.strerror or type(exc).__name__,
+                )
         if removed:
             log.info("purged %d archived result file(s) older than %d days", removed, days)
         return removed
+
+    def has_done_copy(self, path: Path) -> bool:
+        """True if done/ holds an archive of exactly the bytes in ``path``.
+
+        That archive is this tool's own durable record of having had the file
+        imported, which the OSCAR 19 duplicate rule in ``upload_step`` needs.
+        Archives older than ``retention_days`` are gone, so a re-send after
+        that long is parked for a person to verify rather than taken on trust.
+        Rarely called (an OSCAR 19 409 only), so reading every archive is fine.
+        """
+        want = hashlib.sha256(path.read_bytes()).digest()
+        for p in sorted(self.cfg.done_dir.glob("*.xz")):
+            if not self._is_regular(p):
+                continue
+            digest = hashlib.sha256()
+            try:
+                with lzma.open(p, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(1 << 20), b""):
+                        digest.update(chunk)
+            except (OSError, EOFError, lzma.LZMAError) as exc:
+                log.warning(
+                    "could not read %s while looking for an earlier import of %s (%s)",
+                    self._loggable_name(p),
+                    path.name,
+                    getattr(exc, "strerror", None) or type(exc).__name__,
+                )
+                continue
+            if digest.digest() == want:
+                return True
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -1787,7 +1844,7 @@ class UploadOutcome:
     def accepted(self) -> bool:
         # 200: imported now. 409: the EMR already holds a byte-identical file
         # (FileUploadCheck); that is the retry path working as designed. On
-        # OSCAR 19 upload_step adds one condition: no failed attempt before it.
+        # OSCAR 19 upload_step adds one condition: done/ holds the same bytes.
         return self.status in (200, 409)
 
     @property
@@ -2251,10 +2308,11 @@ def pull_step(
             raise StepError("excelleris transport", str(exc)) from exc
 
 
-OSCAR19_409_AFTER_FAILURE = (
-    "duplicate (409) after an earlier failed attempt; OSCAR 19 records a file's checksum "
-    "before importing it, so this file may never have been imported: verify it in the EMR "
-    "inbox before discarding it"
+OSCAR19_409_UNPROVEN = (
+    "duplicate (409) with no record in done/ of this tool importing the same bytes; OSCAR 19 "
+    "records a file's checksum before importing it, so an attempt that then failed (by this "
+    "tool, the Mule bridge, a manual upload or another sender) leaves the checksum behind "
+    "without the results: verify them in the EMR inbox before discarding the file"
 )
 
 
@@ -2301,10 +2359,10 @@ def upload_step(
                     continue
                 # Read the counter before sending: a corrupt sidecar stops THIS
                 # file here (StepError), before the EMR is touched, and the
-                # other files and the pull go on. The pre-send value is what
-                # classifies a 409 on this request (below).
+                # other files and the pull go on. A counter that cannot be
+                # trusted must not silently restart the retry cap at zero.
                 try:
-                    prior_attempts = archive.attempts(path)
+                    archive.attempts(path)
                 except StepError as exc:
                     failures.append(f"{path.name}: {exc.detail}; left in inbox")
                     log.error("%s: %s: %s", cfg.carlos_flavour, path.name, exc.detail)
@@ -2312,8 +2370,9 @@ def upload_step(
                 if cfg.carlos_flavour == FLAVOUR_OSCAR19:
                     # In-flight marker, written before the request: OSCAR 19
                     # records the checksum before it parses, so a crash between
-                    # the send and our bookkeeping must still leave an attempt
-                    # on record, or the next run's 409 would pass as an import.
+                    # the send and our bookkeeping still counts as an attempt
+                    # (the next run's 409 is parked by the done/ rule below,
+                    # and a crash loop still reaches max_upload_attempts).
                     # Same run token, so a failure below does not count twice;
                     # a success removes the sidecar with the file.
                     try:
@@ -2386,21 +2445,20 @@ def upload_step(
                     if (
                         outcome.status == 409
                         and cfg.carlos_flavour == FLAVOUR_OSCAR19
-                        and prior_attempts > 0
+                        and not archive.has_done_copy(path)
                     ):
                         # OSCAR 19's LabUploadAction records the checksum
-                        # (FileUploadCheck.addFile) BEFORE it parses, so after a
-                        # failed attempt a 409 only proves the checksum exists,
-                        # not that the results were imported. CARLOS' storeIfNew
-                        # commits the checksum with the import, so its 409 is
-                        # proof and needs no such rule.
+                        # (FileUploadCheck.addFile) BEFORE it parses, so a 409
+                        # only proves the checksum exists: left by an attempt of
+                        # this tool that then failed, or, before this tool ran,
+                        # by the Mule bridge, a manual upload or another sender.
+                        # Only an archive of the same bytes in done/ (this tool
+                        # had them imported) makes it a harmless duplicate.
+                        # CARLOS' storeIfNew commits the checksum with the
+                        # import, so its 409 is proof and needs no such rule.
                         dest = archive.mark_failed(path)
-                        failures.append(
-                            f"{path.name}: {OSCAR19_409_AFTER_FAILURE}; moved to {dest}"
-                        )
-                        log.error(
-                            "%s: %s: %s", cfg.carlos_flavour, path.name, OSCAR19_409_AFTER_FAILURE
-                        )
+                        failures.append(f"{path.name}: {OSCAR19_409_UNPROVEN}; moved to {dest}")
+                        log.error("%s: %s: %s", cfg.carlos_flavour, path.name, OSCAR19_409_UNPROVEN)
                         continue
                     dest = archive.mark_done(path)
                     log.info(
@@ -2472,7 +2530,12 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
             archive.report_leftovers()
         else:
             # Under the lock: nothing else is writing inbox/.
-            archive.sweep_leftovers()
+            _, unremovable = archive.sweep_leftovers()
+            if unremovable:
+                failures.append(
+                    f"{unremovable} temp file(s) left by an interrupted run could not be "
+                    "removed from the inbox; see the log"
+                )
             # Admission serves the upload; --no-upload leaves inbox files as
             # they are, so the next real run renames them.
             _, unadmitted = archive.admit_foreign_files(run_id) if not opts.no_upload else (0, 0)

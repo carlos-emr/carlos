@@ -470,13 +470,13 @@ class ArchiveTest(TempEnv):
         tmp = self.cfg.inbox_dir / "r.xml.attempts.tmp"
         tmp.write_text("1 run")
         with self.assertLogs(ep.log, level="WARNING") as captured:
-            self.assertEqual(archive.sweep_leftovers(), 2)
+            self.assertEqual(archive.sweep_leftovers(), (2, 0))
         self.assertFalse(part.exists())
         self.assertFalse(tmp.exists())
         self.assertTrue(kept.exists())
         self.assertEqual(len(captured.output), 2)
         self.assertTrue(all("interrupted run" in line for line in captured.output))
-        self.assertEqual(archive.sweep_leftovers(), 0)
+        self.assertEqual(archive.sweep_leftovers(), (0, 0))
 
     def test_hand_named_leftovers_are_removed_without_being_named(self):
         archive = ep.Archive(self.cfg)
@@ -484,11 +484,64 @@ class ArchiveTest(TempEnv):
         (self.cfg.inbox_dir / "Jane Doe 1234567890.xml.attempts.tmp").write_text("1 run")
         with self.assertLogs(ep.log, level="WARNING") as captured:
             self.assertEqual(archive.report_leftovers(), 2)
-            self.assertEqual(archive.sweep_leftovers(), 2)
+            self.assertEqual(archive.sweep_leftovers(), (2, 0))
         self.assertEqual(len(captured.output), 4)
         self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
         self.assertTrue(any("not made by this tool" in line for line in captured.output))
         self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+
+    def test_a_leftover_that_cannot_be_removed_is_counted_not_named(self):
+        archive = ep.Archive(self.cfg)
+        stuck = self.cfg.inbox_dir / "Jane Doe 1234567890.xml.part"
+        stuck.write_bytes(b"x")
+        (self.cfg.inbox_dir / "20261001-090000.xml.attempts.tmp").write_text("1 run")
+        real_unlink = Path.unlink
+
+        def failing_unlink(self_path, *a, **kw):
+            if self_path.name.startswith("Jane"):
+                raise PermissionError(1, "Operation not permitted", str(self_path))
+            real_unlink(self_path, *a, **kw)
+
+        with mock.patch.object(Path, "unlink", failing_unlink):
+            with self.assertLogs(ep.log, level="WARNING") as captured:
+                self.assertEqual(archive.sweep_leftovers(), (1, 1))
+        self.assertTrue(stuck.exists())
+        self.assertEqual(len(captured.output), 2)
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        error = next(line for line in captured.output if line.startswith("ERROR"))
+        self.assertIn("could not remove a .xml.part file with a name not made by this tool", error)
+        self.assertIn("Operation not permitted", error)
+
+    def test_purge_failure_is_logged_without_a_hand_name(self):
+        archive = ep.Archive(self.cfg)
+        stuck = self.cfg.done_dir / "Jane Doe 1234567890.xml.xz"
+        stuck.write_bytes(b"x")
+        past = time.time() - 31 * 86400
+        os.utime(stuck, (past, past))
+
+        def failing_unlink(self_path, *a, **kw):
+            raise PermissionError(1, "Operation not permitted", str(self_path))
+
+        with mock.patch.object(Path, "unlink", failing_unlink):
+            with self.assertLogs(ep.log, level="ERROR") as captured:
+                self.assertEqual(archive.purge(), 0)
+        self.assertTrue(stuck.exists())
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        self.assertIn("could not purge a .xml.xz file with a name not made", captured.output[0])
+
+    def test_done_copy_is_found_by_content_and_corrupt_archives_are_skipped(self):
+        archive = ep.Archive(self.cfg)
+        sent = archive.save_inbox("20261001-090000", b"<HL7Messages>one</HL7Messages>")
+        archive.mark_done(sent)
+        corrupt = self.cfg.done_dir / "Jane Doe.xml.xz"
+        corrupt.write_bytes(b"\xfd7zXZ\x00 not really xz")
+        same = archive.save_inbox("20261001-090100", b"<HL7Messages>one</HL7Messages>")
+        other = archive.save_inbox("20261001-090200", b"<HL7Messages>two</HL7Messages>")
+        with self.assertLogs(ep.log, level="WARNING") as captured:
+            self.assertTrue(archive.has_done_copy(same))
+            self.assertFalse(archive.has_done_copy(other))
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        self.assertTrue(all("earlier import" in line for line in captured.output))
 
     def test_hand_placed_files_are_renamed_before_use(self):
         archive = ep.Archive(self.cfg)
@@ -1044,6 +1097,26 @@ class OrchestrationTest(_OrchestrationBase):
         self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload"), 1)  # the pull only
         self.assertTrue(stuck.exists())
         self.assertEqual(stat.S_IMODE(stuck.stat().st_mode), 0o644)
+
+    def test_run_alerts_when_a_leftover_cannot_be_removed(self):
+        ep.Archive(self.cfg)
+        stuck = self.cfg.inbox_dir / "Jane Doe 1234567890.xml.part"
+        stuck.write_bytes(b"x")
+        real_unlink = Path.unlink
+
+        def failing_unlink(self_path, *a, **kw):
+            if self_path.name.startswith("Jane"):
+                raise PermissionError(1, "Operation not permitted", str(self_path))
+            real_unlink(self_path, *a, **kw)
+
+        with mock.patch.object(Path, "unlink", failing_unlink):
+            with self.assertLogs(ep.log, level="ERROR") as captured:
+                rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)  # alerted, the run itself went on
+        self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload"), 1)
+        self.assertTrue(stuck.exists())
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        self.assertTrue(any("could not be removed" in line for line in captured.output))
 
     def test_excelleris_down_is_a_reported_failure_not_a_crash(self):
         self.script["excelleris:login"] = ep.TransportError("connect timed out")
@@ -2520,10 +2593,32 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
         self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
         self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
 
-    def test_plain_409_is_still_a_duplicate(self):
+    def test_first_seen_409_is_parked_without_proof_of_an_import(self):
+        # The checksum may have been left by Mule, a manual upload or another
+        # sender that then failed, before this tool ever saw the file.
         self.script["POST /carlos/lab/newLabUpload.do"] = ok("", 409)
+        with self.assertLogs(ep.log, level="ERROR") as captured:
+            self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
+        self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
+        self.assertTrue(any("no record in done/" in line for line in captured.output))
+
+    def test_409_for_bytes_this_tool_had_imported_is_a_duplicate(self):
+        self.script["POST /carlos/lab/newLabUpload.do"] = _replies(ok("", 200), ok("", 409))
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
-        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 1)
+        # Excelleris re-sends the same results after a lost ack: OSCAR says 409
+        # and done/ holds the same bytes, so this is the harmless case.
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 2)
+        self.assertEqual(list(self.cfg.failed_dir.glob("*")), [])
+
+    def test_409_after_retention_purged_the_proof_is_parked(self):
+        self.script["POST /carlos/lab/newLabUpload.do"] = _replies(ok("", 200), ok("", 409))
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
+        for p in self.cfg.done_dir.glob("*.xz"):
+            p.unlink()
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
 
 
 class CarlosDuplicateAfterFailureTest(_OrchestrationBase):
