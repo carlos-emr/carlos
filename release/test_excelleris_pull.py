@@ -1984,6 +1984,16 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
         self.assertIn("excelleris:ack:Positive", self.labels())
         self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 2)  # both kept
 
+    def test_marker_write_failure_skips_the_send_but_not_the_run(self):
+        ep.Archive(self.cfg)
+        (self.cfg.inbox_dir / "20260101-000000.xml").write_bytes(PULL_WITH_RESULTS)
+        with mock.patch.object(ep.Archive, "bump_attempts", side_effect=OSError("disk full")):
+            rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertIn("excelleris:ack:Positive", self.labels())  # the pull still ran
+        self.assertNotIn("POST /carlos/lab/newLabUpload.do", self.labels())  # nothing sent
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 2)  # both kept
+
     def test_non_utf8_sidecar_is_named_in_the_error(self):
         archive = ep.Archive(self.cfg)
         inbox_file = self.cfg.inbox_dir / "20260101-000000.xml"

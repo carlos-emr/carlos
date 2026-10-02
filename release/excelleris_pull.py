@@ -2001,7 +2001,17 @@ def upload_step(
                     # on record, or the next run's 409 would pass as an import.
                     # Same run token, so a failure below does not count twice;
                     # a success removes the sidecar with the file.
-                    archive.bump_attempts(path, run_token)
+                    try:
+                        archive.bump_attempts(path, run_token)
+                    except OSError as exc:
+                        # No marker, no send: the file waits for the next run;
+                        # the other files and the pull go on.
+                        failures.append(
+                            f"{path.name}: attempt marker could not be written ({exc}); "
+                            "not sent, left in inbox"
+                        )
+                        log.error("%s: %s: attempt marker: %s", cfg.carlos_flavour, path.name, exc)
+                        continue
                 try:
                     outcome = session.upload(path)
                 except TransportError:
@@ -2009,7 +2019,17 @@ def upload_step(
                     # died (a timeout during a slow import, say). Count it, so
                     # the OSCAR 19 rule below knows a 409 may follow an import
                     # that never completed.
-                    archive.bump_attempts(path, run_token)
+                    try:
+                        archive.bump_attempts(path, run_token)
+                    except OSError as exc:
+                        # The transport error is still the one to report; say
+                        # that the count may be short so a later 409 is treated
+                        # with care by whoever reads the alert.
+                        log.error("%s: %s: attempt marker: %s", cfg.carlos_flavour, path.name, exc)
+                        failures.append(
+                            f"{path.name}: attempt marker could not be written after a failed "
+                            f"send ({exc}); if the next run reports a duplicate, verify the EMR inbox"
+                        )
                     raise
                 if outcome.accepted:
                     if (
