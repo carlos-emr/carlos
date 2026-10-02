@@ -1429,7 +1429,7 @@ class ExcellerisSession:
         log.info("excelleris: pull returned %d bytes", len(resp.body))
         return resp.body
 
-    def ack(self, positive: bool) -> None:
+    def ack(self, positive: bool, empty_reply_ok: bool = False) -> None:
         """Acknowledge the pull. A positive ack tells Excelleris to stop
         offering these results; a negative one keeps them pending.
 
@@ -1441,12 +1441,20 @@ class ExcellerisSession:
         raised so the operator hears about it: after a failed positive ack
         Excelleris will resend, which CARLOS will refuse as a duplicate only if
         the resent file is byte-identical.
+
+        ``empty_reply_ok`` also accepts an empty body, for the negative ack that
+        closes an empty pull: Excelleris' Ontario test host answers that one
+        with an empty 200, and with nothing delivered there is nothing for the
+        reply to confirm.
         """
         value = "Positive" if positive else "Negative"
         resp = self._get({"Page": "HL7", "ACK": value}, f"ack {value}")
         if resp.status != 200:
             raise StepError("excelleris ack", f"{value} ack rejected (HTTP {resp.status})")
         body = resp.text().strip()
+        if not body and empty_reply_ok:
+            log.info("excelleris: %s acknowledgment sent (empty reply)", value.lower())
+            return
         try:
             root = ET.fromstring(body) if body else None
         except ET.ParseError:
@@ -2578,7 +2586,15 @@ def pull_step(
                     raise StepError("excelleris pull", detail)
                 if not summary.has_results:
                     log.info("excelleris: no results pending")
-                    session.ack(False)
+                    # The normal quiet run. Nothing was delivered, so this
+                    # negative ack has nothing to confirm or keep pending; it
+                    # only closes the query as the guide asks. An empty reply
+                    # is accepted (the Ontario test host sends one); anything
+                    # else odd is reported but does not fail the run.
+                    try:
+                        session.ack(False, empty_reply_ok=True)
+                    except StepError as ack_exc:
+                        log.warning("excelleris: negative ack after an empty pull: %s", ack_exc)
                     return None
                 try:
                     stored = archive.save_inbox(run_id, body)
@@ -2649,7 +2665,13 @@ def upload_step(
     transport = make_transport(cfg.carlos_timeout, carlos_ssl_context(cfg), False)
     try:
         with CarlosSession(cfg, transport, envelope) as session:
-            if opts.dry_run:
+            if opts.dry_run and session.session_less:
+                # Nothing was sent to the EMR: there is no login to prove.
+                log.info(
+                    "dry run: %s not contacted (no login configured); skipping upload",
+                    cfg.carlos_flavour,
+                )
+            elif opts.dry_run:
                 log.info(
                     "dry run: %s login%s verified; skipping upload",
                     cfg.carlos_flavour,

@@ -1101,6 +1101,32 @@ class OrchestrationTest(_OrchestrationBase):
         )  # nothing to upload, no CARLOS session
         self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
 
+    def test_empty_ack_reply_after_an_empty_pull_is_normal(self):
+        """The Ontario test host answers the negative ack that closes an empty
+        pull with an empty 200; nothing was delivered, so that is a clean run
+        logged at INFO."""
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.script["excelleris:ack:Negative"] = ok("")
+        with self.assertLogs(ep.log, level="INFO") as logs:
+            rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_OK)
+        self.assertIn("negative acknowledgment sent (empty reply)", "\n".join(logs.output))
+        self.assertFalse([r for r in logs.records if r.levelno >= logging.WARNING])
+
+    def test_odd_ack_reply_after_an_empty_pull_warns_without_failing(self):
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.script["excelleris:ack:Negative"] = ok("<html>maintenance</html>")
+        with self.assertLogs(ep.log, level="WARNING") as logs:
+            rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_OK)
+        self.assertIn("negative ack after an empty pull", "\n".join(logs.output))
+
+    def test_empty_ack_reply_after_results_is_still_an_error(self):
+        """A positive ack that cannot be read may not have registered."""
+        self.script["excelleris:ack:Positive"] = ok("")
+        rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+
     def test_error_document_sends_negative_ack_and_fails(self):
         self.script["excelleris:pull"] = ok('<HL7Messages ReturnCode="1"/>')
         rc = ep.run(self.cfg, ep.RunOptions(), self.factory)

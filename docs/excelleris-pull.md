@@ -492,7 +492,10 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
   `MessageCount` that disagrees with the number of `<Message>` elements is refused with a
   negative acknowledgment and an alert (the script never looked at the count; the Mule bridge
   refused it too), and an acknowledgment reply that is neither form (a maintenance page, say)
-  is an alert here, where the script only logged it.
+  is an alert here, where the script only logged it. The exception is the negative
+  acknowledgment that closes an empty pull, the normal quiet run: nothing was delivered, so
+  an empty reply (what the Ontario test host sends) is logged at `INFO` and any other odd
+  reply as a `WARNING`, without failing the run.
 - One difference by design: a password is URL-encoded. The script sent it raw, which broke
   on `&`, `+`, `%`, `#` and spaces. For any other password the bytes are identical.
 - One difference by design: the User-Agent. The script's string carries a literal backslash
