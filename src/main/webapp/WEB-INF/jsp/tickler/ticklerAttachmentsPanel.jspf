@@ -33,9 +33,9 @@
 
     Renders the Manage Attachments button, the count badge, the per-type name lists and the
     hidden ".delegateAttachment" inputs that carry viewable selections back to the action.
-    Items of a type the reader may not open have no identifiers in the page; the service
-    preserves those rows on an empty submission. ticklerAttachmentsDialog.jspf (placed AFTER the form)
-    holds the picker dialog and its script.
+    Items of a type the reader may not open have no identifiers in the page; the hidden
+    ".renderedAttachment" inputs list only the rows shown, and the service detaches only those.
+    ticklerAttachmentsDialog.jspf (placed AFTER the form) holds the picker dialog and its script.
 
     @since 2026-09-26
 --%>
@@ -116,6 +116,22 @@
            data-picker-id="<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"
            id="delegate_<carlos:encode value='<%= ticklerAttachment.getPickerElementId() %>' context="htmlAttribute"/>"/>
     <% } %>
+    <%-- The stored rows this page rendered, so the save detaches only rows the reader saw and
+         unchecked. Same values as the delegates above and only for viewable rows: a row hidden
+         by type or item access never puts an identifier in the page, and the service keeps
+         every stored row missing from this list even if the reader gains access before saving.
+         Not ".delegateAttachment", so the dialog's rebuild leaves them as rendered. --%>
+    <%
+        for (io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData ticklerAttachment : ticklerAttachments) {
+            if (!ticklerAttachment.isViewable()) {
+                continue;
+            }
+    %>
+    <input type="hidden" class="renderedAttachment"
+           name="<%= io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters.renderedParameterName(ticklerAttachment.getDocumentType()) %>"
+           value="<carlos:encode value='<%= ticklerAttachment.getSubmissionValue() %>' context="htmlAttribute"/>"/>
+    <% } %>
+    <input type="hidden" name="<%= io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters.RENDERED_MARKER %>" value="1">
     <%-- Set to 1 by the dialog's Save and Close; without it the action leaves the stored set alone. --%>
     <input type="hidden" name="<%= io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters.SUBMITTED_MARKER %>" id="attachmentsSubmitted" value="">
 </div>

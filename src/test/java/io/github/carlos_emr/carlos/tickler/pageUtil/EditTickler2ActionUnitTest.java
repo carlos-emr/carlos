@@ -51,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -172,10 +173,32 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("close");
         ArgumentCaptor<Map<DocumentType, Set<String>>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(ticklerAttachmentService).syncAttachments(eq(loggedInInfo), eq(tickler), captor.capture());
+        verify(ticklerAttachmentService).syncAttachments(eq(loggedInInfo), eq(tickler), captor.capture(), isNull());
         assertThat(captor.getValue().get(DocumentType.DOC)).containsExactly("11", "12");
         assertThat(captor.getValue().get(DocumentType.LAB)).containsExactly("77");
         assertThat(captor.getValue().get(DocumentType.EFORM)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should pass the rows the form rendered to the sync when the rendered marker is present")
+    @SuppressWarnings("unchecked")
+    void shouldPassRenderedAttachments_whenRenderedMarkerPresent() {
+        unchangedEditParameters();
+        request.setParameter("attachmentsSubmitted", "1");
+        request.setParameter("attachmentsRendered", "1");
+        request.addParameter("docNo", "11");
+        request.addParameter("renderedDocNo", "11", "12");
+        request.addParameter("renderedLabNo", "HL7:77");
+
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("close");
+
+        ArgumentCaptor<Map<DocumentType, Set<String>>> submitted = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<Map<DocumentType, Set<String>>> rendered = ArgumentCaptor.forClass(Map.class);
+        verify(ticklerAttachmentService).syncAttachments(eq(loggedInInfo), eq(tickler), submitted.capture(), rendered.capture());
+        assertThat(submitted.getValue().get(DocumentType.DOC)).containsExactly("11");
+        assertThat(rendered.getValue().get(DocumentType.DOC)).containsExactly("11", "12");
+        assertThat(rendered.getValue().get(DocumentType.LAB)).containsExactly("HL7:77");
+        assertThat(rendered.getValue().get(DocumentType.EFORM)).isEmpty();
     }
 
     @Test
@@ -187,7 +210,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         String result = new TestableEditTickler2Action().execute();
 
         assertThat(result).isEqualTo("close");
-        verify(ticklerAttachmentService, never()).syncAttachments(any(), any(), any());
+        verify(ticklerAttachmentService, never()).syncAttachments(any(), any(), any(), any());
     }
 
     @Test
@@ -197,7 +220,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("attachmentsSubmitted", "1");
         request.addParameter("docNo", "11");
         doThrow(new SecurityException("doc attachment does not belong to the patient"))
-                .when(ticklerAttachmentService).syncAttachments(any(), any(), any());
+                .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
 
         String result = new TestableEditTickler2Action().execute();
 
@@ -213,7 +236,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("attachmentsSubmitted", "1");
         request.setParameter("docNo", "11");
         doThrow(new SecurityException("Document is not available"))
-                .when(ticklerAttachmentService).syncAttachments(any(), any(), any());
+                .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
 
         assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
 
@@ -234,7 +257,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(new TestableEditTickler2Action().execute()).isEqualTo("close");
 
         var order = org.mockito.Mockito.inOrder(ticklerAttachmentService, ticklerManager);
-        order.verify(ticklerAttachmentService).syncAttachments(eq(loggedInInfo), eq(tickler), any());
+        order.verify(ticklerAttachmentService).syncAttachments(eq(loggedInInfo), eq(tickler), any(), any());
         order.verify(ticklerManager).updateTickler(loggedInInfo, tickler);
     }
 
@@ -255,7 +278,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         doAnswer(call -> {
             jdbc.update("UPDATE attach_probe SET attached=attached+1 WHERE id=42");
             return null;
-        }).when(ticklerAttachmentService).syncAttachments(any(), any(), any());
+        }).when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
         when(ticklerManager.updateTickler(any(), any())).thenReturn(false);
 
         assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
@@ -283,7 +306,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
             return true;
         });
         doThrow(new IllegalArgumentException("Attachment does not belong to this patient"))
-                .when(ticklerAttachmentService).syncAttachments(any(), any(), any());
+                .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
         assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
         assertThat(jdbc.queryForObject("SELECT comment_count FROM edit_probe WHERE id=42", Integer.class)).isZero();
         jdbc.execute("DROP ALL OBJECTS");

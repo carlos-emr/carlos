@@ -59,7 +59,8 @@ import java.util.Date;
  *
  * <p>Attachments are synchronised only when the form carries the picker marker
  * ({@link TicklerAttachmentParameters#SUBMITTED_MARKER}); an edit that never opened the picker
- * leaves the stored set untouched.</p>
+ * leaves the stored set untouched. The form also echoes the stored rows it rendered
+ * ({@link TicklerAttachmentParameters#RENDERED_MARKER}), and only those can be detached.</p>
  */
 public class EditTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -179,7 +180,11 @@ public class EditTickler2Action extends ActionSupport {
         // this edit does not change, and it takes the tickler row lock for the whole edit.
         if (TicklerAttachmentParameters.isSubmitted(request)) {
             try {
-                ticklerAttachmentService.syncAttachments(loggedInInfo, t, TicklerAttachmentParameters.read(request));
+                // The rendered list (null from a page opened before it existed) limits removals
+                // to rows the form actually showed, so a row hidden at render survives a
+                // permission change made while the page was open.
+                ticklerAttachmentService.syncAttachments(loggedInInfo, t, TicklerAttachmentParameters.read(request),
+                        TicklerAttachmentParameters.readRendered(request));
             } catch (SecurityException | IllegalArgumentException e) {
                 logger.warn("Refused tickler attachments: ticklerNo={}: {}",
                         LogSafe.sanitize(String.valueOf(ticklerNo)), LogSafe.sanitize(e.getMessage()));
