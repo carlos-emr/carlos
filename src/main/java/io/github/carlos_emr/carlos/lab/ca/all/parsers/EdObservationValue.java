@@ -39,9 +39,12 @@ import ca.uhn.hl7v2.util.Terser;
  * When ED.5 is empty the handler's own result is kept, so a sender that puts the payload in
  * OBX-5.1 (as legacy feeds do) is unaffected.</p>
  *
+ * <p>{@link #isBase64Shaped(String)} is public so the embedded-document loader and
+ * {@link #text} share one rule for which undeclared payloads are text.</p>
+ *
  * @since 2026-09-30
  */
-final class EdObservationValue {
+public final class EdObservationValue {
 
     /** Resolves the OBX segment; any failure means "not available". */
     @FunctionalInterface
@@ -91,18 +94,54 @@ final class EdObservationValue {
      * {@code getString} normalises ordinary results (trimmed, HL7 {@code \.br\} turned into the
      * {@code <br />} marker that the {@code htmlWithBreakMarkers} rendering expects), otherwise
      * the handler's own {@code getOBXResult}, which is already normalised. Never applied to the
-     * data handed to the PDF decoder, and only for ED.5 the handler declares as text: an encoded
-     * (Base64, Hex or undeclared) ED.5 is a document, not a value to show.
+     * data handed to the PDF decoder, and only for ED.5 the handler declares as text or that is
+     * undeclared and not shaped like base64: a declared Base64/Hex ED.5, or an undeclared
+     * base64-shaped one, is a document, not a value to show. Views call this only for rows the
+     * loader classed {@code Status.TEXT}.
      */
     static String text(MessageHandler handler, int i, int j, ObxLookup lookup) {
-        if (handler.isOBXEmbeddedDocument(i, j) && "A".equals(handler.getOBXDocumentEncoding(i, j))) {
+        if (handler.isOBXEmbeddedDocument(i, j)) {
             String data = component(lookup, 5);
             if (data != null && !data.isBlank()) {
-                return normaliseText(data);
+                String encoding = handler.getOBXDocumentEncoding(i, j);
+                // Text is ED.5 declared A, or undeclared ED.5 not even shaped like base64: the same
+                // rule EmbeddedLabDocumentLoader applies before classing a payload Status.TEXT.
+                if ("A".equals(encoding) || (encoding == null && !isBase64Shaped(data))) {
+                    return normaliseText(data);
+                }
             }
         }
         String result = handler.getOBXResult(i, j);
         return result == null ? "" : result;
+    }
+
+    /**
+     * Whether a payload, ignoring whitespace, has the shape of strict standard base64: only
+     * alphabet characters, a length that is a multiple of four, and at most two {@code =} only at
+     * the end. Without a declared ED.4 encoding such a payload cannot be told from encoded bytes,
+     * so it is never treated as text; anything else undeclared is.
+     *
+     * @param payload the embedded-document payload; may contain whitespace
+     * @return {@code true} when it is base64-shaped
+     * @since 2026-10-02
+     */
+    public static boolean isBase64Shaped(String payload) {
+        if (payload == null) {
+            return false;
+        }
+        String compact = payload.replaceAll("\\s+", "");
+        int length = compact.length();
+        if (length == 0 || length % 4 != 0) {
+            return false;
+        }
+        int padding = compact.endsWith("==") ? 2 : compact.endsWith("=") ? 1 : 0;
+        for (int i = 0; i < length - padding; i++) {
+            char c = compact.charAt(i);
+            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/')) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Trims and turns each HL7 {@code \.br\} escape into the shared {@code <br />} marker. */

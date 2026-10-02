@@ -160,6 +160,18 @@ class EdObservationValueUnitTest {
     }
 
     @Test
+    @DisplayName("should show undeclared ED.5 text that the loader classes as text")
+    void shouldReturnUndeclaredDataAsText_whenNotBase64Shaped() throws Exception {
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^TEXT^PLAIN^^Culture pending\\.br\\see note.||||||F|||20260930100000");
+
+        assertThat(handler.getOBXDocumentEncoding(0, 1)).isNull();
+        assertThat(handler.isOBXEmbeddedDocumentResultFallback(0, 1)).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status())
+                .isEqualTo(EmbeddedLabDocumentLoader.Status.TEXT);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).isEqualTo("Culture pending<br />see note.");
+    }
+
+    @Test
     @DisplayName("should keep an undeclared base64-shaped ED.5 that is not a PDF undisplayable")
     void shouldClassifyNotPdf_forUndeclaredBase64ShapedData() throws Exception {
         String png = Base64.getEncoder().encodeToString(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
@@ -169,6 +181,7 @@ class EdObservationValueUnitTest {
         assertThat(handler.getOBXDocumentEncoding(0, 1)).isNull();
         assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status())
                 .isEqualTo(EmbeddedLabDocumentLoader.Status.NOT_PDF);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).doesNotContain(png);
     }
 
     @Test
