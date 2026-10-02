@@ -1516,6 +1516,22 @@ class CredentialRulesTest(TempEnv):
         with self.assertRaisesRegex(ep.ConfigError, "together, or none"):
             ep.load_config(self.conf)
 
+    def test_pin_rule_follows_the_flavour(self):
+        # CARLOS Login2Action: exactly four digits. OSCAR 19 LoginAction: four or more.
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, pin="123456")
+        with self.assertRaisesRegex(ep.ConfigError, "exactly four digits"):
+            ep.load_config(self.conf)
+        self.write_conf(c, srv, pin="123456", extra_carlos="flavour = oscar19")
+        self.assertEqual(ep.load_config(self.conf).carlos_pin, "123456")
+        for bad in ("123", "12a4", "12 34"):
+            self.write_conf(c, srv, pin=bad, extra_carlos="flavour = oscar19")
+            with self.assertRaisesRegex(ep.ConfigError, "at least four digits"):
+                ep.load_config(self.conf)
+            self.write_conf(c, srv, pin=bad)
+            with self.assertRaisesRegex(ep.ConfigError, "four digits"):
+                ep.load_config(self.conf)
+
 
 class KeyPairFileTest(TempEnv):
     def test_reads_the_create_key_download(self):

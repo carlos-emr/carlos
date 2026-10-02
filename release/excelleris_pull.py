@@ -563,10 +563,14 @@ def load_config(path: Path) -> Config:
     if (username or password or pin) and not (username and password and pin):
         raise ConfigError("[carlos] set username, password and pin together, or none of them")
     if username:
-        if not re.fullmatch(r"[0-9]{4}", pin):
-            # The login action rejects anything else before checking the
-            # password, so catch it here where the message can say what is wrong.
+        # Each login action rejects a malformed PIN before it checks the
+        # password, so catch it here where the message can say what is wrong.
+        # CARLOS's Login2Action takes exactly four digits; OSCAR 19's
+        # LoginAction takes four or more.
+        if flavour == FLAVOUR_CARLOS and not re.fullmatch(r"[0-9]{4}", pin):
             raise ConfigError("[carlos] pin must be exactly four digits")
+        if not re.fullmatch(r"[0-9]{4,255}", pin):
+            raise ConfigError("[carlos] pin must be at least four digits")
         if not re.fullmatch(r"[a-zA-Z0-9]{1,30}", username):
             raise ConfigError("[carlos] username must be 1-30 letters/digits (login rule)")
 
