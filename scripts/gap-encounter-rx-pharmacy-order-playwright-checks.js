@@ -74,6 +74,34 @@ async function workflow(s) {
     h.assert(JSON.stringify(await preferred()) === JSON.stringify([a, b]), 'The preferred list is not in the stored order');
   });
 
+  await s.step('selection stays disabled while the preferred list is loading', async () => {
+    const pattern = '**/rx/managePharmacy?method=getPharmacyFromDemographic*';
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    const started = rx.waitForRequest(request => request.url().includes('method=getPharmacyFromDemographic'),
+      { timeout: 20000 });
+    let writes = 0;
+    const countWrites = request => { if (request.url().includes('method=setPreferred')) writes++; };
+    const hold = async route => { await held; await route.continue(); };
+    rx.on('request', countWrites);
+    await rx.route(pattern, hold);
+    try {
+      await rx.reload({ waitUntil: 'domcontentloaded' });
+      await started;
+      h.assert(await row(b).getAttribute('aria-disabled') === 'true', 'Selection is enabled before preferences load');
+      await row(b).dispatchEvent('click');
+      h.assert(writes === 0 && order(a) === '1' && order(b) === '2',
+        'Clicking during preference loading changed the stored order');
+    } finally {
+      release();
+      await rx.waitForLoadState('networkidle');
+      await rx.unroute(pattern, hold);
+      rx.off('request', countWrites);
+    }
+    h.assert(await row(b).getAttribute('aria-disabled') === 'false', 'Selection stayed disabled after preferences loaded');
+    h.assert(JSON.stringify(await preferred()) === JSON.stringify([a, b]), 'Loading changed the preferred order');
+  });
+
   await s.step('Move Down on the top pharmacy swaps the two orders and the reloaded list shows the new order', async () => {
     await reloaded(() => entry(a).locator('.prefDown').click());
     h.assert(order(a) === '2' && order(b) === '1', `Move Down left the orders as ${order(a)} / ${order(b)}, not 2 / 1`);
@@ -123,6 +151,7 @@ async function workflow(s) {
       'The first pharmacy was not linked');
     await entry(a).waitFor();
     await rx.waitForLoadState('networkidle');
+    h.assert(order(a) === '1', 'The first chosen pharmacy must have preferred order 1');
     await row(b).locator('.pharmacyName').click();
     await expectValue(sql, `SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no=${patient} AND pharmacyID=${b} AND status='1'`, '1',
       'The second pharmacy was not linked');
@@ -130,6 +159,12 @@ async function workflow(s) {
     h.assert(order(a) === '1' && order(b) === '2',
       `The preferred orders are ${order(a)} then ${order(b)}, not 1 then 2, in the order the pharmacies were chosen`);
     h.assert(JSON.stringify(await preferred()) === JSON.stringify([a, b]), 'The preferred list is not in the order the pharmacies were chosen');
+  });
+
+  await s.step('choosing an already preferred pharmacy changes neither stored order', async () => {
+    const dialogs = await h.withExpectedDialogs(rx, () => row(a).locator('.pharmacyName').click());
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'A repeated selection did not alert');
+    h.assert(order(a) === '1' && order(b) === '2', 'A repeated selection changed the preferred order');
   });
 }
 

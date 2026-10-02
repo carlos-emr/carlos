@@ -44,6 +44,7 @@ const ymd = date => date.toISOString().slice(0, 10);
 async function workflow(s) {
   const { sql, marker, patient, provider, config } = s;
   const templateName = `${marker} Field Note`;
+  const roleText = '<b data-role-test>role & text</b>';
   const resident = sql.value(`SELECT provider_no FROM provider WHERE status='1' AND provider_no NOT IN (${q(provider)},'-1')
     AND last_name LIKE 'FAKE-%' AND provider_no NOT LIKE '8%' ORDER BY provider_no LIMIT 1`);
   h.assert(resident, 'No demo provider is available to act as the resident');
@@ -90,7 +91,7 @@ async function workflow(s) {
   const supervisor = fixture.providerNo;
   supervisorName = `${marker}, Throwaway`;
   sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
-    VALUES (${q(supervisor)},'_admin.fieldnote','r',0,${q(provider)})`);
+    VALUES (${q(supervisor)},'_admin.fieldnote','x',0,${q(provider)})`);
   const ctx = await h.newContext(s.context.browser(), config);
   ctx.on('page', page => h.wireStrictPage(page, 'fieldnote-user', s.recorder));
   s.cleanup(() => ctx.close().catch(() => {}));
@@ -100,7 +101,7 @@ async function workflow(s) {
   if (propertySnapshot.length) sql.execute(`UPDATE property SET value=NULL WHERE id=${propertySnapshot[0][0]}`);
   fid = sql.value(`INSERT INTO eform(form_name,file_name,subject,form_date,form_time,form_creator,status,form_html,
     showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
-    VALUES(${q(templateName)},'','field note fixture',CURDATE(),CURTIME(),${q(provider)},1,${q(TEMPLATE_HTML)},0,0,'',0,1); SELECT LAST_INSERT_ID()`);
+    VALUES(${q(templateName)},'','field note fixture',CURDATE(),CURTIME(),${q(provider)},1,${q(TEMPLATE_HTML)},0,0,${q(roleText)},0,1); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(fid), 'The field-note template was not created');
   const notes = [
     { values: { 'direct.observation': 'on', 'minimal.supervision': 'on', clinical_domain: 'adults', communicator: 'on',
@@ -151,13 +152,19 @@ async function workflow(s) {
     await settle(report);
     const box = report.locator(`input[name="selected_eform"][value="${fid}"]`);
     await box.waitFor({ state: 'attached', timeout: 20000 });
+    h.assert((await box.locator('xpath=ancestor::tr').innerText()).includes(roleText)
+      && await report.locator('[data-role-test]').count() === 0,
+      'The available eForm role was rendered as markup');
     await box.check();
-    await Promise.all([report.waitForURL(/fieldnoteselect\?.*selected_eform=/), report.locator('input[type="submit"]').click()]);
+    await Promise.all([report.waitForNavigation({ waitUntil: 'load' }), report.locator('input[type="submit"]').click()]);
     await settle(report);
     await expectValue(sql, `SELECT COUNT(*) FROM property WHERE name='fieldNoteEform' AND FIND_IN_SET(${fid}, value)>0`, '1',
       'Submitting the select page did not store the owned eForm in property fieldNoteEform');
     h.assert(await report.locator(`a[onclick*="remove_select(${fid})"]`).count() === 1,
       'The select page does not list the chosen eForm with an Unselect link');
+    h.assert((await report.locator(`a[onclick*="remove_select(${fid})"]`).locator('xpath=ancestor::tr').innerText()).includes(roleText)
+      && await report.locator('[data-role-test]').count() === 0,
+      'The selected eForm role was rendered as markup');
     h.assert(await report.locator(`input[name="selected_eform"][value="${fid}"]`).count() === 0,
       'The chosen eForm is still offered for selection');
   });
@@ -220,6 +227,30 @@ async function workflow(s) {
     h.assert(body.includes(residentName) && /Total field notes\s*:\s*2\b/.test(body), 'The downloaded report does not carry the counts');
   });
 
+  await s.step('invalid calendar dates and reversed ranges are rejected consistently', async () => {
+    for (const [start, end] of [['2026-02-30', '2026-03-02'], ['2026-03-02', '2026-03-01']]) {
+      // Send raw dates: the date-picker normalizes invalid typed days on blur.
+      const summaryUrl = new URL(report.url());
+      summaryUrl.searchParams.set('date_start', start);
+      summaryUrl.searchParams.set('date_end', end);
+      const dialogs = await h.withExpectedDialogs(admin, async () => {
+        await report.goto(summaryUrl.toString(), { waitUntil: 'load' });
+        await settle(report);
+      });
+      h.assert(dialogs.some(dialog => /Invalid Start\/End dates/.test(dialog.text)),
+        'The report did not reject invalid dates');
+      h.assert(await report.locator('input[value="View"]').count() === 0,
+        'Invalid dates offered a resident report');
+      const url = new URL(report.url());
+      url.pathname = url.pathname.replace(/fieldnotereport$/, 'fieldnotereportdetail');
+      url.searchParams.set('residentId', resident);
+      url.searchParams.set('method', 'view');
+      const response = await ctx.request.get(url.toString());
+      h.assert(response.status() === 400, 'The detail report accepted invalid dates');
+      await response.dispose();
+    }
+  });
+
   await s.step('a date range with no notes lists no resident', async () => {
     await report.locator('#startDate').fill(longAgo);
     await report.locator('#endDate').fill(longAgo);
@@ -232,12 +263,35 @@ async function workflow(s) {
     await report.locator('input[type="button"][onclick*="fieldnoteselect"]').click();
     await report.waitForURL(/fieldnoteselect/);
     await settle(report);
-    await Promise.all([report.waitForURL(/unselect_eform=/), report.locator(`a[onclick*="remove_select(${fid})"]`).click()]);
+    await Promise.all([report.waitForNavigation({ waitUntil: 'load' }), report.locator(`a[onclick*="remove_select(${fid})"]`).click()]);
     await settle(report);
     await expectValue(sql, `SELECT COUNT(*) FROM property WHERE name='fieldNoteEform' AND FIND_IN_SET(${fid}, COALESCE(value,''))>0`, '0',
       'Unselect left the eForm in property fieldNoteEform');
     h.assert(await report.locator(`input[name="selected_eform"][value="${fid}"]`).count() === 1,
       'The unselected eForm is not offered for selection again');
+  });
+
+  await s.step('a read-only report user has no selection control and GET cannot change the selected forms', async () => {
+    sql.execute(`DELETE FROM secUserRole WHERE provider_no=${q(supervisor)} AND role_name='admin';
+      UPDATE secObjPrivilege SET privilege='r' WHERE roleUserGroup=${q(supervisor)} AND objectName='_admin.fieldnote'`);
+    const context = await h.newContext(s.context.browser(), config);
+    context.on('page', page => h.wireStrictPage(page, 'fieldnote-reader', s.recorder));
+    try {
+      const page = await h.login(context, { ...config, testUser: fixture.username }, s.recorder, { label: 'fieldnote-reader' });
+      const base = `${String(config.baseUrl).replace(/\/$/, '')}/eform/fieldNoteReport`;
+      await page.goto(`${base}/fieldnotereport`);
+      await page.locator('form[name="fieldNoteReportForm"]').waitFor();
+      h.assert(await page.locator('input[onclick*="fieldnoteselect"]').count() === 0,
+        'A read-only report user was offered the selection control');
+      const response = await context.request.get(`${base}/fieldnoteselect?selected_eform=${fid}`);
+      h.assert(response.status() === 405, 'GET was not refused for a field-note selection change');
+      h.assert(response.headers().allow === 'POST', 'The mutation response advertises an unsafe method');
+      await response.dispose();
+      h.assert(sql.value(`SELECT COUNT(*) FROM property WHERE name='fieldNoteEform' AND FIND_IN_SET(${fid}, COALESCE(value,''))>0`) === '0',
+        'GET changed the field-note selection');
+    } finally {
+      await context.close();
+    }
   });
 
   await s.step('a clinician without administration rights is refused the field-note report', async () => {
