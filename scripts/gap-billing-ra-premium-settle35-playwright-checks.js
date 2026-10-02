@@ -113,7 +113,10 @@ async function workflow(s) {
 
   const admin = await openAdministration(s);
   let raNo;
-  const raRow = frame => frame.locator('tbody tr').filter({ hasText: marker });
+  // By the uploaded RA's own number (its Report link posts it): the seeded payable text also carries the marker.
+  const raRow = frame => frame.locator('tbody tr').filter({
+    has: frame.locator(`a[onclick*="ViewGenRADesc"][onclick*="'${raNo}'"]`),
+  });
   const premiums = () => sql.rows(`SELECT premium_id, providerohip_no, amount_pay, pay_date, status, IFNULL(provider_no, '')
     FROM billing_on_premium WHERE raheader_no=${raNo}`);
 

@@ -135,7 +135,7 @@ async function workflow(s) {
     await chart.waitForFunction(({selector, needle}) => {
       const el = document.querySelector(selector);
       return Boolean(el && el.value.includes(needle));
-    }, {selector: NOTE_EDITOR, needle: 'Total Point Count:  12'}, {timeout: 10000})
+    }, {selector: NOTE_EDITOR, needle: wanted}, {timeout: 10000})
       .catch(() => { throw new Error('Paste did not put the prediction into the chart note'); });
     const after = await editor.inputValue();
     h.assert(after.startsWith(before) && after.includes(wanted), 'Paste replaced the note instead of appending the prediction');

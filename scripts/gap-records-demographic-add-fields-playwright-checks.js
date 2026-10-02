@@ -110,7 +110,6 @@ async function workflow(s) {
     await form.locator('select[name="PHU"]').selectOption(phu);
     await form.locator('input[name="chart_no"]').fill(typed.chart);
     await form.locator('select[name="patient_status"]').selectOption('IN');
-    const before = sql.value(`SELECT COUNT(*) FROM log WHERE action='add' AND content='demographic' AND provider_no=${h.sqlString(provider)}`);
     await add.locator('input[type="submit"][value="Add Record"]').first().click();
     await add.getByText(/Successful Addition of a Demographic Record/i).waitFor({ timeout: TIMEOUT });
     await expectValue(sql, `SELECT COUNT(*) FROM ${row}`, '1', 'Add Record did not store exactly one patient');
@@ -143,8 +142,9 @@ async function workflow(s) {
       'The new patient was not archived exactly once');
     await expectValue(sql, `SELECT COUNT(*) FROM admission WHERE client_id=${id} AND admission_status='current'`, '1',
       'The new patient was not admitted to a program');
-    await expectValue(sql, `SELECT COUNT(*) FROM log WHERE action='add' AND content='demographic' AND provider_no=${h.sqlString(provider)}`,
-      String(Number(before) + 1), 'The add was not audited');
+    // The new patient's own row: a provider-wide count is polluted by concurrent checks adding patients as the same login.
+    await expectValue(sql, `SELECT COUNT(*) FROM log WHERE action='add' AND content='demographic' AND provider_no=${h.sqlString(provider)}
+      AND (contentId=${h.sqlString(String(id))} OR demographic_no=${id})`, '1', 'The add was not audited');
   });
 
   await s.step('Go to record opens the new Master Record showing what was typed', async () => {

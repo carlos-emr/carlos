@@ -21,7 +21,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { authzReadFixture } = require('./lib/authz-read-fixture');
+const { authzReadFixture, cleanupAll } = require('./lib/authz-read-fixture');
 const { probe, classify, forbiddenByApp, urlFor, signIn, ledger } = require('./lib/authz-read-probe');
 
 const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
@@ -33,8 +33,8 @@ async function workflow(s) {
   const otherName = `${marker}-OTHER`;
   const text = `${marker} chart note for the revision history check`;
   let other;
-  s.cleanup(() => {
-    fixture.cleanup();
+  // Independent actions: a failed login cleanup must not stop the note, audit and patient deletions.
+  s.cleanup(() => cleanupAll(() => fixture.cleanup(), () => {
     const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
     sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
@@ -52,7 +52,7 @@ async function workflow(s) {
       sql.execute(`DELETE FROM demographic WHERE demographic_no=${other} AND last_name=${h.sqlString(otherName)}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${other}`) === '0', 'The second patient was not removed');
     }
-  });
+  }));
 
   let chart; let noteId;
   await s.step('E-Chart: a note is saved and its rev link opens the Note Revision History', async () => {

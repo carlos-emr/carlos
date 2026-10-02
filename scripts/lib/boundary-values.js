@@ -95,10 +95,14 @@ function sameText(shown, expected) {
   return String(shown) === String(expected) || String(shown) === String(expected).toUpperCase();
 }
 
-/** Remove every demographic whose last name starts with the tag, by relabelling to `marker` first. */
+/**
+ * Remove every demographic whose last name starts with the tag, by relabelling them to a dedicated label first. The label
+ * is not `marker` itself: the workflow's own patient carries `marker`, and it is runWorkflow's to remove (with its children).
+ */
 function removeTaggedPatients(sql, tag, marker, removeMarkedPatients) {
-  sql.execute(`UPDATE demographic SET last_name=${h.sqlString(marker)} WHERE last_name LIKE ${h.sqlString(tag + '%')}`);
-  removeMarkedPatients(sql, marker);
+  const label = `${marker}-T`; // short: demographic.last_name is VARCHAR(30)
+  sql.execute(`UPDATE demographic SET last_name=${h.sqlString(label)} WHERE last_name LIKE ${h.sqlString(tag + '%')}`);
+  removeMarkedPatients(sql, label);
 }
 
 /** Wording a deliberate length refusal uses (an alert or the re-rendered form). */

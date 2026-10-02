@@ -23,6 +23,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { requirePoppler } = require('./lib/stored-pdf-documents');
 
 const q = h.sqlString;
 
@@ -144,5 +145,8 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('gap-encounter-eform-save-as-edoc', workflow, { openPatient: true });
+if (require.main === module) {
+  runWorkflow('gap-encounter-eform-save-as-edoc', workflow,
+    { openPatient: true, preflight: () => requirePoppler('pdftotext') });
+}
 module.exports = { workflow };
