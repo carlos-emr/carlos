@@ -1494,6 +1494,21 @@
       "env": []
     },
     {
+      "name": "lab-epsilon",
+      "script": "scripts/lab-epsilon-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ]
+    },
+    {
       "name": "lab-embedded-pdf",
       "script": "scripts/lab-embedded-pdf-playwright-checks.js",
       "tiers": [
