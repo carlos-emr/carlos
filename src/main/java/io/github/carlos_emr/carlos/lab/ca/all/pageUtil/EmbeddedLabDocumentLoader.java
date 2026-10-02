@@ -192,6 +192,24 @@ public final class EmbeddedLabDocumentLoader {
      * and it was fully decoded, otherwise {@code null}.
      */
     private record Classified(Status status, long sizeBytes, byte[] bytes) {
+
+        // Content-based, like Document: a record compares an array component by reference.
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Classified that && status == that.status && sizeBytes == that.sizeBytes
+                    && Arrays.equals(bytes, that.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Objects.hash(status, sizeBytes) + Arrays.hashCode(bytes);
+        }
+
+        /** Never prints the document content, only its size. */
+        @Override
+        public String toString() {
+            return "Classified[status=" + status + ", sizeBytes=" + sizeBytes + "]";
+        }
     }
 
     /**
