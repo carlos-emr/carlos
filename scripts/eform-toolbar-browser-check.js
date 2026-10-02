@@ -591,6 +591,62 @@ const server = http.createServer((req, res) => {
     await open();
     await page.emulateMedia({media:'print'});
     assert.equal(await page.locator('#toolbarWrapper').isVisible(),false);
+    // Browsers without the formdata event (Safari before 15, which also lacks
+    // SubmitEvent.submitter) keep the fallback enabled; a template newForm submit button must
+    // still post only its own value, also from outside the form, while a save without it, a
+    // button disabled by onsubmit, and a cancelled then retried save each post newForm=true once.
+    await page.emulateMedia({media:'screen'});
+    await page.setViewportSize({width:1100,height:800});
+    await page.addInitScript(() => {
+      delete window.FormDataEvent;
+      Object.defineProperty(SubmitEvent.prototype, 'submitter', {configurable: true, get() { return undefined; }});
+    });
+    const legacyCases = [
+      ['toolbar', ['true']],
+      ['button', ['False']],
+      ['external', ['False']],
+      ['onsubmit-disables', ['true']],
+      ['cancelled-then-toolbar', ['true']],
+    ];
+    for (const [legacyCase, expected] of legacyCases) {
+      await open(false, false, true);
+      assert.equal(await page.evaluate(() => typeof window.FormDataEvent), 'undefined');
+      assert.equal(await page.evaluate(() => document.getElementById('newForm').disabled), false);
+      await page.evaluate((kind) => {
+        const form = document.forms[0];
+        if (kind === 'external') {
+          const button = document.createElement('button');
+          button.id = 'externalNewFormButton';
+          button.type = 'submit';
+          button.name = 'newForm';
+          button.value = 'False';
+          button.setAttribute('form', 'saveEFormForm');
+          form.id = 'saveEFormForm';
+          document.body.append(button);
+        } else if (kind === 'onsubmit-disables') {
+          form.addEventListener('submit', () => { document.getElementById('newFormButton').disabled = true; });
+        } else if (kind === 'cancelled-then-toolbar') {
+          form.addEventListener('submit', event => { event.preventDefault(); window.cancelledSubmit = true; }, {once: true});
+        }
+      }, legacyCase);
+      if (legacyCase === 'toolbar') {
+        await page.locator('#remoteSubmitButton').click();
+      } else if (legacyCase === 'external') {
+        await page.locator('#externalNewFormButton').click();
+      } else {
+        await page.locator('#newFormButton').click();
+      }
+      if (legacyCase === 'cancelled-then-toolbar') {
+        await page.waitForFunction(() => window.cancelledSubmit === true);
+        assert.equal(requests.length, 0);
+        await page.waitForFunction(() => document.getElementById('newForm').disabled === false);
+        await page.locator('#remoteSubmitButton').click();
+      }
+      await page.waitForURL('**/eform/addEForm');
+      assert.equal(requests.length, 1, legacyCase);
+      assert.deepEqual(requests[0].getAll('newForm'), expected, `legacy ${legacyCase}`);
+    }
+    await page.emulateMedia({media:'print'});
     assert.deepEqual(errors,[]);
     console.log('PASS toolbar layout, print CSS, hidden subject, early fax initialization, existing input, directory selection and manual recipient POST');
   } finally {await browser.close(); server.close();}
