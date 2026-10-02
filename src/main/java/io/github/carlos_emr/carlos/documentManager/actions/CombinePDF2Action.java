@@ -89,7 +89,9 @@ public class CombinePDF2Action extends ActionSupport {
             if (alist.size() > 0) {
                 response.setContentType("application/pdf");  //octet-stream
                 if (ContentDisposition != null && ContentDisposition.equals("inline")) {
-                    response.setHeader("Transfer-Encoding", "chunked");
+                    // No manual Transfer-Encoding: Tomcat frames the body itself, and a second
+                    // "Transfer-Encoding: chunked" header made nginx reject the inline preview
+                    // (502, "duplicate header line"). The length is set below from the merged file.
                     response.setHeader("Cache-Control", "cache, must-revalidate"); // IE workaround
                     response.setHeader("Pragma", "public"); // IE workaround
                     response.setHeader("Content-Disposition", "inline; filename=\"combinedPDF-" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf\"");
@@ -117,6 +119,7 @@ public class CombinePDF2Action extends ActionSupport {
                                     skipped + " of " + alist.size() + " document(s) could not be included; combined PDF not produced");
                         }
                     } else {
+                        response.setContentLengthLong(Files.size(tempPdf.toPath()));
                         Files.copy(tempPdf.toPath(), response.getOutputStream());
                     }
                 } catch (IOException | RuntimeException ex) {
