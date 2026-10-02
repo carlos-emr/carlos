@@ -128,7 +128,8 @@ class ManageFirstNationsModuleAssetRegressionTest {
 
         assertThat(jsp)
                 .contains("<option value=\"\">--</option>")
-                .contains("var communityClearedByUser = false;")
+                .contains("var communityClearedByUser = !!(savedCommunity && !savedCommunity.value")
+                .contains("savedStatusNumber.value.length == 10")
                 .contains("communityClearedByUser = !communitySelect.value;");
 
         int guard = jsp.indexOf("if (communityField && !communityField.value) {");
