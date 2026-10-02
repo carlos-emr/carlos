@@ -686,8 +686,8 @@ const server = http.createServer((req, res) => {
     }
     // Without formdata, a name-only template's form default is supplied by a temporary input: its
     // own value posts alone, and when its script disables the control newForm=true posts, once,
-    // through both the toolbar's save and a native submit button.
-    for (const path of ['toolbar', 'native', 'native-onsubmit']) {
+    // through the toolbar's save, a native submit button and a direct form.submit().
+    for (const path of ['toolbar', 'native', 'native-onsubmit', 'form.submit']) {
       for (const disable of [false, true]) {
         await open(false, false, 'named');
         if (disable && path === 'native-onsubmit') {
@@ -699,6 +699,7 @@ const server = http.createServer((req, res) => {
           await page.evaluate(() => { document.getElementById('namedNewForm').disabled = true; });
         }
         if (path === 'toolbar') await page.locator('#remoteSubmitButton').click();
+        else if (path === 'form.submit') await page.evaluate(() => document.forms[0].submit());
         else await page.evaluate(() => document.querySelector('input[name=SubmitButton]').click());
         await page.waitForURL('**/eform/addEForm');
         assert.equal(requests.length, 1, `legacy named ${path} ${disable}`);
