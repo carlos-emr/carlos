@@ -1529,8 +1529,10 @@ class CarlosSession:
 
       flavour = carlos  (Struts 7, extensionless routes, CSRFGuard 4.5)
         POST /login              username, password, pin, ajaxResponse=true
-                                 -> 302 to /provider/providercontrol (Login2Action
-                                 never writes a JSON success); CSRF-exempt
+                                 -> 302 to /provider/providercontrol: a provider
+                                 account is redirected before Login2Action's JSON
+                                 branch (other landing pages get {"success":true});
+                                 CSRF-exempt
         GET  /csrfguard          same-domain Referer -> JS containing
                                  masterTokenValue = '<token>' (session-wide)
         POST /lab/newLabUpload   multipart: service, key, signature,
@@ -1635,8 +1637,9 @@ class CarlosSession:
             body=body,
         )
         # Success looks different on the two generations. CARLOS Login2Action
-        # has no JSON success branch: a provider account is redirected (302)
-        # to /provider/providercontrol, ajaxResponse or not. OSCAR 19
+        # redirects a provider account (302 to /provider/providercontrol) in
+        # completeAuthenticatedLogin before it reaches the JSON branch that
+        # ajaxResponse=true enables for other landing pages. OSCAR 19
         # LoginAction builds the session, then honours ajaxResponse=true and
         # writes {"success":true,...} with HTTP 200 (text/x-json) instead of
         # the redirect to /provider/providercontrol.jsp. Accept both.
@@ -1819,7 +1822,7 @@ class Notifier:
         msg = EmailMessage()
         msg["From"] = self.cfg.alert_from
         msg["To"] = self.cfg.alert_email
-        msg["Subject"] = f"CARLOS Excelleris pull FAILED on {host}: {step}"
+        msg["Subject"] = f"Excelleris pull FAILED on {host}: {step}"
         msg.set_content(
             f"The Excelleris lab pull on {host} failed.\n\n"
             f"Run:    {run_id}\n"
@@ -1910,7 +1913,9 @@ def pull_step(
                     raise StepError("store pull", f"could not write inbox file: {exc}") from exc
                 log.info("stored %d message(s) as %s", summary.message_count, stored.name)
                 session.ack(True)
-                if not fits_upload_limit(cfg.carlos_flavour, len(body)):
+                if not opts.no_upload and not fits_upload_limit(cfg.carlos_flavour, len(body)):
+                    # (--no-upload promises to leave pulls in inbox/; the next
+                    # uploading run parks an oversized one before sending.)
                     # The results are safe on disk and acknowledged: a negative
                     # ack would re-deliver the same oversized batch every run
                     # and stall the feed. The EMR would refuse the upload before
@@ -1956,7 +1961,11 @@ def upload_step(
     try:
         with CarlosSession(cfg, transport, envelope) as session:
             if opts.dry_run:
-                log.info("dry run: CARLOS login and CSRF token verified; skipping upload")
+                log.info(
+                    "dry run: %s login%s verified; skipping upload",
+                    cfg.carlos_flavour,
+                    " and CSRF token" if session.uses_csrf else "",
+                )
             for path in files:
                 size = path.stat().st_size
                 if not fits_upload_limit(cfg.carlos_flavour, size):
@@ -1968,8 +1977,17 @@ def upload_step(
                     log.error("%s: %s: %s", cfg.carlos_flavour, path.name, detail)
                     continue
                 # Read the counter before sending: a corrupt sidecar stops here
-                # (StepError), before the EMR is touched.
+                # (StepError), before the EMR is touched. The pre-send value is
+                # what classifies a 409 on THIS request (below).
                 prior_attempts = archive.attempts(path)
+                if cfg.carlos_flavour == FLAVOUR_OSCAR19:
+                    # In-flight marker, written before the request: OSCAR 19
+                    # records the checksum before it parses, so a crash between
+                    # the send and our bookkeeping must still leave an attempt
+                    # on record, or the next run's 409 would pass as an import.
+                    # Same run token, so a failure below does not count twice;
+                    # a success removes the sidecar with the file.
+                    archive.bump_attempts(path, run_token)
                 try:
                     outcome = session.upload(path)
                 except TransportError:
@@ -2031,7 +2049,7 @@ def upload_step(
                     )
     except TransportError as exc:
         # The session is gone; whatever is still in the inbox is retried next run.
-        failures.append(f"CARLOS unreachable: {exc}; inbox files kept for retry")
+        failures.append(f"{cfg.carlos_flavour} unreachable: {exc}; inbox files kept for retry")
     return failures
 
 
@@ -2122,7 +2140,7 @@ def check_config(cfg: Config) -> int:
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="excelleris_pull",
-        description="Pull Excelleris lab results and upload them to CARLOS EMR.",
+        description="Pull Excelleris lab results and upload them to CARLOS EMR or OSCAR 19.",
     )
     parser.add_argument(
         "--config", required=True, type=Path, help="path to the INI config (mode 0600)"
@@ -2169,6 +2187,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         except ConfigError as exc:
             sys.stderr.write(f"excelleris_pull: config error: {exc}\n")
             return EXIT_CONFIG
+        except StepError as exc:
+            # The temporary PEM could not be removed: key material is on disk
+            # and the message names it. Not a config error, so exit as a failure.
+            sys.stderr.write(f"excelleris_pull: {exc}\n")
+            return EXIT_FAILED
     try:
         setup_logging(cfg.log_file, args.verbose)
     except OSError as exc:

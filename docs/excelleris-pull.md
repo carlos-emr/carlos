@@ -103,7 +103,7 @@ things. Two parts of the setup are simpler than on CARLOS:
   blanks a username that is not plain alphanumeric (at most 30 characters) and a PIN that
   is not all digits (at least four) before checking them, so such an account can never log
   in from a script. OSCAR 19 answers the scripted login with a JSON body rather than the
-  redirect CARLOS sends; the tool accepts both.
+  redirect CARLOS sends for a provider account; the tool accepts both.
 - **The Mule key file is reusable.** A site that ran the Mule bridge has a `keyPair.key`, the
   Create Key download that holds the service name, the client private key and the server
   public key. Point `[carlos] key_pair_file` at it and nothing else in `[carlos]` beyond

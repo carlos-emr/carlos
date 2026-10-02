@@ -15,6 +15,7 @@ Requires python3-cryptography, like the tool itself.
 from __future__ import annotations
 
 import base64
+import io
 import dataclasses
 import datetime as dt
 import email
@@ -1940,6 +1941,21 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
             with self.assertRaisesRegex(ep.StepError, "malformed"):
                 archive.attempts(inbox_file)
 
+    def test_crash_between_send_and_bookkeeping_still_counts(self):
+        # A crash after OSCAR recorded the checksum but before the tool wrote
+        # its sidecar: simulated by an exception that is not a transport error.
+        def crash(_m, _u, _h, _b):
+            raise RuntimeError("simulated crash after send")
+
+        self.script["POST /carlos/lab/newLabUpload.do"] = crash
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.attempts"))), 1)  # in-flight marker
+        self.script["POST /carlos/lab/newLabUpload.do"] = ok("", 409)
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
+        self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
+
     def test_plain_409_is_still_a_duplicate(self):
         self.script["POST /carlos/lab/newLabUpload.do"] = ok("", 409)
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
@@ -1967,6 +1983,13 @@ class UploadSizeLimitTest(_OrchestrationBase):
         self.assertNotIn("POST /carlos/lab/newLabUpload", self.labels())
         self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
         self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
+
+    def test_no_upload_mode_leaves_an_oversized_pull_in_the_inbox(self):
+        with mock.patch.dict(ep.MULTIPART_MAX_BYTES, {"carlos": 100}):
+            rc = ep.run(self.cfg, ep.RunOptions(no_upload=True), self.factory)
+        self.assertEqual(rc, ep.EXIT_OK)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 1)
+        self.assertEqual(list(self.cfg.failed_dir.glob("*")), [])
 
     def test_oversized_inbox_file_is_parked_without_an_upload(self):
         ep.Archive(self.cfg)  # creates the state directories
@@ -2004,6 +2027,27 @@ class AlertHeaderTest(TempEnv):
             self.cfg, alert_email="it@example.test\nBcc: x", sendmail="/bin/true"
         )
         ep.Notifier(cfg).failure("run", "step", "detail")
+
+
+class CheckConfigErrorTest(TempEnv):
+    def test_cleanup_failure_during_check_config_is_reported_not_raised(self):
+        original = ep.shutil.rmtree
+
+        def broken(path, onerror=None, onexc=None, **kw):
+            (onexc or onerror)(None, str(path), None)
+
+        ep.shutil.rmtree = broken
+        try:
+            with (
+                mock.patch.object(ep.os, "geteuid", return_value=1000),  # main refuses root
+                mock.patch("sys.stdout", new_callable=io.StringIO),
+                mock.patch("sys.stderr", new_callable=io.StringIO) as err,
+            ):
+                rc = ep.main(["--config", str(self.conf), "--check-config"])
+        finally:
+            ep.shutil.rmtree = original
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertIn("could not be removed", err.getvalue())
 
 
 class TrustAnchorTest(TempEnv):
