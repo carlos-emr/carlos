@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.fax.action;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceSpecialistsDao;
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
@@ -35,6 +37,7 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager security;
     private ServiceSpecialistsDao specialists;
     private PharmacyInfoDao pharmacies;
+    private ProviderDao providers;
     private LoggedInInfo info;
 
     @BeforeEach
@@ -48,9 +51,7 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
         security = mock(SecurityInfoManager.class);
         specialists = mock(ServiceSpecialistsDao.class);
         pharmacies = mock(PharmacyInfoDao.class);
-        registerMock(SecurityInfoManager.class, security);
-        registerMock(ServiceSpecialistsDao.class, specialists);
-        registerMock(PharmacyInfoDao.class, pharmacies);
+        providers = mock(ProviderDao.class);
         when(security.hasPrivilege(eq(info), eq("_fax"), eq("r"), isNull())).thenReturn(true);
     }
 
@@ -62,7 +63,7 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("GET");
-        verifyNoInteractions(security, specialists, pharmacies);
+        verifyNoInteractions(security, specialists, pharmacies, providers);
     }
 
     @Test
@@ -73,7 +74,7 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(mapper.readTree(response.getContentAsString())).isEmpty();
-        verifyNoInteractions(specialists, pharmacies);
+        verifyNoInteractions(specialists, pharmacies, providers);
     }
 
     @Test
@@ -84,7 +85,32 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(mapper.readTree(response.getContentAsString())).isEmpty();
-        verifyNoInteractions(specialists, pharmacies);
+        verifyNoInteractions(specialists, pharmacies, providers);
+    }
+
+    @Test
+    void shouldSkipDirectoryQueries_whenTermMissing() throws Exception {
+        request.removeParameter("term");
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(mapper.readTree(response.getContentAsString())).isEmpty();
+        verifyNoInteractions(specialists, pharmacies, providers);
+    }
+
+    @Test
+    void shouldSkipProviderAndPharmacyQueries_whenSpecialistsFillEverySlot() throws Exception {
+        List<Object[]> rows = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            rows.add(new Object[]{specialist("Smith", "Person " + i, "416-555-1000"), "Cardiology"});
+        }
+        when(specialists.searchSpecialistsWithService("clinic", 20)).thenReturn(rows);
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mapper.readTree(response.getContentAsString())).hasSize(20);
+        verifyNoInteractions(providers, pharmacies);
     }
 
     @Test
@@ -148,11 +174,38 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mapper.readTree(response.getContentAsString())).isEmpty();
     }
 
+    @Test
+    void shouldIncludeProviderFax_whenProviderMatches() throws Exception {
+        Provider provider = new Provider();
+        provider.setLastName("Example");
+        provider.setFirstName("Alex");
+        when(providers.searchFaxRecipients("clinic", 20)).thenReturn(
+                List.<Object[]>of(new Object[]{provider, " 416-555-0100 "}));
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+
+        JsonNode rows = mapper.readTree(response.getContentAsString());
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).get("name").asText()).isEqualTo("Example, Alex");
+        assertThat(rows.get(0).get("fax").asText()).isEqualTo("416-555-0100");
+        assertThat(rows.get(0).get("type").asText()).isEqualTo("PROVIDER");
+        verify(pharmacies).searchFaxablePharmacies("clinic", "", 19);
+    }
+
+    @Test
+    void shouldReturnUnavailable_whenProviderDirectoryFails() throws Exception {
+        when(providers.searchFaxRecipients("clinic", 20)).thenThrow(new IllegalStateException());
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(mapper.readTree(response.getContentAsString())).isEmpty();
+        verifyNoInteractions(pharmacies);
+    }
+
     private String execute() {
         try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class)) {
             context.when(ServletActionContext::getRequest).thenReturn(request);
             context.when(ServletActionContext::getResponse).thenReturn(response);
-            return new FaxRecipientSearch2Action().execute();
+            return new FaxRecipientSearch2Action(security, pharmacies, specialists, providers).execute();
         }
     }
 

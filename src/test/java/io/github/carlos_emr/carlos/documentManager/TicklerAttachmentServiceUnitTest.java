@@ -145,6 +145,21 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         when(documentDao.findCtlDocsAndDocsByDocNo(documentNo)).thenReturn(rows);
     }
 
+    /** A document filed against the patient with the given document and ctl_document statuses. */
+    private void documentLinkedWithStatus(int documentNo, int demographicNo, char documentStatus, String linkStatus) {
+        CtlDocumentPK key = new CtlDocumentPK();
+        key.setModule("demographic");
+        key.setModuleId(demographicNo);
+        CtlDocument ctlDocument = new CtlDocument();
+        ctlDocument.setId(key);
+        ctlDocument.setStatus(linkStatus);
+        Document document = new Document();
+        document.setStatus(documentStatus);
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[]{document, ctlDocument});
+        when(documentDao.findCtlDocsAndDocsByDocNo(documentNo)).thenReturn(rows);
+    }
+
     private void labOwnedBy(int labNo, int demographicNo, String labType) {
         PatientLabRouting routing = new PatientLabRouting();
         routing.setLabNo(labNo);
@@ -187,6 +202,56 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
 
             verify(ticklerDocsDao, never()).persist(any());
             verify(ticklerDocsDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse to attach a document whose patient link was deleted")
+        void shouldRejectDocument_whenPatientLinkDeleted() {
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "D");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11")))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("does not belong to the patient");
+            verify(ticklerDocsDao, never()).persist(any());
+            verify(ticklerDocsDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse to attach a deleted document even through a live link")
+        void shouldRejectDocument_whenDocumentDeleted() {
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'D', "A");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11")))
+                    .isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource(value = {"A", "NULL"}, nullValues = "NULL")
+        @DisplayName("should attach a document through a live or legacy NULL-status link")
+        void shouldAttachDocument_whenPatientLinkLive(String linkStatus) {
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', linkStatus);
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
+
+            verify(ticklerDocsDao).persist(any(TicklerDocs.class));
+        }
+
+        @Test
+        @DisplayName("should detach a stored document whose patient link has since been deleted")
+        void shouldDetachStoredDocument_whenPatientLinkDeleted() {
+            TicklerDocs storedDoc = stored(11, "D");
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "D");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(storedDoc));
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "11"));
+
+            assertThat(storedDoc.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            verify(ticklerDocsDao).merge(storedDoc);
+            verify(ticklerDocsDao, never()).persist(any());
         }
 
         @Test
@@ -578,6 +643,180 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /**
+     * Synchronisation when the Edit form reports which stored rows it rendered: only rendered
+     * rows can be detached, so a permission change between render and save never detaches a row
+     * the reader did not see. Submissions without the list keep the save-time inference.
+     */
+    @Nested
+    @DisplayName("syncAttachments with the rendered list")
+    class SyncAttachmentsWithRenderedList {
+
+        @Test
+        @DisplayName("should keep a document hidden at render when item access is granted before the save")
+        void shouldKeepUnrenderedDocument_whenItemAccessGrantedBeforeSave() {
+            // Document 11 was hidden by program/queue access when the page was built, so the page
+            // neither rendered nor submitted it; access was granted before Save (canRead is true).
+            TicklerDocs hiddenAtRender = stored(11, "D");
+            TicklerDocs shown = stored(12, "D");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(hiddenAtRender, shown));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            documentOwnedBy(12, DEMOGRAPHIC_NO);
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC, "12"),
+                    submission(DocumentType.DOC, "12"));
+
+            assertThat(hiddenAtRender.getDeleted()).isNull();
+            assertThat(shown.getDeleted()).isNull();
+            verify(ticklerDocsDao, never()).merge(any());
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should keep a type that was not rendered when type read is granted before the save")
+        void shouldKeepUnrenderedType_whenTypeReadGrantedBeforeSave() {
+            // The reader lacked _lab when the page was built, so no lab identifier was rendered or
+            // submitted; _lab read is granted before Save (the setUp default allows it).
+            TicklerDocs mds = stored(77, "L");
+            mds.setLabType("MDS");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(mds));
+            labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.LAB),
+                    submission(DocumentType.LAB));
+
+            assertThat(mds.getDeleted()).isNull();
+            verify(ticklerDocsDao, never()).merge(any());
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should detach a rendered row the reader unchecked")
+        void shouldDetachRenderedRow_whenUnchecked() {
+            TicklerDocs kept = stored(11, "D");
+            TicklerDocs unchecked = stored(12, "D");
+            TicklerDocs lab = stored(77, "L");
+            lab.setLabType("HL7");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(kept, unchecked, lab));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            documentOwnedBy(12, DEMOGRAPHIC_NO);
+            Map<DocumentType, Set<String>> submitted = submission(DocumentType.DOC, "11");
+            submitted.put(DocumentType.LAB, Set.of());
+            Map<DocumentType, Set<String>> rendered = submission(DocumentType.DOC, "11", "12");
+            rendered.put(DocumentType.LAB, Set.of("HL7:77"));
+
+            service.syncAttachments(loggedInInfo, tickler, submitted, rendered);
+
+            assertThat(kept.getDeleted()).isNull();
+            assertThat(unchecked.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            assertThat(lab.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            verify(ticklerDocsDao).merge(unchecked);
+            verify(ticklerDocsDao).merge(lab);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("TicklerAttachmentService.delete"), eq("ticklerId=42,type=D,documentNo=12")));
+        }
+
+        @Test
+        @DisplayName("should still keep a rendered document whose item access was revoked before the save")
+        void shouldKeepRenderedDocument_whenItemAccessRevokedBeforeSave() {
+            TicklerDocs revoked = stored(11, "D");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(revoked));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            when(ticklerDocumentAccess.canRead(loggedInInfo, 11)).thenReturn(false);
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC),
+                    submission(DocumentType.DOC, "11"));
+
+            assertThat(revoked.getDeleted()).isNull();
+            verify(ticklerDocsDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should ignore a rendered value that names no stored row")
+        void shouldIgnoreRenderedValue_whenRowNotStored() {
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC),
+                    submission(DocumentType.DOC, "11"));
+
+            verify(ticklerDocsDao, never()).merge(any());
+            verify(ticklerDocsDao, never()).persist(any());
+            verify(documentDao, never()).findCtlDocsAndDocsByDocNo(anyInt());
+        }
+
+        @Test
+        @DisplayName("should still refuse a new document without item access when the rendered list is present")
+        void shouldRefuseNewDocument_withRenderedListAndNoItemAccess() {
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of());
+            org.mockito.Mockito.doThrow(new SecurityException("Document access denied"))
+                    .when(ticklerDocumentAccess).requireRead(loggedInInfo, 11);
+
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler,
+                    submission(DocumentType.DOC, "11"), submission(DocumentType.DOC)))
+                    .isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should still refuse changing a type the caller cannot read at save time")
+        void shouldThrowSecurityException_whenTypeReadDeniedAtSaveAndStoredSetChanged() {
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, "1001")).thenReturn(false);
+            TicklerDocs mds = stored(77, "L");
+            mds.setLabType("MDS");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(mds));
+            labOwnedBy(77, DEMOGRAPHIC_NO, "MDS");
+
+            assertThatThrownBy(() -> service.syncAttachments(loggedInInfo, tickler,
+                    submission(DocumentType.LAB, "MDS:77", "MDS:79"), submission(DocumentType.LAB, "MDS:77")))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_lab)");
+            assertThat(mds.getDeleted()).isNull();
+            verify(ticklerDocsDao, never()).merge(any());
+            verify(ticklerDocsDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should detach an unrendered row whose item has moved to another patient")
+        void shouldDetachUnrenderedRow_whenNoLongerThePatients() {
+            TicklerDocs moved = stored(11, "D");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(moved));
+            documentOwnedBy(11, DEMOGRAPHIC_NO + 1);
+
+            service.syncAttachments(loggedInInfo, tickler, submission(DocumentType.DOC), submission(DocumentType.DOC));
+
+            assertThat(moved.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            verify(ticklerDocsDao).merge(moved);
+        }
+
+        @Test
+        @DisplayName("should fall back to the save-time inference when no rendered list is given")
+        void shouldUseSaveTimeInference_whenRenderedListAbsent() {
+            // Exactly the three-argument behaviour: a readable document missing from the
+            // submission is detached, an unreadable one kept, and an empty submission for a
+            // readable type detaches all of it.
+            TicklerDocs restricted = stored(11, "D");
+            TicklerDocs visible = stored(12, "D");
+            TicklerDocs mds = stored(77, "L");
+            mds.setLabType("MDS");
+            when(ticklerDocsDao.findAllByTicklerIdForUpdate(TICKLER_ID)).thenReturn(List.of(restricted, visible, mds));
+            documentOwnedBy(11, DEMOGRAPHIC_NO);
+            documentOwnedBy(12, DEMOGRAPHIC_NO);
+            when(ticklerDocumentAccess.canRead(loggedInInfo, 11)).thenReturn(false);
+            Map<DocumentType, Set<String>> submitted = submission(DocumentType.DOC);
+            submitted.put(DocumentType.LAB, Set.of());
+
+            service.syncAttachments(loggedInInfo, tickler, submitted, null);
+
+            assertThat(restricted.getDeleted()).isNull();
+            assertThat(visible.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            assertThat(mds.getDeleted()).isEqualTo(TicklerDocs.DELETED_FLAG);
+            verify(ticklerDocsDao).merge(visible);
+            verify(ticklerDocsDao).merge(mds);
+            verify(ticklerDocsDao, never()).merge(restricted);
+        }
+    }
+
     @Nested
     @DisplayName("requireAttachable")
     class RequireAttachable {
@@ -591,6 +830,16 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
 
             verify(ticklerDocsDao, never()).persist(any());
             verify(ticklerDocsDao, never()).findAllByTicklerIdForUpdate(any());
+        }
+
+        @Test
+        @DisplayName("should refuse a document whose patient link was deleted before any tickler exists")
+        void shouldThrowSecurityException_whenDocumentLinkDeleted() {
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "D");
+
+            assertThatThrownBy(() -> service.requireAttachable(loggedInInfo, DEMOGRAPHIC_NO,
+                    submission(DocumentType.DOC, "11"))).isInstanceOf(SecurityException.class);
+            verify(ticklerDocsDao, never()).persist(any());
         }
 
         @Test
@@ -677,6 +926,33 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should not render a stored document whose patient link was deleted")
+        void shouldOmitDocument_whenPatientLinkDeleted() {
+            when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "D");
+
+            List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
+
+            assertThat(attachments).isEmpty();
+            verify(documentDao, never()).getDocument("11");
+        }
+
+        @Test
+        @DisplayName("should render a stored document through a live link")
+        void shouldRenderDocument_whenPatientLinkLive() {
+            when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
+            documentLinkedWithStatus(11, DEMOGRAPHIC_NO, 'A', "A");
+            Document document = new Document();
+            document.setDocdesc("Referral letter");
+            when(documentDao.getDocument("11")).thenReturn(document);
+
+            List<TicklerAttachmentData> attachments = service.listAttachments(loggedInInfo, tickler);
+
+            assertThat(attachments).extracting(TicklerAttachmentData::getDisplayName).containsExactly("Referral letter");
+            assertThat(attachments).allMatch(TicklerAttachmentData::isViewable);
+        }
+
+        @Test
         @DisplayName("should name a lab by its own source, not by an HL7 lab sharing the id")
         void shouldResolveLabName_bySource() {
             TicklerDocs mds = stored(77, "L");
@@ -710,7 +986,7 @@ class TicklerAttachmentServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should hide the identifier and name when document-level access is denied")
+        @DisplayName("should list but not name a document whose document-level access is denied")
         void shouldRedactDocument_whenProgramOrQueueReadDenied() {
             when(ticklerDocsDao.findByTicklerId(TICKLER_ID)).thenReturn(List.of(stored(11, "D")));
             documentOwnedBy(11, DEMOGRAPHIC_NO);

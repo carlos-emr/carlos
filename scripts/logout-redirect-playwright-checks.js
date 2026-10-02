@@ -300,6 +300,12 @@ async function checkAuthenticatedPageRoute(context, route) {
       findings.push({ label: `authenticated:${route.label}`, type: 'bad-navigation-status',
         status: response.status(), url: safeUrl(response.url()) });
     }
+    // The request follows redirects, so an expired session arrives as a 200 login/logout page.
+    // Judge by URL only: the fragment's own text may legitimately mention a login or session.
+    if (isLoginOrLogoutPage('', response.url())) {
+      findings.push({ label: `authenticated:${route.label}`, type: 'unexpected-auth-redirect',
+        url: safeUrl(response.url()), ...summarizeText(body) });
+    }
     if (!body.trim() || isErrorPageText(body)) {
       findings.push({ label: `authenticated:${route.label}`, type: 'invalid-fragment',
         url: safeUrl(response.url()), ...summarizeText(body) });

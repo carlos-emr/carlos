@@ -52,7 +52,9 @@ public class SystemPreferences extends AbstractModel<Integer> {
 
     public enum GENERAL_SETTINGS_KEYS {invoice_custom_clinic_info, invoice_use_custom_clinic_info}
 
-    public enum LAB_DISPLAY_PREFERENCE_KEYS {code_show_hide_column, inboxDateSearchType}
+    public enum LAB_DISPLAY_PREFERENCE_KEYS {code_show_hide_column, inboxDateSearchType,
+        // Inline preview of PDFs embedded in HL7 ED results (#3977); see LabPdfPreviewSettings.
+        lab_pdf_inline_preview, lab_pdf_max_size}
 
     public enum EFORM_SETTINGS {rtl_template_document_type, patient_intake_eform, patient_intake_letter_eform}
 

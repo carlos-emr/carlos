@@ -370,6 +370,12 @@ public class MDSHandler implements MessageHandler {
         return (getOBXField("3-3", i, j));
     }
 
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
+    @Override
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return terser.getSegment((String) ((ArrayList<?>) obrGroups.get(i)).get(j));
+    }
+
     public String getOBXResult(int i, int j) {
         return (getOBXField("5-1", i, j));
     }

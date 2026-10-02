@@ -87,7 +87,7 @@ class CredentialLoggingRegressionTest {
 
     @Test
     @DisplayName("CML upload should not log the key or data derived from it")
-    void shouldLogKeyPresenceOnly_forCmlUpload() throws IOException {
+    void shouldNotLogKeyOrDerivedData_forCmlUpload() throws IOException {
         String labUploadAction = readSource("lab/ca/on/CML/Upload/LabUpload2Action.java");
 
         assertThat(labUploadAction)
