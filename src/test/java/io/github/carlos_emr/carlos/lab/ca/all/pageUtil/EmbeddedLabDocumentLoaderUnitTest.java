@@ -329,6 +329,10 @@ class EmbeddedLabDocumentLoaderUnitTest {
         assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("Specimen received")).isFalse();
         assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJ=")).isTrue();
         assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QU=")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJD \t")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJD\n")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped(" NONE")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QU JD")).isFalse();
 
         byte[] png = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, (byte) 0xFB, (byte) 0xFF};
         String urlSafe = Base64.getUrlEncoder().withoutPadding().encodeToString(png);
