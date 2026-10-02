@@ -1958,6 +1958,19 @@ class LiveOscar19Test(LiveServersTest):
         self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # pull kept for retry
 
 
+class TlsFloorTest(unittest.TestCase):
+    """Excelleris requires TLS 1.2 or better; every context the tool builds
+    pins that floor itself rather than trusting the interpreter's default."""
+
+    def test_every_context_pins_tls_1_2(self):
+        self.assertEqual(ep.server_verifying_context().minimum_version, ssl.TLSVersion.TLSv1_2)
+        fallback = ep.HttpTransport(5, None, True)
+        https = next(
+            h for h in fallback._opener.handlers if isinstance(h, urllib.request.HTTPSHandler)
+        )
+        self.assertEqual(https._context.minimum_version, ssl.TLSVersion.TLSv1_2)
+
+
 class RedirectPolicyTest(unittest.TestCase):
     """Every redirect is followed, as Excelleris' interface notes require,
     with the method and body kept: a redirected POST is re-sent as a POST.
