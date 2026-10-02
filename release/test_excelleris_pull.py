@@ -454,12 +454,6 @@ class ClientCertificateTest(TempEnv):
 # ---------------------------------------------------------------------------
 
 
-def _umask() -> int:
-    current = os.umask(0)
-    os.umask(current)
-    return current
-
-
 class ArchiveTest(TempEnv):
     def test_directories_and_files_are_private(self):
         archive = ep.Archive(self.cfg)
