@@ -1228,10 +1228,17 @@ class LabUploadEnvelope:
         aes_key = secrets.token_bytes(16)
         padder = PKCS7(128).padder()
         padded = padder.update(plaintext) + padder.finalize()
-        encryptor = Cipher(algorithms.AES(aes_key), modes.ECB()).encryptor()  # see class docstring
+        # codeql[py/weak-cryptographic-algorithm]: ECB and MD5 are what LabUpload2Action
+        # decrypts and verifies; the receiver dictates them (CARLOS issue #3413 tracks
+        # the replacement). See the class docstring.
+        encryptor = Cipher(
+            algorithms.AES(aes_key), modes.ECB()
+        ).encryptor()  # codeql[py/weak-cryptographic-algorithm]
         ciphertext = encryptor.update(padded) + encryptor.finalize()
         wrapped = self.server_key.encrypt(aes_key, padding.PKCS1v15())
-        signature = self.client_key.sign(plaintext, padding.PKCS1v15(), hashes.MD5())
+        signature = self.client_key.sign(
+            plaintext, padding.PKCS1v15(), hashes.MD5()
+        )  # codeql[py/weak-sensitive-data-hashing]
         return (
             ciphertext,
             base64.b64encode(wrapped).decode("ascii"),
