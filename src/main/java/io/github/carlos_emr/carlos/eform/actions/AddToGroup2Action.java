@@ -58,7 +58,6 @@ public class AddToGroup2Action extends ActionSupport {
         if (fid != null) {
             EFormUtil.addEFormToGroup(groupName, fid);
         }
-        request.setAttribute("group_view", groupName);
         return SUCCESS;
     }
 

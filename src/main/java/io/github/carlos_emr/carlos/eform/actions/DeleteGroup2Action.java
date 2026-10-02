@@ -57,6 +57,7 @@ public class DeleteGroup2Action extends ActionSupport {
 
         String groupName = request.getParameter("group_name");
         EFormUtil.delEFormGroup(groupName);
+        // The group is gone; show the page's default group.
         return SUCCESS;
     }
 

@@ -10,325 +10,356 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
+'use strict';
 
 /*
- * Browser check that forms CSRFGuard's client script cannot reach still post
- * WITH the session token, and are accepted (issue #4130).
+ * Issue #4130: forms built in script, and forms inside HTML the Administration
+ * panel inserts after load, posted WITHOUT a CSRF token. CarlosCsrfGuardFilter
+ * answered 403, nothing was written, and the operator saw a button that did
+ * nothing. The fix is the CARLOS-patched CSRFGuard client
+ * (src/main/resources/csrfguard/carlos-csrfguard.js).
  *
- * CSRFGuard injects CSRF-TOKEN into a page's forms when the page loads, and its
- * MutationObserver re-injects only when an inserted node IS a <form>, after the
- * current task. Three CARLOS patterns fall through, and each one became a 403
- * from CarlosCsrfGuardFilter that the user saw as a button doing nothing:
+ * This check drives every workflow the issue lists, by clicking the controls an
+ * operator clicks, and for each one asserts all three halves of the round trip:
+ *   1. every same-origin POST the browser sent carried CSRF-TOKEN (body or header);
+ *   2. no response was a 403/405 or an error page (strict page wiring);
+ *   3. the database change the control promises actually landed.
  *
- *   1. PANEL FORMS. The Administration shell loads its sections with
- *      $("#dynamic-content").load(), which inserts containers whose
- *      DESCENDANTS are the forms. Driven here: Administration > eForm Groups >
- *      delete a group, through the shell's own confirm modal.
- *   2. RUNTIME-BUILT FORMS. document.createElement('form') + submit() in one
- *      click handler leaves before the observer runs. Driven here: Report by
- *      Template > Delete Template, which now goes through carlosPostForm().
- *   3. NUMERICALLY-NAMED CONTROLS. The dx code search named each description
- *      input with its bare dx code; CSRFGuard's form.elements[key] lookup then
- *      resolved the name as an index and threw, stopping the page-load pass.
- *      Driven here: Ontario dx code search > Update, resubmitting the row's
- *      existing description so reference data is unchanged.
+ * Workflows: Report by Template ▸ Delete; patient eForm delete + restore;
+ * patient-independent eForm delete + restore (Administration panel); eForm
+ * Groups remove-from-group + delete-group (Administration panel); Manage
+ * Billing Form add + change bill type + delete; Ontario Billing History ▸
+ * Unbill; Billing Reconciliation ▸ Summary + Settle; dx code search ▸ Update
+ * (numerically named controls); Messenger ▸ View Message ▸ Link to Patient.
  *
- * WHAT IS ASSERTED for each: the request that reached the server carried a
- * non-empty CSRF-TOKEN, the server did not answer 403, the database shows the
- * effect (the group and template rows are gone; the dx description is
- * unchanged apart from trailing padding), and the pages raised no JavaScript error.
- *
- * FIXTURES: one eForm group and one report template, both uniquely named and
- * created by SQL, removed by the workflow under test and, if the run fails
- * first, by cleanup. Every diagnosticcode row of the updated dx code (and of
- * its three-character suffix) is snapshotted by id and restored if it differs.
- *
- * Defaults are for the local devcontainer:
- *   MYSQL_PASSWORD=... npm run test:csrf-runtime-forms-playwright
- *
- * Optional environment (the common contract is in lib/playwright-harness.js):
- *   CSRF_FORMS_DX_SEARCH=diabetes    description text to search the dx codes for
- *   CSRF_FORMS_TIMEOUT_MS=20000      per-step allowance
+ * FIXTURES: every row is owned by this run (marked with the run's FAKE-PW
+ * marker or a per-run code) and removed in cleanup; the patient is the
+ * synthetic one runWorkflow creates. The dx update re-submits the code's own
+ * description, so the shared reference row is rewritten with its current value.
+ * Ontario only (Billing History, Manage Billing Form, RA and dx search are ON).
  */
 
-const {
-  assert, assertStrictPage, createRecorder, createSqlRunner, gotoApp, launchBrowser, login, newContext,
-  readConfig, runCheck, sqlString, withExpectedDialogs, wireStrictPage,
-} = require('./lib/playwright-harness');
+const h = require('./lib/playwright-harness');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
-const TOKEN_FIELD = /(?:^|&)CSRF-TOKEN=([^&]+)/;
+const NUMERIC_ID = /^[1-9]\d*$/;
 
-/** The CSRF-TOKEN a request carried, in its body or its header; '' if none. */
-async function tokenCarried(request) {
-  const body = request.postData() || '';
-  const match = TOKEN_FIELD.exec(body);
-  if (match && decodeURIComponent(match[1]).trim()) {
-    return decodeURIComponent(match[1]);
-  }
-  const headers = await request.allHeaders();
-  return (headers['csrf-token'] || '').trim();
+/** Every same-origin POST must carry the token; record the ones that did not. */
+function watchTokens(context, baseUrl) {
+  const missing = [];
+  const appPrefix = baseUrl.origin + baseUrl.pathname.replace(/\/$/, '');
+  context.on('request', request => {
+    if (request.method() !== 'POST' || !request.url().startsWith(appPrefix)) return;
+    const headers = request.headers();
+    const body = request.postData() || '';
+    const inBody = /(^|&)CSRF-TOKEN=[^&]+/.test(body) || /name="CSRF-TOKEN"\r?\n\r?\n[^\r\n]+/.test(body);
+    if (!headers['csrf-token'] && !inBody) missing.push(h.pathOnly(request.url()));
+  });
+  return {
+    assertNone(label) {
+      const seen = missing.splice(0);
+      h.assert(!seen.length, `${label}: POST sent without a CSRF token: ${seen.join(', ')}`);
+    },
+  };
 }
 
-/** Asserts the POST carried a token and was not refused. */
-async function assertAccepted(label, request, expectedRedirect = null) {
-  const token = await tokenCarried(request);
-  assert(token, `${label}: the POST reached the server with no CSRF-TOKEN, so CarlosCsrfGuardFilter refuses it (#4130)`);
-  const response = await request.response();
-  const status = response ? response.status() : 0;
-  assert(status !== 403, `${label}: the POST answered 403; CSRFGuard (or the WAF) refused it`);
-  assert(status > 0 && status < 400, `${label}: the POST answered HTTP ${status}`);
-  if (status >= 300) {
-    // A redirect only counts when it is the action's own post/redirect/get
-    // target: a login or logout redirect means the endpoint never ran.
-    const location = (await response.headerValue('location')) || '';
-    assert(expectedRedirect && expectedRedirect.test(location),
-      `${label}: the POST answered ${status} to an unexpected location: ${location || '(none)'}`);
-  }
-  console.log(`  ${label}: POST carried CSRF-TOKEN and answered ${status}`);
+async function open(s, path) {
+  const page = await s.context.newPage();
+  await h.gotoApp(page, s.config.baseUrl, path);
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await h.assertNotErrorPage(page, path);
+  return page;
 }
 
-/** Every POST form inside `scope` carries a populated CSRF-TOKEN input. */
-async function assertFormsTokenised(label, page, scope) {
-  const report = await page.evaluate((selector) => Array.from( // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed selector constant
-    // The scope may itself be the form (#diagcode is), or contain forms.
-    document.querySelectorAll(`${selector}, ${selector} form`),
-  ).filter((element) => element.tagName === 'FORM').filter((form) => (form.getAttribute('method') || '').toLowerCase() === 'post')
-    .map((form) => ({
-      action: form.getAttribute('action') || '',
-      token: Array.from(form.querySelectorAll('input[name="CSRF-TOKEN"]')).map((input) => input.value).find(Boolean) || '',
-    })), scope);
-  assert(report.length > 0, `${label}: no POST form was found in ${scope}; the step did not reach the page it tests`);
-  const missing = report.filter((form) => !form.token).map((form) => form.action.replace(/\?.*$/, ''));
-  assert(missing.length === 0,
-    `${label}: ${missing.length} of ${report.length} POST form(s) have no CSRF token: ${missing.join(', ')}`);
-}
-
-async function deleteEFormGroupInAdminPanel(context, config, recorder, sql, timeout) {
-  const groupName = `PW4130 ${Date.now().toString(36)}`.slice(0, 20);
-  const fid = sql.value('SELECT fid FROM eform WHERE status = 1 ORDER BY fid LIMIT 1');
-  assert(fid, 'eform-groups: the eForm library is empty, so no group can be built to delete');
-  let page = null;
-  // The insert sits inside the try so a failure part-way through it, or in
-  // opening the page, still runs the cleanup below.
-  try {
-    sql.execute(`INSERT INTO eform_groups (fid, group_name) VALUES (${Number(fid)}, ${sqlString(groupName)})`);
-    page = await context.newPage();
-    wireStrictPage(page, 'admin-eform-groups', recorder);
-    await gotoApp(page, config.baseUrl, '/administration');
-    await page.waitForLoadState('networkidle', { timeout }).catch(() => {});
-    const formsSection = page.locator('button[data-bs-target="#collapseForms"]').first();
-    await formsSection.waitFor({ state: 'visible', timeout });
-    await formsSection.click();
-    const groupsLink = page.locator('a.defaultFormsGroups').first();
-    await groupsLink.waitFor({ state: 'visible', timeout });
-    await groupsLink.click();
-
-    // The group list arrived by .load(); open our group the way an operator
-    // does, which is a second .load() through efmFooter's delegated handler.
-    const groupLink = page.locator('#dynamic-content a', { hasText: groupName }).first();
-    await groupLink.waitFor({ state: 'visible', timeout });
-    await groupLink.click();
-    const deleteGroup = page.locator(
-      '#dynamic-content form[action$="/eforms/delGroup"]',
-      { has: page.locator(`input[name="group_name"][value="${groupName}"]`) },
-    ).first();
-    await deleteGroup.waitFor({ state: 'attached', timeout });
-    await page.locator('#dynamic-content form[action$="/eforms/removeFromGroup"]').first()
-      .waitFor({ state: 'attached', timeout });
-
-    // The injected panel's forms, before anything is clicked. This is the
-    // assertion the defect fails: they arrived nested in a container.
-    await page.waitForFunction(() => Array.from(document.querySelectorAll('#dynamic-content form[method="post"]'))
-      .every((form) => Array.from(form.querySelectorAll('input[name="CSRF-TOKEN"]')).some((input) => input.value)),
-    null, { timeout }).catch(() => {});
-    await assertFormsTokenised('eform-groups', page, '#dynamic-content');
-
-    // efmFooter.jspf binds the confirm modal with a delegated handler once the
-    // panel's scripts have run; clicking before that opens nothing (seen on the
-    // first request after a restart, while the JSPs compile).
-    await page.waitForFunction(() => window.confirmModalInitialized === true, null, { timeout });
-    await deleteGroup.locator('a[data-confirm]').first().click();
-    const confirm = page.locator('#confirmModal #dataConfirmed');
-    await confirm.waitFor({ state: 'visible', timeout });
-    const [request] = await Promise.all([
-      page.waitForRequest((candidate) => candidate.method() === 'POST' && /\/eforms\/delGroup(\?|$)/.test(candidate.url()),
-        { timeout }),
-      confirm.click(),
+/** Click and accept exactly one confirm(), then let the resulting navigation settle. */
+async function clickConfirmed(page, locator, expectText) {
+  const dialogs = await h.withExpectedDialogs(page, async () => {
+    await Promise.all([
+      page.waitForEvent('framenavigated', { timeout: 20000 }).catch(() => {}),
+      locator.click(),
     ]);
-    await request.response();
-    await assertAccepted('eform-groups delete', request, /\/(?:eform\/efmmanageformgroups|administration)(?:\?|$)/);
-    await page.waitForLoadState('load', { timeout }).catch(() => {});
-
-    const remaining = Number(sql.value(`SELECT COUNT(*) FROM eform_groups WHERE group_name = ${sqlString(groupName)}`));
-    assert(remaining === 0, `eform-groups: the group still has ${remaining} row(s) after a delete the server accepted`);
-  } finally {
-    sql.execute(`DELETE FROM eform_groups WHERE group_name = ${sqlString(groupName)}`);
-    if (page) {
-      await page.close().catch(() => {});
-    }
-  }
-}
-
-async function deleteReportTemplate(context, config, recorder, sql, timeout) {
-  const title = `PW4130 template ${Date.now().toString(36)}`;
-  const xml = `<report title="${title}" description="CSRF runtime-form probe" active="1">`
-    + '<query>SELECT 1 AS probe</query></report>';
-  let page = null;
-  // As above: the fixture is created inside the try so it is always removed.
-  try {
-    sql.execute('INSERT INTO reportTemplates (templatetitle, templatedescription, templatesql, templatexml, active) '
-      + `VALUES (${sqlString(title)}, 'CSRF runtime-form probe', 'SELECT 1 AS probe', ${sqlString(xml)}, 1)`);
-    const templateId = sql.value(`SELECT templateid FROM reportTemplates WHERE templatetitle = ${sqlString(title)}`);
-    assert(templateId, 'report-by-template: the fixture template was not created');
-
-    page = await context.newPage();
-    wireStrictPage(page, 'report-template', recorder);
-    await gotoApp(page, config.baseUrl,
-      `/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=${encodeURIComponent(templateId)}`);
-    const deleteLink = page.locator('#optionsDiv a', { hasText: /Delete Template/i }).first();
-    await deleteLink.waitFor({ state: 'visible', timeout });
-
-    let request;
-    const dialogs = await withExpectedDialogs(page, async () => {
-      [request] = await Promise.all([
-        page.waitForRequest((candidate) => candidate.method() === 'POST'
-          && /\/addEditTemplatesAction(\?|$)/.test(candidate.url()), { timeout }),
-        deleteLink.click(),
-      ]);
-      await request.response();
-    });
-    assert(dialogs.length === 1 && dialogs[0].type === 'confirm',
-      `report-by-template: expected one delete confirmation, saw ${dialogs.length} dialog(s)`);
-    assert(/(?:^|&)action=delete(?:&|$)/.test(request.postData() || ''),
-      'report-by-template: the POST did not carry action=delete');
-    await assertAccepted('report-by-template delete', request);
-
-    const remaining = Number(sql.value(`SELECT COUNT(*) FROM reportTemplates WHERE templateid = ${Number(templateId)}`));
-    assert(remaining === 0, 'report-by-template: the template is still there after a delete the server accepted');
-  } finally {
-    sql.execute(`DELETE FROM reportTemplates WHERE templatetitle = ${sqlString(title)}`);
-    if (page) {
-      await page.close().catch(() => {});
-    }
-  }
+    await page.waitForLoadState('networkidle').catch(() => {});
+  });
+  h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && expectText.test(dialogs[0].text),
+    `expected one confirm() matching ${expectText}, saw ${JSON.stringify(dialogs.map(d => d.text))}`);
 }
 
 /**
- * diagnosticcode rows matching `where`, keyed by their surrogate id. NULL is
- * kept apart from the text "NULL" so a restore puts back exactly what was there.
+ * Click a control that posts into a popup, and wait for that popup to finish.
+ * The wait and the click are started together: a wait created first and left
+ * pending when the click throws would reject unhandled and kill the run before
+ * its cleanup.
  */
-function dxRows(sql, where) {
-  return sql.rows('SELECT diagnosticcode_no, description IS NULL, IFNULL(description, \'\') '
-    + `FROM diagnosticcode WHERE ${where} ORDER BY diagnosticcode_no`)
-    .map(([id, isNull, description]) => ({
-      id: Number(id),
-      // mysql -B prints SQL NULL and the text 'NULL' alike, and the runner reads
-      // both as null; the IS NULL flag tells them apart, so a restore writes back
-      // the four-character string when that is what the row held.
-      description: isNull === '1' ? null : (description === null ? 'NULL' : description),
-    }));
+async function clickPostsToPopup(page, locator, { openerReloads = false } = {}) {
+  const [popup, reloaded] = await Promise.all([
+    page.context().waitForEvent('page', { timeout: 20000 }),
+    // Some result pages resubmit the opener's form before closing; wait for that load
+    // so the next navigation does not race it.
+    openerReloads ? page.waitForEvent('load', { timeout: 20000 }) : Promise.resolve(null),
+    locator.click(),
+  ]);
+  await popup.waitForEvent('close', { timeout: 20000 }).catch(() => {});
+  if (reloaded) await page.waitForLoadState('networkidle').catch(() => {});
+  return popup;
 }
 
-/**
- * Every row for `code`. diagnostic_code is not unique and the update writes
- * every match, so the check snapshots and restores row by row.
- */
-function snapshotDxRows(sql, code) {
-  return dxRows(sql, `diagnostic_code = ${sqlString(code)}`);
-}
+async function workflow(s) {
+  const { sql, patient, provider, marker } = s;
+  const tokens = watchTokens(s.context, s.config.baseUrl);
+  const step = (label, body) => s.step(label, async () => {
+    await body();
+    tokens.assertNone(label);
+  });
 
-function restoreDxRows(sql, snapshot) {
-  for (const row of snapshot) {
-    const [current] = dxRows(sql, `diagnosticcode_no = ${row.id}`);
-    if (!current || current.description !== row.description) {
-      const value = row.description === null ? 'NULL' : sqlString(row.description);
-      sql.execute(`UPDATE diagnosticcode SET description = ${value} WHERE diagnosticcode_no = ${row.id}`);
+  await step('Report by Template: Delete Template posts with a token and removes the template', async () => {
+    const id = sql.value(`INSERT INTO reportTemplates(templatetitle,templatedescription,templatesql,templatexml,active)
+      VALUES(${h.sqlString(marker)},'csrf check','SELECT 1',
+      ${h.sqlString(`<report title="${marker}" description="csrf check" active="1"><query>SELECT 1</query></report>`)},1);
+      SELECT LAST_INSERT_ID()`);
+    h.assert(NUMERIC_ID.test(id), 'report template fixture was not created');
+    s.cleanup(() => sql.execute(`DELETE FROM reportTemplates WHERE templateid=${id} AND templatetitle=${h.sqlString(marker)}`));
+    const home = await open(s, '/oscarReport/reportByTemplate/ViewHomePage');
+    await Promise.all([home.waitForURL(/ViewReportConfiguration/), home.getByRole('link', { name: marker }).first().click()]);
+    await clickConfirmed(home, home.locator('#optionsDiv a', { hasText: 'Delete Template' }), /delete this report template/);
+    await expectValue(sql, `SELECT COUNT(*) FROM reportTemplates WHERE templateid=${id}`, '0', 'the template was not deleted');
+    await home.close();
+  });
+
+  await step('Patient eForm: delete and restore both post with a token', async () => {
+    const fdid = sql.value(`INSERT INTO eform_data(fid,form_name,subject,demographic_no,status,form_date,form_time,
+        form_provider,form_data,showLatestFormOnly,patient_independent,roleType)
+      SELECT fid,form_name,${h.sqlString(marker)},${patient},1,CURDATE(),CURTIME(),${h.sqlString(provider)},
+        '<html></html>',0,0,NULL FROM eform WHERE status=1 ORDER BY fid LIMIT 1; SELECT LAST_INSERT_ID()`);
+    h.assert(NUMERIC_ID.test(fdid), 'patient eForm fixture was not created');
+    s.cleanup(() => sql.execute(`DELETE FROM eform_data WHERE fdid=${fdid} AND subject=${h.sqlString(marker)}`));
+    const list = await open(s, `/eform/efmpatientformlist?demographic_no=${patient}`);
+    const row = list.locator('#efmTable tr', { hasText: marker });
+    await clickConfirmed(list, row.getByRole('link', { name: 'Delete' }), /delete this eform/);
+    await expectValue(sql, `SELECT status FROM eform_data WHERE fdid=${fdid}`, '0', 'the patient eForm was not deleted');
+    await Promise.all([list.waitForURL(/efmpatientformlistdeleted/), list.getByRole('link', { name: /Deleted eForms/i }).first().click()]);
+    await clickConfirmed(list, list.locator('#efmTable tr', { hasText: marker }).getByRole('link', { name: 'Restore' }),
+      /restore this eform/);
+    await expectValue(sql, `SELECT status FROM eform_data WHERE fdid=${fdid}`, '1', 'the patient eForm was not restored');
+    await list.close();
+  });
+
+  const admin = await open(s, '/administration');
+  const openFormsSection = async () => {
+    const toggle = admin.locator('[data-bs-target="#collapseForms"]');
+    if (await admin.locator('#collapseForms').isHidden()) await toggle.click();
+  };
+
+  await step('Independent eForm (Administration panel): delete and restore both post with a token', async () => {
+    const fdid = sql.value(`INSERT INTO eform_data(fid,form_name,subject,demographic_no,status,form_date,form_time,
+        form_provider,form_data,showLatestFormOnly,patient_independent)
+      SELECT fid,form_name,${h.sqlString(marker)},0,1,CURDATE(),CURTIME(),${h.sqlString(provider)},
+        '<html></html>',0,1 FROM eform WHERE status=1 ORDER BY fid LIMIT 1; SELECT LAST_INSERT_ID()`);
+    h.assert(NUMERIC_ID.test(fdid), 'independent eForm fixture was not created');
+    s.cleanup(() => sql.execute(`DELETE FROM eform_data WHERE fdid=${fdid} AND subject=${h.sqlString(marker)}`));
+    await openFormsSection();
+    await admin.locator('a.contentLink', { hasText: 'Patient-independent eForm' }).first().click();
+    const row = admin.locator('#dynamic-content tr', { hasText: marker });
+    await row.waitFor();
+    await clickConfirmed(admin, row.getByRole('link', { name: 'Delete' }), /delete this eform/);
+    await expectValue(sql, `SELECT status FROM eform_data WHERE fdid=${fdid}`, '0', 'the independent eForm was not deleted');
+    // The delete redirect lands on the standalone list; reach the deleted list the way it offers.
+    await Promise.all([admin.waitForURL(/efmmanageindependentdeleted/).catch(() => {}),
+      admin.getByRole('link', { name: /Deleted eforms/i }).first().click()]);
+    const deletedRow = admin.locator('tr', { hasText: marker });
+    await deletedRow.waitFor();
+    await clickConfirmed(admin, deletedRow.getByRole('link', { name: 'Restore' }), /restore this eform/);
+    await expectValue(sql, `SELECT status FROM eform_data WHERE fdid=${fdid}`, '1', 'the independent eForm was not restored');
+  });
+
+  await step('eForm Groups (Administration panel): remove from group and delete group post with a token', async () => {
+    const group = `PW${marker.slice(-12)}`;
+    const fid = sql.value('SELECT fid FROM eform WHERE status=1 ORDER BY fid LIMIT 1');
+    h.assert(NUMERIC_ID.test(fid), 'no active eForm to put in the fixture group');
+    sql.execute(`INSERT INTO eform_groups(fid,group_name) VALUES (0,${h.sqlString(group)}),(${fid},${h.sqlString(group)})`);
+    s.cleanup(() => sql.execute(`DELETE FROM eform_groups WHERE group_name=${h.sqlString(group)}`));
+    await h.gotoApp(admin, s.config.baseUrl, '/administration?show=FormsGroups');
+    await admin.waitForLoadState('networkidle').catch(() => {});
+    await admin.locator('#groupListTbl a.contentLink', { hasText: group }).click();
+    const member = admin.locator('#dynamic-content a[title="remove from group"]').first();
+    await member.waitFor();
+    await member.click();
+    await Promise.all([admin.waitForEvent('framenavigated').catch(() => {}), admin.locator('#dataConfirmed').click()]);
+    await admin.waitForLoadState('networkidle').catch(() => {});
+    await expectValue(sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(group)} AND fid=${fid}`, '0',
+      'the eForm was not removed from the group');
+    await h.assertNotErrorPage(admin, 'after remove from group');
+    // The redirect returns to the same group with the sort order the group link set.
+    const landed = new URL(admin.url());
+    h.assert(landed.pathname.endsWith('/eform/efmmanageformgroups')
+      && landed.searchParams.get('group_view') === group && landed.searchParams.get('orderby') === 'form_name',
+      `remove from group did not return to the group's sorted view (${h.pathOnly(admin.url())})`);
+    await h.gotoApp(admin, s.config.baseUrl, '/administration?show=FormsGroups');
+    await admin.waitForLoadState('networkidle').catch(() => {});
+    await admin.locator('#groupListTbl tr', { hasText: group }).locator('a[title="delete this group"]').click();
+    await Promise.all([admin.waitForEvent('framenavigated').catch(() => {}), admin.locator('#dataConfirmed').click()]);
+    await admin.waitForLoadState('networkidle').catch(() => {});
+    await expectValue(sql, `SELECT COUNT(*) FROM eform_groups WHERE group_name=${h.sqlString(group)}`, '0',
+      'the group was not deleted');
+    await h.assertNotErrorPage(admin, 'after delete group');
+  });
+  await admin.close();
+
+  await step('Manage Billing Form: add, change bill type and delete all post with a token', async () => {
+    let code;
+    for (let i = 0; i < 20 && !code; i += 1) {
+      const candidate = `Z${Math.random().toString(36).slice(2, 4).toUpperCase()}`;
+      // Free in every table the cleanup below deletes from, so it can only remove this run's rows.
+      if (/^Z[A-Z0-9]{2}$/.test(candidate) && sql.value(['ctl_billingservice', 'ctl_diagcode', 'ctl_billingtype']
+        .map(table => `(SELECT COUNT(*) FROM ${table} WHERE servicetype=${h.sqlString(candidate)})`).join('+')
+        .replace(/^/, 'SELECT ')) === '0') code = candidate;
     }
-  }
-}
+    h.assert(code, 'no free three-character billing form code');
+    s.cleanup(() => sql.execute(['ctl_billingservice', 'ctl_diagcode', 'ctl_billingtype']
+      .map(table => `DELETE FROM ${table} WHERE servicetype=${h.sqlString(code)}`).join(';')));
+    const page = await open(s, '/billing/CA/ON/ManageBillingform?billingform=000');
+    const form = page.locator('form[name="servicetypeform"]');
+    await form.locator('[name="typeid"]').fill(code);
+    await form.locator('[name="type"]').fill(marker.slice(0, 20));
+    for (const g of ['group1', 'group2', 'group3']) await form.locator(`[name="${g}"]`).fill(`${g} ${code}`);
+    await Promise.all([page.waitForURL(/ManageBillingform/), form.locator('[name="addForm"]').click()]);
+    await expectValue(sql, `SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(code)}`, '3',
+      'the billing form was not added');
+    await h.gotoApp(page, s.config.baseUrl, '/billing/CA/ON/ManageBillingform?billingform=000');
+    await page.locator('a[title="Manage Billing Form"]', { hasText: code }).first().click();
+    await page.locator('#manage_type select[name="billtype_new"]').waitFor();
+    await page.locator('#manage_type select[name="billtype_new"]').selectOption('PAT');
+    await clickPostsToPopup(page, page.locator('#manage_type input[value="Change"]'), { openerReloads: true });
+    await expectValue(sql, `SELECT billtype FROM ctl_billingtype WHERE servicetype=${h.sqlString(code)}`, 'PAT',
+      'the bill type was not changed');
+    await h.gotoApp(page, s.config.baseUrl, '/billing/CA/ON/ManageBillingform?billingform=000');
+    await page.locator('a[title="Manage Billing Form"]', { hasText: code }).first().click();
+    const del = page.locator('#manage_type input[value="Delete Billing Form"]');
+    await del.waitFor();
+    const deleteDialogs = await h.withExpectedDialogs(page, () => clickPostsToPopup(page, del, { openerReloads: true }));
+    h.assert(deleteDialogs.length === 1 && /delete the billing form/.test(deleteDialogs[0].text),
+      'deleting the billing form did not ask for confirmation once');
+    await expectValue(sql, `SELECT COUNT(*) FROM ctl_billingservice WHERE servicetype=${h.sqlString(code)}`, '0',
+      'the billing form was not deleted');
+    await page.close();
+  });
 
-async function resubmitDxDescription(context, config, recorder, sql, timeout) {
-  const search = process.env.CSRF_FORMS_DX_SEARCH || 'diabetes';
-  const page = await context.newPage();
-  wireStrictPage(page, 'dx-search', recorder);
-  let before = [];
-  let suffixBefore = [];
-  try {
-    await gotoApp(page, config.baseUrl,
-      `/billing/CA/ON/ViewBillingDigSearch?coderange=&codedesc=${encodeURIComponent(search)}`);
-    await page.locator('#diagcode input[name^="desc_"]').first().waitFor({ state: 'visible', timeout });
-    // Prefer a code longer than three characters (ICD-9 codes such as 2740):
-    // the update once read only the last three characters of the button value,
-    // so it looked up desc_740 and blanked code 740 instead of updating 2740.
-    const names = (await page.locator('#diagcode input[name^="desc_"]').evaluateAll(
-      (inputs) => inputs.map((input) => input.getAttribute('name')),
-    )).filter((candidate) => /^desc_[0-9A-Z]{3,}$/i.test(candidate || ''));
-    const name = names.find((candidate) => candidate.length > 'desc_'.length + 3) || names[0];
-    assert(name, `dx-search: no result row has a dx code (searched for "${search}")`);
-    const code = name.slice('desc_'.length);
-    const suffixCode = code.length > 3 ? code.slice(-3) : '';
-    before = snapshotDxRows(sql, code);
-    assert(before.length > 0, `dx-search: code ${code} has no diagnosticcode row`);
-    suffixBefore = suffixCode ? snapshotDxRows(sql, suffixCode) : [];
-    const row = page.locator('#diagcode tbody tr', { has: page.locator(`input[name="${name}"]`) }).first();
-    const submitted = await row.locator(`input[name="${name}"]`).inputValue();
-    const updateButton = row.locator('input[type="submit"][name="update"]');
+  await step('Ontario Billing History: Unbill posts with a token and deletes the bill', async () => {
+    const billNo = sql.value(`INSERT INTO billing_on_cheader1(header_id,demographic_no,provider_no,appointment_no,
+        billing_date,billing_time,total,paid,status,pay_program,comment1)
+      VALUES(0,${patient},${h.sqlString(provider)},0,CURDATE(),CURTIME(),'33.70','0.00','O','HCP',${h.sqlString(marker)});
+      SELECT LAST_INSERT_ID()`);
+    h.assert(NUMERIC_ID.test(billNo), 'bill fixture was not created');
+    s.cleanup(() => sql.execute(`DELETE FROM billing_on_proc WHERE object=${h.sqlString(billNo)}
+      AND action IN ('updateBillingStatus','updateBillingStatus-items');
+      DELETE FROM billing_on_item WHERE ch1_id=${billNo};
+      DELETE FROM billing_on_cheader1 WHERE id=${billNo} AND demographic_no=${patient}`));
+    const page = await open(s, `/billing/CA/ON/ViewBillingONHistory?demographic_no=${patient}`);
+    const unbill = page.locator(`#billingHistoryTable a[onclick*="onUnbilled('${billNo}'"]`);
+    const unbillDialogs = await h.withExpectedDialogs(page, () => clickPostsToPopup(page, unbill));
+    h.assert(unbillDialogs.length === 1 && /delete the previous billing/.test(unbillDialogs[0].text),
+      'Unbill did not ask for confirmation once');
+    await expectValue(sql, `SELECT status FROM billing_on_cheader1 WHERE id=${billNo}`, 'D', 'the bill was not deleted');
+    await page.close();
+  });
 
-    // The page-load pass used to throw on this form; now it is tokenised.
-    await assertFormsTokenised('dx-search', page, '#diagcode');
-    const [request] = await Promise.all([
-      page.waitForRequest((candidate) => candidate.method() === 'POST'
-        && /\/billing\/CA\/ON\/BillingDigUpdate(\?|$)/.test(candidate.url()), { timeout }),
-      updateButton.click(),
-    ]);
-    await request.response();
-    await assertAccepted('dx-search update', request);
-    assert((request.postData() || '').includes(`desc_${code}=`),
-      `dx-search: the update did not post desc_${code}; the input is still named with the bare code`);
+  await step('Billing Reconciliation: Summary and Settle post with a token', async () => {
+    const filename = `PW${marker.slice(-20)}`;
+    // Under _site_access_privacy (granted to the demo administrator) the RA list shows a
+    // remittance only through an radetail row billed by a provider sharing one of the
+    // user's sites (RaHeaderDaoImpl.findByStatusAndProviderMagic). Settle then needs that
+    // row's bill to exist, so the remittance pays one fixture bill.
+    const ohip = sql.value(`SELECT p.ohip_no FROM provider p JOIN providersite s ON s.provider_no=p.provider_no
+      WHERE s.site_id IN (SELECT site_id FROM providersite WHERE provider_no=${h.sqlString(provider)})
+      ORDER BY p.ohip_no='' , p.provider_no=${h.sqlString(provider)} DESC LIMIT 1`)
+      || sql.value(`SELECT ohip_no FROM provider WHERE provider_no=${h.sqlString(provider)}`);
+    const billNo = sql.value(`INSERT INTO billing_on_cheader1(header_id,demographic_no,provider_no,appointment_no,
+        billing_date,billing_time,total,paid,status,pay_program,comment1)
+      VALUES(0,${patient},${h.sqlString(provider)},0,CURDATE(),CURTIME(),'33.70','0.00','O','HCP',${h.sqlString(marker)});
+      SELECT LAST_INSERT_ID()`);
+    h.assert(NUMERIC_ID.test(billNo), 'RA bill fixture was not created');
+    // Registered before the next insert, so a failure there cannot strand the bill.
+    s.cleanup(() => sql.execute(`DELETE FROM billing_on_proc WHERE object=${h.sqlString(billNo)};
+      DELETE FROM billing_on_cheader1 WHERE id=${billNo} AND comment1=${h.sqlString(marker)}`));
+    const raNo = sql.value(`INSERT INTO raheader(filename,paymentdate,payable,totalamount,records,claims,status,readdate,content)
+      VALUES(${h.sqlString(filename)},DATE_FORMAT(CURDATE(),'%Y%m%d'),'CSRF CHECK','33.70','1','1','N',CURDATE(),'');
+      SELECT LAST_INSERT_ID()`);
+    h.assert(NUMERIC_ID.test(raNo), 'RA fixture was not created');
+    s.cleanup(() => sql.execute(`DELETE FROM radetail WHERE raheader_no=${raNo};
+      DELETE FROM raheader WHERE raheader_no=${raNo} AND filename=${h.sqlString(filename)}`));
+    sql.execute(`INSERT INTO radetail(raheader_no,providerohip_no,billing_no,service_code,service_count,hin,amountclaim,
+        amountpay,service_date,error_code,billtype,claim_no)
+      VALUES(${raNo},${h.sqlString(ohip || '')},${billNo},'A007A','1','','3370','3370',DATE_FORMAT(CURDATE(),'%Y%m%d'),'','HCP','')`);
+    // Opened the way the Administration panel opens it: no opener. The settle page
+    // used to throw on self.opener.refresh() there; it must return to the RA list.
+    const ra = await open(s, '/billing/CA/ON/ViewGenRA');
+    const row = () => ra.locator('tr', { has: ra.locator(`a[onclick*="'${raNo}'"]`) });
+    const [summaryPage] = await Promise.all([ra.context().waitForEvent('page', { timeout: 20000 }),
+      row().getByRole('link', { name: 'Summary' }).click()]);
+    await summaryPage.waitForLoadState('networkidle').catch(() => {});
+    await h.assertNotErrorPage(summaryPage, 'RA summary');
+    await summaryPage.close();
+    await clickConfirmed(ra, row().getByRole('link', { name: 'Settle', exact: true }), /reconcile the file/);
+    await expectValue(sql, `SELECT status FROM raheader WHERE raheader_no=${raNo}`, 'S', 'the remittance was not settled');
+    await ra.waitForURL(/\/billing\/CA\/ON\/(ViewGenRA|ViewOnGenRA)(\?|$)/, { timeout: 20000 });
+    await row().getByRole('link', { name: 'S35', exact: true }).waitFor();
+    h.assert(await row().getByRole('link', { name: 'Settle', exact: true }).count() === 0,
+      'the RA list still offers Settle for a settled remittance');
+    await ra.close();
+  });
 
-    // The update writes the submitted text to every row of the code. Trailing
-    // whitespace is not a change: legacy rows are space-padded, and the round
-    // trip through the form drops the padding (it did before #4130 too). The
-    // cleanup below restores every row byte-for-byte.
-    for (const after of snapshotDxRows(sql, code)) {
-      assert(String(after.description).trimEnd() === submitted.trimEnd(),
-        `dx-search: row ${after.id} of ${code} does not hold the submitted description`);
+  await step('dx code search: numerically named controls get a token and Update posts with it', async () => {
+    const page = await open(s, '/billing/CA/ON/ViewBillingDigSearch?codedesc=25');
+    const token = await page.locator('#diagcode input[name="CSRF-TOKEN"]').inputValue().catch(() => '');
+    h.assert(token, 'the dx update form has no CSRF token (the numeric control names broke injection)');
+    // A code with exactly one row, so re-submitting its own description changes nothing.
+    // Description inputs are named desc_<code>: a bare numeric name broke CSRFGuard's
+    // form.elements lookup (BillingDiagUpdate2Action still accepts the bare name).
+    const codes = await page.locator('#diagcode input[type="text"][name^="desc_"]')
+      .evaluateAll(inputs => inputs.map(i => i.name.slice('desc_'.length)));
+    let code = '';
+    for (const candidate of codes) {
+      if (/^[0-9A-Z]{3,5}$/.test(candidate)
+        && sql.value(`SELECT COUNT(*) FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(candidate)}`) === '1') {
+        code = candidate;
+        break;
+      }
     }
-    if (suffixCode) {
-      assert(JSON.stringify(snapshotDxRows(sql, suffixCode)) === JSON.stringify(suffixBefore),
-        `dx-search: updating ${code} changed a row of code ${suffixCode}`);
-    }
-  } finally {
-    restoreDxRows(sql, suffixBefore);
-    restoreDxRows(sql, before);
-    await page.close().catch(() => {});
-  }
+    h.assert(code, 'no single-row dx code in the search results');
+    const before = sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(code)}`);
+    // The update trims the seeded column padding; put the exact bytes back afterwards.
+    s.cleanup(() => sql.execute(`UPDATE diagnosticcode SET description=${h.sqlString(before)}
+      WHERE diagnostic_code=${h.sqlString(code)}`));
+    const update = page.waitForResponse(r => r.url().includes('/BillingDigUpdate') && r.request().method() === 'POST');
+    await page.locator(`#diagcode input[name="update"][value$=" ${code}"]`).click();
+    h.assert((await update).status() === 200, 'the dx update was not accepted');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    h.assert(/Successful/i.test(await page.locator('body').innerText()), 'the dx update did not report success');
+    h.assert(sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(code)}`).trim() === before.trim(),
+      'the dx description changed although it was re-submitted unchanged');
+    await page.close();
+  });
+
+  await step('Messenger: Link to Patient posts with a token and links the message', async () => {
+    const location = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1') || '0';
+    const messageId = sql.value(`INSERT INTO messagetbl(thedate,theime,themessage,thesubject,sentby,sentto,sentbyNo,
+        sentByLocation,type)
+      VALUES(CURDATE(),CURTIME(),'csrf check',${h.sqlString(marker)},'UI test','UI test',${h.sqlString(provider)},
+        ${location},0); SELECT LAST_INSERT_ID()`);
+    h.assert(NUMERIC_ID.test(messageId), 'message fixture was not created');
+    sql.execute(`INSERT INTO messagelisttbl(message,provider_no,status,remoteLocation,destinationFacilityId,sourceFacilityId)
+      VALUES(${messageId},${h.sqlString(provider)},'new',${location},0,0)`);
+    s.cleanup(() => sql.execute(`DELETE FROM msgDemoMap WHERE messageID=${messageId};
+      DELETE FROM messagelisttbl WHERE message=${messageId};
+      DELETE FROM messagetbl WHERE messageid=${messageId} AND thesubject=${h.sqlString(marker)}`));
+    const page = await open(s, `/messenger/ViewMessage?messageID=${messageId}&demographic_no=${patient}`);
+    const linked = page.waitForResponse(r => r.request().method() === 'POST' && /\/messenger\/ViewMessage(\?|$)/.test(r.url()));
+    await page.locator('input[name="linkDemo"]').click();
+    h.assert((await linked).status() === 200, 'the link-to-patient POST was not accepted');
+    await expectValue(sql, `SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${messageId} AND demographic_no=${patient}`, '1',
+      'the message was not linked to the patient');
+    await page.close();
+  });
 }
 
-async function main() {
-  const config = readConfig({ require: ['MYSQL_PASSWORD'] });
-  const timeout = Number(process.env.CSRF_FORMS_TIMEOUT_MS || '20000');
-  const sql = createSqlRunner(config.mysql);
-  const recorder = createRecorder();
-  const browser = await launchBrowser(config);
-  try {
-    const context = await newContext(browser, config);
-    await login(context, config, recorder);
-
-    await deleteEFormGroupInAdminPanel(context, config, recorder, sql, timeout);
-    await deleteReportTemplate(context, config, recorder, sql, timeout);
-    await resubmitDxDescription(context, config, recorder, sql, timeout);
-
-    assertStrictPage(recorder, ['admin-eform-groups', 'report-template', 'dx-search']);
-    return { steps: 3 };
-  } finally {
-    await browser.close().catch(() => {});
-    sql.dispose();
-  }
-}
-
-if (require.main === module) {
-  runCheck({ name: 'csrf-runtime-forms', run: main });
-}
-
-module.exports = { assertAccepted, assertFormsTokenised, main, tokenCarried };
+if (require.main === module) runWorkflow('csrf-runtime-forms', workflow, { openMaster: false });
+module.exports = { workflow };

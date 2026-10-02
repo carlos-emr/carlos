@@ -1221,7 +1221,7 @@
                             <tr>
                                 <td>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
+                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=private')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
                             </tr>
                             <%}%>
                         </special:SpecialPlugin>

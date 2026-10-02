@@ -1044,12 +1044,18 @@
                             Set<TicklerComment> tcomments = t.getComments();
                             if (ticklerEditEnabled && !tcomments.isEmpty()) {
                                 for (TicklerComment tc : tcomments) {
+                                    // TicklerComment.provider is @NotFound(IGNORE): a legacy comment whose
+                                    // provider row is gone loads with a null provider. Render a blank name
+                                    // rather than letting one orphaned comment abort the whole page.
+                                    Provider commentProvider = tc.getProvider();
+                                    String commentProviderName = commentProvider == null ? ""
+                                            : SafeEncode.forHtmlContent(commentProvider.getLastName()) + ","
+                                              + SafeEncode.forHtmlContent(commentProvider.getFirstName());
                         %>
                         <tr>
                             <td width="3%" ROWSPAN="1" class="<%=cellColour%>"></td>
                             <td width="12%" ROWSPAN="1" class="<%=cellColour%>"></td>
-                            <td ROWSPAN="1" class="<%=cellColour%>"><%=tc.getProvider().getLastName()%>
-                                ,<%=tc.getProvider().getFirstName()%>
+                            <td ROWSPAN="1" class="<%=cellColour%>"><%=commentProviderName%>
                             </td>
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
                             <% if (tc.isUpdateDateToday()) { %>

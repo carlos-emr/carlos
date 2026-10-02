@@ -51,7 +51,6 @@ public class AddGroup2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
         EFormUtil.addEFormToGroup(groupName, "0");  //marker for group
-        request.setAttribute("group_view", groupName);
         return SUCCESS;
     }
 

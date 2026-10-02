@@ -44,6 +44,22 @@ against the pre-fix `editControl2.js` it **FAILS** on the false "could not be
 filled in automatically: stamp_name" banner every Stamp click raised. A fresh
 install of the same packages with demo data also passes 9/9 (V1.0.41 is a
 no-op on the empty schema; the demo load adds the inputs once).
+`eform-subject-preservation-playwright-checks.js` (issue #4027) was added on
+2026-09-30 and run against 2026.09.0~snapshot26 packages built from the
+`release/2026.08` fix branch (DrugRef from its pinned ref, carlos-ctl 1.1.1
+from its tag) and installed into an Ubuntu 26.04 container with the demo
+dataset (`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`): **PASS**
+through `:443`, alongside the other eForm and Rich Text Letter checks. The
+exception was `eform-rtl-attachment-pdf`, 49/51. Its two `[lab]` panel
+assertions still expect `Lab #<digits>`, while the Attached Files panel now
+shows source-qualified labels (`Lab #HL7:<id>`). They fail identically with
+the pre-fix assets restored, so that failure is independent of this change.
+The new check seeds its own template with no subject control, so it needs no
+fixture. It **FAILS** with the pre-fix subject source restored on both render
+pages (the admin preview shows the catalog description as the subject) and
+with only the new-form page reverted (a new form is pre-filled with that
+description).
+
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
@@ -608,7 +624,8 @@ export PRESCRIPTION_SIGNATURE_CLEANUP=true
 export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # Both lab-upload workflows delete their own archived LabUpload.lab-upload-probe-* files here.
 # Configure CML_UPLOAD_KEY on this isolated server and export the same value for full legacy CML coverage.
-# The extended lab-upload-rollback check also needs CREATE/DROP TRIGGER privileges in the test DB.
+# The extended lab-upload-rollback and lab-upload-signed-feed checks also need CREATE/DROP TRIGGER
+# privileges in the test DB; lab-upload-signed-feed finds its decrypted copies here by content.
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.

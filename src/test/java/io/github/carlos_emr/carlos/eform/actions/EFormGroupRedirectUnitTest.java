@@ -58,6 +58,16 @@ class EFormGroupRedirectUnitTest {
     }
 
     @Test
+    @DisplayName("should keep the sort order the groups page posted")
+    void shouldKeepOrderBy_whenGroupsPagePostedIt() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/eforms/removeFromGroup");
+        request.setParameter("orderby", "form_name");
+
+        assertThat(EFormGroupRedirect.toGroup("Intake", request))
+                .isEqualTo("/eform/efmmanageformgroups?orderby=form_name&group_view=Intake");
+    }
+
+    @Test
     @DisplayName("should return a native schedule-mode submission through the Administration shell")
     void shouldReturnShellGroupsSection_forNativeScheduleModeSubmission() {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/eforms/delGroup");

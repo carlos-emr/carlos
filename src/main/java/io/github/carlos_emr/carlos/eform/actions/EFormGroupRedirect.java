@@ -59,20 +59,19 @@ final class EFormGroupRedirect {
     }
 
     /**
-     * Like {@link #toGroup(String)}, but keeps schedule mode: a native submission made in schedule
-     * mode returns to the Administration shell's eForm Groups section, and an AJAX one keeps the
-     * groups page with the flag carried on.
+     * Like {@link #toGroup(String)}, but keeps the posted sort order and schedule mode: a native
+     * submission made in schedule mode returns to the Administration shell's eForm Groups section,
+     * and an AJAX one keeps the groups page with the flag carried on.
      *
      * @param groupName the group to reopen; null or empty lands on the group list
      * @param request the group mutator's POST
      * @return the application-relative redirect target, never null
      */
     static String toGroup(String groupName, HttpServletRequest request) {
-        if (!ScheduleNav.isActive(request)) {
-            return toGroup(groupName);
-        }
-        if (RequestNegotiation.isAjax(request)) {
-            return ScheduleNav.append(toGroup(groupName), request);
+        if (!ScheduleNav.isActive(request) || RequestNegotiation.isAjax(request)) {
+            // The groups page itself: EFormListRedirect.toGroup() also keeps the sort order
+            // the page posted and appends the schedule flag when it is active.
+            return EFormListRedirect.toGroup(request, groupName);
         }
         // The shell's deep-link loader passes group_view on to the groups panel, so the
         // group the user was working in reopens instead of the first one.

@@ -183,7 +183,10 @@
     thisEForm.addHiddenInputElement("context", request.getContextPath());
     thisEForm.addHiddenInputElement("demographicNo", demographic_no);
     thisEForm.addHiddenInputElement("fid", fid);
-    thisEForm.ensureSubjectInput();
+    // A new instance has no saved subject. thisEForm was loaded from the catalog, so its
+    // getFormSubject() is the template's catalog description; supplying that would pre-fill
+    // (and save) a subject the clinician never chose. Start templates without a control empty.
+    thisEForm.ensureSubjectInput("");
     thisEForm.addHiddenInputElement("fdid", request.getParameter("fdid"));
     // Preserve the template's value and name: Galaxy forms commonly test for the exact "True"
     // spelling before initializing signatures and fax numbers, then submit "False" on save.

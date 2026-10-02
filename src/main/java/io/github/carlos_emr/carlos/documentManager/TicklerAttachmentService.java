@@ -46,7 +46,6 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
-import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -83,6 +82,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *       listed but not named;</li>
  *   <li>only the types actually submitted are synchronised, so a save that never opened the
  *       picker leaves the stored set untouched;</li>
+ *   <li>when the form reports the stored rows it rendered, only those can be detached, so a
+ *       restricted row the reader never saw survives a permission change before the save;</li>
  *   <li>the attaching provider is always the authenticated session provider, and every attach
  *       and detach is audited.</li>
  * </ul>
@@ -117,6 +118,7 @@ public class TicklerAttachmentService {
     private final HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
     private final FormsManager formsManager;
     private final DocumentAttachmentManager documentAttachmentManager;
+    private final TicklerDocumentAccess ticklerDocumentAccess;
 
     public TicklerAttachmentService(TicklerDocsDao ticklerDocsDao,
                                     SecurityInfoManager securityInfoManager,
@@ -126,7 +128,8 @@ public class TicklerAttachmentService {
                                     HRMDocumentToDemographicDao hrmDocumentToDemographicDao,
                                     FormsManager formsManager,
                                     DocumentAttachmentManager documentAttachmentManager,
-                                    TicklerDao ticklerDao) {
+                                    TicklerDao ticklerDao,
+                                    TicklerDocumentAccess ticklerDocumentAccess) {
         this.ticklerDocsDao = ticklerDocsDao;
         this.securityInfoManager = securityInfoManager;
         this.documentDao = documentDao;
@@ -136,6 +139,7 @@ public class TicklerAttachmentService {
         this.formsManager = formsManager;
         this.documentAttachmentManager = documentAttachmentManager;
         this.ticklerDao = ticklerDao;
+        this.ticklerDocumentAccess = ticklerDocumentAccess;
     }
 
     /**
@@ -169,6 +173,38 @@ public class TicklerAttachmentService {
     @Transactional
     public void syncAttachments(LoggedInInfo loggedInInfo, Tickler tickler,
                                 Map<DocumentType, ? extends Collection<String>> submitted) {
+        syncAttachments(loggedInInfo, tickler, submitted, null);
+    }
+
+    /**
+     * Synchronises the tickler's attachments with a picker submission from a form that also
+     * reports which stored attachments it rendered (see
+     * {@link TicklerAttachmentParameters#readRendered}).
+     *
+     * <p>With {@code rendered} present, a stored row is detached only when the form rendered it
+     * and the submission no longer carries it. A row the form did not render (its type or item
+     * was restricted when the page was built) is kept whatever the caller's rights are now, so
+     * access granted between render and save cannot turn "never shown" into "unchecked". A
+     * type with nothing rendered is therefore only ever added to. Every add-side check is the
+     * same as {@link #syncAttachments(LoggedInInfo, Tickler, Map)}, and the rendered list can only
+     * narrow what is detached, never widen it: a value naming a row that is not stored has no
+     * effect.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session
+     * @param tickler Tickler the persisted tickler (needs id and demographic)
+     * @param submitted Map&lt;DocumentType, ? extends Collection&lt;String&gt;&gt; the desired ids per type
+     * @param rendered Map&lt;DocumentType, ? extends Collection&lt;String&gt;&gt; the values of the stored
+     *        rows the form rendered, per type, in the same format as {@code submitted}; a type
+     *        missing from the map rendered nothing. {@code null} means the caller does not know
+     *        what was rendered (an older page, the lab macro, a new tickler), and the save-time
+     *        inference of {@link #syncAttachments(LoggedInInfo, Tickler, Map)} applies
+     * @throws SecurityException as for {@link #syncAttachments(LoggedInInfo, Tickler, Map)}
+     * @throws IllegalArgumentException when a submitted or rendered id is malformed
+     */
+    @Transactional
+    public void syncAttachments(LoggedInInfo loggedInInfo, Tickler tickler,
+                                Map<DocumentType, ? extends Collection<String>> submitted,
+                                Map<DocumentType, ? extends Collection<String>> rendered) {
         Integer demographicNo = tickler.getDemographicNo();
         requireTicklerWrite(loggedInInfo, demographicNo);
         if (submitted == null || submitted.isEmpty()) {
@@ -200,11 +236,18 @@ public class TicklerAttachmentService {
                     detached.put(ref, storedDoc);
                 }
             }
-            // A caller who cannot read a type never sees its items in the picker: the form
-            // carries the stored rows through as restricted delegates, so a submission that
-            // equals the stored set is "nothing shown", not a change, and the rows are left
-            // alone. Any difference would add or drop items the caller may not see.
+            // A caller who cannot read a type never sees its identifiers in the form or
+            // picker. An empty submission therefore means "leave this type alone", even
+            // when it has stored rows. Do not send restricted identifiers to the browser
+            // merely to distinguish that case from an intentional removal. The reverse case (the
+            // type was unreadable when the page was built but readable now) cannot be told from
+            // save-time rights at all; the rendered list below covers it.
             if (!isTypeReadable(loggedInInfo, documentType, demographicNo)) {
+                if (wanted.isEmpty()) {
+                    continue;
+                }
+                // Accept an unchanged submission from older forms that still carried the
+                // identifiers, but reject any attempt to add or change hidden items.
                 // The form carried only the rows listAttachments showed: a row whose item has
                 // since moved to another patient is omitted there whatever the caller's rights,
                 // so it is not part of "unchanged" and its absence is not a change either.
@@ -219,6 +262,31 @@ public class TicklerAttachmentService {
                 }
                 requireTypeReadable(loggedInInfo, documentType, demographicNo);
             }
+            if (rendered != null) {
+                // The form said exactly which stored rows it showed. Anything else was never on
+                // the page, so its absence from the submission is not a removal, even if the
+                // caller has since gained the type or item access that would now reveal it.
+                Set<AttachmentRef> renderedRefs = parseRefs(documentType, rendered.get(documentType));
+                for (AttachmentRef ref : existing.keySet()) {
+                    if (!renderedRefs.contains(ref)) {
+                        wanted.add(ref);
+                    }
+                }
+            }
+            if (documentType == DocumentType.DOC) {
+                // A provider may have _edoc read but lack this document's program or
+                // active-queue access. Such rows were not sent to the browser, so keep
+                // them when synchronising the visible selection of the same type. With a
+                // rendered list this only ever keeps more (a row shown at render whose access
+                // was revoked before save); it never decides a removal.
+                for (AttachmentRef ref : existing.keySet()) {
+                    if (!wanted.contains(ref)
+                            && belongsToPatient(loggedInInfo, documentType, ref, demographicNo)
+                            && !ticklerDocumentAccess.canRead(loggedInInfo, ref.documentNo())) {
+                        wanted.add(ref);
+                    }
+                }
+            }
             // Ownership checks come before any write, so a rejected submission leaves the
             // stored set untouched rather than half-synchronised. A new item that is not the
             // patient's is refused; a live item is re-verified too, since a document can be
@@ -228,6 +296,9 @@ public class TicklerAttachmentService {
             for (AttachmentRef ref : wanted) {
                 if (!existing.containsKey(ref)) {
                     requireBelongsToPatient(loggedInInfo, documentType, ref, demographicNo);
+                    if (documentType == DocumentType.DOC) {
+                        ticklerDocumentAccess.requireRead(loggedInInfo, ref.documentNo());
+                    }
                 } else if (!belongsToPatient(loggedInInfo, documentType, ref, demographicNo)) {
                     logger.warn("Detaching tickler attachment: {} item is no longer the tickler's patient's", documentType.getName());
                     stale.add(ref);
@@ -295,6 +366,9 @@ public class TicklerAttachmentService {
             requireTypeReadable(loggedInInfo, documentType, demographicNo);
             for (AttachmentRef ref : wanted) {
                 requireBelongsToPatient(loggedInInfo, documentType, ref, demographicNo);
+                if (documentType == DocumentType.DOC) {
+                    ticklerDocumentAccess.requireRead(loggedInInfo, ref.documentNo());
+                }
             }
         }
     }
@@ -381,6 +455,11 @@ public class TicklerAttachmentService {
         }
     }
 
+    /** A document link is viewable only if the document viewer would authorize it. */
+    public boolean canReadDocument(LoggedInInfo loggedInInfo, int documentNo) {
+        return ticklerDocumentAccess.canRead(loggedInInfo, documentNo);
+    }
+
     /**
      * Turns stored rows of one patient into display entries, loading each per-patient name
      * collection (labs, HRM reports, encounter forms) and each type's read decision at most once
@@ -433,6 +512,9 @@ public class TicklerAttachmentService {
             if (!owned) {
                 logger.warn("Omitting tickler attachment: {} item is no longer the tickler's patient's", documentType.getName());
                 return null;
+            }
+            if (viewable && documentType == DocumentType.DOC) {
+                viewable = ticklerDocumentAccess.canRead(loggedInInfo, ticklerDoc.getDocumentNo());
             }
             if (!viewable) {
                 return new TicklerAttachmentData(documentType, documentId, ticklerDoc.getLabType(), null, false);
@@ -608,14 +690,11 @@ public class TicklerAttachmentService {
         if (rows == null) {
             return false;
         }
+        // Only a live association counts: a deleted document, or a ctl_document link the
+        // document was un-filed from (status 'D'), is no longer the patient's. Same predicate as
+        // consult/eForm attachment selection and CtlDocumentDao.findDocumentNosForDemographic.
         for (Object[] row : rows) {
-            if (row.length < 2 || !(row[1] instanceof CtlDocument)) {
-                continue;
-            }
-            CtlDocument ctlDocument = (CtlDocument) row[1];
-            if (ctlDocument.getId() != null
-                    && "demographic".equals(ctlDocument.getId().getModule())
-                    && demographicNo.equals(ctlDocument.getId().getModuleId())) {
+            if (AttachmentSelectionAccess.isLiveDemographicLink(row, demographicNo)) {
                 return true;
             }
         }

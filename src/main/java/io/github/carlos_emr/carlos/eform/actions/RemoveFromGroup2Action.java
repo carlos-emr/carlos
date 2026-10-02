@@ -58,7 +58,6 @@ public class RemoveFromGroup2Action extends ActionSupport {
         String fid = request.getParameter("fid");
         String groupName = request.getParameter("groupName");
         EFormUtil.remEFormFromGroup(groupName, fid);
-        request.setAttribute("group_view", groupName);
         return SUCCESS;
     }
 

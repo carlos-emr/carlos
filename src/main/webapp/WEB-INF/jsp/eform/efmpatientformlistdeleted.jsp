@@ -105,11 +105,10 @@
 
 			function updateAjax() {
 				let parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-				// Same guard as efmpatientformlist.jsp: the null-safe encoder renders a
-				// missing id as "" (never "null"), and window.opener is null when this
-				// page is not a popup (or the site-wide COOP header cut it). The
-				// unguarded access threw a TypeError on every unload, including the
-				// navigation a Restore triggers (#4130 verification).
+				// Same guard as efmpatientformlist.jsp: reached from the master record this
+				// page has no opener, an absent parentAjaxId encodes to "" (not "null"), and
+				// the unguarded access threw a TypeError on unload -- including during the
+				// Restore submission itself (issue #4130).
 				try {
 					if (parentAjaxId && parentAjaxId !== "null" && window.opener && !window.opener.closed
 							&& window.opener.document && window.opener.document.forms['encForm']) {
@@ -117,9 +116,8 @@
 						window.opener.updateNeeded = true;
 					}
 				} catch (e) {
-					// Cross-origin or closed opener: nothing to update.
+					// Cross-origin or closed opener — nothing to update; ignore.
 				}
-
 			}
 
 			$(document).ready(function() {

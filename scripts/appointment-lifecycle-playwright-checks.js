@@ -290,6 +290,12 @@ async function bookFromSlot(context, daySheet) {
     recorder.dialogs.push({ ...entry, accepted: true });
     await dialog.accept().catch(() => {});
   });
+  // The context's page event can fire while the popup is still about:blank.
+  // Waiting for that document's load state would pass immediately and make a
+  // healthy appointment form look like an empty response.
+  await popup.waitForURL(url => String(url) !== 'about:blank', {
+    timeout: 45000, waitUntil: 'domcontentloaded',
+  });
   await popup.waitForLoadState('domcontentloaded', { timeout: 45000 });
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(popup, 'add-appointment popup');
@@ -372,6 +378,9 @@ async function openEditPopup(context, daySheet, appointmentNo, dialogHandler = n
   await link.click();
   const popup = await popupPromise;
   wirePage(popup, 'edit-appointment', recorder, dialogHandler);
+  await popup.waitForURL(url => String(url) !== 'about:blank', {
+    timeout: 45000, waitUntil: 'domcontentloaded',
+  });
   await popup.waitForLoadState('domcontentloaded', { timeout: 45000 });
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(popup, 'edit-appointment popup');
@@ -396,6 +405,9 @@ async function checkAppointmentLabels(context, daySheet, appointmentNo) {
     edit.locator('a[onclick*="ViewDemographicLabelPrintSetting"]').click(),
   ]);
   wirePage(labels, 'appointment-labels', recorder);
+  await labels.waitForURL(url => String(url) !== 'about:blank', {
+    timeout: 45000, waitUntil: 'domcontentloaded',
+  });
   await labels.waitForLoadState('domcontentloaded');
   await assertNotErrorPage(labels, 'appointment label settings');
   const features = await edit.evaluate(() => window.__labelWindowFeatures);

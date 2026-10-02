@@ -211,6 +211,14 @@ Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" sty
 
 Header validation takes precedence over body-parameter validation when both are present.
 
+**Forms built in script and forms in inserted HTML** need no hand-rolled token. CARLOS serves a
+patched CSRFGuard client (`src/main/resources/csrfguard/carlos-csrfguard.js`, issue #4130). It
+adds the token when a same-origin POST form is submitted, through `form.submit()` or a submit
+event, and it reaches forms nested in HTML inserted after load (the Administration panel). It
+also survives numerically named controls. Give such forms `method="post"` and a real
+same-origin `action`. Before upgrading CSRFGuard, read
+`docs/csrf-protection-architecture.md` → "CARLOS patches to the client template".
+
 **Content-Security-Policy interaction.** The bootstrap fragment is an *inline* `<script>`. A page
 that sets its own `script-src` without `'unsafe-inline'` silently gets no token: the input stays
 empty, every POST is rejected with an HTML error page, and nothing is reported except a console
@@ -226,15 +234,12 @@ inline blocks actually executed, and the console logged no CSP violation.
 
 Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
 
-**Runtime-built forms and `.load()`-injected forms.** CSRFGuard's MutationObserver only
-tokenises an inserted node that is *itself* a `<form>`, and only after the current task, so
-a form built with `document.createElement('form')` and submitted in the same handler, or a
-form nested inside HTML inserted by `$(...).load()`, posts with no token and gets a 403. Load
-`share/javascript/carlosCsrfForm.js` and submit with `carlosPostForm(action, fields, {target})`
-or `carlosSubmitForm(form)` instead of `form.submit()`. The script also tokenises forms in
-inserted subtrees on its own. Do not name form controls with bare numbers: that makes
-CSRFGuard's injector throw. See `docs/csrf-protection-architecture.md` → "Runtime-built and
-injected forms" (issue #4130).
+**`carlosCsrfForm.js`.** On top of the patched client, `share/javascript/carlosCsrfForm.js`
+offers `carlosPostForm(action, fields, {target})` and `carlosSubmitForm(form)`: they fetch a
+token when the page has none yet and, if none can be had, refuse to send the POST and alert the
+user instead of letting it fail as a silent 403. The runtime-built call sites converted in #4130
+use it. Still do not name form controls with bare numbers. See
+`docs/csrf-protection-architecture.md` → "Runtime-built and injected forms".
 
 ### PathValidationUtils - File Path Security
 
