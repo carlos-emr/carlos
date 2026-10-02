@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -360,6 +361,8 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         void shouldUseNegotiatedLocale_forServerTitles() throws Exception {
             // German has no bundle; the second preference, French, must win over the server locale.
             request.addHeader("Accept-Language", "de-DE, fr;q=0.8");
+            // Spelled out rather than left to the mock's parsing of the header.
+            request.setPreferredLocales(List.of(Locale.GERMANY, Locale.FRENCH));
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"prescriptions"});
 
