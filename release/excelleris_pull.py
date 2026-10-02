@@ -897,23 +897,28 @@ def _read_capped(resp) -> bytes:
     empty body is a success on OSCAR 19 (``sendError(200)``), so a reply cut
     off at the headers must be a transport failure, not an upload result.
     """
+    # Judge the announced length before reading a byte: a size above the cap
+    # is refused without waiting for or allocating the body, and a length
+    # that is not a non-negative integer is a malformed reply, not an unknown
+    # one (an empty body behind it could otherwise pass as a bare success).
+    declared = resp.headers.get("Content-Length") if getattr(resp, "headers", None) else None
+    expected = None
+    if declared is not None:
+        try:
+            expected = int(declared.strip())
+        except ValueError:
+            expected = -1
+        if expected < 0:
+            raise TransportError("malformed Content-Length header in the reply")
+        if expected > MAX_RESPONSE_BYTES:
+            raise TransportError("response exceeded size cap")
     data = resp.read(MAX_RESPONSE_BYTES + 1)
     if len(data) > MAX_RESPONSE_BYTES:
         raise TransportError("response exceeded size cap")
-    declared = resp.headers.get("Content-Length") if getattr(resp, "headers", None) else None
-    if declared is not None:
-        try:
-            expected = int(declared)
-        except ValueError:
-            expected = -1
-        if expected > MAX_RESPONSE_BYTES:
-            # Announced above the cap: refuse it outright rather than let a
-            # connection that closes at once pass as an empty, successful body.
-            raise TransportError("response exceeded size cap")
-        if 0 <= expected and len(data) < expected:
-            raise TransportError(
-                f"response truncated: {len(data)} of the {expected} bytes announced arrived"
-            )
+    if expected is not None and len(data) < expected:
+        raise TransportError(
+            f"response truncated: {len(data)} of the {expected} bytes announced arrived"
+        )
     return data
 
 

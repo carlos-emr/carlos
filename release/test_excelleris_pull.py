@@ -1760,6 +1760,24 @@ class TruncatedBodyTest(unittest.TestCase):
         with self.assertRaisesRegex(ep.TransportError, "size cap"):
             ep.HttpTransport(5, None, False).request("GET", f"http://127.0.0.1:{port}/")
 
+    def test_announced_length_is_judged_before_the_body_is_read(self):
+        class Resp:
+            headers = {"Content-Length": str(ep.MAX_RESPONSE_BYTES + 1)}
+
+            def read(self, _n):
+                raise AssertionError("the body must not be read")
+
+        with self.assertRaisesRegex(ep.TransportError, "size cap"):
+            ep._read_capped(Resp())
+
+    def test_malformed_content_length_is_refused(self):
+        for value in (b"abc", b"-5", b"1e3", b""):
+            port = self._serve_once(
+                b"HTTP/1.1 200 OK\r\nContent-Length: " + value + b"\r\nConnection: close\r\n\r\n"
+            )
+            with self.assertRaises(ep.TransportError, msg=value):
+                ep.HttpTransport(5, None, False).request("GET", f"http://127.0.0.1:{port}/")
+
     def test_complete_body_passes(self):
         port = self._serve_once(
             b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
