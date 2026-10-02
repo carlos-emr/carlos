@@ -1453,3 +1453,123 @@ class LiveOscar19SessionlessTest(LiveOscar19Test):
 
     def test_carlos_flavour_against_oscar19_fails_loudly(self):
         self.skipTest("covered by LiveOscar19Test")
+
+
+def _pem_pair_from_pfx(pfx: Path, password: bytes, out_dir: Path):
+    """What GoFetchRover's extract step leaves behind: an unencrypted key PEM
+    and a certificate PEM, produced here with cryptography instead of openssl."""
+    key, cert, extra = pkcs12.load_key_and_certificates(pfx.read_bytes(), password)
+    key_pem = out_dir / "client_key.pem"
+    cert_pem = out_dir / "client_certificate.pem"
+    key_pem.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption(),
+        )
+    )
+    key_pem.chmod(0o600)
+    cert_pem.write_bytes(
+        cert.public_bytes(serialization.Encoding.PEM)
+        + b"".join(c.public_bytes(serialization.Encoding.PEM) for c in extra or [])
+    )
+    return cert_pem, key_pem
+
+
+def _use_pem_pair(conf: Path, cert_pem: Path, key_pem: Path) -> None:
+    text = conf.read_text()
+    lines = [ln for ln in text.splitlines() if not ln.startswith(("pfx_file =", "pfx_password ="))]
+    text = "\n".join(lines) + "\n"
+    text = text.replace(
+        "[excelleris]\n",
+        f"[excelleris]\nclient_cert_file = {cert_pem}\nclient_key_file = {key_pem}\n",
+        1,
+    )
+    conf.write_text(text)
+
+
+class PemPairTest(TempEnv):
+    def test_pem_pair_replaces_pfx(self):
+        cert_pem, key_pem = _pem_pair_from_pfx(self.pfx, b"pfx-secret", self.tmp)
+        _use_pem_pair(self.conf, cert_pem, key_pem)
+        cfg = ep.load_config(self.conf)
+        self.assertIsNone(cfg.pfx_file)
+        with ep.ClientCertificate.from_config(cfg) as cert:
+            self.assertIn(b"BEGIN PRIVATE KEY", cert.pem_path.read_bytes())
+            self.assertIn(b"BEGIN CERTIFICATE", cert.pem_path.read_bytes())
+            cert.ssl_context()
+        self.assertEqual(ep.check_config(cfg), ep.EXIT_OK)
+
+    def test_rules(self):
+        cert_pem, key_pem = _pem_pair_from_pfx(self.pfx, b"pfx-secret", self.tmp)
+        _, _, c, srv = make_keys()
+        # both forms at once
+        self.write_conf(
+            c, srv, extra_excelleris=f"client_cert_file = {cert_pem}\nclient_key_file = {key_pem}"
+        )
+        with self.assertRaisesRegex(ep.ConfigError, "not both"):
+            ep.load_config(self.conf)
+        # key must be private (start from a clean config, then switch it to the pair)
+        self.write_conf(c, srv)
+        _use_pem_pair(self.conf, cert_pem, key_pem)
+        key_pem.chmod(0o644)
+        with self.assertRaisesRegex(ep.ConfigError, "client_key_file"):
+            ep.load_config(self.conf)
+        key_pem.chmod(0o600)
+        # neither form
+        text = "\n".join(
+            ln
+            for ln in self.conf.read_text().splitlines()
+            if not ln.startswith(("client_cert_file", "client_key_file"))
+        )
+        self.conf.write_text(text + "\n")
+        with self.assertRaisesRegex(ep.ConfigError, "is required"):
+            ep.load_config(self.conf)
+
+    def test_encrypted_key_is_explained(self):
+        cert_pem, key_pem = _pem_pair_from_pfx(self.pfx, b"pfx-secret", self.tmp)
+        key, _, _ = pkcs12.load_key_and_certificates(self.pfx.read_bytes(), b"pfx-secret")
+        key_pem.write_bytes(
+            key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8,
+                serialization.BestAvailableEncryption(b"x"),
+            )
+        )
+        _use_pem_pair(self.conf, cert_pem, key_pem)
+        cfg = ep.load_config(self.conf)
+        with self.assertRaisesRegex(ep.ConfigError, "passphrase-protected"):
+            with ep.ClientCertificate.from_config(cfg):
+                pass
+
+
+class UserAgentOverrideTest(TempEnv):
+    GFR = "Mozilla/5.0 (Windows NT 6.2; GoFetchRover; 1.0.0-alpha) Gecko/20100101 Firefox/113.0"
+
+    def test_override_is_sent_verbatim(self):
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, extra_excelleris=f"user_agent = {self.GFR}")
+        cfg = ep.load_config(self.conf)
+        self.assertEqual(cfg.excelleris_user_agent, self.GFR)
+        t = FakeTransport({"excelleris:login": ok(ep._AUTH_GRANTED), "excelleris:logout": ok("")})
+        with ep.ExcellerisSession(cfg, t):
+            pass
+        self.assertEqual(t.calls[0][2]["User-Agent"], self.GFR)
+
+    def test_default_and_validation(self):
+        self.assertEqual(self.cfg.excelleris_user_agent, ep.user_agent("CARLOS"))
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, extra_excelleris="user_agent = bad\tagent")
+        with self.assertRaisesRegex(ep.ConfigError, "user_agent must be"):
+            ep.load_config(self.conf)
+
+
+class LivePemPairTest(LiveServersTest):
+    """The CARLOS live run again with the client certificate supplied as the
+    extracted PEM pair instead of the PFX."""
+
+    def setUp(self):
+        super().setUp()
+        cert_pem, key_pem = _pem_pair_from_pfx(self.pfx, b"pfx-secret", self.tmp)
+        _use_pem_pair(self.conf, cert_pem, key_pem)
+        self.cfg = ep.load_config(self.conf)

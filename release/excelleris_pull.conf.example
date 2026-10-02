@@ -24,14 +24,23 @@ user_id =
 password =
 
 # The PFX Excelleris issued for this clinic, also mode 0600, and its passphrase.
+# EITHER the PFX ...
 pfx_file = /etc/carlos-excelleris/clinic.pfx
 pfx_password =
+# ... OR the PEM pair extracted from it (what GoFetchRover keeps under
+# volumes/secrets: client_certificate*.pem and the unencrypted client_key*.pem).
+# client_cert_file = /etc/carlos-excelleris/client_certificate.pem
+# client_key_file = /etc/carlos-excelleris/client_key.pem
 
 # Product name Excelleris sees in the User-Agent header, inside the
 # "Mozilla/5.0 (Windows NT 6.2; <product>; <version>) ..." comment. Set it to
 # whatever EMR name is on file with Excelleris for this clinic, CARLOS or
 # OSCAR, regardless of which flavour below the results are uploaded to.
 product = CARLOS
+
+# Or override the whole header. A site that completed Excelleris conformance
+# testing under GoFetchRover may keep that tool's exact string:
+# user_agent = Mozilla/5.0 (Windows NT 6.2; GoFetchRover; 1.0.0-alpha) Gecko/20100101 Firefox/113.0
 
 # Per-request timeout. The old script had none and could hang forever.
 timeout_seconds = 60
