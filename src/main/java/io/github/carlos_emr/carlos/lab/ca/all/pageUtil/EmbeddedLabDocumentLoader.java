@@ -86,7 +86,11 @@ public final class EmbeddedLabDocumentLoader {
         TOO_LARGE,
         /** Content that does not start with the PDF signature, or that cannot be decoded. */
         NOT_PDF,
-        /** A payload the sender declares as text (ED.4 {@code A}); readable as the result value. */
+        /**
+         * A payload the sender declares as text (ED.4 {@code A}), or, with no declared encoding, a
+         * non-PDF payload not even shaped like base64 (legacy text in OBX-5.1); readable as the
+         * result value.
+         */
         TEXT,
         /** No payload at all. */
         EMPTY
@@ -210,14 +214,14 @@ public final class EmbeddedLabDocumentLoader {
                 // signature, so an oversized payload costs no more than a small one.
                 long headSize = decode(compact, hex, head, null, true);
                 if (headSize < PDF_SIGNATURE.length || !isPdf(head)) {
-                    return new Classified(Status.NOT_PDF, headSize < 0 ? 0 : estimated, null, false);
+                    return notPdf(encoding, compact, payload, headSize < 0 ? 0 : estimated);
                 }
                 return new Classified(Status.TOO_LARGE, estimated, null, false);
             }
         }
         long size = decode(compact, hex, head, null, false);
         if (size < PDF_SIGNATURE.length || !isPdf(head)) {
-            return new Classified(Status.NOT_PDF, Math.max(size, 0), null, false);
+            return notPdf(encoding, compact, payload, Math.max(size, 0));
         }
         if (maxBytes > 0 && size > maxBytes) {
             return new Classified(Status.TOO_LARGE, size, null, false);
@@ -229,8 +233,9 @@ public final class EmbeddedLabDocumentLoader {
      * The decoded size implied by the encoded length, without decoding: half the characters for
      * hex (an unmatched final character is dropped, as {@link #decodeHex} does), and three bytes
      * per four base64-alphabet characters otherwise. Counting only alphabet characters (standard
-     * or URL-safe, never {@code =} padding) makes this exact both for strict base64 and for the
-     * lenient decoder, which skips every other character.
+     * or URL-safe, never {@code =} padding) up to the first padding character makes this exact
+     * both for strict base64 and for the lenient decoder, which skips every other character and
+     * stops at padding.
      */
     static long estimateDecodedSize(String compact, boolean hex) {
         if (hex) {
@@ -238,11 +243,50 @@ public final class EmbeddedLabDocumentLoader {
         }
         long alphabet = 0;
         for (int i = 0; i < compact.length(); i++) {
-            if (isBase64Alphabet(compact.charAt(i))) {
+            char c = compact.charAt(i);
+            if (c == '=') {
+                // Padding ends the data: the lenient decoder the full decode falls back to stops
+                // here, so anything after it must not count towards the size either.
+                break;
+            }
+            if (isBase64Alphabet(c)) {
                 alphabet++;
             }
         }
         return alphabet * 3 / 4;
+    }
+
+    /**
+     * A payload that is not a PDF. With no declared ED.4 encoding (a legacy feed that puts the
+     * value in OBX-5.1) and a payload that is not even shaped like base64, it is the sender's
+     * text, shown as the result value as it was before ED documents were detected; otherwise it
+     * is undisplayable binary (an image, say). Base64-shaped text stays {@link Status#NOT_PDF}:
+     * without a declared encoding it cannot be told from encoded bytes.
+     */
+    private static Classified notPdf(String encoding, String compact, String payload, long sizeBytes) {
+        if (encoding == null && !isBase64Shaped(compact)) {
+            return new Classified(Status.TEXT, payload.length(), null, false);
+        }
+        return new Classified(Status.NOT_PDF, sizeBytes, null, false);
+    }
+
+    /**
+     * Whether {@code compact} has the shape of strict standard base64: only alphabet characters,
+     * a length that is a multiple of four, and at most two {@code =} only at the end.
+     */
+    static boolean isBase64Shaped(String compact) {
+        int length = compact.length();
+        if (length == 0 || length % 4 != 0) {
+            return false;
+        }
+        int padding = compact.endsWith("==") ? 2 : compact.endsWith("=") ? 1 : 0;
+        for (int i = 0; i < length - padding; i++) {
+            char c = compact.charAt(i);
+            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/')) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Whether the bytes start with the PDF signature {@code %PDF-}. */

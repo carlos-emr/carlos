@@ -228,6 +228,44 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should size a padded PDF exactly at the limit, ignoring anything after the padding")
+    void shouldClassifyPaddedPdfAtLimit_asPdf() {
+        // One byte over a multiple of three, so the base64 ends in "==".
+        byte[] pdf = "%PDF-1.4\n%%EOF\n!".getBytes(StandardCharsets.US_ASCII);
+        assertThat(pdf.length % 3).isEqualTo(1);
+        String padded = Base64.getEncoder().encodeToString(pdf);
+        assertThat(padded).endsWith("==");
+
+        for (String payload : new String[] {padded, padded + "QUJDREVG"}) {
+            MessageHandler handler = handlerReturning(payload, "Base64");
+            // The full decode stops at the padding, so the document is exactly pdf.length bytes.
+            assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).bytes()).as(payload).isEqualTo(pdf);
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, pdf.length).status()).as(payload).isEqualTo(Status.PDF);
+            assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, pdf.length).status()).as(payload).isEqualTo(Status.PDF);
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, pdf.length - 1).status()).as(payload).isEqualTo(Status.TOO_LARGE);
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, pdf.length - 1).sizeBytes()).as(payload).isEqualTo(pdf.length);
+        }
+    }
+
+    @Test
+    @DisplayName("should class undeclared legacy text in OBX-5.1 as text, on both the capped and uncapped paths")
+    void shouldClassifyText_forUndeclaredLegacyText() {
+        MessageHandler handler = handlerReturning("Specimen received; see the attached note, page 2.", null);
+
+        for (long limit : new long[] {0, 10}) {
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.TEXT);
+            assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.TEXT);
+        }
+        // A declared binary encoding is never reinterpreted as text, and base64-shaped content
+        // without a declaration stays undisplayable binary.
+        assertThat(EmbeddedLabDocumentLoader.inspect(handlerReturning("Specimen received; see note.", "Base64"), 0, 0, 0).status())
+                .isEqualTo(Status.NOT_PDF);
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped(Base64.getEncoder().encodeToString(new byte[] {1, 2}))).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("Specimenreceived;seenote.")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QU=J")).isFalse();
+    }
+
+    @Test
     @DisplayName("should estimate the decoded size exactly for strict and lenient base64 and for hex")
     void shouldEstimateDecodedSize_fromEncodedLength() {
         for (int length = 0; length <= 7; length++) {
