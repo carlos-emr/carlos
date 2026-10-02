@@ -1046,11 +1046,16 @@ class ExcellerisSession:
         # and spaces in a password broke it). The query is never logged.
         url = f"{self.cfg.excelleris_url}?{urllib.parse.urlencode(params)}"
         log.debug("excelleris %s", what)
+        # Exactly the two request headers the shell script's curl sent beside
+        # Host: curl's default Accept and the configured User-Agent. The
+        # transport adds only Accept-Encoding: identity and Connection: close
+        # (urllib's connection handling), which do not change what the
+        # endpoint returns. ShellScriptWireParityTest pins this against curl.
         return self.transport.request(
             "GET",
             url,
             headers={
-                "Accept": "text/xml, */*",
+                "Accept": "*/*",
                 "User-Agent": self.cfg.excelleris_user_agent,
             },
         )

@@ -361,13 +361,31 @@ and `mule-config*.xml`), so the comparison is against the actual bridge, not a g
 ## Replacing `ExcellerisDownload.sh` with `excelleris_pull.py`
 
 Only if a site chooses to move from the shell-and-Mule option to this one. The tool takes
-the shell script's cron slot as is: the same Excelleris requests in the same order (login,
-one `Pending=Yes` query, one acknowledgment, logout), the same positive/negative
-acknowledgment rule (a positive ack only when the pull holds at least one `<Message>`; the
-script tested the first line for `<Message `, the tool parses the document),
-the same User-Agent bytes (`product = CARLOS`, the default), the same `YYYYMMDD-HHMMSS.xml`
-file names and `.xz` archives, and one run at a time under a lock. What the script handed
-to Mule, the tool uploads itself.
+the shell script's cron slot as is. On the Excelleris side the requests are the script's
+requests, whatever `[carlos] flavour` is set to (the Excelleris session code never reads it):
+
+- The same four `GET`s in the same order, with the same query strings byte for byte
+  (parameter names and order included): `Page=Login&Mode=Silent&UserID=…&Password=…`,
+  `Page=HL7&Query=NewRequests&Pending=Yes`, `Page=HL7&ACK=Positive|Negative`, `Logout=Yes`.
+- The same request headers: `Host`, the User-Agent (`product = CARLOS`, the default, is the
+  script's string byte for byte, escaped slashes included), `Accept: */*` (curl's default),
+  and the session cookie Excelleris set at login. The tool's HTTP library adds two transport
+  headers curl does not send, `Accept-Encoding: identity` and `Connection: close`; they
+  govern compression and connection reuse only. curl negotiates HTTP/2 where a server offers
+  it; the tool always speaks HTTP/1.1.
+- The same client certificate from the same PFX, with server verification on.
+- The same acknowledgment rule: positive only when the pull holds at least one `<Message>`
+  (the script tested the first line for `<Message `; the tool parses the document), negative
+  otherwise, including after a failed download; `ReturnCode="0"` accepted.
+- One difference by design: a password is URL-encoded. The script sent it raw, which broke
+  on `&`, `+`, `%`, `#` and spaces. For any other password the bytes are identical.
+
+`ShellScriptWireParityTest` in the test file runs curl with the script's exact flags and the
+tool's real transport against one recording TLS server and compares the request heads.
+
+On the host side: the same `YYYYMMDD-HHMMSS.xml` file names and `.xz` archives, one run at a
+time under a lock, an email on failure. What the script handed to Mule, the tool uploads
+itself.
 
 | `ExcellerisDownload.sh` flag | `excelleris_pull.py` |
 |---|---|
@@ -439,6 +457,8 @@ python3 -m unittest release/test_excelleris_pull.py -v
 ```
 
 They are not part of the repository's CI, which does not discover tests under `release/`.
+`ShellScriptWireParityTest` also needs `curl` on the machine running the tests and is skipped
+without it.
 
 ## Known limits
 

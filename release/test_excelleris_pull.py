@@ -20,6 +20,8 @@ import email
 import lzma
 import os
 import shutil
+import socket
+import subprocess
 import stat
 import sys
 import tempfile
@@ -499,7 +501,7 @@ class ExcellerisSessionTest(TempEnv):
         self.assertEqual(q["Mode"], ["Silent"])
         pull_q = urllib.parse.parse_qs(urllib.parse.urlsplit(t.calls[1][1]).query)
         self.assertEqual(pull_q, {"Page": ["HL7"], "Query": ["NewRequests"], "Pending": ["Yes"]})
-        self.assertEqual(t.calls[0][2]["Accept"], "text/xml, */*")
+        self.assertEqual(t.calls[0][2]["Accept"], "*/*")  # curl's default, as the script sent
 
     def test_access_denied_and_garbage_login_replies(self):
         with self.assertRaisesRegex(ep.StepError, "access denied"):
@@ -1049,6 +1051,37 @@ class FakeOscar19Handler(FakeCarlosHandler):
         return super().do_POST()
 
 
+def _tls_material(tmp: Path, pfx: Path) -> tuple[Path, Path, Path]:
+    """Server key+cert PEM, the CA bundle a client trusts it through, and the
+    clinic certificate (from the test PFX) a server requires of its client."""
+    srv_key, srv_cert = _self_signed("localhost", san="localhost")
+    server_pem = tmp / "server.pem"
+    server_pem.write_bytes(
+        srv_key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+        + srv_cert.public_bytes(serialization.Encoding.PEM)
+    )
+    ca_pem = tmp / "ca.pem"
+    ca_pem.write_bytes(srv_cert.public_bytes(serialization.Encoding.PEM))
+    _, client_cert, _ = pkcs12.load_key_and_certificates(pfx.read_bytes(), b"pfx-secret")
+    client_pem = tmp / "client-cert.pem"
+    client_pem.write_bytes(client_cert.public_bytes(serialization.Encoding.PEM))
+    return server_pem, ca_pem, client_pem
+
+
+def _excelleris_server_context(server_pem: Path, client_pem: Path) -> ssl.SSLContext:
+    """The Excelleris stand-in requires the clinic's client certificate."""
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.load_cert_chain(str(server_pem))
+    ctx.verify_mode = ssl.CERT_REQUIRED
+    ctx.load_verify_locations(cafile=str(client_pem))
+    return ctx
+
+
 def _serve(handler, server_ctx: ssl.SSLContext):
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     srv.socket = server_ctx.wrap_socket(srv.socket, server_side=True)
@@ -1069,28 +1102,8 @@ class LiveServersTest(TempEnv):
         self._env = {k: os.environ.get(k) for k in ("NO_PROXY", "no_proxy")}
         os.environ["NO_PROXY"] = os.environ["no_proxy"] = "localhost,127.0.0.1"
 
-        srv_key, srv_cert = _self_signed("localhost", san="localhost")
-        self.server_pem = self.tmp / "server.pem"
-        self.server_pem.write_bytes(
-            srv_key.private_bytes(
-                serialization.Encoding.PEM,
-                serialization.PrivateFormat.PKCS8,
-                serialization.NoEncryption(),
-            )
-            + srv_cert.public_bytes(serialization.Encoding.PEM)
-        )
-        self.ca_pem = self.tmp / "ca.pem"
-        self.ca_pem.write_bytes(srv_cert.public_bytes(serialization.Encoding.PEM))
-
-        # The Excelleris stand-in requires the clinic's client certificate.
-        _, client_cert, _ = pkcs12.load_key_and_certificates(self.pfx.read_bytes(), b"pfx-secret")
-        client_pem = self.tmp / "client-cert.pem"
-        client_pem.write_bytes(client_cert.public_bytes(serialization.Encoding.PEM))
-        ex_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ex_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-        ex_ctx.load_cert_chain(str(self.server_pem))
-        ex_ctx.verify_mode = ssl.CERT_REQUIRED
-        ex_ctx.load_verify_locations(cafile=str(client_pem))
+        self.server_pem, self.ca_pem, client_pem = _tls_material(self.tmp, self.pfx)
+        ex_ctx = _excelleris_server_context(self.server_pem, client_pem)
         self.excelleris = _serve(FakeExcellerisHandler, ex_ctx)
         self.excelleris.next_pull = PULL_WITH_RESULTS
 
@@ -1236,7 +1249,8 @@ class ExcellerisProductHeaderTest(ExcellerisSessionTest):
         with ep.ExcellerisSession(cfg, t):
             pass
         for _m, _u, headers, _b in t.calls:
-            self.assertEqual(headers["User-Agent"], ep.USER_AGENT_OSCAR19_SCRIPT)
+            # Exactly curl's default Accept plus the User-Agent, nothing else.
+            self.assertEqual(headers, {"Accept": "*/*", "User-Agent": ep.USER_AGENT_OSCAR19_SCRIPT})
 
 
 class Oscar19SessionTest(TempEnv):
@@ -1509,6 +1523,149 @@ class LiveOscar19SessionlessTest(LiveOscar19Test):
 
     def test_carlos_flavour_against_oscar19_fails_loudly(self):
         self.skipTest("covered by LiveOscar19Test")
+
+
+class _RawRecorder:
+    """A TLS server that keeps the raw request head of every connection and
+    answers like Excelleris, so two clients can be compared byte for byte."""
+
+    def __init__(self, ctx: ssl.SSLContext):
+        self.heads: list[bytes] = []
+        self.sock = socket.socket()
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind(("127.0.0.1", 0))
+        self.sock.listen(8)
+        self.port = self.sock.getsockname()[1]
+        self.ctx = ctx
+        threading.Thread(target=self._serve, daemon=True).start()
+
+    @staticmethod
+    def _reply(head: bytes) -> bytes:
+        target = head.split(b" ", 2)[1].decode()
+        q = _up.parse_qs(_up.urlsplit(target).query)
+        if q.get("Page") == ["Login"]:
+            body, extra = ep._AUTH_GRANTED.encode(), b"Set-Cookie: ASP.NET_SessionId=s1; path=/\r\n"
+        elif "ACK" in q:
+            body, extra = b'<HL7Messages ReturnCode="0"/>', b""
+        elif "Logout" in q:
+            body, extra = b"", b""
+        else:
+            body, extra = b"<HL7Messages/>", b""
+        return (
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/xml\r\nConnection: close\r\n"
+            + b"Content-Length: %d\r\n" % len(body)
+            + extra
+            + b"\r\n"
+            + body
+        )
+
+    def _serve(self):
+        while True:
+            try:
+                conn, _ = self.sock.accept()
+            except OSError:
+                return
+            try:
+                tls = self.ctx.wrap_socket(conn, server_side=True)
+                data = b""
+                while b"\r\n\r\n" not in data:
+                    chunk = tls.recv(4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                self.heads.append(data.split(b"\r\n\r\n", 1)[0])
+                tls.sendall(self._reply(data))
+                tls.close()
+            except OSError:
+                conn.close()
+
+    def close(self):
+        self.sock.close()
+
+
+@unittest.skipUnless(shutil.which("curl"), "curl not installed")
+class ShellScriptWireParityTest(TempEnv):
+    """The Excelleris requests are the shell script's requests. Run curl with
+    ExcellerisDownload.sh's exact flags and the tool's real transport against
+    one recording server and compare the request heads."""
+
+    def setUp(self):
+        super().setUp()
+        self._env = {k: os.environ.get(k) for k in ("NO_PROXY", "no_proxy")}
+        os.environ["NO_PROXY"] = os.environ["no_proxy"] = "localhost,127.0.0.1"
+        server_pem, self.ca_pem, client_pem = _tls_material(self.tmp, self.pfx)
+        self.recorder = _RawRecorder(_excelleris_server_context(server_pem, client_pem))
+        self.url = f"https://localhost:{self.recorder.port}/hl7pull.aspx"
+
+    def tearDown(self):
+        self.recorder.close()
+        for k, v in self._env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        super().tearDown()
+
+    @staticmethod
+    def _headers(head: bytes) -> dict[str, str]:
+        lines = head.decode().split("\r\n")[1:]
+        return {k.strip().lower(): v.strip() for k, v in (line.split(":", 1) for line in lines)}
+
+    def test_requests_match_the_shell_script_byte_for_byte(self):
+        _, _, c, srv = make_keys()
+        # A password without reserved characters: the script sent the value raw,
+        # the tool URL-encodes it, so only plain values can be compared.
+        self.write_conf(c, srv, url=self.url, password="clinicpass")
+        text = self.conf.read_text().replace(
+            "[excelleris]\n", f"[excelleris]\nca_file = {self.ca_pem}\n", 1
+        )
+        self.conf.write_text(
+            text
+        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        cfg = ep.load_config(self.conf)
+        with ep.ClientCertificate.from_config(cfg) as cert:
+            transport = ep.default_transport(
+                cfg.excelleris_timeout, cert.ssl_context(cfg.excelleris_ca_file), True
+            )
+            with ep.ExcellerisSession(cfg, transport) as session:
+                session.pull()
+                session.ack(False)
+        tool = self.recorder.heads[:]
+        del self.recorder.heads[:]
+
+        # ExcellerisDownload.sh, step by step. --cacert and --noproxy only make the
+        # stand-in reachable; they add nothing to the request.
+        jar = self.tmp / "cookie.txt"
+        common = [
+            "curl", "-s", "-S", "-G", "-L", "-A", ep.USER_AGENT_CARLOS_SCRIPT,
+            "--cert-type", "P12", "--cert", f"{self.pfx}:pfx-secret",
+            "--cacert", str(self.ca_pem), "--noproxy", "*",
+        ]  # fmt: skip
+        user, password = cfg.excelleris_user_id, cfg.excelleris_password
+        steps = [
+            ["--cookie-jar", str(jar), "--data", f"Page=Login&Mode=Silent&UserID={user}&Password={password}"],
+            ["--cookie", str(jar), "--data", "Page=HL7&Query=NewRequests&Pending=Yes"],
+            ["--cookie", str(jar), "--data", "Page=HL7&ACK=Negative"],
+            ["--cookie", str(jar), "--data", "Logout=Yes"],
+        ]  # fmt: skip
+        for extra in steps:
+            run = subprocess.run(common + extra + [self.url], capture_output=True, timeout=30)
+            self.assertEqual(run.returncode, 0, run.stderr.decode())
+        script = self.recorder.heads[:]
+
+        self.assertEqual(len(tool), 4)
+        self.assertEqual(len(script), 4)
+        for ours, theirs in zip(tool, script):
+            # Request line: method, path and query string, parameter order included.
+            self.assertEqual(ours.split(b"\r\n", 1)[0], theirs.split(b"\r\n", 1)[0])
+            h_ours, h_theirs = self._headers(ours), self._headers(theirs)
+            for name in ("host", "user-agent", "accept", "cookie"):
+                self.assertEqual(h_ours.get(name), h_theirs.get(name), name)
+            # urllib's connection handling adds exactly these two; curl adds none.
+            self.assertEqual(set(h_ours) - set(h_theirs), {"accept-encoding", "connection"})
+            self.assertEqual(h_ours["accept-encoding"], "identity")
+            self.assertEqual(h_ours["connection"], "close")
+            self.assertEqual(set(h_theirs) - set(h_ours), set())
 
 
 def _pem_pair_from_pfx(pfx: Path, password: bytes, out_dir: Path):
