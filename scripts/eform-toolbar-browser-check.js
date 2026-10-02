@@ -16,7 +16,15 @@ const toolbar = read('WEB-INF/jsp/eform/eformFloatingToolbar/eform_floating_tool
 const errors = [];
 let requests = [];
 let searches = [];
-const fixture = (owned = false, withList = false, newFormButton = false, subjectVariant = '') => `<!doctype html><html><head>
+const fallbackInput = '<input type="hidden" name="newForm" value="true" id="newForm" data-carlos-newform-fallback>';
+// Template newForm controls that submit nothing as rendered, each beside the server's fallback.
+const newFormMarkup = {
+  button: '<button id="newFormButton" type="submit" name="newForm" value="False">Save as existing</button><button id="newFormDisablingButton" type="submit" name="newForm" value="False" onclick="this.disabled = true; this.form.requestSubmit(this); return false;">Save once</button>',
+  checkbox: '<input type="checkbox" id="newFormControl" name="newForm" value="False">',
+  listbox: '<select id="newFormControl" name="newForm" size="2"><option value="False">False</option></select>',
+  disabled: '<input type="hidden" id="newFormControl" name="newForm" value="False" disabled>',
+};
+const fixture = (owned = false, withList = false, newFormVariant = '', subjectVariant = '') => `<!doctype html><html><head>
 <script src="/library/jquery/jquery-3.7.1.min.js"></script>
 <script>jQuery(function(){ document.getElementById('otherFaxInput').value='416-555-0123'; });</script>
 <script src="/library/eforms/faxControl.js"></script>
@@ -32,7 +40,7 @@ ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : '
 ${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option><option value="">No list recipient</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
 <button id="designerAddFax" type="button" onclick="document.getElementById('otherFaxInput').value=document.getElementById('designerFax').value; AddOtherFax();">Use designer number</button>
-${newFormButton ? '<button id="newFormButton" type="submit" name="newForm" value="False">Save as existing</button><button id="newFormDisablingButton" type="submit" name="newForm" value="False" onclick="this.disabled = true; this.form.requestSubmit(this); return false;">Save once</button><input type="hidden" name="newForm" value="true" id="newForm" data-carlos-newform-fallback>' : ''}
+${newFormMarkup[newFormVariant] ? newFormMarkup[newFormVariant] + fallbackInput : ''}
 <input name="recipient" value="Existing name"><input name="recipientFaxNumber" value="416-555-0000">
 <input name="SubmitButton" type="submit" value="Submit">
 <input name="PrintButton" type="button" value="Print" onclick="window.print()">
@@ -46,7 +54,7 @@ const server = http.createServer((req, res) => {
   if (req.url.startsWith('/eform/eformFloatingToolbar/eform_floating_toolbar') && !req.url.endsWith('.js') && !req.url.endsWith('.css')) {
     setTimeout(() => {res.setHeader('Content-Type', 'text/html'); res.end(toolbar);}, 600); return;
   }
-  if (req.url.startsWith('/fixture')) {res.setHeader('Content-Type','text/html'); res.end(fixture(req.url.includes('owned=owned'), req.url.includes('selection=list'), req.url.includes('newform=button'), (req.url.match(/subject=([a-z-]+)/) || [])[1] || '')); return;}
+  if (req.url.startsWith('/fixture')) {res.setHeader('Content-Type','text/html'); res.end(fixture(req.url.includes('owned=owned'), req.url.includes('selection=list'), (req.url.match(/newform=([a-z]+)/) || [])[1] || '', (req.url.match(/subject=([a-z-]+)/) || [])[1] || '')); return;}
   if (req.url.startsWith('/fax/SearchFaxRecipient')) {
     searches.push(req.url);
     res.setHeader('Content-Type', 'application/json');
@@ -78,9 +86,10 @@ const server = http.createServer((req, res) => {
         throw error;
       });
     }
-    async function open(owned=false, withList=false, newFormButton=false, subjectVariant='') {
+    async function open(owned=false, withList=false, newFormVariant='', subjectVariant='') {
+      if (newFormVariant === true) newFormVariant = 'button';
       requests=[];
-      await gotoApp(page, validateBaseUrl(`http://127.0.0.1:${server.address().port}`), `/fixture?owned=${owned ? 'owned' : 'no'}&selection=${withList ? 'list' : 'no'}&newform=${newFormButton ? 'button' : 'no'}&subject=${subjectVariant || 'plain'}`);
+      await gotoApp(page, validateBaseUrl(`http://127.0.0.1:${server.address().port}`), `/fixture?owned=${owned ? 'owned' : 'no'}&selection=${withList ? 'list' : 'no'}&newform=${newFormVariant || 'no'}&subject=${subjectVariant || 'plain'}`);
       await page.locator('#remoteFaxButton').waitFor();
       assert.equal(await page.locator('#otherFaxInput').count(),1);
       assert.equal(await page.locator('#otherFaxInput').inputValue(),'416-555-0123');
@@ -399,8 +408,8 @@ const server = http.createServer((req, res) => {
     assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0142');
     assert.equal(requests[0].get('recipient'),'Clinic Two');
     // Markup as EForm.ensureNewFormInput() emits it beside a template's own newForm submit
-    // button: the toolbar's submitter-less save posts the fallback once, the button posts only
-    // its own value, and a cancelled button submission does not lose the fallback.
+    // button: the toolbar's save posts newForm=true once, the button posts only its own value,
+    // and a cancelled button submission does not lose the flag.
     await open(false, false, true);
     await page.locator('#remoteSubmitButton').click();
     await page.waitForURL('**/eform/addEForm');
@@ -411,8 +420,8 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0].getAll('newForm'), ['False']);
-    // A template onsubmit that disables its newForm button (against double submits) runs after
-    // the fallback has been set aside; newForm=true must still be posted, once.
+    // A template onsubmit that disables its newForm button (against double submits) leaves no
+    // newForm value in the submission; newForm=true must still be posted, once.
     await open(false, false, true);
     await page.evaluate(() => {
       document.forms[0].addEventListener('submit', () => {
@@ -440,15 +449,47 @@ const server = http.createServer((req, res) => {
     assert.deepEqual(requests[0].getAll('newForm'), ['true']);
     await open(false, false, true);
     await page.evaluate(() => {
-      document.forms[0].addEventListener('submit', event => event.preventDefault(), {once: true});
+      document.forms[0].addEventListener('submit', event => {
+        event.preventDefault();
+        window.cancelledSubmit = true;
+      }, {once: true});
     });
     await page.locator('#newFormButton').click();
-    await page.waitForFunction(() => !document.getElementById('newForm').disabled);
+    await page.waitForFunction(() => window.cancelledSubmit === true);
     assert.equal(requests.length, 0);
     await page.locator('#remoteSubmitButton').click();
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0].getAll('newForm'), ['true']);
+    // The fallback stays in the page for template scripts (id, name, value) but is never
+    // serialized itself; newForm is reconciled against what the browser actually submits.
+    await open(false, false, 'checkbox');
+    assert.deepEqual(await page.evaluate(() => {
+      const fallback = document.getElementById('newForm');
+      return [fallback.name, fallback.value, fallback.disabled];
+    }), ['newForm', 'true', true]);
+    // A template newForm control whose state changes after load posts only its own value, both
+    // through the toolbar's save and through a submitter-less form.submit(); one that still
+    // contributes nothing leaves newForm=true, once.
+    const changes = {
+      checkbox: () => { document.getElementById('newFormControl').checked = true; },
+      listbox: () => { document.getElementById('newFormControl').options[0].selected = true; },
+      disabled: () => { document.getElementById('newFormControl').disabled = false; },
+    };
+    for (const variant of Object.keys(changes)) {
+      for (const path of ['toolbar', 'form.submit']) {
+        for (const changed of [false, true]) {
+          await open(false, false, variant);
+          if (changed) await page.evaluate(changes[variant]);
+          if (path === 'toolbar') await page.locator('#remoteSubmitButton').click();
+          else await page.evaluate(() => document.forms[0].submit());
+          await page.waitForURL('**/eform/addEForm');
+          assert.equal(requests.length, 1, `${variant} ${path} ${changed}`);
+          assert.deepEqual(requests[0].getAll('newForm'), changed ? ['False'] : ['true'],
+            `${variant} via ${path}, changed=${changed}`);
+        }
+      }
+    }
     // The template's subject is required; hiding it must not let an empty toolbar subject save.
     await open();
     await page.locator('#remote_eform_subject').fill('');

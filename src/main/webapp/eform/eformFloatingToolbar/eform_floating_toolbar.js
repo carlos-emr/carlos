@@ -90,43 +90,39 @@ function getEForm() {
 }
 
 /*
- * The server adds a hidden newForm=true fallback (data-carlos-newform-fallback) when the template
- * has no control that always submits newForm. A template's own submit button named newForm posts
- * its value only when it is the submitter; the toolbar's form.submit() has no submitter, so the
- * fallback must stay for those paths. Two listeners keep newForm posted exactly once:
+ * The server adds a hidden newForm=true fallback (data-carlos-newform-fallback) when the
+ * template, as rendered, has no control that submits newForm. Its controls can change after load
+ * (a checkbox checked, a list-box option selected, a disabled field enabled, the template's own
+ * newForm submit button used or disabled by an onsubmit handler), so whether the fallback is
+ * needed is decided once, at serialization, against what the browser actually submits:
  *
- * 1. submit (capture, before any template handler): when an enabled newForm button submits, leave
- *    the fallback out so only the button's value is posted. It is re-enabled on the next task, after
- *    the entry list has been built, so a submission another listener cancels cannot leave it
- *    disabled for a later toolbar save.
- * 2. formdata (fires after every submit handler, while the entry list is built, for requestSubmit,
- *    native clicks and form.submit() alike): if the form carries a fallback but the entry list
- *    has no newForm at all, append newForm=true. That covers a template onsubmit (or onclick) that
- *    disables its newForm button after step 1, which would otherwise post neither value. It never
- *    adds a second value: it only acts when none is present.
+ * - The fallback itself is never submitted. It is disabled, not removed, so template scripts still
+ *   find it by id or name and can read or change its value.
+ * - A capture formdata listener, which runs while the entry list is built for every submission
+ *   (requestSubmit, a native click, the toolbar's form.submit()) after all submit handlers,
+ *   appends the fallback's current value only when the entry list has no newForm at all.
+ *
+ * Browsers without the formdata event (Safari before 15) keep the fallback enabled and submit it
+ * as before; there a template newForm control that starts contributing after load also posts.
  */
-document.addEventListener("submit", function (event) {
-    const submitter = event.submitter;
-    // A disabled submitter (e.g. a template onclick that disables the button and then calls
-    // requestSubmit, or a button in a disabled fieldset) contributes no value, so the fallback
-    // must stay.
-    if (!submitter || submitter.name !== "newForm" || submitter.type === "image"
-            || submitter.matches(":disabled")) {
-        return;
-    }
-    const fallbacks = Array.from(event.target.querySelectorAll("input[data-carlos-newform-fallback]"))
-        .filter(input => !input.disabled);
-    fallbacks.forEach(input => { input.disabled = true; });
-    setTimeout(() => fallbacks.forEach(input => { input.disabled = false; }), 0);
-}, true);
+const eformFormDataEventSupported = typeof window.FormDataEvent === "function";
+
+function disableNewFormFallbacks() {
+    if (!eformFormDataEventSupported) return;
+    document.querySelectorAll("input[data-carlos-newform-fallback]").forEach(input => { input.disabled = true; });
+}
+// The server places the fallback inside the form, which is parsed before this body-end script.
+disableNewFormFallbacks();
 
 document.addEventListener("formdata", function (event) {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement) || !event.formData || event.formData.has("newForm")
-            || !form.querySelector("input[data-carlos-newform-fallback]")) {
+    if (!(form instanceof HTMLFormElement) || !event.formData || event.formData.getAll("newForm").length > 0) {
         return;
     }
-    event.formData.append("newForm", "true");
+    const fallback = form.querySelector("input[data-carlos-newform-fallback]");
+    if (fallback) {
+        event.formData.append("newForm", fallback.value);
+    }
 }, true);
 
 function submitEForm() {
