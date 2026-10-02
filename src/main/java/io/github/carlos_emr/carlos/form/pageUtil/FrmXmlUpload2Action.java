@@ -198,13 +198,13 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
                 // Earlier entries may already be committed by the legacy JDBC importer.
                 // Do not report success or expose archive contents/database details.
                 addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale())
-                        .getString("form.xmlUpload.legacyFailure"));
+                        .getString(processedEntry ? "form.xmlUpload.legacyPartialFailure" : "form.xmlUpload.legacyFailure"));
                 return forwardActionErrors();
             }
         }
         if (!processedEntry) {
             addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale())
-                    .getString("form.xmlUpload.legacyFailure"));
+                    .getString("form.xmlUpload.legacyEmpty"));
             return forwardActionErrors();
         }
         return null;

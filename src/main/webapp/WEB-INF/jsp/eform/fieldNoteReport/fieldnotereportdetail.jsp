@@ -109,18 +109,20 @@
     clinicalDomains.put("women's health", "Women's Health");
 
     // Rebuild this request's report; another viewer must never determine its contents.
+    Date reportStart;
+    Date reportEnd;
     try {
         java.time.LocalDate start = java.time.LocalDate.parse(dateStart);
         java.time.LocalDate end = java.time.LocalDate.parse(dateEnd);
         if (start.isAfter(end)) throw new IllegalArgumentException("Invalid date range");
         java.time.ZoneId zone = java.time.ZoneId.systemDefault();
-        fieldNoteManager.getResidentNameList(fieldNoteManager.getFieldNoteEforms(),
-                Date.from(start.atStartOfDay(zone).toInstant()),
-                Date.from(end.plusDays(1).atStartOfDay(zone).toInstant()));
+        reportStart = Date.from(start.atStartOfDay(zone).toInstant());
+        reportEnd = Date.from(end.plusDays(1).atStartOfDay(zone).toInstant());
     } catch (java.time.DateTimeException | IllegalArgumentException | NullPointerException ex) {
         response.sendError(400, "Invalid report date range");
         return;
     }
+    fieldNoteManager.getResidentNameList(fieldNoteManager.getFieldNoteEforms(), reportStart, reportEnd);
 
     HashMap<Integer, List<EFormValue>> residentFieldNoteValues = fieldNoteManager.getResidentFieldNoteValues(residentId);
 %>

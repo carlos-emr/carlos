@@ -33,6 +33,7 @@
 <%@ page import="java.util.*, java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -177,9 +178,9 @@
                         if (fieldNoteEforms.isEmpty()) {
                     %> <fmt:message key="admin.fieldNote.noEformAssigned"/>
                     <% }
-                    %> <input type="button" value="<fmt:message key="admin.fieldNote.selectEformsButton"/>"
+                    %> <c:if test="${canManageFieldNotes}"><input type="button" value="<fmt:message key="admin.fieldNote.selectEformsButton"/>"
                               title="<fmt:message key="admin.fieldNote.selectEforms"/>"
-                              onclick="window.location.href='fieldnoteselect'"/>
+                              onclick="window.location.href='fieldnoteselect'"/></c:if>
                 </td>
             </tr>
             <tr style="background-color: #F2F2F2;">

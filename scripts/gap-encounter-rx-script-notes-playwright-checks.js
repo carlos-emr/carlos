@@ -88,8 +88,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE script_no=${scriptNo} AND demographic_no=${patient} AND customName=${q(drug)}`) === '1',
       'The saved script does not carry the staged drug');
     await script.locator('#additionalNotes').waitFor({ state: 'visible', timeout: 30000 });
-    // The window reloads its preview for the chosen pharmacy as it opens; a note typed during that
-    // reload is lost from the preview, so let the window settle like a person reading it would.
+    // Allow the initial pharmacy selection to finish before testing an explicit preview reload.
     await rx.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   });
 
@@ -126,6 +125,10 @@ async function workflow(s) {
       preview.evaluate(() => window.location.reload())
     ]);
     await previewShows(script, note, 'Reloading the preview restored the old note');
+    await script.goto(script.url(), { waitUntil: 'load' });
+    h.assert(await script.locator('#additionalNotes').inputValue() === note,
+      'Reopening the saved script did not initialize the editor with its stored note');
+    await previewShows(script, note, 'Reopening the saved script erased its note from the preview');
     await consumeNoteBodies();
   });
 

@@ -240,6 +240,28 @@ async function workflow(s) {
       'The unselected eForm is not offered for selection again');
   });
 
+  await s.step('a read-only report user has no selection control and GET cannot change the selected forms', async () => {
+    sql.execute(`DELETE FROM secUserRole WHERE provider_no=${q(supervisor)} AND role_name='admin';
+      UPDATE secObjPrivilege SET privilege='r' WHERE roleUserGroup=${q(supervisor)} AND objectName='_admin.fieldnote'`);
+    const context = await h.newContext(s.context.browser(), config);
+    context.on('page', page => h.wireStrictPage(page, 'fieldnote-reader', s.recorder));
+    try {
+      const page = await h.login(context, { ...config, testUser: fixture.username }, s.recorder, { label: 'fieldnote-reader' });
+      const base = `${String(config.baseUrl).replace(/\/$/, '')}/eform/fieldNoteReport`;
+      await page.goto(`${base}/fieldnotereport`);
+      await page.locator('form[name="fieldNoteReportForm"]').waitFor();
+      h.assert(await page.locator('input[onclick*="fieldnoteselect"]').count() === 0,
+        'A read-only report user was offered the selection control');
+      const response = await context.request.get(`${base}/fieldnoteselect?selected_eform=${fid}`);
+      h.assert(response.status() === 405, 'GET was not refused for a field-note selection change');
+      await response.dispose();
+      h.assert(sql.value(`SELECT COUNT(*) FROM property WHERE name='fieldNoteEform' AND FIND_IN_SET(${fid}, COALESCE(value,''))>0`) === '0',
+        'GET changed the field-note selection');
+    } finally {
+      await context.close();
+    }
+  });
+
   await s.step('a clinician without administration rights is refused the field-note report', async () => {
     // The same throwaway login, now a doctor only: no administration role and no _admin.fieldnote grant.
     sql.execute(`DELETE FROM secUserRole WHERE provider_no=${q(supervisor)} AND role_name='admin';

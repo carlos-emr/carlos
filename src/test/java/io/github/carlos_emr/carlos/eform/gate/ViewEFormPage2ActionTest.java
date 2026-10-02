@@ -129,6 +129,21 @@ class ViewEFormPage2ActionTest extends CarlosUnitTestBase {
         org.mockito.Mockito.verifyNoInteractions(mockDispatcher);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldExposeSelectionControl_onlyToFieldNoteWriters(boolean writable) throws Exception {
+        ActionContext.of().withActionName("eform/fieldNoteReport/fieldnotereport").bind();
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fieldnote"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fieldnote"), eq("w"), isNull()))
+                .thenReturn(writable);
+        when(mockRequest.getRequestDispatcher("/WEB-INF/jsp/eform/fieldNoteReport/fieldnotereport.jsp"))
+                .thenReturn(mockDispatcher);
+        action.execute();
+        verify(mockRequest).setAttribute("canManageFieldNotes", writable);
+        verify(mockDispatcher).forward(mockRequest, mockResponse);
+    }
+
     @Test
     void shouldAllowFieldNoteSelection_withPostAndWritePrivilege() throws Exception {
         ActionContext.of().withActionName("eform/fieldNoteReport/fieldnoteselect").bind();

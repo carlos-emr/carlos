@@ -14,9 +14,10 @@ for (const value of ['A new note & "quotes"\nsecond line', '']) {
     const notes = { style: {}, textContent: 'stale' }, hidden = { value: 'stale' };
     const context = {
       hasPreview: true,
-      document: { getElementById: () => ({ value }) },
+      document: { getElementById: id => id === 'additionalNotes' ? { value } : null },
       frames: { preview: { document: {
-        getElementById: () => notes, getElementsByName: () => [hidden]
+        getElementById: id => id === 'additNotes' ? notes : null,
+        getElementsByName: name => name === 'additNotes' ? [hidden] : []
       } } }
     };
     vm.runInNewContext(source.slice(start, end).replace(/<%=.*?%>/g, 'original saved note'), context);

@@ -32,7 +32,7 @@ class EformLogError2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldKeepAuthorizedPostReportingFunctional() throws Exception {
+    void shouldKeepErrorReportingFunctional_whenPostIsAuthorized() throws Exception {
         var security = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, security);
         when(security.hasPrivilege(any(), eq("_eform"), eq("r"), isNull())).thenReturn(true);

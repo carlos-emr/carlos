@@ -229,6 +229,9 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
         assertThat(action.getActionErrors()).hasSize(1);
+        assertThat(action.getActionErrors()).contains(invalidEntry
+                ? "Unable to import form data. Check the archive and retry."
+                : "The archive contains no form data files.");
         assertThat(request.getAttribute("actionErrors")).isEqualTo(action.getActionErrors());
         verify(eformDao, never()).persist(any(EForm.class));
     }

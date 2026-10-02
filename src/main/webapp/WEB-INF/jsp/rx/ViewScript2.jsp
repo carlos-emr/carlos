@@ -1711,7 +1711,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             <!--td width=10px></td-->
                                             <td>
                                                 <textarea id="additionalNotes" style="width: 200px"
-                                                          onchange="javascript:addNotes();"></textarea>
+                                                          onchange="javascript:addNotes();"><carlos:encode value='<%= comment %>'/></textarea>
                                                 <input type="button" id="saveAdditionalNotes" value="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
                                                        class="btn btn-outline-secondary" onclick="javascript:addNotes();"/>
                                                 <p id="additionalNotesSaveError" class="alert alert-danger" role="alert" hidden><fmt:message key="tickler.ticklerMain.errorNoteSaveFailed"/></p>

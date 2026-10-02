@@ -81,6 +81,10 @@ public class ViewEFormPage2Action extends BaseEFormView2Action {
         }
 
         requirePrivilege(request, route.privilege());
+        if (route.privilege() == EFormViewRoutes.Privilege.FIELDNOTE_READ) {
+            request.setAttribute("canManageFieldNotes", securityInfoManager.hasPrivilege(
+                    loggedInInfo(request), "_admin.fieldnote", "w", null));
+        }
         return forwardToInternalView(request, response, route.internalView());
     }
 }
