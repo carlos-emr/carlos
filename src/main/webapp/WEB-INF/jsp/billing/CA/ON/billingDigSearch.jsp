@@ -128,8 +128,12 @@
                 <td style="width:12%"><a
                         href="javascript:CodeAttach('<carlos:encode value='${__row.code}' context='javaScriptAttribute'/>|<carlos:encode value='${__row.description}' context='javaScriptAttribute'/>')"><carlos:encode value="${__row.code}" context="html"/>
                 </a></td>
+                <%-- Prefixed name: a control named with a bare numeric dx code made
+                     CSRFGuard's form.elements[...] lookup resolve it as an index and
+                     throw, so the update form never received its token (#4130).
+                     BillingDiagUpdate2Action reads desc_<code>. --%>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<carlos:encode value='${__row.code}' context='htmlAttribute'/>"
+                                             name="desc_<carlos:encode value='${__row.code}' context='htmlAttribute'/>"
                                              value="<carlos:encode value='${__row.description}' context='htmlAttribute'/>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
                                                                                  value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <carlos:encode value='${__row.code}' context='htmlAttribute'/>">

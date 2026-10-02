@@ -777,7 +777,7 @@
                 </oscar:oscarPropertiesCheck></td>
 
             <form name="printFrm" method="post" onsubmit="return onPrint();"
-                  action="<rewrite:reWrite jspPage="printPrevention" context="htmlAttribute"/>">
+                  action="<rewrite:reWrite jspPage="/prevention/printPrevention" context="htmlAttribute"/>">
                 <input type="hidden" name="immunizationOnly" value="false"/>
                 <td valign="top" class="MainTableRightColumn">
 

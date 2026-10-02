@@ -22,12 +22,17 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -162,6 +167,90 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
         assertThat(results).hasSize(1);
         assertThat(((Number) results.get(0)[1]).intValue()).isEqualTo(9834001);
         assertThat(results.get(0)[14]).isEqualTo(status);
+    }
+
+
+    /**
+     * The Inbox patient search matched a lab through {@code d.hin LIKE :patientHealthNumber}, which
+     * a NULL HIN never satisfies, so a patient without a health card number (uninsured, a
+     * newborn, out of province, an imported record) disappeared from every name search.
+     */
+    @Nested
+    @DisplayName("Inbox patient search with a missing health card number")
+    @Tag("search")
+    class PatientSearchWithoutHealthNumber {
+
+        private static final String PROVIDER = "999998";
+
+        private Integer createDemographic(String lastName, String hin) {
+            Demographic demo = new Demographic();
+            demo.setFirstName("Nohin");
+            demo.setLastName(lastName);
+            demo.setHin(hin);
+            demo.setSex("F");
+            demo.setProviderNo(PROVIDER);
+            demo.setPatientStatus("AC");
+            demo.setPatientStatusDate(new Date());
+            demo.setDateJoined(new Date());
+            hibernateTemplate.save(demo);
+            hibernateTemplate.flush();
+            return demo.getDemographicNo();
+        }
+
+        private void routeLab(int labNo, String healthNo, Integer demographicNo) {
+            Hl7TextInfo info = createHl7TextInfo("NULLHIN-" + labNo, "Nohin", "Fixture", healthNo);
+            info.setLabNumber(labNo);
+            info.setObrDate("2026-09-30 10:00:00");
+            hibernateTemplate.flush();
+            ProviderLabRoutingModel routing = new ProviderLabRoutingModel();
+            routing.setLabNo(labNo);
+            routing.setLabType("HL7");
+            routing.setProviderNo(PROVIDER);
+            routing.setStatus("N");
+            entityManager.persist(routing);
+            if (demographicNo != null) {
+                entityManager.persist(new PatientLabRouting(labNo, "HL7", demographicNo));
+            }
+            entityManager.flush();
+        }
+
+        private List<Object[]> searchByName(String lastName, String healthNumber, boolean mixLabsAndDocs) {
+            return hl7TextInfoDao.findLabAndDocsViaMagic(PROVIDER, null, "", lastName, healthNumber,
+                    "N", false, 0, 100, mixLabsAndDocs, null, true, true, null, null);
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should find a matched lab by name when the patient has no HIN")
+        void shouldFindMatchedLab_whenPatientHinIsNull(boolean mixLabsAndDocs) {
+            Integer demographicNo = createDemographic("Nullhinmatched", null);
+            routeLab(9835001, "9090909090", demographicNo);
+
+            List<Object[]> results = searchByName("Nullhinmatched", "", mixLabsAndDocs);
+
+            assertThat(results).extracting(row -> ((Number) row[1]).intValue()).containsExactly(9835001);
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should find an unmatched lab by name when the lab carries no health number")
+        void shouldFindUnmatchedLab_whenLabHealthNumberIsNull(boolean mixLabsAndDocs) {
+            routeLab(9835002, null, null);
+
+            List<Object[]> results = searchByName("Fixture", "", mixLabsAndDocs);
+
+            assertThat(results).extracting(row -> ((Number) row[1]).intValue()).contains(9835002);
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should not match a patient without a HIN when a health number is searched")
+        void shouldExcludeNullHinPatient_whenHealthNumberIsSearched(boolean mixLabsAndDocs) {
+            Integer demographicNo = createDemographic("Nullhinsearched", null);
+            routeLab(9835003, null, demographicNo);
+
+            assertThat(searchByName("Nullhinsearched", "12345", mixLabsAndDocs)).isEmpty();
+        }
     }
 
     @Test

@@ -54,18 +54,16 @@ async function workflow(s) {
   s.sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${s.patient},${documentNo},'A');
     INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (${sqlString(s.provider)},${documentNo},'DOC','N')`);
 
-  if (!await inbox.locator('#inbox-sidebar').isVisible()) await inbox.locator('#inbox-sidebar-toggle').click();
-  await inbox.locator('#anyProvider').check();
-  await inbox.locator('#statusNew').check();
-  await inbox.locator('#specificPatients').check();
-  await inbox.locator('#inputLastName').fill(s.marker);
-  await pickDate(inbox, '#startDate', '2026-03-03');
-  await pickDate(inbox, '#endDate', '2026-03-05');
+  // A search submits the form and reloads the Inbox, whose sidebar starts collapsed on every
+  // load, so each search reopens it and fills the criteria again.
   const search = async () => {
-    // Searching collapses the filter sidebar. Reopen it before the next query.
-    if (!await inbox.locator('#inbox-sidebar').isVisible()) {
-      await inbox.locator('#inbox-sidebar-toggle').click();
-    }
+    if (!await inbox.locator('#inbox-sidebar').isVisible()) await inbox.locator('#inbox-sidebar-toggle').click();
+    await inbox.locator('#anyProvider').check();
+    await inbox.locator('#statusNew').check();
+    await inbox.locator('#specificPatients').check();
+    await inbox.locator('#inputLastName').fill(s.marker);
+    await pickDate(inbox, '#startDate', '2026-03-03');
+    await pickDate(inbox, '#endDate', '2026-03-05');
     await inbox.locator('#inboxhubFormSearchBtn').click();
     await settle(inbox, timeout);
     return shownRows(inbox);

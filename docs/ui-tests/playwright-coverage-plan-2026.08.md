@@ -177,6 +177,19 @@ complement the UI workflows.
 | `record-access` | §2.5, §4.4 | Cross-patient episode read and reassignment refused with 404 and no change; another provider's scratch-pad version neither readable nor deletable, while the owner's is |
 | `lot-number-search` | §3.4 | Administration ▸ Search lot number by prevention, inside its iframe: an exact owned lot returned with punctuation intact, then a repeated no-match search from the results page, with the row unchanged |
 
+**October 2026 expansion: 78 further checks.** A second pass wrote and live-validated
+78 checks for backlog rows of §2.2–§3.7 and §4.1 (authentication and record
+administration, schedule views and settings, merges, imports and patient sets,
+chart templates, Dx registry, flowsheets, immunizations, documents, HRM and labs,
+Ontario billing correction, payments, OHIP and RA, Rx edits and interactions,
+consultation configuration, messenger, reports, dashboards, and most of the
+Administration panel). The table of those checks, their results on the packaged
+install and the routes found to have no UI entry is
+[release-2026.08-workflow-coverage-expansion.md](release-2026.08-workflow-coverage-expansion.md).
+Most of them fail on confirmed application defects by design; findings 53–116 of
+[app-findings-log.md](app-findings-log.md) record each one. Rows of the tables
+below that this pass implemented are covered there rather than re-listed here.
+
 The navigation audits share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
 to the page that broke. The remaining checks exercise workflows or contracts:
@@ -513,7 +526,7 @@ until the package can be installed with nginx + ModSecurity in CI.
 | Check | Path | Asserts | Fixtures | Routes |
 |---|---|---|---|---|
 | `billing-on-correction-delete` | Master Record ▸ Billing History ▸ bill; Administration ▸ Billing ▸ Billing Correction | Edit service code/dx/units → `billing_on_item` updated; status change; delete variants mark `billing_on_cheader1.status='D'` and unbill the appointment (day sheet B badge) | Bill created through the `billing-on-submit` path | `BillingONCorrection`, `UpdateBillingONCorrection`, `ViewBillingONStatus`, `BillingDelete*` |
-| `billing-on-invoice-3rdparty` | Master Record ▸ Invoice List ▸ print; Administration ▸ Billing ▸ Billing Correction ▸ 3rd-party bill ▸ payments; Administration ▸ Billing ▸ Manage Payment Type | bytes `%PDF` with the invoice logo; `billing_on_payment` rows; statement balances | Third-party bill | `BillingInvoice*`, `ViewBillingON3rdInv`, `billingON3rdPayments`, `Add3rdPartyPayment`, `managePaymentType` |
+| `billing-on-invoice-third-party` | Master Record ▸ Invoice List ▸ print; Administration ▸ Billing ▸ Billing Correction ▸ 3rd-party bill ▸ payments; Administration ▸ Billing ▸ Manage Payment Type | bytes `%PDF` with the invoice logo; `billing_on_payment` rows; statement balances | Third-party bill | `BillingInvoice*`, `ViewBillingON3rdInv`, `billingON3rdPayments`, `Add3rdPartyPayment`, `managePaymentType` |
 | `billing-on-ohip-file-cycle` | Administration ▸ Billing ▸ Simulation OHIP File; Generate OHIP File; Billing Reconciliation ▸ pick the RA file ▸ summary / detail ▸ settle; Upload MOH files (fixture error report); View MOH files | Claim file bytes match the MOH fixed-width layout for the seeded bills; bills flip to `B`; the RA creates `raheader`/`radetail`; settle flips to `S`; the error report marks rejects | Synthetic RA placed in the MOH files directory by the fixture (the `ImportOnRA` route has no UI caller — the Billing Reconciliation page reads the directory), synthetic error-report file, seeded bills | `ViewBillingOHIPsimulation`, `ViewBillingOHIPreport`, `ViewGenReport`, `ViewGenRA`, `ViewOnGenRA*`, `ViewOnGenRAsettle`, `BillingONUpload`, `DocumentErrorReportUpload`, `moveMOHFiles` |
 | `billing-on-group-disk-zero-total` **(landed, issue #3942)** | Administration ▸ Billing ▸ Generate OHIP diskette ▸ select each provider separately ▸ Create Report ▸ download the OHIP file ▸ regenerate the ZERO provider with R | Each selected provider gets its own disk; ZERO has the expected HEB/HEH/HET records, billed claims, disk linkage and filename summary; the unselected provider remains unbilled; regeneration preserves records and empty-provider metadata; the provider with no claims produces no file | Throwaway three-provider billing group and two seeded claims in an isolated date window; owned rows/files removed | `ViewBillingONMRI`, `ViewOngenreport`, `ViewOnregenreport`, `OscarDownload` |
 | `billing-on-mri-batch-clipboard` | Schedule ▸ Billing ▸ MRI; Administration ▸ Billing ▸ Batch Billing; bill form ▸ clipboard ▸ print | MRI lists unbilled/errored; batch creates N bills from N appointments; clipboard rows and print bytes | Seeded appointments | `ViewBillingONMRI`, `BatchBill`, `ViewBillingClipboard`, `ViewPrintBillingClipboard` |

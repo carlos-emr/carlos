@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -134,8 +133,10 @@ public class LabService extends AbstractServiceImpl {
 		}
 
         File savedLabFile;
+        File documentDir;
         try {
             savedLabFile = PathValidationUtils.validateExistingDocumentPath(filePath);
+            documentDir = PathValidationUtils.getRequiredDocumentDirectory();
             // Use the containment-validated path for all downstream consumers (e.g. msgHandler.parse below).
             filePath = savedLabFile.getPath();
         } catch (IOException | SecurityException e) {
@@ -144,12 +145,15 @@ public class LabService extends AbstractServiceImpl {
         }
         MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
         if (msgHandler == null) {
+            FileUploadCheck.discardUnreferenced(savedLabFile, documentDir);
             return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(labT.getFileName(), "Failed", "Unsupported lab type", null, type)).build();
         }
         AtomicReference<Hl7TextMessageTo1> responseBody = new AtomicReference<>(labT);
         try {
-            FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeIfNew(savedLabFile.getName(),
-                    () -> Files.newInputStream(savedLabFile.toPath()), loggedInInfo.getLoggedInProviderNo(),
+            // The saved copy is removed unless the stored lab may reference it, so a duplicate or a
+            // failed upload does not leave an orphan in DOCUMENT_DIR for every client retry.
+            FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeSavedFileIfNew(savedLabFile, documentDir,
+                    savedLabFile.getName(), loggedInInfo.getLoggedInProviderNo(),
                     checksumId -> {
                         if (msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
                                 savedLabFile.getPath(), checksumId, request.getRemoteAddr()) == null) return false;
