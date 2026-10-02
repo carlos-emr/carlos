@@ -1495,25 +1495,31 @@ public class EForm extends EFormBase {
     }
 
     /**
-     * True when the form already submits a value named exactly {@code newForm}, i.e. a control it
+     * True when the form already supplies a value named exactly {@code newForm}, i.e. a control it
      * owns (a descendant, or one elsewhere that names it with {@code form=}; a descendant assigned
-     * to another form does not count) is successful by that name (HTML forms spec): an input other than the button-like
-     * types (which submit nothing unless they are the submitter), a select that would submit at
-     * least one option, or a textarea; not disabled (itself or through a disabled ancestor
-     * fieldset); and, for a checkbox or radio, checked. Anything else (an {@code <a name>}, a
-     * disabled field, an unchecked box, a select with nothing to submit) contributes no
-     * parameter, so it must not suppress the fallback.
+     * to another form does not count) is successful by that name (HTML forms spec): an input
+     * other than the button, reset and image types, a select that would submit at least one
+     * option, or a textarea; not disabled (itself or through a disabled ancestor fieldset); and,
+     * for a checkbox or radio, checked. Anything else (an {@code <a name>}, a disabled field, an
+     * unchecked box, a select with nothing to submit) contributes no parameter, so it must not
+     * suppress the fallback.
+     *
+     * <p>A submit button named {@code newForm} ({@code <button>} without a non-submit type, or
+     * {@code <input type=submit>}) also counts. It submits its value only when it is the
+     * submitter, which a static hidden input cannot know; a fallback beside it would post two
+     * conflicting values whenever that button is used, so the template's own button is trusted
+     * to supply the flag, as it was before the fallback existed.
      */
     private static boolean hasSubmittableNewFormControl(Element form) {
+        String controls = "input[name], select[name], textarea[name], button[name]";
         Document document = form.ownerDocument();
-        Elements candidates = document != null
-                ? document.select("input[name], select[name], textarea[name]")
-                : form.select("input[name], select[name], textarea[name]");
+        Elements candidates = document != null ? document.select(controls) : form.select(controls);
         return candidates.stream()
                 .filter(control -> "newForm".equals(control.attr("name")))
                 .filter(control -> formOwner(control) == form)
                 .filter(control -> !control.is(
-                        "input[type=button], input[type=submit], input[type=reset], input[type=image]"))
+                        "input[type=button], input[type=reset], input[type=image], "
+                        + "button[type=button], button[type=reset]"))
                 .filter(control -> !control.hasAttr("disabled"))
                 .filter(control -> !disabledByFieldset(control))
                 .filter(control -> !control.is("input[type=checkbox], input[type=radio]")
@@ -1556,9 +1562,11 @@ public class EForm extends EFormBase {
 
     /**
      * Whether a select would submit at least one option: a selected option that is not disabled
-     * (an option in a disabled optgroup is disabled). A single select keeps only its last
-     * explicitly selected option and, when none is selected, defaults to its first enabled
-     * option; a multiple select with nothing selected, or an empty select, submits nothing.
+     * (an option in a disabled optgroup is disabled). Only a single-line select (no
+     * {@code multiple} and a display size of 1: {@code size} absent, invalid or not above 1)
+     * keeps just its last explicitly selected option and, when none is selected, defaults to its
+     * first enabled option. A multiple or list-box ({@code size > 1}) select submits only options
+     * explicitly selected, and an empty select submits nothing.
      */
     private static boolean selectSubmitsValue(Element select) {
         List<Element> options = select.select("option");
@@ -1569,7 +1577,17 @@ public class EForm extends EFormBase {
         if (!selected.isEmpty()) {
             return !optionDisabled(selected.get(selected.size() - 1));
         }
-        return options.stream().anyMatch(option -> !optionDisabled(option));
+        return displaySize(select) == 1 && options.stream().anyMatch(option -> !optionDisabled(option));
+    }
+
+    /** A non-multiple select's display size: a valid {@code size} above zero, otherwise 1. */
+    private static int displaySize(Element select) {
+        String size = select.attr("size").trim();
+        if (!size.matches("\\d{1,9}")) {
+            return 1;
+        }
+        int value = Integer.parseInt(size);
+        return value > 0 ? value : 1;
     }
 
     private static boolean optionDisabled(Element option) {
