@@ -1307,7 +1307,8 @@ function initializeFaxRecipient() {
         delete fax.dataset.cleared;
         if (option && option.value) {
             fax.value = option.value;
-            if (name) name.value = option.dataset.recipientName;
+            // A recipient chosen from the menu names itself, so it is no longer a typed name.
+            if (name) { name.value = option.dataset.recipientName; delete name.dataset.edited; }
             fax.dataset.edited = 'true';
             delete fax.dataset.typed;
         } else {
@@ -1318,9 +1319,14 @@ function initializeFaxRecipient() {
         }
     });
     if (name) {
-        ['input', 'change'].forEach(event => {
-            name.addEventListener(event, () => { name.dataset.edited = 'true'; });
-        });
+        // Only the clinician's own typing makes the name theirs. A directory pick fills it with a
+        // synthetic change and names the recipient whose number it chose, so a later choice on the
+        // eForm's own list must replace that name along with the number instead of pairing the
+        // directory recipient's name with the list recipient's number. Typing is tracked through
+        // trusted input only: leaving the field after a pick fires a trusted change for the
+        // picked value, which is not the clinician's own name.
+        name.addEventListener('input', event => { if (event.isTrusted) name.dataset.edited = 'true'; });
+        name.addEventListener('change', event => { if (!event.isTrusted) delete name.dataset.edited; });
         // Typing a different recipient name must not keep the previous recipient's number: the fax
         // would go there under the new name. Clear it (as an explicit empty override, so the eForm's
         // number is not resurrected either) until a directory row or a typed number supplies one.
