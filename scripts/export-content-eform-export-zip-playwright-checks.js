@@ -97,7 +97,9 @@ async function workflow(s) {
     const header = file.headers['content-disposition'] || '';
     h.assert(dispositionProblem(header) === null, `${label}: invalid download filename: ${dispositionProblem(header)}`);
     const extended = /;\s*filename\*=UTF-8''([^;]+)/i.exec(header);
-    h.assert(extended && decodeURIComponent(extended[1]) === form.download,
+    let decodedName = null;
+    try { decodedName = extended ? decodeURIComponent(extended[1]) : null; } catch (error) { /* assertion below reports invalid UTF-8 */ }
+    h.assert(decodedName === form.download,
       `${label}: download header lost or mangled the form name`);
     if (label !== 'accent') h.assert(file.name === form.download, `${label}: browser download name differs`);
     else h.assert(file.name.includes('Łódź') && file.name.endsWith('.zip'), 'Browser lost the Unicode attachment name');

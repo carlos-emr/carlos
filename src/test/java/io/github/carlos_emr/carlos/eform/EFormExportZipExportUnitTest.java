@@ -28,6 +28,10 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.nio.file.Path;
+import org.junit.jupiter.api.io.TempDir;
+import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
+import static org.mockito.Mockito.*;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -123,7 +127,7 @@ class EFormExportZipExportUnitTest {
         Map<String, byte[]> archive = entries(eform("A/B", "form.html", "first"), eform("A\\B", "form.html", "second"));
         assertThat(archive).hasSize(4);
         assertThat(new String(archive.get("A_B/form.html"), StandardCharsets.UTF_8)).isEqualTo("first");
-        assertThat(new String(archive.get("A_B-2/form.html"), StandardCharsets.UTF_8)).isEqualTo("second");
+        assertThat(new String(archive.get("A_B-2/export-2-form.html"), StandardCharsets.UTF_8)).isEqualTo("second");
     }
 
     @Test
@@ -132,8 +136,29 @@ class EFormExportZipExportUnitTest {
                 eform("Foo-2", "form.html", "second"), eform("foo", "form.html", "third"));
         assertThat(archive).hasSize(6);
         assertThat(new String(archive.get("Foo/form.html"), StandardCharsets.UTF_8)).isEqualTo("first");
-        assertThat(new String(archive.get("Foo-2/form.html"), StandardCharsets.UTF_8)).isEqualTo("second");
-        assertThat(new String(archive.get("foo-3/form.html"), StandardCharsets.UTF_8)).isEqualTo("third");
+        assertThat(new String(archive.get("Foo-2/export-2-form.html"), StandardCharsets.UTF_8)).isEqualTo("second");
+        assertThat(new String(archive.get("foo-3/export-3-form.html"), StandardCharsets.UTF_8)).isEqualTo("third");
+    }
+
+    @Test
+    void shouldImportEveryOriginalForm_whenExportedHtmlBasenamesCollide(@TempDir Path images) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        new EFormExportZip().exportForms(List.of(eform("A/B", "form.html", "first"),
+                eform("A\\B", "form.html", "second"), eform("a_b", "export-2-form.html", "third")), bytes);
+        Map<String, String> saved = new LinkedHashMap<>();
+        try (var imageFolder = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
+                EForm form = invocation.getArgument(0);
+                saved.put(form.getFormName(), form.getFormHtml());
+                return "fixture";
+            });
+            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
+        }
+        assertThat(saved).containsExactlyInAnyOrderEntriesOf(Map.of("A/B", "first", "A\\B", "second", "a_b", "third"));
+        try (var staged = java.nio.file.Files.list(images.resolve("extractFolder"))) {
+            assertThat(staged.toList()).isEmpty();
+        }
     }
 
     @ParameterizedTest
