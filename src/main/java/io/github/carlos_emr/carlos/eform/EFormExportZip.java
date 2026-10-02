@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import java.io.*;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
@@ -67,7 +68,7 @@ public class EFormExportZip {
      * Stored paths are validated separately; the caller allocates unique archive entry names.
      *
      * @param name display title used to generate an export name
-     * @return a validated filename component with path syntax and controls replaced
+     * @return a validated component of at most 251 UTF-8 bytes, reserving four bytes for .zip
      * @throws SecurityException when the generated component is invalid or empty
      */
     public static String exportNameComponent(String name) {
@@ -81,7 +82,22 @@ public class EFormExportZip {
         if (safeName.matches("(?i)(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(?:\\..*)?")) {
             safeName = "_" + safeName;
         }
-        return PathValidationUtils.validatePathComponent(safeName, "eform export name");
+        return PathValidationUtils.validatePathComponent(boundedComponent(safeName, "", 251)
+                .replaceAll("[ .]+$", "_"), "eform export name");
+    }
+
+    /** Bounds UTF-8 bytes without splitting a code point, retaining space for a required suffix. */
+    private static String boundedComponent(String base, String suffix, int limit) {
+        int remaining = limit - suffix.getBytes(StandardCharsets.UTF_8).length;
+        int end = 0;
+        while (end < base.length()) {
+            int codePoint = base.codePointAt(end);
+            int bytes = codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
+            if (bytes > remaining) break;
+            remaining -= bytes;
+            end += Character.charCount(codePoint);
+        }
+        return base.substring(0, end) + suffix;
     }
 
     public void exportForms(List<EForm> eForms, OutputStream os) throws IOException, Exception {
@@ -113,20 +129,20 @@ public class EFormExportZip {
                     .replaceAll("[*?\"<>|]", "_"));
             String baseFolder = formFolder;
             int suffix = 2;
-            while (!folders.add(formFolder)) formFolder = baseFolder + "-" + suffix++;
+            while (!folders.add(formFolder)) formFolder = boundedComponent(baseFolder, "-" + suffix++, 255);
             String fileName = eForm.getFormFileName();
             _log.debug("before:>" + fileName + "<");
             if (fileName == null || fileName.equals("")) {
-                fileName = formFolder + ".html";
+                fileName = boundedComponent(formFolder, ".html", 255);
             }
             _log.debug("after:>" + fileName + "<");
 
             // Stored file paths remain strict; only names generated from display titles are sanitized.
             fileName = PathValidationUtils.validatePathComponent(fileName, "eform export file name");
             // The legacy importer matches HTML by basename, not its containing ZIP folder.
-            String baseFileName = fileName;
             int fileSuffix = 2;
-            while (!htmlNames.add(fileName)) fileName = "export-" + fileSuffix++ + "-" + baseFileName;
+            if (fileName.getBytes(StandardCharsets.UTF_8).length > 255) fileName = "export-" + fileSuffix++ + ".html";
+            while (!htmlNames.add(fileName)) fileName = "export-" + fileSuffix++ + ".html";
             String directoryName = formFolder + "/"; //formName with all spaces removed
             String html = eForm.getFormHtml();
             properties.setProperty("form.htmlFilename", fileName);

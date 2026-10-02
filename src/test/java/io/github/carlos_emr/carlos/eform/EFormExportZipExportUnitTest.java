@@ -127,7 +127,7 @@ class EFormExportZipExportUnitTest {
         Map<String, byte[]> archive = entries(eform("A/B", "form.html", "first"), eform("A\\B", "form.html", "second"));
         assertThat(archive).hasSize(4);
         assertThat(new String(archive.get("A_B/form.html"), StandardCharsets.UTF_8)).isEqualTo("first");
-        assertThat(new String(archive.get("A_B-2/export-2-form.html"), StandardCharsets.UTF_8)).isEqualTo("second");
+        assertThat(new String(archive.get("A_B-2/export-2.html"), StandardCharsets.UTF_8)).isEqualTo("second");
     }
 
     @Test
@@ -136,15 +136,15 @@ class EFormExportZipExportUnitTest {
                 eform("Foo-2", "form.html", "second"), eform("foo", "form.html", "third"));
         assertThat(archive).hasSize(6);
         assertThat(new String(archive.get("Foo/form.html"), StandardCharsets.UTF_8)).isEqualTo("first");
-        assertThat(new String(archive.get("Foo-2/export-2-form.html"), StandardCharsets.UTF_8)).isEqualTo("second");
-        assertThat(new String(archive.get("foo-3/export-3-form.html"), StandardCharsets.UTF_8)).isEqualTo("third");
+        assertThat(new String(archive.get("Foo-2/export-2.html"), StandardCharsets.UTF_8)).isEqualTo("second");
+        assertThat(new String(archive.get("foo-3/export-3.html"), StandardCharsets.UTF_8)).isEqualTo("third");
     }
 
     @Test
     void shouldImportEveryOriginalForm_whenExportedHtmlBasenamesCollide(@TempDir Path images) throws Exception {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         new EFormExportZip().exportForms(List.of(eform("A/B", "form.html", "first"),
-                eform("A\\B", "form.html", "second"), eform("a_b", "export-2-form.html", "third")), bytes);
+                eform("A\\B", "form.html", "second"), eform("a_b", "export-2.html", "third")), bytes);
         Map<String, String> saved = new LinkedHashMap<>();
         try (var imageFolder = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
@@ -169,7 +169,7 @@ class EFormExportZipExportUnitTest {
         EFormExportZip exporter = new EFormExportZip() {
             @Override public java.io.File getImageFile(String name) { return source.toFile(); }
         };
-        String secondHtml = "<iframe src=\"${oscar_image_path}export-2-form.html\"></iframe>";
+        String secondHtml = "<iframe src=\"${oscar_image_path}export-2.html\"></iframe>";
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         exporter.exportForms(List.of(eform("First", "form.html", "first"), eform("Second", "form.html", secondHtml)), bytes);
         Map<String, String> saved = new LinkedHashMap<>();
@@ -183,7 +183,42 @@ class EFormExportZipExportUnitTest {
             assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
         }
         assertThat(saved).containsExactlyInAnyOrderEntriesOf(Map.of("First", "first", "Second", secondHtml));
-        assertThat(java.nio.file.Files.readString(images.resolve("export-2-form.html"))).isEqualTo("SUPPORTING-ASSET");
+        assertThat(java.nio.file.Files.readString(images.resolve("export-2.html"))).isEqualTo("SUPPORTING-ASSET");
+    }
+
+    @Test
+    void shouldImportLongAndMultibyteNames_whenAliasesRequireLengthBounds(@TempDir Path images) throws Exception {
+        List<EForm> originals = List.of(eform("a".repeat(255), "f".repeat(250) + ".html", "first"),
+                eform("A".repeat(255), "f".repeat(250) + ".html", "second"),
+                eform("é".repeat(255), "ü".repeat(250) + ".html", "third"),
+                eform("😀".repeat(127), null, "fourth"));
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        new EFormExportZip().exportForms(originals, bytes);
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                for (String component : entry.getName().split("/")) {
+                    assertThat(component.getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(255);
+                    assertThat(component).doesNotContain("�");
+                }
+            }
+        }
+        Map<String, String> saved = new LinkedHashMap<>();
+        try (var imageFolder = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
+                EForm form = invocation.getArgument(0);
+                saved.put(form.getFormName(), form.getFormHtml());
+                return "fixture";
+            });
+            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
+        }
+        assertThat(saved).hasSize(originals.size());
+        for (EForm form : originals) {
+            assertThat(saved).containsEntry(form.getFormName(), form.getFormHtml());
+            assertThat((EFormExportZip.exportNameComponent(form.getFormName()) + ".zip")
+                    .getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(255);
+        }
     }
 
     @ParameterizedTest
