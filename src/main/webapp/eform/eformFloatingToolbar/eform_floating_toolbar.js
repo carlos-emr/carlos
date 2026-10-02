@@ -101,7 +101,11 @@ function getEForm() {
  */
 document.addEventListener("submit", function (event) {
     const submitter = event.submitter;
-    if (!submitter || submitter.name !== "newForm" || submitter.type === "image") {
+    // A disabled submitter (e.g. a template onclick that disables the button and then calls
+    // requestSubmit, or a button in a disabled fieldset) contributes no value, so the fallback
+    // must stay.
+    if (!submitter || submitter.name !== "newForm" || submitter.type === "image"
+            || submitter.matches(":disabled")) {
         return;
     }
     const fallbacks = Array.from(event.target.querySelectorAll("input[data-carlos-newform-fallback]"))

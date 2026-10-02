@@ -32,7 +32,7 @@ ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : '
 ${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option><option value="">No list recipient</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
 <button id="designerAddFax" type="button" onclick="document.getElementById('otherFaxInput').value=document.getElementById('designerFax').value; AddOtherFax();">Use designer number</button>
-${newFormButton ? '<button id="newFormButton" type="submit" name="newForm" value="False">Save as existing</button><input type="hidden" name="newForm" value="true" id="newForm" data-carlos-newform-fallback>' : ''}
+${newFormButton ? '<button id="newFormButton" type="submit" name="newForm" value="False">Save as existing</button><button id="newFormDisablingButton" type="submit" name="newForm" value="False" onclick="this.disabled = true; this.form.requestSubmit(this); return false;">Save once</button><input type="hidden" name="newForm" value="true" id="newForm" data-carlos-newform-fallback>' : ''}
 <input name="recipient" value="Existing name"><input name="recipientFaxNumber" value="416-555-0000">
 <input name="SubmitButton" type="submit" value="Submit">
 <input name="PrintButton" type="button" value="Print" onclick="window.print()">
@@ -365,6 +365,12 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0].getAll('newForm'), ['False']);
+    // A template that disables its button before submitting with it posts no button value.
+    await open(false, false, true);
+    await page.locator('#newFormDisablingButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0].getAll('newForm'), ['true']);
     await open(false, false, true);
     await page.evaluate(() => {
       document.forms[0].addEventListener('submit', event => event.preventDefault(), {once: true});
