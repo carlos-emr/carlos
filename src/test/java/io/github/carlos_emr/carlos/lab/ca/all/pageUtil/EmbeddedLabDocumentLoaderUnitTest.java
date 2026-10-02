@@ -266,6 +266,25 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should class a base64-shaped OBX-5.1 fallback that is not a PDF as text")
+    void shouldClassifyText_forBase64ShapedResultFallback() {
+        MessageHandler fallback = handlerReturning("NONE", null);
+        when(fallback.isOBXEmbeddedDocumentResultFallback(0, 0)).thenReturn(true);
+        MessageHandler undeclaredData = handlerReturning("NONE", null);
+
+        for (long limit : new long[] {0, 1}) {
+            assertThat(EmbeddedLabDocumentLoader.inspect(fallback, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.TEXT);
+            assertThat(EmbeddedLabDocumentLoader.load(fallback, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.TEXT);
+            // The same characters in an undeclared ED.5 cannot be told from encoded bytes.
+            assertThat(EmbeddedLabDocumentLoader.inspect(undeclaredData, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.NOT_PDF);
+        }
+        // A PDF sent in OBX-5.1 by a legacy feed is still a PDF.
+        MessageHandler legacyPdf = handlerReturning(PDF_BASE64, null);
+        when(legacyPdf.isOBXEmbeddedDocumentResultFallback(0, 0)).thenReturn(true);
+        assertThat(EmbeddedLabDocumentLoader.inspect(legacyPdf, 0, 0, 0).status()).isEqualTo(Status.PDF);
+    }
+
+    @Test
     @DisplayName("should estimate the decoded size exactly for strict and lenient base64 and for hex")
     void shouldEstimateDecodedSize_fromEncodedLength() {
         for (int length = 0; length <= 7; length++) {
