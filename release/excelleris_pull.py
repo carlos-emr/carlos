@@ -62,6 +62,20 @@ ONE-TIME SETUP IN CARLOS (no code change)
   d. From the Key Manager page copy the server's public key (the long block
      at the top of the page) into ``[carlos] server_public_key``.
 
+RUNNING AGAINST OSCAR 19 INSTEAD
+================================
+
+  Set ``[carlos] flavour = oscar19``. OSCAR 19 (Bitbucket oscaremr/oscar,
+  master) has the same upload action with the same parameters and crypto; it
+  differs only in Struts 1 ``*.do`` routes, a GET ``logout.jsp``, and having
+  no CSRF layer, and the flavour switch covers exactly those. Its Key Manager
+  is at ``admin/keygen/`` and the private key comes from
+  ``admin/keygen/getPublicKey.json?id=<service>``. A site that ran the Mule
+  bridge already has a registered service key: reuse that name and type (on
+  stock OSCAR 19 the Excelleris type is ``PATHL7``; ``ExcellerisON`` does not
+  exist there). ``[excelleris] product`` sets the product name Excelleris sees
+  in the User-Agent ("CARLOS" or "OSCAR") independently of the flavour.
+
 ONE-TIME SETUP ON THE HOST
 ==========================
 
@@ -155,7 +169,24 @@ VERSION = "2.0.0"
 # on the Excelleris side that pattern-matches the header sees a change. The
 # shell script's value was built with "\/" escapes that bash left in verbatim,
 # so what it actually sent contained literal backslashes; this one does not.
-USER_AGENT = f"Mozilla/5.0 (Windows NT 6.2; CARLOS; {VERSION}) Gecko/20100101 Firefox/32.0"
+
+
+def user_agent(product: str = "CARLOS") -> str:
+    """The header Excelleris sees. ``product`` is what the clinic registered
+    with Excelleris as its EMR ("CARLOS" or "OSCAR"); it is configurable so a
+    site can keep the name on file with Excelleris regardless of which EMR
+    generation this tool is feeding."""
+    return f"Mozilla/5.0 (Windows NT 6.2; {product}; {VERSION}) Gecko/20100101 Firefox/32.0"
+
+
+USER_AGENT = user_agent()
+
+# The two EMR generations this tool can upload to. They share the upload
+# action, its parameters and its crypto; they differ only in routing and in
+# whether a CSRF token is required. See CarlosSession for the exact routes.
+FLAVOUR_CARLOS = "carlos"
+FLAVOUR_OSCAR19 = "oscar19"
+FLAVOURS = (FLAVOUR_CARLOS, FLAVOUR_OSCAR19)
 
 EXIT_OK = 0
 EXIT_FAILED = 1
@@ -217,6 +248,7 @@ class Config:
     pfx_password: str
     excelleris_timeout: int
     excelleris_ca_file: Optional[Path]  # extra trust anchor; None = system CA store
+    excelleris_product: str  # product name placed in the User-Agent: CARLOS or OSCAR
     # [carlos]
     carlos_base_url: str
     carlos_username: str
@@ -227,6 +259,7 @@ class Config:
     server_public_key: str  # base64 X.509 SubjectPublicKeyInfo DER, from the Key Manager page
     carlos_timeout: int
     carlos_ca_file: Optional[Path]  # for a CARLOS behind a private CA; None = system store
+    carlos_flavour: str  # FLAVOUR_CARLOS or FLAVOUR_OSCAR19: selects routes and CSRF
     # [paths]
     state_dir: Path
     log_file: Path
@@ -396,6 +429,16 @@ def load_config(path: Path) -> Config:
             raise ConfigError(f"[{section}] ca_file not found: {path}")
         return path
 
+    product = optional("excelleris", "product", "CARLOS")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}", product):
+        # It is spliced into the User-Agent comment; keep it header-safe.
+        raise ConfigError(
+            "[excelleris] product must be 1-40 letters, digits, spaces, dots, underscores or dashes"
+        )
+    flavour = optional("carlos", "flavour", FLAVOUR_CARLOS).lower()
+    if flavour not in FLAVOURS:
+        raise ConfigError(f"[carlos] flavour must be one of {', '.join(FLAVOURS)}; got {flavour!r}")
+
     cfg = Config(
         excelleris_context=optional("excelleris", "context", ""),
         excelleris_url=excelleris_url,
@@ -405,6 +448,7 @@ def load_config(path: Path) -> Config:
         pfx_password=optional("excelleris", "pfx_password", ""),
         excelleris_timeout=positive_int("excelleris", "timeout_seconds", "60", 5),
         excelleris_ca_file=ca_file("excelleris"),
+        excelleris_product=product,
         carlos_base_url=carlos_base_url,
         carlos_username=username,
         carlos_password=need("carlos", "password"),
@@ -414,6 +458,7 @@ def load_config(path: Path) -> Config:
         server_public_key=_read_key_material(parser["carlos"], "server_public_key"),
         carlos_timeout=positive_int("carlos", "timeout_seconds", "120", 5),
         carlos_ca_file=ca_file("carlos"),
+        carlos_flavour=flavour,
         state_dir=Path(need("paths", "state_dir")),
         log_file=Path(need("paths", "log_file")),
         retention_days=positive_int("paths", "retention_days", "90", 0),
@@ -749,7 +794,14 @@ class ExcellerisSession:
         # and spaces in a password broke it). The query is never logged.
         url = f"{self.cfg.excelleris_url}?{urllib.parse.urlencode(params)}"
         log.debug("excelleris %s", what)
-        return self.transport.request("GET", url, headers={"Accept": "text/xml, */*"})
+        return self.transport.request(
+            "GET",
+            url,
+            headers={
+                "Accept": "text/xml, */*",
+                "User-Agent": user_agent(self.cfg.excelleris_product),
+            },
+        )
 
     def __enter__(self) -> "ExcellerisSession":
         resp = self._get(
@@ -1044,53 +1096,82 @@ class UploadOutcome:
 
 
 class CarlosSession:
-    """Scripted CARLOS login, CSRF token fetch, signed upload, logout.
+    """Scripted login, CSRF token fetch, signed upload, logout, against either
+    CARLOS or OSCAR 19 (``[carlos] flavour``).
 
-    Routes and parameters come from the CARLOS source, not from the retired
-    Mule bridge:
+    Routes come from the two code bases, not from the retired Mule bridge.
+    The upload action, its parameters and its crypto are the same in both;
+    only routing and the CSRF layer differ.
 
-      POST /login            username, password, pin, ajaxResponse=true
-                             -> 302 to /provider/providercontrol (normal account)
-                                or JSON {"success": true|false}; CSRF-exempt route
-      GET  /csrfguard        same-domain Referer required -> JS containing
-                             masterTokenValue = '<token>' (session-wide token)
-      POST /lab/newLabUpload multipart: service, key, signature,
-                             use_http_response_code, one file
-                             CSRF-TOKEN header + X-Requested-With for CSRFGuard
-                             -> HTTP status is the outcome
-      POST /logout           (GET gets a 405; the route is CSRF-exempt)
+      flavour = carlos  (Struts 7, extensionless routes, CSRFGuard 4.5)
+        POST /login              username, password, pin, ajaxResponse=true
+                                 -> 302 to /provider/providercontrol (normal
+                                 account) or JSON {"success": ...}; CSRF-exempt
+        GET  /csrfguard          same-domain Referer -> JS containing
+                                 masterTokenValue = '<token>' (session-wide)
+        POST /lab/newLabUpload   multipart: service, key, signature,
+                                 use_http_response_code, one file;
+                                 CSRF-TOKEN header + X-Requested-With
+        POST /logout             (GET gets a 405; CSRF-exempt)
+
+      flavour = oscar19 (Struts 1, *.do routes, no CSRF layer at all)
+        POST /login.do           same fields -> 302 to
+                                 /provider/providercontrol.jsp
+        (no token step)
+        POST /lab/newLabUpload.do same multipart, no CSRF headers
+        GET  /logout.jsp
+
+    Both report the upload outcome as the HTTP status when
+    use_http_response_code is set: 200 uploaded, 409 uploaded previously,
+    500 import failed. A signature failure is 403 on CARLOS, 406 on OSCAR 19.
     """
 
     _TOKEN_RE = re.compile(r"""masterTokenValue\s*=\s*["']([^"']+)["']""")
+    _ROUTES: dict[str, dict[str, Optional[str]]] = {
+        FLAVOUR_CARLOS: {"login": "/login", "upload": "/lab/newLabUpload", "csrf": "/csrfguard"},
+        FLAVOUR_OSCAR19: {"login": "/login.do", "upload": "/lab/newLabUpload.do", "csrf": None},
+    }
 
     def __init__(self, cfg: Config, transport, envelope: LabUploadEnvelope):
         self.cfg = cfg
         self.transport = transport
         self.envelope = envelope
+        self.flavour = cfg.carlos_flavour
+        self.routes = self._ROUTES[self.flavour]
         self.csrf_token: Optional[str] = None
+
+    @property
+    def uses_csrf(self) -> bool:
+        return self.routes["csrf"] is not None
 
     def _url(self, route: str) -> str:
         return f"{self.cfg.carlos_base_url}{route}"
 
     def __enter__(self) -> "CarlosSession":
         self.login()
-        self.fetch_csrf_token()
+        if self.uses_csrf:
+            self.fetch_csrf_token()
         return self
 
     def __exit__(self, *_exc) -> None:
         try:
-            # Logout2Action answers 405 to anything but POST (it has side
-            # effects it must not run on a link pre-fetch). The route is
-            # CSRF-exempt, so no token is needed.
-            self.transport.request(
-                "POST",
-                self._url("/logout"),
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-                body=b"",
-            )
-            log.info("carlos: logged out")
+            if self.flavour == FLAVOUR_OSCAR19:
+                # OSCAR 19 logs out by rendering logout.jsp, which invalidates
+                # the session and redirects to index.jsp.
+                self.transport.request("GET", self._url("/logout.jsp"))
+            else:
+                # Logout2Action answers 405 to anything but POST (it has side
+                # effects it must not run on a link pre-fetch). The route is
+                # CSRF-exempt, so no token is needed.
+                self.transport.request(
+                    "POST",
+                    self._url("/logout"),
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    body=b"",
+                )
+            log.info("%s: logged out", self.flavour)
         except TransportError as exc:
-            log.warning("carlos logout failed (ignored): %s", exc)
+            log.warning("%s logout failed (ignored): %s", self.flavour, exc)
 
     def login(self) -> None:
         body = urllib.parse.urlencode(
@@ -1103,7 +1184,7 @@ class CarlosSession:
         ).encode()
         resp = self.transport.request(
             "POST",
-            self._url("/login"),
+            self._url(self.routes["login"] or ""),
             headers={
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Accept": "application/json",
@@ -1111,17 +1192,20 @@ class CarlosSession:
             body=body,
         )
         # Success looks like one of two things. A plain provider account is
-        # redirected to its schedule page BEFORE Login2Action gets to its JSON
-        # branch, so ajaxResponse=true still yields a 302 for the normal case;
-        # the JSON {"success":true} only comes back for CAISI-style accounts.
+        # redirected to its schedule page BEFORE the action gets to its JSON
+        # branch (CARLOS Login2Action and OSCAR 19 LoginAction alike), so
+        # ajaxResponse=true still yields a 302 for the normal case: Location
+        # /provider/providercontrol on CARLOS, /provider/providercontrol.jsp
+        # on OSCAR 19. The JSON {"success":true} only comes back for
+        # CAISI-style accounts.
         location = self._location(resp)
         if resp.status in (301, 302, 303) and "/provider/providercontrol" in location:
-            log.info("carlos: authenticated as %s", self.cfg.carlos_username)
+            log.info("%s: authenticated as %s", self.flavour, self.cfg.carlos_username)
             return
         if resp.status == 200 and '"success":true' in resp.text().replace(" ", ""):
-            log.info("carlos: authenticated as %s", self.cfg.carlos_username)
+            log.info("%s: authenticated as %s", self.flavour, self.cfg.carlos_username)
             return
-        raise StepError("carlos login", self._explain_login_failure(resp))
+        raise StepError(f"{self.flavour} login", self._explain_login_failure(resp))
 
     @staticmethod
     def _location(resp: HttpResponse) -> str:
@@ -1132,55 +1216,66 @@ class CarlosSession:
         """Turn the login route's redirect targets into an operator message."""
         location = cls._location(resp)
         if "forcepasswordreset" in location:
-            return "the service account has a forced password reset pending; clear it in CARLOS"
+            return "the service account has a forced password reset pending; clear it in the EMR"
         if "select_facility" in location:
             return "the service account belongs to more than one facility; a scripted login cannot choose one"
         if "mfa" in location.lower():
             return (
                 "the service account is enrolled in MFA; a scripted login cannot answer a challenge"
             )
-        if "loginfailed" in location:
-            return "CARLOS rejected the credentials"
+        if "loginfailed" in location or "login=failed" in location:
+            return "the EMR rejected the credentials"
+        if "logout" in location:
+            # LoginFilter bounced the request: the route is wrong for this
+            # EMR generation (check [carlos] flavour) or the session was lost.
+            return "the EMR redirected the login to its logout page; check [carlos] flavour and base_url"
         if resp.status == 200 and b"mfa" in resp.body.lower():
             # The MFA challenge renders as a 200 HTML page, not a redirect.
             return (
                 "the service account is enrolled in MFA; a scripted login cannot answer a challenge"
             )
         if resp.status == 200:
-            return "CARLOS rejected the credentials (invalid username, password or PIN)"
+            return "the EMR rejected the credentials (invalid username, password or PIN)"
         return f"unexpected reply HTTP {resp.status}" + (f" -> {location}" if location else "")
 
     def fetch_csrf_token(self) -> str:
+        route = self.routes["csrf"]
+        if route is None:
+            raise StepError(f"{self.flavour} csrf", "this flavour has no CSRF token endpoint")
         # CSRFGuard serves its script only to a request whose Referer matches
         # the host (or carries no Referer); send one so this never depends on
         # that leniency.
         resp = self.transport.request(
             "GET",
-            self._url("/csrfguard"),
+            self._url(route),
             headers={"Referer": self.cfg.carlos_base_url + "/", "Accept": "*/*"},
         )
         match = self._TOKEN_RE.search(resp.text()) if resp.status == 200 else None
         if not match:
-            raise StepError("carlos csrf", f"could not obtain a CSRF token (HTTP {resp.status})")
+            raise StepError(
+                f"{self.flavour} csrf", f"could not obtain a CSRF token (HTTP {resp.status})"
+            )
         self.csrf_token = match.group(1)
-        log.debug("carlos: csrf token obtained")
+        log.debug("%s: csrf token obtained", self.flavour)
         return self.csrf_token
 
     def upload(self, path: Path) -> UploadOutcome:
         """Upload one pull file exactly as stored.
 
-        The bytes must be sent untouched: ``ExcellerisOntarioHandler`` walks
-        the DOM as ``firstChild`` / ``childNodes`` with no whitespace handling,
-        so reformatting or pretty-printing the XML would break the import.
+        The bytes must be sent untouched: the Excelleris and PATHL7 upload
+        handlers walk the DOM as ``firstChild`` / ``childNodes`` with no
+        whitespace handling, so reformatting or pretty-printing the XML would
+        break the import.
         """
-        if not self.csrf_token:
+        if self.uses_csrf and not self.csrf_token:
             self.fetch_csrf_token()
         plaintext = path.read_bytes()
         if len(plaintext) > CARLOS_MULTIPART_MAX_BYTES:
-            # struts.multipart.maxSize in CARLOS' struts.xml. The request will
-            # be refused before the action runs; say why in advance.
+            # struts.multipart.maxSize in CARLOS' struts.xml (OSCAR 19 allows
+            # 100 MB). The request is refused before the action runs; say why
+            # in advance.
             log.warning(
-                "%s is %d bytes, above CARLOS' %d-byte multipart limit; expect a rejection",
+                "%s is %d bytes, above the %d-byte multipart limit; expect a rejection",
                 path.name,
                 len(plaintext),
                 CARLOS_MULTIPART_MAX_BYTES,
@@ -1197,26 +1292,27 @@ class CarlosSession:
             path.name,
             ciphertext,
         )
+        headers = {
+            "Content-Type": content_type,
+            "Referer": self.cfg.carlos_base_url + "/",
+            "Accept": "*/*",
+        }
+        if self.uses_csrf:
+            # CSRFGuard validates the header, not the body, for AJAX-marked
+            # requests; CARLOS reads X-Requested-With as a list, so one value
+            # is fine. OSCAR 19 has no CSRF layer and gets neither header.
+            headers["CSRF-TOKEN"] = self.csrf_token or ""
+            headers["X-Requested-With"] = "XMLHttpRequest"
         resp = self.transport.request(
-            "POST",
-            self._url("/lab/newLabUpload"),
-            headers={
-                "Content-Type": content_type,
-                "CSRF-TOKEN": self.csrf_token or "",
-                # CSRFGuard validates the header, not the body, for AJAX-marked
-                # requests; CARLOS reads this header as a list, so one value is fine.
-                "X-Requested-With": "XMLHttpRequest",
-                "Referer": self.cfg.carlos_base_url + "/",
-                "Accept": "*/*",
-            },
-            body=body,
+            "POST", self._url(self.routes["upload"] or ""), headers=headers, body=body
         )
         detail = {
             200: "uploaded",
             400: "bad request (no file received)",
             403: "signature validation failed (service name / client key mismatch)",
+            406: "signature validation failed (service name / client key mismatch)",
             409: "uploaded previously (duplicate, already imported)",
-            500: "CARLOS could not import the file (see CARLOS log)",
+            500: "the EMR could not import the file (see its log)",
         }.get(resp.status, f"HTTP {resp.status}")
         return UploadOutcome(resp.status, detail)
 

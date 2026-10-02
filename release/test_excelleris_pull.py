@@ -185,6 +185,7 @@ user_id = {values["user_id"]}
 password = {values["password"]}
 pfx_file = {self.pfx}
 pfx_password = {values["pfx_password"]}
+{values.get("extra_excelleris", "")}
 
 [carlos]
 base_url = {values["base_url"]}
@@ -192,6 +193,7 @@ username = {values["username"]}
 password = {values["cpassword"]}
 pin = {values["pin"]}
 service = {values["service"]}
+{values.get("extra_carlos", "")}
 client_private_key = {client_b64}
 server_public_key = {server_pub_b64}
 
@@ -935,7 +937,11 @@ class FakeCarlosHandler(_QuietHandler):
                     b"",
                     {
                         "Set-Cookie": "JSESSIONID=sess1; Path=/carlos",
-                        "Location": "/carlos/provider/providercontrol?year=2026",
+                        "Location": (
+                            "/carlos/provider/providercontrol.jsp"
+                            if getattr(srv, "oscar19", False)
+                            else "/carlos/provider/providercontrol?year=2026"
+                        ),
                     },
                 )
             return self._reply(302, b"", {"Location": "/carlos/loginfailed?errormsg=x"})
@@ -945,8 +951,9 @@ class FakeCarlosHandler(_QuietHandler):
         if path == "/carlos/lab/newLabUpload":
             if "JSESSIONID=sess1" not in (self.headers.get("Cookie") or ""):
                 return self._reply(302, b"", {"Location": "/carlos/index"})
-            if self.headers.get("CSRF-TOKEN") != "LIVE-TOKEN" or "XMLHttpRequest" not in (
-                self.headers.get("X-Requested-With") or ""
+            if not getattr(srv, "oscar19", False) and (
+                self.headers.get("CSRF-TOKEN") != "LIVE-TOKEN"
+                or "XMLHttpRequest" not in (self.headers.get("X-Requested-With") or "")
             ):
                 return self._reply(403, b"csrf")
             msg = email.message_from_bytes(
@@ -971,14 +978,46 @@ class FakeCarlosHandler(_QuietHandler):
                     _pad.PKCS1v15(),
                     hashes.MD5(),
                 )
-            except Exception:  # noqa: BLE001 - this is the server's 403 path
-                return self._reply(403, b"validation failed")
+            except Exception:  # noqa: BLE001 - this is the server's rejection path
+                status = 406 if getattr(srv, "oscar19", False) else 403
+                return self._reply(status, b"validation failed")
             if plaintext in srv.seen:
                 return self._reply(409, b"uploaded previously")
             srv.seen.append(plaintext)
-            srv.log.append(("upload", parts["importFile"].get_filename(), len(plaintext)))
+            srv.log.append(
+                (
+                    "upload",
+                    parts["importFile"].get_filename(),
+                    len(plaintext),
+                    self.headers.get("CSRF-TOKEN"),
+                    _up.urlsplit(self.path).path,
+                )
+            )
             return self._reply(200, b"uploaded")
         return self._reply(404, b"")
+
+
+class FakeOscar19Handler(FakeCarlosHandler):
+    """OSCAR 19 as read from oscaremr/oscar master: *.do routes behind a
+    LoginFilter that bounces anything else to logout.jsp, no CSRF servlet,
+    GET logout.jsp, and 406 for a bad signature."""
+
+    def do_GET(self):  # noqa: N802
+        path = _up.urlsplit(self.path).path
+        if path == "/carlos/logout.jsp":
+            self.server.log.append(("logout",))
+            return self._reply(302, b"", {"Location": "/carlos/index.jsp"})
+        return self._reply(404, b"")  # includes /csrfguard: no such servlet
+
+    def do_POST(self):  # noqa: N802
+        path = _up.urlsplit(self.path).path
+        if not path.endswith(".do"):
+            # LoginFilter: not exempt and no session -> logout.jsp
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            return self._reply(302, b"", {"Location": "/carlos/logout.jsp"})
+        self.server.oscar19 = True
+        self.path = self.path.replace(".do", "", 1)  # then the same action logic
+        return super().do_POST()
 
 
 def _serve(handler, server_ctx: ssl.SSLContext):
@@ -991,6 +1030,10 @@ def _serve(handler, server_ctx: ssl.SSLContext):
 
 
 class LiveServersTest(TempEnv):
+    carlos_handler = FakeCarlosHandler
+    flavour = "carlos"
+    product = "CARLOS"
+
     def setUp(self):
         super().setUp()
         # urllib honours proxy variables; the container sets HTTPS_PROXY.
@@ -1023,7 +1066,7 @@ class LiveServersTest(TempEnv):
 
         ca_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ca_ctx.load_cert_chain(str(self.server_pem))
-        self.carlos = _serve(FakeCarlosHandler, ca_ctx)
+        self.carlos = _serve(self.carlos_handler, ca_ctx)
         self.carlos.server_key = self.server_key
         self.carlos.client_pub = self.client_key.public_key()
         self.carlos.base_url = f"https://localhost:{self.carlos.server_address[1]}/carlos"
@@ -1041,8 +1084,14 @@ class LiveServersTest(TempEnv):
             base_url=self.carlos.base_url,
         )
         text = self.conf.read_text()
-        text = text.replace("[excelleris]\n", f"[excelleris]\nca_file = {self.ca_pem}\n", 1)
-        text = text.replace("[carlos]\n", f"[carlos]\nca_file = {self.ca_pem}\n", 1)
+        text = text.replace(
+            "[excelleris]\n",
+            f"[excelleris]\nca_file = {self.ca_pem}\nproduct = {self.product}\n",
+            1,
+        )
+        text = text.replace(
+            "[carlos]\n", f"[carlos]\nca_file = {self.ca_pem}\nflavour = {self.flavour}\n", 1
+        )
         self.conf.write_text(text)
         self.cfg = ep.load_config(self.conf)
 
@@ -1064,7 +1113,10 @@ class LiveServersTest(TempEnv):
         self.assertEqual(pages, ["Login", "HL7", "HL7", "Yes"])
         self.assertEqual(self.excelleris.acks, ["Positive"])
         self.assertTrue(
-            all(f"CARLOS; {ep.VERSION}" in c[3] and "\\" not in c[3] for c in self.excelleris.log)
+            all(
+                f"{self.product}; {ep.VERSION}" in c[3] and "\\" not in c[3]
+                for c in self.excelleris.log
+            )
         )
         # CARLOS: login, upload decrypted and verified, logout via POST.
         kinds = [c[0] for c in self.carlos.log]
@@ -1106,3 +1158,127 @@ class LiveServersTest(TempEnv):
         )
         self.assertEqual([c[0] for c in self.carlos.log], ["login", "logout"])
         self.assertEqual(self.excelleris.acks, [])
+
+
+class ConfigFlavourTest(TempEnv):
+    def test_defaults_and_validation(self):
+        self.assertEqual(self.cfg.carlos_flavour, "carlos")
+        self.assertEqual(self.cfg.excelleris_product, "CARLOS")
+        _, _, c, srv = make_keys()
+        self.write_conf(
+            c, srv, extra_carlos="flavour = OSCAR19", extra_excelleris="product = OSCAR"
+        )
+        cfg = ep.load_config(self.conf)
+        self.assertEqual(cfg.carlos_flavour, "oscar19")
+        self.assertEqual(cfg.excelleris_product, "OSCAR")
+        self.write_conf(c, srv, extra_carlos="flavour = oscar18")
+        with self.assertRaisesRegex(ep.ConfigError, "flavour must be one of"):
+            ep.load_config(self.conf)
+        self.write_conf(c, srv, extra_excelleris="product = OSCAR; evil)")
+        with self.assertRaisesRegex(ep.ConfigError, "product must be"):
+            ep.load_config(self.conf)
+
+    def test_user_agent_shape(self):
+        self.assertEqual(
+            ep.user_agent("OSCAR"),
+            f"Mozilla/5.0 (Windows NT 6.2; OSCAR; {ep.VERSION}) Gecko/20100101 Firefox/32.0",
+        )
+
+
+class ExcellerisProductHeaderTest(ExcellerisSessionTest):
+    def test_product_is_sent_in_user_agent_regardless_of_flavour(self):
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, extra_excelleris="product = OSCAR", extra_carlos="flavour = carlos")
+        cfg = ep.load_config(self.conf)
+        t = FakeTransport(self.script())
+        with ep.ExcellerisSession(cfg, t):
+            pass
+        for _m, _u, headers, _b in t.calls:
+            self.assertIn("OSCAR; ", headers["User-Agent"])
+            self.assertNotIn("CARLOS", headers["User-Agent"])
+
+
+class Oscar19SessionTest(TempEnv):
+    """Fake-transport view of the OSCAR 19 routing."""
+
+    def setUp(self):
+        super().setUp()
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, extra_carlos="flavour = oscar19")
+        self.cfg = ep.load_config(self.conf)
+
+    def script(self, upload_status=200, **over):
+        s = {
+            "POST /carlos/login.do": ok(
+                "", 302, {"Location": "/carlos/provider/providercontrol.jsp"}
+            ),
+            "POST /carlos/lab/newLabUpload.do": ok("", upload_status),
+            "GET /carlos/logout.jsp": ok("", 302, {"Location": "/carlos/index.jsp"}),
+        }
+        s.update(over)
+        return s
+
+    def session(self, t):
+        return ep.CarlosSession(
+            self.cfg,
+            t,
+            ep.LabUploadEnvelope(self.cfg.client_private_key, self.cfg.server_public_key),
+        )
+
+    def test_routes_and_no_csrf(self):
+        t = FakeTransport(self.script())
+        f = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
+        with self.session(t) as s:
+            self.assertFalse(s.uses_csrf)
+            self.assertIsNone(s.csrf_token)
+            outcome = s.upload(f)
+        self.assertTrue(outcome.accepted)
+        labels = [FakeTransport.label(m, u) for m, u, _, _ in t.calls]
+        self.assertEqual(
+            labels,
+            ["POST /carlos/login.do", "POST /carlos/lab/newLabUpload.do", "GET /carlos/logout.jsp"],
+        )
+        upload_headers = t.calls[1][2]
+        self.assertNotIn("CSRF-TOKEN", upload_headers)
+        self.assertNotIn("X-Requested-With", upload_headers)
+
+    def test_406_is_a_definitive_rejection(self):
+        t = FakeTransport(self.script(upload_status=406))
+        f = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
+        with self.session(t) as s:
+            outcome = s.upload(f)
+        self.assertTrue(outcome.definitive)
+        self.assertIn("signature validation failed", outcome.detail)
+
+    def test_wrong_flavour_is_explained(self):
+        # oscar19 flavour against a CARLOS: /login.do is unknown there.
+        t = FakeTransport(self.script(**{"POST /carlos/login.do": ok("", 404)}))
+        with self.assertRaisesRegex(ep.StepError, "unexpected reply HTTP 404"):
+            self.session(t).login()
+        # carlos flavour against an OSCAR 19: LoginFilter bounces /login to logout.jsp.
+        bounced = ep.HttpResponse(302, {"Location": "/carlos/logout.jsp"}, b"")
+        self.assertIn("check [carlos] flavour", ep.CarlosSession._explain_login_failure(bounced))
+
+
+class LiveOscar19Test(LiveServersTest):
+    """Every LiveServersTest scenario again, against the OSCAR 19 stand-in,
+    with the product name forced to OSCAR."""
+
+    carlos_handler = FakeOscar19Handler
+    flavour = "oscar19"
+    product = "OSCAR"
+
+    def test_full_pipeline_over_tls(self):
+        super().test_full_pipeline_over_tls()
+        upload = self.carlos.log[1]
+        self.assertIsNone(upload[3], "no CSRF header must reach OSCAR 19")
+        self.assertEqual(upload[4], "/carlos/lab/newLabUpload")  # the fake stripped .do
+        self.assertTrue(all("OSCAR; " in c[3] for c in self.excelleris.log))
+
+    def test_carlos_flavour_against_oscar19_fails_loudly(self):
+        text = self.conf.read_text().replace("flavour = oscar19", "flavour = carlos")
+        self.conf.write_text(text)
+        cfg = ep.load_config(self.conf)
+        self.assertEqual(ep.run(cfg, ep.RunOptions()), ep.EXIT_FAILED)
+        self.assertEqual([c[0] for c in self.carlos.log], [])  # never got past LoginFilter
+        self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # pull kept for retry
