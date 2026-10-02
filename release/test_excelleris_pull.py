@@ -1927,6 +1927,19 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
         self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
         self.assertNotIn("POST /carlos/lab/newLabUpload.do", self.labels())
 
+    def test_non_utf8_sidecar_is_named_in_the_error(self):
+        archive = ep.Archive(self.cfg)
+        inbox_file = self.cfg.inbox_dir / "20260101-000000.xml"
+        inbox_file.write_bytes(PULL_WITH_RESULTS)
+        sidecar = inbox_file.with_name(inbox_file.name + ".attempts")
+        sidecar.write_bytes(b"\xff\xfe1 token\n")
+        with self.assertRaisesRegex(ep.StepError, "attempt counter: .*attempts is unreadable"):
+            archive.attempts(inbox_file)
+        for bad in ("-1 token\n", "x\n"):
+            sidecar.write_text(bad)
+            with self.assertRaisesRegex(ep.StepError, "malformed"):
+                archive.attempts(inbox_file)
+
     def test_plain_409_is_still_a_duplicate(self):
         self.script["POST /carlos/lab/newLabUpload.do"] = ok("", 409)
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)

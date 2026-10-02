@@ -1307,7 +1307,9 @@ class Archive:
             text = sidecar.read_text()
         except FileNotFoundError:
             return 0, ""
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
+            # Bytes that are not UTF-8 are as unreadable as a permission
+            # problem and must name the sidecar the same way.
             raise StepError(
                 "attempt counter", f"{sidecar} is unreadable ({exc}); fix or delete it"
             ) from exc
