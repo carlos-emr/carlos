@@ -604,10 +604,13 @@ class CarlosSessionTest(TempEnv):
 
     def test_outcome_classification(self):
         self.assertTrue(ep.UploadOutcome(409, "").accepted)
-        self.assertFalse(ep.UploadOutcome(409, "").definitive)
-        for status in (400, 403, 500):
+        self.assertFalse(ep.UploadOutcome(409, "").permanent)
+        for status in (400, 403, 406):  # intrinsic to the request: never retried
             self.assertFalse(ep.UploadOutcome(status, "").accepted)
-            self.assertTrue(ep.UploadOutcome(status, "").definitive, status)
+            self.assertTrue(ep.UploadOutcome(status, "").permanent, status)
+        for status in (0, 302, 429, 500, 502, 503, 504):  # worth another run
+            self.assertTrue(ep.UploadOutcome(status, "").transient, status)
+            self.assertFalse(ep.UploadOutcome(status, "").permanent, status)
 
     def test_json_success_is_also_accepted(self):
         # CAISI-style accounts reach the JSON branch instead of the redirect.
@@ -831,10 +834,6 @@ class CliTest(TempEnv):
         self.assertEqual(rc, ep.EXIT_CONFIG)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 # ---------------------------------------------------------------------------
 # End to end over real TLS: real HttpTransport, real client certificate,
 # real crypto, against local HTTPS servers that impersonate both ends.
@@ -995,8 +994,7 @@ class FakeCarlosHandler(_QuietHandler):
                     hashes.MD5(),
                 )
             except Exception:  # noqa: BLE001 - this is the server's rejection path
-                status = 406 if getattr(srv, "oscar19", False) else 403
-                return self._reply(status, b"validation failed")
+                return self._reply(406, b"validation failed")
             if plaintext in srv.seen:
                 return self._reply(409, b"uploaded previously")
             srv.seen.append(plaintext)
@@ -1009,7 +1007,7 @@ class FakeCarlosHandler(_QuietHandler):
                     _up.urlsplit(self.path).path,
                 )
             )
-            return self._reply(200, b"uploaded")
+            return self._reply(200, b"")
         return self._reply(404, b"")
 
 
@@ -1268,12 +1266,12 @@ class Oscar19SessionTest(TempEnv):
         self.assertNotIn("CSRF-TOKEN", upload_headers)
         self.assertNotIn("X-Requested-With", upload_headers)
 
-    def test_406_is_a_definitive_rejection(self):
+    def test_406_is_a_permanent_rejection(self):
         t = FakeTransport(self.script(upload_status=406))
         f = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
         with self.session(t) as s:
             outcome = s.upload(f)
-        self.assertTrue(outcome.definitive)
+        self.assertTrue(outcome.permanent)
         self.assertIn("signature validation failed", outcome.detail)
 
     def test_wrong_flavour_is_explained(self):
@@ -1411,13 +1409,18 @@ class SessionlessOscar19Test(Oscar19SessionTest):
 
 
 class OutcomeBodyTest(unittest.TestCase):
-    """A build that ignores use_http_response_code renders the <outcome> XML
-    the Mule bridge parsed, always with HTTP 200. That must not read as success."""
+    """What counts as an upload result. A 200 is success only with an empty
+    body (sendError with use_http_response_code) or <outcome>uploaded</outcome>
+    (uploadComplete.jsp); the HTML page Struts renders when the multipart layer
+    refuses the request also comes with HTTP 200 and must never be archived."""
 
     def body(self, outcome):
         return f'<?xml version="1.0"?><root><outcome>{outcome}</outcome><audit>success</audit></root>'.encode()
 
-    def test_outcome_overrides_bare_200(self):
+    def classify(self, status, body):
+        return ep.CarlosSession._classify_reply(ep.HttpResponse(status, {}, body))[0]
+
+    def test_outcome_xml_maps_to_status(self):
         for text, status in (
             ("uploaded", 200),
             ("uploaded previously", 409),
@@ -1425,19 +1428,22 @@ class OutcomeBodyTest(unittest.TestCase):
             ("failed to validate", 406),
             ("upload failed", 500),
             ("exception", 500),
-            ("something new", 500),
         ):
-            resp = ep.HttpResponse(200, {}, self.body(text))
-            self.assertEqual(ep.CarlosSession._status_from_outcome_body(resp), status, text)
-        self.assertEqual(
-            ep.CarlosSession._status_from_outcome_body(ep.HttpResponse(200, {}, b"")), 200
-        )
-        self.assertEqual(
-            ep.CarlosSession._status_from_outcome_body(
-                ep.HttpResponse(409, {}, self.body("uploaded"))
-            ),
-            409,
-        )
+            self.assertEqual(self.classify(200, self.body(text)), status, text)
+        self.assertEqual(self.classify(200, self.body("something new")), 0)
+
+    def test_bare_200_needs_an_empty_body(self):
+        self.assertEqual(self.classify(200, b""), 200)
+        self.assertEqual(self.classify(200, b"  \r\n"), 200)
+        html = b"<html><body>Upload rejected: file too large</body></html>"
+        status, detail = ep.CarlosSession._classify_reply(ep.HttpResponse(200, {}, html))
+        self.assertEqual(status, 0)
+        self.assertTrue(ep.UploadOutcome(status, detail).transient)
+        self.assertIn("instead of an upload result", detail)
+
+    def test_non_200_passes_through(self):
+        self.assertEqual(self.classify(409, self.body("uploaded")), 409)
+        self.assertEqual(self.classify(503, b"<html>maintenance</html>"), 503)
 
 
 class LiveOscar19SessionlessTest(LiveOscar19Test):
@@ -1588,3 +1594,135 @@ class LivePemPairTest(LiveServersTest):
         cert_pem, key_pem = _pem_pair_from_pfx(self.pfx, b"pfx-secret", self.tmp)
         _use_pem_pair(self.conf, cert_pem, key_pem)
         self.cfg = ep.load_config(self.conf)
+
+
+class RetryClassificationTest(OrchestrationTest):
+    """Transient EMR failures keep the pull in the inbox, up to a cap."""
+
+    def test_transient_500_stays_in_inbox_until_the_cap(self):
+        self.script["POST /carlos/lab/newLabUpload"] = ok("", 500)
+        text = self.conf.read_text().replace("[carlos]\n", "[carlos]\nmax_upload_attempts = 3\n", 1)
+        self.conf.write_text(
+            text
+        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        cfg = ep.load_config(self.conf)
+        rc = ep.run(cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # kept
+        self.assertEqual(len(list(cfg.inbox_dir.glob("*.attempts"))), 1)
+        self.assertEqual(list(cfg.failed_dir.glob("*")), [])
+        # Two more runs without a new pull: attempts 2 and 3; the third gives up.
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        ep.run(cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)
+        ep.run(cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(list(cfg.inbox_dir.glob("*")), [])  # sidecar removed too
+        self.assertEqual(len(list(cfg.failed_dir.glob("*.xml"))), 1)
+
+    def test_recovery_clears_the_attempt_count(self):
+        self.script["POST /carlos/lab/newLabUpload"] = ok("", 503)
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.script["POST /carlos/lab/newLabUpload"] = ok("", 200)
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 1)
+
+    def test_html_200_is_not_archived(self):
+        self.script["POST /carlos/lab/newLabUpload"] = ok("<html><body>rejected</body></html>", 200)
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 1)
+        self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
+
+
+class TrustAnchorTest(TempEnv):
+    def test_ca_file_must_not_be_writable_by_others(self):
+        ca = self.tmp / "ca.pem"
+        ca.write_text("-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n")
+        ca.chmod(0o666)
+        text = self.conf.read_text().replace("[carlos]\n", f"[carlos]\nca_file = {ca}\n", 1)
+        self.conf.write_text(
+            text
+        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        with self.assertRaisesRegex(ep.ConfigError, "writable by group/other"):
+            ep.load_config(self.conf)
+        ca.chmod(0o644)  # world-readable is fine for a trust anchor
+        self.assertEqual(ep.load_config(self.conf).carlos_ca_file, ca)
+
+
+class CertificateCleanupTest(TempEnv):
+    def test_failed_enter_leaves_no_temp_directory(self):
+        cert = ep.ClientCertificate.from_config(self.cfg)
+        original = ep.tempfile.mkdtemp
+        made = []
+
+        def mkdtemp(**kw):
+            d = original(**kw)
+            made.append(d)
+            return d
+
+        ep.tempfile.mkdtemp = mkdtemp
+        try:
+            cert.pfx_file = self.pfx  # fine
+            # Force the PEM write to fail by making the temp dir read-only.
+            real_open = ep.os.open
+
+            def failing_open(path, *a, **k):
+                if str(path).endswith("client.pem"):
+                    raise OSError("disk full")
+                return real_open(path, *a, **k)
+
+            ep.os.open = failing_open
+            try:
+                with self.assertRaises(OSError):
+                    cert.__enter__()
+            finally:
+                ep.os.open = real_open
+        finally:
+            ep.tempfile.mkdtemp = original
+        self.assertEqual(len(made), 1)
+        self.assertFalse(Path(made[0]).exists())
+        self.assertIsNone(cert.pem_path)
+
+    def test_cleanup_failure_is_an_alert_not_a_footnote(self):
+        cert = ep.ClientCertificate.from_config(self.cfg)
+        cert.__enter__()
+        tmpdir = cert.pem_path.parent
+        original = ep.shutil.rmtree
+
+        def broken(path, onerror=None, **kw):
+            onerror(None, str(path), None)
+
+        ep.shutil.rmtree = broken
+        try:
+            with self.assertRaisesRegex(ep.StepError, "could not be removed"):
+                cert.__exit__(None, None, None)
+        finally:
+            ep.shutil.rmtree = original
+            original(tmpdir, ignore_errors=True)
+
+
+class PemBundleTest(unittest.TestCase):
+    def test_loads_every_block_without_the_new_api(self):
+        _, c1 = _self_signed("one")
+        _, c2 = _self_signed("two")
+        bundle = (
+            c1.public_bytes(serialization.Encoding.PEM)
+            + b"junk\n"
+            + c2.public_bytes(serialization.Encoding.PEM)
+        )
+        certs = ep.load_pem_certificates(bundle)
+        self.assertEqual([c.subject for c in certs], [c1.subject, c2.subject])
+        with self.assertRaises(ValueError):
+            ep.load_pem_certificates(b"not a bundle")
+
+
+class DryRunExclusivityTest(unittest.TestCase):
+    def test_dry_run_cannot_combine_with_partial_modes(self):
+        for extra in ("--no-upload", "--upload-only"):
+            with self.assertRaises(SystemExit):
+                ep.parse_args(["--config", "x", "--dry-run", extra])
+
+
+if __name__ == "__main__":
+    unittest.main()

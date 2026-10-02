@@ -79,7 +79,8 @@ service = excelleris
 
 # EITHER point at the keyPair.key file the Create Key page downloaded (this is
 # the file a Mule installation already has; it holds the service name, the
-# client private key and the server public key) ...
+# client private key and the server public key). It holds a private key, so
+# it must be mode 0600 and owned by the service user ...
 # key_pair_file = /etc/carlos-excelleris/keyPair.key
 # ... OR give the two keys separately below.
 
@@ -92,6 +93,11 @@ client_private_key_file = /etc/carlos-excelleris/client-private-key.b64
 server_public_key_file = /etc/carlos-excelleris/server-public-key.b64
 
 timeout_seconds = 120
+
+# Runs with a transient upload failure (5xx, proxy errors, a session bounce)
+# tolerated for one file before it is moved to failed/ (24 = a day at hourly).
+# Permanent rejections (400, 403, 406) move at once.
+max_upload_attempts = 24
 
 # Optional PEM bundle for a CARLOS served under a private or internal CA.
 # ca_file = /etc/carlos-excelleris/clinic-ca.pem

@@ -295,6 +295,7 @@ class Config:
     carlos_timeout: int
     carlos_ca_file: Optional[Path]  # for a CARLOS behind a private CA; None = system store
     carlos_flavour: str  # FLAVOUR_CARLOS or FLAVOUR_OSCAR19: selects routes and CSRF
+    max_upload_attempts: int  # transient upload failures tolerated before a file goes to failed/
     # [paths]
     state_dir: Path
     log_file: Path
@@ -357,6 +358,28 @@ def _require_private_file(path: Path, what: str) -> None:
         raise ConfigError(
             f"{what} {path} is readable by group/other (mode {stat.S_IMODE(st.st_mode):04o}); "
             "chmod 600 it"
+        )
+    if st.st_uid not in (os.geteuid(), 0):
+        raise ConfigError(f"{what} {path} is not owned by the running user or root")
+
+
+def _require_trusted_file(path: Path, what: str) -> None:
+    """A file that becomes part of the TLS trust boundary (a CA bundle) need not
+    be secret, but it must not be replaceable by another local account: a
+    regular file, owned by the running user or root, writable by neither
+    group nor other."""
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        raise ConfigError(f"{what} not found: {path}") from None
+    except OSError as exc:
+        raise ConfigError(f"{what} {path}: {exc}") from exc
+    if not stat.S_ISREG(st.st_mode):
+        raise ConfigError(f"{what} is not a regular file: {path}")
+    if st.st_mode & 0o022:
+        raise ConfigError(
+            f"{what} {path} is writable by group/other (mode {stat.S_IMODE(st.st_mode):04o}); "
+            "it is a trust anchor, chmod 644 it"
         )
     if st.st_uid not in (os.geteuid(), 0):
         raise ConfigError(f"{what} {path} is not owned by the running user or root")
@@ -555,8 +578,7 @@ def load_config(path: Path) -> Config:
         if not raw:
             return None
         path = Path(raw)
-        if not path.is_file():
-            raise ConfigError(f"[{section}] ca_file not found: {path}")
+        _require_trusted_file(path, f"[{section}] ca_file")
         return path
 
     # Unless the clinic sets it, the name Excelleris sees follows the EMR
@@ -597,6 +619,7 @@ def load_config(path: Path) -> Config:
         carlos_timeout=positive_int("carlos", "timeout_seconds", "120", 5),
         carlos_ca_file=ca_file("carlos"),
         carlos_flavour=flavour,
+        max_upload_attempts=positive_int("carlos", "max_upload_attempts", "24", 1),
         state_dir=Path(need("paths", "state_dir")),
         log_file=Path(need("paths", "log_file")),
         retention_days=positive_int("paths", "retention_days", "90", 0),
@@ -859,7 +882,7 @@ class ClientCertificate:
         except ValueError as exc:
             raise ConfigError(f"{self.key_file} is not a PEM private key: {exc}") from exc
         try:
-            certs = x509.load_pem_x509_certificates(cert_bytes)
+            certs = load_pem_certificates(cert_bytes)
         except ValueError as exc:
             raise ConfigError(f"{self.cert_file} holds no PEM certificate: {exc}") from exc
         return key, certs
@@ -875,22 +898,69 @@ class ClientCertificate:
             pem += cert.public_bytes(serialization.Encoding.PEM)
 
         self._tmpdir = tempfile.mkdtemp(prefix="excelleris-cert-")  # mkdtemp is 0700
-        self.pem_path = Path(self._tmpdir) / "client.pem"
-        fd = os.open(self.pem_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(pem)
+        try:
+            self.pem_path = Path(self._tmpdir) / "client.pem"
+            fd = os.open(self.pem_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(pem)
+        except BaseException:
+            # __exit__ is not called when __enter__ fails: do its job here so
+            # no key material outlives a failed start.
+            self._remove_tmpdir()
+            raise
         return self
 
-    def __exit__(self, *_exc) -> None:
-        if self._tmpdir:
-            shutil.rmtree(self._tmpdir, ignore_errors=True)
-            self._tmpdir = None
-            self.pem_path = None
+    def __exit__(self, exc_type, *_exc) -> None:
+        problem = self._remove_tmpdir()
+        if problem and exc_type is None:
+            # Key material left on disk is an alert condition, not a footnote.
+            # Raised only when nothing else is already propagating, so it
+            # never masks the failure that got us here.
+            raise StepError("certificate cleanup", problem)
+
+    def _remove_tmpdir(self) -> Optional[str]:
+        """Delete the temporary PEM directory. Returns a description if any
+        part of it could not be removed (logged either way)."""
+        tmpdir, self._tmpdir, self.pem_path = self._tmpdir, None, None
+        if not tmpdir:
+            return None
+        failures: list[str] = []
+
+        def note(_func, path, _exc):
+            failures.append(str(path))
+
+        # rmtree's error callback was renamed in 3.12 (onerror is deprecated
+        # there); Debian 12 ships 3.11, Ubuntu 24.04 ships 3.12.
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(tmpdir, onexc=note)
+        else:
+            shutil.rmtree(tmpdir, onerror=note)
+        if failures:
+            problem = f"temporary PEM material could not be removed; delete by hand: {tmpdir}"
+            log.error(problem)
+            return problem
+        return None
 
     def ssl_context(self, ca_file: Optional[Path] = None) -> ssl.SSLContext:
         ctx = server_verifying_context(ca_file)
         ctx.load_cert_chain(certfile=str(self.pem_path))
         return ctx
+
+
+_PEM_CERT_RE = re.compile(rb"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", re.S)
+
+
+def load_pem_certificates(data: bytes) -> list:
+    """Every certificate in a PEM bundle, in order.
+
+    Uses the single-certificate loader per block so the distro packages on
+    older hosts work too (``load_pem_x509_certificates`` only exists from
+    cryptography 39; Debian 12 ships 38, Ubuntu 22.04 ships 3.4).
+    """
+    blocks = _PEM_CERT_RE.findall(data)
+    if not blocks:
+        raise ValueError("no CERTIFICATE block found")
+    return [x509.load_pem_x509_certificate(block) for block in blocks]
 
 
 def server_verifying_context(ca_file: Optional[Path] = None) -> ssl.SSLContext:
@@ -1077,7 +1147,9 @@ class Archive:
     def __init__(self, cfg: Config):
         self.cfg = cfg
         for d in (cfg.state_dir, cfg.inbox_dir, cfg.done_dir, cfg.failed_dir):
-            d.mkdir(parents=True, exist_ok=True, mode=0o700)
+            d.mkdir(
+                parents=True, exist_ok=True, mode=0o700
+            )  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- 0700 is owner-only; the rule's 0644 default would expose PHI
             os.chmod(d, 0o700)
 
     def save_inbox(self, run_id: str, data: bytes) -> Path:
@@ -1128,25 +1200,68 @@ class Archive:
         return candidate
 
     def mark_done(self, path: Path) -> Path:
-        """Compress into done/ and remove the inbox copy."""
+        """Compress into done/, make the archive durable, then remove the inbox copy."""
         dest = self._unique(self.cfg.done_dir, path.name + ".xz")
         fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
             with os.fdopen(fd, "wb") as raw, lzma.open(raw, "wb") as out, path.open("rb") as src:
                 shutil.copyfileobj(src, out)
+                out.close()  # flush the xz stream before the fsync below
+                raw.flush()
+                os.fsync(raw.fileno())
+            self._fsync_dir(self.cfg.done_dir)
         except BaseException:
             # Never leave a truncated archive behind; the inbox copy stays and
-            # is re-sent next run (CARLOS answers 409, so that is harmless).
+            # is re-sent next run (the EMR answers 409, so that is harmless).
             dest.unlink(missing_ok=True)
             raise
         path.unlink()
+        self._attempts_file(path).unlink(missing_ok=True)
+        self._fsync_dir(self.cfg.inbox_dir)
         return dest
 
     def mark_failed(self, path: Path) -> Path:
-        """Move a file CARLOS definitively rejected out of the retry path."""
+        """Move a file the EMR definitively rejected out of the retry path."""
         dest = self._unique(self.cfg.failed_dir, path.name)
         os.rename(path, dest)
+        self._attempts_file(path).unlink(missing_ok=True)
         return dest
+
+    @staticmethod
+    def _fsync_dir(directory: Path) -> None:
+        dir_fd = os.open(directory, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+
+    @staticmethod
+    def _attempts_file(path: Path) -> Path:
+        # Sidecar beside the inbox file; not matched by the *.xml listing.
+        return path.with_name(path.name + ".attempts")
+
+    def bump_attempts(self, path: Path, run_token: str) -> int:
+        """Record a transient upload failure for ``path``; return the total.
+
+        One run uploads twice (the backlog before the pull, everything after
+        it), so the sidecar remembers which run last counted: a second failure
+        in the same run is retried but not counted again, keeping
+        ``max_upload_attempts`` equal to the number of runs a file survives.
+        """
+        sidecar = self._attempts_file(path)
+        count, last_run = 0, ""
+        try:
+            count_text, _, last_run = sidecar.read_text().strip().partition(" ")
+            count = int(count_text or "0")
+        except (OSError, ValueError):
+            count = 0
+        if last_run == run_token:
+            return count
+        count += 1
+        fd = os.open(sidecar, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as fh:
+            fh.write(f"{count} {run_token}\n")
+        return count
 
     def purge(self) -> int:
         """Delete done/ archives older than the retention window. 0 = keep all."""
@@ -1235,10 +1350,13 @@ class LabUploadEnvelope:
             algorithms.AES(aes_key), modes.ECB()
         ).encryptor()  # codeql[py/weak-cryptographic-algorithm]
         ciphertext = encryptor.update(padded) + encryptor.finalize()
-        wrapped = self.server_key.encrypt(aes_key, padding.PKCS1v15())
+        wrapped = self.server_key.encrypt(
+            aes_key, padding.PKCS1v15()
+        )  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-encrypt.cryptography-rsa-pkcs1-encrypt -- LabUpload2Action unwraps with RSA/ECB/PKCS1Padding; OAEP tracked in #3413
+        # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-signature.cryptography-rsa-pkcs1-signature, python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5 -- LabUpload2Action verifies MD5WithRSA; replacement tracked in #3413
         signature = self.client_key.sign(
             plaintext, padding.PKCS1v15(), hashes.MD5()
-        )  # codeql[py/weak-sensitive-data-hashing]
+        )  # codeql[py/weak-sensitive-data-hashing]  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-signature.cryptography-rsa-pkcs1-signature, python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5
         return (
             ciphertext,
             base64.b64encode(wrapped).decode("ascii"),
@@ -1270,19 +1388,37 @@ def encode_multipart(
 
 @dataclasses.dataclass(frozen=True)
 class UploadOutcome:
+    """How the EMR answered one upload.
+
+    ``status`` is the HTTP status, or 0 when the reply could not be read as an
+    upload result at all (an HTML page with HTTP 200, for instance).
+    """
+
     status: int
     detail: str
 
+    # Statuses the upload action sends for a reason intrinsic to this request:
+    # 400 no file, 403 upload-source rejection (CARLOS), 406 signature failure.
+    # Re-sending the same bytes cannot change them.
+    PERMANENT = (400, 403, 406)
+
     @property
     def accepted(self) -> bool:
-        # 200: imported now. 409: CARLOS already holds a byte-identical file
+        # 200: imported now. 409: the EMR already holds a byte-identical file
         # (FileUploadCheck); that is the retry path working as designed.
         return self.status in (200, 409)
 
     @property
-    def definitive(self) -> bool:
-        """CARLOS answered and said no. Retrying the same bytes will not help."""
-        return 400 <= self.status < 600 and self.status != 409
+    def permanent(self) -> bool:
+        """The EMR answered and said no for a reason in the request itself."""
+        return self.status in self.PERMANENT
+
+    @property
+    def transient(self) -> bool:
+        """Anything else: 5xx (the action's own 500 covers a database or disk
+        failure as well as a parse failure), 429, 502/503/504 from a proxy, a
+        302 to the login page, an unreadable reply. Worth retrying, within a cap."""
+        return not self.accepted and not self.permanent
 
 
 class CarlosSession:
@@ -1313,7 +1449,8 @@ class CarlosSession:
 
     Both report the upload outcome as the HTTP status when
     use_http_response_code is set: 200 uploaded, 409 uploaded previously,
-    500 import failed. A signature failure is 403 on CARLOS, 406 on OSCAR 19.
+    406 signature failure, 500 import failed. CARLOS alone also answers 403
+    when its upload-source validation refuses the request.
     """
 
     _TOKEN_RE = re.compile(r"""masterTokenValue\s*=\s*["']([^"']+)["']""")
@@ -1511,15 +1648,7 @@ class CarlosSession:
         resp = self.transport.request(
             "POST", self._url(self.routes["upload"] or ""), headers=headers, body=body
         )
-        status = self._status_from_outcome_body(resp)
-        detail = {
-            200: "uploaded",
-            400: "bad request (no file received)",
-            403: "signature validation failed (service name / client key mismatch)",
-            406: "signature validation failed (service name / client key mismatch)",
-            409: "uploaded previously (duplicate, already imported)",
-            500: "the EMR could not import the file (see its log)",
-        }.get(status, f"HTTP {status}")
+        status, detail = self._classify_reply(resp)
         return UploadOutcome(status, detail)
 
     _OUTCOME_RE = re.compile(rb"<outcome>\s*([^<]*?)\s*</outcome>")
@@ -1531,31 +1660,42 @@ class CarlosSession:
         "upload failed": 500,
         "exception": 500,
     }
+    _DETAIL = {
+        200: "uploaded",
+        400: "bad request (no file received)",
+        403: "upload rejected by the EMR's upload-source validation (not a key problem)",
+        406: "signature validation failed (service name / client key mismatch)",
+        409: "uploaded previously (duplicate, already imported)",
+        500: "the EMR could not import the file (see its log)",
+    }
 
     @classmethod
-    def _status_from_outcome_body(cls, resp: HttpResponse) -> int:
-        """Trust an ``<outcome>`` element over a bare 200.
+    def _classify_reply(cls, resp: HttpResponse) -> tuple[int, str]:
+        """Map the reply to (status, detail), accepting 200 only when it is
+        really an upload result.
 
-        With ``use_http_response_code`` the EMR answers with the status alone.
-        If a build ignores that parameter it renders ``uploadComplete.jsp``,
-        the ``<outcome>`` XML the Mule bridge parsed, with HTTP 200 whatever
-        happened. Reading it is what stops a rejected upload being archived
-        as a success.
+        With ``use_http_response_code`` the action answers ``sendError(status)``
+        and an empty body. A build that ignores the parameter renders
+        ``uploadComplete.jsp``, the ``<outcome>`` XML the Mule bridge parsed.
+        Anything else with HTTP 200, such as the HTML page Struts renders when
+        the multipart layer refuses the request, is not a success, whatever
+        the status says; treating it as one would archive an unimported file.
         """
         if resp.status != 200:
-            return resp.status
+            return resp.status, cls._DETAIL.get(resp.status, f"HTTP {resp.status}")
         match = cls._OUTCOME_RE.search(resp.body)
-        if not match:
-            return 200
-        text = match.group(1).decode("utf-8", errors="replace").strip().lower()
-        status = cls._OUTCOME_STATUS.get(text)
-        if status is None:
-            log.warning(
-                "upload reply carried an unrecognised <outcome> (%d bytes); treating as failed",
-                len(text),
-            )
-            return 500
-        return status
+        if match:
+            text = match.group(1).decode("utf-8", errors="replace").strip().lower()
+            status = cls._OUTCOME_STATUS.get(text)
+            if status is None:
+                return 0, f"unrecognised <outcome> in the upload reply ({len(text)} bytes)"
+            return status, cls._DETAIL.get(status, f"HTTP {status}")
+        if not resp.body.strip():
+            return 200, cls._DETAIL[200]
+        return 0, (
+            f"HTTP 200 with a {len(resp.body)}-byte page instead of an upload result "
+            "(request refused before the upload action ran?)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1679,9 +1819,16 @@ def pull_step(
 
 
 def upload_step(
-    cfg: Config, archive: Archive, opts: RunOptions, make_transport=default_transport
+    cfg: Config,
+    archive: Archive,
+    run_token: str,
+    opts: RunOptions,
+    make_transport=default_transport,
 ) -> list[str]:
-    """Upload every inbox file to CARLOS. Returns a list of failure descriptions."""
+    """Upload every inbox file to CARLOS. Returns a list of failure descriptions.
+
+    ``run_token`` identifies this run for the attempt counter (see
+    ``Archive.bump_attempts``)."""
     files = archive.inbox_files()
     if opts.dry_run:
         files = []
@@ -1701,14 +1848,35 @@ def upload_step(
                 outcome = session.upload(path)
                 if outcome.accepted:
                     dest = archive.mark_done(path)
-                    log.info("carlos: %s -> %s (%s)", path.name, dest.name, outcome.detail)
-                elif outcome.definitive:
+                    log.info(
+                        "%s: %s -> %s (%s)",
+                        cfg.carlos_flavour,
+                        path.name,
+                        dest.name,
+                        outcome.detail,
+                    )
+                elif outcome.permanent:
                     dest = archive.mark_failed(path)
                     failures.append(f"{path.name}: {outcome.detail}; moved to {dest}")
-                    log.error("carlos: %s rejected: %s", path.name, outcome.detail)
+                    log.error("%s: %s rejected: %s", cfg.carlos_flavour, path.name, outcome.detail)
                 else:
-                    failures.append(f"{path.name}: {outcome.detail}; left in inbox for retry")
-                    log.error("carlos: %s not uploaded: %s", path.name, outcome.detail)
+                    # Transient: keep it in the inbox and retry next run, up to
+                    # the cap, so an EMR outage never strands an acknowledged
+                    # pull, and a file that fails every time still surfaces.
+                    attempts = archive.bump_attempts(path, run_token)
+                    if attempts >= cfg.max_upload_attempts:
+                        dest = archive.mark_failed(path)
+                        failures.append(
+                            f"{path.name}: {outcome.detail}; gave up after {attempts} attempts, moved to {dest}"
+                        )
+                    else:
+                        failures.append(
+                            f"{path.name}: {outcome.detail}; attempt {attempts} of "
+                            f"{cfg.max_upload_attempts}, left in inbox for retry"
+                        )
+                    log.error(
+                        "%s: %s not uploaded: %s", cfg.carlos_flavour, path.name, outcome.detail
+                    )
     except TransportError as exc:
         # The session is gone; whatever is still in the inbox is retried next run.
         failures.append(f"CARLOS unreachable: {exc}; inbox files kept for retry")
@@ -1726,6 +1894,9 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
         # problem here must produce an alert, not a bare traceback.
         archive = Archive(cfg)
         lock = RunLock(cfg.lock_file)
+        # Distinct per process even when two runs share a one-second run_id,
+        # so the per-run attempt counting below cannot be fooled.
+        run_token = f"{run_id}-{os.getpid()}-{time.monotonic_ns()}"
         if not lock.acquire():
             lock = None
             log.warning("another excelleris_pull run still holds %s; exiting", cfg.lock_file)
@@ -1739,7 +1910,7 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
         failures: list[str] = []
         # Retry first: a backlog from a CARLOS outage goes in before new work.
         if not opts.no_upload and not opts.dry_run:
-            failures += upload_step(cfg, archive, opts, make_transport)
+            failures += upload_step(cfg, archive, run_token, opts, make_transport)
         if not opts.upload_only:
             try:
                 pull_step(cfg, archive, run_id, opts, make_transport)
@@ -1749,7 +1920,7 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
                 # record it and still run the upload below.
                 failures.append(f"{exc.step}: {exc.detail}")
         if not opts.no_upload:
-            failures += upload_step(cfg, archive, opts, make_transport)
+            failures += upload_step(cfg, archive, run_token, opts, make_transport)
         archive.purge()
         if failures:
             notifier.failure(run_id, "run", "; ".join(failures))
@@ -1807,10 +1978,12 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--check-config", action="store_true", help="validate config, keys and PFX; no network"
     )
-    parser.add_argument(
+    # One operating mode at a time: a dry run must prove the whole documented
+    # path, so it cannot be combined with a partial mode.
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--dry-run", action="store_true", help="log in and out of both systems; no pull, no upload"
     )
-    mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--no-upload",
         action="store_true",

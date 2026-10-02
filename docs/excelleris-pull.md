@@ -47,8 +47,10 @@ A run is normally started by cron or a systemd timer every few minutes.
    definitively rejected move to `<state_dir>/failed` for a person to look at; `done` files
    older than the retention window are purged.
 
-Every failure ends in an alert email (if configured), an `ERROR` line in the log and a
-non-zero exit. The only quiet early exit is when a previous run still holds the lock.
+Every failure after a run has started ends in an alert email (if configured), an `ERROR` line
+in the log and a non-zero exit. Configuration errors and a root refusal exit 2 before logging
+starts and report on stderr only. The only quiet early exit is when a previous run still holds
+the lock.
 
 ```
 Excelleris --(mutual TLS GET)--> inbox/ --(AES + RSA + MD5withRSA multipart POST)--> EMR
@@ -108,8 +110,8 @@ build 5036 disassemble to exactly the behaviour described.
 
 ## One-time setup on the host
 
-1. Install `python3-cryptography` (`apt install python3-cryptography`). Nothing else is
-   needed beyond the Python standard library.
+1. Install `python3-cryptography` (`apt install python3-cryptography`); any version from 3.4
+   (Ubuntu 22.04) upward works. Nothing else is needed beyond the Python standard library.
 2. Create a service user, for example `carlos-excelleris`. The tool refuses to run as root.
 3. Create the directories and give them to that user:
 
@@ -162,7 +164,7 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `pfx_password` | no | PFX passphrase. |
 | `client_cert_file` and `client_key_file` | alternative to `pfx_file` | The certificate (with chain) and the unencrypted private key extracted from the PFX, as PEM. The key file must be mode 0600. Cannot be combined with `pfx_file`. |
 | `timeout_seconds` | no | Per-request timeout, default 60, minimum 5. |
-| `ca_file` | no | Extra PEM bundle to trust, for a TLS-intercepting proxy or a test endpoint. Server verification is never disabled. |
+| `ca_file` | no | Extra PEM bundle to trust, for a TLS-intercepting proxy or a test endpoint. Server verification is never disabled. Must be a regular file owned by the service user or root and not writable by group or other. |
 | `product` | no | `CARLOS` or `OSCAR`: which shell script's User-Agent to send, byte for byte (the CARLOS `ExcellerisDownload.sh` or the OSCAR 19 package's). Defaults to `OSCAR` when `flavour = oscar19`, else `CARLOS`. |
 | `user_agent` | no | The whole User-Agent header, sent verbatim; overrides `product`. For a site that must keep a string it was conformance-tested under. |
 
@@ -180,13 +182,14 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `client_private_key` or `client_private_key_file` | one of, unless `key_pair_file` | Base64 PKCS#8 private key from the Key Manager JSON endpoint. PEM armour and line breaks are tolerated. |
 | `server_public_key` or `server_public_key_file` | one of, unless `key_pair_file` | Base64 X.509 public key from the Key Manager page. |
 | `timeout_seconds` | no | Per-request timeout, default 120, minimum 5. |
-| `ca_file` | no | PEM bundle for an EMR served under a private CA. |
+| `ca_file` | no | PEM bundle for an EMR served under a private CA. Must be a regular file owned by the service user or root and not writable by group or other. |
+| `max_upload_attempts` | no | Runs with a transient upload failure (5xx, 429, a redirect to the login page, an unreadable reply) tolerated for one file before it moves to `failed/`. Default 24, minimum 1. Permanent rejections (400, 403, 406) go to `failed/` at once. |
 
 ### `[paths]`
 
 | Key | Required | Meaning |
 |---|---|---|
-| `state_dir` | yes | Absolute path. The tool creates `inbox/`, `done/`, `failed/` and `run.lock` under it, all mode 0700. Lab results live here: keep it on local, encrypted storage and out of any backup that is not itself PHI-grade. |
+| `state_dir` | yes | Absolute path. The tool creates `inbox/`, `done/` and `failed/` under it (mode 0700) and `run.lock` (mode 0600). Lab results live here: keep it on local, encrypted storage and out of any backup that is not itself PHI-grade. |
 | `log_file` | yes | Absolute path. Never contains result content or credentials. |
 | `retention_days` | no | Days to keep compressed, already-imported pulls in `done/`. Default 90. `0` keeps forever and logs a warning every run. |
 
@@ -207,7 +210,7 @@ excelleris_pull.py --config PATH [--check-config] [--dry-run] [--no-upload | --u
 | Flag | Effect | Old script equivalent |
 |---|---|---|
 | `--check-config` | Validate config, keys, PFX and CA bundles. No network. | none |
-| `--dry-run` | Log in and out of Excelleris, and of the EMR where credentials are configured. No pull, no upload. | none |
+| `--dry-run` | Log in and out of Excelleris, and of the EMR where credentials are configured. No pull, no upload. Cannot be combined with the two modes below. | none |
 | `--no-upload` | Pull and acknowledge only; leave files in the inbox. | `-s` |
 | `--upload-only` | Upload whatever is in the inbox; do not pull. | `-a` |
 | `-v` | Debug logging. Adds request metadata only, never payloads. | `-v` |
@@ -223,11 +226,14 @@ Exit codes:
 
 ### Scheduling
 
-cron, as the service user:
+A system crontab entry in `/etc/cron.d/carlos-excelleris` (the user field is only valid there):
 
 ```
 */15 * * * * carlos-excelleris /usr/bin/python3 /opt/carlos-excelleris/excelleris_pull.py --config /etc/carlos-excelleris/pull.conf
 ```
+
+Or, in the service user's own crontab (`crontab -u carlos-excelleris -e`), the same line without
+the user field.
 
 Or a systemd timer. The service unit should run as the service user and may use
 `ProtectSystem=strict` with `ReadWritePaths=` for the state and log directories, following
@@ -237,10 +243,13 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 
 - **`inbox/`** holds pulls that Excelleris has acknowledged but the EMR has not yet
   accepted. The next run retries them before pulling anything new. A non-empty inbox after
-  a run always comes with an alert.
+  a run always comes with an alert. A transient EMR failure (5xx, a proxy error, a session
+  bounce) leaves the file here with a `.attempts` sidecar that counts one attempt per run (a
+  run retries the backlog before and after the pull, but counts it once); after
+  `max_upload_attempts` such runs it moves to `failed/` so a file that fails every time still surfaces.
 - **`done/`** holds `.xml.xz` copies of imported pulls until `retention_days` expires.
-- **`failed/`** holds files the EMR answered with a definitive rejection (a signature failure,
-  a parse failure). They are not retried. Fix the cause, then move the file back into
+- **`failed/`** holds files the EMR rejected for a reason in the request itself (400, 403, a
+  406 signature failure) or that exhausted their transient-failure attempts. They are not retried. Fix the cause, then move the file back into
   `inbox/` or run it through the EMR's own upload page.
 - **Duplicates** are harmless. If a positive acknowledgment was lost and Excelleris re-sends,
   the EMR answers `409` and the tool treats that as success.
@@ -261,7 +270,9 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `redirected the login to its logout page; check [carlos] flavour` | CARLOS routes were sent to an OSCAR 19, or the base URL is wrong. |
 | `unexpected reply HTTP 404` on login | OSCAR 19 routes were sent to a CARLOS. |
 | `could not obtain a CSRF token` | The CARLOS session was not established, or the base URL is wrong. |
-| `signature validation failed` | `service` does not match the key name, or the client private key is not the one CARLOS generated for it. |
+| `signature validation failed` (406) | `service` does not match the key name, or the client private key is not the one the EMR generated for it. |
+| `upload-source validation` (403, CARLOS) | CARLOS refused the upload before checking the signature; see the CARLOS log. |
+| `instead of an upload result` | The EMR answered HTTP 200 with a page, not a result: usually the multipart layer refused the request (size limit). The file stays in `inbox/`. |
 | `could not import the file` | The handler type on the key is wrong for the feed, or the EMR log has the parse error. |
 | `uses a cipher this OpenSSL does not enable` | The PFX uses a legacy cipher. Re-export it with the command in the message. |
 
