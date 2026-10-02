@@ -34,8 +34,10 @@ async function workflow(s) {
   // Any other day of this month on which the logged-in provider has no schedule and there is no holiday: the
   // month view shows that day's reason and holiday name. Without one the month-view fixtures cannot exist, and
   // the check says so instead of passing without them.
-  const monthDay = s.sql.value(`SELECT d FROM (SELECT DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL x DAY) d FROM (SELECT seq x FROM seq_0_to_30) t) c
-    WHERE MONTH(d)=MONTH(CURDATE()) AND d<>CURDATE() AND NOT EXISTS (SELECT 1 FROM scheduledate WHERE sdate=d AND provider_no=${h.sqlString(me)})
+  // The 31 candidate offsets come from a recursive CTE (MariaDB 10.2+ and MySQL 8), not MariaDB's SEQUENCE engine.
+  const monthDay = s.sql.value(`WITH RECURSIVE t (x) AS (SELECT 0 UNION ALL SELECT x + 1 FROM t WHERE x < 30),
+    c AS (SELECT DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL x DAY) d FROM t)
+    SELECT d FROM c WHERE MONTH(d)=MONTH(CURDATE()) AND d<>CURDATE() AND NOT EXISTS (SELECT 1 FROM scheduledate WHERE sdate=d AND provider_no=${h.sqlString(me)})
     AND NOT EXISTS (SELECT 1 FROM scheduleholiday WHERE sdate=d) ORDER BY ABS(DATEDIFF(d, CURDATE())) LIMIT 1`);
   if (!monthDay) throw new h.SkipCheck('every other day of this month already has a schedule or a holiday for the test provider, so the month-view fixtures cannot be placed');
   let demo; let ticklerField;
@@ -146,7 +148,17 @@ async function workflow(s) {
     h.assert(await slot.count() === 1, 'The day sheet offers no bookable slot for the test provider');
     let popup = await ui.clickOpensPopup(s.schedule, slot, { context: s.context, label: 'appointment-add', recorder: s.recorder, timeout: 20000 });
     let since = f.mark();
-    await inspect(f, 'add appointment popup', popup, fields, since, { expect: fieldIds(fields, 'appointment type name') });
+    // The surface itself is required (the form's type select); the seeded type in it is not: the select comes from
+    // AppointmentTypeDao.listAll(), served from a 30-minute cache (CacheConfig.APPOINTMENT_TYPES) that only the
+    // DAO's own writes evict, so any run that listed appointment types in the last half hour (the Administration
+    // walk, an earlier Add Appointment) hides a type INSERTed by SQL. Inspected whenever it is listed; noted if not.
+    await popup.locator('select#type').waitFor({ state: 'attached', timeout: 20000 });
+    const [typeField] = fieldIds(fields, 'appointment type name');
+    const typeSeen = f.shown.has(String(typeField));
+    await inspect(f, 'add appointment popup', popup, fields, since);
+    if (!typeSeen && !f.shown.has(String(typeField))) {
+      f.note('add appointment popup', 'the seeded appointment type is not listed yet (30-minute appointment-type cache warm from an earlier run); not inspected this run');
+    }
     await popup.close();
     popup = await ui.clickOpensPopup(s.schedule, s.schedule.locator('input[name="searchview"]').first(), { context: s.context, label: 'appointment-search', recorder: s.recorder, timeout: 20000 });
     since = f.mark();

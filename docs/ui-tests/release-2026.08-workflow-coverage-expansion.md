@@ -190,7 +190,13 @@ a surface that does not show them (or cannot be reached) is a `MISSING` finding;
 cannot be opened is `NOT-OPENED` unless the fixture itself cannot back it (a document row with no file, a
 dated chart entry the page re-renders), which is noted with that reason. A click that changes nothing is
 noted and never inspected as its own destination, and a frame the inspector could not read is
-`INSPECT-FAILED`, so none of these can pass as an encoded page. The summary also lists the seeded fields
+`INSPECT-FAILED`, so none of these can pass as an encoded page. A click that opens a window is inspected
+in that window even when the host redraws itself before the window appears (or navigates only after
+touching the page), and a required module that lives in a window of its own (the E-Chart and Master
+Record modules) counts only when it opened that page: the host's copy of the same values never stands
+in for it. Administration items, which load into the page's own content frame, may open in place. An aborted subresource request is excused only when its document provably went away (the
+frame moved on, was removed, or its page closed); any other `ERR_ABORTED` is a `REQUEST-FAILED`
+finding. The summary also lists the seeded fields
 no surface reached. The schedule check and both Administration halves wait out the five-minute
 active-provider cache once each (about fifteen minutes of a full sweep), so the provider selects are
 inspected with the fixture present.
@@ -217,7 +223,7 @@ own fixture. `scripts/xss-poison-helpers.test.js` pins these rules.
 | Check | Provinces | Result on the packaged 2026.08 install |
 |---|---|---|
 | `xss-poison-master-record` | all | FAIL on confirmed defects (findings 117, 118): Master Record view and Edit form, Documents and Manage Contacts print stored values raw. Create Invoice is skipped because the WAF refuses its URL, which carries the patient name. |
-| `xss-poison-echart` | all | FAIL on confirmed defects (findings 117, 119, 120, 128): left navbar titles (Rx, Tickler, eForms), the Rx drug list, the Allergies page, the Disease Registry, Documents and CDM Indicators flowsheet headers, and the consultation form the chart opens (which of them a run reaches varies with popup timing). |
+| `xss-poison-echart` | all | FAIL on confirmed defects (findings 117, 119, 120, 128): left navbar titles (Rx, Tickler, eForms), the Rx drug list, the Allergies page, the Disease Registry, Documents, CDM Indicators flowsheet, cumulative lab (Grid/Row Display) and measurement history headers, and the consultation form the chart opens. |
 | `xss-poison-schedule` | all | FAIL on confirmed defects (findings 123, 126, 127): the month view's provider select and holiday name, and Schedule Setting ▸ Template Setting's template select. Day sheet, week view, appointment popups, tickler list and edit, Add Appointment, Search and the Schedule Setting provider selects encode. |
 | `xss-poison-documents-inbox` | all | FAIL on a confirmed defect (finding 117): Master Record ▸ Documents. Inbox, eDoc provider list and document Edit encode. |
 | `xss-poison-eform` | all | FAIL on confirmed defects (findings 121, 125), including the Deleted patient-independent list; the Deleted eForms list also hits finding 77 (TypeError on unload). |

@@ -85,10 +85,10 @@ async function workflow(s) {
     await walkLinks({ context: s.context, recorder: s.recorder, host: chart, items, findings: f, fields, timeout: 40000, label: 'echart', skip: SKIP_ITEMS,
       // Named modules the walk must reach, with the seeded values each is known to show.
       expect: [
-        { match: /^Medications$/, fields: E('drug instructions') },
-        { match: /^Tickler$/, fields: [...patient, ...E('tickler message')] },
-        { match: /^eForms$/, fields: [...patient, ...E('eform instance name')] },
-        { match: /^Disease Registry$/, fields: patient },
+        { match: /^Medications$/, fields: E('drug instructions'), page: true },
+        { match: /^Tickler$/, fields: [...patient, ...E('tickler message')], page: true },
+        { match: /^eForms$/, fields: [...patient, ...E('eform instance name')], page: true },
+        { match: /^Disease Registry$/, fields: patient, page: true },
       ],
       optional: [
         { match: /^\d{2}-[A-Za-z]{3}-\d{4}$/, reason: 'a dated encounter entry the chart re-renders while it is walked' },

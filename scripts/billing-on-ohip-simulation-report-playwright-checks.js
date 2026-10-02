@@ -118,8 +118,13 @@ function createBillingFixture(s, { record = null } = {}) {
   owned.ohipNo = unusedNumber('96', 6, candidate => sql.value(`SELECT
     (SELECT COUNT(*) FROM provider WHERE ohip_no=${h.sqlString(candidate)})
     + (SELECT COUNT(*) FROM radetail WHERE providerohip_no=${h.sqlString(candidate)})`) !== '0');
-  const providerNo = unusedNumber('97', 6, candidate =>
-    sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(candidate)}`) !== '0');
+  // Every table the cleanups and the durable ledger delete from by this provider number must be free of it, not
+  // just provider: an orphan providersite (or claim) row left under a number no provider holds would otherwise be
+  // adopted by this run and deleted by its cleanup or a killed run's recovery.
+  const providerNo = unusedNumber('97', 6, candidate => sql.value(`SELECT
+    (SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(candidate)})
+    + (SELECT COUNT(*) FROM providersite WHERE provider_no=${h.sqlString(candidate)})
+    + (SELECT COUNT(*) FROM billing_on_cheader1 WHERE provider_no=${h.sqlString(candidate)})`) !== '0');
   const overrides = {
     provider_no: h.sqlString(providerNo), ohip_no: h.sqlString(owned.ohipNo), last_name: h.sqlString(marker),
     first_name: "'Billing'", status: "'1'",
@@ -144,7 +149,7 @@ function createBillingFixture(s, { record = null } = {}) {
   }
   sql.execute(`INSERT INTO provider (${columns.map(c => `\`${c}\``).join(',')})
     SELECT ${columns.map(c => overrides[c] || `\`${c}\``).join(',')} FROM provider WHERE provider_no=${h.sqlString(provider)};
-    INSERT IGNORE INTO providersite (provider_no, site_id) SELECT ${h.sqlString(providerNo)}, site_id
+    INSERT INTO providersite (provider_no, site_id) SELECT ${h.sqlString(providerNo)}, site_id
       FROM providersite WHERE provider_no=${h.sqlString(provider)}`);
   h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(providerNo)}`) === '1',
     'The owned billing provider was not created');

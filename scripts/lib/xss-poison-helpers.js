@@ -147,9 +147,14 @@ class Findings {
     }
     for (const e of r.badResponses.splice(since.responses)) if (!this.isIgnored(e.url)) this.add(surface, 'HTTP', `${e.status} ${new URL(e.url).pathname}`);
     for (const e of r.requestFailures.splice(since.failures)) {
-      // A subresource the browser abandoned because the sweep's own click moved the page on (a web font still
-      // loading) says nothing about the application; any other failure is reported.
-      if (/ERR_ABORTED/.test(e.errorText || '')) { this.note(surface, `request abandoned by navigation: ${new URL(e.url).pathname}`); continue; }
+      // A subresource the browser abandoned because its document went away (the sweep's own click moved the page
+      // on, or closed the popup, while a web font was still loading) says nothing about the application. Only that
+      // is excused: an ERR_ABORTED whose document is still the one that issued it (an application-cancelled
+      // fetch, an aborted script load) is reported like any other failure.
+      if (/ERR_ABORTED/.test(e.errorText || '') && typeof e.navigatedAway === 'function' && e.navigatedAway()) {
+        this.note(surface, `request abandoned by navigation: ${new URL(e.url).pathname}`);
+        continue;
+      }
       this.add(surface, 'REQUEST-FAILED', `${new URL(e.url).pathname}`);
     }
     for (const e of r.unexpectedDialogs.splice(since.dialogs)) this.add(surface, 'DIALOG', `${e.type}: ${e.text.slice(0, 80)}`);
@@ -609,8 +614,10 @@ module.exports.openMasterByChartNo = openMasterByChartNo;
  * matches `optional` (each entry `{ match, reason }`: a link whose destination the fixture cannot provide,
  * or a dated entry the page re-renders), which is noted. A click that produced no navigation, popup or
  * in-place change is noted as inert and NOT inspected: the unchanged host is not that item's destination.
- * `expect` entries `{ match, fields }` name items that must be opened and the fields each must show; an
- * expected item that was never opened is a MISSING finding. Returns `{ opened, inert, failed }`.
+ * `expect` entries `{ match, fields, page }` name items that must be opened and the fields each must show; an
+ * expected item that was never opened is a MISSING finding, and with `page: true` it must have opened a page
+ * of its own (popup or navigation; an in-place change of the host does not count). Returns
+ * `{ opened, inert, failed }`.
  */
 async function walkLinks({ context, recorder, host, items, findings, fields, label, skip = [], timeout = 20000,
   beforeItem = null, beforeClose = null, limit = 0, optional = [], expect = [] }) {
@@ -663,6 +670,18 @@ async function walkLinks({ context, recorder, host, items, findings, fields, lab
         // slow popup stall the host and every later item behind it.
         await link.click({ timeout, noWaitAfter: true });
         outcome = await first;
+        // A page that redraws itself (the E-Chart's navbars) can change in place before the window the click
+        // opens has appeared; that win would inspect the unchanged host and credit it to the item while the real
+        // destination is closed unseen. Give a popup a short grace before settling on 'in-place'.
+        // A link whose handler touches the page before it sets location.href navigates late in the same way.
+        if (outcome === 'in-place') {
+          const late = await Promise.race([
+            popupSeen.then(p => ({ popup: p })),
+            host.waitForURL(u => String(u) !== hostUrl, { timeout: 3000, waitUntil: 'commit' }).then(() => ({ navigated: true }), () => null),
+            new Promise(resolve => setTimeout(() => resolve(null), 3000)),
+          ]);
+          if (late && late.popup) { popup = late.popup; outcome = 'popup'; } else if (late && late.navigated) outcome = 'navigated';
+        }
         navigated = outcome === 'navigated';
         if (navigated) await host.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
       } finally {
@@ -690,7 +709,13 @@ async function walkLinks({ context, recorder, host, items, findings, fields, lab
         if (audit.ERROR_PAGE_RE.test(body) && !findings.isIgnored(target.url())) findings.add(surface, 'ERROR-PAGE', body.replace(/\s+/g, ' ').slice(0, 100));
         await inspect(findings, `${surface} -> ${where}`, target, fields, null, { expect: wanted.flatMap(e => e.fields || []) });
         stats.opened.push(item.text);
-        for (const e of wanted) reached.add(e);
+        // An expected item marked `page` names a page of its own (a module window or a navigation): a click that
+        // only changed the host in place has not reached it, and the host's own copy of the same values must not
+        // stand in. Unmarked items may legitimately load in place (the Administration menu's content frame).
+        for (const e of wanted) {
+          if (!e.page || popup || navigated) reached.add(e);
+          else findings.note(surface, 'expected a page of its own, but the click only changed the host in place; not credited');
+        }
         if (beforeClose && popup) await beforeClose(popup);
       }
     } catch (error) {

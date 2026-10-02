@@ -82,6 +82,9 @@ async function workflow(s) {
       { context: s.context, label: 'master-record', recorder: s.recorder, timeout: 20000 });
     await master.locator('#editBtn').waitFor({ state: 'visible', timeout: 20000 });
     const since = f.mark();
+    // The view's own "Doctor" line reads the session providerBean (filled at login, before this seeding), but
+    // the same DemographicEdit document carries the Edit form's doctor select, which DemographicEdit2Action fills
+    // from the uncached ProviderDao.getActiveProvidersByRole: the seeded doctor's name is in this DOM every run.
     await inspect(f, 'master record view', master, fields, since,
       { expect: [...patient, ...E('patient address', 'patient email', 'doctor last name', 'contact role', 'patient alert')] });
   });
@@ -98,11 +101,11 @@ async function workflow(s) {
     await walkLinks({ context: s.context, recorder: s.recorder, host: master, items, findings: f, fields, timeout: 40000, label: 'master', skip: [...SKIP_ITEMS, ...FRONT_DOOR_SKIP],
       // Named links the walk must open, with the seeded values each is known to show.
       expect: [
-        { match: /^Tickler$/, fields: [...patient, ...E('tickler message', 'tickler comment')] },
-        { match: /^Manage Contacts$/, fields: E('contact relationship note') },
-        { match: /^Documents$/, fields: patient },
-        { match: /^Appointment History$/, fields: patient },
-        { match: /^Consultations$/, fields: patient },
+        { match: /^Tickler$/, fields: [...patient, ...E('tickler message', 'tickler comment')], page: true },
+        { match: /^Manage Contacts$/, fields: E('contact relationship note'), page: true },
+        { match: /^Documents$/, fields: patient, page: true },
+        { match: /^Appointment History$/, fields: patient, page: true },
+        { match: /^Consultations$/, fields: patient, page: true },
       ],
       beforeClose: page => releaseChartLocks(s.context, s.config.baseUrl, [page]).catch(() => {}) });
   });

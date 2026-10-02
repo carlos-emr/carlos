@@ -132,3 +132,23 @@ test('the next run removes a killed run\'s rows by key before it seeds, and leav
     fs.rmSync(alive, { force: true });
   } finally { other.kill(); }
 });
+
+test('an aborted request is excused only when its document provably went away', () => {
+  const { Findings } = require('./lib/xss-poison-helpers');
+  const failure = (url, navigatedAway) => {
+    const entry = { url, resourceType: 'font', errorText: 'net::ERR_ABORTED' };
+    if (navigatedAway !== undefined) Object.defineProperty(entry, 'navigatedAway', { value: () => navigatedAway });
+    return entry;
+  };
+  const recorder = { pageErrors: [], consoleIssues: [], badResponses: [], unexpectedDialogs: [], requestFailures: [] };
+  const f = new Findings(recorder);
+  const since = f.mark();
+  recorder.requestFailures.push(
+    failure('https://host/carlos/font.woff2', true),
+    failure('https://host/carlos/api/poll', false),
+    failure('https://host/carlos/js/app.js'),
+  );
+  f.drain('surface', since);
+  assert.deepEqual(f.items.map(i => `${i.kind} ${i.detail}`), ['REQUEST-FAILED /carlos/api/poll', 'REQUEST-FAILED /carlos/js/app.js']);
+  assert.deepEqual(f.observed.map(o => o.text), ['request abandoned by navigation: /carlos/font.woff2']);
+});

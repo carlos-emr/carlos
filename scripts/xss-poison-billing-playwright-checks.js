@@ -50,7 +50,14 @@ async function workflow(s) {
     s.sql.execute(`UPDATE provider SET first_name=${q(P('billing provider first name', 30))} WHERE provider_no=${q(owned.providerNo)} AND last_name=${q(s.marker)};
       UPDATE billing_on_cheader1 SET demographic_name=${q(P('invoice patient name', 60))}, comment1=${q(`${s.marker} ${P('invoice comment', 200)}`)} WHERE id=${claim.id}`);
     // Manage Billing Service Code searches only a well-formed OHIP code: a letter, three digits, a letter.
-    serviceCode = `X${String(parseInt(hex, 16) % 1000).padStart(3, '0')}X`;
+    // billingservice.service_code is not unique and the admin search shows the first match, so the code must be
+    // one no row holds yet (a pre-existing match would hide the seeded description behind its own).
+    serviceCode = '';
+    for (let i = 0; i < 1000 && !serviceCode; i += 1) {
+      const code = `X${String((parseInt(hex, 16) + i) % 1000).padStart(3, '0')}X`;
+      if (s.sql.value(`SELECT COUNT(*) FROM billingservice WHERE service_code=${q(code)}`) === '0') serviceCode = code;
+    }
+    if (!serviceCode) throw new h.SkipCheck('every X###X billing service code is already in use, so the service-code fixture cannot be placed');
     seed.insert('billingservice', { service_code: serviceCode, description: P('billing service description'), value: '1.00', billingservice_date: { raw: 'CURDATE()' }, region: 'ON', specialty: '' }, { key: 'billingservice_no' });
     // Two codes: a description search with exactly one match picks it and closes the popup before anyone can
     // read the list (billingDigSearch.jsp autoSelect), so the list needs a second match to stay on screen.

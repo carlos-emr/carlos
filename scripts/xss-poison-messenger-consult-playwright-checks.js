@@ -152,7 +152,7 @@ async function workflow(s) {
     if (await link.count()) {
       await walkLinks({ context: s.context, recorder: s.recorder, host: master, findings: f, fields, label: 'master',
         items: [{ text: 'Consultations', index: 0, selector: 'a:text-matches("^\\\\s*Consultations?\\\\s*$", "i")' }],
-        expect: [{ match: /^Consultations$/, fields: [...patient, ...specialist] }],
+        expect: [{ match: /^Consultations$/, fields: [...patient, ...specialist], page: true }],
         beforeClose: page => releaseChartLocks(s.context, s.config.baseUrl, [page]).catch(() => {}) });
     } else f.missing('master', 'the Master Record offers no Consultations link');
     await master.close();
