@@ -634,6 +634,14 @@ class ExcellerisSessionTest(TempEnv):
             with self.assertRaisesRegex(ep.StepError, "Positive ack failed"):
                 s.ack(True)
 
+    def test_ack_reply_carrying_messages_is_not_an_acknowledgment(self):
+        # An HL7Messages document with children is a pull payload (a
+        # misdirected or cached reply), not the empty acknowledgment form.
+        t = FakeTransport(self.script(**{"excelleris:ack:Positive": ok(PULL_WITH_RESULTS)}))
+        with ep.ExcellerisSession(self.cfg, t) as s:
+            with self.assertRaisesRegex(ep.StepError, "unrecognised .*reply"):
+                s.ack(True)
+
     def test_unrecognised_ack_reply_is_an_error(self):
         # A maintenance or proxy page with HTTP 200 is not an acknowledgment
         # that registered; the shell script only logged it, the tool alerts.
@@ -2642,6 +2650,17 @@ class TrustAnchorTest(TempEnv):
 
 
 class CertificateCleanupTest(TempEnv):
+    def test_pem_is_removed_as_soon_as_the_context_is_loaded(self):
+        # The key must not outlive load_cert_chain: a SIGKILL during the
+        # network run then finds nothing on disk.
+        with ep.ClientCertificate.from_config(self.cfg) as cert:
+            tmpdir = Path(cert._tmpdir)
+            self.assertTrue(tmpdir.exists())
+            ctx = cert.ssl_context()
+            self.assertFalse(tmpdir.exists())
+            self.assertIsNone(cert.pem_path)
+            self.assertIs(cert.ssl_context(), ctx)  # built once, reused
+
     def test_failed_enter_leaves_no_temp_directory(self):
         cert = ep.ClientCertificate.from_config(self.cfg)
         original = ep.tempfile.mkdtemp

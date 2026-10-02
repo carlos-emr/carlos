@@ -490,9 +490,10 @@ token before the first scheduled run.
 - Excelleris mandates credentials in the query string of a GET. That is their protocol. The
   URL is built in memory, sent over mutual TLS, and never written to this tool's logs or
   error messages. Logging by Excelleris or a TLS-intercepting proxy is outside this guarantee.
-- The PFX, or the PEM pair, is combined into one PEM in a private temporary directory for the
-  lifetime of one run, because Python's `ssl` module can only load a client certificate from
-  a file. The file is 0600 and deleted in a `finally`.
+- The PFX, or the PEM pair, is combined into one PEM in a private temporary directory,
+  because Python's `ssl` module can only load a client certificate from a file. The file is
+  0600, exists only until the TLS context has read it (before the first connection is made),
+  and is also deleted in a `finally` should the run fail before that point.
 - The upload envelope (AES-128-ECB payload, RSA PKCS#1 v1.5 wrapped key, MD5withRSA
   signature) is the legacy format the EMR's `LabUpload2Action` decrypts. It is kept in one
   class, `LabUploadEnvelope`, so it can be swapped when CARLOS issue #3413 lands a modern

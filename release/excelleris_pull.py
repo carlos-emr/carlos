@@ -942,6 +942,8 @@ class ClientCertificate:
         self.key_file = key_file
         self._tmpdir: Optional[str] = None
         self.pem_path: Optional[Path] = None
+        self._ctx: Optional[ssl.SSLContext] = None
+        self._cleanup_problem: Optional[str] = None
 
     @classmethod
     def from_config(cls, cfg: Config) -> "ClientCertificate":
@@ -1019,7 +1021,7 @@ class ClientCertificate:
         return self
 
     def __exit__(self, exc_type, *_exc) -> None:
-        problem = self._remove_tmpdir()
+        problem = self._remove_tmpdir() or self._cleanup_problem
         if problem and exc_type is None:
             # Key material left on disk is an alert condition, not a footnote.
             # Raised only when nothing else is already propagating, so it
@@ -1050,9 +1052,22 @@ class ClientCertificate:
         return None
 
     def ssl_context(self, ca_file: Optional[Path] = None) -> ssl.SSLContext:
-        ctx = server_verifying_context(ca_file)
-        ctx.load_cert_chain(certfile=str(self.pem_path))
-        return ctx
+        """The verifying context carrying the client certificate.
+
+        ``load_cert_chain`` reads the PEM synchronously, so the file is
+        deleted the moment it has been read rather than at ``__exit__``: a
+        SIGKILL or a power loss during the network run then finds no key
+        material on disk. The context is built once and reused.
+        """
+        if self._ctx is None:
+            if self.pem_path is None:
+                raise RuntimeError("ClientCertificate is used outside its context manager")
+            ctx = server_verifying_context(ca_file)
+            ctx.load_cert_chain(certfile=str(self.pem_path))
+            self._ctx = ctx
+            # Reported at __exit__ if nothing else is propagating by then.
+            self._cleanup_problem = self._remove_tmpdir()
+        return self._ctx
 
 
 _PEM_CERT_RE = re.compile(rb"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", re.S)
@@ -1229,7 +1244,9 @@ class ExcellerisSession:
 
         Both ``<HL7Messages/>`` (what the guide describes) and
         ``<HL7Messages ReturnCode="0"/>`` (what the shell script tested for)
-        are accepted as success. ``ReturnCode="1"`` is a failed ack and is
+        are accepted as success; an ``HL7Messages`` element with children is
+        a pull payload, not an acknowledgment, and is refused like any other
+        unexpected reply. ``ReturnCode="1"`` is a failed ack and is
         raised so the operator hears about it: after a failed positive ack
         Excelleris will resend, which CARLOS will refuse as a duplicate only if
         the resent file is byte-identical.
@@ -1243,7 +1260,7 @@ class ExcellerisSession:
             root = ET.fromstring(body) if body else None
         except ET.ParseError:
             root = None
-        if root is not None and root.tag == "HL7Messages":
+        if root is not None and root.tag == "HL7Messages" and len(root) == 0:
             code = root.get("ReturnCode")
             if code not in (None, "0"):
                 raise StepError("excelleris ack", f"{value} ack failed (ReturnCode={code})")
