@@ -102,8 +102,21 @@ const server = http.createServer((req, res) => {
     await open();
     await page.locator('#remoteFaxOptions summary').click();
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0123');
+    const combobox = page.locator('#remoteFaxRecipient');
+    assert.deepEqual(await combobox.evaluate(el => ['role', 'aria-autocomplete', 'aria-controls', 'aria-expanded']
+      .map(name => el.getAttribute(name))), ['combobox', 'list', 'remoteFaxSuggestions', 'false']);
+    assert.equal(await page.locator('#remoteFaxSuggestions').getAttribute('role'), 'listbox');
     await page.locator('#remoteFaxRecipient').fill('Example');
+    await page.locator('#remoteFaxSuggestions [role=option]').first().waitFor();
+    assert.equal(await combobox.getAttribute('aria-expanded'), 'true');
+    const option = page.locator('#remoteFaxSuggestions [role=option]').first();
+    assert.equal(await option.getAttribute('aria-selected'), 'false');
+    await combobox.press('ArrowDown');
+    assert.equal(await option.getAttribute('aria-selected'), 'true');
+    assert.equal(await combobox.getAttribute('aria-activedescendant'), await option.getAttribute('id'));
     await pickDirectoryRow();
+    assert.equal(await combobox.getAttribute('aria-expanded'), 'false');
+    assert.equal(await combobox.getAttribute('aria-activedescendant'), null);
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0199');
     await page.locator('#remoteFaxOptions summary').click();
     await page.locator('#remoteFaxButton').click();
