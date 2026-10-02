@@ -761,7 +761,7 @@ public final class RxWriteScript2Action extends ActionSupport {
     private String normalDrugSetCustomLocked(RxSessionBean bean) {
         String randomId = request.getParameter("randomId");
         String customDrugName = request.getParameter("customDrugName");
-        logger.debug("radomId=" + randomId);
+        logger.debug("randomId={}", LogSafe.sanitize(randomId));
         if (randomId != null && customDrugName != null) {
             RxPrescriptionData.Prescription normalRx = bean.getStashItem2(Integer.parseInt(randomId));
             if (normalRx != null) {// set other fields same as normal drug, set some fields null like custom drug, remove normal drugfrom stash, add customdrug to stash,

@@ -77,6 +77,35 @@ class TicklerAttachmentParametersUnitTest {
         assertThat(TicklerAttachmentParameters.isSubmitted(request)).isFalse();
     }
 
+    @Test
+    @DisplayName("should read the rendered stored attachments per type when the rendered marker is present")
+    void shouldReadRenderedAttachments_whenRenderedMarkerPresent() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("attachmentsRendered", "1");
+        request.addParameter("renderedDocNo", "11", " 11 ", "");
+        request.addParameter("renderedLabNo", "HL7:77");
+        request.addParameter("docNo", "99");
+
+        Map<DocumentType, Set<String>> rendered = TicklerAttachmentParameters.readRendered(request);
+
+        assertThat(rendered).containsOnlyKeys(DocumentType.values());
+        assertThat(rendered.get(DocumentType.DOC)).containsExactly("11");
+        assertThat(rendered.get(DocumentType.LAB)).containsExactly("HL7:77");
+        assertThat(rendered.get(DocumentType.EFORM)).isEmpty();
+        assertThat(TicklerAttachmentParameters.renderedParameterName(DocumentType.EFORM)).isEqualTo("renderedEFormNo");
+        assertThat(TicklerAttachmentParameters.renderedParameterName(DocumentType.HRM)).isEqualTo("renderedHrmNo");
+        assertThat(TicklerAttachmentParameters.renderedParameterName(DocumentType.FORM)).isEqualTo("renderedFormNo");
+    }
+
+    @Test
+    @DisplayName("should return no rendered list for a page that predates it")
+    void shouldReturnNullRendered_whenRenderedMarkerMissing() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("renderedDocNo", "11");
+
+        assertThat(TicklerAttachmentParameters.readRendered(request)).isNull();
+    }
+
     @ParameterizedTest
     @CsvSource({"DOC,DOC", "doc,DOC", "HRM,HRM", "HL7,LAB", "MDS,LAB", "CML,LAB", "BCP,LAB"})
     @DisplayName("should map legacy forward-from-document codes to attachment types")

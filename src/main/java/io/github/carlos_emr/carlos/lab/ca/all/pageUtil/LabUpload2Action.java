@@ -137,7 +137,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             try {
                 importFile = PathValidationUtils.validateUpload(importFile);
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
+                logger.error("Invalid upload source - potential path traversal");
                 outcome = OUTCOME_EXCEPTION;
                 httpCode = HttpServletResponse.SC_FORBIDDEN;
                 request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
@@ -173,7 +173,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     filterHandler.init(hl7Data);
                     OtherId providerOtherId = OtherIdManager.searchTable(OtherIdManager.PROVIDER, "STAR", filterHandler.getClientRef());
                     if (providerOtherId == null) {
-                        logger.info("Filtering out this message, as we don't have client ref " + filterHandler.getClientRef() + " in our database (" + file + ")");
+                        logger.info("Filtering out HHS EMR lab: client reference has no matching provider");
                         outcome = "uploaded";
                         request.setAttribute("outcome", outcome);
                         // Kept deliberately, as before: the filtered lab is acknowledged, not failed.
@@ -377,8 +377,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         try {
             OscarKeyDao oscarKeyDao = (OscarKeyDao) SpringUtils.getBean(OscarKeyDao.class);
             OscarKey oscarKey = oscarKeyDao.find("oscar");
-            logger.info("oscar key: " + oscarKey);
-
             privateKey = Base64.decodeBase64(oscarKey.getPrivateKey());
             PKCS8EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(privateKey);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
