@@ -1928,6 +1928,27 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
         self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
         self.assertNotIn("POST /carlos/lab/newLabUpload.do", self.labels())
 
+    def test_one_corrupt_sidecar_does_not_stop_the_other_files_or_the_pull(self):
+        self.script["POST /carlos/lab/newLabUpload.do"] = ok("", 200)
+        ep.Archive(self.cfg)
+        bad = self.cfg.inbox_dir / "20260101-000000.xml"
+        bad.write_bytes(PULL_WITH_RESULTS)
+        bad.with_name(bad.name + ".attempts").write_text("garbage\n")
+        (self.cfg.inbox_dir / "20260101-000001.xml").write_bytes(PULL_WITH_RESULTS)
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertTrue(bad.exists())  # fail-closed for this file only
+        self.assertIn("excelleris:ack:Positive", self.labels())  # the pull still ran
+        # The other backlog file and the new pull were both uploaded.
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 2)
+
+    def test_login_failure_in_the_backlog_pass_does_not_skip_the_pull(self):
+        self.script["POST /carlos/login.do"] = ok('{"success":false,"error":"x"}')
+        ep.Archive(self.cfg)
+        (self.cfg.inbox_dir / "20260101-000000.xml").write_bytes(PULL_WITH_RESULTS)
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertIn("excelleris:ack:Positive", self.labels())
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 2)  # both kept
+
     def test_non_utf8_sidecar_is_named_in_the_error(self):
         archive = ep.Archive(self.cfg)
         inbox_file = self.cfg.inbox_dir / "20260101-000000.xml"

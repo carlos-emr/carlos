@@ -456,7 +456,8 @@ token before the first scheduled run.
 ## Security notes
 
 - Excelleris mandates credentials in the query string of a GET. That is their protocol. The
-  URL is built in memory, sent over mutual TLS, and never written to a log or an error.
+  URL is built in memory, sent over mutual TLS, and never written to this tool's logs or
+  error messages. Logging by Excelleris or a TLS-intercepting proxy is outside this guarantee.
 - The PFX, or the PEM pair, is combined into one PEM in a private temporary directory for the
   lifetime of one run, because Python's `ssl` module can only load a client certificate from
   a file. The file is 0600 and deleted in a `finally`.

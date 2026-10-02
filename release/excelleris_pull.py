@@ -1976,10 +1976,16 @@ def upload_step(
                     failures.append(f"{path.name}: {detail}; moved to {dest}")
                     log.error("%s: %s: %s", cfg.carlos_flavour, path.name, detail)
                     continue
-                # Read the counter before sending: a corrupt sidecar stops here
-                # (StepError), before the EMR is touched. The pre-send value is
-                # what classifies a 409 on THIS request (below).
-                prior_attempts = archive.attempts(path)
+                # Read the counter before sending: a corrupt sidecar stops THIS
+                # file here (StepError), before the EMR is touched, and the
+                # other files and the pull go on. The pre-send value is what
+                # classifies a 409 on this request (below).
+                try:
+                    prior_attempts = archive.attempts(path)
+                except StepError as exc:
+                    failures.append(f"{path.name}: {exc.detail}; left in inbox")
+                    log.error("%s: %s: %s", cfg.carlos_flavour, path.name, exc.detail)
+                    continue
                 if cfg.carlos_flavour == FLAVOUR_OSCAR19:
                     # In-flight marker, written before the request: OSCAR 19
                     # records the checksum before it parses, so a crash between
@@ -2050,6 +2056,11 @@ def upload_step(
     except TransportError as exc:
         # The session is gone; whatever is still in the inbox is retried next run.
         failures.append(f"{cfg.carlos_flavour} unreachable: {exc}; inbox files kept for retry")
+    except StepError as exc:
+        # Login or CSRF failure, or a sidecar error while counting a transport
+        # failure: report it, keep the inbox, and let the run go on to the pull
+        # (the pull stores before it acks, so it is safe without an EMR).
+        failures.append(f"{exc.step}: {exc.detail}; inbox files kept for retry")
     return failures
 
 
