@@ -92,7 +92,11 @@ things. Two parts of the setup are simpler than on CARLOS:
 - **No login is needed.** OSCAR 19 exempts the upload route from its login filter and its
   upload action makes no privilege check. That is how the Mule bridge uploaded, with no OSCAR
   credentials at all. Leave `username`, `password` and `pin` empty to do the same. Set all
-  three to log in first instead; either way works.
+  three to log in first instead; either way works. If you do log in, note that OSCAR 19
+  blanks a username that is not plain alphanumeric (at most 30 characters) and a PIN that
+  is not all digits (at least four) before checking them, so such an account can never log
+  in from a script. OSCAR 19 answers the scripted login with a JSON body rather than the
+  redirect CARLOS sends; the tool accepts both.
 - **The Mule key file is reusable.** A site that ran the Mule bridge has a `keyPair.key`, the
   Create Key download that holds the service name, the client private key and the server
   public key. Point `[carlos] key_pair_file` at it and nothing else in `[carlos]` beyond

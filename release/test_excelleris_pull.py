@@ -626,7 +626,7 @@ class CarlosSessionTest(TempEnv):
                 "", 302, {"Location": "/carlos/select_facility?nextPage=provider"}
             ),
             "MFA": ok("", 302, {"Location": "/carlos/login?mfa=1"}),
-            "rejected the credentials": ok('{"success":false,"error":"x"}'),
+            "rejected the credentials: x": ok('{"success":false,"error":"x"}'),
             "unexpected reply HTTP 503": ok("", 503),
         }
         for expected, resp in cases.items():
@@ -937,21 +937,36 @@ class FakeCarlosHandler(_QuietHandler):
         if path == "/carlos/login":
             form = _up.parse_qs(body.decode())
             srv.log.append(("login", form.get("username"), form.get("pin")))
-            if (
+            good = (
                 form.get("username") == [EMR_USER]
                 and form.get("password") == [EMR_PASSWORD]
                 and form.get("pin") == ["1234"]
-            ):
+            )
+            if getattr(srv, "oscar19", False):
+                # OSCAR 19 LoginAction honours ajaxResponse=true: HTTP 200 and a
+                # text/x-json body either way, no redirect.
+                if good:
+                    return self._reply(
+                        200,
+                        b'{"success":true,"providerName":"Doc, Test","providerNo":"999998"}',
+                        {
+                            "Set-Cookie": "JSESSIONID=sess1; Path=/carlos",
+                            "Content-Type": "text/x-json",
+                        },
+                    )
+                return self._reply(
+                    200,
+                    b'{"success":false,"error":"Invalid username, password or PIN"}',
+                    {"Content-Type": "text/x-json"},
+                )
+            if good:
+                # CARLOS Login2Action: a provider account is always redirected.
                 return self._reply(
                     302,
                     b"",
                     {
                         "Set-Cookie": "JSESSIONID=sess1; Path=/carlos",
-                        "Location": (
-                            "/carlos/provider/providercontrol.jsp"
-                            if getattr(srv, "oscar19", False)
-                            else "/carlos/provider/providercontrol?year=2026"
-                        ),
+                        "Location": "/carlos/provider/providercontrol?year=2026",
                     },
                 )
             return self._reply(302, b"", {"Location": "/carlos/loginfailed?errormsg=x"})

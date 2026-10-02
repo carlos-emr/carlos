@@ -1431,8 +1431,8 @@ class CarlosSession:
 
       flavour = carlos  (Struts 7, extensionless routes, CSRFGuard 4.5)
         POST /login              username, password, pin, ajaxResponse=true
-                                 -> 302 to /provider/providercontrol (normal
-                                 account) or JSON {"success": ...}; CSRF-exempt
+                                 -> 302 to /provider/providercontrol (Login2Action
+                                 never writes a JSON success); CSRF-exempt
         GET  /csrfguard          same-domain Referer -> JS containing
                                  masterTokenValue = '<token>' (session-wide)
         POST /lab/newLabUpload   multipart: service, key, signature,
@@ -1441,8 +1441,10 @@ class CarlosSession:
         POST /logout             (GET gets a 405; CSRF-exempt)
 
       flavour = oscar19 (Struts 1, *.do routes, no CSRF layer at all)
-        POST /login.do           same fields -> 302 to
-                                 /provider/providercontrol.jsp
+        POST /login.do           same fields -> HTTP 200 text/x-json
+                                 {"success":true,...} (LoginAction honours
+                                 ajaxResponse=true after the session is built;
+                                 {"success":false,"error":...} on a bad login)
         (no token step)
         POST /lab/newLabUpload.do same multipart, no CSRF headers
         GET  /logout.jsp
@@ -1454,6 +1456,7 @@ class CarlosSession:
     """
 
     _TOKEN_RE = re.compile(r"""masterTokenValue\s*=\s*["']([^"']+)["']""")
+    _JSON_ERROR_RE = re.compile(r'"error"\s*:\s*"([^"]{1,200})"')
     _ROUTES: dict[str, dict[str, Optional[str]]] = {
         FLAVOUR_CARLOS: {"login": "/login", "upload": "/lab/newLabUpload", "csrf": "/csrfguard"},
         FLAVOUR_OSCAR19: {"login": "/login.do", "upload": "/lab/newLabUpload.do", "csrf": None},
@@ -1533,13 +1536,12 @@ class CarlosSession:
             },
             body=body,
         )
-        # Success looks like one of two things. A plain provider account is
-        # redirected to its schedule page BEFORE the action gets to its JSON
-        # branch (CARLOS Login2Action and OSCAR 19 LoginAction alike), so
-        # ajaxResponse=true still yields a 302 for the normal case: Location
-        # /provider/providercontrol on CARLOS, /provider/providercontrol.jsp
-        # on OSCAR 19. The JSON {"success":true} only comes back for
-        # CAISI-style accounts.
+        # Success looks different on the two generations. CARLOS Login2Action
+        # has no JSON success branch: a provider account is redirected (302)
+        # to /provider/providercontrol, ajaxResponse or not. OSCAR 19
+        # LoginAction builds the session, then honours ajaxResponse=true and
+        # writes {"success":true,...} with HTTP 200 (text/x-json) instead of
+        # the redirect to /provider/providercontrol.jsp. Accept both.
         location = self._location(resp)
         if resp.status in (301, 302, 303) and "/provider/providercontrol" in location:
             log.info("%s: authenticated as %s", self.flavour, self.cfg.carlos_username)
@@ -1577,6 +1579,11 @@ class CarlosSession:
                 "the service account is enrolled in MFA; a scripted login cannot answer a challenge"
             )
         if resp.status == 200:
+            # OSCAR 19 with ajaxResponse=true: {"success":false,"error":"..."}.
+            # The error text is the EMR's own message, never the credentials.
+            error = cls._JSON_ERROR_RE.search(resp.text())
+            if error:
+                return f"the EMR rejected the credentials: {error.group(1)}"
             return "the EMR rejected the credentials (invalid username, password or PIN)"
         return f"unexpected reply HTTP {resp.status}" + (f" -> {location}" if location else "")
 
