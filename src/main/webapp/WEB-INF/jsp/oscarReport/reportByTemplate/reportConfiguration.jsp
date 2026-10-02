@@ -69,6 +69,7 @@
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script>
             function checkform(formobj) {
                 if (!validDateFieldsByClass('datefield', formobj)) {
@@ -93,19 +94,9 @@
         <script>
             function deleteTemplate(templateId) {
                 if (confirm('Are you sure you want to delete this report template?')) {
-                    var form = document.createElement('form');
-                    form.method = 'post';
-                    form.action = 'addEditTemplatesAction';
-                    var fields = {templateid: templateId, action: 'delete'};
-                    for (var key in fields) {
-                        var input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = key;
-                        input.value = fields[key];
-                        form.appendChild(input);
-                    }
-                    document.body.appendChild(form);
-                    form.submit();
+                    // carlosPostForm attaches the CSRF token, which CSRFGuard
+                    // cannot inject into a runtime-built form in time (#4130).
+                    carlosPostForm('addEditTemplatesAction', {templateid: templateId, action: 'delete'});
                 }
             }
         </script>

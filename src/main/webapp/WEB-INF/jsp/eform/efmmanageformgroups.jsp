@@ -99,6 +99,10 @@
                 .append(io.github.carlos_emr.carlos.utility.ScheduleNav.PARAM).append("\" value=\"")
                 .append(io.github.carlos_emr.carlos.utility.ScheduleNav.ENABLED).append("\">");
     }
+    // The group and sort links reload this page into the panel; they carry the flag
+    // too, or the next mutator form would render without it.
+    String scheduleNavQuery = io.github.carlos_emr.carlos.utility.ScheduleNav.isActive(request)
+            ? "&scheduleNav=1" : "";
 %>
 <!DOCTYPE html>
 <html>
@@ -196,7 +200,7 @@
                                     class="fa-solid fa-trash"></i></a>
                         </form></td>
                     <td title="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"><a
-                            href='<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%>'
+                            href='<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%><%= scheduleNavQuery %>'
                             class="contentLink"><carlos:encode value='<%= groupName %>' context="html"/>
                     </a></td>
                     <td><carlos:encode value='<%= (String) curhash.get("count") %>' context="html"/>
@@ -223,14 +227,14 @@
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/>"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/><%= scheduleNavQuery %>"
                            class="contentLink">
                             <fmt:message key="eform.uploadhtml.btnFormName"/>
                         </a>
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/>"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/><%= scheduleNavQuery %>"
                            class="contentLink">
                             <fmt:message key="eform.uploadhtml.btnDate"/>
                         </a>
@@ -341,15 +345,28 @@
             <%@ include file="efmFooter.jspf" %>
 
         <script>
-            // registerFormSubmit() belongs to the Administration shell. After a group
-            // change redirects here (issue #4130) the page is standalone, where the
-            // forms post normally and the action redirects straight back.
+            // newWindow lives on the Administration shell too. Standalone (the
+            // redirect after a group POST, #4130) the form links and the eForm
+            // Generator link would throw without it, so define it only when absent,
+            // with the popup settings efmformmanager.jsp uses.
+            if (typeof window.newWindow !== 'function') {
+                window.newWindow = function (url, id) {
+                    window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=900,height=600,left=200,top=0');
+                };
+            }
+
+            // registerFormSubmit lives on the Administration shell. This page is
+            // also reached standalone: delGroup / removeFromGroup now redirect here
+            // after a POST (#4130), and the unguarded call threw a ReferenceError.
             if (typeof registerFormSubmit === 'function') {
                 registerFormSubmit('addGroupForm', 'dynamic-content');
                 registerFormSubmit('eformToGroupForm', 'dynamic-content');
             }
 
 
+            // Guarded like efmFooter.jspf: if jQuery could not be loaded the page
+            // degrades to its plain forms instead of stopping at a ReferenceError.
+            if (window.jQuery) {
             $(function () {
                 document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
             });
@@ -367,6 +384,7 @@
                 $(".check").change(validate).keyup(validate);
 
             });
+            }
 
             function validate() {
                 var v = $(this).val();

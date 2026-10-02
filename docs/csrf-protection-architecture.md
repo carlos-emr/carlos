@@ -158,6 +158,54 @@ of the CARLOS copy and re-apply the `CARLOS patch` blocks. Three checks guard th
 - `npm run test:csrfguard-client-browser` runs the rendered template in Chromium. Point
   `CSRFGUARD_TEMPLATE` at the upstream file to watch it fail.
 
+### Runtime-built and injected forms (`carlosCsrfForm.js`)
+
+The client patches above fix these patterns for every page. `carlosCsrfForm.js` is the
+explicit helper the converted call sites use on top of them: it fetches a token when the page
+has none yet and fails closed with an alert instead of sending a POST that would be refused.
+The upstream defects it was written for, each ending in a token-less POST that
+`CarlosCsrfGuardFilter` answers with 403 (issue #4130):
+
+1. **A form built and submitted in one handler.** `document.createElement('form')`,
+   `appendChild`, `form.submit()` all run in one task. CSRFGuard's observer callback runs
+   after that task, so the form has already left without a token.
+2. **Forms nested in inserted HTML.** The observer injects only when the *added node* is
+   a `<form>`. `$("#dynamic-content").load(...)` (the Administration shell, the report
+   catchment shell) inserts containers whose descendants are the forms, and those forms
+   are never tokenised.
+
+A third, related failure: CSRFGuard's `injectTokenForm` enumerates `form.elements` by
+key, so a form with a control named with a bare number (the dx code search used
+`name="250"`) makes it throw. The page-load pass stops at that form, so it and every later
+form are left without a token. Don't name controls with bare numbers.
+
+Use `share/javascript/carlosCsrfForm.js` for both:
+
+```jsp
+<script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+```
+
+```js
+// Build, tokenise and submit in one call. For a popup, open it first, inside
+// the click handler, so the popup blocker sees the user gesture.
+window.open('', 'unbill_popup', 'width=720,height=700');
+carlosPostForm(ctx + '/billing/CA/ON/BillingDeleteNoAppt',
+    {billing_no: billingNo, dboperation: 'delete_bill'}, {target: 'unbill_popup'});
+
+// Or tokenise and submit a form you built yourself:
+carlosSubmitForm(form);
+```
+
+Loading the script also tokenises, by itself, every same-origin POST form that is left
+without a token: one pass after the page is parsed, then every form inside any
+subtree inserted later. That covers `.load()` shells with no per-call code. The token
+is taken from a populated `CSRF-TOKEN` input on the page, then from the pending
+`csrf-token.jspf` bootstrap (`window.csrfTokenReady`), then from the CSRFGuard servlet.
+If none of these yields a token, the form is **not** submitted and the user is told:
+a POST that would only be refused is never sent. Cross-origin, `javascript:` and GET
+forms are never touched. Unit tests are in `scripts/carlos-csrf-form.test.js`; the live
+browser check is `scripts/csrf-runtime-forms-playwright-checks.js`.
+
 ### `X-Requested-With` is a LIST, not a single value
 
 CSRFGuard's client script sets `X-Requested-With` to the value of
@@ -412,7 +460,10 @@ The login flow creates the session and generates tokens on the first GET to a pr
 3. Browser dev tools (Elements tab) — confirm forms have a hidden `CSRF-TOKEN` input
 4. If the script tag is missing, check `CsrfGuardScriptInjectionFilter` is mapped in `web.xml`
 5. If the hidden input is missing, check browser console for JavaScript errors
-6. For a form built in script, confirm the request payload (Network tab) carries `CSRF-TOKEN`.
+6. If the form is built in JavaScript or arrives inside `.load()`-injected HTML, submit it
+   through `carlosPostForm` / `carlosSubmitForm` and load `carlosCsrfForm.js` (see
+   "Runtime-built and injected forms" above)
+7. For a form built in script, confirm the request payload (Network tab) carries `CSRF-TOKEN`.
    If it does not, check that the form's method is `post` and its action is same-origin: the
    submit-time patch deliberately skips anything else
 

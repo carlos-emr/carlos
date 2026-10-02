@@ -58,19 +58,20 @@ public class RemoveFromGroup2Action extends ActionSupport {
         String fid = request.getParameter("fid");
         String groupName = request.getParameter("groupName");
         EFormUtil.remEFormFromGroup(groupName, fid);
-        redirectTarget = EFormListRedirect.toGroup(request, groupName);
         return SUCCESS;
     }
 
-    private String redirectTarget;
-
     /**
-     * The Struts redirect target: the eForm Groups page for the affected group. A redirect,
-     * not a forward, because the page's gate rejects the POST a forward would carry (405).
+     * Where the success redirect lands: the group the form was removed from. The
+     * result is a redirect, not a forward, because a forward keeps the POST and the
+     * groups page gate (ViewEFormPage2Action) refuses POST there, so a successful
+     * removal ended on "CARLOS Error: 405" (#4130). The group name is URL-encoded,
+     * so request data cannot change the path or add parameters.
      *
-     * @return the application-relative redirect location
+     * @return the application-relative groups page for this group, never null
      */
     public String getRedirectTarget() {
-        return redirectTarget;
+        return EFormGroupRedirect.toGroup(request.getParameter("groupName"), request);
     }
+
 }

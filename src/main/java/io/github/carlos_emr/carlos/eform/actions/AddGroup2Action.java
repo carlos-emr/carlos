@@ -51,11 +51,18 @@ public class AddGroup2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
         EFormUtil.addEFormToGroup(groupName, "0");  //marker for group
-        redirectTarget = EFormListRedirect.toGroup(request, groupName);
         return SUCCESS;
     }
 
-    private String redirectTarget;
+    /**
+     * Where the success redirect lands: the group just changed. A redirect, not a forward:
+     * the groups page gate refuses POST, so the forward ended on "CARLOS Error: 405" (#4130).
+     *
+     * @return the application-relative groups page for this group, never null
+     */
+    public String getRedirectTarget() {
+        return EFormGroupRedirect.toGroup(groupName, request);
+    }
 
     private String groupName;
 
@@ -67,15 +74,5 @@ public class AddGroup2Action extends ActionSupport {
     @StrutsParameter
     public void setGroupName(java.lang.String groupName) {
         this.groupName = groupName;
-    }
-
-    /**
-     * The Struts redirect target: the eForm Groups page for the affected group. A redirect,
-     * not a forward, because the page's gate rejects the POST a forward would carry (405).
-     *
-     * @return the application-relative redirect location
-     */
-    public String getRedirectTarget() {
-        return redirectTarget;
     }
 }

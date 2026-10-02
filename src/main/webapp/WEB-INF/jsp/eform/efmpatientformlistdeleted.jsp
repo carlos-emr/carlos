@@ -86,6 +86,7 @@
 		<script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
 		<script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
+		<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 
 		<script>
 
@@ -169,25 +170,16 @@
 		</style>
 		<script>
 			function unRemoveEForm(fdid, demographicNo, parentAjaxId) {
-				var form = document.createElement('form');
-				form.method = 'post';
-				form.action = '${pageContext.request.contextPath}/eform/unRemoveEForm';
 				// appointment/orderby: list state the post-restore redirect restores (UnRemEForm2Action#getRedirectTarget).
-				var fields = {fdid: fdid, demographic_no: demographicNo, parentAjaxId: parentAjaxId,
-					appointment: '<carlos:encode value='<%= appointment %>' context="javaScript"/>', orderby: '<carlos:encode value='<%= orderByRequest %>' context="javaScript"/>'};
-				for (var key in fields) {
-					var input = document.createElement('input');
-					input.type = 'hidden';
-					input.name = key;
-					input.value = fields[key];
-					form.appendChild(input);
-				}
-				document.body.appendChild(form);
-				form.submit();
+				// carlosPostForm attaches the CSRF token, which CSRFGuard cannot
+				// inject into a runtime-built form in time (#4130).
+				carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/eform/unRemoveEForm', {fdid: fdid, demographic_no: demographicNo, parentAjaxId: parentAjaxId,
+					appointment: '<carlos:encode value='<%= appointment %>' context="javaScript"/>', orderby: '<carlos:encode value='<%= orderByRequest %>' context="javaScript"/>'});
 			}
 		</script>
 	</head>
 	<body onunload="updateAjax()" >
+	<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 	<div class="container">
 	<div id="heading">
 		<h2>

@@ -234,6 +234,13 @@ inline blocks actually executed, and the console logged no CSP violation.
 
 Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
 
+**`carlosCsrfForm.js`.** On top of the patched client, `share/javascript/carlosCsrfForm.js`
+offers `carlosPostForm(action, fields, {target})` and `carlosSubmitForm(form)`: they fetch a
+token when the page has none yet and, if none can be had, refuse to send the POST and alert the
+user instead of letting it fail as a silent 403. The runtime-built call sites converted in #4130
+use it. Still do not name form controls with bare numbers. See
+`docs/csrf-protection-architecture.md` → "Runtime-built and injected forms".
+
 ### PathValidationUtils - File Path Security
 
 **ALWAYS use PathValidationUtils** (`io.github.carlos_emr.carlos.utility.PathValidationUtils`) for file operations involving user input. It prevents path traversal attacks consistently across the codebase.

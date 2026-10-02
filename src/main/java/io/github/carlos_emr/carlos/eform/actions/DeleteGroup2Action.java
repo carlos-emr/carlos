@@ -58,19 +58,18 @@ public class DeleteGroup2Action extends ActionSupport {
         String groupName = request.getParameter("group_name");
         EFormUtil.delEFormGroup(groupName);
         // The group is gone; show the page's default group.
-        redirectTarget = EFormListRedirect.toGroup(request, null);
         return SUCCESS;
     }
 
-    private String redirectTarget;
 
     /**
-     * The Struts redirect target: the eForm Groups page for the affected group. A redirect,
-     * not a forward, because the page's gate rejects the POST a forward would carry (405).
+     * Where the success redirect lands: the group list, or the Administration shell's eForm
+     * Groups section in schedule mode. A redirect, not a forward: the groups page gate refuses
+     * POST, so the forward ended on "CARLOS Error: 405" (#4130).
      *
-     * @return the application-relative redirect location
+     * @return the application-relative redirect target, never null
      */
     public String getRedirectTarget() {
-        return redirectTarget;
+        return EFormGroupRedirect.toGroup(null, request);
     }
 }

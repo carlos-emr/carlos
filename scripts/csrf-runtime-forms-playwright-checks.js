@@ -312,7 +312,10 @@ async function workflow(s) {
     const token = await page.locator('#diagcode input[name="CSRF-TOKEN"]').inputValue().catch(() => '');
     h.assert(token, 'the dx update form has no CSRF token (the numeric control names broke injection)');
     // A code with exactly one row, so re-submitting its own description changes nothing.
-    const codes = await page.locator('#diagcode input[type="text"]').evaluateAll(inputs => inputs.map(i => i.name));
+    // Description inputs are named desc_<code>: a bare numeric name broke CSRFGuard's
+    // form.elements lookup (BillingDiagUpdate2Action still accepts the bare name).
+    const codes = await page.locator('#diagcode input[type="text"][name^="desc_"]')
+      .evaluateAll(inputs => inputs.map(i => i.name.slice('desc_'.length)));
     let code = '';
     for (const candidate of codes) {
       if (/^[0-9A-Z]{3,5}$/.test(candidate)
