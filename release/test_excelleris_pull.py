@@ -114,7 +114,11 @@ class FakeTransport:
 
 def outcome(text: str) -> "FakeResponse":
     """What CARLOS answers: uploadComplete.jsp's <outcome> document, HTTP 200."""
-    return ok(f"<labUploadResult><outcome>{text}</outcome><audit>x</audit></labUploadResult>")
+    # The shape uploadComplete.jsp serialises: a declaration, one element.
+    return ok(
+        '<?xml version="1.0" encoding="UTF-8" standalone="no"?>'
+        f"<labUploadResult><outcome>{text}</outcome></labUploadResult>\n"
+    )
 
 
 def ok(body: bytes | str, status: int = 200, headers=None) -> FakeResponse:
@@ -454,6 +458,22 @@ class ArchiveTest(TempEnv):
         self.assertEqual(len(captured.output), 2)
         self.assertTrue(all("interrupted run" in line for line in captured.output))
         self.assertEqual(archive.sweep_leftovers(), 0)
+
+    def test_hand_placed_files_are_renamed_before_use(self):
+        archive = ep.Archive(self.cfg)
+        pulled = archive.save_inbox("20261001-090000", b"<HL7Messages/>")
+        foreign = self.cfg.inbox_dir / "Jane Doe 1234567890.xml"
+        foreign.write_bytes(b"<HL7Messages/>")
+        (self.cfg.inbox_dir / "Jane Doe 1234567890.xml.attempts").write_text("2 run")
+        with self.assertLogs(ep.log, level="WARNING") as captured:
+            self.assertEqual(archive.admit_foreign_files("20261001-090500"), 1)
+        self.assertTrue(pulled.exists())
+        self.assertFalse(foreign.exists())
+        admitted = self.cfg.inbox_dir / "20261001-090500-manual.xml"
+        self.assertTrue(admitted.exists())
+        self.assertEqual(archive.attempts(admitted), 2)  # sidecar moved with the file
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        self.assertEqual(archive.admit_foreign_files("20261001-090600"), 0)  # idempotent
 
     def test_same_run_id_twice_does_not_overwrite(self):
         archive = ep.Archive(self.cfg)
@@ -813,6 +833,18 @@ class OrchestrationTest(_OrchestrationBase):
         self.assertEqual(rc, ep.EXIT_OK)
         self.assertFalse(part.exists())
         self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])  # the new pull was uploaded
+
+    def test_hand_placed_file_is_uploaded_without_its_name_being_logged(self):
+        ep.Archive(self.cfg)
+        (self.cfg.inbox_dir / "Jane Doe 1234567890.xml").write_bytes(PULL_WITH_RESULTS)
+        self.script["POST /carlos/lab/newLabUpload"] = outcome("validation failed")
+        with self.assertLogs(ep.log, level="DEBUG") as captured:
+            rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        names = sorted(p.name for p in self.cfg.failed_dir.glob("*.xml"))
+        self.assertEqual(len(names), 2, names)  # the hand-placed file and the pull
+        self.assertTrue(all(ep.Archive._GENERATED_NAME.match(n) for n in names), names)
 
     def test_excelleris_down_is_a_reported_failure_not_a_crash(self):
         self.script["excelleris:login"] = ep.TransportError("connect timed out")
@@ -1681,7 +1713,10 @@ class OutcomeBodyTest(unittest.TestCase):
     refuses the request also comes with HTTP 200 and must never be archived."""
 
     def body(self, outcome):
-        return f'<?xml version="1.0"?><root><outcome>{outcome}</outcome><audit>success</audit></root>'.encode()
+        return (
+            '<?xml version="1.0" encoding="UTF-8" standalone="no"?>'
+            f"<labUploadResult><outcome>{outcome}</outcome></labUploadResult>\n"
+        ).encode()
 
     def classify(self, status, body):
         return ep.CarlosSession._classify_reply(ep.HttpResponse(status, {}, body), True)[0]
@@ -2249,6 +2284,29 @@ class CarlosOutcomeContractTest(CarlosSessionTest):
         self.assertFalse(result.accepted)
         self.assertTrue(result.transient)
         self.assertIn("HTTP 503", result.detail)
+
+    def test_a_page_quoting_the_outcome_tag_is_not_a_result(self):
+        # Only the labUploadResult document counts; an HTML page (a proxy or
+        # an error page) that quotes "<outcome>uploaded</outcome>" does not.
+        for body in (
+            "<html><body><p>Cached: <outcome>uploaded</outcome></p></body></html>",
+            "<other><outcome>uploaded</outcome></other>",
+            "<labUploadResult><result>uploaded</result></labUploadResult>",
+            "<labUploadResult><outcome>uploaded</outcome>",  # not well-formed
+        ):
+            t = FakeTransport(self.script(**{"POST /carlos/lab/newLabUpload": ok(body, 200)}))
+            inbox_file = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
+            with self.session(t) as session:
+                result = session.upload(inbox_file)
+            inbox_file.unlink()
+            self.assertEqual(result.status, 0, body)
+            self.assertFalse(result.accepted, body)
+
+    def test_access_denied_outcome_is_permanent(self):
+        t = FakeTransport(self.script(**{"POST /carlos/lab/newLabUpload": outcome("accessDenied")}))
+        inbox_file = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
+        with self.session(t) as session:
+            self.assertEqual(session.upload(inbox_file).status, 403)
 
     def test_bare_200_without_a_document_is_not_a_success_on_carlos(self):
         t = FakeTransport(self.script(**{"POST /carlos/lab/newLabUpload": ok("", 200)}))

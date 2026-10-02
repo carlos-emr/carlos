@@ -218,7 +218,7 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 ## Running
 
 ```
-excelleris_pull.py --config PATH [--check-config] [--dry-run] [--no-upload | --upload-only] [-v]
+excelleris_pull.py --config PATH [--check-config | --dry-run | --no-upload | --upload-only] [-v]
 ```
 
 | Flag | Effect | Old script equivalent |
@@ -257,7 +257,8 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 
 - **`inbox/`** holds pulls that Excelleris has acknowledged but the EMR has not yet
   accepted. The next run retries them before pulling anything new. A non-empty inbox after
-  a run always comes with an alert. A transient EMR failure (5xx, a proxy error, a session
+  a run always comes with an alert, except after `--no-upload` or `--dry-run`, which by
+  design leave the inbox alone and exit 0. A transient EMR failure (5xx, a proxy error, a session
   bounce, a connection that dropped during the upload) leaves the file here with a
   `.attempts` sidecar that counts one attempt per run (a run retries the backlog before and
   after the pull, but counts it once); after `max_upload_attempts` such runs it moves to
@@ -270,9 +271,14 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
   large for the EMR's upload limit (see Known limits), and, on OSCAR 19, a `409` that followed
   a failed attempt. They are not retried. Fix the cause, then move the file back into
   `inbox/` or run it through the EMR's own upload page.
-- **A corrupt `.attempts` sidecar** (unreadable, or not a number) stops the run with an alert
-  naming it, and the file it belongs to stays in `inbox/`. The counter guards the OSCAR 19
-  `409` rule, so it is never silently treated as zero. Fix or delete the sidecar.
+- **A corrupt `.attempts` sidecar** (unreadable, or not a number) keeps its file in `inbox/`
+  unsent for that run and puts an alert line naming it in the run's failure mail; the other
+  inbox files and the pull go ahead. The counter guards the OSCAR 19 `409` rule, so it is
+  never silently treated as zero. Fix or delete the sidecar.
+- **Files placed in `inbox/` by hand** (a `*.xml` moved back from `failed/`, or one produced
+  elsewhere) are uploaded on the next run. A file whose name the tool did not generate is
+  first renamed to `<run id>-manual.xml` so that only tool-made names ever appear in logs and
+  alert mail; the original name is not logged.
 - **Duplicates** are harmless. If a positive acknowledgment was lost and Excelleris re-sends,
   the EMR answers `409` and the tool treats that as success. One exception, on OSCAR 19 only:
   its upload action records the file's checksum before it parses, so a `409` that follows an
@@ -377,7 +383,7 @@ and `mule-config*.xml`), so the comparison is against the actual bridge, not a g
 
 | Mule bridge | This tool |
 |---|---|
-| Polled an incoming directory every second for `*.hl7` and `*.xml` dropped by any producer. | Pulls from Excelleris itself and drops the result in `inbox/`; anything else placed in `inbox/` as `*.xml` is uploaded on the next run too. One feed (one service key) per configuration file; run several configurations for several feeds. |
+| Polled an incoming directory every second for `*.hl7` and `*.xml` dropped by any producer. | Pulls from Excelleris itself and drops the result in `inbox/`; anything else placed in `inbox/` as `*.xml` is uploaded on the next run too (renamed to a run-id name first, see Operations). One feed (one service key) per configuration file; run several configurations for several feeds. |
 | Read the service name and both keys from `keyPair.key`. | Same file via `key_pair_file`, or the two keys separately. |
 | Signed with MD5withRSA, encrypted with AES then RSA PKCS#1 v1.5, posted `importFile`, `key`, `signature`, `service` as multipart to `lab/newLabUpload.do`. | Identical envelope and fields. `use_http_response_code` is sent to OSCAR 19 as Mule sent it; not to CARLOS, whose default error page (`web.xml` `<error-page>` without a code, `errorpage.jsp`) turns the action's `sendError(200)` into a 500. Verified by tests that decrypt and verify exactly as the EMR does. |
 | Never logged in. OSCAR 19 exempts the route from its login filter. | Same on `oscar19` when no credentials are configured. CARLOS requires a logged-in `_lab` session, so the tool logs in there. |

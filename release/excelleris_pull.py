@@ -1402,6 +1402,34 @@ class Archive:
         return count
 
     LEFTOVER_PATTERNS = ("*.xml.part", "*.attempts.tmp")
+    # Names this tool gives inbox files: a run id, the "-manual" mark for a
+    # file admitted from outside, and the "-N" suffixes save_inbox and
+    # _unique add. Only such names are ever quoted in a log or an alert.
+    _GENERATED_NAME = re.compile(r"^\d{8}-\d{6}(-manual)?(-\d+)*\.xml$")
+
+    def admit_foreign_files(self, run_id: str) -> int:
+        """Rename inbox files this tool did not name to a run-id name; return how many.
+
+        A file placed in ``inbox/`` by hand is uploaded like a pull, and its
+        name is then quoted in log lines and alert mail. A name chosen by a
+        person may carry a patient's name or number, so the file (and any
+        attempt sidecar with it) is renamed first and the original name is
+        never logged. Call this with the run lock held.
+        """
+        renamed = 0
+        for path in self.inbox_files():
+            if self._GENERATED_NAME.match(path.name):
+                continue
+            dest = self._unique(self.cfg.inbox_dir, f"{run_id}-manual.xml")
+            sidecar = self._attempts_file(path)
+            os.rename(path, dest)
+            if sidecar.exists():
+                os.rename(sidecar, self._attempts_file(dest))
+            renamed += 1
+            log.warning("admitted a file placed in the inbox by hand as %s", dest.name)
+        if renamed:
+            self._fsync_dir(self.cfg.inbox_dir)
+        return renamed
 
     def sweep_leftovers(self) -> int:
         """Remove temp files a killed run left in inbox/ and say how many.
@@ -1828,9 +1856,9 @@ class CarlosSession:
         status, detail = self._classify_reply(resp, status_in_code)
         return UploadOutcome(status, detail)
 
-    _OUTCOME_RE = re.compile(rb"<outcome>\s*([^<]*?)\s*</outcome>")
     _OUTCOME_STATUS = {
         "uploaded": 200,
+        "accessdenied": 403,  # uploadComplete.jsp's value when the action set no outcome
         "uploaded previously": 409,
         "validation failed": 406,
         "failed to validate": 406,  # the string the Mule bridge matched on
@@ -1845,6 +1873,27 @@ class CarlosSession:
         409: "uploaded previously (duplicate, already imported)",
         500: "the EMR could not import the file (see its log)",
     }
+
+    @staticmethod
+    def _parse_outcome(body: bytes) -> Optional[str]:
+        """The ``<outcome>`` text of a ``labUploadResult`` document, lower-cased,
+        or None when the body is not that document.
+
+        ``uploadComplete.jsp`` serialises exactly one element,
+        ``<labUploadResult><outcome>…</outcome></labUploadResult>``, behind an
+        XML declaration. Requiring the whole document, not a substring, keeps
+        an HTML page that happens to quote the tag from passing as a result.
+        """
+        try:
+            root = ET.fromstring(body.strip())
+        except ET.ParseError:
+            return None
+        if root.tag != "labUploadResult":
+            return None
+        node = root.find("outcome")
+        if node is None:
+            return None
+        return (node.text or "").strip().lower()
 
     @classmethod
     def _classify_reply(cls, resp: HttpResponse, status_in_code: bool) -> tuple[int, str]:
@@ -1872,9 +1921,8 @@ class CarlosSession:
                 f"HTTP {resp.status} (the upload action answers 200 with an <outcome> "
                 "document; this reply came from elsewhere): retrying"
             )
-        match = cls._OUTCOME_RE.search(resp.body)
-        if match:
-            text = match.group(1).decode("utf-8", errors="replace").strip().lower()
+        text = cls._parse_outcome(resp.body)
+        if text is not None:
             status = cls._OUTCOME_STATUS.get(text)
             if status is None:
                 return 0, f"unrecognised <outcome> in the upload reply ({len(text)} bytes)"
@@ -2240,7 +2288,9 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
         if opts.dry_run:  # a dry run touches no data: say what a real run would remove
             archive.report_leftovers()
         else:
-            archive.sweep_leftovers()  # under the lock: nothing else is writing inbox/
+            # Under the lock: nothing else is writing inbox/.
+            archive.sweep_leftovers()
+            archive.admit_foreign_files(run_id)
         failures: list[str] = []
         # Retry first: a backlog from a CARLOS outage goes in before new work.
         if not opts.no_upload and not opts.dry_run:
