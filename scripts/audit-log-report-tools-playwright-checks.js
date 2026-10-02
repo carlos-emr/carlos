@@ -64,8 +64,11 @@ async function workflow(s) {
     h.assert(accepted.length >= 1,
       'Running the Demographic Report Tool (a listing of patient names and ids) wrote no audit row');
     h.assert(accepted.every(r => Boolean(r.ip)), `The report audit row carries no client address (${accepted.filter(r => !r.ip).map(r => label(r, { maskContent: true })).join(', ')})`);
-    // The fixture's first name too: a row carrying only it is still patient text.
-    const leaks = phiLeaks([...probe.rows(`id>${before}`), ...own], [marker, 'Workflow']);
+    // The unique marker is scanned over every broadly matched row. The fixture's first name ("Workflow") is shared by
+    // every check's patient, so it is scanned only in rows that provably name this patient: a concurrent check's
+    // report row carrying its own patient's first name is not this run's leak.
+    const leaks = [...new Set([...phiLeaks([...probe.rows(`id>${before}`), ...own], [marker]),
+      ...phiLeaks(probe.ownedSince(before), ['Workflow'])])];
     h.assert(!leaks.length, `A report audit row carries patient text (${leaks.join(', ')})`);
     h.assert(aboutPatient.every(r => r.provider === provider), `A report row is attributed to another provider (${aboutPatient.map(r => label(r, { maskContent: true })).join(', ')})`);
   });
