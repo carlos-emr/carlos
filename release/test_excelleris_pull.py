@@ -265,8 +265,9 @@ class InspectPullTest(unittest.TestCase):
             )
             self.assertFalse(s.has_results, bad)
             self.assertIn("not a number", s.problem, bad)
-            # The attribute's text is payload content: never quoted in the problem.
-            self.assertNotIn(bad.decode(), s.problem or "", bad) if bad else None
+            if bad:  # b"" excluded: an empty string is found in any text
+                # The attribute's text is payload content: never quoted.
+                self.assertNotIn(bad.decode(), s.problem, bad)
         self.assertNotIn("JANE", s.problem)
         # A matching count, or no count at all, is fine.
         self.assertIsNone(ep.inspect_pull(PULL_WITH_RESULTS).problem)
@@ -714,9 +715,14 @@ class ArchiveTest(TempEnv):
         link = self.tmp / "link"
         link.symlink_to(real)
         via_link = dataclasses.replace(self.cfg, state_dir=link / "state")
-        with self.assertRaisesRegex(ep.ConfigError, "is not its real path"):
+        with self.assertRaisesRegex(ep.ConfigError, "resolves through a symbolic link"):
             ep.Archive(via_link)
         self.assertEqual(list(real.iterdir()), [])
+        # ".." without any link is only an unusual spelling: accepted and normalised.
+        dotted = dataclasses.replace(self.cfg, state_dir=self.tmp / "elsewhere" / ".." / "dotted")
+        ep.Archive(dotted)
+        self.assertEqual(stat.S_IMODE((self.tmp / "dotted").stat().st_mode), 0o700)
+        self.assertTrue((self.tmp / "dotted" / "inbox").is_dir())
 
     def test_state_directory_owned_by_someone_else_is_refused(self):
         self.cfg.state_dir.mkdir(mode=0o750, exist_ok=True)
