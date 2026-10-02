@@ -4,10 +4,16 @@
 
 `excelleris_pull.py` pulls pending lab results from the Excelleris HL7 pull endpoint and
 uploads them straight into CARLOS EMR, or into OSCAR 19, with no middleware in between.
-It replaces two things at once:
 
-- `release/ExcellerisDownload.sh`, the shell script that pulled results with `curl`, and
-- the Mule 1.3.3 / `hl7_file_management` bridge that script handed its files to.
+It is one of two Excelleris options shipped under `release/`:
+
+| Option | Pull | Hand-off to the EMR | Choose it when |
+|---|---|---|---|
+| `ExcellerisDownload.sh` | `curl` with the clinic certificate | Drops the file for a Mule 1.3.3 / `hl7_file_management` bridge to upload | The site already runs the Mule bridge and wants to keep that pipeline. |
+| `excelleris_pull.py` | Python, same protocol | Uploads directly over the EMR's lab-upload route | The site has no bridge, or wants to retire it. |
+
+Both speak the same Excelleris protocol and both end at the same EMR upload action; the
+difference is whether Mule sits in between. This guide covers the Python option.
 
 No change to CARLOS or OSCAR is needed. The upload uses the lab-upload route both EMRs
 already expose to external lab senders (`lab/newLabUpload`), which is exactly what the
@@ -21,7 +27,7 @@ Files:
 | `release/excelleris_pull.py` | The tool. Python 3.10+, standard library plus `python3-cryptography`. |
 | `release/excelleris_pull.conf.example` | Annotated configuration template. Copy and edit. |
 | `release/test_excelleris_pull.py` | Unit and live-TLS tests. Run manually, see below. |
-| `release/ExcellerisDownload.sh` | The predecessor, superseded. |
+| `release/ExcellerisDownload.sh` | The shell-and-Mule option, unchanged. |
 
 ## How one run works
 
@@ -239,7 +245,9 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `could not import the file` | The handler type on the key is wrong for the feed, or the EMR log has the parse error. |
 | `uses a cipher this OpenSSL does not enable` | The PFX uses a legacy cipher. Re-export it with the command in the message. |
 
-## Migrating from `ExcellerisDownload.sh`
+## Switching from `ExcellerisDownload.sh`
+
+Only if a site chooses to move from the shell-and-Mule option to this one.
 
 | `config_inc.txt` | `pull.conf` |
 |---|---|
