@@ -183,19 +183,32 @@ except ImportError:  # pragma: no cover - exercised only on a mis-provisioned ho
 VERSION = "2.0.0"
 
 # Excelleris requires a User-Agent that identifies the destination software.
-# Keep the browser-shaped form the guide-conformant OSCAR scripts have always
-# sent, with the product and version in the parenthesised comment, so nothing
-# on the Excelleris side that pattern-matches the header sees a change. The
-# shell script's value was built with "\/" escapes that bash left in verbatim,
-# so what it actually sent contained literal backslashes; this one does not.
+# The strings below are the exact bytes the two ExcellerisDownload.sh scripts
+# send, backslashes included: bash keeps "\/" verbatim inside double quotes,
+# so that is what Excelleris has been receiving from every clinic running
+# them, and that is what this tool sends too. Nothing on the Excelleris side
+# sees a change. The version numbers inside are the scripts' own, on purpose.
+USER_AGENT_CARLOS_SCRIPT = (
+    "Mozilla\\/5.0 (Windows NT 6.2; CARLOS; 1.0.6) Gecko\\/20100101 Firefox\\/32.0"
+)
+USER_AGENT_OSCAR19_SCRIPT = (
+    "Mozilla\\/5.0 (Windows NT 10.0; OSCAR19; 1.0.4) Gecko\\/20100101 Firefox\\/128.0"
+)
+USER_AGENTS = {"CARLOS": USER_AGENT_CARLOS_SCRIPT, "OSCAR": USER_AGENT_OSCAR19_SCRIPT}
 
 
 def user_agent(product: str = "CARLOS") -> str:
-    """The header Excelleris sees. ``product`` is what the clinic registered
-    with Excelleris as its EMR ("CARLOS" or "OSCAR"); it is configurable so a
-    site can keep the name on file with Excelleris regardless of which EMR
-    generation this tool is feeding."""
-    return f"Mozilla/5.0 (Windows NT 6.2; {product}; {VERSION}) Gecko/20100101 Firefox/32.0"
+    """The header Excelleris sees: the CARLOS script's bytes for ``CARLOS``,
+    the OSCAR 19 script's bytes for ``OSCAR`` (also accepted as ``OSCAR19``).
+    ``[excelleris] user_agent`` replaces the whole string when a site needs
+    something else."""
+    key = product.strip().upper()
+    if key == "OSCAR19":
+        key = "OSCAR"
+    try:
+        return USER_AGENTS[key]
+    except KeyError:
+        raise ConfigError("[excelleris] product must be CARLOS or OSCAR") from None
 
 
 USER_AGENT = user_agent()
@@ -269,7 +282,7 @@ class Config:
     client_key_file: Optional[Path]  # PEM private key extracted from the PFX, unencrypted
     excelleris_timeout: int
     excelleris_ca_file: Optional[Path]  # extra trust anchor; None = system CA store
-    excelleris_product: str  # product name placed in the User-Agent: CARLOS or OSCAR
+    excelleris_product: str  # CARLOS or OSCAR: selects which script's exact User-Agent is sent
     excelleris_user_agent: str  # the full header actually sent
     # [carlos]
     carlos_base_url: str
@@ -551,11 +564,9 @@ def load_config(path: Path) -> Config:
     product = optional("excelleris", "product", "") or (
         "OSCAR" if flavour == FLAVOUR_OSCAR19 else "CARLOS"
     )
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}", product):
-        # It is spliced into the User-Agent comment; keep it header-safe.
-        raise ConfigError(
-            "[excelleris] product must be 1-40 letters, digits, spaces, dots, underscores or dashes"
-        )
+    product = {"OSCAR19": "OSCAR"}.get(product.strip().upper(), product.strip().upper())
+    if product not in USER_AGENTS:
+        raise ConfigError("[excelleris] product must be CARLOS or OSCAR")
     # A site that passed Excelleris conformance testing under another tool's
     # header (GoFetchRover sends its own name and version) may keep that exact
     # string. Explicit user_agent wins over product.

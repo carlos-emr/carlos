@@ -1114,12 +1114,7 @@ class LiveServersTest(TempEnv):
         pages = [c[1].get("Page", c[1].get("Logout"))[0] for c in self.excelleris.log]
         self.assertEqual(pages, ["Login", "HL7", "HL7", "Yes"])
         self.assertEqual(self.excelleris.acks, ["Positive"])
-        self.assertTrue(
-            all(
-                f"{self.product}; {ep.VERSION}" in c[3] and "\\" not in c[3]
-                for c in self.excelleris.log
-            )
-        )
+        self.assertTrue(all(c[3] == ep.USER_AGENTS[self.product] for c in self.excelleris.log))
         # CARLOS: login, upload decrypted and verified, logout via POST.
         kinds = [c[0] for c in self.carlos.log]
         self.assertEqual(kinds, ["login", "upload", "logout"])
@@ -1176,8 +1171,8 @@ class ConfigFlavourTest(TempEnv):
         self.write_conf(c, srv, extra_carlos="flavour = oscar18")
         with self.assertRaisesRegex(ep.ConfigError, "flavour must be one of"):
             ep.load_config(self.conf)
-        self.write_conf(c, srv, extra_excelleris="product = OSCAR; evil)")
-        with self.assertRaisesRegex(ep.ConfigError, "product must be"):
+        self.write_conf(c, srv, extra_excelleris="product = LIFELABS")
+        with self.assertRaisesRegex(ep.ConfigError, "product must be CARLOS or OSCAR"):
             ep.load_config(self.conf)
 
     def test_product_follows_flavour_unless_set(self):
@@ -1192,7 +1187,12 @@ class ConfigFlavourTest(TempEnv):
     def test_user_agent_shape(self):
         self.assertEqual(
             ep.user_agent("OSCAR"),
-            f"Mozilla/5.0 (Windows NT 6.2; OSCAR; {ep.VERSION}) Gecko/20100101 Firefox/32.0",
+            "Mozilla\\/5.0 (Windows NT 10.0; OSCAR19; 1.0.4) Gecko\\/20100101 Firefox\\/128.0",
+        )
+        # Byte-exact with the two shell scripts, stray backslashes included.
+        self.assertEqual(
+            ep.user_agent("carlos"),
+            "Mozilla\\/5.0 (Windows NT 6.2; CARLOS; 1.0.6) Gecko\\/20100101 Firefox\\/32.0",
         )
 
 
@@ -1205,8 +1205,7 @@ class ExcellerisProductHeaderTest(ExcellerisSessionTest):
         with ep.ExcellerisSession(cfg, t):
             pass
         for _m, _u, headers, _b in t.calls:
-            self.assertIn("OSCAR; ", headers["User-Agent"])
-            self.assertNotIn("CARLOS", headers["User-Agent"])
+            self.assertEqual(headers["User-Agent"], ep.USER_AGENT_OSCAR19_SCRIPT)
 
 
 class Oscar19SessionTest(TempEnv):
@@ -1284,7 +1283,7 @@ class LiveOscar19Test(LiveServersTest):
         upload = self.carlos.log[1]
         self.assertIsNone(upload[3], "no CSRF header must reach OSCAR 19")
         self.assertEqual(upload[4], "/carlos/lab/newLabUpload")  # the fake stripped .do
-        self.assertTrue(all("OSCAR; " in c[3] for c in self.excelleris.log))
+        self.assertTrue(all(c[3] == ep.USER_AGENT_OSCAR19_SCRIPT for c in self.excelleris.log))
 
     def test_carlos_flavour_against_oscar19_fails_loudly(self):
         text = self.conf.read_text().replace("flavour = oscar19", "flavour = carlos")
