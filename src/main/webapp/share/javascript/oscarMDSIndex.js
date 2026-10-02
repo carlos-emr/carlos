@@ -26,6 +26,20 @@
 /************init global data methods*****************/
 let oldestLab;
 
+// Shared by standalone lab displays and inline inbox/queue hosts. COOP may sever
+// the matching popup's opener, but same-origin BroadcastChannel still reaches both.
+if (typeof BroadcastChannel !== 'undefined' && typeof contextpath === 'string') {
+    const matchChannel = new BroadcastChannel('lab-patient-match-' + contextpath);
+    matchChannel.onmessage = function(event) {
+        const match = event.data;
+        if (match && match.type === 'patient-matched' && match.labType === 'HL7'
+                && typeof match.labNo === 'string' && /^\d+$/.test(match.labNo)) {
+            const patientPanel = document.getElementById('DemoTable' + match.labNo);
+            if (patientPanel) patientPanel.style.backgroundColor = '#FFF';
+        }
+    };
+}
+
 /**
  * Helper function to show an element
  * @param {HTMLElement|string} el - Element or element ID

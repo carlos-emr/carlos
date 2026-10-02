@@ -8,6 +8,7 @@ const vm = require('node:vm');
 function render(kind, result, term) {
   let options;
   const widget = {};
+  // nosemgrep: javascript.audit.detect-replaceall-sanitization.detect-replaceall-sanitization -- Test-only textContent/innerHTML DOM stub; production uses the browser DOM encoder.
   const escapeText = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   const input = { length: 1, autocomplete(arg) {
     if (arg === 'instance') return widget;
@@ -39,13 +40,13 @@ test('provider highlights render as markup while names stay escaped', () => {
   const html = render('initProviderAutocomplete', { providerNo: '42', firstName: 'Test', lastName: '<img src=x onerror=alert(1)>' }, 'test');
   assert.ok(html.includes("<span class='match'>Test</span>"));
   assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
-  assert.ok(!html.includes('<img'));
+  assert.doesNotMatch(html, /<img\b/i);
 });
 
 test('patient highlights render as markup while every dynamic field stays escaped', () => {
-  const html = render('initDemographicAutocomplete', { demographicNo: '100', formattedName: 'Test <script>x</script>',
+  const html = render('initDemographicAutocomplete', { demographicNo: '100', formattedName: 'Test <ScRiPt>x</ScRiPt>',
     fomattedDob: '<b>date</b>', status: '<img src=x>' }, 'test');
   assert.ok(html.includes("<span class='match'>Test</span>"));
-  for (const text of ['&lt;script&gt;x&lt;/script&gt;', '&lt;b&gt;date&lt;/b&gt;', '&lt;img src=x&gt;']) assert.ok(html.includes(text));
-  assert.ok(!/<script|<img|<b>/.test(html));
+  for (const text of ['&lt;ScRiPt&gt;x&lt;/ScRiPt&gt;', '&lt;b&gt;date&lt;/b&gt;', '&lt;img src=x&gt;']) assert.ok(html.includes(text));
+  assert.doesNotMatch(html, /<(?:script|img|b)\b/i);
 });

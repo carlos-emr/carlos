@@ -123,6 +123,7 @@ async function workflow(s) {
   });
 
   let lab;
+  let inlineLab;
   let matching;
   let openerUpdated = false;
   let demoTableColor = '';
@@ -131,6 +132,21 @@ async function workflow(s) {
     lab = await openLab('#statusNew', 'patient-link-lab');
     demoTableColor = await lab.locator(`#DemoTable${labNo}`).evaluate(el => getComputedStyle(el).backgroundColor);
     h.assert(demoTableColor !== 'rgb(255, 255, 255)', 'The unmatched lab\'s patient box is not highlighted, so the refresh after matching cannot be observed');
+    // Load the same owned lab through the real inline queue host as well. Its client-side
+    // fixture map selects this lab without changing any shared queue membership.
+    inlineLab = await context.newPage();
+    await h.gotoApp(inlineLab, s.config.baseUrl, '/documentManager/inboxManage?method=getDocumentsInQueues');
+    await h.assertNotErrorPage(inlineLab, 'inline queue host');
+    await inlineLab.evaluate(({ id, provider }) => {
+      window.docType[id] = 'HL7';
+      const panel = document.createElement('div');
+      panel.id = 'ownedLabMatchPanel';
+      document.getElementById('docs').appendChild(panel);
+      window.showDocLab(panel.id, id, provider, provider, 'N', '', 0);
+    }, { id: labNo, provider: s.provider });
+    await inlineLab.locator(`#DemoTable${labNo}`).waitFor({ timeout: TIMEOUT });
+    h.assert(await inlineLab.locator(`#DemoTable${labNo}`).evaluate(el => getComputedStyle(el).backgroundColor) !== 'rgb(255, 255, 255)',
+      'The inline unmatched lab is not highlighted before matching');
     matching = await ui.clickOpensPopup(lab, lab.locator('input[value*="E-Chart"]').first(), { context, recorder, label: 'patient-link-match', timeout: TIMEOUT });
     await matching.locator('#keyword').waitFor({ timeout: TIMEOUT });
     h.assert((await matching.locator('#keyword').inputValue()).includes(labName), 'The matching popup is not prefilled with the lab\'s patient name');
@@ -162,6 +178,8 @@ async function workflow(s) {
     }
     // updateLabDemoStatus() (labDisplay.jsp:443) is what the matching popup calls on its opener: it whitens the patient box.
     openerUpdated = !lab.isClosed() && await lab.locator(`#DemoTable${labNo}`).evaluate(el => getComputedStyle(el).backgroundColor).catch(() => '') === 'rgb(255, 255, 255)';
+    await inlineLab.waitForFunction(id => getComputedStyle(document.getElementById('DemoTable' + id)).backgroundColor === 'rgb(255, 255, 255)', labNo);
+    await inlineLab.close();
     await lab.close();
   });
 
