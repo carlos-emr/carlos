@@ -52,10 +52,6 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
         specialists = mock(ServiceSpecialistsDao.class);
         pharmacies = mock(PharmacyInfoDao.class);
         providers = mock(ProviderDao.class);
-        registerMock(ProviderDao.class, providers);
-        registerMock(SecurityInfoManager.class, security);
-        registerMock(ServiceSpecialistsDao.class, specialists);
-        registerMock(PharmacyInfoDao.class, pharmacies);
         when(security.hasPrivilege(eq(info), eq("_fax"), eq("r"), isNull())).thenReturn(true);
     }
 
@@ -209,7 +205,7 @@ class FaxRecipientSearch2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class)) {
             context.when(ServletActionContext::getRequest).thenReturn(request);
             context.when(ServletActionContext::getResponse).thenReturn(response);
-            return new FaxRecipientSearch2Action().execute();
+            return new FaxRecipientSearch2Action(security, pharmacies, specialists, providers).execute();
         }
     }
 

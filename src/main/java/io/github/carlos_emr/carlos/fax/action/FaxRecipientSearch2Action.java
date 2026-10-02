@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
@@ -74,12 +73,20 @@ public class FaxRecipientSearch2Action extends ActionSupport {
 
     // transient: ActionSupport is Serializable but these Spring collaborators are not, and a
     // Struts action is built fresh per request, so none of them is state worth carrying.
-    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final transient PharmacyInfoDao pharmacyInfoDao = SpringUtils.getBean(PharmacyInfoDao.class);
-    private final transient ServiceSpecialistsDao serviceSpecialistsDao =
-            SpringUtils.getBean(ServiceSpecialistsDao.class);
-    private final transient ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient PharmacyInfoDao pharmacyInfoDao;
+    private final transient ServiceSpecialistsDao serviceSpecialistsDao;
+    private final transient ProviderDao providerDao;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** Constructor-injected by the Struts Spring object factory. */
+    public FaxRecipientSearch2Action(SecurityInfoManager securityInfoManager, PharmacyInfoDao pharmacyInfoDao,
+                                     ServiceSpecialistsDao serviceSpecialistsDao, ProviderDao providerDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.pharmacyInfoDao = pharmacyInfoDao;
+        this.serviceSpecialistsDao = serviceSpecialistsDao;
+        this.providerDao = providerDao;
+    }
 
     @Override
     // Sonar flags the constant NONE return. That is the contract for a direct-response action:
