@@ -149,8 +149,8 @@ class PortalInviteEmailComposer {
                 + "2. Enter this invitation code: " + inviteCode + "\n"
                 + "3. Confirm your email address, date of birth and health card number, then choose a "
                 + "username and password.\n\n"
-                + "The code works once and expires " + CODE_LIFETIME.toDays() + " days after this email was "
-                + "sent. If you did not expect this email, you can ignore it: no account is created unless "
+                + "The code works once and is valid for up to " + CODE_LIFETIME.toDays() + " days. If "
+                + "you did not expect this email, you can ignore it: no account is created unless "
                 + "the code is used.\n\n"
                 + "This message was sent by your clinic. Please do not reply to it.\n";
     }

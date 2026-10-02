@@ -168,7 +168,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             assertThat(bodyAtSend)
                     .contains("https://portal.clinic.example/auth/activate\n")
                     .contains("invitation code: " + CODE)
-                    .contains("expires 7 days after this email was sent")
+                    .contains("is valid for up to 7 days")
                     .doesNotContain("activate?")
                     .doesNotContain("/auth/activate/" + CODE);
         }
