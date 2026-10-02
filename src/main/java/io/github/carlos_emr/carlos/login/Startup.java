@@ -55,6 +55,14 @@ import java.util.Objects;
  */
 public class Startup implements ServletContextListener {
 	private static final Logger logger = MiscUtils.getLogger();
+
+	/**
+	 * Set to {@code true}, {@code yes} or {@code on} to let startup generate a new
+	 * {@code encryption.util.secret.key} although data encrypted with the lost key exists, accepting
+	 * that the data becomes unreadable (#3939). Remove it once the new key has been generated.
+	 */
+	public static final String ACKNOWLEDGE_KEY_LOSS_PROPERTY = EncryptionUtils.SECRET_KEY_ENV_VAR + ".acknowledge_loss";
+
 	private CarlosProperties p = CarlosProperties.getInstance();
 
     public void contextInitialized(ServletContextEvent sc) {
@@ -142,20 +150,14 @@ public class Startup implements ServletContextListener {
 			// 	previously saved key or generating a new one and storing it for future use.
 			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
 			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
-				try {
-					secretKey = EncryptionUtils.generateSecretKey();
-					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					logger.info("New Secret Key generated...");
-				} catch (IOException | NoSuchAlgorithmException e) {
-					/*
-					 * A usable encryption key is mandatory: it protects stored PHI and provider
-					 * credentials. Fail fast rather than booting with no key, which would defer the
-					 * failure to the first credential save (an opaque runtime error for clinicians).
-					 */
-					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
-				}
+				generateKeyUnlessItOrphansData(propFileName);
 			} else {
 				logger.info("Using existing Secret Key...");
+				if (isKeyLossAcknowledged()) {
+					logger.warn("{} is set but has no effect while {} is configured. Remove it, so that a"
+									+ " future loss of the key stops startup instead of being accepted.",
+							ACKNOWLEDGE_KEY_LOSS_PROPERTY, EncryptionUtils.SECRET_KEY_ENV_VAR);
+				}
 			}
 
 			/*
@@ -194,9 +196,123 @@ public class Startup implements ServletContextListener {
             }
 
             logger.debug("LAST LINE IN contextInitialized");
+        } catch (EncryptionKeyRefusedException e) {
+            // Already logged once, as the single operator-facing ERROR. Fail the deployment the same
+            // way as every other startup failure, without a second "Unexpected error." copy.
+            throw new RuntimeException(e);
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
             throw (new RuntimeException(e));
+        }
+    }
+
+    /**
+     * Handles a missing or blank {@code encryption.util.secret.key} (#3939).
+     *
+     * <p>A new key cannot decrypt anything the lost key encrypted, so generating one on a server
+     * that already holds encrypted data silently orphans that data. The key is generated only when
+     * nothing encrypted is found (a fresh install), or when the operator has set
+     * {@link #ACKNOWLEDGE_KEY_LOSS_PROPERTY} to accept the loss. Otherwise startup is refused, as it
+     * is for an invalid key.</p>
+     *
+     * <p>The check fails closed: if the database cannot be read, CARLOS cannot show that nothing
+     * would be orphaned, so it refuses rather than guess. The database is needed to run anyway.</p>
+     */
+    private void generateKeyUnlessItOrphansData(String propFileName) {
+        EncryptedDataCountLoader.Result existing = EncryptedDataCountLoader.fromProperties(p).load();
+        boolean mayOrphanData = existing.total() > 0 || !existing.complete();
+        boolean lossAcknowledged = isKeyLossAcknowledged();
+        if (mayOrphanData && !lossAcknowledged) {
+            String message = refusalMessage(existing);
+            logger.error(message);
+            throw new EncryptionKeyRefusedException(message);
+        }
+
+        try {
+            String secretKey = EncryptionUtils.generateSecretKey();
+            p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            /*
+             * A usable encryption key is mandatory: it protects stored PHI and provider
+             * credentials. Fail fast rather than booting with no key, which would defer the
+             * failure to the first credential save (an opaque runtime error for clinicians).
+             */
+            throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
+        }
+
+        if (mayOrphanData) {
+            // ERROR, not WARN: data is now unreadable and people must act on it.
+            logger.error(() -> acknowledgedLossMessage(existing));
+        } else {
+            logger.info("New Secret Key generated...");
+            if (lossAcknowledged) {
+                logger.warn("{} is set but nothing encrypted was found, so no data was lost. Remove it, so that"
+                                + " a future loss of the key stops startup instead of being accepted.",
+                        ACKNOWLEDGE_KEY_LOSS_PROPERTY);
+            }
+        }
+    }
+
+    private boolean isKeyLossAcknowledged() {
+        // containsKey first: CarlosProperties.getProperty logs a warning for every absent key, and this
+        // flag is absent on every healthy server. Matched like other flags: true, yes or on.
+        return p.containsKey(ACKNOWLEDGE_KEY_LOSS_PROPERTY) && p.isPropertyActive(ACKNOWLEDGE_KEY_LOSS_PROPERTY);
+    }
+
+    /** One sanitized message: kinds and counts, the fix, and the override. Never values. */
+    private static String refusalMessage(EncryptedDataCountLoader.Result existing) {
+        String key = EncryptionUtils.SECRET_KEY_ENV_VAR;
+        StringBuilder message = new StringBuilder(key).append(" is missing or blank, ");
+        if (existing.complete()) {
+            message.append("but ").append(existing.total())
+                    .append(" items in the database may be encrypted with the original key (")
+                    .append(existing.describeCounts())
+                    .append("). Refusing to start: a new key cannot decrypt data encrypted with the original key.");
+        } else {
+            message.append("and CARLOS could not check whether the database holds data encrypted with the original key")
+                    .append(" (could not read ").append(existing.describeFailures())
+                    .append("; found so far: ").append(existing.describeCounts())
+                    .append("). Refusing to start rather than risk making that data unreadable.");
+        }
+        message.append(" Fix: restore the original ").append(key)
+                .append(" from backup into the properties file, then restart.");
+        if (!existing.complete()) {
+            message.append(" If the database could not be reached, fix that and restart so the check can run.");
+        }
+        message.append(" Only if the original key is lost for good: set ").append(ACKNOWLEDGE_KEY_LOSS_PROPERTY)
+                .append("=true and restart. CARLOS then generates a new key and everything encrypted with the old key")
+                .append(" stays unreadable");
+        if (existing.total() > 0) {
+            message.append(" (").append(existing.describeRemedies()).append(')');
+        }
+        return message.append('.').toString();
+    }
+
+    /** Logged when the override was used over data the new key cannot read. Never values. */
+    private static String acknowledgedLossMessage(EncryptedDataCountLoader.Result existing) {
+        StringBuilder message = new StringBuilder(ACKNOWLEDGE_KEY_LOSS_PROPERTY).append(" is set: generated a new ")
+                .append(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        if (existing.complete()) {
+            message.append(" over ").append(existing.total()).append(" possibly encrypted items (")
+                    .append(existing.describeCounts()).append("). Any data encrypted with the old key is now unreadable.");
+        } else {
+            message.append(". Any data encrypted with the old key is now unreadable. Found ").append(existing.total())
+                    .append(" items (").append(existing.describeCounts()).append("), but could not read ")
+                    .append(existing.describeFailures()).append(", so there may be more.");
+        }
+        if (existing.total() > 0) {
+            message.append(" Now: ").append(existing.describeRemedies()).append('.');
+        }
+        return message.append(" Then remove ").append(ACKNOWLEDGE_KEY_LOSS_PROPERTY)
+                .append(" from the properties file.").toString();
+    }
+
+    /** Startup refused because a new key would orphan encrypted data; already logged when thrown. */
+    private static final class EncryptionKeyRefusedException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        EncryptionKeyRefusedException(String message) {
+            super(message);
         }
     }
 
