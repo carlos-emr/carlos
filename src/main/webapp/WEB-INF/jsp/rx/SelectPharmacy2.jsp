@@ -118,6 +118,8 @@
             (function ($) {
                 $(function () {
                     var demo = $("#demographicNo").val();
+                    var preferredListReady = false;
+                    $(".pharmacyItem").attr("aria-disabled", "true").css("pointer-events", "none");
 					if(demo != null && demo !== "") {
 						$.post("<%=request.getContextPath() + "/rx/managePharmacy?method=getPharmacyFromDemographic&demographicNo="%>" + demo,
                         function (data) {
@@ -265,6 +267,8 @@
                                     }
                                 });
                             }
+                            preferredListReady = true;
+                            $(".pharmacyItem").attr("aria-disabled", "false").css("pointer-events", "");
                             HideSpin(true);
                         }, "json");
 					}
@@ -294,6 +298,7 @@
                     filterPharmacies();
 
                     $(".pharmacyItem").click(function () {
+                        if (!preferredListReady) return;
                         var pharmId = $(this).attr("pharmId");
 
                         var preferredPharmacies = $("#preferredList > div[pharmId]");

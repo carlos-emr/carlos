@@ -147,6 +147,14 @@ public class FieldNoteManager {
         return supervisorResidentCountList;
     }
 
+    /** Load only the requested resident's current notes for a detail view or download. */
+    public void loadResidentReport(String residentId, Date start, Date endExclusive) {
+        residentFieldNotes.clear();
+        supervisorFieldNotes.clear();
+        List<Integer> ids = eformDataDao.findFieldNoteIdsForResident(getFieldNoteEforms(), start, endExclusive, residentId);
+        residentFieldNotes.put(residentId, new TreeSet<>(ids));
+    }
+
     public HashMap<Integer, List<EFormValue>> getResidentFieldNoteValues(String residentId) {
         HashMap<Integer, List<EFormValue>> fieldNoteValues = new HashMap<Integer, List<EFormValue>>();
         TreeSet<Integer> fdids = residentFieldNotes.get(residentId);

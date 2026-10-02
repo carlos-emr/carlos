@@ -86,6 +86,8 @@ public interface EFormDataDao extends AbstractDao<EFormData> {
 
     public List<EFormData> findByFidsAndDates(TreeSet<Integer> fids, Date dateStart, Date dateEnd);
 
+    List<Integer> findFieldNoteIdsForResident(TreeSet<Integer> fids, Date dateStart, Date dateEnd, String residentId);
+
     public List<EFormData> findByFdids(List<Integer> ids);
 
     public boolean isLatestShowLatestFormOnlyPatientForm(Integer fdid);

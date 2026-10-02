@@ -10,7 +10,7 @@ const start = source.indexOf('$(".pharmacyItem").click(function () {');
 const end = source.indexOf('$(".deletePharm").click', start);
 assert.ok(start >= 0 && end > start);
 
-function choose(existing, id) {
+function choose(existing, id, ready = true) {
   const requests = [], alerts = [];
   const selected = { pharmId: id };
   const entries = existing.map(pharmId => ({ pharmId }));
@@ -24,7 +24,7 @@ function choose(existing, id) {
   }
   $.post = (url, data) => requests.push(new URLSearchParams(data));
   vm.runInNewContext(source.slice(start, end).replace(/<%=.*?%>/g, '/carlos/rx/managePharmacy'),
-    { $, demo: '123', ShowSpin() {}, alert: msg => alerts.push(msg) });
+    { $, demo: '123', preferredListReady: ready, ShowSpin() {}, alert: msg => alerts.push(msg) });
   return { requests, alerts };
 }
 
@@ -42,4 +42,8 @@ test('selecting an existing pharmacy alerts without changing its order', () => {
   const { requests, alerts } = choose(['11', '22'], '11');
   assert.equal(alerts.length, 1);
   assert.equal(requests.length, 0);
+});
+
+test('selection cannot write before the preferred list finishes loading', () => {
+  assert.equal(choose([], '22', false).requests.length, 0);
 });

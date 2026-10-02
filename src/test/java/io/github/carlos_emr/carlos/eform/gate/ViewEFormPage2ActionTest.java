@@ -120,18 +120,22 @@ class ViewEFormPage2ActionTest extends CarlosUnitTestBase {
                 .hasMessage("missing required sec object (_admin.fieldnote)");
     }
 
-    @Test
-    void shouldRejectFieldNoteMutation_fromGet() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"GET,selected_eform", "HEAD,selected_eform",
+            "GET,unselect_eform", "HEAD,unselect_eform"})
+    void shouldRejectFieldNoteMutation_fromReadMethods(String method, String parameter) throws Exception {
         ActionContext.of().withActionName("eform/fieldNoteReport/fieldnoteselect").bind();
-        when(mockRequest.getParameter("selected_eform")).thenReturn("1");
+        when(mockRequest.getMethod()).thenReturn(method);
+        when(mockRequest.getParameter(parameter)).thenReturn("1");
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(mockResponse).setHeader("Allow", "POST");
         verify(mockResponse).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         org.mockito.Mockito.verifyNoInteractions(mockDispatcher);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
-    void shouldExposeSelectionControl_onlyToFieldNoteWriters(boolean writable) throws Exception {
+    void shouldExposeSelectionControl_onlyForFieldNoteWriters(boolean writable) throws Exception {
         ActionContext.of().withActionName("eform/fieldNoteReport/fieldnotereport").bind();
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fieldnote"), eq("r"), isNull()))
                 .thenReturn(true);

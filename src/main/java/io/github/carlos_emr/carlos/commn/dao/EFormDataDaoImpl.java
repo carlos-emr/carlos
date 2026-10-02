@@ -393,6 +393,22 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     @Override
+    public List<Integer> findFieldNoteIdsForResident(TreeSet<Integer> fids, Date dateStart, Date dateEnd, String residentId) {
+        if (fids == null || fids.isEmpty() || residentId == null || residentId.isBlank()) {
+            return java.util.Collections.emptyList();
+        }
+        return entityManager.createQuery("select x.id from EFormData x "
+                        + "where x.current=true and x.formId in :fids and x.formDate>=:start and x.formDate<:end "
+                        + "and exists (select v.id from EFormValue v where v.formDataId=x.id "
+                        + "and v.varName='residentId' and v.varValue=:resident)", Integer.class)
+                .setParameter("fids", fids)
+                .setParameter("start", dateStart)
+                .setParameter("end", dateEnd)
+                .setParameter("resident", residentId)
+                .getResultList();
+    }
+
+    @Override
     public List<EFormData> findByFdids(List<Integer> ids) {
         if (ids.size() == 0)
             return new ArrayList<EFormData>();

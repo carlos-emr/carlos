@@ -45,6 +45,24 @@ class FieldNoteManagerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldLoadOnlyRequestedResident_forDetailReport() {
+        Property property = new Property();
+        property.setValue("1");
+        when(properties.checkByName("fieldNoteEform")).thenReturn(property);
+        Date start = new Date(0);
+        Date end = new Date(1000);
+        when(data.findFieldNoteIdsForResident(new TreeSet<>(List.of(1)), start, end, "200"))
+                .thenReturn(List.of(42));
+        when(values.findByFormDataId(42)).thenReturn(List.of());
+        var manager = new FieldNoteManager();
+        manager.loadResidentReport("200", start, end);
+        assertThat(manager.getTotalNumberOfFieldNotes("200")).isEqualTo(1);
+        assertThat(manager.getResidentFieldNoteValues("200")).containsOnlyKeys(42);
+        verify(data, never()).findByFidsAndDates(any(), any(), any());
+        verify(values, never()).findByFormDataIdList(any());
+    }
+
+    @Test
     void shouldKeepReportContents_separateBetweenRequests() {
         EFormData form = new EFormData();
         form.setId(42);

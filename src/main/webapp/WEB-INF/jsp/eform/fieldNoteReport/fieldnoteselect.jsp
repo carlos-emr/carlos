@@ -118,11 +118,11 @@
                 </td>
                 <td width="25%" style="padding-left: 4px"><carlos:encode value='<%= fieldNoteEform.getFileName() %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormDate()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= Objects.toString(fieldNoteEform.getFormDate(), "") %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormTime()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= Objects.toString(fieldNoteEform.getFormTime(), "") %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getRoleType()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= fieldNoteEform.getRoleType() %>' context="html"/>
                 </td>
                 <td nowrap align='center'>
                     <a href="#" title="<fmt:message key="admin.fieldNote.unselectEform"/>"
@@ -151,11 +151,11 @@
                 </td>
                 <td width="25%" style="padding-left: 4px"><carlos:encode value='<%= fieldNoteEform.getFileName() %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormDate()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= Objects.toString(fieldNoteEform.getFormDate(), "") %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormTime()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= Objects.toString(fieldNoteEform.getFormTime(), "") %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getRoleType()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= fieldNoteEform.getRoleType() %>' context="html"/>
                 </td>
                 <td nowrap align='center'>
                     <input type="checkbox" value="<%=fieldNoteEform.getId()%>"

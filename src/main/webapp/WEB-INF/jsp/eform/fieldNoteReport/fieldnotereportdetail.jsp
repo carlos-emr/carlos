@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EFormValue" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteDateRange" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
@@ -112,17 +113,14 @@
     Date reportStart;
     Date reportEnd;
     try {
-        java.time.LocalDate start = java.time.LocalDate.parse(dateStart);
-        java.time.LocalDate end = java.time.LocalDate.parse(dateEnd);
-        if (start.isAfter(end)) throw new IllegalArgumentException("Invalid date range");
-        java.time.ZoneId zone = java.time.ZoneId.systemDefault();
-        reportStart = Date.from(start.atStartOfDay(zone).toInstant());
-        reportEnd = Date.from(end.plusDays(1).atStartOfDay(zone).toInstant());
-    } catch (java.time.DateTimeException | IllegalArgumentException | NullPointerException ex) {
+        FieldNoteDateRange range = FieldNoteDateRange.parse(dateStart, dateEnd);
+        reportStart = range.startDate();
+        reportEnd = range.endExclusiveDate();
+    } catch (IllegalArgumentException ex) {
         response.sendError(400, "Invalid report date range");
         return;
     }
-    fieldNoteManager.getResidentNameList(fieldNoteManager.getFieldNoteEforms(), reportStart, reportEnd);
+    fieldNoteManager.loadResidentReport(residentId, reportStart, reportEnd);
 
     HashMap<Integer, List<EFormValue>> residentFieldNoteValues = fieldNoteManager.getResidentFieldNoteValues(residentId);
 %>

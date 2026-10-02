@@ -30,6 +30,7 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteDateRange" %>
 <%@ page import="java.util.*, java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -61,15 +62,10 @@
     Date endDate = null;
     boolean invalidDate = false;
     try {
-        startDate = df.parse(dateStart);
-        endDate = df.parse(dateEnd);
-
-        //add one to endDate
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(endDate);
-        cal.add(Calendar.DATE, 1);
-        endDate = cal.getTime();
-    } catch (ParseException pex) {
+        FieldNoteDateRange range = FieldNoteDateRange.parse(dateStart, dateEnd);
+        startDate = range.startDate();
+        endDate = range.endExclusiveDate();
+    } catch (IllegalArgumentException ex) {
         invalidDate = true;
     }
 

@@ -197,6 +197,9 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             } catch (JDBCUtil.XmlImportException e) {
                 // Earlier entries may already be committed by the legacy JDBC importer.
                 // Do not report success or expose archive contents/database details.
+                Throwable cause = e.getCause() == null ? e : e.getCause();
+                LOGGER.error("Legacy form import failed (causeType={}, earlierEntriesImported={})",
+                        cause.getClass().getName(), processedEntry);
                 addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale())
                         .getString(processedEntry ? "form.xmlUpload.legacyPartialFailure" : "form.xmlUpload.legacyFailure"));
                 return forwardActionErrors();
