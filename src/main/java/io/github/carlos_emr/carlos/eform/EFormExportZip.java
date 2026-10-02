@@ -61,9 +61,25 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class EFormExportZip {
     private static final Logger _log = MiscUtils.getLogger();
 
+    /**
+     * Converts an eForm display title to one safe generated filename component.
+     * Preserves spaces and Unicode; the original title remains in eform.properties.
+     * Stored filenames and image references are validated separately without renaming.
+     *
+     * @param name display title used to generate an export name
+     * @return a validated filename component with path syntax and controls replaced
+     * @throws SecurityException when the generated component is invalid or empty
+     */
+    public static String exportNameComponent(String name) {
+        if (name == null) return PathValidationUtils.validatePathComponent(null, "eform export name");
+        String safeName = name.replaceAll("[/\\\\:\\p{Cntrl}]", "_").replaceAll("^[.~]+", "_");
+        return PathValidationUtils.validatePathComponent(safeName, "eform export name");
+    }
+
     public void exportForms(List<EForm> eForms, OutputStream os) throws IOException, Exception {
         ZipOutputStream zos = new ZipOutputStream(os);
         zos.setLevel(9);
+        Set<String> folders = new HashSet<>();
 
         for (EForm eForm : eForms) {
             if (eForm.getFormName() == null || eForm.getFormName().equals("")) {
@@ -71,17 +87,18 @@ public class EFormExportZip {
                 throw new Exception("EForm must have a name to export");
             }
             Properties properties = new Properties(); //put all form properties into here
+            String formFolder = exportNameComponent(eForm.getFormName().replaceAll("\\s", ""));
+            String baseFolder = formFolder;
+            int suffix = 2;
+            while (!folders.add(formFolder)) formFolder = baseFolder + "-" + suffix++;
             String fileName = eForm.getFormFileName();
             _log.debug("before:>" + fileName + "<");
             if (fileName == null || fileName.equals("")) {
-                fileName = eForm.getFormName().replaceAll("\\s", "") + ".html"; //make fileName = formname with all spaces removed
+                fileName = formFolder + ".html";
             }
             _log.debug("after:>" + fileName + "<");
 
-            // Validate the form name and file name as single path components before they become ZIP
-            // entry names: a formName/formFileName containing "/", "\\" or ".." would otherwise produce
-            // traversal-style entries in the exported archive (ZIP-slip for whoever extracts it).
-            String formFolder = PathValidationUtils.validatePathComponent(eForm.getFormName().replaceAll("\\s", ""), "eform export form name");
+            // Stored file paths remain strict; only names generated from display titles are sanitized.
             fileName = PathValidationUtils.validatePathComponent(fileName, "eform export file name");
             String directoryName = formFolder + "/"; //formName with all spaces removed
             String html = eForm.getFormHtml();
