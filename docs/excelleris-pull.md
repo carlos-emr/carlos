@@ -99,6 +99,16 @@ things. Two parts of the setup are simpler than on CARLOS:
   `admin/keygen/keyManager.jsp`.
 - `base_url` is the OSCAR context path, for example `https://emr.example.ca/oscar`.
 
+The OSCAR 19 contract above was verified against the shipped artifact, not only the branch:
+the `oscar-emr` 19-99~5040 package carries the Bitbucket build 5040 WAR byte for byte
+(manifest `git-SHA-1` b425be0, the `stable` head), and the compiled `LoginFilter`,
+`LabUploadAction`, `LabUploadForm`, `LoginAction` and `ExcellerisOntarioHandler` classes of
+build 5036 disassemble to exactly the behaviour described. One caution found on the way, as of
+2026-10-02: the published WARs from build 5037 (2026-03-10) onward, and therefore the
+19-99~5039 and 19-99~5040 packages, contain no compiled OSCAR classes at all (5,925 entries
+against 11,055 in build 5036), which is a build regression on the OSCAR side. An OSCAR 19
+site should confirm its running build before relying on any upload path.
+
 ## One-time setup on the host
 
 1. Install `python3-cryptography` (`apt install python3-cryptography`). Nothing else is
