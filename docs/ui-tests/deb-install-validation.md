@@ -260,6 +260,14 @@ door should carry text the rule set actually scores (see
 should be confirmed to fail against the previous exclusion file, not merely to
 pass against the new one.
 
+The October 2026 coverage expansion (78 new checks) was validated against a
+2026.09.0~snapshot26 package built from `release/2026.08` at `93054a6242`, installed into
+an Ubuntu 26.04 systemd container with the demo dataset (`carlos-ctl check` clean, every run
+through `:443` with `EXPECT_FRONT_DOOR=true`). Its environment notes (a Maven Central mirror
+for a rate-limited egress, `login_lock=true`, the extra directory exports) and per-check
+results are in
+[release-2026.08-workflow-coverage-expansion.md](release-2026.08-workflow-coverage-expansion.md).
+
 ## Scope
 
 This validation answers one question:

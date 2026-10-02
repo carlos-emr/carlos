@@ -56,6 +56,17 @@ test('sqlString escapes quotes and backslashes in fixture literals', () => {
   assert.equal(sqlString('a\\b'), "'a\\\\b'");
 });
 
+test('insertId reads LAST_INSERT_ID in the same call and refuses a missing id', () => {
+  const queries = [];
+  const runner = (answer) => ({ value(query) { queries.push(query); return answer; } });
+  assert.equal(harness.insertId(runner('42'), 'INSERT INTO t(a) VALUES(1)', 'row'), '42');
+  assert.equal(queries[0], 'INSERT INTO t(a) VALUES(1); SELECT LAST_INSERT_ID()');
+  for (const answer of [null, '', '0', 'abc', '-3']) {
+    assert.throws(() => harness.insertId(runner(answer), 'INSERT INTO t(a) VALUES(1)', 'probe'),
+      /The owned probe fixture was not created/);
+  }
+});
+
 test('TLS verification is only waived for a demonstrably local target (issue #3598)', () => {
   for (const host of ['localhost', '127.0.0.1', '::1', '10.1.2.3', '192.168.0.9', '172.16.0.1']) {
     assert.equal(isLocalTlsTarget(host), true, `${host} should count as local`);
@@ -583,11 +594,14 @@ test('login works through the authentication stages in whatever order they arriv
   assert.ok(body.indexOf('forcepasswordreset/i.test(url)') > body.indexOf('for (let stage'),
     'the reset stage must be inside the loop, not ahead of it');
 
-  // The reset submit must accept a landing on the MFA page, or that hand-off is
-  // a 30s timeout instead of the next turn of the loop.
+  // The reset submit must accept the MFA page wherever it lands, or that
+  // hand-off is a 30s timeout instead of the next turn of the loop. Login2Action
+  // forwards the challenge in place at /forcepasswordresetSubmit, so the stage
+  // waits for the main frame to navigate rather than for a list of URLs.
   const resetStage = body.slice(body.indexOf('forcepasswordreset/i.test(url)'));
-  assert.match(resetStage.slice(0, resetStage.indexOf('continue;')),
-    /waitForURL\(\/providercontrol\|appointment\|select_facility\|loginMfa\/i/);
+  const resetSubmit = resetStage.slice(0, resetStage.indexOf('continue;'));
+  assert.match(resetSubmit, /waitForEvent\('framenavigated', \{ predicate: frame => frame === page\.mainFrame\(\)/);
+  assert.doesNotMatch(resetSubmit, /waitForURL\(/);
 
   // And the loop is bounded, with a diagnosis rather than a silent success when
   // a stage keeps re-serving itself.
