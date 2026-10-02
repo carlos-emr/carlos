@@ -229,8 +229,9 @@ public final class EmbeddedLabDocumentLoader {
      * The decoded size implied by the encoded length, without decoding: half the characters for
      * hex (an unmatched final character is dropped, as {@link #decodeHex} does), and three bytes
      * per four base64-alphabet characters otherwise. Counting only alphabet characters (standard
-     * or URL-safe, never {@code =} padding) makes this exact both for strict base64 and for the
-     * lenient decoder, which skips every other character.
+     * or URL-safe, never {@code =} padding) up to the first padding character makes this exact
+     * both for strict base64 and for the lenient decoder, which skips every other character and
+     * stops at padding.
      */
     static long estimateDecodedSize(String compact, boolean hex) {
         if (hex) {
@@ -238,7 +239,13 @@ public final class EmbeddedLabDocumentLoader {
         }
         long alphabet = 0;
         for (int i = 0; i < compact.length(); i++) {
-            if (isBase64Alphabet(compact.charAt(i))) {
+            char c = compact.charAt(i);
+            if (c == '=') {
+                // Padding ends the data: the lenient decoder the full decode falls back to stops
+                // here, so anything after it must not count towards the size either.
+                break;
+            }
+            if (isBase64Alphabet(c)) {
                 alphabet++;
             }
         }
