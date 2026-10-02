@@ -2522,11 +2522,15 @@ def upload_step(
                 # other files and the pull go on. A counter that cannot be
                 # trusted must not silently restart the retry cap at zero.
                 try:
-                    archive.attempts(path)
+                    prior_attempts = archive.attempts(path)
                 except StepError as exc:
                     failures.append(f"{path.name}: {exc.detail}; left in inbox")
                     log.error("%s: %s: %s", cfg.carlos_flavour, path.name, exc.detail)
                     continue
+                # Whether THIS request's in-flight marker added an attempt: a
+                # file that already failed earlier in this run keeps that
+                # count, and a 429 must not take it back (see below).
+                marker_added = False
                 if cfg.carlos_flavour == FLAVOUR_OSCAR19:
                     # In-flight marker, written before the request: OSCAR 19
                     # records the checksum before it parses, so a crash between
@@ -2536,7 +2540,7 @@ def upload_step(
                     # Same run token, so a failure below does not count twice;
                     # a success removes the sidecar with the file.
                     try:
-                        archive.bump_attempts(path, run_token)
+                        marker_added = archive.bump_attempts(path, run_token) > prior_attempts
                     except OSError as exc:
                         # No marker, no send: the file waits for the next run;
                         # the other files and the pull go on.
@@ -2638,7 +2642,7 @@ def upload_step(
                     # way and charge each file an attempt it never had. Stop
                     # the pass, charge nothing (the OSCAR 19 in-flight marker
                     # is taken back), and let the next run continue.
-                    if cfg.carlos_flavour == FLAVOUR_OSCAR19:
+                    if marker_added:
                         archive.forgive_attempt(path, run_token)
                     remaining = len(archive.inbox_files())
                     failures.append(

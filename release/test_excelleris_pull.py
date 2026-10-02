@@ -2896,6 +2896,18 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
         self.assertEqual(list(self.cfg.inbox_dir.glob("*.attempts")), [])
         self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload.do"), 1)
 
+    def test_429_keeps_an_attempt_this_run_already_counted(self):
+        # A backlog file fails in the first pass (counted), then the second
+        # pass is throttled: the 429 must not take back the earlier failure.
+        archive = ep.Archive(self.cfg)
+        backlog = archive.save_inbox("20261001-080000", PULL_WITH_RESULTS)
+        self.script["POST /carlos/lab/newLabUpload.do"] = _replies(ok("", 500), ok("", 429))
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload.do"), 2)
+        self.assertEqual(archive.attempts(backlog), 1)  # the 500, kept
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 2)  # + the pull
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.attempts"))), 1)
+
     def test_first_seen_409_is_parked_without_proof_of_an_import(self):
         # The checksum may have been left by Mule, a manual upload or another
         # sender that then failed, before this tool ever saw the file.

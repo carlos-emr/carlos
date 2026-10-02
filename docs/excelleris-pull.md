@@ -456,8 +456,9 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
 - Redirects: followed, as with the script's `curl -L`, to any `https://` destination, with
   the cookie jar deciding per destination which cookies go along, and with the method and
   body kept (a redirected POST is re-sent as a POST). A `Location` pointing at plain
-  `http://` is refused as a transport failure (negative acknowledgment, alert, retry next
-  run), since Excelleris requires TLS 1.2 or better on every hop.
+  `http://` is refused as a transport failure, since Excelleris requires TLS 1.2 or better
+  on every hop: the run alerts and the next run retries; when it happens on the pull itself
+  (after login) a negative acknowledgment is sent first, so Excelleris re-delivers.
 
 ### Excelleris EMR interface requirements
 
