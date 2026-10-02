@@ -82,6 +82,26 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
         assertThat(fields).hasSize(1);
         assertThat(fields.first().val()).isEqualTo("True");
         assertThat(document.select("#newForm")).isEmpty();
+        // The earlier code added a true input here; that default survives as form metadata.
+        assertThat(document.selectFirst("form").attr(EForm.NEW_FORM_DEFAULT_ATTRIBUTE)).isEqualTo("true");
+    }
+
+    @Test
+    void shouldNotSetNewFormDefault_whenTemplateOwnsTheNewFormId() {
+        EForm form = new EForm();
+        form.setFormHtml("<form><input type='hidden' id='newForm' name='newForm' value='True'></form>");
+        form.ensureNewFormInput();
+        assertThat(Jsoup.parse(form.getFormHtml()).selectFirst("form")
+                .hasAttr(EForm.NEW_FORM_DEFAULT_ATTRIBUTE)).isFalse();
+    }
+
+    @Test
+    void shouldNotSetNewFormDefault_whenFallbackInputIsAdded() {
+        EForm form = new EForm();
+        form.setFormHtml("<form></form>");
+        form.ensureNewFormInput();
+        assertThat(Jsoup.parse(form.getFormHtml()).selectFirst("form")
+                .hasAttr(EForm.NEW_FORM_DEFAULT_ATTRIBUTE)).isFalse();
     }
 
     @Test
@@ -245,6 +265,7 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
         String script = Files.readString(Path.of(
                 "src/main/webapp/eform/eformFloatingToolbar/eform_floating_toolbar.js"));
         assertThat(script).contains("input[" + EForm.NEW_FORM_FALLBACK_ATTRIBUTE + "]");
+        assertThat(script).contains("\"" + EForm.NEW_FORM_DEFAULT_ATTRIBUTE + "\"");
     }
 
     @Test

@@ -157,6 +157,10 @@ document.addEventListener("formdata", function (event) {
     const fallback = form.querySelector("input[data-carlos-newform-fallback]");
     if (fallback) {
         event.formData.append("newForm", fallback.value);
+    } else if (form.hasAttribute("data-carlos-newform-default")) {
+        // The template submits newForm itself (so there is no fallback input) but nothing did this
+        // time, e.g. its script disabled the control: keep the server's default.
+        event.formData.append("newForm", form.getAttribute("data-carlos-newform-default"));
     }
 }, true);
 
