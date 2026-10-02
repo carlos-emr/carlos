@@ -698,12 +698,14 @@ class ArchiveTest(TempEnv):
     def test_symlinked_state_directories_are_refused(self):
         real = self.tmp / "elsewhere"
         real.mkdir()
+        mode_before = stat.S_IMODE(real.stat().st_mode)  # whatever the umask gave it
         if self.cfg.state_dir.exists():
             shutil.rmtree(self.cfg.state_dir)
         self.cfg.state_dir.symlink_to(real)
         with self.assertRaisesRegex(ep.ConfigError, "symbolic link"):
             ep.Archive(self.cfg)
-        self.assertEqual(stat.S_IMODE(real.stat().st_mode), 0o755 & ~_umask())
+        # The link's target was not tightened to 0700 (or touched at all).
+        self.assertEqual(stat.S_IMODE(real.stat().st_mode), mode_before)
         self.cfg.state_dir.unlink()
         self.cfg.state_dir.mkdir(mode=0o700)
         self.cfg.inbox_dir.symlink_to(real)
