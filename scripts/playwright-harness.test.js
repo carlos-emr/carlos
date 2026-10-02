@@ -688,3 +688,28 @@ test('native PDF audit requires status, MIME and complete PDF bytes and disposes
     await assert.rejects(harness.assertNotErrorPage(page, 'ordinary HTML'), /blank page/);
   }
 });
+
+test('a failed request knows whether the document that issued it went away', async () => {
+  const recorder = createRecorder();
+  const page = fakePage();
+  wireStrictPage(page, 'walk', recorder, { baseline: [] });
+  let address = 'https://host/carlos/page';
+  const frame = { isDetached: () => false, url: () => address };
+  const other = { isDetached: () => false, url: () => 'https://host/carlos/other' };
+  const request = (url, from) => ({ url: () => url, resourceType: () => 'font', frame: () => from, failure: () => ({ errorText: 'net::ERR_ABORTED' }) });
+  const stays = request('https://host/carlos/api/poll', other);
+  const leaves = request('https://host/carlos/font.woff2', frame);
+  await page.emit('request', stays);
+  await page.emit('request', leaves);
+  await page.emit('requestfailed', stays);
+  await page.emit('requestfailed', leaves);
+  // The navigation commits after the failure it caused: the answer is read when asked, not when recorded.
+  assert.equal(recorder.requestFailures[1].navigatedAway(), false);
+  address = 'https://host/carlos/next';
+  assert.equal(recorder.requestFailures[1].navigatedAway(), true);
+  assert.equal(recorder.requestFailures[0].navigatedAway(), false);
+  // A request whose issuing document is unknown is never presumed abandoned.
+  await page.emit('requestfailed', { url: () => 'https://host/carlos/x.js', resourceType: () => 'script', failure: () => ({ errorText: 'net::ERR_ABORTED' }) });
+  assert.equal(recorder.requestFailures[2].navigatedAway(), false);
+  assert.deepEqual(Object.keys(recorder.requestFailures[0]), ['label', 'url', 'resourceType', 'errorText']);
+});

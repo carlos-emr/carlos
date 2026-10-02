@@ -171,6 +171,68 @@ Every failing check passes the steps it reaches before the one that hits the def
 | `eform-deleted-restore` | §4.1 | all | FAIL on confirmed defects. Fails on 2026.08: Restore posts a JavaScript-built form without a CSRF token (403); independent Delete is also rejected for a missing token. |
 | `eform-groups` | §4.1 | all | FAIL on confirmed defects. Fails on 2026.08: the Add eForm list throws a TypeError on unload (unguarded window.opener), and the group mutators answer 405 / 403 (forward to a GET-only gate; missing CSRF token in the Administration panel). |
 
+## Stored-markup (xss-poison) sweep
+
+Ten further checks walk the screens a clinician and an administrator use with **stored values that
+contain markup**, to find output-encoding defects that a check typing ordinary text cannot see. Each
+check INSERTs its own FAKE rows (a patient, providers, list entries, documents, messages ...) whose
+text columns carry an inert payload, `FAKE-XP<i data-xp="N">q</i> "dq" 'sq' \back &amp; </script data-xp>`
+(shorter variants for narrow columns; `N` names the field). The rows go in by SQL so the WAF does not
+refuse them, the way imported or legacy data arrives. The check then enters every surface through the
+controls a user clicks and asserts, per page and frame: the value is shown literally, no `[data-xp]`
+element exists, no inline handler or script block carrying the payload fails to compile, and no
+script error was raised. Findings are collected across the walk and the check fails once at the end,
+so one run reports every defect it reached. Shared code: `scripts/lib/xss-poison-helpers.js`,
+`scripts/lib/xss-poison-patient.js`, `scripts/lib/xss-poison-admin-walk.js`.
+
+**Coverage is asserted, not assumed.** Each surface declares the seeded fields it is known to show, and
+a surface that does not show them (or cannot be reached) is a `MISSING` finding; a catalogued link that
+cannot be opened is `NOT-OPENED` unless the fixture itself cannot back it (a document row with no file, a
+dated chart entry the page re-renders), which is noted with that reason. A click that changes nothing is
+noted and never inspected as its own destination, and a frame the inspector could not read is
+`INSPECT-FAILED`, so none of these can pass as an encoded page. A click that opens a window is inspected
+in that window even when the host redraws itself before the window appears (or navigates only after
+touching the page), and a required module that lives in a window of its own (the E-Chart and Master
+Record modules) counts only when it opened that page: the host's copy of the same values never stands
+in for it. Administration items, which load into the page's own content frame, may open in place. An aborted subresource request is excused only when its document provably went away (the
+frame moved on, was removed, or its page closed); any other `ERR_ABORTED` is a `REQUEST-FAILED`
+finding. The summary also lists the seeded fields
+no surface reached. The schedule check and both Administration halves wait out the five-minute
+active-provider cache once each (about fifteen minutes of a full sweep), so the provider selects are
+inspected with the fixture present.
+
+**Report, don't encode** applies as everywhere else: a check passes when the screen encodes and fails
+at the defect. The one allowance is a field a page renders as sanitised rich text by design (the
+Messenger body is Markdown shown through DOMPurify): markup there is noted, not counted.
+
+**Fixture lifecycle.** The fixtures are global while a check runs (an active provider shows up on
+every provider select), and other checks' forms that echo them back are refused by the WAF, so run an
+`xss-poison-*` check alone; the suite runner is sequential. Every row is recorded by its key in a
+per-run ledger under `$TMPDIR/carlos-xss-poison` (`XSS_POISON_LEDGER_DIR`) and cleanup deletes exactly
+those keys and asserts them gone, also after a failed run. Natural-key inserts refuse a key that
+already exists. A run killed outright is recovered by key, from its ledger, by the next `xss-poison`
+run; when no other `xss-poison` run is alive that run also sweeps every row carrying `<i data-xp=`
+(with the rows hanging off such patients and providers) and asserts none is left. Each check owns a
+range of payload numbers, so a concurrent run's rows are never attributed to it. Rows a check borrows
+rather than inserts itself (the billing check's session patient and the billing provider, provider
+sites, claim and items of `createBillingFixture`) are recorded in the same ledger before the first
+write, so a killed billing run is recovered by key like any other; a check opens its ledger (and with
+it the first-run payload sweep) before it poisons anything, so the sweep can never neutralise the run's
+own fixture. `scripts/xss-poison-helpers.test.js` pins these rules.
+
+| Check | Provinces | Result on the packaged 2026.08 install |
+|---|---|---|
+| `xss-poison-master-record` | all | FAIL on confirmed defects (findings 117, 118): Master Record view and Edit form, Documents and Manage Contacts print stored values raw. Create Invoice is skipped because the WAF refuses its URL, which carries the patient name. |
+| `xss-poison-echart` | all | FAIL on confirmed defects (findings 117, 119, 120, 128): left navbar titles (Rx, Tickler, eForms), the Rx drug list, the Allergies page, the Disease Registry, Documents, CDM Indicators flowsheet, cumulative lab (Grid/Row Display) and measurement history headers, and the consultation form the chart opens. |
+| `xss-poison-schedule` | all | FAIL on confirmed defects (findings 123, 126, 127): the month view's provider select and holiday name, and Schedule Setting ▸ Template Setting's template select. Day sheet, week view, appointment popups, tickler list and edit, Add Appointment, Search and the Schedule Setting provider selects encode. |
+| `xss-poison-documents-inbox` | all | FAIL on a confirmed defect (finding 117): Master Record ▸ Documents. Inbox, eDoc provider list and document Edit encode. |
+| `xss-poison-eform` | all | FAIL on confirmed defects (findings 121, 125), including the Deleted patient-independent list; the Deleted eForms list also hits finding 77 (TypeError on unload). |
+| `xss-poison-messenger-consult` | all | FAIL on confirmed defects (findings 117, 120, 78, 124): Msg inbox patient name; the consultation form's letterhead script breaks; Compose's Search Demographic popup closes itself on load; a specialist whose specialty type is text cannot be opened (500). Message view, consultation list, specialist list and services encode. |
+| `xss-poison-billing` | ON | PASS: Billing History, Create Invoice, Invoice Reports, Billing Correction with its diagnostic-code and payer searches, Manage Billing Service Code and the billing administration lists encode. Only the billing form's group name is not shown by any surface it reaches. |
+| `xss-poison-admin-detail` | all | FAIL on confirmed defects (finding 122): group members and document types. The report template run page, description templates, Insert a Template and the dx quick list encode. |
+| `xss-poison-admin-users-billing` | all | FAIL on a confirmed defect (finding 121): the eForm upload form's role select. |
+| `xss-poison-admin-reports-system` | all | FAIL on confirmed defects (findings 63, 122): ten Administration report and system pages. |
+
 ## Routes with no UI entry
 
 Per the suite's rule a route with no link gets no check; each is a finding about the route.

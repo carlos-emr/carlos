@@ -597,6 +597,20 @@ function wireStrictPage(page, label, recorder, options = {}) {
       });
     }
   });
+  // Which document each request was issued from (its frame and that frame's address then), so a failure can
+  // later be proven to be the browser abandoning a load because its document went away (the frame moved to
+  // another address, was detached, or the page closed) rather than the application cancelling it. Decided at
+  // read time (navigatedAway), because a navigation can commit after the failure event it caused. A reload of
+  // the same address is not proof, so such a failure stays a failure.
+  const issuedFrom = new WeakMap();
+  page.on('request', (request) => {
+    try {
+      const frame = request.frame();
+      if (frame) issuedFrom.set(request, { frame, url: frame.url() });
+    } catch {
+      // A service-worker request has no frame: its failure is never presumed abandoned.
+    }
+  });
   page.on('requestfailed', (request) => {
     if (!strictSignals) {
       return;
@@ -612,9 +626,18 @@ function wireStrictPage(page, label, recorder, options = {}) {
     if (request.resourceType() === 'document') {
       return;
     }
-    recorder.requestFailures.push({
+    const entry = {
       label: wiring.label, url, resourceType: request.resourceType(), errorText: failure ? failure.errorText : 'unknown',
+    };
+    const origin = issuedFrom.get(request);
+    // Non-enumerable: the entry's data shape (compared and serialised elsewhere) is unchanged. False when the
+    // issuing document is unknown, so only a proven abandonment can be treated as one.
+    Object.defineProperty(entry, 'navigatedAway', {
+      enumerable: false,
+      value: () => Boolean(origin) && ((typeof page.isClosed === 'function' && page.isClosed())
+        || origin.frame.isDetached() || origin.frame.url() !== origin.url),
     });
+    recorder.requestFailures.push(entry);
   });
   page.on('console', (message) => {
     if (!isSevereConsoleMessage(message)) {
