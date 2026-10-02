@@ -261,6 +261,29 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0133');
+    // That typed number is the clinician's own: naming its recipient afterwards keeps it.
+    await open(true);
+    await page.locator('#otherFaxInput').fill('416-555-0122');
+    await page.locator('#otherFaxInput').blur();
+    await page.locator('#remoteFaxOptions summary').click();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0122');
+    await page.locator('#remoteFaxRecipient').fill('Manual Recipient');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0122');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipient'), 'Manual Recipient');
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0122');
+    // A list choice made after it is the list's again: retyping the name clears it.
+    await open(true, true);
+    await page.locator('#otherFaxInput').fill('416-555-0122');
+    await page.locator('#otherFaxInput').blur();
+    await page.locator('#faxnumList').selectOption('416-555-0102');
+    await page.locator('#remoteFaxOptions summary').click();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0102');
+    await page.locator('#remoteFaxRecipient').fill('Different Recipient');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '');
     await open();
     await page.locator('#remoteFaxOptions summary').click();
     await page.locator('#remoteFaxNumber').fill('');
@@ -296,6 +319,23 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.equal(requests[0].get('subject'), 'Toolbar subject');
+    // A required but disabled template subject is excluded from validation, directly or
+    // through a disabled fieldset, so an empty toolbar subject still saves.
+    for (const disable of ['direct', 'fieldset']) {
+      await open();
+      await page.evaluate(mode => {
+        const subject = document.getElementById('subject');
+        if (mode === 'direct') { subject.disabled = true; return; }
+        const fieldset = document.createElement('fieldset');
+        fieldset.disabled = true;
+        subject.replaceWith(fieldset);
+        fieldset.append(subject);
+      }, disable);
+      await page.locator('#remote_eform_subject').fill('');
+      await page.locator('#remoteSubmitButton').click();
+      await page.waitForURL('**/eform/addEForm');
+      assert.equal(requests.length, 1);
+    }
     // A template subject without the constraint still saves with an empty subject.
     await open();
     await page.evaluate(() => { document.getElementById('subject').required = false; });

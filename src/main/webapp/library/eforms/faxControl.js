@@ -49,7 +49,8 @@
         // copied from it) would fax a recipient they had just deselected, so fail closed with no
         // number rather than misroute the document.
         if (selectedSource === 'otherFaxInput') {
-            return {name: '', fax: input ? input.value.trim() : ''};
+            // manual: typed by the clinician, so the toolbar keeps it when the name is edited.
+            return {name: '', fax: input ? input.value.trim() : '', manual: true};
         }
         if (selectedSource) {
             option = selectedOption(selectedSource);

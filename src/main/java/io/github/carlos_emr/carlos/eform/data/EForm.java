@@ -38,6 +38,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
@@ -1494,8 +1495,9 @@ public class EForm extends EFormBase {
     }
 
     /**
-     * True when the form already submits a value named exactly {@code newForm}, i.e. it has a
-     * successful control by that name (HTML forms spec): an input other than the button-like
+     * True when the form already submits a value named exactly {@code newForm}, i.e. a control it
+     * owns (a descendant, or one elsewhere that names it with {@code form=}; a descendant assigned
+     * to another form does not count) is successful by that name (HTML forms spec): an input other than the button-like
      * types (which submit nothing unless they are the submitter), a select that would submit at
      * least one option, or a textarea; not disabled (itself or through a disabled ancestor
      * fieldset); and, for a checkbox or radio, checked. Anything else (an {@code <a name>}, a
@@ -1503,8 +1505,13 @@ public class EForm extends EFormBase {
      * parameter, so it must not suppress the fallback.
      */
     private static boolean hasSubmittableNewFormControl(Element form) {
-        return form.select("input[name], select[name], textarea[name]").stream()
+        Document document = form.ownerDocument();
+        Elements candidates = document != null
+                ? document.select("input[name], select[name], textarea[name]")
+                : form.select("input[name], select[name], textarea[name]");
+        return candidates.stream()
                 .filter(control -> "newForm".equals(control.attr("name")))
+                .filter(control -> formOwner(control) == form)
                 .filter(control -> !control.is(
                         "input[type=button], input[type=submit], input[type=reset], input[type=image]"))
                 .filter(control -> !control.hasAttr("disabled"))
@@ -1512,6 +1519,20 @@ public class EForm extends EFormBase {
                 .filter(control -> !control.is("input[type=checkbox], input[type=radio]")
                         || control.hasAttr("checked"))
                 .anyMatch(control -> !"select".equals(control.normalName()) || selectSubmitsValue(control));
+    }
+
+    /**
+     * The form a control submits with (HTML "reset the form owner"): with a {@code form}
+     * attribute, the first element with that id if it is a form, otherwise none (the ancestor is
+     * not a fallback); without one, the nearest ancestor form.
+     */
+    private static Element formOwner(Element control) {
+        if (control.hasAttr("form")) {
+            Document document = control.ownerDocument();
+            Element target = document == null ? null : document.getElementById(control.attr("form"));
+            return target != null && "form".equals(target.normalName()) ? target : null;
+        }
+        return control.closest("form");
     }
 
     /**

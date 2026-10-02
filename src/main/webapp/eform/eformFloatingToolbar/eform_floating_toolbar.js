@@ -192,7 +192,11 @@ function eFormValidationBlocked() {
 	// actually edits, so hiding the original does not silently drop the author's constraint.
 	const templateSubject = ef && ef.elements ? ef.elements["subject"] : null;
 	const toolbarSubject = document.getElementById("remote_eform_subject");
-	if (templateSubject && templateSubject.required === true && toolbarSubject
+	// A disabled template subject (directly or through a disabled fieldset) is barred from
+	// native constraint validation, so its requirement must not carry over either.
+	const templateSubjectDisabled = !!templateSubject && typeof templateSubject.matches === "function"
+		&& templateSubject.matches(":disabled");
+	if (templateSubject && templateSubject.required === true && !templateSubjectDisabled && toolbarSubject
 			&& typeof toolbarSubject.checkValidity === "function") {
 		toolbarSubject.required = true;
 		if (!toolbarSubject.checkValidity()) {
@@ -1063,6 +1067,11 @@ function initializeFaxRecipient() {
         if (fax.dataset.edited === 'true') return;
         const chosen = selectedEformFaxRecipient();
         fax.value = chosen.fax;
+        // A number the clinician typed into the form's own other-fax field is theirs, like one
+        // typed here, so editing the recipient name must keep it. Numbers from a list, the
+        // designer or the directory stay tied to their recipient.
+        if (chosen.manual) fax.dataset.typed = 'true';
+        else delete fax.dataset.typed;
         if (name.dataset.edited !== 'true') name.value = chosen.name;
     }
     const fromForm = document.getElementById('remoteFaxFromForm');
