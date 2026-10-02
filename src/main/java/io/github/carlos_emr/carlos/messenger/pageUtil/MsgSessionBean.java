@@ -235,6 +235,18 @@ public class MsgSessionBean implements java.io.Serializable {
         this.currentAttachmentCount = 0;
     }
 
+    /**
+     * Clears only the rendered chart-PDF attachments and their counters, leaving any other
+     * attachment on the message being composed (transferred chart items) in place. The chart
+     * attachment chooser replaces its own set with this, so attaching PDFs never discards a
+     * document the sender attached another way.
+     */
+    public void nullPDFAttachment() {
+        this.pdfAttach = null;
+        this.totalAttachmentCount = 0;
+        this.currentAttachmentCount = 0;
+    }
+
     public int getTotalAttachmentCount() {
         return this.totalAttachmentCount;
     }

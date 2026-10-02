@@ -41,15 +41,16 @@
 
   Request parameters:
   - demographic_no: Required patient demographic number (validated as integer)
-  - isAttaching: Present when in batch attachment processing mode
-  - isPreview: Boolean flag for preview mode
-  - attachmentCount: Current attachment count for batch processing
+
+  The form posts item KEYS to messenger/Doc2PDF (item=demographic|encounter|prescriptions, or
+  previewItem=<key> with isPreview=true) and the server renders each item itself
+  (MsgAttachPDF2Action / MsgPdfAttachmentResolver). The page used to load each item into the
+  frameset's hidden source frame and post the captured page HTML back; that let a forged request
+  store arbitrary markup as a chart PDF and was refused by the front-door WAF (#4133).
 
   Session dependencies:
   - msgSessionBean: Message session state management
   - EctSessionBean: Encounter session for patient context
-  - RxSessionBean: Prescription session for medication data
-  - Patient object for prescription profile generation
 
   @since 2003
 --%>
@@ -66,8 +67,6 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -78,17 +77,22 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%-- The locale MsgAttachPDF2Action titles the stored attachments in (every Accept-Language
+     preference, English otherwise), so the labels offered here match the titles they become. --%>
+<fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="messenger.generatePreviewPDF.information" var="informationLabel"/>
 <fmt:message key="messenger.generatePreviewPDF.encounter" var="encounterLabel"/>
 <fmt:message key="messenger.generatePreviewPDF.currentPrescriptions" var="currentPrescTitle"/>
 <fmt:message key="messenger.generatePreviewPDF.confirmClose" var="exitConfirmMsg"/>
-<fmt:message key="messenger.generatePreviewPDF.msgAttachingCount" var="jsAttachingTemplate"/>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -120,74 +124,58 @@
     }
     // Use the validated integer value as the canonical demographic number string
     String demographic_no = String.valueOf(demographicNoInt);
-    // Pre-encode for reuse in URI construction
-    String encDemoNo = SafeEncode.forUriComponent(demographic_no);
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-    DemographicData demoData = new DemographicData();
-    Demographic demo = demoData.getDemographic(loggedInInfo, demographic_no);
-    String demoName = "";
-    if (demo != null) {
-        demoName = demo.getLastName() + ", " + demo.getFirstName();
+    // Same patient-level gate Doc2PDF applies (it also honours a per-patient _eChart$<id> "o"
+    // restriction): without it this page would show the patient's name, and seed the encounter
+    // session, for a patient every preview and attach would then refuse.
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");
+        return;
     }
-
-    int indexCount = 0;
 
     EctSessionBean bean = new EctSessionBean();
     // Use validated integer-derived string to prevent raw request data in session (CWE-501)
     bean.demographicNo = demographic_no;
 
-    MsgSessionBean msgSessionBean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
-
     request.getSession().setAttribute("EctSessionBean", bean);
 
-    // Expose display variables as page attributes for EL/OWASP encoding
-    String informationLabel = (String) pageContext.findAttribute("informationLabel");
-    String encounterLabel = (String) pageContext.findAttribute("encounterLabel");
-    pageContext.setAttribute("demoName", demoName);
-    // Build the demographic titleArray metadata value (used as PDF attachment title)
-    pageContext.setAttribute("demoTitleValue", demoName + " " + informationLabel);
+    // Offer only the items Doc2PDF would let this user attach for this patient (module read,
+    // globally and for the patient). The encounter lookup itself is skipped without _eChart
+    // read, so the page does not reveal whether, or when, an encounter exists.
+    boolean canDemographic = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+            MsgPdfAttachmentResolver.Item.DEMOGRAPHIC, demographicNoInt);
+    boolean canEncounter = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+            MsgPdfAttachmentResolver.Item.ENCOUNTER, demographicNoInt);
+    boolean canPrescriptions = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+            MsgPdfAttachmentResolver.Item.PRESCRIPTIONS, demographicNoInt);
+    pageContext.setAttribute("canDemographic", canDemographic);
 
-    // Resolve encounter data for the patient
-    EChart ec = eChartDao.getLatestChart(Integer.parseInt(demographic_no));
+    // The name is shown only with the demographic item, so it is looked up only when that item is
+    // offered: the lookup enforces _demographic read, which a user attaching only the encounter
+    // or prescriptions need not hold.
+    String demoName = "";
+    if (canDemographic) {
+        Demographic demo = new DemographicData().getDemographic(loggedInInfo, demographic_no);
+        if (demo != null) {
+            demoName = demo.getLastName() + ", " + demo.getFirstName();
+        }
+    }
+    pageContext.setAttribute("demoName", demoName);
+    pageContext.setAttribute("canPrescriptions", canPrescriptions);
+
+    EChart ec = canEncounter ? eChartDao.getLatestChart(demographicNoInt) : null;
     pageContext.setAttribute("hasEncounter", ec != null);
     if (ec != null) {
         pageContext.setAttribute("ecTimestamp", ec.getTimestamp().toString());
-        // Build encounter titleArray metadata value (used as PDF attachment title)
-        pageContext.setAttribute("ecTitleValue", encounterLabel + " " + ec.getTimestamp().toString());
     }
 
-    // Compute URIs for each document type
-    String demoUri = request.getContextPath() + "/demographic/DemographicPdfLabel?demographic_no=" + encDemoNo;
-    pageContext.setAttribute("demoUri", demoUri);
-
-    String ecUri = "";
-    if (ec != null) {
-        ecUri = request.getContextPath() + "/encounter/ViewEcharthistoryprint?echartid="
-                + SafeEncode.forUriComponent(String.valueOf(ec.getId()))
-                + "&demographic_no=" + encDemoNo;
-        pageContext.setAttribute("ecUri", ecUri);
-    }
-
-    // Setup prescription session bean and patient data for drug profile generation
-    // The drug-profile link below resolves this patient's Rx bean from its demographic_no, so make
-    // sure one exists. This used to take whatever bean the session held (possibly another
-    // patient's, with a staged stash) and overwrite its demographic number (#3875).
-    RxSessionBeanResolver.ensure(request, demographicNoInt, (String) request.getSession().getAttribute("user"));
-
-    String rxUri = request.getContextPath() + "/rx/ViewPrintDrugProfile2?demographic_no=" + encDemoNo;
-    pageContext.setAttribute("rxUri", rxUri);
-
-    Set<String> selectedIndexes = new HashSet<>();
-    String[] submittedIndexes = request.getParameterValues("indexArray");
-    if (submittedIndexes != null) {
-        selectedIndexes.addAll(Arrays.asList(submittedIndexes));
-    }
 %>
 
 <!DOCTYPE html>
-<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="<%= SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request).getLanguage()) %>">
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
@@ -201,115 +189,28 @@
         };
 
         /**
-         * Loads a URL into the hidden srcFrame and returns a Promise that resolves
-         * with the frame's body innerHTML once the document has fully loaded.
+         * Streams one item back as a PDF into this frame. Only the item key is posted; the
+         * server renders the page (messenger/Doc2PDF, MsgAttachPDF2Action).
          *
-         * Replaces the previous pattern of:
-         *   SetBottomURL(url);
-         *   setTimeout("GetBottomSRC()", 1000);      // arbitrary 1-second delay
-         *   timerID = setInterval("CheckSrcText()", 1000);  // polling loop
-         *
-         * The load event fires exactly when the frame document is ready, so there
-         * is no arbitrary wait and no polling overhead.
-         *
-         * @param {string} url - URL to load in the srcFrame; falls back to form url field if empty
-         * @returns {Promise<string>} Resolves with the loaded document's body innerHTML
+         * @param {string} itemKey - demographic | encounter | prescriptions
          */
-        function loadFrameContent(url) {
-            return new Promise(function(resolve) {
-                var frameEl = parent.document.querySelector('frame[name="srcFrame"]');
-                var targetUrl = (url !== "") ? url : document.forms[0].url.value;
-
-                function onLoad() {
-                    frameEl.removeEventListener('load', onLoad);
-                    // Defer one tick so the frame DOM is fully accessible after the load event
-                    setTimeout(function() {
-                        resolve(parent.srcFrame.document.body.innerHTML);
-                    }, 0);
-                }
-
-                frameEl.addEventListener('load', onLoad);
-                parent.srcFrame.location = targetUrl;
-            });
+        function PreviewPDF(itemKey) {
+            var form = document.getElementById('attachForm');
+            form.previewItem.value = itemKey;
+            form.isPreview.value = 'true';
+            form.submit();
         }
 
         /**
-         * Initiates PDF preview generation: loads the document URL into the hidden
-         * srcFrame, captures its HTML, then submits the form.
-         *
-         * @param {string} url - Document URL to preview
+         * Attaches every ticked item to the message being composed. The server renders each one
+         * and closes this window when done; ticking nothing clears earlier chart attachments.
          */
-        function PreviewPDF(url) {
-            document.forms[0].srcText.value = "";
-            document.forms[0].isPreview.value = true;
-            loadFrameContent(url).then(function(content) {
-                document.forms[0].srcText.value = content;
-                document.forms[0].submit();
-            });
-        }
-
-        /**
-         * Handles batch PDF attachment processing for the selected documents.
-         * Loads each document into the hidden srcFrame in turn, captures its HTML,
-         * and submits the form to trigger server-side PDF conversion.
-         *
-         * @param {number} number - Index of the attachment to process; pass -1 to
-         *                          start a fresh batch from the first checked item
-         */
-        function AttachingPDF(number) {
-            var uriArray = document.forms[0].uriArray;
-            var titleArray = document.forms[0].titleArray;
-            var indexArray = document.forms[0].indexArray;
-            var wantedIndex = 0;
-
-            // Reset form state for attachment processing
-            document.forms[0].srcText.value = "";
-            document.forms[0].isPreview.value = false;
-            document.forms[0].isAttaching.value = true;
-
-            if (number === -1) {
-                document.forms[0].isNew.value = true;
-                wantedIndex = -1;
-            } else {
-                document.forms[0].isNew.value = false;
-            }
-
-            var j = 0;
-
-            // Find the specific attachment to process by index
-            if (number !== -1) {
-                for (var i = 0; i < indexArray.length; i++) {
-                    if (indexArray[i].checked) {
-                        if (number === j) {
-                            wantedIndex = i;
-                        }
-                        j++;
-                    }
-                }
-            } else {
-                // Count checked items and record the first for batch processing
-                for (var i = 0; i < indexArray.length; i++) {
-                    if (indexArray[i].checked) {
-                        j++;
-                        if (wantedIndex < 0) {
-                            wantedIndex = i;
-                        }
-                    }
-                }
-            }
-
-            // Submit immediately if no items are selected
-            if (j === 0) {
-                document.forms[0].submit();
-                return;
-            }
-
-            document.forms[0].attachmentCount.value = j;
-            document.forms[0].attachmentTitle.value = titleArray[wantedIndex].value;
-            loadFrameContent(uriArray[wantedIndex].value).then(function(content) {
-                document.forms[0].srcText.value = content;
-                document.forms[0].submit();
-            });
+        function AttachingPDF() {
+            var form = document.getElementById('attachForm');
+            form.previewItem.value = '';
+            form.isPreview.value = 'false';
+            form.querySelector('button[name="Attach"]').disabled = true;
+            form.submit();
         }
     </script>
 </head>
@@ -362,7 +263,7 @@
             </button>
         </div>
 
-        <form action="${pageContext.request.contextPath}/messenger/Doc2PDF" method="post">
+        <form id="attachForm" action="${pageContext.request.contextPath}/messenger/Doc2PDF" method="post">
 
             <table class="table table-sm table-bordered">
 
@@ -372,34 +273,26 @@
                         <fmt:message key="messenger.generatePreviewPDF.secDemographic"/>
                     </th>
                 </tr>
+                <c:if test="${canDemographic}">
                 <tr>
                     <td class="align-middle" style="width:2rem;">
-                        <input type="checkbox" name="uriArray"
-                               value="<%=SafeEncode.forHtmlAttribute(demoUri)%>"
-                               style="display:none"/>
-                        <% String demoIndex = Integer.toString(indexCount++); %>
-                        <input type="checkbox" name="indexArray"
-                               value="<%= demoIndex %>"
-                               <%= selectedIndexes.contains(demoIndex) ? "checked" : "" %>/>
-                        <input type="checkbox" name="titleArray"
-                               value="${carlos:forHtmlAttribute(demoTitleValue)}"
-                               style="display:none"/>
+                        <input type="checkbox" name="item" value="demographic"
+                               aria-label="${carlos:forHtmlAttribute(demoName)} ${carlos:forHtmlAttribute(informationLabel)}"/>
                     </td>
                     <td class="align-middle">
                         ${carlos:forHtml(demoName)}
                         <fmt:message key="messenger.generatePreviewPDF.information"/>
                     </td>
                     <td class="align-middle" style="width:8rem;">
-                        <% if (request.getParameter("isAttaching") == null) { %>
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm"
-                                data-preview-uri="<%=SafeEncode.forHtmlAttribute(demoUri)%>"
-                                onclick="PreviewPDF(this.dataset.previewUri)">
+                                data-preview-item="demographic"
+                                onclick="PreviewPDF(this.dataset.previewItem)">
                             <fmt:message key="messenger.generatePreviewPDF.btnPreview"/>
                         </button>
-                        <% } %>
                     </td>
                 </tr>
+                </c:if>
 
                 <%-- Encounters section --%>
                 <tr class="table-secondary">
@@ -407,33 +300,23 @@
                         <fmt:message key="messenger.generatePreviewPDF.secEncounters"/>
                     </th>
                 </tr>
-                <% if (ec != null) { %>
+                <c:if test="${hasEncounter}">
                 <tr>
                     <td class="align-middle">
-                        <input type="checkbox" name="uriArray"
-                               value="<%=SafeEncode.forHtmlAttribute(ecUri)%>"
-                               style="display:none"/>
-                        <% String encounterIndex = Integer.toString(indexCount++); %>
-                        <input type="checkbox" name="indexArray"
-                               value="<%= encounterIndex %>"
-                               <%= selectedIndexes.contains(encounterIndex) ? "checked" : "" %>/>
-                        <input type="checkbox" name="titleArray"
-                               value="${carlos:forHtmlAttribute(ecTitleValue)}"
-                               style="display:none"/>
+                        <input type="checkbox" name="item" value="encounter"
+                               aria-label="${carlos:forHtmlAttribute(encounterLabel)} ${carlos:forHtmlAttribute(ecTimestamp)}"/>
                     </td>
                     <td class="align-middle">${carlos:forHtml(ecTimestamp)}</td>
                     <td class="align-middle">
-                        <% if (request.getParameter("isAttaching") == null) { %>
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm"
-                                data-preview-uri="<%=SafeEncode.forHtmlAttribute(ecUri)%>"
-                                onclick="PreviewPDF(this.dataset.previewUri)">
+                                data-preview-item="encounter"
+                                onclick="PreviewPDF(this.dataset.previewItem)">
                             <fmt:message key="messenger.generatePreviewPDF.btnPreview"/>
                         </button>
-                        <% } %>
                     </td>
                 </tr>
-                <% } %>
+                </c:if>
 
                 <%-- Prescriptions section --%>
                 <tr class="table-secondary">
@@ -441,91 +324,44 @@
                         <fmt:message key="messenger.generatePreviewPDF.secPrescriptions"/>
                     </th>
                 </tr>
+                <c:if test="${canPrescriptions}">
                 <tr>
                     <td class="align-middle">
-                        <input type="checkbox" name="uriArray"
-                               value="<%=SafeEncode.forHtmlAttribute(rxUri)%>"
-                               style="display:none"/>
-                        <% String prescriptionIndex = Integer.toString(indexCount++); %>
-                        <input type="checkbox" name="indexArray"
-                               value="<%= prescriptionIndex %>"
-                               <%= selectedIndexes.contains(prescriptionIndex) ? "checked" : "" %>/>
-                        <input type="checkbox" name="titleArray"
-                               value="${carlos:forHtmlAttribute(currentPrescTitle)}"
-                               style="display:none"/>
+                        <input type="checkbox" name="item" value="prescriptions"
+                               aria-label="${carlos:forHtmlAttribute(currentPrescTitle)}"/>
                     </td>
                     <td class="align-middle">
                         <fmt:message key="messenger.generatePreviewPDF.currentPrescriptions"/>
                     </td>
                     <td class="align-middle">
-                        <% if (request.getParameter("isAttaching") == null) { %>
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm"
-                                data-preview-uri="<%=SafeEncode.forHtmlAttribute(rxUri)%>"
-                                onclick="PreviewPDF(this.dataset.previewUri)">
+                                data-preview-item="prescriptions"
+                                onclick="PreviewPDF(this.dataset.previewItem)">
                             <fmt:message key="messenger.generatePreviewPDF.btnPreview"/>
                         </button>
-                        <% } %>
                     </td>
                 </tr>
+                </c:if>
 
-                <%-- Action / status row --%>
+                <%-- Action row --%>
                 <tr>
                     <td colspan="3" class="text-center">
-                        <% if (request.getParameter("isAttaching") != null) { %>
-                        <input type="text" name="status"
-                               class="form-control form-control-sm"
-                               value="" readonly/>
-                        <% } else { %>
                         <button type="button"
                                 class="btn btn-primary btn-sm"
                                 name="Attach"
-                                onclick="AttachingPDF(-1)">
+                                onclick="AttachingPDF()">
                             <fmt:message key="messenger.generatePreviewPDF.btnAttach"/>
                         </button>
-                        <% } %>
                     </td>
                 </tr>
-
-                <%-- Hidden processing fields --%>
-                <tr>
-                    <td colspan="3" class="d-none">
-                        <input type="hidden" name="srcText" id="srcText" value=""/>
-                        <input type="hidden" name="attachmentCount" id="attachmentCount"
-                               value="<%=SafeEncode.forHtmlAttribute(request.getParameter("attachmentCount") == null ? "0" : request.getParameter("attachmentCount"))%>"/>
-                        <input type="hidden" name="demographic_no" id="demographic_no"
-                               value="<%=SafeEncode.forHtmlAttribute(demographic_no != null ? demographic_no : "")%>"/>
-                        <input type="hidden" name="isPreview" id="isPreview"
-                               value="<%=SafeEncode.forHtmlAttribute(request.getParameter("isPreview") == null ? "false" : request.getParameter("isPreview"))%>"/>
-                        <input type="hidden" name="isAttaching" id="isAttaching"
-                               value="<%=SafeEncode.forHtmlAttribute(request.getParameter("isAttaching") == null ? "false" : request.getParameter("isAttaching"))%>"/>
-                        <input type="hidden" name="isNew" id="isNew" value="true"/>
-                        <input type="hidden" name="attachmentTitle" id="attachmentTitle" value=""/>
-                    </td>
-                </tr>
-
             </table>
 
+            <input type="hidden" name="demographic_no" value="<%=SafeEncode.forHtmlAttribute(demographic_no)%>"/>
+            <input type="hidden" name="isPreview" value="false"/>
+            <input type="hidden" name="previewItem" value=""/>
         </form>
     </div>
-
-    <%-- Auto-submit script when page is re-loaded in attachment processing mode --%>
-    <script>
-        if (document.forms[0].isAttaching.value === "true") {
-            var j = 0;
-            var indexArray = document.forms[0].indexArray;
-            for (var i = 0; i < indexArray.length; i++) {
-                if (indexArray[i].checked) {
-                    j++;
-                }
-            }
-            var attachingTemplate = '${carlos:forJavaScript(jsAttachingTemplate)}';
-            document.forms[0].status.value = attachingTemplate
-                .replace('{0}', <%=(msgSessionBean != null ? msgSessionBean.getCurrentAttachmentCount() + 1 : 1)%>)
-                .replace('{1}', j);
-            AttachingPDF(<%=(msgSessionBean != null ? msgSessionBean.getCurrentAttachmentCount() : 0)%>);
-        }
-    </script>
 
 </div>
 </body>

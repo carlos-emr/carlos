@@ -373,28 +373,110 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("UploadTemplates passes LoggedInInfo when adding and editing templates")
-    void shouldPassLoggedInInfo_whenAddingAndEditingTemplates() {
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(true);
+    @DisplayName("UploadTemplates passes LoggedInInfo and the uploaded document when adding and editing templates")
+    void shouldPassLoggedInInfo_whenAddingAndEditingTemplates() throws Exception {
+        authorizeTemplateUpload();
+        String xml = "<report title=\"FAKE\" description=\"FAKE\"><query>SELECT 1</query></report>";
 
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class, (mock, context) -> {
-            when(mock.addTemplate(null, "", loggedInInfo)).thenReturn("added");
-            when(mock.updateTemplate(null, "42", "", loggedInInfo)).thenReturn("updated");
+            when(mock.addTemplate(null, xml, loggedInInfo)).thenReturn("added");
+            when(mock.updateTemplate(null, "42", xml, loggedInInfo)).thenReturn("updated");
         })) {
             request.setParameter("action", "add");
-            assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+            UploadTemplates2Action add = new UploadTemplates2Action();
+            add.setTemplateFile(uploadedTemplate(xml));
+            assertThat(add.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(request.getAttribute("message")).isEqualTo("added");
 
             request.setParameter("action", "edit");
             request.setParameter("templateid", "42");
-            assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+            UploadTemplates2Action edit = new UploadTemplates2Action();
+            edit.setTemplateFile(uploadedTemplate(xml));
+            assertThat(edit.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(request.getAttribute("message")).isEqualTo("updated");
 
             assertThat(reportManagers.constructed()).hasSize(2);
-            verify(reportManagers.constructed().get(0)).addTemplate(null, "", loggedInInfo);
-            verify(reportManagers.constructed().get(1)).updateTemplate(null, "42", "", loggedInInfo);
+            verify(reportManagers.constructed().get(0)).addTemplate(null, xml, loggedInInfo);
+            verify(reportManagers.constructed().get(1)).updateTemplate(null, "42", xml, loggedInInfo);
         }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates refuses GET before reading or storing anything")
+    void shouldReturn405_whenUploadTemplatesIsNotPost() throws Exception {
+        authorizeTemplateUpload();
+        request.setMethod("GET");
+        request.setParameter("action", "add");
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class)) {
+            assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            assertThat(reportManagers.constructed()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates names an empty file instead of parsing nothing")
+    void shouldReportEmptyUpload_whenTemplateFileIsEmpty() throws Exception {
+        authorizeTemplateUpload();
+        request.setParameter("action", "add");
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class)) {
+            UploadTemplates2Action upload = new UploadTemplates2Action();
+            upload.setTemplateFile(uploadedTemplate(""));
+            assertThat(upload.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("message")).isEqualTo("Error: The uploaded template file is empty");
+            assertThat(request.getAttribute("submittedXml")).isNull();
+            verifyNoInteractions(reportManagers.constructed().toArray());
+        }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates shows a refused upload in the editor so it can be fixed")
+    void shouldReshowUploadedXml_whenUploadRefused() throws Exception {
+        authorizeTemplateUpload();
+        String xml = "<report title=\"FAKE\" description=\"FAKE\"><query>DELETE FROM demographic</query></report>";
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class, (mock, context) ->
+                when(mock.addTemplate(null, xml, loggedInInfo))
+                        .thenReturn("Error: The <query> was refused: Only SELECT statements are allowed"))) {
+            request.setParameter("action", "add");
+            UploadTemplates2Action upload = new UploadTemplates2Action();
+            upload.setTemplateFile(uploadedTemplate(xml));
+            assertThat(upload.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("submittedXml")).isEqualTo(xml);
+        }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates requires _report write, not just read, to store a template")
+    void shouldRequireReportWrite_whenUploadingTemplates() {
+        authorizeTemplateUpload();
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)).thenReturn(false);
+        request.setParameter("action", "add");
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class)) {
+            assertThatThrownBy(() -> new UploadTemplates2Action().execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_report)");
+            assertThat(reportManagers.constructed()).isEmpty();
+        }
+    }
+
+    private void authorizeTemplateUpload() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        request.setMethod("POST");
+    }
+
+    /** A Struts-style multipart temp file (upload_*.tmp in java.io.tmpdir), deleted on exit. */
+    private static java.io.File uploadedTemplate(String xml) throws java.io.IOException {
+        java.io.File file = java.io.File.createTempFile("upload_", ".tmp");
+        file.deleteOnExit();
+        java.nio.file.Files.writeString(file.toPath(), xml);
+        return file;
     }
 
     private void assertMissingLoggedInInfoFails(ActionSupport action) {
@@ -447,6 +529,9 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         }
         verify(reporter).generateReport(request);
 
+        // Uploading is a write: POST and _report write (checked after the read gate counted above).
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)).thenReturn(true);
         request.setParameter("action", "noop");
         assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("message")).isEqualTo("Error: No file uploaded");

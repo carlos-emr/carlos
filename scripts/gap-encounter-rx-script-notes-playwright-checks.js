@@ -88,8 +88,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE script_no=${scriptNo} AND demographic_no=${patient} AND customName=${q(drug)}`) === '1',
       'The saved script does not carry the staged drug');
     await script.locator('#additionalNotes').waitFor({ state: 'visible', timeout: 30000 });
-    // The window reloads its preview for the chosen pharmacy as it opens; a note typed during that
-    // reload is lost from the preview, so let the window settle like a person reading it would.
+    // Allow the initial pharmacy selection to finish before testing an explicit preview reload.
     await rx.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   });
 
@@ -118,6 +117,31 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM prescription WHERE script_no=${scriptNo} AND rx_comments=${q(note)}`, '1',
       'The note typed in the print window was not stored exactly on the prescription');
     await previewShows(script, note, 'The printable preview does not show the typed note');
+    // A pharmacy change reloads this frame. It must restore the current editor text,
+    // including an edit made since the outer print window was rendered.
+    const preview = script.childFrames().find(f => /\/rx\/ViewPreview2\?/.test(f.url()));
+    await Promise.all([
+      preview.waitForNavigation({ waitUntil: 'load' }),
+      preview.evaluate(() => window.location.reload())
+    ]);
+    await previewShows(script, note, 'Reloading the preview restored the old note');
+    // The editable Save And Print view requires POST; GET opens only a read-only reprint.
+    await Promise.all([
+      script.waitForNavigation({ waitUntil: 'load' }),
+      script.evaluate(() => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = window.location.href;
+        const token = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (!token) throw new Error('The editable script has no CSRF token');
+        form.appendChild(token.cloneNode(true));
+        document.body.appendChild(form);
+        form.submit();
+      })
+    ]);
+    h.assert(await script.locator('#additionalNotes').inputValue() === note,
+      'Reopening the saved script did not initialize the editor with its stored note');
+    await previewShows(script, note, 'Reopening the saved script erased its note from the preview');
     await consumeNoteBodies();
   });
 

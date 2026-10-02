@@ -6,15 +6,17 @@
  *
  * User path: Schedule ▸ Search ▸ Master Record ▸ E-Chart ▸ Messenger "+"
  * (messenger/SendDemoMessage, the compose page with this patient linked) ▸
- * Attach ▸ "Demographic information" ▸ Preview. The preview loads
- * DemographicPdfLabel into the chooser's hidden frame, captures its HTML and posts
- * it to messenger/Doc2PDF, which answers with the PDF the clinician sees.
+ * Attach ▸ "Demographic information" ▸ Preview. The preview posts only the item key
+ * (previewItem=demographic) to messenger/Doc2PDF, which renders DemographicPdfLabel
+ * on the server and answers with the PDF the clinician sees (issue #4133: no page
+ * HTML travels from the browser any more).
  *
  * Asserts: compose and the chooser are scoped to the owned patient; the preview
- * response is a complete PDF whose text (pdftotext) carries the patient's name and
- * address; previewing persists nothing (no message, no patient link); and, last,
- * that the address is reproduced literally -- the page writes patient fields into
- * its HTML unencoded, so markup-like text in a field is lost (open defect).
+ * request carries the item key and no page HTML; the preview response is a
+ * complete PDF whose text (pdftotext) carries the patient's name and address;
+ * previewing persists nothing (no message, no patient link); and, last, that the
+ * address is reproduced literally, markup-like characters included (the label
+ * page now encodes patient fields).
  *
  * Fixtures and cleanup: the owned FAKE- patient from runWorkflow, given a
  * synthetic address; it is removed by the workflow session, after any messenger
@@ -26,14 +28,12 @@
  * printDemoChartLabelAction and printClientLabLabelAction are already proven with
  * pdftotext by demographic-label-content.
  */
-const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { assertIsPdf } = require('./demographic-labels-playwright-checks');
 const { runWorkflow } = require('./lib/workflow-session');
 
 const TIMEOUT = 30000;
-const pathIs = (response, suffix) => new URL(response.url()).pathname.endsWith(suffix);
 const compact = text => text.replace(/\s+/g, '');
 
 function pdfText(bytes) {
@@ -89,43 +89,31 @@ async function workflow(s) {
   let main;
   let preview;
   await s.step('Attach lists this patient\'s Demographic information for preview', async () => {
-    // A <frameset> page has no body text, which the shared popup helper reads as
-    // blank; the chooser's real content is asserted in its 'main' frame instead.
+    // The chooser page holds its content in a full-page <iframe name="main">; the
+    // shared popup helper reads the outer page's body text, so the real content is
+    // asserted inside the frame instead.
     const opened = s.context.waitForEvent('page', { timeout: TIMEOUT });
     await compose.locator('input[name="attachDemo"]').click();
     chooser = await opened;
     await chooser.waitForURL(url => url.pathname.endsWith('/messenger/attachmentFrameset'),
       { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
-    main = chooser.frameLocator('frame[name="main"]');
-    preview = main.locator('button[data-preview-uri*="/demographic/DemographicPdfLabel?"]');
+    main = chooser.frameLocator('iframe[name="main"]');
+    preview = main.locator('button[data-preview-item="demographic"]');
     await preview.waitFor({ timeout: TIMEOUT });
-    const uri = new URL(await preview.getAttribute('data-preview-uri'), s.config.baseUrl);
-    h.assert(uri.searchParams.get('demographic_no') === s.patient, 'The Demographic information row is for another patient');
+    h.assert(await main.locator('input[name="demographic_no"]').inputValue() === s.patient,
+      'The attachment chooser is for another patient');
     h.assert((await main.locator('body').innerText()).includes(s.marker), 'The attachment chooser does not name the patient');
   });
 
-  let pdfResponse;
-  let download;
   let held;
-  await s.step('Preview loads DemographicPdfLabel for the owned patient into the source frame', async () => {
-    const label = chooser.waitForResponse(r => pathIs(r, '/demographic/DemographicPdfLabel'), { timeout: TIMEOUT });
-    pdfResponse = chooser.waitForResponse(r => pathIs(r, '/messenger/Doc2PDF') && r.request().method() === 'POST',
-      { timeout: 60000 });
-    pdfResponse.catch(() => {});
-    download = chooser.waitForEvent('download', { timeout: 60000 }).catch(() => null);
-    // Hold the page's own Doc2PDF POST (unchanged) until the source-frame facts are
-    // proven, so a failure of the conversion is reported by its own step below.
+  await s.step('Preview posts the item key for the owned patient, not page HTML', async () => {
+    // Hold the page's own Doc2PDF POST (unchanged) until its body is checked, so a
+    // failure of the conversion is reported by its own step below.
     let release;
     held = new Promise(resolve => { release = resolve; });
     // Await the registration so the route is active before the click can fire the POST.
     await chooser.route('**/messenger/Doc2PDF', route => release(route), { times: 1 });
     await preview.click();
-    const rendered = await label;
-    h.assert(rendered.status() === 200, 'DemographicPdfLabel did not render for the preview');
-    h.assert(new URL(rendered.url()).searchParams.get('demographic_no') === s.patient, 'The preview rendered another patient');
-    const source = chooser.frameLocator('frame[name="srcFrame"]').locator('body');
-    await source.getByText(s.marker).first().waitFor({ timeout: TIMEOUT });
-    h.assert((await source.innerText()).includes(city), 'The rendered patient information omits the city');
   });
 
   let route;
@@ -135,27 +123,27 @@ async function workflow(s) {
     let timer;
     route = await Promise.race([held, new Promise(resolve => { timer = setTimeout(resolve, TIMEOUT, null); })]);
     clearTimeout(timer);
-    h.assert(route, 'The preview never posted the captured patient information to messenger/Doc2PDF');
+    h.assert(route, 'The preview never posted to messenger/Doc2PDF');
+    const body = new URLSearchParams(route.request().postData() || '');
+    h.assert(body.get('isPreview') === 'true' && body.get('previewItem') === 'demographic',
+      'The preview did not ask messenger/Doc2PDF for the Demographic information item');
+    h.assert(body.get('demographic_no') === s.patient, 'The preview asked for another patient');
+    h.assert(!body.has('srcText'), 'The preview still posts page HTML (srcText) to messenger/Doc2PDF');
     h.assert(persisted() === '0', 'Previewing an attachment persisted a message or patient link');
   });
 
   let text;
   await s.step('the preview answers with a complete PDF carrying the patient and persists nothing', async () => {
-    await route.continue();
-    const response = await pdfResponse;
+    // Fetched through the held route: a PDF frame navigation has no readable body in
+    // Chromium (the response seen by the page is the built-in viewer's wrapper HTML).
+    const response = await route.fetch();
+    const bytes = await response.body();
+    await route.fulfill({ response });
     // Re-checked once the conversion request has completed, so a write made by
     // Doc2PDF itself is caught too.
     h.assert(persisted() === '0', 'The preview conversion (messenger/Doc2PDF) persisted a message or patient link');
-    // The page posts the captured HTML (its <script> blocks included) as srcText;
-    // a front-door WAF that refuses that body leaves the clinician with no preview.
+    // A front-door WAF that refuses the preview POST leaves the clinician with no preview.
     h.assert(response.status() === 200, `messenger/Doc2PDF answered HTTP ${response.status()} instead of the preview PDF`);
-    let bytes = await response.body().catch(() => null);
-    if (!bytes || !bytes.length) {
-      // A headless browser without a PDF viewer turns the frame's PDF into a download.
-      const file = await download;
-      h.assert(file, 'The preview produced neither a PDF body nor a download');
-      bytes = fs.readFileSync(await file.path());
-    }
     assertIsPdf({ label: 'Demographic information preview' }, response.status(), response.headers()['content-type'] || '', bytes);
     text = pdfText(bytes);
     h.assert(compact(text).includes(compact(`${s.marker},`)) && text.includes('Workflow'),
@@ -163,10 +151,10 @@ async function workflow(s) {
     h.assert(text.includes(city) && text.includes('K1A0B1'), 'The preview PDF does not carry the patient\'s city and postal code');
   });
 
-  // Last on purpose: the open encoding defect must not hide the facts above.
+  // Last on purpose: an encoding regression must not hide the facts above.
   await s.step('the PDF reproduces the patient\'s address literally', async () => {
     h.assert(compact(text).includes(compact(address)),
-      'The patient-information PDF lost markup-like characters of the address: DemographicPdfLabel writes patient fields unencoded');
+      'The patient-information PDF lost markup-like characters of the address: DemographicPdfLabel no longer encodes patient fields');
   });
 }
 
