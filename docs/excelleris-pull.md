@@ -280,6 +280,11 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
   were imported. The tool moves that file to `failed/` and alerts. Check the EMR inbox for
   the results; if they are missing, an administrator must delete the file's row from the
   `fileUploadCheck` table before the same bytes can be uploaded again.
+- **Interrupted runs.** A pull is written to `inbox/` as a `.xml.part` file and renamed into
+  place before Excelleris is acknowledged; a kill, reboot or power loss in between leaves the
+  `.part` behind. Each run removes such leftovers (and stale `.attempts.tmp` files) first, under
+  the run lock, and logs one warning per file. Nothing is lost: Excelleris was never told the
+  pull was stored, so it sends those results again.
 - **Lock contention** (exit 3) means the previous run is still working, usually because the
   EMR is slow. It is not a failure and does not email.
 - **Logs** carry one `>>>>>` line per run start and one `<<<<<` line per finish. Nothing
@@ -405,6 +410,10 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
   script only logged it.
 - One difference by design: a password is URL-encoded. The script sent it raw, which broke
   on `&`, `+`, `%`, `#` and spaces. For any other password the bytes are identical.
+- One difference by design: redirects. The script's `curl -L` followed a `Location` header
+  anywhere, plain `http://` and other hosts included, carrying the session cookie with it. The
+  tool follows a redirect only to the same `https://` host and port as the configured URL and
+  reports any other as a transport failure (negative acknowledgment, alert, retry next run).
 
 `ShellScriptWireParityTest` in the test file runs curl with the script's exact flags and the
 tool's real transport against one recording TLS server and compares the request heads.

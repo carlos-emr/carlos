@@ -791,6 +791,28 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+class _SameOriginRedirect(urllib.request.HTTPRedirectHandler):
+    """Follow a redirect only when it stays on the same https origin.
+
+    The URL was validated once, at configuration time; a Location header is
+    a second URL that urllib would otherwise trust blindly. A redirect to
+    plain http or to another host would carry the session cookie, and the
+    reply that follows it (a lab result, say), off the mutually
+    authenticated endpoint. The shell script's ``curl -L`` followed anything;
+    this follows only what cannot leave that endpoint and reports the rest.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401
+        origin = urllib.parse.urlsplit(req.full_url)
+        target = urllib.parse.urlsplit(newurl)
+        if target.scheme != "https" or target.netloc.lower() != origin.netloc.lower():
+            raise TransportError(
+                f"refused a redirect from {_safe_url(req.full_url)} to another origin "
+                f"({_safe_url(newurl)})"
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 class HttpTransport:
     """Thin wrapper over urllib with a cookie jar, timeouts and a size cap.
 
@@ -810,8 +832,7 @@ class HttpTransport:
             urllib.request.HTTPSHandler(context=ssl_context or ssl.create_default_context()),
             urllib.request.HTTPCookieProcessor(self.cookies),
         ]
-        if not follow_redirects:
-            handlers.append(_NoRedirect())
+        handlers.append(_SameOriginRedirect() if follow_redirects else _NoRedirect())
         self._opener = urllib.request.build_opener(*handlers)
 
     def request(
@@ -1375,6 +1396,28 @@ class Archive:
         os.replace(tmp, sidecar)
         self._fsync_dir(self.cfg.inbox_dir)
         return count
+
+    LEFTOVER_PATTERNS = ("*.xml.part", "*.attempts.tmp")
+
+    def sweep_leftovers(self) -> int:
+        """Remove temp files a killed run left in inbox/ and say how many.
+
+        ``save_inbox`` and ``bump_attempts`` write to a temp name and rename;
+        a SIGKILL, reboot or power loss between the two leaves the temp file,
+        which no listing matches and no retention purges. A ``.xml.part`` is a
+        pull Excelleris was never told we stored (the positive ack follows the
+        rename), so it will be sent again, and it may hold results: delete it
+        rather than keep PHI on disk indefinitely. Call this with the run lock
+        held, so the temp file cannot belong to a run still in progress.
+        """
+        removed = 0
+        for pattern in self.LEFTOVER_PATTERNS:
+            for p in self.cfg.inbox_dir.glob(pattern):
+                if p.is_file():
+                    p.unlink()
+                    removed += 1
+                    log.warning("removed %s left by an interrupted run", p.name)
+        return removed
 
     def purge(self) -> int:
         """Delete done/ archives older than the retention window. 0 = keep all."""
@@ -2173,6 +2216,7 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
             VERSION,
             cfg.excelleris_context,
         )
+        archive.sweep_leftovers()  # under the lock: nothing else is writing inbox/
         failures: list[str] = []
         # Retry first: a backlog from a CARLOS outage goes in before new work.
         if not opts.no_upload and not opts.dry_run:

@@ -31,6 +31,7 @@ import time
 import unittest
 from unittest import mock
 import urllib.parse
+import urllib.request
 from pathlib import Path
 
 from cryptography import x509
@@ -438,6 +439,22 @@ class ArchiveTest(TempEnv):
         self.assertEqual(p.read_bytes(), b"<HL7Messages/>")
         self.assertFalse(list(self.cfg.inbox_dir.glob("*.part")))
 
+    def test_leftovers_of_an_interrupted_run_are_swept(self):
+        archive = ep.Archive(self.cfg)
+        kept = archive.save_inbox("r", b"<HL7Messages/>")
+        part = self.cfg.inbox_dir / "20261001-090000.xml.part"
+        part.write_bytes(b"<HL7Messages>half")
+        tmp = self.cfg.inbox_dir / "r.xml.attempts.tmp"
+        tmp.write_text("1 run")
+        with self.assertLogs(ep.log, level="WARNING") as captured:
+            self.assertEqual(archive.sweep_leftovers(), 2)
+        self.assertFalse(part.exists())
+        self.assertFalse(tmp.exists())
+        self.assertTrue(kept.exists())
+        self.assertEqual(len(captured.output), 2)
+        self.assertTrue(all("interrupted run" in line for line in captured.output))
+        self.assertEqual(archive.sweep_leftovers(), 0)
+
     def test_same_run_id_twice_does_not_overwrite(self):
         archive = ep.Archive(self.cfg)
         a = archive.save_inbox("r", b"1")
@@ -779,6 +796,15 @@ class OrchestrationTest(_OrchestrationBase):
         self.assertEqual(rc, ep.EXIT_FAILED)
         self.assertIn("excelleris:ack:Negative", self.labels())
         self.assertNotIn("excelleris:ack:Positive", self.labels())
+
+    def test_run_sweeps_a_part_file_before_pulling(self):
+        ep.Archive(self.cfg)
+        part = self.cfg.inbox_dir / "20261001-090000.xml.part"
+        part.write_bytes(b"<HL7Messages>half")
+        rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_OK)
+        self.assertFalse(part.exists())
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])  # the new pull was uploaded
 
     def test_excelleris_down_is_a_reported_failure_not_a_crash(self):
         self.script["excelleris:login"] = ep.TransportError("connect timed out")
@@ -1468,6 +1494,38 @@ class LiveOscar19Test(LiveServersTest):
         self.assertEqual(ep.run(cfg, ep.RunOptions()), ep.EXIT_FAILED)
         self.assertEqual([c[0] for c in self.carlos.log], [])  # never got past LoginFilter
         self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # pull kept for retry
+
+
+class RedirectPolicyTest(unittest.TestCase):
+    """Redirects are followed only on the same https origin; the session
+    cookie and the reply must never leave the mutually authenticated endpoint."""
+
+    def _redirect(self, handler, newurl):
+        req = urllib.request.Request("https://lab.example/hl7pull.aspx?Login=x")
+        return handler.redirect_request(req, None, 302, "Found", {}, newurl)
+
+    def test_same_origin_https_is_followed(self):
+        req = self._redirect(ep._SameOriginRedirect(), "https://lab.example/other.aspx?p=1")
+        self.assertEqual(req.full_url, "https://lab.example/other.aspx?p=1")
+
+    def test_other_origins_and_plain_http_are_refused(self):
+        for newurl in (
+            "http://lab.example/hl7pull.aspx",
+            "https://other.example/hl7pull.aspx",
+            "https://lab.example:8443/hl7pull.aspx",
+            "https://lab.example.evil/hl7pull.aspx",
+        ):
+            with self.assertRaisesRegex(ep.TransportError, "another origin"):
+                self._redirect(ep._SameOriginRedirect(), newurl)
+
+    def test_transport_wires_the_policy(self):
+        following = ep.HttpTransport(5, None, True)
+        self.assertTrue(
+            any(isinstance(h, ep._SameOriginRedirect) for h in following._opener.handlers)
+        )
+        self.assertFalse(any(isinstance(h, ep._NoRedirect) for h in following._opener.handlers))
+        pinned = ep.HttpTransport(5, None, False)
+        self.assertTrue(any(isinstance(h, ep._NoRedirect) for h in pinned._opener.handlers))
 
 
 class TransportErrorClassificationTest(unittest.TestCase):
