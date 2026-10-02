@@ -257,6 +257,12 @@ class InspectPullTest(unittest.TestCase):
         self.assertFalse(s.has_results)
         self.assertIn("MessageCount=3", s.problem)
         self.assertIn("2 Message elements", s.problem)
+        for bad in (b"unknown", b"-1", b"2.0", b""):
+            s = ep.inspect_pull(
+                PULL_WITH_RESULTS.replace(b'MessageCount="2"', b'MessageCount="' + bad + b'"')
+            )
+            self.assertFalse(s.has_results, bad)
+            self.assertIn("not a number", s.problem, bad)
         # A matching count, or no count at all, is fine.
         self.assertIsNone(ep.inspect_pull(PULL_WITH_RESULTS).problem)
         self.assertIsNone(ep.inspect_pull(b"<HL7Messages><Message/></HL7Messages>").problem)
@@ -732,6 +738,21 @@ class CarlosSessionTest(TempEnv):
             t = FakeTransport(self.script(**{"POST /carlos/login": resp}))
             with self.assertRaisesRegex(ep.StepError, expected):
                 self.session(t).login()
+
+    def test_unknown_redirect_is_quoted_redacted(self):
+        for location, shown, hidden in (
+            ("https://u:pw@emr.example/x?token=abc#frag", "https://emr.example/x", "token=abc"),
+            ("/carlos/odd?sessionid=123", "/carlos/odd", "sessionid=123"),
+            ("https://[bad/x?k=v", "<unparseable URL>", "k=v"),
+        ):
+            t = FakeTransport(
+                self.script(**{"POST /carlos/login": ok("", 302, {"Location": location})})
+            )
+            with self.assertRaises(ep.StepError) as ctx:
+                self.session(t).login()
+            self.assertIn(shown, ctx.exception.detail, location)
+            self.assertNotIn(hidden, ctx.exception.detail, location)
+            self.assertNotIn("pw", ctx.exception.detail, location)
 
     def test_missing_csrf_token_is_an_error(self):
         t = FakeTransport(self.script(**{"GET /carlos/csrfguard": ok("<html>login page</html>")}))

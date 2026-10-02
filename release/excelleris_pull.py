@@ -885,10 +885,13 @@ def _safe_url(url: str) -> str:
     from the far side may carry ``user:password@`` userinfo; neither may leak
     into an exception message that ends up in a log or an alert email.
     """
-    parts = urllib.parse.urlsplit(url)
-    host = parts.hostname or ""
-    if parts.port is not None:
-        host = f"{host}:{parts.port}"
+    try:
+        parts = urllib.parse.urlsplit(url)
+        host = parts.hostname or ""
+        if parts.port is not None:
+            host = f"{host}:{parts.port}"
+    except ValueError:  # a malformed netloc or port: say nothing of it
+        return "<unparseable URL>"
     return urllib.parse.urlunsplit((parts.scheme, host, parts.path, "", ""))
 
 
@@ -1110,12 +1113,18 @@ def inspect_pull(body: bytes) -> PullSummary:
         return PullSummary(0, return_code, None)
     count = sum(1 for child in root if child.tag == "Message")
     declared = root.get("MessageCount")
-    if declared is not None and declared.isdigit() and int(declared) != count:
-        return PullSummary(
-            count,
-            None,
-            f"pull declares MessageCount={declared} but contains {count} Message elements",
-        )
+    if declared is not None:
+        # A count that cannot be read is as unverifiable as one that is wrong.
+        if not declared.strip().isdigit():
+            return PullSummary(
+                count, None, f"pull declares a MessageCount that is not a number ({declared!r})"
+            )
+        if int(declared) != count:
+            return PullSummary(
+                count,
+                None,
+                f"pull declares MessageCount={declared} but contains {count} Message elements",
+            )
     return PullSummary(count, None, None)
 
 
@@ -1837,7 +1846,10 @@ class CarlosSession:
             if error:
                 return f"the EMR rejected the credentials: {error.group(1)}"
             return "the EMR rejected the credentials (invalid username, password or PIN)"
-        return f"unexpected reply HTTP {resp.status}" + (f" -> {location}" if location else "")
+        # The Location value is the EMR's, not ours: quote it only redacted.
+        return f"unexpected reply HTTP {resp.status}" + (
+            f" -> {_safe_url(location)}" if location else ""
+        )
 
     def fetch_csrf_token(self) -> str:
         route = self.routes["csrf"]
