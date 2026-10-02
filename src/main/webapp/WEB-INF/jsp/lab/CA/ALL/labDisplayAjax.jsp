@@ -1058,7 +1058,7 @@
                     }
 
                     // An HL7 ED OBX (any lab type) whose payload is a PDF gets a Download PDF link and an inline
-                    // preview row (#3977). A payload declared as text keeps the ordinary result rendering.
+                    // preview row (#3977). A payload declared as text is shown as the result value.
                     // The legacy PATHL7 shape is detected server-side, so the URLs carry no legacy flag.
                     EmbeddedLabDocumentLoader.Inspection embeddedDocument = handler.isOBXEmbeddedDocument(j, k)
                             ? EmbeddedLabDocumentLoader.inspect(handler, j, k, labPdfPreviewSettings.maxBytes())
@@ -1082,7 +1082,7 @@
                     if (handler.getMsgType().equals("EPSILON")) {
                         // Epsilon rows are filtered by header here, so ED rows are rendered in this branch rather
                         // than the shared row below: a PDF gets the Download PDF link and the preview row, other
-                        // binary payloads the "not a PDF" note (#3977, #4124).
+                        // binary payloads the "not a PDF" note, and a text ED value its ED.5 text (#3977, #4124).
                         if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && !obxName.equals("")) {
                 %>
 
@@ -1096,7 +1096,7 @@
                         <% } else if (isUndisplayableEmbeddedDocument) { %>
                         <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
                         <% } else { %>
-                        <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
+                        <carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                         <% } %>
                     </td>
 
@@ -1121,13 +1121,16 @@
                         <% } else if (isUndisplayableEmbeddedDocument) { %>
                         <em class="lab-embedded-document-unsupported" style="margin-left:100px;"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
                         <% } else { %>
-                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/></pre>
                         <% } %>
                     </td>
                 </tr>
                 <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
                 <% }
-                } else if (handler.getMsgType().equals("HHSEMR")) {
+                } else if (embeddedDocument == null && handler.getMsgType().equals("HHSEMR")) {
+                    // ED rows (embeddedDocument != null) skip this branch for the shared rendering
+                    // below, which owns the Download PDF link, the text/unsupported value and the
+                    // inline preview row (#3977).
                     if (!obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
@@ -1178,7 +1181,10 @@
                 } else if (!handler.getMsgType().equals("EPSILON")) {
                 %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>"><%
-                    if (isUnstructuredDoc) {
+                    // A PDF or other binary ED row in an unstructured PATHL7 report takes the structured
+                    // row below for its Download PDF link and preview; text keeps the narrative layout
+                    // (and the CELLPATHR RTF rendering).
+                    if (isUnstructuredDoc && !isEmbeddedDocumentResult && !isUndisplayableEmbeddedDocument) {
                         if (handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (obxCount > 1)) {%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                             href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"></a><%
@@ -1204,7 +1210,7 @@
                     </td>
                     <%} %><%
                         else{%>
-                    <td align="left"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
+                    <td align="left"><carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
                     <%} %>
                     <%
@@ -1232,7 +1238,9 @@
                     <%}%>
                     <%
                         //for pathl7, if it is an SG/CDC result greater than 100 characters, left justify it
-                        if ((handler.getOBXResult(j, k) != null && handler.getOBXResult(j, k).length() > 100) && isSGorCDC) {%>
+                        // Not for an ED row: a PATHL7 ED's getOBXResult is the encoded document, which the
+                        // shared cell below turns into the Download PDF link or the text value.
+                        if (embeddedDocument == null && (handler.getOBXResult(j, k) != null && handler.getOBXResult(j, k).length() > 100) && isSGorCDC) {%>
                     <td align="left"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
                     <%
@@ -1248,6 +1256,15 @@
 	                                            <td align="right">
                                                    <% if (isUndisplayableEmbeddedDocument) { %>
                                                     <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                                                    <% } else if (embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT) { %>
+                                                    <%-- Sender-declared text (ED.4 A): a standards-compliant value keeps it in ED.5, which
+                                                         getOBXResult does not read; getOBXEmbeddedDocumentText falls back to it when ED.5 is empty
+                                                         and normalises \.br\ like getOBXResult. An Excelleris OBX-4 sub-ID keeps its "A)" label. --%>
+                                                    <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
+                                                    <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithEmbeddedDocumentText(j, k) %>' context="htmlWithBreakMarkers"/></em>
+                                                    <% } else { %>
+                                                    <carlos:encode value='<%= handler.getOBXEmbeddedDocumentText(j, k) %>' context="htmlWithBreakMarkers"/>
+                                                    <% } %>
                                                     <% } else if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                                                     <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %>' context="htmlWithBreakMarkers"/></em>
                                                     <% } else { %>

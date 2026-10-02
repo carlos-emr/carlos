@@ -3555,7 +3555,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                         // An ED segment is a document (usually a base64 PDF), not a result
                         // value: the CDS schema carries it under Reports. Decided by OBX-2,
                         // never by whether the text happens to look like base64 (#3946).
-                        exportLabDocument(patientRec, buildLabValues(hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, result, comments, i, j), demoNo);
+                        // The payload is ED.5 where the parser exposes it: for a standards-compliant
+                        // ED value getOBXResult is the empty source application, not the document.
+                        exportLabDocument(patientRec, buildLabValues(hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, h.getOBXEmbeddedDocumentData(i, j), comments, i, j), demoNo);
                     } else if (StringUtils.filled(result) || StringUtils.filled(comments)) {
                         exportLabResult(patientRec, hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, result, comments, demoNo, i, j);
                     }

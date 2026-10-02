@@ -321,16 +321,10 @@ public class DefaultGenericHandler implements MessageHandler {
         return (getOBXField(i, j, 3, 0, 2));
     }
 
-    /** ED.5 for a standards-compliant ED value; see {@link EdObservationValue}. */
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
     @Override
-    public String getOBXEmbeddedDocumentData(int i, int j) {
-        return EdObservationValue.data(this, i, j, () -> obrGroups.get(i).get(j));
-    }
-
-    /** ED.4 for a standards-compliant ED value; see {@link EdObservationValue}. */
-    @Override
-    public String getOBXDocumentEncoding(int i, int j) {
-        return EdObservationValue.encoding(this, i, j, () -> obrGroups.get(i).get(j));
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return obrGroups.get(i).get(j);
     }
 
     public String getOBXResult(int i, int j) {

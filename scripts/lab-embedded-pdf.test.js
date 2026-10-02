@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD,
+  buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD, ED_TEXT_LINES, ajaxShowsEdText,
 } = require('./lab-embedded-pdf-playwright-checks');
 
 const GOOD_HEADERS = {
@@ -52,6 +52,21 @@ test('the seeded lab mixes a text result, the PDF and a non-PDF ED payload', () 
   assert.ok(message.includes(`^TEXT^PDF^Base64^${PDF.toString('base64')}`));
   assert.ok(message.includes(`^TEXT^HTML^Base64^${HTML_PAYLOAD.toString('base64')}`));
   assert.equal(PDF.subarray(0, 5).toString('ascii'), '%PDF-');
+});
+
+test('the seeded lab carries an ED.4 A text value with an HL7 line break', () => {
+  const message = buildMessage('PW3977-abc', 'FAKE-PWX');
+  assert.ok(message.includes(`|ED|EDTXT^Report Note||^TEXT^PLAIN^A^${ED_TEXT_LINES.join('\\.br\\')}|`));
+});
+
+test('the AJAX view check wants the ED text as two lines, never the escape', () => {
+  assert.ok(ajaxShowsEdText('<td>Line one<br/>Line two</td>'));
+  assert.ok(ajaxShowsEdText('<td>Line one<br />Line two</td>'));
+  assert.ok(!ajaxShowsEdText('<td>Line one\\.br\\Line two</td>'), 'the raw escape must fail');
+  assert.ok(!ajaxShowsEdText('<td></td>'), 'an empty cell must fail');
+  assert.ok(!ajaxShowsEdText('<td>Line one<br/>Line two \\.br\\</td>'), 'a visible escape anywhere must fail');
+  // The hidden raw-HL7 block keeps the escape; it is not part of the rendered result.
+  assert.ok(ajaxShowsEdText('<td>Line one<br/>Line two</td><pre id="rawhl7_12" style="display:none;">A^Line one\\.br\\Line two</pre>'));
 });
 
 test('keeps both CSP headers the front door sends', () => {
