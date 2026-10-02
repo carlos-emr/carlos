@@ -32,10 +32,11 @@ pfx_password =
 # client_cert_file = /etc/carlos-excelleris/client_certificate.pem
 # client_key_file = /etc/carlos-excelleris/client_key.pem
 
-# Product name Excelleris sees in the User-Agent header, inside the
-# "Mozilla/5.0 (Windows NT 6.2; <product>; <version>) ..." comment. Set it to
-# whatever EMR name is on file with Excelleris for this clinic, CARLOS or
-# OSCAR, regardless of which flavour below the results are uploaded to.
+# Which shell script's User-Agent to send, byte for byte: CARLOS sends what
+# release/ExcellerisDownload.sh sends, OSCAR sends what the OSCAR 19 package's
+# ExcellerisDownload.sh sends. Set it to whatever Excelleris has been seeing
+# from this clinic, regardless of which flavour below receives the results.
+# Unset, it follows the flavour (OSCAR for oscar19, else CARLOS).
 product = CARLOS
 
 # Or override the whole header. A site that completed Excelleris conformance

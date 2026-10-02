@@ -159,7 +159,7 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `pfx_password` | no | PFX passphrase. |
 | `timeout_seconds` | no | Per-request timeout, default 60, minimum 5. |
 | `ca_file` | no | Extra PEM bundle to trust, for a TLS-intercepting proxy or a test endpoint. Server verification is never disabled. |
-| `product` | no | Product name Excelleris sees in the User-Agent comment. Defaults to `OSCAR` when `flavour = oscar19`, else `CARLOS`. Set it explicitly to whatever name is on file with Excelleris. |
+| `product` | no | `CARLOS` or `OSCAR`: which shell script's User-Agent to send, byte for byte (the CARLOS `ExcellerisDownload.sh` or the OSCAR 19 package's). Defaults to `OSCAR` when `flavour = oscar19`, else `CARLOS`. |
 
 ### `[carlos]`
 
@@ -277,7 +277,7 @@ enrolment with LifeLabs or a new key in OSCAR. Default install root is `/opt/gof
 | `volumes/secrets/*.pfx` | The PFX LifeLabs issued (uploaded there before the extract step) | `[excelleris] pfx_file`, `pfx_password`, if the passphrase is still known |
 | `volumes/secrets/client_certificate*.pem` and `client_key*.pem` | The PEM pair the extract step produced (`openssl pkcs12 -clcerts` / `-nocerts -nodes`) | `[excelleris] client_cert_file`, `client_key_file`, when the PFX or its passphrase is gone. The key file must be mode 0600. |
 | `volumes/secrets/root_certificate*.pem` | LifeLabs root for the **test** host; production uses public CAs | `[excelleris] ca_file` only for the test host; leave unset for production |
-| `rover_config.json` → `app_name`, `app_version` | The User-Agent LifeLabs conformance-tested the site under (`GoFetchRover`, `1.0.0-alpha`) | `[excelleris] user_agent` with that exact string if the site wants to keep it; otherwise `product` |
+| `rover_config.json` → `app_name`, `app_version` | The User-Agent LifeLabs conformance-tested the site under (`GoFetchRover`, `1.0.0-alpha`) | `[excelleris] user_agent` with that exact string if the site wants to keep it; otherwise `product` selects one of the two shell scripts' exact headers |
 | `volumes/keys/<Service>.key` | The OSCAR Key Manager download, one per lab; `LifelabsHL7` (type `ExcellerisON`) for Ontario, `LifelabsRover` (type `EXCELLERIS`) for BC in their naming | `[carlos] key_pair_file` pointing at the LifeLabs one. The service name inside the file is used; `service` may stay empty. |
 | `volumes/LabProperties.properties` → `oscarURL` | `https://host:8443/oscar/lab/newLabUpload.do` | `[carlos] base_url` = that URL without `/lab/newLabUpload.do`; `flavour = oscar19` when the URL ends in `.do` |
 | `LabProperties.properties` → `smtpServer`, `recipientEmailAddress` | Mule's error mail | `[alerts] email`; delivery is through the host's sendmail rather than an SMTP setting |
