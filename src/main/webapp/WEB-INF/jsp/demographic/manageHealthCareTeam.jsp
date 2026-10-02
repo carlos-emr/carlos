@@ -29,7 +29,8 @@
 
 --%>
 <%--
-    Displays the patient's health-care team inline or as a detached editor.
+    Displays the patient's health-care team inline or as a detached editor. Supports listing,
+    adding, editing, and removing contacts, plus internal and external provider searches.
     Parameters: demographicNo identifies the patient; view=detached includes the standalone
     page shell. Both modes use the oscarResources bundle and require demographic read access.
     @since 2026-10-02 (shared localization setup for both rendering modes)

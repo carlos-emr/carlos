@@ -20,12 +20,24 @@ async function workflow(s) {
       if (scope === 'patient') {
         await page.locator('#scope').selectOption('patient');
       } else {
+        // Let the flowsheet template lookup finish before leaving that page.
+        await page.waitForLoadState('networkidle', { timeout: 30000 });
         await h.gotoApp(page, s.config.baseUrl, '/oscarMDS/ViewSelectProvider');
         await h.assertNotErrorPage(page, 'lab provider selection');
       }
       await page.locator(input).fill(query);
       const menuId = await page.locator(input).evaluate(el => window.jQuery(el).autocomplete('widget').attr('id'));
-      const row = page.locator(`#${menuId} .ui-menu-item`).filter({ hasText: query }).first();
+      const key = scope === 'patient' ? 'demographicNo' : 'providerNo';
+      await page.waitForFunction(({ menuId, key, expectedId }) =>
+        [...document.querySelectorAll('#' + menuId + ' .ui-menu-item')].some(el =>
+          String(window.jQuery(el).data('ui-autocomplete-item')?.[key]) === expectedId),
+      { menuId, key, expectedId });
+      const suggestions = page.locator(`#${menuId} .ui-menu-item`);
+      const matches = await suggestions.evaluateAll((elements, { key, expectedId }) =>
+        elements.flatMap((el, index) => String(window.jQuery(el).data('ui-autocomplete-item')?.[key]) === expectedId ? [index] : []),
+      { key, expectedId });
+      h.assert(matches.length === 1, 'Autocomplete did not uniquely identify the intended record');
+      const row = suggestions.nth(matches[0]);
       await row.waitFor({ state: 'visible' });
       h.assert(await row.locator('span.match').count() > 0, 'The match highlight was rendered as literal HTML');
       h.assert(!(await row.innerText()).includes('<span'), 'Suggestion contains literal formatting markup');

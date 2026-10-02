@@ -1387,7 +1387,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             Date selectedEnd = createDate(2026, 5, 31);
             Date inclusiveEnd = io.github.carlos_emr.carlos.report.UsageReportSupport.inclusiveEnd(selectedEnd);
             Date exclusiveEnd = io.github.carlos_emr.carlos.report.UsageReportSupport.exclusiveEnd(selectedEnd);
-            createNote("30001", "Last millisecond on selected date", inclusiveEnd);
+            createNote("30001", "Last second on selected date", new Date(exclusiveEnd.getTime() - 1000));
             createNote("30002", "First millisecond on following date", exclusiveEnd);
             hibernateTemplate.flush();
 

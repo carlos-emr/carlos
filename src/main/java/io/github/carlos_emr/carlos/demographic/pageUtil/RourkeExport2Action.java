@@ -121,6 +121,7 @@ public class RourkeExport2Action extends ActionSupport {
      * @return no Struts view because the response contains the download or an HTTP error
      * @throws IOException if the response or export cannot be streamed
      */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "The recorded export filename must equal a strict basename allowlist input, and PathValidationUtils enforces canonical containment including symlinks under the configured document root")
     public String getFile() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
@@ -135,9 +136,10 @@ public class RourkeExport2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        boolean recorded = dataExportDAO.findAllByType(DataExportDao.ROURKE).stream()
-                .anyMatch(export -> zipName.equals(export.getFile()));
-        if (!recorded) {
+        String storedFilename = dataExportDAO.findAllByType(DataExportDao.ROURKE).stream()
+                .filter(export -> zipName.equals(export.getFile()))
+                .map(DataExport::getFile).findFirst().orElse(null);
+        if (storedFilename == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
@@ -149,7 +151,8 @@ public class RourkeExport2Action extends ActionSupport {
         File file;
         try {
             File directory = new File(documentDir);
-            file = PathValidationUtils.validateExistingPath(new File(directory, zipName), directory);
+            // Resolve the recorded export's filename, after matching the validated request basename.
+            file = PathValidationUtils.validateExistingPath(new File(directory, storedFilename), directory);
         } catch (SecurityException | IllegalArgumentException e) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
@@ -185,13 +188,19 @@ public class RourkeExport2Action extends ActionSupport {
             return getFile();
         }
 
+        String patientSet = this.getPatientSet();
+        boolean hasPatientSet = patientSet != null && !patientSet.isEmpty() && !"-1".equals(patientSet);
+        if (hasPatientSet && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         CarlosProperties properties = CarlosProperties.getInstance();
         Clinic clinic = clinicDAO.getClinic();
         List<DataExport> dataExportList = dataExportDAO.findAllByType(DataExportDao.ROURKE);
 
-        String patientSet = this.getPatientSet();
-
-        if (patientSet == null || "".equals(patientSet) || patientSet.equals("-1")) {
+        if (!hasPatientSet) {
             this.setOrgName(clinic.getClinicName());
             this.setVendorId(properties.getProperty("vendorId", ""));
             this.setVendorBusinessName(properties.getProperty("vendorBusinessName", ""));
@@ -213,12 +222,6 @@ public class RourkeExport2Action extends ActionSupport {
             return "display";
         }
 
-
-        if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
 
         //Create export files
         String tmpDir = properties.getProperty("TMP_DIR");

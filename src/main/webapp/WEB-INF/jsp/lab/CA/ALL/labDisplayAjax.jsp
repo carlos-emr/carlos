@@ -493,7 +493,7 @@
 
                                     } %>
                                 <span id="labelspan_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" class="Field2"><i>Label: <carlos:encode value='<%= labelval %>' context="html"/> </i></span>
-                                <span class="Field2"><i>Next Appointment: <oscar:nextAppt
+                                <span class="Field2" id="labNextAppointment<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"><i>Next Appointment: <oscar:nextAppt
                                         demographicNo="<%=demographicID%>"/></i></span>
                             </td>
                         </tr>

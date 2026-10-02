@@ -6137,7 +6137,9 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
+      "env": [
+        "DOCUMENT_DIR"
+      ],
       "fixtures": "EXCLUSIVE=1 (while the fixture exists every session's any-provider Inbox list is broken). The runWorkflow FAKE- patient with its HIN left NULL, one owned HRM XML file with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows, all removed in cleanup and checked gone.",
       "notes": "Verifies that the Inbox returns HTTP 200 and lists an HRM report matched to a NULL-HIN patient (issue #4176). Run with EXCLUSIVE=1."
     },

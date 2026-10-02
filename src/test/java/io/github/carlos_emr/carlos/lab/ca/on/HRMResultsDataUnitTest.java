@@ -49,12 +49,16 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
     @NullAndEmptySource
     @ValueSource(strings = {"Patient", "Patient,", "Patient,Test"})
     void shouldKeepUnmatchedReportVisible_withIncompletePatientName(String name) {
-        LabResultData result = loadReport(null, name);
+        LabResultData result = loadReport(null, name, true);
         assertThat(Boolean.TRUE.equals(result.isMatchedToPatient)).isFalse();
         assertThat(result.patientName).isEqualTo(name);
     }
 
     private LabResultData loadReport(Demographic patient, String reportName) {
+        return loadReport(patient, reportName, false);
+    }
+
+    private LabResultData loadReport(Demographic patient, String reportName, boolean forceGivenNameFilter) {
         var providers = mock(HRMDocumentToProviderDao.class);
         var documents = mock(HRMDocumentDao.class);
         var matches = mock(HRMDocumentToDemographicDao.class);
@@ -85,7 +89,11 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
         when(report.getLegalName()).thenReturn(reportName);
         try (var parser = mockStatic(HRMReportParser.class)) {
             parser.when(() -> HRMReportParser.parseReport(info, "synthetic-report.xml")).thenReturn(report);
-            var results = new HRMResultsData().populateHRMdocumentsResultsData(info, "999998", "", null, null, false, 0, 100);
+            // Nonmatching HIN/surname filters force evaluation of the given-name predicate.
+            var results = forceGivenNameFilter
+                    ? new HRMResultsData().populateHRMdocumentsResultsData(info, "999998", "", "NO-SURNAME", "NO-HIN",
+                            null, "", null, null, false, 0, 100)
+                    : new HRMResultsData().populateHRMdocumentsResultsData(info, "999998", "", null, null, false, 0, 100);
             assertThat(results).hasSize(1);
             return results.iterator().next();
         }

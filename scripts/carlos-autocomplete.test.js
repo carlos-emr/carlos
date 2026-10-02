@@ -50,3 +50,16 @@ test('patient highlights render as markup while every dynamic field stays escape
   for (const text of ['&lt;ScRiPt&gt;x&lt;/ScRiPt&gt;', '&lt;b&gt;date&lt;/b&gt;', '&lt;img src=x&gt;']) assert.ok(html.includes(text));
   assert.doesNotMatch(html, /<(?:script|img|b)\b/i);
 });
+
+for (const kind of ['initProviderAutocomplete', 'initDemographicAutocomplete']) {
+  test(`${kind} escapes hostile characters inside the highlighted substring`, () => {
+    const hostile = '<script>alert(1)</script>';
+    const result = kind === 'initProviderAutocomplete'
+      ? { providerNo: '42', firstName: hostile, lastName: 'Test' }
+      : { demographicNo: '100', formattedName: hostile, fomattedDob: '2000-01-01', status: 'AC' };
+    const html = render(kind, result, '<script>');
+    assert.ok(html.includes("<span class='match'>&lt;script&gt;</span>"));
+    assert.ok(html.includes('&lt;/script&gt;'));
+    assert.doesNotMatch(html, /<script\b/i);
+  });
+}

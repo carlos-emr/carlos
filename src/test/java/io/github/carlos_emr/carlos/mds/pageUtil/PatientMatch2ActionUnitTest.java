@@ -137,11 +137,13 @@ class PatientMatch2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/oscarMDS/ViewOpenEChart?demographicNo=42");
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"application/json", "Application/JSON", "application/json, */*",
+            "text/html, application/json;q=0.8", "application/json; charset=UTF-8"})
     @DisplayName("should complete a fetch match without redirecting to the chart")
-    void shouldReturnJsonSuccess_whenFetchMatchesPatient() throws Exception {
+    void shouldReturnJsonSuccess_whenFetchMatchesPatient(String accept) throws Exception {
         when(security.hasPrivilege(loggedInInfo, "_lab", "w", null)).thenReturn(true);
-        request.addHeader("Accept", "application/json");
+        request.addHeader("Accept", accept);
 
         assertThat(new PatientMatch2Action(mrpRouting).execute()).isEqualTo(ActionSupport.NONE);
 
@@ -150,6 +152,16 @@ class PatientMatch2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentType()).isEqualTo("application/json");
         assertThat(response.getRedirectedUrl()).isNull();
         assertThat(response.getContentAsString()).isEqualTo("{\"success\":true}");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"text/html", "*/*", "application/json;q=0", "not-a-media-type"})
+    void shouldRetainFormRedirect_whenJsonIsNotExplicitlyAccepted(String accept) throws Exception {
+        when(security.hasPrivilege(loggedInInfo, "_lab", "w", null)).thenReturn(true);
+        request.addHeader("Accept", accept);
+        new PatientMatch2Action(mrpRouting).execute();
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/oscarMDS/ViewOpenEChart?demographicNo=42");
+        verify(mrpRouting).matchPatientLab("555", "HL7", 42, "999998");
     }
 
     @Test

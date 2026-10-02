@@ -61,6 +61,9 @@ async function workflow(s) {
   const labName = `${marker}-U`;
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-link-'));
   s.cleanup(() => {
+    sql.execute(`DELETE FROM appointment WHERE demographic_no=${patient} AND name=${h.sqlString(marker)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE demographic_no=${patient} AND name=${h.sqlString(marker)}`) === '0',
+      'The owned next-appointment fixture was not removed');
     fs.rmSync(workDir, { recursive: true, force: true });
     removeOwnedHl7Labs(sql, sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`).map(row => row[0]));
     // A failed or partial upload can leave its archive (and a checksum row) with no hl7TextInfo row to find them
@@ -73,6 +76,9 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(uploadName)}`) === '0', 'The run\'s lab upload checksum row was not removed');
   });
   sql.execute(`UPDATE demographic SET hin='' WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
+  sql.execute(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name,
+    demographic_no, status, creator, lastUpdateUser) VALUES (${h.sqlString(s.provider)}, '2099-04-17',
+    '09:00:00', '09:15:00', ${h.sqlString(marker)}, ${patient}, 't', ${h.sqlString(s.provider)}, ${h.sqlString(s.provider)})`);
   const file = path.join(workDir, fileName);
   fs.writeFileSync(file, syntheticCmlLab(accession, labName));
   let inbox;
@@ -166,6 +172,9 @@ async function workflow(s) {
     h.assert(post.status() === 200, `Patient Match answered HTTP ${post.status()}`);
     await expectValue(sql, `SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${labNo}`, patient,
       'Picking the patient did not link the lab to the owned patient');
+    for (const view of [lab, inlineLab]) {
+      await view.locator(`#labNextAppointment${labNo}`).filter({ hasText: '2099-04-17' }).waitFor({ timeout: TIMEOUT });
+    }
     // Read now, before the named lab window is reused below, and asserted in the last step.
     await lab.waitForTimeout(2000);
     // A fetch match must complete without following a chart redirect that closing the popup aborts.

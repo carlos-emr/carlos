@@ -647,7 +647,7 @@
                      + '&labType=' + encodeURIComponent(labType)
                      + '&demographicNo=' + encodeURIComponent(demoNo)
                      + '&CSRF-TOKEN=' + encodeURIComponent(token);
-            fetch('${pageContext.request.contextPath}/oscarMDS/PatientMatch', {
+            return fetch('${pageContext.request.contextPath}/oscarMDS/PatientMatch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
                 body: body
@@ -667,9 +667,13 @@
                 }
                 // COOP can detach the opener. Notify only lab views in this application.
                 if (typeof BroadcastChannel !== 'undefined') {
-                    var matchChannel = new BroadcastChannel('lab-patient-match-${carlos:forJavaScript(pageContext.request.contextPath)}');
-                    matchChannel.postMessage({ type: 'patient-matched', labNo: labNo, labType: labType });
-                    matchChannel.close();
+                    try {
+                        var matchChannel = new BroadcastChannel('lab-patient-match-${carlos:forJavaScript(pageContext.request.contextPath)}');
+                        matchChannel.postMessage({ type: 'patient-matched', labNo: labNo, labType: labType });
+                        matchChannel.close();
+                    } catch (e) {
+                        console.warn('Patient match saved; the lab view refresh notification was unavailable.');
+                    }
                 }
                 // Notify inboxhub list to refresh (BroadcastChannel is unaffected by COOP)
                 try {

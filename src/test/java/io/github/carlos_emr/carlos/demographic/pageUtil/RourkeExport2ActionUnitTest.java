@@ -54,6 +54,7 @@ class RourkeExport2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private SecurityInfoManager security;
     private DataExportDao exports;
+    private ClinicDAO clinic;
     private LoggedInInfo loggedInInfo;
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> login;
@@ -63,7 +64,7 @@ class RourkeExport2ActionUnitTest extends CarlosUnitTestBase {
     void setUp() {
         security = createAndRegisterMock(SecurityInfoManager.class);
         exports = createAndRegisterMock(DataExportDao.class);
-        createAndRegisterMock(ClinicDAO.class);
+        clinic = createAndRegisterMock(ClinicDAO.class);
         createAndRegisterMock(DemographicDao.class);
         createAndRegisterMock(Rourke2009DAO.class);
         request = new MockHttpServletRequest("GET", "/demographic/eRourkeExport");
@@ -92,6 +93,19 @@ class RourkeExport2ActionUnitTest extends CarlosUnitTestBase {
         properties.close();
         login.close();
         servlet.close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRejectExportMutation_beforeQueryingPersistence(String method) throws Exception {
+        request.setMethod(method);
+        request.removeParameter("method");
+        RourkeExport2Action action = new RourkeExport2Action();
+        action.setPatientSet("owned-set");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(exports, clinic);
     }
 
     @Test
