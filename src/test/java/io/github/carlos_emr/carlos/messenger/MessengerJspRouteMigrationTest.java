@@ -135,9 +135,31 @@ class MessengerJspRouteMigrationTest {
         assertThat(jsp)
                 .contains("<fmt:message key=\"messenger.generatePreviewPDF.information\" var=\"informationLabel\"/>")
                 .contains("<fmt:message key=\"messenger.generatePreviewPDF.encounter\" var=\"encounterLabel\"/>")
-                .contains("<html lang=\"${carlos:forHtmlAttribute(pageContext.request.locale.language)}\">")
+                .contains("<html lang=\"<%= SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.utility"
+                        + ".LocaleUtils.resolveBundleLocale(request).getLanguage()) %>\">")
                 .doesNotContain("<%@ taglib uri=\"owasp.encoder.jakarta\" prefix=\"e\" %>")
-                .doesNotContain("<html lang=\"${pageContext.request.locale.language}\">");
+                .doesNotContain("pageContext.request.locale.language");
+        // The labels use the locale MsgAttachPDF2Action titles the stored PDFs in, set before the
+        // bundle is loaded so the fallback is English rather than the server locale.
+        assertThat(jsp.indexOf("<fmt:setLocale value=\"<%= io.github.carlos_emr.carlos.utility.LocaleUtils"
+                + ".resolveBundleLocale(request) %>\"/>"))
+                .as("the negotiated locale is set before the bundle")
+                .isGreaterThan(0)
+                .isLessThan(jsp.indexOf("<fmt:setBundle basename=\"oscarResources\"/>"));
+    }
+
+    @Test
+    @DisplayName("generate preview JSP should look the patient up only when the demographic item is offered")
+    void shouldGateDemographicLookup_onDemographicItem() throws Exception {
+        // getDemographic enforces _demographic read; an earlier lookup would refuse the whole page
+        // to a user allowed to attach only the encounter or prescriptions.
+        String jsp = Files.readString(GENERATE_PREVIEW);
+
+        assertThat(jsp).containsOnlyOnce("getDemographic(loggedInInfo, demographic_no)");
+        int gate = jsp.indexOf("if (canDemographic) {");
+        assertThat(gate).as("the lookup sits inside the demographic item's gate")
+                .isGreaterThan(jsp.indexOf("boolean canDemographic ="))
+                .isLessThan(jsp.indexOf("getDemographic(loggedInInfo, demographic_no)"));
     }
 
     @Test

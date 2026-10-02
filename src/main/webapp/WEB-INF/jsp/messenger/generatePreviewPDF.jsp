@@ -85,6 +85,9 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%-- The locale MsgAttachPDF2Action titles the stored attachments in (every Accept-Language
+     preference, English otherwise), so the labels offered here match the titles they become. --%>
+<fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="messenger.generatePreviewPDF.information" var="informationLabel"/>
 <fmt:message key="messenger.generatePreviewPDF.encounter" var="encounterLabel"/>
@@ -133,21 +136,11 @@
         return;
     }
 
-    DemographicData demoData = new DemographicData();
-    Demographic demo = demoData.getDemographic(loggedInInfo, demographic_no);
-    String demoName = "";
-    if (demo != null) {
-        demoName = demo.getLastName() + ", " + demo.getFirstName();
-    }
-
     EctSessionBean bean = new EctSessionBean();
     // Use validated integer-derived string to prevent raw request data in session (CWE-501)
     bean.demographicNo = demographic_no;
 
     request.getSession().setAttribute("EctSessionBean", bean);
-
-    // Expose display variables as page attributes for EL/OWASP encoding
-    pageContext.setAttribute("demoName", demoName);
 
     // Offer only the items Doc2PDF would let this user attach for this patient (module read,
     // globally and for the patient). The encounter lookup itself is skipped without _eChart
@@ -159,6 +152,18 @@
     boolean canPrescriptions = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
             MsgPdfAttachmentResolver.Item.PRESCRIPTIONS, demographicNoInt);
     pageContext.setAttribute("canDemographic", canDemographic);
+
+    // The name is shown only with the demographic item, so it is looked up only when that item is
+    // offered: the lookup enforces _demographic read, which a user attaching only the encounter
+    // or prescriptions need not hold.
+    String demoName = "";
+    if (canDemographic) {
+        Demographic demo = new DemographicData().getDemographic(loggedInInfo, demographic_no);
+        if (demo != null) {
+            demoName = demo.getLastName() + ", " + demo.getFirstName();
+        }
+    }
+    pageContext.setAttribute("demoName", demoName);
     pageContext.setAttribute("canPrescriptions", canPrescriptions);
 
     EChart ec = canEncounter ? eChartDao.getLatestChart(demographicNoInt) : null;
@@ -170,7 +175,7 @@
 %>
 
 <!DOCTYPE html>
-<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="<%= SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request).getLanguage()) %>">
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
