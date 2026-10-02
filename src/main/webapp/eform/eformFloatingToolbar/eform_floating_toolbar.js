@@ -304,9 +304,11 @@ function eFormValidationBlocked() {
 	// eForm template scripts, so a top-level const could collide with a template's own name.
 	const READONLY_INPUT_TYPES = ["text", "search", "url", "tel", "email", "password", "date", "month",
 		"week", "time", "datetime-local", "number"];
-	// Input types the required attribute applies to; it is ignored on hidden, range, color and the
-	// button types, which are never constraint-validated for it.
-	const REQUIRED_INPUT_TYPES = READONLY_INPUT_TYPES.concat(["checkbox", "radio", "file"]);
+	// Input types whose required constraint means "has text", the only constraint a text field can
+	// mirror. required is ignored on hidden, range, color and the button types; on checkbox, radio
+	// and file it means checked, selected or attached, which subject text cannot express, and
+	// moveSubjectReverse() has hidden that control so the clinician could no longer satisfy it.
+	const MIRRORED_REQUIRED_INPUT_TYPES = READONLY_INPUT_TYPES;
 	const ef = getEForm();
 	// moveSubjectReverse() turns the template's subject input into type="hidden", which the browser
 	// excludes from constraint validation, and the toolbar's own subject lives in a separate form
@@ -316,11 +318,9 @@ function eFormValidationBlocked() {
 	const toolbarSubject = document.getElementById("remote_eform_subject");
 	// A disabled template subject (directly or through a disabled fieldset) is barred from
 	// native constraint validation, so its requirement must not carry over either.
-	// A readonly textarea, or a readonly input of a type readonly applies to, is barred as well;
-	// on other input types (checkbox, radio, file, range, color...) readonly is ignored, so their
-	// requirement still holds. moveSubjectReverse() has since made the input type="hidden", so
-	// read the template's own type it recorded. (:read-only is broader than the attribute, so
-	// check the property.)
+	// A readonly textarea, or a readonly input of a type readonly applies to, is barred as well.
+	// moveSubjectReverse() has since made the input type="hidden", so read the template's own type
+	// it recorded. (:read-only is broader than the attribute, so check the property.)
 	// The template's own input type: recorded by moveSubjectReverse() before it hid the input,
 	// otherwise the browser's normalized type (an unknown type such as "textbox" reads as "text").
 	const templateSubjectType = templateSubject && templateSubject.tagName === "INPUT"
@@ -328,10 +328,10 @@ function eFormValidationBlocked() {
 	const templateSubjectReadOnly = !!templateSubject && templateSubject.readOnly === true
 		&& (templateSubject.tagName === "TEXTAREA" || (templateSubject.tagName === "INPUT"
 			&& READONLY_INPUT_TYPES.includes(templateSubjectType)));
-	// A required attribute the browser would ignore on the template's own input (an authored hidden
-	// subject, say) is no constraint at all, so it must not block the toolbar's save either.
+	// Only a text-like requirement (a text-like input, textarea or select) transfers to the toolbar's
+	// text field; see MIRRORED_REQUIRED_INPUT_TYPES for why the others do not.
 	const templateSubjectRequirementApplies = !!templateSubject
-		&& (templateSubject.tagName !== "INPUT" || REQUIRED_INPUT_TYPES.includes(templateSubjectType));
+		&& (templateSubject.tagName !== "INPUT" || MIRRORED_REQUIRED_INPUT_TYPES.includes(templateSubjectType));
 	const templateSubjectDisabled = !!templateSubject && ((typeof templateSubject.matches === "function"
 		&& templateSubject.matches(":disabled")) || templateSubjectReadOnly);
 	if (templateSubject && templateSubject.required === true && templateSubjectRequirementApplies
