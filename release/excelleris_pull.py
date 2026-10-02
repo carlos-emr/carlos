@@ -229,8 +229,37 @@ EXIT_LOCKED = 3
 # result file and would only serve to exhaust memory.
 MAX_RESPONSE_BYTES = 256 * 1024 * 1024
 
-# CARLOS refuses multipart requests above struts.multipart.maxSize (struts.xml).
-CARLOS_MULTIPART_MAX_BYTES = 50 * 1024 * 1024
+# The largest multipart request each EMR accepts; anything bigger is refused
+# before the upload action runs. CARLOS: struts.multipart.maxSize in
+# struts.xml (52428800). OSCAR 19: maxFileSize="100M" on the Struts 1
+# controller in struts-config.xml.
+MULTIPART_MAX_BYTES = {
+    "carlos": 50 * 1024 * 1024,
+    "oscar19": 100 * 1024 * 1024,
+}
+# What the upload adds to the plaintext: AES padding (at most 16 bytes), the
+# base64 wrapped key and signature (well under 1 KiB for 2048-bit keys), the
+# multipart boundaries and part headers. 8 KiB covers it with room to spare.
+MULTIPART_OVERHEAD_BYTES = 8 * 1024
+
+
+def upload_request_size(plaintext_bytes: int) -> int:
+    """Upper bound on the multipart request that carries a file of this size."""
+    return plaintext_bytes + MULTIPART_OVERHEAD_BYTES
+
+
+def fits_upload_limit(flavour: str, plaintext_bytes: int) -> bool:
+    return upload_request_size(plaintext_bytes) <= MULTIPART_MAX_BYTES[flavour]
+
+
+def oversized_detail(flavour: str, plaintext_bytes: int) -> str:
+    return (
+        f"{plaintext_bytes} bytes would make a {upload_request_size(plaintext_bytes)}-byte "
+        f"upload, above the {MULTIPART_MAX_BYTES[flavour]}-byte limit {flavour} accepts; the EMR "
+        "would refuse it before its upload action ran, so it was not sent: split the "
+        "<HL7Messages> document at <Message> boundaries and upload the parts by hand"
+    )
+
 
 log = logging.getLogger("excelleris_pull")
 
@@ -1265,12 +1294,33 @@ class Archive:
         return path.with_name(path.name + ".attempts")
 
     def _read_attempts(self, path: Path) -> tuple[int, str]:
-        """(count, token of the run that last counted) from the sidecar; (0, "") if none."""
+        """(count, token of the run that last counted) from the sidecar; (0, "")
+        when there is none.
+
+        Fails closed: a sidecar that exists but cannot be read or parsed is not
+        "zero attempts". On OSCAR 19 that zero would let a 409 pass as an
+        import after a failed attempt, so it raises instead and the file stays
+        in the inbox until a person fixes or deletes the sidecar.
+        """
+        sidecar = self._attempts_file(path)
         try:
-            count_text, _, last_run = self._attempts_file(path).read_text().strip().partition(" ")
-            return int(count_text or "0"), last_run
-        except (OSError, ValueError):
+            text = sidecar.read_text()
+        except FileNotFoundError:
             return 0, ""
+        except OSError as exc:
+            raise StepError(
+                "attempt counter", f"{sidecar} is unreadable ({exc}); fix or delete it"
+            ) from exc
+        count_text, _, last_run = text.strip().partition(" ")
+        try:
+            count = int(count_text)
+        except ValueError:
+            raise StepError(
+                "attempt counter", f"{sidecar} is malformed; fix or delete it"
+            ) from None
+        if count < 0:
+            raise StepError("attempt counter", f"{sidecar} is malformed; fix or delete it")
+        return count, last_run
 
     def attempts(self, path: Path) -> int:
         """Upload attempts recorded for ``path`` that did not end in an accepted
@@ -1660,17 +1710,7 @@ class CarlosSession:
         """
         if self.uses_csrf and not self.csrf_token:
             self.fetch_csrf_token()
-        plaintext = path.read_bytes()
-        if len(plaintext) > CARLOS_MULTIPART_MAX_BYTES:
-            # struts.multipart.maxSize in CARLOS' struts.xml (OSCAR 19 allows
-            # 100 MB). The request is refused before the action runs; say why
-            # in advance.
-            log.warning(
-                "%s is %d bytes, above the %d-byte multipart limit; expect a rejection",
-                path.name,
-                len(plaintext),
-                CARLOS_MULTIPART_MAX_BYTES,
-            )
+        plaintext = path.read_bytes()  # size already checked by upload_step
         ciphertext, key_b64, sig_b64 = self.envelope.seal(plaintext)
         content_type, body = encode_multipart(
             {
@@ -1864,6 +1904,15 @@ def pull_step(
                     raise StepError("store pull", f"could not write inbox file: {exc}") from exc
                 log.info("stored %d message(s) as %s", summary.message_count, stored.name)
                 session.ack(True)
+                if not fits_upload_limit(cfg.carlos_flavour, len(body)):
+                    # The results are safe on disk and acknowledged: a negative
+                    # ack would re-deliver the same oversized batch every run
+                    # and stall the feed. The EMR would refuse the upload before
+                    # its action ran, so do not try; hand the file to a person.
+                    dest = archive.mark_failed(stored)
+                    detail = oversized_detail(cfg.carlos_flavour, len(body))
+                    log.error("%s: %s", stored.name, detail)
+                    raise StepError("excelleris pull", f"{stored.name}: {detail}; moved to {dest}")
                 return stored
         except TransportError as exc:
             raise StepError("excelleris transport", str(exc)) from exc
@@ -1903,6 +1952,18 @@ def upload_step(
             if opts.dry_run:
                 log.info("dry run: CARLOS login and CSRF token verified; skipping upload")
             for path in files:
+                size = path.stat().st_size
+                if not fits_upload_limit(cfg.carlos_flavour, size):
+                    # The EMR refuses the request before its upload action runs,
+                    # so sending it only earns an HTML page. Hand it to a person.
+                    dest = archive.mark_failed(path)
+                    detail = oversized_detail(cfg.carlos_flavour, size)
+                    failures.append(f"{path.name}: {detail}; moved to {dest}")
+                    log.error("%s: %s: %s", cfg.carlos_flavour, path.name, detail)
+                    continue
+                # Read the counter before sending: a corrupt sidecar stops here
+                # (StepError), before the EMR is touched.
+                prior_attempts = archive.attempts(path)
                 try:
                     outcome = session.upload(path)
                 except TransportError:
@@ -1916,7 +1977,7 @@ def upload_step(
                     if (
                         outcome.status == 409
                         and cfg.carlos_flavour == FLAVOUR_OSCAR19
-                        and archive.attempts(path) > 0
+                        and prior_attempts > 0
                     ):
                         # OSCAR 19's LabUploadAction records the checksum
                         # (FileUploadCheck.addFile) BEFORE it parses, so after a

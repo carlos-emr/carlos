@@ -258,8 +258,13 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
   `max_upload_attempts` such runs it moves to `failed/` so a file that fails every time still surfaces.
 - **`done/`** holds `.xml.xz` copies of imported pulls until `retention_days` expires.
 - **`failed/`** holds files the EMR rejected for a reason in the request itself (400, 403, a
-  406 signature failure) or that exhausted their transient-failure attempts. They are not retried. Fix the cause, then move the file back into
+  406 signature failure), files that exhausted their transient-failure attempts, pulls too
+  large for the EMR's upload limit (see Known limits), and, on OSCAR 19, a `409` that followed
+  a failed attempt. They are not retried. Fix the cause, then move the file back into
   `inbox/` or run it through the EMR's own upload page.
+- **A corrupt `.attempts` sidecar** (unreadable, or not a number) stops the run with an alert
+  naming it, and the file it belongs to stays in `inbox/`. The counter guards the OSCAR 19
+  `409` rule, so it is never silently treated as zero. Fix or delete the sidecar.
 - **Duplicates** are harmless. If a positive acknowledgment was lost and Excelleris re-sends,
   the EMR answers `409` and the tool treats that as success. One exception, on OSCAR 19 only:
   its upload action records the file's checksum before it parses, so a `409` that follows an
@@ -284,6 +289,8 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `redirected the login to its logout page; check [carlos] flavour` | CARLOS routes were sent to an OSCAR 19, or the base URL is wrong. |
 | `unexpected reply HTTP 404` on login | OSCAR 19 routes were sent to a CARLOS. |
 | `could not obtain a CSRF token` | The CARLOS session was not established, or the base URL is wrong. |
+| `above the ... limit ... accepts` | The pull (or an inbox file) is larger than the configured flavour's multipart limit; it was parked in `failed/` without an upload attempt. See Known limits. |
+| `attempt counter` | A `.attempts` sidecar in `inbox/` is unreadable or malformed. Fix or delete it; the run resumes next time. |
 | `duplicate (409) after an earlier failed attempt` | OSCAR 19 only. The checksum was recorded by an attempt that then failed; the results may not be in the EMR. Verify in the EMR inbox (see Operations). |
 | `signature validation failed` (406) | `service` does not match the key name, or the client private key is not the one the EMR generated for it. |
 | `upload-source validation` (403, CARLOS) | CARLOS refused the upload before checking the signature; see the CARLOS log. |
@@ -473,7 +480,12 @@ without it.
 
 - The EMR stand-ins in the tests encode the CARLOS and OSCAR 19 contracts as read from their
   source. A `--dry-run` against a real dev instance is the gate before production.
-- CARLOS refuses multipart uploads above 50 MB (`struts.multipart.maxSize`); OSCAR 19 above
-  100 MB. The tool warns before sending a file that large.
+- CARLOS refuses multipart uploads above 50 MiB (`struts.multipart.maxSize`); OSCAR 19 above
+  100 MiB (`maxFileSize` on its Struts controller). A pull that would exceed the limit of the
+  configured flavour is still acknowledged (it is safe on disk, and a negative acknowledgment
+  would re-deliver the same oversized batch every run), but it is never sent: it goes straight
+  to `failed/` with an alert. Split the `<HL7Messages>` document at `<Message>` boundaries into
+  smaller documents and upload them through the EMR's upload page; neither EMR's Excelleris
+  handler reads the `MessageCount` attribute.
 - `release/` is gitignored in this repository. New files there must be added with
   `git add -f`.

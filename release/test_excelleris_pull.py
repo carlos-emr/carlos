@@ -28,6 +28,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 import urllib.parse
 from pathlib import Path
 
@@ -1914,6 +1915,18 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
         self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
 
+    def test_corrupt_sidecar_fails_closed(self):
+        self.script["POST /carlos/lab/newLabUpload.do"] = ok("", 409)
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        ep.Archive(self.cfg)  # creates the state directories
+        inbox_file = self.cfg.inbox_dir / "20260101-000000.xml"
+        inbox_file.write_bytes(PULL_WITH_RESULTS)
+        inbox_file.with_name(inbox_file.name + ".attempts").write_text("not a number\n")
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertTrue(inbox_file.exists())  # neither archived nor failed
+        self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
+        self.assertNotIn("POST /carlos/lab/newLabUpload.do", self.labels())
+
     def test_plain_409_is_still_a_duplicate(self):
         self.script["POST /carlos/lab/newLabUpload.do"] = ok("", 409)
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
@@ -1928,6 +1941,34 @@ class CarlosDuplicateAfterFailureTest(_OrchestrationBase):
         self.script["excelleris:pull"] = ok("<HL7Messages/>")
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
         self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 1)
+
+
+class UploadSizeLimitTest(_OrchestrationBase):
+    """A pull the EMR could not accept is acknowledged (it is safe on disk),
+    never sent, and handed to a person via failed/."""
+
+    def test_oversized_pull_is_acked_and_parked_without_an_upload(self):
+        with mock.patch.dict(ep.MULTIPART_MAX_BYTES, {"carlos": 100}):
+            self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertIn("excelleris:ack:Positive", self.labels())
+        self.assertNotIn("POST /carlos/lab/newLabUpload", self.labels())
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+        self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
+
+    def test_oversized_inbox_file_is_parked_without_an_upload(self):
+        ep.Archive(self.cfg)  # creates the state directories
+        (self.cfg.inbox_dir / "20260101-000000.xml").write_bytes(PULL_WITH_RESULTS)
+        with mock.patch.dict(ep.MULTIPART_MAX_BYTES, {"carlos": 100}):
+            rc = ep.run(self.cfg, ep.RunOptions(upload_only=True), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertNotIn("POST /carlos/lab/newLabUpload", self.labels())
+        self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
+
+    def test_limits_match_the_two_emrs(self):
+        self.assertEqual(ep.MULTIPART_MAX_BYTES["carlos"], 52428800)  # struts.multipart.maxSize
+        self.assertEqual(ep.MULTIPART_MAX_BYTES["oscar19"], 100 * 1024 * 1024)  # maxFileSize="100M"
+        self.assertTrue(ep.fits_upload_limit("carlos", 52428800 - ep.MULTIPART_OVERHEAD_BYTES))
+        self.assertFalse(ep.fits_upload_limit("carlos", 52428800 - ep.MULTIPART_OVERHEAD_BYTES + 1))
 
 
 class AlertHeaderTest(TempEnv):
