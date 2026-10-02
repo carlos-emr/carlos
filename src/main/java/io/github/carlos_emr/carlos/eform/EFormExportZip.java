@@ -87,7 +87,8 @@ public class EFormExportZip {
                 throw new Exception("EForm must have a name to export");
             }
             Properties properties = new Properties(); //put all form properties into here
-            String formFolder = exportNameComponent(eForm.getFormName().replaceAll("\\s", ""));
+            String formFolder = exportNameComponent(eForm.getFormName().replaceAll("\\s", "")
+                    .replaceAll("[*?\"<>|]", "_"));
             String baseFolder = formFolder;
             int suffix = 2;
             while (!folders.add(formFolder)) formFolder = baseFolder + "-" + suffix++;

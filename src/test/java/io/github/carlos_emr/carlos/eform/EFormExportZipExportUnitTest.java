@@ -97,13 +97,13 @@ class EFormExportZipExportUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Well Baby 0/6 months", "Well Baby 0\\6 months", "../evil", "C:\\forms", "Ça \"va\" Łódź", "line\r\nbreak"})
+    @ValueSource(strings = {"Well Baby 0/6 months", "Well Baby 0\\6 months", "../evil", "C:\\forms", "Ça \"va\" Łódź", "line\r\nbreak", "Clinic*?<>|Form"})
     void shouldPreserveOriginalMetadata_whenDisplayTitleNeedsSafeExportName(String name) throws Exception {
         Map<String, byte[]> archive = entries(eform(name, "form.html", "<p>Zoë Ł</p>"));
         assertThat(archive).hasSize(2);
         String propertiesPath = archive.keySet().stream().filter(path -> path.endsWith("/eform.properties")).findFirst().orElseThrow();
         String folder = propertiesPath.substring(0, propertiesPath.indexOf('/'));
-        assertThat(folder).isNotBlank().doesNotStartWith(".").doesNotContain("\\", ":", "\r", "\n");
+        assertThat(folder).isNotBlank().doesNotStartWith(".").doesNotContain("\\", ":", "\r", "\n", "*", "?", "\"", "<", ">", "|");
         assertThat(archive.keySet()).allSatisfy(path -> assertThat(path.split("/")).hasSize(2));
         Properties properties = new Properties();
         properties.load(new ByteArrayInputStream(archive.get(propertiesPath)));

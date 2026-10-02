@@ -65,9 +65,12 @@ async function workflow(s) {
     + '<p>Zoë "Zed" O\'Neil &amp; fils — ½ dose…</p><script>var a = "<b>x</b>";</script>\r\n</form></body></html>\r\n';
   h.assert(html.length > 0, 'The form HTML fixture is empty');
   const forms = {
-    plain: { name: `${marker} Export Plain`, subject: 'Dépistage, "annuel" & Ł' },
-    accent: { name: `${marker} Ça "va" Łódź`, subject: 'Subject' },
-    slash: { name: `${marker} Well Baby 0/6 months`, subject: 'Slash' },
+    plain: { name: `${marker} Export Plain`, subject: 'Dépistage, "annuel" & Ł',
+      folder: `${marker}ExportPlain`, download: `${marker} Export Plain.zip` },
+    accent: { name: `${marker} Ça "va" Łódź`, subject: 'Subject',
+      folder: `${marker}Ça_va_Łódź`, download: `${marker} Ça "va" Łódź.zip` },
+    slash: { name: `${marker} Well Baby 0/6 months`, subject: 'Slash',
+      folder: `${marker}WellBaby0_6months`, download: `${marker} Well Baby 0_6 months.zip` },
   };
   for (const [key, form] of Object.entries(forms)) {
     form.fid = sql.value(`INSERT INTO eform (form_name,file_name,subject,form_date,form_time,form_creator,status,form_html,
@@ -94,12 +97,12 @@ async function workflow(s) {
     const header = file.headers['content-disposition'] || '';
     h.assert(dispositionProblem(header) === null, `${label}: invalid download filename: ${dispositionProblem(header)}`);
     const extended = /;\s*filename\*=UTF-8''([^;]+)/i.exec(header);
-    h.assert(extended && decodeURIComponent(extended[1]) === form.name.replaceAll('/', '_') + '.zip',
+    h.assert(extended && decodeURIComponent(extended[1]) === form.download,
       `${label}: download header lost or mangled the form name`);
-    if (label !== 'accent') h.assert(file.name === form.name.replaceAll('/', '_') + '.zip', `${label}: browser download name differs`);
+    if (label !== 'accent') h.assert(file.name === form.download, `${label}: browser download name differs`);
     else h.assert(file.name.includes('Łódź') && file.name.endsWith('.zip'), 'Browser lost the Unicode attachment name');
     const entries = x.unzip(file.bytes);
-    const folder = form.name.replace(/\s/g, '').replaceAll('/', '_');
+    const folder = form.folder;
     const names = Object.keys(entries).sort();
     h.assert(JSON.stringify(names) === JSON.stringify([`${folder}/${marker}-${label}.html`, `${folder}/eform.properties`].sort()),
       `${label}: the archive entries are not <form>/eform.properties and <form>/<file>`);
