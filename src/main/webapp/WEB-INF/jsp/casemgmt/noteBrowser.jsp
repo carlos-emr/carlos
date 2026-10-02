@@ -240,8 +240,7 @@
         }
 
         <c:set var="__enc_1"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-        function showEncounter(enc            
-List) {
+        function showEncounter(encList) {
             var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=displayNotes&demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false';
             var iframe = document.createElement('iframe');
             iframe.src = url2;
@@ -405,8 +404,7 @@ List) {
                 }
 
                 <c:set var="__enc_2"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                po                
-pup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
+                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
             }
         }
 
@@ -426,13 +424,11 @@ pup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=pri
 
             if (doctype == 'text/html') {
                 <c:set var="__enc_4"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(450, 600, '<%= request.getContextPath() %>/docum                
-entManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_4}' context="javaScript"/>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_4}' context="javaScript"/>', 'EditDoc');
             } else {
 
                 <c:set var="__enc_5"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocumen                
-t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
             }
         }
 
