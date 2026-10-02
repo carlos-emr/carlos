@@ -1178,6 +1178,15 @@ class ConfigFlavourTest(TempEnv):
         with self.assertRaisesRegex(ep.ConfigError, "product must be"):
             ep.load_config(self.conf)
 
+    def test_product_follows_flavour_unless_set(self):
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, extra_carlos="flavour = oscar19")
+        self.assertEqual(ep.load_config(self.conf).excelleris_product, "OSCAR")
+        self.write_conf(
+            c, srv, extra_carlos="flavour = oscar19", extra_excelleris="product = CARLOS"
+        )
+        self.assertEqual(ep.load_config(self.conf).excelleris_product, "CARLOS")
+
     def test_user_agent_shape(self):
         self.assertEqual(
             ep.user_agent("OSCAR"),
@@ -1282,3 +1291,24 @@ class LiveOscar19Test(LiveServersTest):
         self.assertEqual(ep.run(cfg, ep.RunOptions()), ep.EXIT_FAILED)
         self.assertEqual([c[0] for c in self.carlos.log], [])  # never got past LoginFilter
         self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # pull kept for retry
+
+
+class TransportErrorClassificationTest(unittest.TestCase):
+    def test_http_client_failures_are_transport_errors(self):
+        import http.client
+
+        t = ep.HttpTransport(timeout=5)
+        for exc in (
+            http.client.BadStatusLine("garbage"),
+            http.client.IncompleteRead(b"partial"),
+            http.client.RemoteDisconnected("closed"),
+            ConnectionResetError(),
+            TimeoutError(),
+        ):
+            t._opener.open = lambda *a, exc=exc, **k: (_ for _ in ()).throw(exc)
+            with self.assertRaises(ep.TransportError, msg=type(exc).__name__):
+                t.request("GET", "https://example.invalid/x?Password=secret")
+            try:
+                t.request("GET", "https://example.invalid/x?Password=secret")
+            except ep.TransportError as caught:
+                self.assertNotIn("secret", str(caught))  # query never leaks into the error
