@@ -47,6 +47,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * put it in the link, and the delete / undelete / refile actions carry it
  * through their redirects — so nothing that works today starts failing.
  *
+ * <p>Callers send the scope tokens {@code private} / {@code public}. The report
+ * once linked with its display heading ({@code "<LAST, FIRST> Private Documents"}),
+ * which put the patient's name in the URL and access logs (issue #4131); the JSP
+ * still recognises that legacy form so old links resolve, but only re-emits the
+ * token.
+ *
  * <p>A present-but-unrecognized value is deliberately still forwarded: the JSP
  * has an existing branch that renders "Remote documents not supported" for it,
  * and that behaviour is left alone.
