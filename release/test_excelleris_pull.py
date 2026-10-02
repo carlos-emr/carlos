@@ -706,6 +706,14 @@ class ArchiveTest(TempEnv):
         with self.assertRaisesRegex(ep.ConfigError, "symbolic link"):
             ep.Archive(self.cfg)
         self.assertEqual(list(real.iterdir()), [])
+        # A link higher up the configured path is refused the same way, even
+        # when the state directory itself does not exist yet.
+        link = self.tmp / "link"
+        link.symlink_to(real)
+        via_link = dataclasses.replace(self.cfg, state_dir=link / "state")
+        with self.assertRaisesRegex(ep.ConfigError, "resolves through a symbolic link"):
+            ep.Archive(via_link)
+        self.assertEqual(list(real.iterdir()), [])
 
     def test_state_directory_owned_by_someone_else_is_refused(self):
         self.cfg.state_dir.mkdir(mode=0o750, exist_ok=True)

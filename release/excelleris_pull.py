@@ -1376,8 +1376,17 @@ class Archive:
         would send every write and chmod outside the intended tree. So a
         directory that already exists is accepted only when it is a real
         directory (not a link) owned by the user this tool runs as; anything
-        else is a configuration error, reported before a byte is written.
+        else is a configuration error, reported before a byte is written. The
+        same goes for a link anywhere above it: the configured path must be
+        the real path, or every later write would follow the link out of the
+        tree the operator thinks they configured.
         """
+        real = Path(os.path.realpath(d))
+        if real != d:
+            raise ConfigError(
+                f"[paths] state directory {d} resolves through a symbolic link to {real}; "
+                "configure the real path"
+            )
         try:
             st = os.lstat(d)
         except FileNotFoundError:

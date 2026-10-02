@@ -213,7 +213,7 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 
 | Key | Required | Meaning |
 |---|---|---|
-| `state_dir` | yes | Absolute path to a directory dedicated to this tool. The tool creates it, and `inbox/`, `done/` and `failed/` under it, mode 0700, plus `run.lock` (mode 0600). A directory that already exists is accepted only if it is a real directory (not a symbolic link) owned by the user the tool runs as; otherwise the run stops with a configuration error before anything is written or any permission is changed, so a mistaken path cannot tighten another service's directory or send PHI through a link. Lab results live here: keep it on local, encrypted storage and out of any backup that is not itself PHI-grade. |
+| `state_dir` | yes | Absolute path to a directory dedicated to this tool. The tool creates it, and `inbox/`, `done/` and `failed/` under it, mode 0700, plus `run.lock` (mode 0600). The path must be the real path (no symbolic link in it, at any level), and a directory that already exists is accepted only if it is a real directory owned by the user the tool runs as; otherwise the run stops with a configuration error before anything is written or any permission is changed, so a mistaken path cannot tighten another service's directory or send PHI through a link. Lab results live here: keep it on local, encrypted storage and out of any backup that is not itself PHI-grade. |
 | `log_file` | yes | Absolute path. Never contains result content or credentials. |
 | `retention_days` | no | Days to keep compressed, already-imported pulls in `done/`. Default 90. `0` keeps forever and logs a warning every run. |
 
