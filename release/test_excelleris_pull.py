@@ -1701,8 +1701,10 @@ class TruncatedBodyTest(unittest.TestCase):
         srv.listen(1)
 
         def run():
-            conn, _ = srv.accept()
+            conn = None
             try:
+                srv.settimeout(5)  # a client that never connects must not pin the socket
+                conn, _ = srv.accept()
                 conn.settimeout(5)
                 buf = b""
                 while b"\r\n\r\n" not in buf:
@@ -1711,8 +1713,11 @@ class TruncatedBodyTest(unittest.TestCase):
                         break
                     buf += chunk
                 conn.sendall(raw)
+            except socket.timeout:
+                pass
             finally:
-                conn.close()
+                if conn is not None:
+                    conn.close()
                 srv.close()
 
         threading.Thread(target=run, daemon=True).start()
