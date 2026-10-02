@@ -161,6 +161,31 @@ class EFormExportZipExportUnitTest {
         }
     }
 
+    @Test
+    void shouldPreserveHtmlAndAsset_whenGeneratedBasenameWouldMatchAnAsset(@TempDir Path root) throws Exception {
+        Path source = root.resolve("source.html");
+        java.nio.file.Files.writeString(source, "SUPPORTING-ASSET");
+        Path images = java.nio.file.Files.createDirectory(root.resolve("imported"));
+        EFormExportZip exporter = new EFormExportZip() {
+            @Override public java.io.File getImageFile(String name) { return source.toFile(); }
+        };
+        String secondHtml = "<iframe src=\"${oscar_image_path}export-2-form.html\"></iframe>";
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        exporter.exportForms(List.of(eform("First", "form.html", "first"), eform("Second", "form.html", secondHtml)), bytes);
+        Map<String, String> saved = new LinkedHashMap<>();
+        try (var imageFolder = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
+                EForm form = invocation.getArgument(0);
+                saved.put(form.getFormName(), form.getFormHtml());
+                return "fixture";
+            });
+            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
+        }
+        assertThat(saved).containsExactlyInAnyOrderEntriesOf(Map.of("First", "first", "Second", secondHtml));
+        assertThat(java.nio.file.Files.readString(images.resolve("export-2-form.html"))).isEqualTo("SUPPORTING-ASSET");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"../evil.html", "nested/form.html", "C:\\evil.html"})
     void shouldRejectStoredPaths_whenFilenameIsNotAComponent(String fileName) {

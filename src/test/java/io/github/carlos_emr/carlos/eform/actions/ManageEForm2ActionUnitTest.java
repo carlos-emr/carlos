@@ -30,7 +30,7 @@ class ManageEForm2ActionUnitTest extends CarlosUnitTestBase {
             "../outside|__outside.zip|__outside",
             "CON|_CON.zip|_CON", "nul.txt|_nul.txt.zip|_nul.txt",
             "COM¹|_COM¹.zip|_COM¹", "LPT9|_LPT9.zip|_LPT9",
-            "Report.|Report_.zip|Report_"})
+            "Report.|Report_.zip|Report_", "Clinic\u0085Form|Clinic_Form.zip|Clinic_Form"})
     void shouldDownloadNamedArchive_whenExportTitleContainsSpecialCharacters(String title, String filename, String folder) throws Exception {
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         LoggedInInfo user = mock(LoggedInInfo.class);

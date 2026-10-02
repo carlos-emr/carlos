@@ -74,7 +74,7 @@ public class EFormExportZip {
         if (name == null || name.trim().isEmpty()) {
             return PathValidationUtils.validatePathComponent(name, "eform export name");
         }
-        String safeName = name.replaceAll("[/\\\\:\\p{Cntrl}]", "_").replaceAll("^[ .~]+", "_")
+        String safeName = name.replaceAll("[/\\\\:\\p{Cc}]", "_").replaceAll("^[ .~]+", "_")
                 .replaceAll("[ .]+$", "_");
         // Windows device basenames are reserved even with an extension (including COM¹/LPT¹).
         // https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
@@ -90,6 +90,18 @@ public class EFormExportZip {
         Set<String> folders = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         Set<String> htmlNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         htmlNames.add("eform.properties");
+        Pattern eformImagePattern = Pattern.compile("\\$\\{oscar_image_path\\}.+?[\"|'|>|<]");
+        // HTML and assets share the importer's basename namespace. Reserve asset names
+        // before allocating any generated HTML name, including references in later forms.
+        for (EForm form : eForms) {
+            if (form.getFormHtml() == null) continue;
+            Matcher assets = eformImagePattern.matcher(form.getFormHtml());
+            while (assets.find()) {
+                String reference = assets.group();
+                String assetName = reference.substring("${oscar_image_path}".length(), reference.length() - 1);
+                htmlNames.add(PathValidationUtils.validatePathComponent(assetName, "eform export image name"));
+            }
+        }
 
         for (EForm eForm : eForms) {
             if (eForm.getFormName() == null || eForm.getFormName().equals("")) {
@@ -147,7 +159,7 @@ public class EFormExportZip {
             zos.closeEntry();
 
             //get Images, must do html search for image name
-            Pattern eformImagePattern = Pattern.compile("\\$\\{oscar_image_path\\}.+?[\"|'|>|<]"); //searches for ${oscar_image_path}xxx...xxx" (terminated by ", ', or >)
+
             Matcher matcher = eformImagePattern.matcher(html);
             int start = 0;
             while (matcher.find(start)) {

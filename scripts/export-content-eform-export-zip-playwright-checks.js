@@ -68,7 +68,8 @@ async function workflow(s) {
     plain: { name: `${marker} Export Plain`, subject: 'Dépistage, "annuel" & Ł',
       folder: `${marker}ExportPlain`, download: `${marker} Export Plain.zip` },
     accent: { name: `${marker} Ça "va" Łódź`, subject: 'Subject',
-      folder: `${marker}Ça_va_Łódź`, download: `${marker} Ça "va" Łódź.zip` },
+      folder: `${marker}Ça_va_Łódź`, download: `${marker} Ça "va" Łódź.zip`,
+      browserDownload: `${marker} Ça _va_ Łódź.zip` },
     slash: { name: `${marker} Well Baby 0/6 months`, subject: 'Slash',
       folder: `${marker}WellBaby0_6months`, download: `${marker} Well Baby 0_6 months.zip` },
   };
@@ -101,8 +102,8 @@ async function workflow(s) {
     try { decodedName = extended ? decodeURIComponent(extended[1]) : null; } catch (error) { /* assertion below reports invalid UTF-8 */ }
     h.assert(decodedName === form.download,
       `${label}: download header lost or mangled the form name`);
-    if (label !== 'accent') h.assert(file.name === form.download, `${label}: browser download name differs`);
-    else h.assert(file.name.includes('Łódź') && file.name.endsWith('.zip'), 'Browser lost the Unicode attachment name');
+    // Chromium replaces quotes in suggested filenames, independently of RFC 5987 decoding.
+    h.assert(file.name === (form.browserDownload ?? form.download), `${label}: browser download name differs: ${JSON.stringify(file.name)}`);
     const entries = x.unzip(file.bytes);
     const folder = form.folder;
     const names = Object.keys(entries).sort();
