@@ -471,16 +471,21 @@ const server = http.createServer((req, res) => {
     // A template newForm control whose state changes after load posts only its own value, both
     // through the toolbar's save and through a submitter-less form.submit(); one that still
     // contributes nothing leaves newForm=true, once.
-    const changes = {
-      checkbox: () => { document.getElementById('newFormControl').checked = true; },
-      listbox: () => { document.getElementById('newFormControl').options[0].selected = true; },
-      disabled: () => { document.getElementById('newFormControl').disabled = false; },
-    };
-    for (const variant of Object.keys(changes)) {
+    for (const variant of ['checkbox', 'listbox', 'disabled']) {
       for (const path of ['toolbar', 'form.submit']) {
         for (const changed of [false, true]) {
           await open(false, false, variant);
-          if (changed) await page.evaluate(changes[variant]);
+          // A literal page function switched on the variant name, so evaluate() never runs a
+          // function looked up at run time.
+          if (changed) {
+            await page.evaluate((kind) => {
+              const control = document.getElementById('newFormControl');
+              if (kind === 'checkbox') control.checked = true;
+              else if (kind === 'listbox') control.options[0].selected = true;
+              else if (kind === 'disabled') control.disabled = false;
+              else throw new Error(`unknown newForm control variant: ${kind}`);
+            }, variant);
+          }
           if (path === 'toolbar') await page.locator('#remoteSubmitButton').click();
           else await page.evaluate(() => document.forms[0].submit());
           await page.waitForURL('**/eform/addEForm');
