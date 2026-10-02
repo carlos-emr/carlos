@@ -206,13 +206,17 @@ async function searchByName(searchPage, keyword) {
 }
 
 async function createDemographic(searchPage) {
-  const createLink = searchPage.locator('a', { hasText: /Create Demographic/i }).first();
-  if (!await createLink.count()) {
-    throw new Error('Could not find Create Demographic link after no-results search');
+  // The search landing page has a link; search results use a CSRF-protected
+  // POST form for the same action. Exercise the control on the actual page.
+  const createControl = searchPage.locator('.createNew a, .createNew button').filter({
+    hasText: /Create Demographic/i,
+  }).first();
+  if (!await createControl.count()) {
+    throw new Error('Could not find Create Demographic control after no-results search');
   }
   await Promise.all([
     searchPage.waitForLoadState('domcontentloaded').catch(() => {}),
-    createLink.click(),
+    createControl.click(),
   ]);
   await searchPage.waitForTimeout(1000);
   if (!await expectNoErrorPage(searchPage, 'open create demographic form')) return null;

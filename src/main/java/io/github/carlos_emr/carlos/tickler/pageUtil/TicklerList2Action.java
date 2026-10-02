@@ -156,7 +156,8 @@ public class TicklerList2Action extends ActionSupport {
                 dto.setLinks(ownedLinks(ticklerAttachmentService, loggedInInfo, dto, ownedByItemAndPatient));
                 rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale,
                         formNamesFor(loggedInInfo, dto, formNamesByDemographic),
-                        link -> isLinkReadable(securityInfoManager, loggedInInfo, dto, link, readableByTypeAndPatient)));
+                        link -> isLinkReadable(securityInfoManager, ticklerAttachmentService,
+                                loggedInInfo, dto, link, readableByTypeAndPatient)));
 
                 if (dto.getComments() != null && !dto.getComments().isEmpty()) {
                     commentsMap.put(String.valueOf(dto.getId()), buildCommentsArray(dto.getComments(), dateFormat, timeFormat, today));
@@ -365,7 +366,8 @@ public class TicklerList2Action extends ActionSupport {
      * the {@code ticklerdocs} migration) is subject to the patient gate only, so a legacy row is
      * never hidden by a lookup that cannot classify it but never shown across a patient denial.
      */
-    static boolean isLinkReadable(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo,
+    static boolean isLinkReadable(SecurityInfoManager securityInfoManager,
+                                  TicklerAttachmentService ticklerAttachmentService, LoggedInInfo loggedInInfo,
                                   TicklerListDTO dto, TicklerLinkDTO link, Map<String, Boolean> cache) {
         String demographicNo = dto.getDemographicNo() == null ? null : String.valueOf(dto.getDemographicNo());
         boolean ticklerReadable = cache.computeIfAbsent("_tickler:" + demographicNo,
@@ -377,9 +379,19 @@ public class TicklerList2Action extends ActionSupport {
         if (documentType == null) {
             return true;
         }
-        return cache.computeIfAbsent(documentType.getType() + ":" + demographicNo,
+        boolean typeReadable = cache.computeIfAbsent(documentType.getType() + ":" + demographicNo,
                 key -> securityInfoManager.hasPrivilege(loggedInInfo,
                         TicklerAttachmentService.readSecurityObject(documentType), SecurityInfoManager.READ, demographicNo));
+        if (!typeReadable || documentType != DocumentType.DOC) {
+            return typeReadable;
+        }
+        if (link.getTableId() == null) {
+            return false;
+        }
+        // General _edoc read does not override this document's patient, program or queue
+        // restrictions. The viewer uses this same check before serving the document.
+        return cache.computeIfAbsent("document:" + link.getTableId(),
+                key -> ticklerAttachmentService.canReadDocument(loggedInInfo, link.getTableId().intValue()));
     }
 
     /**

@@ -162,6 +162,9 @@
     <link rel="stylesheet" type="text/css"
           href="<%= request.getContextPath() %>/share/css/niftyPrint.css" media="print"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/nifty.js"></script>
+    <%-- submitUpload() validates the observation date with validDate(), defined in Oscar.js;
+         without it every Update threw a ReferenceError and the edit was never posted. --%>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <link rel="stylesheet" type="text/css" media="all"
           href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
     <style type="text/css">
