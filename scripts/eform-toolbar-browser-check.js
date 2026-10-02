@@ -37,7 +37,7 @@ const fixture = (owned = false, withList = false, newFormVariant = '', subjectVa
 </head><body><form name="saveEForm" action="/eform/addEForm" method="post"${newFormVariant === 'named' ? ' data-carlos-newform-default="true"' : ''}>
 <input id="context" value="" type="hidden"><input id="fid" value="1" type="hidden">
 <input id="demographicNo" value="1" type="hidden">${subjectVariant === 'required-hidden' ? '' : '<label for="subject">Subject</label>'}
-<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : subjectVariant === 'readonly-textbox' ? ' type="textbox" readonly' : subjectVariant === 'required-hidden' ? ' type="hidden"' : ''}></span>
+<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : subjectVariant === 'readonly-textbox' ? ' type="textbox" readonly' : subjectVariant === 'required-hidden' ? ' type="hidden"' : subjectVariant === 'required-checkbox' ? ' type="checkbox"' : ''}></span>
 ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : ''}
 ${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option><option value="">No list recipient</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
@@ -547,8 +547,7 @@ const server = http.createServer((req, res) => {
       // readonly one still submits (empty).
       assert.equal(requests[0].get('subject'), disable === 'readonly' ? '' : null);
     }
-    // Template-authored readonly: a text subject is exempt, but readonly does not apply to a
-    // checkbox, so a required readonly checkbox subject still enforces the requirement.
+    // Template-authored readonly: a text subject is exempt from its requirement.
     await open(false, false, false, 'readonly-text');
     await page.locator('#remote_eform_subject').fill('');
     await page.locator('#remoteSubmitButton').click();
@@ -568,12 +567,22 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.equal(requests[0].get('subject'), '');
-    await open(false, false, false, 'readonly-checkbox');
-    const checkboxUrl = page.url();
+    // A required checkbox subject means "checked", which toolbar text cannot express, and the
+    // hidden control can no longer be checked: checked or unchecked, an empty toolbar subject saves.
+    for (const checkboxVariant of ['readonly-checkbox', 'required-checkbox']) {
+      await open(false, false, false, checkboxVariant);
+      await page.locator('#remote_eform_subject').fill('');
+      await page.locator('#remoteSubmitButton').click();
+      await page.waitForURL('**/eform/addEForm');
+      assert.equal(requests.length, 1, checkboxVariant);
+    }
+    // A required text subject still blocks an empty toolbar subject.
+    await open();
+    const textUrl = page.url();
     await page.locator('#remote_eform_subject').fill('');
     await page.locator('#remoteSubmitButton').click();
     assert.equal(await page.evaluate(() => document.activeElement.id), 'remote_eform_subject');
-    assert.equal(page.url(), checkboxUrl);
+    assert.equal(page.url(), textUrl);
     assert.equal(requests.length, 0);
     // A template subject without the constraint still saves with an empty subject.
     await open();
