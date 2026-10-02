@@ -336,8 +336,9 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
       toolbar.status === 200 && toolbar.pages > baseline.pages,
       `pages=${toolbar.pages} (baseline ${baseline.pages}) size=${toolbar.size}`);
     await settleSavedView(saved);
-    const printAlias = await downloadPdf(saved, saved.locator('input[name="pdfButton"]'), `${family.key}-print-alias`);
-    record(family.key, 'form PDF button (print=true alias) PDF matches the toolbar PDF',
+    await saved.locator("#remotePrintOptions summary").click();
+    const printAlias = await downloadPdf(saved, saved.locator("#remoteSavePdfButton"), `${family.key}-save-pdf`);
+    record(family.key, 'Save PDF Only matches the toolbar Download packet',
       printAlias.status === 200 && printAlias.pages === toolbar.pages,
       `pages=${printAlias.pages} size=${printAlias.size}`);
 

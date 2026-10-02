@@ -30,26 +30,64 @@
  * (a scoped Bootstrap 3 build). On migration to Bootstrap 5.3.3, plain bootstrap.min.css was
  * substituted — which lacks the toolbar positioning and scoping rules below.
  *
- * Injected dynamically by eform_floating_toolbar.js into eForm pages alongside bootstrap.min.css.
+ * Included in the eForm page head alongside bootstrap.min.css.
  *
  * @since 2026-03-14
  */
 
-/*
- * Position the toolbar wrapper as a fixed overlay at the bottom of the viewport.
- * Without this, the toolbar appears as inline content rather than a fixed footer bar.
- */
+/* Normal document flow; JavaScript accounts for legacy forms with absolute page positions. */
 #toolbarWrapper {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: 14px;
-    width: 100vw;
-    position: fixed;
-    left: 0;
+    position: relative;
+    clear: both;
+    width: 100%;
+    min-width: 0;
+    margin-top: 16px;
+}
+
+/* Retain legacy controls for template handlers, while presenting one set of actions. */
+input[name="SubmitButton"], input[name="ResetButton"], input[name="PrintButton"],
+input[name="PrintSubmitButton"], input[name="PrintSaveButton"],
+input[name="pdfButton"], input[name="pdfSaveButton"],
+#faxControl, #fax_button, #faxSave_button {
+    display: none !important;
+}
+
+#toolbarWrapper form { flex: 1; min-width: 0; }
+#toolbarWrapper .input-group { flex-wrap: wrap; gap: 4px; }
+#toolbarWrapper #remote_eform_subject { flex: 1 1 180px; min-width: 140px; }
+#toolbarWrapper details { position: relative; }
+#toolbarWrapper summary { list-style: none; }
+#toolbarWrapper summary::-webkit-details-marker { display: none; }
+#toolbarWrapper .eform-options {
+    position: absolute;
     right: 0;
-    bottom: 0;
-    height: auto;
-    max-height: 50px;
-    z-index: 10000;
+    width: min(320px, calc(100vw - 16px));
+    padding: 12px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 3px 10px #0002;
+    z-index: 10;
+}
+#toolbarWrapper .eform-options input { width: 100%; }
+#toolbarWrapper .eform-options label { display: block; margin-top: 6px; }
+#toolbarWrapper .fax-search { position: relative; }
+/* The standalone toolbar owns its spinner; eForms do not include spinner.jspf's styles. */
+#toolbarWrapper #oscar-spinner-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 1050;
+    align-items: center;
+    justify-content: center;
+}
+#toolbarWrapper #oscar-spinner-screen.active-oscar-spinner { display: flex; }
+#toolbarWrapper #img-oscar-spinner { width: 100px; height: 77px; }
+@media print {
+    #toolbarWrapper { display: none !important; }
 }
 
 /*
@@ -89,7 +127,6 @@ div#eform_floating_toolbar *,
 #eform_floating_toolbar button,
 #eform_floating_toolbar nav input,
 #eform_floating_toolbar nav ::placeholder {
-    color: inherit;
     font: inherit;
     margin: 0;
 }

@@ -65,6 +65,9 @@
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.EmbeddedLabDocumentLoader" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettings" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettingsService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -156,7 +159,9 @@
     if (ackList != null) {
         for (int i = 0; i < ackList.size(); i++) {
             ReportStatus reportStatus = (ReportStatus) ackList.get(i);
-            if (reportStatus.getProviderNo().equals(providerNo)) {
+            // getProviderNo() is the routed provider's practitioner number (null for one without,
+            // such as the system provider), not the CARLOS provider number; compare like labDisplay.jsp.
+            if (providerNo != null && providerNo.equals(reportStatus.getOscarProviderNo())) {
                 labStatus = reportStatus.getStatus();
                 if (labStatus.equals("A")) {
                     ackFlag = true;
@@ -169,6 +174,11 @@
     String multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
 
     MessageHandler handler = Factory.getHandler(segmentID);
+    // Inline preview of PDFs embedded in HL7 ED results (#3977): read the lab display
+    // preferences once per page; lab-embedded-pdf-preview.jspf counts the preview rows.
+    LabPdfPreviewSettings labPdfPreviewSettings = SpringUtils.getBean(LabPdfPreviewSettingsService.class).load();
+    int labPdfPreviewCount = 0;
+    final int labPdfPreviewColspan = 8;
     String hl7 = Factory.getHL7Body(segmentID);
     Hl7TextInfoDao hl7TextInfoDao = (Hl7TextInfoDao) SpringUtils.getBean(Hl7TextInfoDao.class);
     int lab_no = Integer.parseInt(segmentID);
@@ -1047,16 +1057,20 @@
                         lineClass = "AbnormalRes";
                     }
 
-                    boolean isEmbeddedDocumentResult = (handler.getMsgType().equals("ExcellerisON") || handler.getMsgType().equals("PATHL7")) && handler.getOBXValueType(j, k).equals("ED");
-                    String embeddedDocumentLegacy = "";
-                    if (isEmbeddedDocumentResult && handler.getMsgType().equals("PATHL7") && ((PATHL7Handler) handler).isLegacy(j, k)) {
-                        embeddedDocumentLegacy = "&legacy=true";
-                    }
-                    String embeddedDocumentHref = request.getContextPath() + "/lab/DownloadEmbeddedDocumentFromLab?labNo="
-                            + URLEncoder.encode(segmentID == null ? "" : segmentID, StandardCharsets.UTF_8)
+                    // An HL7 ED OBX (any lab type) whose payload is a PDF gets a Download PDF link and an inline
+                    // preview row (#3977). A payload declared as text keeps the ordinary result rendering.
+                    // The legacy PATHL7 shape is detected server-side, so the URLs carry no legacy flag.
+                    EmbeddedLabDocumentLoader.Inspection embeddedDocument = handler.isOBXEmbeddedDocument(j, k)
+                            ? EmbeddedLabDocumentLoader.inspect(handler, j, k, labPdfPreviewSettings.maxBytes())
+                            : null;
+                    boolean isEmbeddedDocumentResult = embeddedDocument != null && embeddedDocument.isPdf();
+                    // A binary ED payload that is not a PDF (an image, say) cannot be served or usefully printed.
+                    boolean isUndisplayableEmbeddedDocument = embeddedDocument != null && embeddedDocument.isUndisplayable();
+                    String embeddedDocumentQuery = "?labNo=" + URLEncoder.encode(segmentID == null ? "" : segmentID, StandardCharsets.UTF_8)
                             + "&segment=" + j
-                            + "&group=" + k
-                            + embeddedDocumentLegacy;
+                            + "&group=" + k;
+                    String embeddedDocumentHref = request.getContextPath() + "/lab/DownloadEmbeddedDocumentFromLab" + embeddedDocumentQuery;
+                    String embeddedDocumentViewHref = request.getContextPath() + "/lab/ViewEmbeddedDocumentFromLab" + embeddedDocumentQuery;
                     String labValuesHref = "javascript:popupStart('660','900','" + request.getContextPath()
                             + "/lab/CA/ON/ViewLabValues?testName=" + URLEncoder.encode(obxName, StandardCharsets.UTF_8)
                             + "&demo=" + (demographicID != null ? URLEncoder.encode(demographicID, StandardCharsets.UTF_8) : "")
@@ -1066,14 +1080,24 @@
                 %>
                 <%
                     if (handler.getMsgType().equals("EPSILON")) {
+                        // Epsilon rows are filtered by header here, so ED rows are rendered in this branch rather
+                        // than the shared row below: a PDF gets the Download PDF link and the preview row, other
+                        // binary payloads the "not a PDF" note (#3977, #4124).
                         if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && !obxName.equals("")) {
                 %>
 
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                            href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
-                    <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
+                    <td align="right">
+                        <% if (isEmbeddedDocumentResult) { %>
+                        <a href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>" class="lab-embedded-pdf-download"><fmt:message key="lab.embeddedPdf.download"/></a>
+                        <% } else if (isUndisplayableEmbeddedDocument) { %>
+                        <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                        <% } else { %>
+                        <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
+                        <% } %>
                     </td>
 
                     <td align="center">
@@ -1088,12 +1112,20 @@
                     <td align="center"><carlos:encode value='<%= handler.getOBXResultStatus(j, k) %>' context="html"/>
                     </td>
                 </tr>
+                <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
                 <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
+                        <% if (isEmbeddedDocumentResult) { %>
+                        <a href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>" class="lab-embedded-pdf-download" style="margin-left:100px;"><fmt:message key="lab.embeddedPdf.download"/></a>
+                        <% } else if (isUndisplayableEmbeddedDocument) { %>
+                        <em class="lab-embedded-document-unsupported" style="margin-left:100px;"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                        <% } else { %>
                         <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/></pre>
+                        <% } %>
                     </td>
                 </tr>
+                <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
                 <% }
                 } else if (handler.getMsgType().equals("HHSEMR")) {
                     if (!obxName.equals("")) { %>
@@ -1209,13 +1241,14 @@
                         if (isEmbeddedDocumentResult) {
                     %>
                     <td align="right"><a
-                            href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>">PDF
-                        Report</a></td>
+                            href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>" class="lab-embedded-pdf-download"><fmt:message key="lab.embeddedPdf.download"/></a></td>
                     <%
                     } else {
                     %>
 	                                            <td align="right">
-                                                   <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
+                                                   <% if (isUndisplayableEmbeddedDocument) { %>
+                                                    <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                                                    <% } else if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                                                     <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %>' context="htmlWithBreakMarkers"/></em>
                                                     <% } else { %>
                                                     <carlos:encode value='<%= handler.getOBXResult( j, k) %>' context="htmlWithBreakMarkers"/>
@@ -1236,6 +1269,7 @@
                     <%
                         }//end of PATHL7 else %>
                 </tr>
+                <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
 
                 <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">

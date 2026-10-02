@@ -85,6 +85,61 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should render the inline embedded PDF preview in lab display")
+    void shouldRenderEmbeddedPdfPreview_inLabDisplay() throws IOException {
+        assertEmbeddedPdfPreviewIsRendered(Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    @DisplayName("should render the inline embedded PDF preview in ajax lab display")
+    void shouldRenderEmbeddedPdfPreview_inAjaxLabDisplay() throws IOException {
+        assertEmbeddedPdfPreviewIsRendered(Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    @DisplayName("should render Epsilon ED rows with the download link, note and preview in lab display")
+    void shouldRenderEpsilonEmbeddedDocuments_inLabDisplay() throws IOException {
+        assertEpsilonBranchRendersEmbeddedDocuments(
+                Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8), "HHSEMR");
+    }
+
+    @Test
+    @DisplayName("should render Epsilon ED rows with the download link, note and preview in ajax lab display")
+    void shouldRenderEpsilonEmbeddedDocuments_inAjaxLabDisplay() throws IOException {
+        assertEpsilonBranchRendersEmbeddedDocuments(
+                Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8), "HHSEMR");
+    }
+
+    @Test
+    @DisplayName("should match the viewer's acknowledgement by CARLOS provider number in ajax lab display")
+    void shouldMatchAcknowledgement_byCarlosProviderNumberInAjaxLabDisplay() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);
+
+        // ReportStatus.getProviderNo() is the routed provider's practitioner number, null for a
+        // provider without one; dereferencing it made the AJAX view answer 500 for such labs (#4124).
+        assertThat(jsp)
+                // providerNo is a request parameter this page never defaults, so the guard matters too.
+                .contains("if (providerNo != null && providerNo.equals(reportStatus.getOscarProviderNo()))")
+                .doesNotContain("reportStatus.getProviderNo().equals(");
+    }
+
+    @Test
+    @DisplayName("should frame the preview lazily, encoded, and without inline script")
+    void shouldFramePreviewLazily_withoutInlineScript() throws IOException {
+        String fragment = Files.readString(Path.of("src/main/webapp/WEB-INF/jspf/lab-embedded-pdf-preview.jspf"),
+                StandardCharsets.UTF_8);
+
+        // labDisplayAjax.jsp is inserted with innerHTML, where an inline script never runs.
+        assertThat(fragment)
+                .contains("src=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentViewHref) %>\"")
+                .contains("loading=\"lazy\"")
+                .contains("<details class=\"lab-embedded-pdf\"")
+                .contains("labPdfPreviewSettings.inlinePreviewEnabled()")
+                .contains("EmbeddedLabDocumentLoader.Status.TOO_LARGE")
+                .doesNotContain("<script");
+    }
+
+    @Test
     @DisplayName("should close inboxhub iframe after successful lab macro")
     void shouldCloseInboxhubIframe_afterSuccessfulLabMacro() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
@@ -115,10 +170,57 @@ class LabDisplayJspRegressionTest {
 
     private void assertEmbeddedDocumentObservationLinksUseDownloadAction(String jsp) {
         assertThat(jsp)
-                .contains("String embeddedDocumentHref = request.getContextPath() + \"/lab/DownloadEmbeddedDocumentFromLab?labNo=\"")
+                .contains("String embeddedDocumentHref = request.getContextPath() + \"/lab/DownloadEmbeddedDocumentFromLab\" + embeddedDocumentQuery;")
                 .contains("String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesHref;")
                 .contains("href=\"<%= SafeEncode.forHtmlAttribute(observationHref) %>\"")
-                .contains("href=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>\"");
+                .contains("href=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>\" class=\"lab-embedded-pdf-download\">"
+                        + "<fmt:message key=\"lab.embeddedPdf.download\"/></a>");
+    }
+
+    private void assertEmbeddedPdfPreviewIsRendered(String jsp) {
+        // Detection is per OBX by value type (any lab type) and requires a verified PDF, not the
+        // former hard-coded ExcellerisON/PATHL7 test; the legacy PATHL7 flag is resolved server-side.
+        assertThat(jsp)
+                .contains("EmbeddedLabDocumentLoader.Inspection embeddedDocument = handler.isOBXEmbeddedDocument(j, k)")
+                .contains("boolean isEmbeddedDocumentResult = embeddedDocument != null && embeddedDocument.isPdf();")
+                .contains("String embeddedDocumentViewHref = request.getContextPath() + \"/lab/ViewEmbeddedDocumentFromLab\" + embeddedDocumentQuery;")
+                .contains("<%@ include file=\"/WEB-INF/jspf/lab-embedded-pdf-preview.jspf\" %>")
+                // A binary ED payload that is not a PDF shows a note, never its encoded bytes.
+                .contains("boolean isUndisplayableEmbeddedDocument = embeddedDocument != null && embeddedDocument.isUndisplayable();")
+                .contains("<em class=\"lab-embedded-document-unsupported\"><fmt:message key=\"lab.embeddedPdf.notPdf\"/></em>")
+                .doesNotContain("handler.getMsgType().equals(\"ExcellerisON\") || handler.getMsgType().equals(\"PATHL7\")) && handler.getOBXValueType(j, k).equals(\"ED\")")
+                .doesNotContain("&legacy=true");
+    }
+
+    /**
+     * Epsilon rows are filtered by header inside their own branch, which never reaches the shared
+     * ED row, so the branch itself must carry the download link, the not-a-PDF note and the preview
+     * row for both of its row shapes (#4124).
+     */
+    private void assertEpsilonBranchRendersEmbeddedDocuments(String jsp, String nextBranchMsgType) {
+        int start = jsp.indexOf("// Epsilon rows are filtered by header here");
+        assertThat(start).as("Epsilon row branch").isNotNegative();
+        int end = jsp.indexOf("handler.getMsgType().equals(\"" + nextBranchMsgType + "\")", start);
+        assertThat(end).as("branch after the Epsilon row branch").isGreaterThan(start);
+        String branch = jsp.substring(start, end);
+
+        assertThat(branch)
+                .contains("href=\"<%= SafeEncode.forHtmlAttribute(observationHref) %>\"")
+                .contains("<% if (isEmbeddedDocumentResult) { %>")
+                .contains("<% } else if (isUndisplayableEmbeddedDocument) { %>")
+                .doesNotContain("/lab/CA/ON/ViewLabValues");
+        assertThat(occurrences(branch, "href=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>\" class=\"lab-embedded-pdf-download\""))
+                .isEqualTo(2);
+        assertThat(occurrences(branch, "<fmt:message key=\"lab.embeddedPdf.notPdf\"/>")).isEqualTo(2);
+        assertThat(occurrences(branch, "<%@ include file=\"/WEB-INF/jspf/lab-embedded-pdf-preview.jspf\" %>")).isEqualTo(2);
+    }
+
+    private static int occurrences(String text, String needle) {
+        int count = 0;
+        for (int at = text.indexOf(needle); at >= 0; at = text.indexOf(needle, at + needle.length())) {
+            count++;
+        }
+        return count;
     }
 
     private static List<String> ackLabFuncEncodeContexts(String jsp) {

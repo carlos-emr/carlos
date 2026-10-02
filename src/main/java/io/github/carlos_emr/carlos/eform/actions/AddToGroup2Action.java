@@ -58,9 +58,11 @@ public class AddToGroup2Action extends ActionSupport {
         if (fid != null) {
             EFormUtil.addEFormToGroup(groupName, fid);
         }
-        request.setAttribute("group_view", groupName);
+        redirectTarget = EFormListRedirect.toGroup(request, groupName);
         return SUCCESS;
     }
+
+    private String redirectTarget;
     private String fid;
     private String groupName;
 
@@ -80,5 +82,15 @@ public class AddToGroup2Action extends ActionSupport {
     @StrutsParameter
     public void setGroupName(String groupName) {
         this.groupName = groupName;
+    }
+
+    /**
+     * The Struts redirect target: the eForm Groups page for the affected group. A redirect,
+     * not a forward, because the page's gate rejects the POST a forward would carry (405).
+     *
+     * @return the application-relative redirect location
+     */
+    public String getRedirectTarget() {
+        return redirectTarget;
     }
 }

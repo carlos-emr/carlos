@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", function(){
     /**
      * Trigger these functions every time this page loads.
      */
-    removeElements();
     hideElements();
     addNavElement();
     disableTextareaResize();
@@ -71,6 +70,8 @@ function hideAdminPreviewSaveButton() {
         return;
     }
 
+    const savePdfButton = document.getElementById("remoteSavePdfButton");
+    if (savePdfButton) savePdfButton.hidden = true;
     const remoteSubmitButton = document.getElementById("remoteSubmitButton");
     if (remoteSubmitButton) {
         remoteSubmitButton.style.display = "none";
@@ -527,6 +528,21 @@ function downloadEForm() {
 }
 
 /**
+ * Print the live page, including unsaved edits. The browser's print dialog offers Save as PDF.
+ * Call the browser directly: template PrintButton/formPrint handlers may also submit the form.
+ * Rich Text Letters keep the actual printable document in their editor frame.
+ */
+function remotePrintOnly() {
+    if (editorStillLoading()) return;
+    const options = document.getElementById('remotePrintOptions');
+    if (options) options.open = false;
+    const editor = document.getElementById('Letter') && document.getElementById('edit');
+    const printWindow = editor?.contentWindow || window;
+    printWindow.focus();
+    printWindow.print();
+}
+
+/**
  * Adds a hidden input field into the eForm form with instructions to
  * open the Oscar Fax dialog.
  */
@@ -540,22 +556,10 @@ function remoteFax() {
     clearWorkflowFlags();
     setHiddenFormInput("faxAction", "faxEForm", "true");
 
-    /*
-     * This helps carry forward the select list values of fax recipients
-     * from the eForm.
-     */
-    const faxnumList = document.getElementById("faxnumList");
-    if (faxnumList) {
-        const selectedOption = faxnumList.options[faxnumList.options.selectedIndex];
-        const recipientFaxNumber = selectedOption.getAttribute("value");
-        const recipient = selectedOption.getAttribute('name');
-
-        if (recipientFaxNumber) {
-            // Reuse-by-id so repeated fax attempts refresh (not duplicate) the recipient inputs.
-            setHiddenFormInput("recipient", "recipient", recipient);
-            setHiddenFormInput("recipientFaxNumber", "recipientFaxNumber", recipientFaxNumber);
-        }
-    }
+    const chosen = selectedEformFaxRecipient();
+    // Include empty overrides too: clearing a recipient must not resurrect a template's old number.
+    setHiddenFormInput("recipient", "recipient", chosen.name);
+    setHiddenFormInput("recipientFaxNumber", "recipientFaxNumber", chosen.fax);
 
     remoteSave();
 }
@@ -583,7 +587,7 @@ function setHiddenFormInput(id, name, value) {
         // plausible), so clearWorkflowFlags() must remove only the nodes the toolbar itself created.
         // Removing by bare id deleted the clinician's field and silently dropped its value.
         input.dataset.carlosWorkflowFlag = "true";
-        document.forms[0].appendChild(input);
+        document.forms[0].prepend(input);
     }
     input.setAttribute("value", value);
     input.value = value;
@@ -839,6 +843,17 @@ function moveSubjectReverse() {
         document.forms[0].appendChild(subjectElement);
     }
 
+    // Keep the original field as the submitted value and as a target for template scripts.
+    if (subjectElement.labels) {
+        Array.from(subjectElement.labels).forEach(label => { label.hidden = true; });
+    }
+    // Many Galaxy forms use a bare text node instead of a label element.
+    const caption = subjectElement.previousSibling;
+    if (caption?.nodeType === Node.TEXT_NODE) {
+        caption.textContent = caption.textContent.replace(/\bSubject:\s*$/i, '');
+    }
+    if (subjectElement.tagName === "INPUT") subjectElement.type = "hidden";
+    subjectElement.hidden = true;
     let localSubject = document.getElementById("remote_eform_subject");
     if (localSubject) {
         localSubject.value = subjectElementValue;
@@ -858,16 +873,8 @@ function closeToolbar() {
     if (toolbarContainer && toolbarNav) {
         toolbarNav.style.display = "none";
 
-        toolbarContainer.style.display = "table";
-        toolbarContainer.style.position = "fixed";
-        toolbarContainer.style.opacity = "100%";
-        toolbarContainer.style.zIndex = "1029";
-        toolbarContainer.style.bottom = "0";
-        toolbarContainer.style.right = "0";
-        toolbarContainer.style.marginBottom = "0";
-
         const openToolbarButton = document.getElementById("openToolbarButton");
-        openToolbarButton.style.display = "table";
+        openToolbarButton.style.display = "block";
         openToolbarButton.style.minHeight = "50px";
 
     }
@@ -889,98 +896,13 @@ function openToolbar() {
 }
 
 /**
- * Remove all fax control buttons from the current
- * eform to avoid any confusion on what fax system is being used.
- */
-function removeElements() {
-    let element = document.getElementById("faxControl");
-
-    if (element) {
-        element.parentNode.removeChild(element);
-    }
-
-    element = document.querySelectorAll("script");
-    const scriptArray = Array.from(element);
-
-    if (scriptArray.length > 0) {
-        const script = scriptArray.find(script => script.src.includes("faxControl.js"))
-        if (script) {
-            script.parentNode.removeChild(script);
-        }
-    }
-
-    element = document.getElementById("fax_button");
-
-    if (element) {
-        element.parentNode.removeChild(element);
-
-        /*
-         * add a dummy placeholder back in because the eForm developers
-         * created a hard dependency on the existence of this element.
-         */
-        const inputElement = document.createElement("input");
-        inputElement.setAttribute("type", "hidden");
-        inputElement.setAttribute("id", "fax_button");
-        document.forms[0].appendChild(inputElement);
-    }
-
-    element = document.getElementById("faxSave_button");
-
-    if (element) {
-        element.parentNode.removeChild(element);
-
-        /*
-         * add a dummy placeholder back in because the eForm developers
-         * created a hard dependency on the existence of this element.
-         */
-        const inputElement = document.createElement("input");
-        inputElement.setAttribute("type", "hidden");
-        inputElement.setAttribute("id", "faxSave_button");
-        document.forms[0].appendChild(inputElement);
-    }
-
-    element = document.getElementById("faxEForm");
-
-    if (element) {
-        element.parentNode.removeChild(element);
-
-        /*
-         * add a dummy placeholder back in because the eForm developers
-         * created a hard dependency on the existence of this element.
-         */
-        const inputElement = document.createElement("input");
-        inputElement.setAttribute("type", "hidden");
-        inputElement.setAttribute("id", "faxEForm");
-        document.forms[0].appendChild(inputElement);
-    }
-
-    /*
-     * sometimes these are in there too.
-     */
-    let inputElement = document.createElement("input");
-    inputElement.setAttribute("type", "hidden");
-    inputElement.setAttribute("id", "otherFaxInput");
-    document.forms[0].appendChild(inputElement);
-}
-
-/**
- * A wrapper function to dismiss uncaught exceptions for when
- * this function contained in the removed faxControl.js file is
- * called.
- * Do nothing.
- */
-function AddOtherFax() {
-    // do nothing
-    return false;
-}
-
-/**
  * Many eforms will already have various buttons for printing, submitting, etc.
  * These buttons should not necessarily be removed because remotesave() and remoteprint() may rely on these buttons
  * To avoid user confusion as to which button to click, this function hides these buttons
  */
 function hideElements() {
-    const idsOfButtonsToHide = ["SubmitButton", "ResetButton", "PrintButton", "PrintSubmitButton"];
+    const idsOfButtonsToHide = ["SubmitButton", "ResetButton", "PrintButton", "PrintSubmitButton",
+        "PrintSaveButton", "pdfButton", "pdfSaveButton", "fax_button", "faxSave_button"];
     for (let i = 0; i < idsOfButtonsToHide.length; i++) {
         let el = document.getElementById(idsOfButtonsToHide[i]);
 
@@ -1021,6 +943,8 @@ function includeHTML(elmnt) {
                 // The toolbar arrives after DOMContentLoaded, so the preview guard that ran there
                 // found no Save button yet: hide it now that the fragment is in the DOM (#3904).
                 hideAdminPreviewSaveButton();
+                initializeFaxRecipient();
+                positionToolbarAfterForm(toolbarWrapper);
 
                 // After adding floating toolbar update number of attachments
                 jQuery('#remoteTotalAttachments').empty().append(jQuery('.delegateAttachment').length);
@@ -1047,59 +971,124 @@ function includeHTML(elmnt) {
  */
 function addNavElement() {
 
-    /*
-     * Get the total height of the current eform
-     */
-    let body = document.body;
-    let html = document.documentElement;
-    let documentheight = Math.max(body.scrollHeight, body.offsetHeight,
-        html.clientHeight, html.scrollHeight, html.offsetHeight);
+    includeHTML(document.body);
 
-    /*
-     * Include the eForm tool bar overlay
-     */
-    includeHTML(body);
+}
 
-    /*
-     * Add a wedge to the bottom of the eform that will add
-     * 65 pixels to the bottom so that the eForm clears the remote button
-     * panel
-     */
-    let formelement = document.getElementsByTagName("form");
-    let spacer = document.createElement("div");
-    spacer.setAttribute("id", "eformPageSpacer");
-    spacer.setAttribute("class", "hidden-print DoNotPrint no-print");
-    spacer.style.position = "absolute";
-    spacer.style.left = 0;
-    spacer.style.top = documentheight + 50;
-    spacer.style.width = "100%";
-    spacer.style.margin = 0;
-    spacer.style.padding = 0;
-    spacer.style.height = "1px";
-    formelement[0].appendChild(spacer);
+/** Place the toolbar after even absolutely positioned legacy eForm pages. */
+function positionToolbarAfterForm(wrapper) {
+    // Keep open menus inside the viewport when the toolbar wraps on a narrow screen.
+    wrapper.querySelectorAll('details').forEach(details => {
+        details.addEventListener('toggle', () => {
+            if (!details.open) return;
+            const menu = details.querySelector('.eform-options');
+            const anchor = details.getBoundingClientRect();
+            const left = anchor.left;
+            menu.style.right = 'auto';
+            menu.style.left = Math.max(8 - left,
+                Math.min(0, document.documentElement.clientWidth - left - menu.offsetWidth - 8)) + 'px';
+            const above = window.innerHeight - anchor.bottom < menu.offsetHeight
+                && anchor.top >= menu.offsetHeight;
+            menu.style.top = above ? 'auto' : '100%';
+            menu.style.bottom = above ? '100%' : 'auto';
+        });
+    });
+    let queued = false;
+    function place() {
+        queued = false;
+        // Reset the gap before measuring so the toolbar cannot grow its own offset.
+        wrapper.style.marginTop = "16px";
+        let bottom = 0;
+        document.querySelectorAll('body *').forEach(element => {
+            if (element === wrapper || wrapper.contains(element) || element.contains(wrapper) || element.closest('dialog')) return;
+            const style = getComputedStyle(element);
+            if (style.position === 'fixed' || style.display === 'none') return;
+            const rect = element.getBoundingClientRect();
+            if (rect.width || rect.height) bottom = Math.max(bottom, rect.bottom + window.scrollY);
+        });
+        const top = wrapper.getBoundingClientRect().top + window.scrollY;
+        wrapper.style.marginTop = Math.max(16, Math.ceil(bottom - top + 32)) + 'px';
+    }
+    function schedule() {
+        if (!queued) { queued = true; requestAnimationFrame(place); }
+    }
+    const observer = new MutationObserver(records => {
+        if (records.some(record => !wrapper.contains(record.target))) schedule();
+    });
+    observer.observe(document.body, {subtree: true, childList: true, characterData: true,
+        attributes: true, attributeFilter: ['class', 'style', 'hidden', 'width', 'height',
+            'open', 'rows', 'cols', 'size', 'type', 'id']});
+    if (window.ResizeObserver) {
+        const resize = new ResizeObserver(schedule);
+        Array.from(document.forms).filter(form => !wrapper.contains(form)).forEach(form => resize.observe(form));
+    }
+    document.addEventListener('load', schedule, true);
+    window.addEventListener('resize', schedule);
+    schedule();
+}
 
-    /*
-     * Inject Bootstrap 5 CSS into the eForm page so that toolbar components render correctly.
-     * This is required for standalone HTML eForms that do not load Bootstrap themselves.
-     */
-    let headelement = document.getElementsByTagName("head");
-    let bootstrapStyle = document.createElement("link");
-    bootstrapStyle.setAttribute("rel", "stylesheet");
-    bootstrapStyle.setAttribute("type", "text/css");
-    bootstrapStyle.setAttribute("href", "../library/bootstrap/5.3.8/css/bootstrap.min.css");
-    headelement[0].appendChild(bootstrapStyle);
+function selectedEformFaxRecipient() {
+    const fax = document.getElementById('remoteFaxNumber');
+    const name = document.getElementById('remoteFaxRecipient');
+    if (fax && fax.dataset.edited === 'true') return {name: name.value.trim(), fax: fax.value.trim()};
+    const chosen = window.carlosEformFax ? window.carlosEformFax.recipient() : {name: '', fax: ''};
+    if (name && name.dataset.edited === 'true') chosen.name = name.value.trim();
+    return chosen;
+}
 
-    /*
-     * Inject toolbar-specific CSS that provides the critical #toolbarWrapper positioning
-     * (position:fixed, z-index:10000) and scoped styles not present in bootstrap.min.css.
-     * Previously bundled inside eform_floating_toolbar_bootstrap_custom.min.css (Bootstrap 3).
-     */
-    let toolbarStyle = document.createElement("link");
-    toolbarStyle.setAttribute("rel", "stylesheet");
-    toolbarStyle.setAttribute("type", "text/css");
-    toolbarStyle.setAttribute("href", "../eform/eformFloatingToolbar/eform_floating_toolbar_custom.css");
-    headelement[0].appendChild(toolbarStyle);
-
+function initializeFaxRecipient() {
+    const fax = document.getElementById('remoteFaxNumber');
+    const name = document.getElementById('remoteFaxRecipient');
+    if (!fax || !name) return;
+    function refresh() {
+        if (fax.dataset.edited === 'true') return;
+        const chosen = selectedEformFaxRecipient();
+        fax.value = chosen.fax;
+        if (name.dataset.edited !== 'true') name.value = chosen.name;
+    }
+    const fromForm = document.getElementById('remoteFaxFromForm');
+    function refreshOptions() {
+        fromForm.replaceChildren(new Option("Use the eForm's fax number", ""));
+        const seen = new Set();
+        ['faxnumList', 'otherFaxSelect'].forEach(id => {
+            const select = document.getElementById(id);
+            if (!select || !select.options) return;
+            Array.from(select.options).forEach(option => {
+                if (!option.value.trim() || seen.has(option.value)) return;
+                seen.add(option.value);
+                const name = option.getAttribute('name') || option.textContent.trim();
+                const item = new Option(name + ' — ' + option.value, option.value);
+                item.dataset.recipientName = name;
+                fromForm.add(item);
+            });
+        });
+        if (fax.dataset.edited === 'true') fromForm.value = fax.value;
+    }
+    fromForm.addEventListener('change', () => {
+        const option = fromForm.options[fromForm.selectedIndex];
+        if (option && option.value) {
+            fax.value = option.value;
+            name.value = option.dataset.recipientName;
+            fax.dataset.edited = 'true';
+        } else {
+            delete fax.dataset.edited;
+            delete name.dataset.edited;
+            refresh();
+        }
+    });
+    ['input', 'change'].forEach(event => {
+        fax.addEventListener(event, () => { fax.dataset.edited = 'true'; });
+        name.addEventListener(event, () => { name.dataset.edited = 'true'; });
+    });
+    document.getElementById('remoteFaxOptions').addEventListener('toggle', () => { refreshOptions(); refresh(); });
+    document.addEventListener('change', event => {
+        if (['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) refresh();
+    });
+    if (typeof setupFaxRecipientAutocomplete === 'function') {
+        setupFaxRecipientAutocomplete({contextPath: document.getElementById('context').value,
+            nameInputId: name.id, faxInputId: fax.id, dropdownId: 'remoteFaxSuggestions'});
+    }
+    refresh();
 }
 
 function showError(message) {

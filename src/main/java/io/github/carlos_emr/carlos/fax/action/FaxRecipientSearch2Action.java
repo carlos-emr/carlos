@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.fax.action;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceSpecialistsDao;
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
@@ -43,7 +45,7 @@ import org.apache.struts2.ServletActionContext;
 import java.util.List;
 
 /**
- * GET-only JSON autocomplete endpoint returning combined pharmacy and specialist fax recipients.
+ * GET-only JSON autocomplete endpoint returning combined provider, pharmacy and specialist fax recipients.
  *
  * <p>Requires {@code _fax} read privilege. Returns up to {@value #MAX_RESULTS} results.
  *
@@ -72,6 +74,7 @@ public class FaxRecipientSearch2Action extends ActionSupport {
     private final transient PharmacyInfoDao pharmacyInfoDao = SpringUtils.getBean(PharmacyInfoDao.class);
     private final transient ServiceSpecialistsDao serviceSpecialistsDao =
             SpringUtils.getBean(ServiceSpecialistsDao.class);
+    private final transient ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -109,6 +112,7 @@ public class FaxRecipientSearch2Action extends ActionSupport {
         ArrayNode results = objectMapper.createArrayNode();
         try {
             addSpecialistResults(term, results);
+            addProviderResults(term, results);
             addPharmacyResults(term, results);
         } catch (RuntimeException failure) {
             logger.warn("Fax recipient directory lookup failed ({})", failure.getClass().getSimpleName());
@@ -119,6 +123,20 @@ public class FaxRecipientSearch2Action extends ActionSupport {
 
         JSONUtil.jsonResponse(response, results.toString());
         return NONE;
+    }
+
+    private void addProviderResults(String term, ArrayNode results) {
+        int remaining = MAX_RESULTS - results.size();
+        if (remaining <= 0) return;
+        for (Object[] row : providerDao.searchFaxRecipients(term, remaining)) {
+            Provider provider = (Provider) row[0];
+            ObjectNode item = objectMapper.createObjectNode();
+            item.put("name", displayName(provider.getLastName(), provider.getFirstName()));
+            item.put("fax", (String) row[1]);
+            item.put("badge", "Provider");
+            item.put("type", "PROVIDER");
+            results.add(item);
+        }
     }
 
     /**

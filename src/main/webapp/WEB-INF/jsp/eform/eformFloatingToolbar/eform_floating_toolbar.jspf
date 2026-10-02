@@ -29,8 +29,7 @@
 
 --%>
 <%-- 
-	This is a navigation bar overlay that sits in an absolute position at the bottom of its
-	target window. 
+	This navigation bar follows the eForm content in document flow.
 	Imported solely into the eformsowform_data.jsp and eformadd_data.jsp pages. 
 --%>
 
@@ -56,7 +55,7 @@
 <div id="eform_floating_toolbar" class="no-print DoNotPrint d-print-none"
 	data-print-save-unedited-confirm="${carlos:forHtmlAttribute(printSaveUneditedConfirm)}">
 	<nav id="eform_floating_toolbar_nav" class="navbar bg-light no-print DoNotPrint d-print-none" data-bs-theme="light">
-		<form class="d-flex" >
+		<form class="d-flex" onsubmit="return false;">
 			<div class="input-group">
 		  		<input type="text" class="form-control" aria-label="Subject" name="remote_eform_subject" id="remote_eform_subject" placeholder="Subject" required/>
 		  			<button type="button" class="btn btn-primary" value="Save" name="remoteSubmitButton" title="Save only" id="remoteSubmitButton" onclick="remoteSaveOnly()" >
@@ -67,6 +66,16 @@
 			   			<span class="btn-label"><i class="fa-solid fa-print"></i></span>
 			   			Print
 			   		</button>
+                    <details id="remotePrintOptions">
+                        <summary class="btn btn-secondary" aria-label="PDF options" title="PDF options">&#9662;</summary>
+                        <div class="eform-options">
+                            <button type="button" class="btn btn-light" id="remotePrintPdfButton" onclick="remotePrintOnly()">Print Only PDF</button>
+                            <small class="d-block">Prints the current page without saving to the chart. Choose Save as PDF in the print dialog.</small>
+                            <button type="button" class="btn btn-light" id="remoteSavePdfButton" onclick="remoteDownload()">Save PDF Only</button>
+                            <small class="d-block">Save PDF Only saves the eForm to the chart before downloading.</small>
+                        </div>
+                    </details>
+
 					<button type="button" class="btn btn-secondary" id="remoteDownloadButton" name="remoteDownloadButton" value="Download" title="Save and Download" onclick="remoteDownload()">
 			   			<span class="btn-label"><i class="fa-solid fa-download"></i></span>
 			   			Download
@@ -79,6 +88,22 @@
 					</button>
 					
 		
+                    <details id="remoteFaxOptions">
+                        <summary class="btn btn-secondary" aria-label="Fax recipient options" title="Fax recipient options">&#9662;</summary>
+                        <div class="eform-options">
+                            <label for="remoteFaxFromForm">eForm recipients</label>
+                            <select class="form-select" id="remoteFaxFromForm"></select>
+                            <label for="remoteFaxRecipient">Provider / specialist or recipient name</label>
+                            <div class="fax-search">
+                                <input type="text" class="form-control" id="remoteFaxRecipient" placeholder="Search by name or specialty">
+                                <div id="remoteFaxSuggestions" class="fax-ac-dropdown"></div>
+                            </div>
+                            <label for="remoteFaxNumber">Fax number</label>
+                            <input type="tel" class="form-control" id="remoteFaxNumber" placeholder="Enter a fax number">
+                            <small>The eForm's selected fax number is used until you choose or enter another.</small>
+                        </div>
+                    </details>
+
 			   		<button type="button" class="btn btn-secondary" id="remoteSaveEdocumentButton" name="saveEdocumentButton" value="eDocument" title="Save and then save as PDF" onclick="remoteEdocument()">
 			   			<span class="btn-label"><i class="fa-solid fa-file-import"></i></span>
 			   			Add to Documents
@@ -104,14 +129,14 @@
 		</form>
 		
   		<div>
-		  		<button type="button" class="btn btn-link" id="closeToolbarButton" name="closeToolbarButton" title="Close this toolbar" onclick="closeToolbar()">
-		   			<span class="btn-label"><i class="fa-solid fa-chevron-right"></i></span>
+					<button type="button" class="btn btn-link" id="closeToolbarButton" name="closeToolbarButton" title="Hide toolbar" aria-label="Hide toolbar" onclick="closeToolbar()">
+						<span aria-hidden="true">&#9652;</span>
 		   		</button>
 		</div>
 	</nav>
-	<div class="no-print DoNotPrint d-print-none" style="border-top: #e7e7e7 thin solid;position: fixed;right: 0;bottom: 0;border-left: #e7e7e7 thin solid;background-color: #ccc;padding-right: 25px;">
+	<div class="no-print DoNotPrint d-print-none" style="border-top: #e7e7e7 thin solid;background-color: #eee;">
 			<button type="button" style="display:none;" class="btn btn-link" id="openToolbarButton" name="openToolbarButton" title="Open toolbar" onclick="openToolbar()">
-				<span class="btn-label"><i class="fa-solid fa-chevron-left"></i></span>
+				Show toolbar
 			</button>
 	</div>
 	<div id="attachDocumentDisplay" style="display:none;"></div>

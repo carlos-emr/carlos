@@ -87,6 +87,7 @@ test('the asynchronously loaded toolbar receives the current subject after its i
   let remote;
   const subject = {value: 'Saved & "quoted" subject'};
   const context = vm.createContext({
+    Node: {TEXT_NODE: 3},
     document: {
       forms: [{elements: {subject}}],
       getElementById: () => remote,
@@ -94,6 +95,7 @@ test('the asynchronously loaded toolbar receives the current subject after its i
     },
     XMLHttpRequest: function () { request = this; this.open = () => {}; this.send = () => {}; },
     hideAdminPreviewSaveButton() {}, handleEmailPrivilege() {},
+    initializeFaxRecipient() {}, positionToolbarAfterForm() {},
     jQuery: () => ({empty: () => ({append() {}}), length: 0}),
   });
   vm.runInContext(include + reverse, context);
