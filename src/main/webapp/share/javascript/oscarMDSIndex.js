@@ -57,10 +57,12 @@ async function refreshMatchedLabPanel(labNo, patientPanel) {
     try {
         const standalone = window.location.pathname.endsWith('/lab/CA/ALL/ViewLabDisplay');
         const provider = typeof providerNo === 'string' ? providerNo : '';
+        const searchProvider = patientPanel.getAttribute('data-search-provider-no');
         const url = standalone
             ? contextpath + '/lab/CA/ALL/ViewLabDisplay' + window.location.search
             : contextpath + '/lab/CA/ALL/ViewLabDisplayAjax?segmentID=' + encodeURIComponent(labNo)
-                + '&providerNo=' + encodeURIComponent(provider);
+                + '&providerNo=' + encodeURIComponent(provider)
+                + (searchProvider === null ? '' : '&searchProviderNo=' + encodeURIComponent(searchProvider));
         const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
         if (!response.ok) throw new Error('Lab view refresh failed');
         const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');

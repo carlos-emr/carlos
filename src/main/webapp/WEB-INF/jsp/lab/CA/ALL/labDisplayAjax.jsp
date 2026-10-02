@@ -564,7 +564,8 @@
                                                     <td valign="top" align="left">
                                                         <table width="100%" border="0" cellpadding="2" cellspacing="0"
                                                                valign="top"  <% if (demographicID.equals("") || demographicID.equals("0")) { %>
-                                                               bgcolor="orange" <% } %> id="DemoTable<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>">
+                                                               bgcolor="orange" <% } %> id="DemoTable<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
+                                                               <% if (searchProviderNo != null) { %>data-search-provider-no="<carlos:encode value='<%= searchProviderNo %>' context="htmlAttribute"/>"<% } %>>
                                                             <tr>
                                                                 <td nowrap>
                                                                     <div class="FieldData">

@@ -153,6 +153,23 @@ async function workflow(s) {
     await inlineLab.locator(`#DemoTable${labNo}`).waitFor({ timeout: TIMEOUT });
     h.assert(await inlineLab.locator(`#DemoTable${labNo}`).evaluate(el => getComputedStyle(el).backgroundColor) !== 'rgb(255, 255, 255)',
       'The inline unmatched lab is not highlighted before matching');
+    // Keep an owned inline patient panel outside the list's independently refreshed
+    // container to exercise the Inbox Hub host's actual shared listener.
+    await inbox.evaluate(async ({ id, provider }) => {
+      if (window.providerNo !== provider) throw new Error('Inbox Hub provider context is missing');
+      const response = await fetch(window.contextpath + '/lab/CA/ALL/ViewLabDisplayAjax?segmentID=' + id
+        + '&providerNo=' + encodeURIComponent(provider));
+      if (!response.ok) throw new Error('Inbox Hub lab fixture failed');
+      const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
+      const panel = document.createElement('div');
+      panel.id = 'ownedInboxLabMatchPanel';
+      for (const key of ['DemoTable', 'labNextAppointment']) {
+        const element = parsed.getElementById(key + id);
+        if (!element) throw new Error('Missing inline lab markup: ' + key);
+        panel.appendChild(document.importNode(element, true));
+      }
+      document.body.appendChild(panel);
+    }, { id: labNo, provider: s.provider });
     matching = await ui.clickOpensPopup(lab, lab.locator('input[value*="E-Chart"]').first(), { context, recorder, label: 'patient-link-match', timeout: TIMEOUT });
     await matching.locator('#keyword').waitFor({ timeout: TIMEOUT });
     h.assert((await matching.locator('#keyword').inputValue()).includes(labName), 'The matching popup is not prefilled with the lab\'s patient name');
@@ -172,7 +189,7 @@ async function workflow(s) {
     h.assert(post.status() === 200, `Patient Match answered HTTP ${post.status()}`);
     await expectValue(sql, `SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${labNo}`, patient,
       'Picking the patient did not link the lab to the owned patient');
-    for (const view of [lab, inlineLab]) {
+    for (const view of [lab, inlineLab, inbox]) {
       await view.locator(`#labNextAppointment${labNo}`).filter({ hasText: '2099-04-17' }).waitFor({ timeout: TIMEOUT });
     }
     // Read now, before the named lab window is reused below, and asserted in the last step.
@@ -188,6 +205,9 @@ async function workflow(s) {
     // updateLabDemoStatus() (labDisplay.jsp:443) is what the matching popup calls on its opener: it whitens the patient box.
     openerUpdated = !lab.isClosed() && await lab.locator(`#DemoTable${labNo}`).evaluate(el => getComputedStyle(el).backgroundColor).catch(() => '') === 'rgb(255, 255, 255)';
     await inlineLab.waitForFunction(id => getComputedStyle(document.getElementById('DemoTable' + id)).backgroundColor === 'rgb(255, 255, 255)', labNo);
+    await inbox.locator('#ownedInboxLabMatchPanel').evaluate(el => el.remove());
+    h.assert(await inlineLab.locator(`#DemoTable${labNo} a[href*="SearchPatient"]`).count() > 0,
+      'Refreshed inline patient panel lost its patient matching link');
     await inlineLab.close();
     await lab.close();
   });

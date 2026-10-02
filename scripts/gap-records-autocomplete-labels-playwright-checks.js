@@ -8,6 +8,10 @@ const { runWorkflow } = require('./lib/workflow-session');
 
 async function workflow(s) {
   prepareIncomingFilingProgram(s);
+  const hostileName = '<b>Owned</b>';
+  s.cleanup(() => s.sql.execute(`UPDATE demographic SET first_name='Workflow'
+    WHERE demographic_no=${s.patient} AND last_name=${h.sqlString(s.marker)} AND first_name=${h.sqlString(hostileName)}`));
+  s.sql.execute(`UPDATE demographic SET first_name=${h.sqlString(hostileName)} WHERE demographic_no=${s.patient}`);
   const page = await s.context.newPage();
   await h.gotoApp(page, s.config.baseUrl, '/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAdd');
   await h.assertNotErrorPage(page, 'flowsheet creation');
@@ -41,6 +45,10 @@ async function workflow(s) {
       await row.waitFor({ state: 'visible' });
       h.assert(await row.locator('span.match').count() > 0, 'The match highlight was rendered as literal HTML');
       h.assert(!(await row.innerText()).includes('<span'), 'Suggestion contains literal formatting markup');
+      if (scope === 'patient') {
+        h.assert((await row.innerText()).includes(hostileName), 'Patient name markup was not preserved as text');
+        h.assert(await row.locator('b').count() === 0, 'Patient name injected an HTML element');
+      }
       await row.click();
       const selected = scope === 'patient' ? await page.locator(selectedId).inputValue()
         : await page.locator(`${selectedId} option`).last().getAttribute('value');

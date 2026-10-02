@@ -21,9 +21,10 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `Inboxhub.jsp` for the CARLOS EMR workflow.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
+  Purpose: Render the provider Inbox Hub and its document/lab review controls.
+  Features: Search, paging, previews, and live patient-match refresh.
+  Parameters: scheduleNav optionally includes the schedule navigation.
+  @since 2026.08
 --%>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
@@ -66,7 +67,11 @@
     <script src="${pageContext.request.contextPath}/library/dompurify/purify.min.js"></script>
     <script src="${pageContext.request.contextPath}/js/documentImageLoader.js"></script>
     <%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
-<script src="${pageContext.request.contextPath}/share/javascript/oscarMDSIndex.js"></script>
+    <script>
+        var contextpath = "<carlos:encode value='${pageContext.request.contextPath}' context="javaScript"/>";
+        var providerNo = "<carlos:encode value='${sessionScope.user}' context="javaScript"/>";
+    </script>
+    <script src="${pageContext.request.contextPath}/share/javascript/oscarMDSIndex.js"></script>
     <title><fmt:message key="inboxhub.title"/></title>
 </head>
 <body>

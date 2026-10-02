@@ -154,9 +154,10 @@ public class PatientMatch2Action extends ActionSupport {
     @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Accept selects response format only; POST and _lab write authorization are independently enforced before matching")
     private boolean explicitlyAcceptsJson() {
         try {
+            // MediaType normalizes both tokens with Locale.ROOT during construction.
             return MediaType.parseMediaTypes(request.getHeader("Accept")).stream()
-                    .anyMatch(type -> "application".equalsIgnoreCase(type.getType())
-                            && "json".equalsIgnoreCase(type.getSubtype()) && type.getQualityValue() > 0);
+                    .anyMatch(type -> "application".equals(type.getType())
+                            && "json".equals(type.getSubtype()) && type.getQualityValue() > 0);
         } catch (IllegalArgumentException e) {
             // A malformed preference header must not turn an already saved match into a failure.
             return false;
