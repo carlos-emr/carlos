@@ -478,15 +478,39 @@ class ArchiveTest(TempEnv):
         foreign = self.cfg.inbox_dir / "Jane Doe 1234567890.xml"
         foreign.write_bytes(b"<HL7Messages/>")
         (self.cfg.inbox_dir / "Jane Doe 1234567890.xml.attempts").write_text("2 run")
+        self.assertEqual(archive.inbox_files(), [pulled])  # never listed under its own name
         with self.assertLogs(ep.log, level="WARNING") as captured:
-            self.assertEqual(archive.admit_foreign_files("20261001-090500"), 1)
+            self.assertEqual(archive.admit_foreign_files("20261001-090500"), (1, 0))
         self.assertTrue(pulled.exists())
         self.assertFalse(foreign.exists())
         admitted = self.cfg.inbox_dir / "20261001-090500-manual.xml"
         self.assertTrue(admitted.exists())
         self.assertEqual(archive.attempts(admitted), 2)  # sidecar moved with the file
         self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
-        self.assertEqual(archive.admit_foreign_files("20261001-090600"), 0)  # idempotent
+        self.assertEqual(archive.admit_foreign_files("20261001-090600"), (0, 0))  # idempotent
+
+    def test_rename_failure_names_no_file_and_keeps_the_pair(self):
+        archive = ep.Archive(self.cfg)
+        foreign = self.cfg.inbox_dir / "Jane Doe 1234567890.xml"
+        foreign.write_bytes(b"<HL7Messages/>")
+        sidecar = self.cfg.inbox_dir / "Jane Doe 1234567890.xml.attempts"
+        sidecar.write_text("2 run")
+        real_rename = os.rename
+
+        def failing_rename(src, dst):
+            if str(src).endswith(".xml"):
+                raise OSError(13, "Permission denied", str(src))
+            real_rename(src, dst)
+
+        with mock.patch.object(ep.os, "rename", failing_rename):
+            with self.assertLogs(ep.log, level="ERROR") as captured:
+                self.assertEqual(archive.admit_foreign_files("20261001-090500"), (0, 1))
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        self.assertIn("errno 13", captured.output[0])
+        self.assertTrue(foreign.exists())
+        self.assertTrue(sidecar.exists())  # moved back beside its file
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*-manual*")), [])
+        self.assertEqual(archive.inbox_files(), [])  # and not sent under its own name
 
     def test_same_run_id_twice_does_not_overwrite(self):
         archive = ep.Archive(self.cfg)
@@ -869,6 +893,24 @@ class OrchestrationTest(_OrchestrationBase):
         self.assertNotIn("excelleris:ack:Positive", self.labels())
         self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
         self.assertNotIn("POST /carlos/lab/newLabUpload", self.labels())
+
+    def test_unrenamable_hand_placed_file_is_reported_without_its_name(self):
+        ep.Archive(self.cfg)
+        (self.cfg.inbox_dir / "Jane Doe 1234567890.xml").write_bytes(PULL_WITH_RESULTS)
+        real_rename = os.rename
+
+        def failing_rename(src, dst):
+            if "Jane" in str(src):
+                raise OSError(13, "Permission denied", str(src))
+            real_rename(src, dst)
+
+        with mock.patch.object(ep.os, "rename", failing_rename):
+            with self.assertLogs(ep.log, level="DEBUG") as captured:
+                rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)  # alerted: a file was not sent
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload"), 1)  # the pull only
+        self.assertTrue((self.cfg.inbox_dir / "Jane Doe 1234567890.xml").exists())
 
     def test_excelleris_down_is_a_reported_failure_not_a_crash(self):
         self.script["excelleris:login"] = ep.TransportError("connect timed out")

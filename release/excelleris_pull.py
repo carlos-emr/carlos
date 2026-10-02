@@ -1276,8 +1276,16 @@ class Archive:
         return target
 
     def inbox_files(self) -> list[Path]:
-        """Oldest first, so a backlog is uploaded in the order it was pulled."""
-        return sorted(p for p in self.cfg.inbox_dir.glob("*.xml") if p.is_file())
+        """Oldest first, so a backlog is uploaded in the order it was pulled.
+
+        Only names this tool generated: a file placed here by hand is listed
+        once ``admit_foreign_files`` has renamed it, never under its own name.
+        """
+        return sorted(
+            p
+            for p in self.cfg.inbox_dir.glob("*.xml")
+            if p.is_file() and self._GENERATED_NAME.match(p.name)
+        )
 
     def _unique(self, directory: Path, name: str) -> Path:
         """A path in ``directory`` that does not exist yet.
@@ -1412,29 +1420,56 @@ class Archive:
     # _unique add. Only such names are ever quoted in a log or an alert.
     _GENERATED_NAME = re.compile(r"^\d{8}-\d{6}(-manual)?(-\d+)*\.xml$")
 
-    def admit_foreign_files(self, run_id: str) -> int:
-        """Rename inbox files this tool did not name to a run-id name; return how many.
+    def admit_foreign_files(self, run_id: str) -> tuple[int, int]:
+        """Rename inbox files this tool did not name to a run-id name.
 
-        A file placed in ``inbox/`` by hand is uploaded like a pull, and its
-        name is then quoted in log lines and alert mail. A name chosen by a
-        person may carry a patient's name or number, so the file (and any
-        attempt sidecar with it) is renamed first and the original name is
-        never logged. Call this with the run lock held.
+        Returns ``(admitted, unadmitted)``. A file placed in ``inbox/`` by
+        hand is uploaded like a pull, and its name is then quoted in log
+        lines and alert mail. A name chosen by a person may carry a patient's
+        name or number, so the file (and any attempt sidecar with it) is
+        renamed first and the original name is never logged: ``inbox_files``
+        lists only tool-made names, so a file that could not be renamed is
+        not sent either, and an ``OSError`` here (whose text would quote the
+        pathname) is reported by its errno text alone. The sidecar moves
+        first and is moved back if the file cannot follow, so the pair stays
+        together either way. Call this with the run lock held.
         """
-        renamed = 0
-        for path in self.inbox_files():
-            if self._GENERATED_NAME.match(path.name):
-                continue
+        admitted = unadmitted = 0
+        for path in self._foreign_files():
             dest = self._unique(self.cfg.inbox_dir, f"{run_id}-manual.xml")
             sidecar = self._attempts_file(path)
-            os.rename(path, dest)
-            if sidecar.exists():
-                os.rename(sidecar, self._attempts_file(dest))
-            renamed += 1
+            dest_sidecar = self._attempts_file(dest)
+            try:
+                had_sidecar = sidecar.exists()
+                if had_sidecar:
+                    os.rename(sidecar, dest_sidecar)
+                try:
+                    os.rename(path, dest)
+                except OSError:
+                    if had_sidecar:
+                        os.rename(dest_sidecar, sidecar)  # keep the pair together
+                    raise
+            except OSError as exc:
+                unadmitted += 1
+                log.error(
+                    "a file placed in the inbox by hand could not be renamed (%s, errno %s); "
+                    "it is not sent until it can be",
+                    exc.strerror or "OS error",
+                    exc.errno,
+                )
+                continue
+            admitted += 1
             log.warning("admitted a file placed in the inbox by hand as %s", dest.name)
-        if renamed:
+        if admitted:
             self._fsync_dir(self.cfg.inbox_dir)
-        return renamed
+        return admitted, unadmitted
+
+    def _foreign_files(self) -> list[Path]:
+        return sorted(
+            p
+            for p in self.cfg.inbox_dir.glob("*.xml")
+            if p.is_file() and not self._GENERATED_NAME.match(p.name)
+        )
 
     def sweep_leftovers(self) -> int:
         """Remove temp files a killed run left in inbox/ and say how many.
@@ -2290,13 +2325,18 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
             VERSION,
             cfg.excelleris_context,
         )
+        failures: list[str] = []
         if opts.dry_run:  # a dry run touches no data: say what a real run would remove
             archive.report_leftovers()
         else:
             # Under the lock: nothing else is writing inbox/.
             archive.sweep_leftovers()
-            archive.admit_foreign_files(run_id)
-        failures: list[str] = []
+            _, unadmitted = archive.admit_foreign_files(run_id)
+            if unadmitted:
+                failures.append(
+                    f"{unadmitted} file(s) placed in the inbox by hand could not be renamed "
+                    "and were not sent; see the log"
+                )
         # Retry first: a backlog from a CARLOS outage goes in before new work.
         if not opts.no_upload and not opts.dry_run:
             failures += upload_step(cfg, archive, run_token, opts, make_transport)
