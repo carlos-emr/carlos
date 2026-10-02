@@ -36,8 +36,8 @@ const fixture = (owned = false, withList = false, newFormVariant = '', subjectVa
 <link rel="stylesheet" href="/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css">
 </head><body><form name="saveEForm" action="/eform/addEForm" method="post"${newFormVariant === 'named' ? ' data-carlos-newform-default="true"' : ''}>
 <input id="context" value="" type="hidden"><input id="fid" value="1" type="hidden">
-<input id="demographicNo" value="1" type="hidden"><label for="subject">Subject</label>
-<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : subjectVariant === 'readonly-textbox' ? ' type="textbox" readonly' : ''}></span>
+<input id="demographicNo" value="1" type="hidden">${subjectVariant === 'required-hidden' ? '' : '<label for="subject">Subject</label>'}
+<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : subjectVariant === 'readonly-textbox' ? ' type="textbox" readonly' : subjectVariant === 'required-hidden' ? ' type="hidden"' : ''}></span>
 ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : ''}
 ${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option><option value="">No list recipient</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
@@ -556,6 +556,13 @@ const server = http.createServer((req, res) => {
     assert.equal(requests.length, 1);
     // An unknown type such as "textbox" is a text field to the browser, so readonly applies.
     await open(false, false, false, 'readonly-textbox');
+    await page.locator('#remote_eform_subject').fill('');
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    // required is ignored on an authored hidden subject (a hidden input is never
+    // constraint-validated and has no label), so it must not block the toolbar's save.
+    await open(false, false, false, 'required-hidden');
     await page.locator('#remote_eform_subject').fill('');
     await page.locator('#remoteSubmitButton').click();
     await page.waitForURL('**/eform/addEForm');
