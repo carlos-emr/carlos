@@ -86,6 +86,16 @@ public interface EFormDataDao extends AbstractDao<EFormData> {
 
     public List<EFormData> findByFidsAndDates(TreeSet<Integer> fids, Date dateStart, Date dateEnd);
 
+    /**
+     * Finds current field-note IDs for one resident without loading other residents' values.
+     *
+     * @param fids selected field-note template IDs
+     * @param dateStart inclusive start of the report interval
+     * @param dateEnd exclusive end of the report interval
+     * @param residentId resident recorded in the note's residentId value
+     * @return distinct matching IDs; empty for missing/empty templates, a null/blank resident,
+     *         or no matches; never null
+     */
     List<Integer> findFieldNoteIdsForResident(TreeSet<Integer> fids, Date dateStart, Date dateEnd, String residentId);
 
     public List<EFormData> findByFdids(List<Integer> ids);

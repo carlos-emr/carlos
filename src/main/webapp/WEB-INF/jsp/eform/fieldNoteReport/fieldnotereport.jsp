@@ -29,6 +29,16 @@
 
 --%>
 
+<%--
+    Field Note administration summary: lists resident note counts and supervisor totals
+    from request-local report state. The view gate requires _admin.fieldnote read access;
+    only writers receive the eForm-selection control.
+    Parameters: date_start and date_end are inclusive ISO calendar dates; omitted/empty
+    values use the displayed defaults. Invalid or reversed dates show a warning without
+    querying reports. View and Download submit the selected resident and date interval.
+    @since 2026-10-02 (request-local reporting and strict date validation)
+--%>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteDateRange" %>
 <%@ page import="java.util.*, java.text.*" %>

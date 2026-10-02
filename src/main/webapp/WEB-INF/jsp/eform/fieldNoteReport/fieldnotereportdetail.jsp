@@ -29,6 +29,16 @@
 
 --%>
 
+<%--
+    Field Note resident detail: displays counts and note contents, or downloads the same
+    report as a Word-compatible document. The view gate requires _admin.fieldnote read
+    access. Only the requested resident's current notes are loaded for this request.
+    Parameters: residentId identifies the resident; residentName labels the report;
+    method=download selects an attachment (otherwise render the view); date_start and
+    date_end are required inclusive ISO calendar dates. Invalid/reversed dates return 400.
+    @since 2026-10-02 (request-local resident reporting and strict date validation)
+--%>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EFormValue" %>
 <%@ page import="java.util.*" %>

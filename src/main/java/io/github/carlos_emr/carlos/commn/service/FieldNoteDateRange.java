@@ -7,8 +7,22 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Date;
 
-/** Strict, inclusive calendar dates converted to an exclusive database query interval. */
+/**
+ * Strict, inclusive calendar dates converted to a database query interval.
+ *
+ * @param start inclusive start instant
+ * @param endExclusive start of the day following the requested last day
+ * @since 2026-10-02
+ */
 public record FieldNoteDateRange(Instant start, Instant endExclusive) {
+    /**
+     * Parses ISO calendar dates in the server's default time zone.
+     *
+     * @param startText first included date, in ISO yyyy-MM-dd format
+     * @param endText last included date, in ISO yyyy-MM-dd format
+     * @return inclusive start and exclusive end instants, including the entire last day
+     * @throws IllegalArgumentException for missing, malformed, impossible, or reversed dates
+     */
     public static FieldNoteDateRange parse(String startText, String endText) {
         if (startText == null || endText == null) {
             throw new IllegalArgumentException("Missing report dates");
@@ -25,10 +39,12 @@ public record FieldNoteDateRange(Instant start, Instant endExclusive) {
         }
     }
 
+    /** @return a new mutable Date representing the inclusive query start */
     public Date startDate() {
         return Date.from(start);
     }
 
+    /** @return a new mutable Date representing the exclusive query end */
     public Date endExclusiveDate() {
         return Date.from(endExclusive);
     }

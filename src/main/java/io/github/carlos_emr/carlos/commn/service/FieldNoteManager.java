@@ -147,7 +147,14 @@ public class FieldNoteManager {
         return supervisorResidentCountList;
     }
 
-    /** Load only the requested resident's current notes for a detail view or download. */
+    /**
+     * Replaces this instance's resident and supervisor report state with only the requested
+     * resident's current notes, using the clinic's selected field-note templates.
+     *
+     * @param residentId resident whose detail view or download is being prepared
+     * @param start inclusive start of the report interval
+     * @param endExclusive exclusive end of the report interval
+     */
     public void loadResidentReport(String residentId, Date start, Date endExclusive) {
         residentFieldNotes.clear();
         supervisorFieldNotes.clear();
