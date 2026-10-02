@@ -48,6 +48,7 @@ import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.EnumSet;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDao;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.AttachmentSelectionAccess;
@@ -160,6 +161,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
     DemographicManager demographicManager;
 
     @Autowired
+    private DemographicDao demographicDao;
+
+    @Autowired
     private DocumentManager documentManager;
 
     @Autowired
@@ -219,6 +223,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
     public ConsultationRequestTo1 getRequest(@QueryParam("requestId") Integer requestId, @QueryParam("demographicId") Integer demographicId, @DefaultValue("false") @QueryParam("datesAsTimestamp") boolean datesAsTimestamp) {
         ConsultationRequestTo1 request = new ConsultationRequestTo1();
 
+        if (requestId == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
         if (requestId > 0) {
             ConsultationRequest stored = consultationManager.getRequest(getLoggedInInfo(), requestId);
             if (stored == null) {
@@ -268,6 +275,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getRequestAttachments(@QueryParam("requestId") Integer requestId, @QueryParam("demographicId") Integer demographicIdInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
+        if (requestId == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
         // Issue #3867: for a stored consultation the patient is the stored one, not the parameter,
         // and attached rows (looked up by consultation id alone) are listed only while they belong
         // to that patient, so a legacy foreign row is never returned.
@@ -322,7 +332,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getId() != null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Please use /updateConsultation service for existing consultations").build();
         }
-        if (data.getDemographicId() == null || data.getDemographicId() <= 0 || demographicManager.getDemographic(loggedInInfo, data.getDemographicId()) == null) {
+        if (data.getDemographicId() == null || data.getDemographicId() <= 0) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
+        }
+        requirePatientConsultWrite(loggedInInfo, data.getDemographicId(), SecurityInfoManager.WRITE);
+        // Existence only; DemographicManager would add a _demographic read gate (HTTP 500 on denial).
+        if (demographicDao.getDemographicById(data.getDemographicId()) == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
         }
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
@@ -366,7 +381,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
         if (data.getId() == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Please use /createConsultation service for new consultations").build();
         }
-        if (data.getDemographicId() == null || data.getDemographicId() <= 0 || demographicManager.getDemographic(loggedInInfo, data.getDemographicId()) == null) {
+        if (data.getDemographicId() == null || data.getDemographicId() <= 0) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
+        }
+        requirePatientConsultWrite(loggedInInfo, data.getDemographicId(), SecurityInfoManager.UPDATE);
+        // Existence only; DemographicManager would add a _demographic read gate (HTTP 500 on denial).
+        if (demographicDao.getDemographicById(data.getDemographicId()) == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid demographicId").build();
         }
         if (data.getReferralDate() == null || data.getServiceId() == null || data.getUrgency() == null || data.getStatus() == null) {
@@ -436,6 +456,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
     public ConsultationResponseTo1 getResponse(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNo) {
         ConsultationResponseTo1 response = new ConsultationResponseTo1();
 
+        if (responseId == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
         if (responseId > 0) {
             ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
             if (responseD == null) {
@@ -475,6 +498,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getResponseAttachments(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNoInt, @QueryParam("attached") boolean attached) {
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
+        if (responseId == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).build());
+        }
         // Same rule as getRequestAttachments (issue #3867): the stored response's patient, and
         // attached rows only while they belong to that patient.
         Integer ownerDemographicNo = demographicNoInt;
@@ -523,14 +549,29 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     private ConsultationResponseTo1 saveResponseInTransaction(ConsultationResponseTo1 data) {
         if (data == null) throw new IllegalArgumentException("Consultation response is required");
-        ConsultationResponse response = null;
-
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        ConsultationResponse stored = null;
+        Integer patient;
         if (data.getId() == null) { //new consultation response
-            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data);
+            patient = data.getDemographic() == null ? null : data.getDemographic().getDemographicNo();
         } else {
-            response = responseConverter.getAsDomainObject(getLoggedInInfo(), data, consultationManager.getResponse(getLoggedInInfo(), data.getId()));
+            stored = consultationManager.getResponse(loggedInInfo, data.getId());
+            if (stored == null) throw new IllegalArgumentException("Consultation response is unavailable");
+            // The stored patient owns the response; the converter rejects a different submitted one.
+            patient = stored.getDemographicNo();
         }
-        consultationManager.saveConsultationResponse(getLoggedInInfo(), response);
+        if (patient == null || patient <= 0) throw new IllegalArgumentException("Invalid consultation response patient");
+        requirePatientConsultWrite(loggedInInfo, patient, stored == null ? SecurityInfoManager.WRITE : SecurityInfoManager.UPDATE);
+        // Existence only: DemographicManager.getDemographic would add its own _demographic read
+        // check and fail with a plain RuntimeException (HTTP 500) after the checks above passed.
+        if (demographicDao.getDemographicById(patient) == null) {
+            throw new IllegalArgumentException("Unknown consultation response patient");
+        }
+
+        ConsultationResponse response = stored == null
+                ? responseConverter.getAsDomainObject(loggedInInfo, data)
+                : responseConverter.getAsDomainObject(loggedInInfo, data, stored);
+        consultationManager.saveConsultationResponse(loggedInInfo, response);
         if (data.getId() == null) data.setId(response.getId());
 
         //save attachments
@@ -1044,6 +1085,19 @@ public class ConsultationWebService extends AbstractServiceImpl {
             attachment.setLabType(LabAttachmentReference.resolve(value, patient, patientLabRoutingDao).source());
         }
         return restricted;
+    }
+
+    /**
+     * Requires patient-scoped consultation write/update rights and chart access before a REST save
+     * touches that patient's consultation. The manager only checks the role-level privilege.
+     *
+     * @throws SecurityException mapped by the save endpoints to HTTP 403
+     */
+    private void requirePatientConsultWrite(LoggedInInfo loggedInInfo, int demographicNo, String privilege) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", privilege, demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
     }
 
     private void requirePatientConsultRead(Integer demographicNo) {
