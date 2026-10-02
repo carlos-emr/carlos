@@ -126,7 +126,7 @@
                 </td>
                 <td nowrap align='center'>
                     <a href="#" title="<fmt:message key="admin.fieldNote.unselectEform"/>"
-                       onclick="remove_select(<%=fieldNoteEform.getId()%>);"><fmt:message key="admin.fieldNote.unselect"/></a>
+                       onclick="remove_select(<%=fieldNoteEform.getId()%>); return false;"><fmt:message key="admin.fieldNote.unselect"/></a>
                 </td>
             </tr>
             <%
