@@ -219,18 +219,18 @@ public final class EmbeddedLabDocumentLoader {
                 // check, since the lenient decoder that full decode falls back to accepts any
                 // input and yields the same leading bytes as the capped prefix.
                 if (hex && !isDecodableHex(compact)) {
-                    return notPdf(encoding, compact, payload, 0, resultFallback);
+                    return notPdf(encoding, payload, 0, resultFallback);
                 }
                 long headSize = decode(compact, hex, head, null, true);
                 if (headSize < PDF_SIGNATURE.length || !isPdf(head)) {
-                    return notPdf(encoding, compact, payload, headSize < 0 ? 0 : estimated, resultFallback);
+                    return notPdf(encoding, payload, headSize < 0 ? 0 : estimated, resultFallback);
                 }
                 return new Classified(Status.TOO_LARGE, estimated, null, false);
             }
         }
         long size = decode(compact, hex, head, null, false);
         if (size < PDF_SIGNATURE.length || !isPdf(head)) {
-            return notPdf(encoding, compact, payload, Math.max(size, 0), resultFallback);
+            return notPdf(encoding, payload, Math.max(size, 0), resultFallback);
         }
         if (maxBytes > 0 && size > maxBytes) {
             return new Classified(Status.TOO_LARGE, size, null, false);
@@ -277,9 +277,11 @@ public final class EmbeddedLabDocumentLoader {
      * Otherwise it is undisplayable binary (an image, say): an undeclared, base64-shaped ED.5
      * cannot be told from encoded bytes.
      */
-    private static Classified notPdf(String encoding, String compact, String payload, long sizeBytes,
+    private static Classified notPdf(String encoding, String payload, long sizeBytes,
             boolean resultFallback) {
-        if (encoding == null && (resultFallback || !isBase64Shaped(compact))) {
+        // The shape rule reads the payload as sent: spaces between words mark text, and the
+        // compact form has them stripped.
+        if (encoding == null && (resultFallback || !isBase64Shaped(payload))) {
             return new Classified(Status.TEXT, payload.length(), null, false);
         }
         return new Classified(Status.NOT_PDF, sizeBytes, null, false);
@@ -299,14 +301,11 @@ public final class EmbeddedLabDocumentLoader {
         return true;
     }
 
-    /**
-     * Whether {@code compact} has the shape of strict standard base64: only alphabet characters,
-     * a length that is a multiple of four, and at most two {@code =} only at the end.
-     */
-    static boolean isBase64Shaped(String compact) {
+    /** See {@link EdObservationValue#isBase64Shaped(String)}. */
+    static boolean isBase64Shaped(String payload) {
         // One rule, shared with MessageHandler#getOBXEmbeddedDocumentText, so a payload classed
         // TEXT here is the text the views then show.
-        return EdObservationValue.isBase64Shaped(compact);
+        return EdObservationValue.isBase64Shaped(payload);
     }
 
     /** Whether the bytes start with the PDF signature {@code %PDF-}. */

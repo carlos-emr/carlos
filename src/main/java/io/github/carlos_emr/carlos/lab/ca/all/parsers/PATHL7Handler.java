@@ -578,6 +578,31 @@ public class PATHL7Handler implements MessageHandler {
         return false;
     }
 
+    /**
+     * The legacy PDF shape ({@link #isLegacy(int, int)}: identifier {@code PDF}, payload in ED.1,
+     * ED.2 to ED.5 empty) is this handler's OBX-5.1 fallback: the loader reads it through
+     * {@link #getLegacyOBXResult(int, int)}, and a non-PDF value there is the sender's text, shown
+     * whatever its shape. Other ED values are read from ED.5 (or, for CELLPATHR, from an ED.1
+     * declared as text) and keep the default answer.
+     */
+    @Override
+    public boolean isOBXEmbeddedDocumentResultFallback(int i, int j) {
+        return isOBXEmbeddedDocument(i, j) && isLegacy(i, j);
+    }
+
+    /**
+     * For the legacy shape, the ED.1 text the loader classified, normalised like the other result
+     * accessors; {@link #getOBXResult(int, int)} reads ED.5 there and would return nothing.
+     */
+    @Override
+    public String getOBXEmbeddedDocumentText(int i, int j) {
+        if (isOBXEmbeddedDocumentResultFallback(i, j)) {
+            String legacy = getLegacyOBXResult(i, j);
+            return legacy == null ? "" : EdObservationValue.normaliseText(legacy);
+        }
+        return MessageHandler.super.getOBXEmbeddedDocumentText(i, j);
+    }
+
     public String getLegacyOBXResult(int i, int j) {
         try {
             if ("ED".equals(getOBXValueType(i, j))) {

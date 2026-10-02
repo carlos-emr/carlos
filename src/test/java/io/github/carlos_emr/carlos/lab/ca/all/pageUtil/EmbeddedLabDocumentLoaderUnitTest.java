@@ -320,6 +320,43 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should treat base64 the decoder reads, URL-safe or unpadded, as binary and worded text as text")
+    void shouldMatchDecoderAlphabet_forBase64Shape() {
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("-_8A")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJ")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJDQ")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJD\r\nQUJD")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("Specimen received")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJ=")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QU=")).isFalse();
+
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, (byte) 0xFB, (byte) 0xFF};
+        String urlSafe = Base64.getUrlEncoder().withoutPadding().encodeToString(png);
+        assertThat(urlSafe).containsAnyOf("-", "_").doesNotContain("=");
+        assertThat(EmbeddedLabDocumentLoader.inspect(handlerReturning(urlSafe, null), 0, 0, 0).status()).isEqualTo(Status.NOT_PDF);
+        assertThat(EmbeddedLabDocumentLoader.inspect(handlerReturning("Specimen received", null), 0, 0, 0).status()).isEqualTo(Status.TEXT);
+    }
+
+    @Test
+    @DisplayName("should show legacy PATHL7 ED.1 text, base64-shaped or not, as the text the views print")
+    void shouldClassifyLegacyPathL7Text_asTextWithItsValue() throws Exception {
+        PATHL7Handler worded = pathL7(withEdValue("Report to follow\\.br\\see note."));
+        PATHL7Handler shaped = pathL7(withEdValue("NONE"));
+
+        assertThat(worded.isLegacy(1, 0)).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.inspect(worded, 1, 0, 0).status()).isEqualTo(Status.TEXT);
+        assertThat(worded.getOBXEmbeddedDocumentText(1, 0)).isEqualTo("Report to follow<br />see note.");
+        assertThat(EmbeddedLabDocumentLoader.inspect(shaped, 1, 0, 0).status()).isEqualTo(Status.TEXT);
+        assertThat(shaped.getOBXEmbeddedDocumentText(1, 0)).isEqualTo("NONE");
+        // A legacy PDF in ED.1 is still the PDF.
+        assertThat(EmbeddedLabDocumentLoader.inspect(pathL7(withEdValue(PDF_BASE64)), 1, 0, 0).status()).isEqualTo(Status.PDF);
+        // An undeclared base64-shaped ED.5 is not the legacy fallback and stays undisplayable.
+        PATHL7Handler undeclared = pathL7(withEdValue("^TEXT^^^" + "QUJD".repeat(30)));
+        assertThat(undeclared.isOBXEmbeddedDocumentResultFallback(1, 0)).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.inspect(undeclared, 1, 0, 0).status()).isEqualTo(Status.NOT_PDF);
+    }
+
+    @Test
     @DisplayName("should estimate the decoded size exactly for strict and lenient base64 and for hex")
     void shouldEstimateDecodedSize_fromEncodedLength() {
         for (int length = 0; length <= 7; length++) {

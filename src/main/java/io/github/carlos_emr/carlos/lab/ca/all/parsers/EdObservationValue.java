@@ -116,12 +116,20 @@ public final class EdObservationValue {
     }
 
     /**
-     * Whether a payload, ignoring whitespace, has the shape of strict standard base64: only
-     * alphabet characters, a length that is a multiple of four, and at most two {@code =} only at
-     * the end. Without a declared ED.4 encoding such a payload cannot be told from encoded bytes,
-     * so it is never treated as text; anything else undeclared is.
+     * Whether a payload has the shape of base64 as the loader's decoders accept it, so that
+     * without a declared ED.4 encoding it cannot be told from encoded bytes and is never treated
+     * as text; anything else undeclared is text.
      *
-     * @param payload the embedded-document payload; may contain whitespace
+     * <ul>
+     *   <li>Line breaks (senders wrap base64 at 76 or 80 columns) are ignored; any other
+     *       whitespace, such as the spaces between words, means text.</li>
+     *   <li>Characters are the standard or the URL-safe alphabet ({@code - _}), both of which
+     *       the lenient decoder reads, with at most two {@code =} only at the end.</li>
+     *   <li>Padded input is a multiple of four characters; unpadded input may stop short of one,
+     *       but never one character into a quantum, which encodes no byte.</li>
+     * </ul>
+     *
+     * @param payload the embedded-document payload, as sent
      * @return {@code true} when it is base64-shaped
      * @since 2026-10-02
      */
@@ -129,15 +137,19 @@ public final class EdObservationValue {
         if (payload == null) {
             return false;
         }
-        String compact = payload.replaceAll("\\s+", "");
+        String compact = payload.replaceAll("[\\r\\n]+", "").trim();
         int length = compact.length();
-        if (length == 0 || length % 4 != 0) {
+        if (length == 0) {
             return false;
         }
         int padding = compact.endsWith("==") ? 2 : compact.endsWith("=") ? 1 : 0;
+        if (padding > 0 ? length % 4 != 0 : length % 4 == 1) {
+            return false;
+        }
         for (int i = 0; i < length - padding; i++) {
             char c = compact.charAt(i);
-            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/')) {
+            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+                    || c == '+' || c == '/' || c == '-' || c == '_')) {
                 return false;
             }
         }
