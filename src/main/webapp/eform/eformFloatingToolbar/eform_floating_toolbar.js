@@ -351,12 +351,15 @@ function eFormValidationBlocked() {
 	// required subject that started empty blocks every save on a control the clinician cannot see.
 	if (templateSubject && toolbarSubject
 			&& (templateSubject.tagName === "TEXTAREA" || templateSubject.tagName === "SELECT")) {
-		templateSubject.value = toolbarSubject.value;
-		// A select takes only one of its options; any other toolbar text leaves it unselected. Its
-		// own message would go to a hidden control, so show it on the toolbar field instead.
-		if (templateSubject.tagName === "SELECT" && typeof templateSubject.checkValidity === "function"
-				&& !templateSubject.checkValidity() && typeof toolbarSubject.setCustomValidity === "function") {
-			toolbarSubject.setCustomValidity(templateSubject.validationMessage);
+		const subjectValue = toolbarSubject.value;
+		templateSubject.value = subjectValue;
+		// A select takes only one of its options; any other toolbar text leaves it unselected, which
+		// would save an empty subject even when the select is optional. Report it on the toolbar
+		// field (the select itself is hidden), with the select's own message when it has one.
+		if (templateSubject.tagName === "SELECT" && typeof toolbarSubject.setCustomValidity === "function"
+				&& (templateSubject.value !== subjectValue
+					|| (typeof templateSubject.checkValidity === "function" && !templateSubject.checkValidity()))) {
+			toolbarSubject.setCustomValidity(templateSubject.validationMessage || subjectNotAnOptionMessage());
 			toolbarSubject.addEventListener("input", function () { toolbarSubject.setCustomValidity(""); },
 				{ once: true });
 			toolbarSubject.reportValidity();
@@ -928,6 +931,16 @@ function printSaveDecision(dirtyFlag) {
         return "save";
     }
     return "confirm";
+}
+
+/**
+ * Localized text for a toolbar subject that is none of a select subject's options, rendered by the
+ * server onto the toolbar fragment's root element. English fallback for when it did not load.
+ */
+function subjectNotAnOptionMessage() {
+    const toolbar = document.getElementById("eform_floating_toolbar");
+    const message = toolbar ? toolbar.getAttribute("data-subject-not-an-option") : null;
+    return message || "The subject must be one of this eForm's subject options.";
 }
 
 /**
