@@ -174,16 +174,22 @@
             <result name="success" type="redirect">/eform/efmformmanagerdeleted</result>
         </action>
         <action name="eform/addGroup" class="io.github.carlos_emr.carlos.eform.actions.AddGroup2Action">
-            <result name="success">/eform/efmmanageformgroups</result>
+            <!-- REDIRECT, not a forward: same 405-after-success defect and fix as
+                 removeEForm above (issue #4130). EFormListRedirect.toGroup() builds
+                 the URL-encoded target for the affected group. -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eform/addToGroup" class="io.github.carlos_emr.carlos.eform.actions.AddToGroup2Action">
-            <result name="success">/eform/efmmanageformgroups</result>
+            <!-- REDIRECT: see eform/addGroup. -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eforms/removeFromGroup" class="io.github.carlos_emr.carlos.eform.actions.RemoveFromGroup2Action">
-            <result name="success">/eform/efmmanageformgroups</result>
+            <!-- REDIRECT: see eform/addGroup. -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eforms/delGroup" class="io.github.carlos_emr.carlos.eform.actions.DeleteGroup2Action">
-            <result name="success">/eform/efmmanageformgroups</result>
+            <!-- REDIRECT: see eform/addGroup. -->
+            <result name="success" type="redirect">${redirectTarget}</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
         <!-- LEGACY BACKWARD-COMPATIBILITY ALIAS (keep): the eForm corpus and saved eform_data

@@ -2342,12 +2342,15 @@ input[id^='acklabel_']{
                 }
 
                 if (handler.getMsgType().equals("EPSILON")) {
+                    // Epsilon rows are filtered by header here, so ED rows are rendered in this branch rather
+                    // than the shared row below: a PDF gets the Download PDF link and the preview row, other
+                    // binary payloads the "not a PDF" note (#3977, #4124).
                     if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && !obxName.equals("")) {
             %>
 
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                        href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"><carlos:encode value='<%= obxName %>' context="html"/>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
                     <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
@@ -2355,7 +2358,13 @@ input[id^='acklabel_']{
                     <%} %>
                 </td>
                 <td style="text-align:right">
+                    <% if (isEmbeddedDocumentResult) { %>
+                    <a href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>" class="lab-embedded-pdf-download"><fmt:message key="lab.embeddedPdf.download"/></a>
+                    <% } else if (isUndisplayableEmbeddedDocument) { %>
+                    <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                    <% } else { %>
                     <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
+                    <% } %>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
@@ -2371,13 +2380,21 @@ input[id^='acklabel_']{
                 <td style="text-align:center"><carlos:encode value='<%= handler.getOBXResultStatus(j, k) %>' context="html"/>
                 </td>
             </tr>
+            <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
             <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
+                    <% if (isEmbeddedDocumentResult) { %>
+                    <a href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>" class="lab-embedded-pdf-download" style="margin-left:100px;"><fmt:message key="lab.embeddedPdf.download"/></a>
+                    <% } else if (isUndisplayableEmbeddedDocument) { %>
+                    <em class="lab-embedded-document-unsupported" style="margin-left:100px;"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                    <% } else { %>
                     <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <% } %>
                 </td>
 
             </tr>
+            <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
             <% }
 
             } else if (handler.getMsgType().equals("HHSEMR") || handler.getMsgType().equals("CML")) {
