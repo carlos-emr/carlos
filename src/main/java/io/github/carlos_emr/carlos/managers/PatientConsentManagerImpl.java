@@ -234,7 +234,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             }
             if (currentDate != null && addOrUpdateDbComplete) {
                 // Only a save that changed the decision: every chart save re-posts the shown choice.
-                LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.changeConsent", CONSENT_LOG_CONTENT,
+                LogAction.addLogSynchronousOrThrow(loggedinInfo, "PatientConsentManager.changeConsent", CONSENT_LOG_CONTENT,
                         String.valueOf(consent.getId()), demographic_no, " Demographic: " + demographic_no
                                 + LOG_CONSENT_TYPE_ID + consentType.getId() + LOG_CONSENT_ID + consent.getId()
                                 + " Choice: " + priorChoice + "->" + describeChoice(optOut));
@@ -261,7 +261,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             }
             duplicate.setDeleted(Boolean.TRUE);
             consentDao.merge(duplicate);
-            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.retireDuplicateConsent", CONSENT_LOG_CONTENT,
+            LogAction.addLogSynchronousOrThrow(loggedinInfo, "PatientConsentManager.retireDuplicateConsent", CONSENT_LOG_CONTENT,
                     String.valueOf(duplicate.getId()), demographic_no, " Demographic: " + demographic_no
                             + LOG_CONSENT_TYPE_ID + consentTypeId + LOG_CONSENT_ID + duplicate.getId() + " KeptConsentId: " + kept.getId());
         }
@@ -308,8 +308,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     }
 
     /**
-     * Used for removing consent from a patient that previously consented. For a Consent object.
-     * A record that has been deleted or retired is left as it is.
+     * Opts out the named live record and retires other live records for its patient and type.
+     * A record that has been deleted or retired is left as it is. Untyped records are opted out
+     * without grouping unrelated records whose consent type is also missing.
      */
     public void optoutConsent(LoggedInInfo loggedinInfo, int consentId) {
 
@@ -346,14 +347,25 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             return;
         }
 
+        // Read and refresh the duplicate set before mutating the named record: refreshing it
+        // after the change could overwrite the pending opt-out with its prior database state.
+        Integer consentTypeId = consent.getConsentTypeId();
+        List<Consent> live = consentTypeId == null ? List.of()
+                : consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographicNo, consentTypeId);
+
+        String priorChoice = describeChoice(consent.isOptout());
         Date date = new Date(System.currentTimeMillis());
         consent.setOptout(Boolean.TRUE);
         consent.setOptoutDate(date);
         consent.setEditDate(date);
         consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
         consentDao.merge(consent);
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", CONSENT_LOG_CONTENT,
-                String.valueOf(consentId), demographicNo, LOG_CONSENT_ID + consentId);
+        LogAction.addLogSynchronousOrThrow(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", CONSENT_LOG_CONTENT,
+                String.valueOf(consentId), demographicNo, LOG_CONSENT_ID + consentId
+                        + " Choice: " + priorChoice + "->opt-out");
+        if (consentTypeId != null) {
+            retireDuplicates(loggedinInfo, demographicNo, consentTypeId, live, consent);
+        }
     }
 
     /**
@@ -448,6 +460,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
     /**
      * Returns the deciding record for each consent type the patient has a live record for.
+     * Live records with no consent type are preserved individually.
      */
     @Transactional(propagation = Propagation.SUPPORTS)
     public List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no) {
@@ -655,7 +668,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             consent.setEditDate(now);
             consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
             consentDao.merge(consent);
-            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.deleteConsent()", CONSENT_LOG_CONTENT,
+            LogAction.addLogSynchronousOrThrow(loggedinInfo, "PatientConsentManager.deleteConsent()", CONSENT_LOG_CONTENT,
                     String.valueOf(consent.getId()), demographic_no,
                     " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentTypeId + LOG_CONSENT_ID + consent.getId());
         }
