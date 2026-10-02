@@ -575,6 +575,9 @@ const server = http.createServer((req, res) => {
       await page.locator('#remoteSubmitButton').click();
       await page.waitForURL('**/eform/addEForm');
       assert.equal(requests.length, 1, checkboxVariant);
+      // moveSubjectReverse() made the checkbox type="hidden", which always submits, checked or not:
+      // both post the (empty) toolbar subject, never the authored value.
+      assert.equal(requests[0].get('subject'), '', checkboxVariant);
     }
     // A required text subject still blocks an empty toolbar subject.
     await open();
