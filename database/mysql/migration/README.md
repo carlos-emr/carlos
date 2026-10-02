@@ -37,6 +37,8 @@ migration/
            V1.0.42__tickler_docs.sql
            V1.0.43__consultation_eform_lab_sources.sql
            V1.0.45__consultation_request_indexes.sql
+           V1.0.46__field_note_report_privilege.sql
+           V1.0.47__align_measurements_deleted_columns.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -52,8 +54,8 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.45`.
-The next unallocated number for ANY location — shared or province — is `V1.0.46`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.47`.
+The next unallocated number for ANY location — shared or province — is `V1.0.48`.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
 The V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
