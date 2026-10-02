@@ -38,6 +38,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
@@ -1475,13 +1476,165 @@ public class EForm extends EFormBase {
         addHiddenInputElement(id, null, null, value, null);
     }
 
-    /** Preserve a template's case-sensitive newForm flag and its submitted name. */
+    /** Marks the server-added newForm fallback input for the eForm page script. */
+    public static final String NEW_FORM_FALLBACK_ATTRIBUTE = "data-carlos-newform-fallback";
+
+    /**
+     * Form-level newForm default for the eForm page script, used only when a submission carries no
+     * newForm at all. Set where the template already submits newForm by name but has no element
+     * with {@code id="newForm"}: the pre-2026.08 code added a {@code true} input there, so a
+     * template script that later disables its own control still saved {@code true}.
+     */
+    public static final String NEW_FORM_DEFAULT_ATTRIBUTE = "data-carlos-newform-default";
+
+    /**
+     * Preserve a template's case-sensitive newForm flag and its submitted name.
+     *
+     * <p>The fallback is added only when the form has no successful control named exactly
+     * {@code newForm}; see {@link #hasSubmittableNewFormControl(Element)}. Templates that already
+     * submit the flag would otherwise send two conflicting values, and {@code form.newForm} would
+     * become a RadioNodeList whose {@code value} no longer reads the template's own flag.
+     *
+     * <p>An element that merely has {@code id="newForm"} (an unnamed input, a {@code div}, a
+     * disabled control) submits nothing, so it does not suppress the fallback. It does keep the
+     * id: the fallback is then added by name only, so template scripts that read
+     * {@code getElementById("newForm")} still find their own element and the page never carries
+     * a duplicate id.
+     */
     public void ensureNewFormInput() {
         Element form = getDocument().selectFirst("form");
-        if (form != null && getDocument().getElementById("newForm") == null) {
-            form.appendElement("input").attr("type", "hidden").attr("id", "newForm")
-                    .attr("name", "newForm").attr("value", "true");
+        if (form == null) {
+            return;
         }
+        if (hasSubmittableNewFormControl(form)) {
+            // No second same-named input (form.newForm would become a RadioNodeList); keep the
+            // earlier true default as metadata instead, for a submission that ends up with none.
+            if (getDocument().getElementById("newForm") == null) {
+                form.attr(NEW_FORM_DEFAULT_ATTRIBUTE, "true");
+            }
+            return;
+        }
+        // Marked for the eForm page script (eform_floating_toolbar.js), which disables it and, at
+        // serialization (formdata), appends its value only when the submission carries no other
+        // newForm. Whether the template's own controls contribute can change after load, so this
+        // server-side check only decides whether the element is emitted at all.
+        Element fallback = form.appendElement("input").attr("type", "hidden")
+                .attr("name", "newForm").attr("value", "true")
+                .attr(NEW_FORM_FALLBACK_ATTRIBUTE, "");
+        // getElementById is case-sensitive, matching the browser.
+        if (getDocument().getElementById("newForm") == null) {
+            fallback.attr("id", "newForm");
+        }
+    }
+
+    /**
+     * True when the form already submits a value named exactly {@code newForm}, i.e. a control it
+     * owns (a descendant, or one elsewhere that names it with {@code form=}; a descendant assigned
+     * to another form does not count) is successful by that name (HTML forms spec): an input
+     * other than the button, reset and image types, a select that would submit at least one
+     * option, or a textarea; not disabled (itself or through a disabled ancestor fieldset); and,
+     * for a checkbox or radio, checked. Anything else (an {@code <a name>}, a disabled field, an
+     * unchecked box, a select with nothing to submit) contributes no parameter, so it must not
+     * suppress the fallback.
+     *
+     * <p>A submit button named {@code newForm} does not count: it submits its value only when it
+     * is the submitter, and the toolbar saves through {@code form.submit()}, which has none. The
+     * fallback is added beside it; the page script posts it only when the submission has no other
+     * {@code newForm}, so every path posts {@code newForm} exactly once.
+     */
+    private static boolean hasSubmittableNewFormControl(Element form) {
+        String controls = "input[name], select[name], textarea[name]";
+        Document document = form.ownerDocument();
+        Elements candidates = document != null ? document.select(controls) : form.select(controls);
+        return candidates.stream()
+                .filter(control -> "newForm".equals(control.attr("name")))
+                .filter(control -> formOwner(control) == form)
+                .filter(control -> !control.is(
+                        "input[type=button], input[type=submit], input[type=reset], input[type=image]"))
+                .filter(control -> !control.hasAttr("disabled"))
+                .filter(control -> !disabledByFieldset(control))
+                .filter(control -> !control.is("input[type=checkbox], input[type=radio]")
+                        || control.hasAttr("checked"))
+                .anyMatch(control -> !"select".equals(control.normalName()) || selectSubmitsValue(control));
+    }
+
+    /**
+     * The form a control submits with (HTML "reset the form owner"): with a {@code form}
+     * attribute, the first element with that id if it is a form, otherwise none (the ancestor is
+     * not a fallback); without one, the nearest ancestor form.
+     */
+    private static Element formOwner(Element control) {
+        if (control.hasAttr("form")) {
+            Document document = control.ownerDocument();
+            Element target = document == null ? null : document.getElementById(control.attr("form"));
+            return target != null && "form".equals(target.normalName()) ? target : null;
+        }
+        return control.closest("form");
+    }
+
+    /**
+     * A disabled fieldset disables its descendants except those inside its first legend child;
+     * every disabled ancestor fieldset is checked, so nested fieldsets work as in the browser.
+     */
+    private static boolean disabledByFieldset(Element control) {
+        for (Element ancestor : control.parents()) {
+            if (!ancestor.is("fieldset[disabled]")) {
+                continue;
+            }
+            Element firstLegend = ancestor.children().stream()
+                    .filter(child -> "legend".equals(child.normalName()))
+                    .findFirst().orElse(null);
+            if (firstLegend == null || !control.parents().contains(firstLegend)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a select would submit at least one option: a selected option that is not disabled
+     * (an option in a disabled optgroup is disabled). Only a single-line select (no
+     * {@code multiple} and a display size of 1: {@code size} absent, invalid or not above 1)
+     * keeps just its last explicitly selected option and, when none is selected, defaults to its
+     * first enabled option. A multiple or list-box ({@code size > 1}) select submits only options
+     * explicitly selected, and an empty select submits nothing.
+     */
+    private static boolean selectSubmitsValue(Element select) {
+        List<Element> options = select.select("option");
+        List<Element> selected = options.stream().filter(option -> option.hasAttr("selected")).toList();
+        if (select.hasAttr("multiple")) {
+            return selected.stream().anyMatch(option -> !optionDisabled(option));
+        }
+        if (!selected.isEmpty()) {
+            return !optionDisabled(selected.get(selected.size() - 1));
+        }
+        return displaySize(select) == 1 && options.stream().anyMatch(option -> !optionDisabled(option));
+    }
+
+    /**
+     * A non-multiple select's display size, classified as 1 (single-line) or 2 (list box, any
+     * size above 1). Follows the HTML rules for parsing non-negative integers: leading
+     * whitespace and a "+" are skipped, the leading run of digits is read (leading zeros allowed,
+     * trailing text ignored), and a missing, unparsable or zero value means 1. The digits are
+     * compared as text, so an arbitrarily long value cannot overflow and still counts as above 1.
+     */
+    private static int displaySize(Element select) {
+        String size = select.attr("size").replaceFirst("^[\\t\\n\\f\\r ]+", "");
+        if (size.startsWith("+")) {
+            size = size.substring(1);
+        }
+        int end = 0;
+        while (end < size.length() && size.charAt(end) >= '0' && size.charAt(end) <= '9') {
+            end++;
+        }
+        String digits = size.substring(0, end).replaceFirst("^0+", "");
+        return digits.isEmpty() || "1".equals(digits) ? 1 : 2;
+    }
+
+    private static boolean optionDisabled(Element option) {
+        Element parent = option.parent();
+        return option.hasAttr("disabled")
+                || (parent != null && parent.is("optgroup[disabled]"));
     }
 
     public void addHiddenInputElement(String id, String name, String className, String value, Map<String, String> additionalProperties) {

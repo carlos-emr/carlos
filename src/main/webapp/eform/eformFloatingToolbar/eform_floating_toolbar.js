@@ -89,6 +89,120 @@ function getEForm() {
 	return ef;
 }
 
+/*
+ * The server adds a hidden newForm=true fallback (data-carlos-newform-fallback) when the
+ * template, as rendered, has no control that submits newForm. Its controls can change after load
+ * (a checkbox checked, a list-box option selected, a disabled field enabled, the template's own
+ * newForm submit button used or disabled by an onsubmit handler), so whether the fallback is
+ * needed is decided once, at serialization, against what the browser actually submits:
+ *
+ * - The fallback itself is never submitted. It is disabled, not removed, so template scripts still
+ *   find it by id or name and can read or change its value.
+ * - A capture formdata listener, which runs while the entry list is built for every submission
+ *   (requestSubmit, a native click, the toolbar's form.submit()) after all submit handlers,
+ *   appends the fallback's current value only when the entry list has no newForm at all.
+ *
+ * Browsers without the formdata event (Safari before 15) keep the fallback enabled and submit it.
+ * There the one case that matters is a template's own newForm submit button: it would post its
+ * value beside the fallback, and for a button associated with the form from outside it the
+ * fallback comes first, so the server would read true. The fallback is therefore set aside for a
+ * native submission whose submitter is an enabled newForm submit button (not an image button, which
+ * posts newForm.x/newForm.y rather than newForm; see below). The form-level default
+ * (data-carlos-newform-default) is supplied there by a temporary input, for native submissions and
+ * for direct form.submit() calls (the toolbar's save, printControl.js, template scripts). A template newForm
+ * checkbox or list box that starts contributing after load still posts beside the fallback there.
+ */
+const eformFormDataEventSupported = typeof window.FormDataEvent === "function";
+
+function disableNewFormFallbacks() {
+    if (!eformFormDataEventSupported) return;
+    document.querySelectorAll("input[data-carlos-newform-fallback]").forEach(input => { input.disabled = true; });
+}
+// The server places the fallback inside the form, which is parsed before this body-end script.
+disableNewFormFallbacks();
+
+/**
+ * Without the formdata event: supplies the form's data-carlos-newform-default for one submission
+ * when nothing else would submit newForm (the template's control disabled, say), through a
+ * temporary hidden input removed on the next tick. {@code submitter} is the submit button, if any.
+ */
+function supplyLegacyNewFormDefault(form, submitter) {
+    if (eformFormDataEventSupported || !form.hasAttribute("data-carlos-newform-default")) {
+        return;
+    }
+    const submitterContributes = submitter && submitter.name === "newForm" && submitter.type !== "image"
+        && !submitter.matches(":disabled") && submitter.form === form;
+    if (submitterContributes || new FormData(form).getAll("newForm").length > 0) {
+        return;
+    }
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "newForm";
+    input.value = form.getAttribute("data-carlos-newform-default");
+    form.appendChild(input);
+    setTimeout(function () { input.remove(); }, 0);
+}
+
+if (!eformFormDataEventSupported) {
+    // HTMLFormElement.submit() fires no submit event, and the toolbar, printControl.js and template
+    // scripts all submit that way; wrap it (in this mode only) so the form default still applies.
+    // The helper adds nothing when the submission already carries newForm, so no value doubles.
+    const nativeFormSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function () {
+        supplyLegacyNewFormDefault(this, null);
+        return nativeFormSubmit.apply(this, arguments);
+    };
+    // These browsers also lack SubmitEvent.submitter, so the submitter is taken from the click that
+    // starts a native submission (implicit Enter submission dispatches that click too).
+    let pendingSubmitter = null;
+    document.addEventListener("click", function (event) {
+        const control = event.target instanceof Element
+            ? event.target.closest("button, input[type=submit], input[type=image]") : null;
+        if (!control || (control.type !== "submit" && control.type !== "image")) {
+            return;
+        }
+        pendingSubmitter = control;
+        setTimeout(function () { pendingSubmitter = null; }, 0);
+    }, true);
+    // Bubble phase on document: runs after the template's own submit handlers, which may cancel the
+    // submission or disable the button (directly or through its fieldset, hence :disabled). Only an enabled newForm submit button still posts its value,
+    // and only then is the fallback set aside -- for this submission alone, so a cancelled or later
+    // save still has it. An image button posts newForm.x/newForm.y, never newForm, so it keeps the
+    // fallback.
+    document.addEventListener("submit", function (event) {
+        const form = event.target;
+        if (event.defaultPrevented || !(form instanceof HTMLFormElement)) {
+            return;
+        }
+        const submitter = event.submitter || pendingSubmitter;
+        supplyLegacyNewFormDefault(form, submitter);
+        if (!submitter || submitter.name !== "newForm" || submitter.type === "image"
+            || submitter.matches(":disabled") || submitter.form !== form) {
+            return;
+        }
+        const fallbacks = Array.from(form.querySelectorAll("input[data-carlos-newform-fallback]"))
+            .filter(function (input) { return !input.disabled; });
+        fallbacks.forEach(function (input) { input.disabled = true; });
+        setTimeout(function () { fallbacks.forEach(function (input) { input.disabled = false; }); }, 0);
+    });
+}
+
+document.addEventListener("formdata", function (event) {
+    const form = event.target;
+    // Only the formdata mode reconciles here; the compatibility path above owns it otherwise.
+    if (!eformFormDataEventSupported || !(form instanceof HTMLFormElement) || !event.formData || event.formData.getAll("newForm").length > 0) {
+        return;
+    }
+    const fallback = form.querySelector("input[data-carlos-newform-fallback]");
+    if (fallback) {
+        event.formData.append("newForm", fallback.value);
+    } else if (form.hasAttribute("data-carlos-newform-default")) {
+        // The template submits newForm itself (so there is no fallback input) but nothing did this
+        // time, e.g. its script disabled the control: keep the server's default.
+        event.formData.append("newForm", form.getAttribute("data-carlos-newform-default"));
+    }
+}, true);
+
 function submitEForm() {
 	const ef = getEForm();
 	if (!ef) {
@@ -185,7 +299,89 @@ function editorStillLoading() {
  * a later plain Save would otherwise ride it into a download/fax/email.</p>
  */
 function eFormValidationBlocked() {
+	// Input types the readonly attribute applies to (HTML spec); it is ignored on all others.
+	// Function-scoped on purpose: this is a classic script sharing the global lexical scope with
+	// eForm template scripts, so a top-level const could collide with a template's own name.
+	const READONLY_INPUT_TYPES = ["text", "search", "url", "tel", "email", "password", "date", "month",
+		"week", "time", "datetime-local", "number"];
+	// Input types whose required constraint means "has text", the only constraint a text field can
+	// mirror. required is ignored on hidden, range, color and the button types; on checkbox, radio
+	// and file it means checked, selected or attached, which subject text cannot express, and
+	// moveSubjectReverse() has hidden that control so the clinician could no longer satisfy it.
+	const MIRRORED_REQUIRED_INPUT_TYPES = READONLY_INPUT_TYPES;
 	const ef = getEForm();
+	// moveSubjectReverse() turns the template's subject input into type="hidden", which the browser
+	// excludes from constraint validation, and the toolbar's own subject lives in a separate form
+	// that is never submitted. Enforce the template's required subject on the field the clinician
+	// actually edits, so hiding the original does not silently drop the author's constraint.
+	const templateSubject = ef && ef.elements ? ef.elements["subject"] : null;
+	const toolbarSubject = document.getElementById("remote_eform_subject");
+	// A disabled template subject (directly or through a disabled fieldset) is barred from
+	// native constraint validation, so its requirement must not carry over either.
+	// A readonly textarea, or a readonly input of a type readonly applies to, is barred as well.
+	// moveSubjectReverse() has since made the input type="hidden", so read the template's own type
+	// it recorded. (:read-only is broader than the attribute, so check the property.)
+	// The template's own input type: recorded by moveSubjectReverse() before it hid the input,
+	// otherwise the browser's normalized type (an unknown type such as "textbox" reads as "text").
+	const templateSubjectType = templateSubject && templateSubject.tagName === "INPUT"
+		? (templateSubject.dataset.carlosOriginalType || templateSubject.type) : null;
+	const templateSubjectReadOnly = !!templateSubject && templateSubject.readOnly === true
+		&& (templateSubject.tagName === "TEXTAREA" || (templateSubject.tagName === "INPUT"
+			&& READONLY_INPUT_TYPES.includes(templateSubjectType)));
+	// Only a text-like requirement (a text-like input, textarea or select) transfers to the toolbar's
+	// text field; see MIRRORED_REQUIRED_INPUT_TYPES for why the others do not.
+	const templateSubjectRequirementApplies = !!templateSubject
+		&& (templateSubject.tagName !== "INPUT" || MIRRORED_REQUIRED_INPUT_TYPES.includes(templateSubjectType));
+	const templateSubjectDisabled = !!templateSubject && ((typeof templateSubject.matches === "function"
+		&& templateSubject.matches(":disabled")) || templateSubjectReadOnly);
+	// The only custom error on the toolbar field is the select check below, and it is recomputed from
+	// the current value on every save. Clear it first: a template script can correct the subject and
+	// fire input, and moveSubjectReverse() then copies the value over without the toolbar's own input
+	// event, so a stale error would otherwise keep blocking a now-valid subject.
+	if (toolbarSubject && typeof toolbarSubject.setCustomValidity === "function") {
+		toolbarSubject.setCustomValidity("");
+	}
+	if (templateSubject && templateSubject.required === true && templateSubjectRequirementApplies
+			&& !templateSubjectDisabled && toolbarSubject
+			&& typeof toolbarSubject.checkValidity === "function") {
+		toolbarSubject.required = true;
+		if (!toolbarSubject.checkValidity()) {
+			toolbarSubject.reportValidity();
+			HideSpin();
+			clearWorkflowFlags();
+			return true;
+		}
+	}
+	// A textarea or select template subject is only hidden (moveSubjectReverse() can make only an
+	// input type="hidden"), so it still takes part in the full-form validation below, while
+	// moveSubject() copies the toolbar's value into it only after this check. Mirror it first, or a
+	// required subject that started empty blocks every save on a control the clinician cannot see.
+	if (templateSubject && toolbarSubject
+			&& (templateSubject.tagName === "TEXTAREA" || templateSubject.tagName === "SELECT")) {
+		const subjectValue = toolbarSubject.value;
+		templateSubject.value = subjectValue;
+		// A select takes only one of its options; any other toolbar text leaves it unselected, which
+		// would save an empty subject even when the select is optional. Report it on the toolbar
+		// field (the select itself is hidden), with the select's own message when it has one. A
+		// disabled select (directly or through a fieldset) is neither validated nor submitted, so it
+		// keeps its existing save behaviour.
+		if (templateSubject.tagName === "SELECT" && typeof toolbarSubject.setCustomValidity === "function"
+				&& !(typeof templateSubject.matches === "function" && templateSubject.matches(":disabled"))
+				&& (templateSubject.value !== subjectValue
+					// A disabled option (or one in a disabled optgroup) can be selected by value but is
+					// never submitted, so a non-empty subject that lands on one would also be lost.
+					|| (subjectValue !== "" && templateSubject.selectedIndex >= 0
+						&& templateSubject.options[templateSubject.selectedIndex].matches(":disabled"))
+					|| (typeof templateSubject.checkValidity === "function" && !templateSubject.checkValidity()))) {
+			toolbarSubject.setCustomValidity(templateSubject.validationMessage || subjectNotAnOptionMessage());
+			toolbarSubject.addEventListener("input", function () { toolbarSubject.setCustomValidity(""); },
+				{ once: true });
+			toolbarSubject.reportValidity();
+			HideSpin();
+			clearWorkflowFlags();
+			return true;
+		}
+	}
 	// No resolvable form, or a browser/form without the constraint API: nothing can be asserted, so
 	// never block on it — the pre-existing submit paths stay exactly as they were.
 	if (!ef || typeof ef.checkValidity !== "function" || ef.checkValidity()) {
@@ -554,9 +750,10 @@ function remoteFax() {
         return;
     }
     clearWorkflowFlags();
-    setHiddenFormInput("faxAction", "faxEForm", "true");
-
+    // Resolve the recipient before declaring the fax intent, so a failure here cannot leave
+    // faxEForm=true on the form for a later plain Save to ride into the fax workflow.
     const chosen = selectedEformFaxRecipient();
+    setHiddenFormInput("faxAction", "faxEForm", "true");
     // Include empty overrides too: clearing a recipient must not resurrect a template's old number.
     setHiddenFormInput("recipient", "recipient", chosen.name);
     setHiddenFormInput("recipientFaxNumber", "recipientFaxNumber", chosen.fax);
@@ -751,6 +948,16 @@ function printSaveDecision(dirtyFlag) {
 }
 
 /**
+ * Localized text for a toolbar subject that is none of a select subject's options, rendered by the
+ * server onto the toolbar fragment's root element. English fallback for when it did not load.
+ */
+function subjectNotAnOptionMessage() {
+    const toolbar = document.getElementById("eform_floating_toolbar");
+    const message = toolbar ? toolbar.getAttribute("data-subject-not-an-option") : null;
+    return message || "The subject must be one of this eForm's subject options.";
+}
+
+/**
  * Localized text for the "save the unedited form?" prompt, rendered by the server onto the
  * toolbar fragment's root element. English fallback for when the fragment did not load.
  */
@@ -852,7 +1059,16 @@ function moveSubjectReverse() {
     if (caption?.nodeType === Node.TEXT_NODE) {
         caption.textContent = caption.textContent.replace(/\bSubject:\s*$/i, '');
     }
-    if (subjectElement.tagName === "INPUT") subjectElement.type = "hidden";
+    if (subjectElement.tagName === "INPUT") {
+        // Record the template's own type before hiding the field: the save-time subject check
+        // needs it to know whether readonly applied (an unknown or missing type is text).
+        if (!subjectElement.dataset.carlosOriginalType) {
+            // The DOM type, not the attribute: it is lower-cased and maps a missing or unknown
+            // type (e.g. "textbox") to "text", which is how the browser treated the field.
+            subjectElement.dataset.carlosOriginalType = subjectElement.type;
+        }
+        subjectElement.type = "hidden";
+    }
     subjectElement.hidden = true;
     let localSubject = document.getElementById("remote_eform_subject");
     if (localSubject) {
@@ -1030,7 +1246,9 @@ function positionToolbarAfterForm(wrapper) {
 function selectedEformFaxRecipient() {
     const fax = document.getElementById('remoteFaxNumber');
     const name = document.getElementById('remoteFaxRecipient');
-    if (fax && fax.dataset.edited === 'true') return {name: name.value.trim(), fax: fax.value.trim()};
+    // The edited number wins even when the name field is missing: falling through to the eForm's
+    // own recipient would fax a number the clinician had replaced.
+    if (fax && fax.dataset.edited === 'true') return {name: name ? name.value.trim() : '', fax: fax.value.trim()};
     const chosen = window.carlosEformFax ? window.carlosEformFax.recipient() : {name: '', fax: ''};
     if (name && name.dataset.edited === 'true') chosen.name = name.value.trim();
     return chosen;
@@ -1039,15 +1257,35 @@ function selectedEformFaxRecipient() {
 function initializeFaxRecipient() {
     const fax = document.getElementById('remoteFaxNumber');
     const name = document.getElementById('remoteFaxRecipient');
-    if (!fax || !name) return;
+    if (!fax) return;
+    // Edit tracking for the number does not depend on the name field: without it a replacement
+    // number typed here was never marked edited, and Fax sent the eForm's own recipient instead.
+    ['input', 'change'].forEach(event => {
+        // Any number entered or chosen in the field itself replaces the pending cleared state.
+        fax.addEventListener(event, () => { fax.dataset.edited = 'true'; delete fax.dataset.cleared; });
+    });
+    // A number the clinician typed is theirs; one filled in from the directory, the eForm or the
+    // list belongs to the recipient it was chosen for. Directory selection assigns both fields and
+    // dispatches a synthetic change, so only trusted typing marks the number as typed.
+    fax.addEventListener('input', event => { if (event.isTrusted) fax.dataset.typed = 'true'; });
+    fax.addEventListener('change', event => { if (!event.isTrusted) delete fax.dataset.typed; });
+    // Everything below except the name handling also runs without a recipient-name field: the
+    // displayed number must keep following the eForm's list and designer choices, because that
+    // is where Fax sends when the number has not been edited here.
     function refresh() {
         if (fax.dataset.edited === 'true') return;
         const chosen = selectedEformFaxRecipient();
         fax.value = chosen.fax;
-        if (name.dataset.edited !== 'true') name.value = chosen.name;
+        // A number the clinician typed into the form's own other-fax field is theirs, like one
+        // typed here, so editing the recipient name must keep it. Numbers from a list, the
+        // designer or the directory stay tied to their recipient.
+        if (chosen.manual) fax.dataset.typed = 'true';
+        else delete fax.dataset.typed;
+        if (name && name.dataset.edited !== 'true') name.value = chosen.name;
     }
     const fromForm = document.getElementById('remoteFaxFromForm');
     function refreshOptions() {
+        if (!fromForm) return;
         fromForm.replaceChildren(new Option("Use the eForm's fax number", ""));
         const seen = new Set();
         ['faxnumList', 'otherFaxSelect'].forEach(id => {
@@ -1064,27 +1302,66 @@ function initializeFaxRecipient() {
         });
         if (fax.dataset.edited === 'true') fromForm.value = fax.value;
     }
-    fromForm.addEventListener('change', () => {
+    if (fromForm) fromForm.addEventListener('change', () => {
         const option = fromForm.options[fromForm.selectedIndex];
+        delete fax.dataset.cleared;
         if (option && option.value) {
             fax.value = option.value;
-            name.value = option.dataset.recipientName;
+            // A recipient chosen from the menu names itself, so it is no longer a typed name.
+            if (name) { name.value = option.dataset.recipientName; delete name.dataset.edited; }
             fax.dataset.edited = 'true';
+            delete fax.dataset.typed;
         } else {
             delete fax.dataset.edited;
-            delete name.dataset.edited;
+            delete fax.dataset.typed;
+            if (name) delete name.dataset.edited;
             refresh();
         }
     });
-    ['input', 'change'].forEach(event => {
-        fax.addEventListener(event, () => { fax.dataset.edited = 'true'; });
-        name.addEventListener(event, () => { name.dataset.edited = 'true'; });
-    });
-    document.getElementById('remoteFaxOptions').addEventListener('toggle', () => { refreshOptions(); refresh(); });
+    if (name) {
+        // Only the clinician's own typing makes the name theirs. A directory pick fills it with a
+        // synthetic change and names the recipient whose number it chose, so a later choice on the
+        // eForm's own list must replace that name along with the number instead of pairing the
+        // directory recipient's name with the list recipient's number. Typing is tracked through
+        // trusted input only: leaving the field after a pick fires a trusted change for the
+        // picked value, which is not the clinician's own name.
+        name.addEventListener('input', event => { if (event.isTrusted) name.dataset.edited = 'true'; });
+        name.addEventListener('change', event => { if (!event.isTrusted) delete name.dataset.edited; });
+        // Typing a different recipient name must not keep the previous recipient's number: the fax
+        // would go there under the new name. Clear it (as an explicit empty override, so the eForm's
+        // number is not resurrected either) until a directory row or a typed number supplies one.
+        // The clear is marked separately from a number the clinician chose, so a later explicit choice
+        // on the eForm itself can still fill the number for the newly typed recipient.
+        name.addEventListener('input', event => {
+            if (!event.isTrusted || fax.dataset.typed === 'true') return;
+            fax.value = '';
+            fax.dataset.edited = 'true';
+            fax.dataset.cleared = 'true';
+            if (fromForm) fromForm.value = '';
+        });
+    }
+    const options = document.getElementById('remoteFaxOptions');
+    if (options) options.addEventListener('toggle', () => { refreshOptions(); refresh(); });
     document.addEventListener('change', event => {
-        if (['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) refresh();
+        if (!['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) return;
+        if (event.isTrusted) {
+            // The clinician chose a number on the eForm itself after a toolbar or directory choice:
+            // the latest explicit choice wins. Programmatic copies (untrusted) never lift an override.
+            delete fax.dataset.edited;
+            delete fax.dataset.typed;
+            delete fax.dataset.cleared;
+            refresh();
+            return;
+        }
+        // A list or designer selection made after the name was retyped is a new, explicit source:
+        // lift only the pending clear (never a typed or menu-chosen number) and let it fill in.
+        if (fax.dataset.cleared === 'true') {
+            delete fax.dataset.cleared;
+            delete fax.dataset.edited;
+        }
+        refresh();
     });
-    if (typeof setupFaxRecipientAutocomplete === 'function') {
+    if (name && typeof setupFaxRecipientAutocomplete === 'function') {
         setupFaxRecipientAutocomplete({contextPath: document.getElementById('context').value,
             nameInputId: name.id, faxInputId: fax.id, dropdownId: 'remoteFaxSuggestions'});
     }
