@@ -66,6 +66,9 @@ Before a clinic sends real patient communications, confirm all of these gates:
 - Production sender configuration uses real delivery infrastructure, such as an
   SMTP relay or an API sender such as SendGrid.
 - Production sender domains have SPF, DKIM, and DMARC configured and monitored.
+- The document store and the database live on encrypted volumes, and the outbound
+  email archive keyring is backed up with the server configuration. See
+  [Outbound Email Archive at Rest](#outbound-email-archive-at-rest).
 
 The current Configure Email admin page documents the `emailConfig` fields and
 sample SMTP/API payloads, but sender records are still managed as deployment
@@ -192,6 +195,48 @@ Repeated failures usually point to one of these causes:
 - Local development environment has no localhost SMTP capture service.
 - PDF generation or attachment rendering failure before send.
 
+## Outbound Email Archive at Rest
+
+Every email sent to a patient is kept permanently as an exact copy in the outbound
+email archive, attachments included. CARLOS encrypts each copy before writing it to
+the document store (#3448), with keys from its own archive keyring file, separate from
+`encryption.util.secret.key`. Full details, including the stored format, rotation and
+failure codes, are in
+[Encryption at rest](../outbound-email-archive.md#encryption-at-rest-3448).
+
+**Deployment prerequisite: encrypted volumes.** CARLOS's encryption does not replace
+disk encryption. Put the document store (`DOCUMENT_DIR`), the database data
+directory, the archive keyring and the backup repository on encrypted volumes
+(LUKS/dm-crypt or the cloud provider's volume encryption) before the archive holds
+real patient email, and keep their owner-only permissions. Disk encryption covers a
+stolen disk or snapshot; the archive keyring also covers a copy of the document
+store restored somewhere else without the server configuration.
+
+**The keyring.** CARLOS creates it on first start, owner-only, at the path in
+`CARLOS_OUTBOUND_EMAIL_ARCHIVE_KEYRING_FILE`, else `email.archive.keyring.file`, else
+`<context>-outbound-email-archive.keyring` (usually `carlos-outbound-email-archive.keyring`)
+in the CARLOS user's home directory. A Debian install keeps it in
+`/etc/carlos-emr/archive-keyring/`, which the nightly `carlos-emr-backup` already
+includes. Anywhere else, add it to the configuration backup yourself.
+
+- **Back it up with the server configuration**, keep a copy off the server, and back
+  it up again after every key rotation. Without it the archive cannot be read.
+- **Restore it before starting CARLOS.** If it is missing while encrypted archives
+  exist, or CARLOS cannot rule that out, CARLOS refuses to start and logs one ERROR
+  that names the fix: restore the keyring file from backup.
+  `email.archive.keyring.acknowledge_loss=true` gets past that only when the keyring
+  is lost for good, and leaves those archived emails unreadable.
+- **Rotate** with `email.archive.keyring.rotate_to=<next key number>` and a restart.
+  Old keys are kept, so older archived emails stay readable. Rotation does not
+  re-encrypt what is already archived.
+
+**Capacity.** The archive only grows: each send keeps the full message and its
+attachments (up to 50 MiB), and encrypted copies do not compress or de-duplicate
+in backups. Estimate emails per day x average size x 365 per year plus backup copies,
+and alert on the document-store volume and backup repository before they fill. The
+[capacity note](../outbound-email-archive.md#capacity-and-growth-operational-note)
+has the measuring query.
+
 ## Safety Notes
 
 Do not put PHI in the email subject. The subject is normal email header content
@@ -233,3 +278,6 @@ subjects, body text, and password clues accordingly.
   [PR #3097](https://github.com/carlos-emr/carlos/pull/3097).
 - Outbound email archive foundation:
   [PR #3138](https://github.com/carlos-emr/carlos/pull/3138).
+- Outbound email archive encryption at rest:
+  [issue #3448](https://github.com/carlos-emr/carlos/issues/3448). Archives written
+  before it stay plaintext until a re-encryption job exists.

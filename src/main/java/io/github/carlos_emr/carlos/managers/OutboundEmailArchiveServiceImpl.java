@@ -39,6 +39,9 @@ import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveLegalHoldEvent;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveEnvelope;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveEnvelopeException;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveKeyring;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -69,6 +72,13 @@ import java.util.UUID;
 
 /**
  * Stores finalized outbound email artifacts in eDoc and records archive/deletion audit metadata.
+ *
+ * <p>Artifacts are encrypted at rest (#3448). The SHA-256 and size recorded on the archive row
+ * describe the <em>plaintext</em> that was sent; the eDoc file holds an
+ * {@link OutboundEmailArchiveEnvelope} sealed under the archive keyring. Reads authorize first,
+ * then authenticate and decrypt, then verify the plaintext against the recorded size and hash.
+ * Artifacts written before #3448 are plaintext, recognised by the absence of the envelope marker,
+ * and remain readable unchanged.</p>
  *
  * @since 2026-08-14
  */
@@ -107,6 +117,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     private final SecurityInfoManager securityInfoManager;
 
+    private final OutboundEmailArchiveKeyringService keyringService;
+
     @Autowired
     public OutboundEmailArchiveServiceImpl(
             DocumentManager documentManager,
@@ -116,7 +128,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             OutboundEmailArchiveLegalHoldEventDao outboundEmailArchiveLegalHoldEventDao,
             CtlDocumentDao ctlDocumentDao,
             SecurityInfoManager securityInfoManager,
-            OutboundEmailArchiveReadAuditService readAuditService) {
+            OutboundEmailArchiveReadAuditService readAuditService,
+            OutboundEmailArchiveKeyringService keyringService) {
         this(documentManager,
                 emailLogDao,
                 outboundEmailArchiveDao,
@@ -124,7 +137,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                 outboundEmailArchiveLegalHoldEventDao,
                 ctlDocumentDao,
                 securityInfoManager,
-                readAuditService, DEFAULT_MAX_ARCHIVED_ARTIFACT_BYTES);
+                readAuditService, keyringService, DEFAULT_MAX_ARCHIVED_ARTIFACT_BYTES);
     }
 
     OutboundEmailArchiveServiceImpl(
@@ -136,13 +149,16 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             CtlDocumentDao ctlDocumentDao,
             SecurityInfoManager securityInfoManager,
             OutboundEmailArchiveReadAuditService readAuditService,
+            OutboundEmailArchiveKeyringService keyringService,
             long maxArchivedArtifactBytes) {
-        if (maxArchivedArtifactBytes < 0 || maxArchivedArtifactBytes > Integer.MAX_VALUE) {
+        // The stored envelope is the plaintext plus a fixed overhead, and both must fit one array.
+        if (maxArchivedArtifactBytes < 0 || maxArchivedArtifactBytes > OutboundEmailArchiveEnvelope.MAX_PLAINTEXT_BYTES) {
             throw new IllegalArgumentException(
                     "Maximum archived artifact read size must be between 0 and "
-                            + Integer.MAX_VALUE + " bytes");
+                            + OutboundEmailArchiveEnvelope.MAX_PLAINTEXT_BYTES + " bytes");
         }
         this.readAuditService = readAuditService;
+        this.keyringService = keyringService;
         this.maxArchivedArtifactBytes = maxArchivedArtifactBytes;
         this.documentManager = documentManager;
         this.emailLogDao = emailLogDao;
@@ -153,11 +169,16 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         this.securityInfoManager = securityInfoManager;
     }
 
-    @SuppressWarnings("java:S6206") // A record would generate byte[] identity-based equals/hashCode/toString for artifactBytes.
+    /**
+     * What {@code buildArchive} records. Carries the plaintext hash and size, computed once before
+     * encryption, rather than bytes: the stored eDoc bytes are ciphertext and must never be hashed
+     * for the archive row.
+     */
     private static final class ArchiveBuildContext {
 
         private final Document savedDocument;
-        private final byte[] artifactBytes;
+        private final String plaintextSha256Hash;
+        private final long plaintextByteSize;
         private final String contentType;
         private final String archiveFileName;
         private final List<OutboundEmailArchiveAttachment> attachments;
@@ -165,13 +186,15 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         private ArchiveBuildContext(
                 Document savedDocument,
-                byte[] artifactBytes,
+                String plaintextSha256Hash,
+                long plaintextByteSize,
                 String contentType,
                 String archiveFileName,
                 List<OutboundEmailArchiveAttachment> attachments,
                 String providerNo) {
             this.savedDocument = savedDocument;
-            this.artifactBytes = artifactBytes;
+            this.plaintextSha256Hash = plaintextSha256Hash;
+            this.plaintextByteSize = plaintextByteSize;
             this.contentType = contentType;
             this.archiveFileName = archiveFileName;
             this.attachments = attachments;
@@ -182,8 +205,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             return savedDocument;
         }
 
-        private byte[] artifactBytes() {
-            return artifactBytes;
+        private String plaintextSha256Hash() {
+            return plaintextSha256Hash;
+        }
+
+        private long plaintextByteSize() {
+            return plaintextByteSize;
         }
 
         private String contentType() {
@@ -224,6 +251,16 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         requirePatientRecordAccess(loggedInInfo, demographicNo);
         List<OutboundEmailArchiveAttachment> attachments = buildAttachments(loggedInInfo, request, providerNo, demographicNo);
 
+        // Integrity order (#3448): hash the PLAINTEXT, store the CIPHERTEXT. The recorded hash and
+        // size must prove what was sent, so they are taken here, before encryption, and never from
+        // the bytes handed to the eDoc store.
+        String plaintextSha256Hash = sha256Hex(artifactBytes);
+        long plaintextByteSize = artifactBytes.length;
+        byte[] storedBytes = OutboundEmailArchiveEnvelope.seal(keyringService.getKeyring(),
+                new OutboundEmailArchiveEnvelope.ArtifactContext(emailLog.getId(), demographicNo, contentType,
+                        plaintextSha256Hash, plaintextByteSize),
+                artifactBytes);
+
         Document document = buildDocument(emailLog, fileName, contentType, providerNo);
         Document savedDocument;
         try {
@@ -232,7 +269,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                     document,
                     demographicNo,
                     providerNo,
-                    artifactBytes);
+                    storedBytes);
         } catch (IOException | RuntimeException e) {
             // Only the name DocumentManager assigned can be deleted here. Until it does, the
             // server-generated on-disk name is unknown to this method, and falling back to the
@@ -246,7 +283,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         }
         registerRollbackCleanup(savedDocument);
 
-        ArchiveBuildContext buildContext = new ArchiveBuildContext(savedDocument, artifactBytes, contentType, fileName, attachments, providerNo);
+        ArchiveBuildContext buildContext = new ArchiveBuildContext(savedDocument, plaintextSha256Hash, plaintextByteSize,
+                contentType, fileName, attachments, providerNo);
         OutboundEmailArchive archive = buildArchive(request, emailLog, buildContext);
         outboundEmailArchiveDao.persist(archive);
 
@@ -289,7 +327,10 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             }
             String expectedSha256Hash = requireArchivedArtifactHash(archive.getSha256Hash());
             Path archivePath = requireArchivedArtifactPath(document.getDocfilename());
-            artifactBytes = readArchivedArtifactBytes(archivePath, expectedByteSize);
+            byte[] storedBytes = readArchivedArtifactBytes(archivePath, expectedByteSize);
+            // Decrypted only here, after loadArchiveForAuthorizedRead has passed the privilege and
+            // patient-record checks. Verification then runs on the plaintext, never the ciphertext.
+            artifactBytes = openStoredArtifact(archive, expectedSha256Hash, expectedByteSize, storedBytes);
             validateArchivedArtifactHash(expectedSha256Hash, artifactBytes);
         } catch (IOException e) {
             auditArtifactReadFailure(loggedInInfo, archive, document, e);
@@ -524,7 +565,6 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         EmailConfig emailConfig = emailLog.getEmailConfig();
         String originalFileName = defaultIfBlank(request.getFileName(), buildContext.archiveFileName());
         Document savedDocument = buildContext.savedDocument();
-        byte[] artifactBytes = buildContext.artifactBytes();
 
         archive.setEmailLog(emailLog);
         archive.setDemographic(emailLog.getDemographic());
@@ -539,8 +579,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         archive.setContentType(truncate(buildContext.contentType(), 100));
         archive.setFileName(truncate(savedDocument.getDocfilename(), 255));
         archive.setOriginalFileName(truncate(originalFileName, 255));
-        archive.setSha256Hash(sha256Hex(artifactBytes));
-        archive.setByteSize((long) artifactBytes.length);
+        archive.setSha256Hash(buildContext.plaintextSha256Hash());
+        archive.setByteSize(buildContext.plaintextByteSize());
         archive.setStorageType(OutboundEmailArchive.STORAGE_TYPE_EDOC);
         archive.setRetentionPolicy(OutboundEmailArchive.RETENTION_POLICY_PERMANENT);
         archive.setLastUpdateUser(buildContext.providerNo());
@@ -957,6 +997,11 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         }
     }
 
+    /**
+     * Reads the stored bytes, which are either a legacy plaintext artifact of exactly the recorded
+     * size or an envelope exactly {@link OutboundEmailArchiveEnvelope#OVERHEAD_BYTES} larger. Any
+     * other size is a verified mismatch. The read limit applies to the recorded plaintext size.
+     */
     private byte[] readArchivedArtifactBytes(Path archivePath, long expectedByteSize) throws IOException {
         requireReadableArtifactSize(expectedByteSize);
 
@@ -967,8 +1012,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         }
         try (FileChannel channel = FileChannel.open(archivePath, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
             long fileSize = channel.size();
-            requireReadableArtifactSize(fileSize);
-            if (fileSize != expectedByteSize) {
+            if (fileSize != expectedByteSize && fileSize != expectedByteSize + OutboundEmailArchiveEnvelope.OVERHEAD_BYTES) {
                 throw new ArtifactIntegrityException("Archived artifact size does not match archive metadata");
             }
             ByteBuffer buffer = ByteBuffer.allocate((int) fileSize);
@@ -978,11 +1022,47 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             if (buffer.hasRemaining()) {
                 throw new ArtifactIntegrityException("Archived artifact is shorter than archive metadata");
             }
-            if (channel.read(ByteBuffer.allocate(1)) != -1 || channel.size() != expectedByteSize) {
+            if (channel.read(ByteBuffer.allocate(1)) != -1 || channel.size() != fileSize) {
                 throw new ArtifactIntegrityException("Archived artifact size changed while reading");
             }
             return buffer.array();
         }
+    }
+
+    /**
+     * Returns the plaintext artifact held by the stored bytes.
+     *
+     * <p>Bytes without the envelope marker are a legacy artifact written before #3448 and are
+     * returned as stored. Otherwise the envelope is authenticated against this archive row's
+     * context (email log, patient, content type, recorded hash and size) and decrypted; nothing is
+     * returned unless the GCM tag verifies. The caller still checks the plaintext hash.</p>
+     */
+    private byte[] openStoredArtifact(OutboundEmailArchive archive, String expectedSha256Hash, long expectedByteSize,
+                                      byte[] storedBytes) throws IOException {
+        if (!OutboundEmailArchiveEnvelope.hasEnvelopeMagic(storedBytes)) {
+            if (storedBytes.length != expectedByteSize) {
+                throw new ArtifactIntegrityException("Archived artifact size does not match archive metadata");
+            }
+            return storedBytes;
+        }
+        if (storedBytes.length != expectedByteSize + OutboundEmailArchiveEnvelope.OVERHEAD_BYTES) {
+            throw new ArtifactIntegrityException("Archived artifact size does not match archive metadata");
+        }
+        EmailLog emailLog = archive.getEmailLog();
+        if (emailLog == null || emailLog.getId() == null || archive.getContentType() == null) {
+            throw new IOException("Archived artifact metadata needed for decryption is missing");
+        }
+        OutboundEmailArchiveEnvelope.ArtifactContext context = new OutboundEmailArchiveEnvelope.ArtifactContext(
+                emailLog.getId(), requireArchiveDemographicNo(archive), archive.getContentType(),
+                expectedSha256Hash, expectedByteSize);
+        OutboundEmailArchiveKeyring keyring;
+        try {
+            keyring = keyringService.getKeyring();
+        } catch (IllegalStateException e) {
+            throw new OutboundEmailArchiveEnvelopeException(OutboundEmailArchiveEnvelopeException.Reason.KEY_UNAVAILABLE,
+                    "Outbound email archive keyring is not available", e);
+        }
+        return OutboundEmailArchiveEnvelope.open(keyring, context, storedBytes);
     }
 
     private void requireReadableArtifactSize(long byteSize) throws IOException {
@@ -1014,20 +1094,39 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
      */
     private void auditArtifactReadFailure(
             LoggedInInfo loggedInInfo, OutboundEmailArchive archive, Document document, IOException failure) {
+        OutboundEmailArchiveReadAuditService.Event event = readFailureEvent(failure);
+        Integer archiveId = archive.getId();
+        String failureType = failure instanceof OutboundEmailArchiveEnvelopeException envelopeFailure
+                ? failure.getClass().getSimpleName() + "/" + envelopeFailure.getReason()
+                : failure.getClass().getSimpleName();
         MiscUtils.getLogger().warn(
-                "Outbound email archive artifact read failure archiveId={} failureType={}",
-                archive.getId(),
-                failure.getClass().getSimpleName());
+                "Outbound email archive artifact read failure archiveId={} failureType={} event={}",
+                archiveId, failureType, event);
         try {
-            readAuditService.recordAccess(loggedInInfo, archive.getId(), document != null ? document.getId() : null,
-                    requireArchiveDemographicNo(archive), failure instanceof ArtifactIntegrityException
-                            ? OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE
-                            : OutboundEmailArchiveReadAuditService.Event.READ_FAILURE);
+            readAuditService.recordAccess(loggedInInfo, archiveId, document != null ? document.getId() : null,
+                    requireArchiveDemographicNo(archive), event);
         } catch (RuntimeException auditFailure) {
             // Preserve the original integrity error while making lost database evidence explicit.
             MiscUtils.getLogger().error("Archive read failure audit persistence failed archiveId={}", archive.getId());
             failure.addSuppressed(auditFailure);
         }
+    }
+
+    /**
+     * Maps a read failure to its audit event. A GCM authentication failure is kept apart from a
+     * hash mismatch: it can also mean the key under that id is not the one that sealed the artifact
+     * (a wrong keyring restored), which an operator investigates differently from tampering.
+     */
+    private static OutboundEmailArchiveReadAuditService.Event readFailureEvent(IOException failure) {
+        if (failure instanceof ArtifactIntegrityException) {
+            return OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE;
+        }
+        if (failure instanceof OutboundEmailArchiveEnvelopeException envelopeFailure) {
+            return envelopeFailure.getReason() == OutboundEmailArchiveEnvelopeException.Reason.KEY_UNAVAILABLE
+                    ? OutboundEmailArchiveReadAuditService.Event.KEY_UNAVAILABLE
+                    : OutboundEmailArchiveReadAuditService.Event.DECRYPTION_FAILURE;
+        }
+        return OutboundEmailArchiveReadAuditService.Event.READ_FAILURE;
     }
 
     /** Marks a verified size or hash mismatch without changing the public IOException contract. */
