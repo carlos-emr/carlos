@@ -77,7 +77,7 @@ class FullPathReWriteJspRegressionTest {
                         problems.add(jsp + ": rewrite tag without a literal jspPage: " + matcher.group());
                         continue;
                     }
-                    String target = attribute.group(1) != null ? attribute.group(1) : attribute.group(2);
+                    String target = attribute.group(attribute.group(1) != null ? 1 : 2);
                     targets.add(target);
                     if (!target.startsWith("/")) {
                         problems.add(jsp + ": page-relative target '" + target + "'");

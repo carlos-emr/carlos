@@ -89,7 +89,8 @@ class FullPathReWriteUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"//attacker.example/path", "///attacker.example/path", "/\\attacker.example/path",
-            "\\/attacker.example/path", "\\\\attacker.example/path"})
+            "\\/attacker.example/path", "\\\\attacker.example/path", "/\t//attacker.example/path",
+            "\t//attacker.example/path", "/\n/attacker.example/path", "/\r\n//attacker.example/path"})
     @DisplayName("should never emit a protocol-relative URL under the root context")
     void shouldCollapseLeadingSeparators_forProtocolRelativeJspPage(String jspPage) {
         // A top-level request URI, so no page directory is prepended to mask the result.

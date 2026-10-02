@@ -63,6 +63,7 @@ public class FullPathReWrite extends TagSupport {
     private static final String DEFAULT_CONTEXT = "html";
 
     private static final Pattern LEADING_SEPARATORS = Pattern.compile("^[/\\\\]+");
+    private static final Pattern URL_IGNORED_CHARACTERS = Pattern.compile("[\\t\\n\\r]");
 
     /**
      * Legacy server attribute retained for tag compatibility.
@@ -159,7 +160,9 @@ public class FullPathReWrite extends TagSupport {
      * @return a URL without scheme, host, or port, never {@code null}
      */
     static String buildRelativeUrl(HttpServletRequest request, String jspPage) {
-        String safeJspPage = jspPage == null ? "" : jspPage;
+        // Browsers delete tab, CR and LF anywhere in a URL before parsing it, so "/\t//host" would
+        // become "//host" after the separator collapse below. Remove them first; no route has them.
+        String safeJspPage = jspPage == null ? "" : URL_IGNORED_CHARACTERS.matcher(jspPage).replaceAll("");
         if (request == null) {
             return safeJspPage;
         }
