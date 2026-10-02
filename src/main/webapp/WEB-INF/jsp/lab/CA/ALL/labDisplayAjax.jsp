@@ -161,7 +161,9 @@
     if (ackList != null) {
         for (int i = 0; i < ackList.size(); i++) {
             ReportStatus reportStatus = (ReportStatus) ackList.get(i);
-            if (reportStatus.getProviderNo().equals(providerNo)) {
+            // getProviderNo() is the routed provider's practitioner number (null for one without,
+            // such as the system provider), not the CARLOS provider number; compare like labDisplay.jsp.
+            if (providerNo != null && providerNo.equals(reportStatus.getOscarProviderNo())) {
                 labStatus = reportStatus.getStatus();
                 if (labStatus.equals("A")) {
                     ackFlag = true;
@@ -1080,14 +1082,24 @@
                 %>
                 <%
                     if (handler.getMsgType().equals("EPSILON")) {
+                        // Epsilon rows are filtered by header here, so ED rows are rendered in this branch rather
+                        // than the shared row below: a PDF gets the Download PDF link and the preview row, other
+                        // binary payloads the "not a PDF" note, and a text ED value its ED.5 text (#3977, #4124).
                         if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && !obxName.equals("")) {
                 %>
 
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                            href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
-                    <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
+                    <td align="right">
+                        <% if (isEmbeddedDocumentResult) { %>
+                        <a href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>" class="lab-embedded-pdf-download"><fmt:message key="lab.embeddedPdf.download"/></a>
+                        <% } else if (isUndisplayableEmbeddedDocument) { %>
+                        <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                        <% } else { %>
+                        <carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
+                        <% } %>
                     </td>
 
                     <td align="center">
@@ -1102,12 +1114,20 @@
                     <td align="center"><carlos:encode value='<%= handler.getOBXResultStatus(j, k) %>' context="html"/>
                     </td>
                 </tr>
+                <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
                 <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/></pre>
+                        <% if (isEmbeddedDocumentResult) { %>
+                        <a href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>" class="lab-embedded-pdf-download" style="margin-left:100px;"><fmt:message key="lab.embeddedPdf.download"/></a>
+                        <% } else if (isUndisplayableEmbeddedDocument) { %>
+                        <em class="lab-embedded-document-unsupported" style="margin-left:100px;"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                        <% } else { %>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/></pre>
+                        <% } %>
                     </td>
                 </tr>
+                <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
                 <% }
                 } else if (embeddedDocument == null && handler.getMsgType().equals("HHSEMR")) {
                     // ED rows (embeddedDocument != null) skip this branch for the shared rendering

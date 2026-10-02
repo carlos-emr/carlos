@@ -56,6 +56,17 @@ test('sqlString escapes quotes and backslashes in fixture literals', () => {
   assert.equal(sqlString('a\\b'), "'a\\\\b'");
 });
 
+test('insertId reads LAST_INSERT_ID in the same call and refuses a missing id', () => {
+  const queries = [];
+  const runner = (answer) => ({ value(query) { queries.push(query); return answer; } });
+  assert.equal(harness.insertId(runner('42'), 'INSERT INTO t(a) VALUES(1)', 'row'), '42');
+  assert.equal(queries[0], 'INSERT INTO t(a) VALUES(1); SELECT LAST_INSERT_ID()');
+  for (const answer of [null, '', '0', 'abc', '-3']) {
+    assert.throws(() => harness.insertId(runner(answer), 'INSERT INTO t(a) VALUES(1)', 'probe'),
+      /The owned probe fixture was not created/);
+  }
+});
+
 test('TLS verification is only waived for a demonstrably local target (issue #3598)', () => {
   for (const host of ['localhost', '127.0.0.1', '::1', '10.1.2.3', '192.168.0.9', '172.16.0.1']) {
     assert.equal(isLocalTlsTarget(host), true, `${host} should count as local`);
@@ -583,11 +594,14 @@ test('login works through the authentication stages in whatever order they arriv
   assert.ok(body.indexOf('forcepasswordreset/i.test(url)') > body.indexOf('for (let stage'),
     'the reset stage must be inside the loop, not ahead of it');
 
-  // The reset submit must accept a landing on the MFA page, or that hand-off is
-  // a 30s timeout instead of the next turn of the loop.
+  // The reset submit must accept the MFA page wherever it lands, or that
+  // hand-off is a 30s timeout instead of the next turn of the loop. Login2Action
+  // forwards the challenge in place at /forcepasswordresetSubmit, so the stage
+  // waits for the main frame to navigate rather than for a list of URLs.
   const resetStage = body.slice(body.indexOf('forcepasswordreset/i.test(url)'));
-  assert.match(resetStage.slice(0, resetStage.indexOf('continue;')),
-    /waitForURL\(\/providercontrol\|appointment\|select_facility\|loginMfa\/i/);
+  const resetSubmit = resetStage.slice(0, resetStage.indexOf('continue;'));
+  assert.match(resetSubmit, /waitForEvent\('framenavigated', \{ predicate: frame => frame === page\.mainFrame\(\)/);
+  assert.doesNotMatch(resetSubmit, /waitForURL\(/);
 
   // And the loop is bounded, with a diagnosis rather than a silent success when
   // a stage keeps re-serving itself.
@@ -673,4 +687,29 @@ test('native PDF audit requires status, MIME and complete PDF bytes and disposes
     assert.equal(disposed, true);
     await assert.rejects(harness.assertNotErrorPage(page, 'ordinary HTML'), /blank page/);
   }
+});
+
+test('a failed request knows whether the document that issued it went away', async () => {
+  const recorder = createRecorder();
+  const page = fakePage();
+  wireStrictPage(page, 'walk', recorder, { baseline: [] });
+  let address = 'https://host/carlos/page';
+  const frame = { isDetached: () => false, url: () => address };
+  const other = { isDetached: () => false, url: () => 'https://host/carlos/other' };
+  const request = (url, from) => ({ url: () => url, resourceType: () => 'font', frame: () => from, failure: () => ({ errorText: 'net::ERR_ABORTED' }) });
+  const stays = request('https://host/carlos/api/poll', other);
+  const leaves = request('https://host/carlos/font.woff2', frame);
+  await page.emit('request', stays);
+  await page.emit('request', leaves);
+  await page.emit('requestfailed', stays);
+  await page.emit('requestfailed', leaves);
+  // The navigation commits after the failure it caused: the answer is read when asked, not when recorded.
+  assert.equal(recorder.requestFailures[1].navigatedAway(), false);
+  address = 'https://host/carlos/next';
+  assert.equal(recorder.requestFailures[1].navigatedAway(), true);
+  assert.equal(recorder.requestFailures[0].navigatedAway(), false);
+  // A request whose issuing document is unknown is never presumed abandoned.
+  await page.emit('requestfailed', { url: () => 'https://host/carlos/x.js', resourceType: () => 'script', failure: () => ({ errorText: 'net::ERR_ABORTED' }) });
+  assert.equal(recorder.requestFailures[2].navigatedAway(), false);
+  assert.deepEqual(Object.keys(recorder.requestFailures[0]), ['label', 'url', 'resourceType', 'errorText']);
 });

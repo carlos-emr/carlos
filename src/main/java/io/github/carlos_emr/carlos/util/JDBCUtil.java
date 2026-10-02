@@ -149,21 +149,17 @@ public class JDBCUtil {
         }
     }
 
-    public static void toDataBase(InputStream inputStream, String fileName) {
-        try {
-            FormImportTarget target = parseImportFileName(fileName);
-            String formName = validateImportFormTable(target.formName());
-            Document doc = parseImportDocument(inputStream);
+    public static void toDataBase(InputStream inputStream, String fileName) throws XmlImportException {
+        FormImportTarget target = parseImportFileName(fileName);
+        String formName = validateImportFormTable(target.formName());
+        Document doc = parseImportDocument(inputStream);
 
-            // Table identifiers cannot be JDBC-bound. formName is accepted only after
-            // strict filename parsing plus the encounterForm/internal table allowlist.
-            if (importRowExists(formName, target)) {
-                return;
-            }
-            insertImportRow(formName, target, doc);
-        } catch (XmlImportException e) {
-            MiscUtils.getLogger().debug("Errors {}", e.getMessage(), e);
+        // Table identifiers cannot be JDBC-bound. formName is accepted only after
+        // strict filename parsing plus the encounterForm/internal table allowlist.
+        if (importRowExists(formName, target)) {
+            return;
         }
+        insertImportRow(formName, target, doc);
     }
 
     private static boolean importRowExists(String formName, FormImportTarget target) throws XmlImportException {

@@ -88,6 +88,22 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldPersistAndDeduplicateFavorite_withoutInstructions() {
+        var favorite = favoriteForSave("No instructions");
+        favorite.setSpecial(null);
+        assertThat(favorite.Save()).isTrue();
+        hibernateTemplate.flush();
+        hibernateTemplate.clear();
+        assertThat(dao.find(favorite.getFavoriteId()).getSpecial()).isEmpty();
+
+        var duplicate = favoriteForSave("No instructions");
+        duplicate.setSpecial("");
+        assertThat(duplicate.Save()).isTrue();
+        assertThat(duplicate.getFavoriteId()).isEqualTo(favorite.getFavoriteId());
+        assertThat(dao.findByProviderNo("FAVFIX")).hasSize(1);
+    }
+
+    @Test
     void shouldMatchDispensingMode_whenCreatingOtherwiseIdenticalFavorites() {
         var external = favoriteForSave("Dispensing");
         external.setDispenseInternal(null); // Legacy absent flag has the same meaning as false.

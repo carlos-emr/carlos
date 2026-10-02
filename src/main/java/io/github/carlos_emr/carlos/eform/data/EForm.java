@@ -1450,16 +1450,25 @@ public class EForm extends EFormBase {
     }
 
     /**
-     * Supplies the persisted subject for templates without their own subject control.
-     * The floating toolbar copies this field on load and submits it on save; without it,
-     * reopening a saved template such as Rich Text Letter silently clears the subject.
+     * Adds a hidden {@code subject} input carrying {@code subject} to the template's first form
+     * when that form has no subject control of its own. The floating toolbar copies this field on
+     * load and submits it on save; without it, reopening a saved form whose template lacks a
+     * subject control silently clears its subject. A template's own control, including an
+     * intentionally empty one, is never replaced or duplicated.
+     *
+     * <p>Callers pass the persisted subject only for a saved instance (loaded by {@code fdid}).
+     * For a form loaded from the catalog (a new instance or the admin preview),
+     * {@link #getFormSubject()} is the template's catalog description, not a subject anyone chose
+     * for this letter, so those callers pass an empty value.</p>
+     *
+     * @param subject the subject to supply; {@code null} is treated as empty
      */
-    public void ensureSubjectInput() {
+    public void ensureSubjectInput(String subject) {
         Element form = getDocument().selectFirst("form");
         if (form != null && form.selectFirst("[name=subject]") == null) {
             // Jsoup escapes attribute values when serializing; keep the original text here.
             form.appendElement("input").attr("type", "hidden").attr("name", "subject")
-                    .attr("value", getFormSubject());
+                    .attr("value", subject == null ? "" : subject);
         }
     }
 

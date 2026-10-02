@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.eform.actions;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
@@ -62,5 +63,29 @@ final class EFormListRedirect {
             separator = '&';
         }
         return target.toString();
+    }
+
+    /**
+     * Returns the eForm Groups page showing {@code groupName}, keeping the sort order and the
+     * schedule-navigation flag of the POST that changed the group.
+     *
+     * <p>The group actions used to forward to this page; a forward keeps the POST method and
+     * the page's gate permits only GET, so every successful add, remove or delete ended on a
+     * 405 (issue #4130). The group name arrives under the action's own parameter name
+     * ({@code groupName} or {@code group_name}) but the page reads {@code group_view}, so it
+     * is passed in rather than echoed by name.
+     *
+     * @param request the group POST
+     * @param groupName the group to show; {@code null} or empty shows the page's default group
+     * @return the redirect location, never null
+     */
+    static String toGroup(HttpServletRequest request, String groupName) {
+        String target = to("/eform/efmmanageformgroups", request, "orderby");
+        if (groupName != null && !groupName.isEmpty()) {
+            target += (target.indexOf('?') < 0 ? '?' : '&') + "group_view="
+                    + URLEncoder.encode(groupName, StandardCharsets.UTF_8);
+        }
+        // ScheduleNav.append() adds the flag only for its canonical value, never an echo.
+        return ScheduleNav.append(target, request);
     }
 }

@@ -188,7 +188,9 @@
     String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
 
     // pdfAction rotates, deletes or extracts pages of the queued PDF: a mutation. The page
-    // is reached through the read gate (ViewDocumentRead2Action) and CSRFGuard protects only
+    // is reached through ViewIncomingDocuments2Action and also as ManageDocument's
+    // nextIncomingDoc result, which bypasses that gate, so these checks are the shared
+    // boundary for both entry paths. CSRFGuard protects only
     // POST/PUT/DELETE/PATCH, so a GET carrying pdfAction from a link, an image tag or a
     // prefetch would otherwise change the file with no token. Refuse it before touching
     // anything; the PdfInfoForm posts, so real operators never see this.
@@ -204,6 +206,12 @@
     if (!pdfAction.isEmpty() && !ctx.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
             .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
         response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+    // doPagesAction ignores names it does not know; reject them so a typo or a new verb
+    // cannot reach the page without first being added to the supported set.
+    if (!pdfAction.isEmpty() && !IncomingDocUtil.isSupportedPageAction(pdfAction)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
         return;
     }
 
