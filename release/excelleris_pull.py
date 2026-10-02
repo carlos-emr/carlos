@@ -13,9 +13,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
 # Public License for more details.
 #
-# Lineage: functional replacement for release/ExcellerisDownload.sh (Peter
-# Hutten-Czapski, after Tom Le and Muki) and for the Mule 1.3.3 +
-# hl7_file_management bridge that script handed its files to.
+# Lineage: the direct-upload alternative to release/ExcellerisDownload.sh
+# (Peter Hutten-Czapski, after Tom Le and Muki), which hands its files to a
+# Mule 1.3.3 + hl7_file_management bridge. Both options remain available.
 """
 Pull lab results from Excelleris and upload them straight into CARLOS EMR.
 
@@ -43,7 +43,8 @@ One run, normally started by cron or a systemd timer, performs:
 
 The upload uses the lab-upload route CARLOS already exposes for external lab
 senders (``/lab/newLabUpload``, handled by ``LabUpload2Action``). That route is
-what the retired Mule bridge spoke, so no change to CARLOS is required. CARLOS
+what the Mule bridge behind ExcellerisDownload.sh speaks, so no change to
+CARLOS is required. CARLOS
 checksums every upload and answers 409 for a file it has already imported,
 which is what makes the retry in step 1 safe.
 
@@ -1116,7 +1117,7 @@ class CarlosSession:
     """Scripted login, CSRF token fetch, signed upload, logout, against either
     CARLOS or OSCAR 19 (``[carlos] flavour``).
 
-    Routes come from the two code bases, not from the retired Mule bridge.
+    Routes come from the two code bases, not from the Mule bridge.
     The upload action, its parameters and its crypto are the same in both;
     only routing and the CSRF layer differ.
 
