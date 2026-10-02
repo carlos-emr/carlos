@@ -1489,9 +1489,10 @@ public class EForm extends EFormBase {
         if (form == null || hasSubmittableNewFormControl(form)) {
             return;
         }
-        // Marked so the eForm page script can drop it from a native submission whose submitter
-        // is the template's own newForm button (see eform_floating_toolbar.js); every other
-        // path, including the toolbar's submitter-less form.submit(), posts it.
+        // Marked for the eForm page script (eform_floating_toolbar.js), which disables it and, at
+        // serialization (formdata), appends its value only when the submission carries no other
+        // newForm. Whether the template's own controls contribute can change after load, so this
+        // server-side check only decides whether the element is emitted at all.
         Element fallback = form.appendElement("input").attr("type", "hidden")
                 .attr("name", "newForm").attr("value", "true")
                 .attr(NEW_FORM_FALLBACK_ATTRIBUTE, "");
@@ -1513,8 +1514,8 @@ public class EForm extends EFormBase {
      *
      * <p>A submit button named {@code newForm} does not count: it submits its value only when it
      * is the submitter, and the toolbar saves through {@code form.submit()}, which has none. The
-     * fallback is added beside it and the page script removes the fallback from a submission
-     * that button makes, so every path posts {@code newForm} exactly once.
+     * fallback is added beside it; the page script posts it only when the submission has no other
+     * {@code newForm}, so every path posts {@code newForm} exactly once.
      */
     private static boolean hasSubmittableNewFormControl(Element form) {
         String controls = "input[name], select[name], textarea[name]";
