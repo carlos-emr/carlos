@@ -125,7 +125,20 @@ async function workflow(s) {
       preview.evaluate(() => window.location.reload())
     ]);
     await previewShows(script, note, 'Reloading the preview restored the old note');
-    await script.goto(script.url(), { waitUntil: 'load' });
+    // The editable Save And Print view requires POST; GET opens only a read-only reprint.
+    await Promise.all([
+      script.waitForNavigation({ waitUntil: 'load' }),
+      script.evaluate(() => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = window.location.href;
+        const token = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (!token) throw new Error('The editable script has no CSRF token');
+        form.appendChild(token.cloneNode(true));
+        document.body.appendChild(form);
+        form.submit();
+      })
+    ]);
     h.assert(await script.locator('#additionalNotes').inputValue() === note,
       'Reopening the saved script did not initialize the editor with its stored note');
     await previewShows(script, note, 'Reopening the saved script erased its note from the preview');
