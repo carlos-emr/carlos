@@ -1082,7 +1082,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(outcome).isEqualTo(ChartConsentOutcome.APPLIED);
             assertThat(optIn.isOptout()).isTrue();
             verify(mockConsentDao).merge(optIn);
-            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
                     eq("PatientConsentManager.changeConsent"), eq("consent"), eq("21"), eq(100),
                     eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 21 Choice: opt-in->opt-out")));
         }
@@ -1132,7 +1132,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
                     eq(" Demographic: 100 ConsentTypeId: 1 refused: the consent record changed since the chart"
                             + " page was loaded. Requested: opt-in Shown: ConsentId: 21 Choice: opt-in"
                             + " Current: ConsentId: 21 Choice: opt-out")));
-            logActionMock.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class),
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(any(LoggedInInfo.class),
                     eq("PatientConsentManager.changeConsent"), any(), any(), any(), any()), never());
         }
 
