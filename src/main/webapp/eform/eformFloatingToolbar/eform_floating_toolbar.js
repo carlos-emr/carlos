@@ -109,7 +109,7 @@ function getEForm() {
  * native submission whose submitter is an enabled newForm submit button (not an image button, which
  * posts newForm.x/newForm.y rather than newForm; see below). The form-level default
  * (data-carlos-newform-default) is supplied there by a temporary input, for native submissions and
- * the toolbar's save; a template script's own form.submit() bypasses both. A template newForm
+ * for direct form.submit() calls (the toolbar's save, printControl.js, template scripts). A template newForm
  * checkbox or list box that starts contributing after load still posts beside the fallback there.
  */
 const eformFormDataEventSupported = typeof window.FormDataEvent === "function";
@@ -144,6 +144,14 @@ function supplyLegacyNewFormDefault(form, submitter) {
 }
 
 if (!eformFormDataEventSupported) {
+    // HTMLFormElement.submit() fires no submit event, and the toolbar, printControl.js and template
+    // scripts all submit that way; wrap it (in this mode only) so the form default still applies.
+    // The helper adds nothing when the submission already carries newForm, so no value doubles.
+    const nativeFormSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function () {
+        supplyLegacyNewFormDefault(this, null);
+        return nativeFormSubmit.apply(this, arguments);
+    };
     // These browsers also lack SubmitEvent.submitter, so the submitter is taken from the click that
     // starts a native submission (implicit Enter submission dispatches that click too).
     let pendingSubmitter = null;
@@ -201,8 +209,6 @@ function submitEForm() {
 		showErrorAlert();
 		return false;
 	}
-	// form.submit() fires no submit event, so the compatibility path supplies the default here.
-	supplyLegacyNewFormDefault(ef, null);
 	ef.submit();
 	return true;
 }
