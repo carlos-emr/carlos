@@ -587,6 +587,14 @@ def load_config(path: Path) -> Config:
         path = Path(key_pair_file)
         _require_private_file(path, "[carlos] key_pair_file")
         pair_service, client_private_key, server_public_key = read_key_pair_file(path)
+        # The private key in the file is registered to the service named in
+        # it; signing for any other name earns a permanent 406 and parks every
+        # pull. An explicit service may only confirm the file's name.
+        if service and pair_service and service != pair_service:
+            raise ConfigError(
+                f"[carlos] service {service!r} does not match the service named in "
+                f"key_pair_file ({pair_service!r}); leave service empty or set it to that name"
+            )
         service = service or pair_service
     else:
         client_private_key = _read_key_material(parser["carlos"], "client_private_key")

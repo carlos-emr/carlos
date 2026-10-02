@@ -1564,6 +1564,28 @@ class KeyPairFileTest(TempEnv):
         with self.assertRaisesRegex(ep.ConfigError, "no 'Service Name' section"):
             ep.read_key_pair_file(kp)
 
+    def test_explicit_service_must_match_the_key_pair_file(self):
+        # The example config ships service = excelleris; pointing it at a
+        # Mule key registered under another name must fail here, not as a
+        # 406 on every upload.
+        _, _, c, srv = make_keys()
+        kp = self.tmp / "keyPair.key"
+        kp.write_text(KEY_PAIR_TEMPLATE.format(service="LifelabsHL7", priv=c, pub=srv))
+        kp.chmod(0o600)
+        for service, expected in (("excelleris", None), ("LifelabsHL7", "LifelabsHL7")):
+            self.write_conf("", "", service=service, extra_carlos=f"key_pair_file = {kp}")
+            text = (
+                self.conf.read_text()
+                .replace("client_private_key = \n", "")
+                .replace("server_public_key = \n", "")
+            )
+            self.conf.write_text(text)
+            if expected is None:
+                with self.assertRaisesRegex(ep.ConfigError, "does not match the service named"):
+                    ep.load_config(self.conf)
+            else:
+                self.assertEqual(ep.load_config(self.conf).carlos_service, expected)
+
 
 class SessionlessOscar19Test(Oscar19SessionTest):
     def setUp(self):

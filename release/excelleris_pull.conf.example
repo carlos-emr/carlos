@@ -73,7 +73,8 @@ pin =
 # The key name created in Administration > Key Manager > Create Key, with type
 # "OTHER" / "ExcellerisON" (Ontario). The EMR picks the import handler from the
 # key, so this one name selects both the signature check and the parser.
-# May be left empty when key_pair_file is set (the file names the service).
+# Leave empty when key_pair_file is set: the file names the service, and a
+# different name here is rejected (the file's key only signs for its own name).
 service = excelleris
 
 # EITHER point at the keyPair.key file the Create Key page downloaded (this is

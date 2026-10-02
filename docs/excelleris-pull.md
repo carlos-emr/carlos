@@ -191,7 +191,7 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `username` | carlos: yes; oscar19: optional | Service account login, 1 to 30 letters or digits. For `oscar19`, leaving all three credentials empty uploads without a session, as Mule did. Set all three or none. |
 | `password` | as above | Service account password. |
 | `pin` | as above | Digits only: exactly four on CARLOS, at least four on OSCAR 19. |
-| `service` | yes, unless `key_pair_file` names it | Key name registered in Key Manager. The EMR picks the upload handler from the key's type. |
+| `service` | yes, unless `key_pair_file` names it | Key name registered in Key Manager. The EMR picks the upload handler from the key's type. With `key_pair_file`, leave it empty or set it to the name inside the file; any other value is rejected at startup, because the file's private key only signs for that name. |
 | `key_pair_file` | alternative to the two keys | The `keyPair.key` file the Create Key page downloads (service name, client private key, server public key). Mode 0600. Cannot be combined with the keys below. |
 | `client_private_key` or `client_private_key_file` | one of, unless `key_pair_file` | Base64 PKCS#8 private key from the Key Manager JSON endpoint. PEM armour and line breaks are tolerated. |
 | `server_public_key` or `server_public_key_file` | one of, unless `key_pair_file` | Base64 X.509 public key from the Key Manager page. |
