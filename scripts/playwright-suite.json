@@ -366,6 +366,19 @@
       ]
     },
     {
+      "name": "consultation-list-filters",
+      "script": "scripts/consultation-list-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "consultation-nullable-fields",
       "script": "scripts/consultation-nullable-fields-playwright-checks.js",
       "tiers": [

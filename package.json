@@ -136,6 +136,7 @@
     "test:prevention-recall-report-playwright": "node scripts/prevention-recall-report-playwright-checks.js",
     "test:measurement-validation-playwright": "node scripts/measurement-validation-playwright-checks.js",
     "test:application-health-playwright": "node scripts/application-health-playwright-checks.js",
+    "test:consultation-list-filters-playwright": "node scripts/consultation-list-filters-playwright-checks.js",
     "test:consultation-nullable-fields-playwright": "node scripts/consultation-nullable-fields-playwright-checks.js",
     "test:demographic-add-playwright": "node scripts/demographic-add-playwright-checks.js",
     "test:demographic-master-crud-smoke": "node scripts/demographic-master-crud-smoke.js",

@@ -681,6 +681,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
         filter.setAppointmentStartDate(convertJSONDate(json.get("appointmentStartDate") != null ? json.get("appointmentStartDate").asText() : null));
         filter.setDemographicNo(json.get("demographicNo") != null ? json.get("demographicNo").asInt() : null);
         filter.setMrpNo(json.get("mrpNo") != null ? json.get("mrpNo").asInt() : null);
+        // Issue #3976: same Consultant filter as the Consultations list page (specialist specId).
+        filter.setConsultantId(json.get("consultantId") != null ? json.get("consultantId").asInt() : null);
         filter.setNumToReturn(json.get("numToReturn") != null ? json.get("numToReturn").asInt() : null);
         filter.setReferralEndDate(convertJSONDate(json.get("referralEndDate") != null ? json.get("referralEndDate").asText() : null));
         filter.setReferralStartDate(convertJSONDate(json.get("referralStartDate") != null ? json.get("referralStartDate").asText() : null));
