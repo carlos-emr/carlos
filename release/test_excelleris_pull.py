@@ -1667,6 +1667,58 @@ class RedirectPolicyTest(unittest.TestCase):
         self.assertTrue(any(isinstance(h, ep._NoRedirect) for h in pinned._opener.handlers))
 
 
+class TruncatedBodyTest(unittest.TestCase):
+    """A connection that closes before the announced body arrives is a
+    transport failure: on OSCAR 19 an empty 200 body would otherwise pass as
+    a sendError(200) success and archive a file the EMR never imported."""
+
+    def _serve_once(self, raw: bytes) -> int:
+        srv = socket.socket()
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+
+        def run():
+            conn, _ = srv.accept()
+            try:
+                conn.settimeout(5)
+                buf = b""
+                while b"\r\n\r\n" not in buf:
+                    chunk = conn.recv(4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+                conn.sendall(raw)
+            finally:
+                conn.close()
+                srv.close()
+
+        threading.Thread(target=run, daemon=True).start()
+        return srv.getsockname()[1]
+
+    def test_short_body_is_a_transport_error(self):
+        port = self._serve_once(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n"
+        )
+        transport = ep.HttpTransport(5, None, False)
+        with self.assertRaisesRegex(ep.TransportError, "truncated"):
+            transport.request("POST", f"http://127.0.0.1:{port}/lab/newLabUpload.do", body=b"x")
+
+    def test_complete_body_passes(self):
+        port = self._serve_once(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+        )
+        transport = ep.HttpTransport(5, None, False)
+        resp = transport.request("GET", f"http://127.0.0.1:{port}/")
+        self.assertEqual((resp.status, resp.body), (200, b"ok"))
+
+    def test_empty_announced_body_passes(self):
+        port = self._serve_once(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        )
+        resp = ep.HttpTransport(5, None, False).request("GET", f"http://127.0.0.1:{port}/")
+        self.assertEqual((resp.status, resp.body), (200, b""))
+
+
 class TransportErrorClassificationTest(unittest.TestCase):
     def test_http_client_failures_are_transport_errors(self):
         import http.client

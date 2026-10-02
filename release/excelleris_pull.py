@@ -872,9 +872,26 @@ class HttpTransport:
 
 
 def _read_capped(resp) -> bytes:
+    """Read a response body under the size cap, and refuse a short one.
+
+    ``HTTPResponse.read(n)`` returns what arrived before the peer closed the
+    connection without raising when ``Content-Length`` promised more. An
+    empty body is a success on OSCAR 19 (``sendError(200)``), so a reply cut
+    off at the headers must be a transport failure, not an upload result.
+    """
     data = resp.read(MAX_RESPONSE_BYTES + 1)
     if len(data) > MAX_RESPONSE_BYTES:
         raise TransportError("response exceeded size cap")
+    declared = resp.headers.get("Content-Length") if getattr(resp, "headers", None) else None
+    if declared is not None:
+        try:
+            expected = int(declared)
+        except ValueError:
+            expected = -1
+        if 0 <= expected <= MAX_RESPONSE_BYTES and len(data) < expected:
+            raise TransportError(
+                f"response truncated: {len(data)} of the {expected} bytes announced arrived"
+            )
     return data
 
 

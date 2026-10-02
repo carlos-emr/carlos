@@ -135,6 +135,13 @@ build 5036 disassemble to exactly the behaviour described.
    install -d -m 0750 -o carlos-excelleris -g carlos-excelleris /var/log/carlos-excelleris
    ```
 
+   Then install the tool itself; it is not part of the `carlos-emr` package:
+
+   ```sh
+   install -d -m 0755 /opt/carlos-excelleris
+   install -m 0755 release/excelleris_pull.py /opt/carlos-excelleris/excelleris_pull.py
+   ```
+
 4. Copy `release/excelleris_pull.conf.example` to `/etc/carlos-excelleris/pull.conf`, fill
    it in, and make it private. The tool refuses to start if group or other can read it:
 
@@ -151,8 +158,8 @@ build 5036 disassemble to exactly the behaviour described.
 6. Validate offline, then prove the credentials and network path without pulling anything:
 
    ```sh
-   sudo -u carlos-excelleris python3 excelleris_pull.py --config /etc/carlos-excelleris/pull.conf --check-config
-   sudo -u carlos-excelleris python3 excelleris_pull.py --config /etc/carlos-excelleris/pull.conf --dry-run
+   sudo -u carlos-excelleris python3 /opt/carlos-excelleris/excelleris_pull.py --config /etc/carlos-excelleris/pull.conf --check-config
+   sudo -u carlos-excelleris python3 /opt/carlos-excelleris/excelleris_pull.py --config /etc/carlos-excelleris/pull.conf --dry-run
    ```
 
    `--check-config` loads the keys, the PFX and any `ca_file` bundles and prints the
