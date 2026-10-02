@@ -131,7 +131,7 @@ function supplyLegacyNewFormDefault(form, submitter) {
         return;
     }
     const submitterContributes = submitter && submitter.name === "newForm" && submitter.type !== "image"
-        && !submitter.disabled && submitter.form === form;
+        && !submitter.matches(":disabled") && submitter.form === form;
     if (submitterContributes || new FormData(form).getAll("newForm").length > 0) {
         return;
     }
@@ -165,7 +165,7 @@ if (!eformFormDataEventSupported) {
         setTimeout(function () { pendingSubmitter = null; }, 0);
     }, true);
     // Bubble phase on document: runs after the template's own submit handlers, which may cancel the
-    // submission or disable the button. Only an enabled newForm submit button still posts its value,
+    // submission or disable the button (directly or through its fieldset, hence :disabled). Only an enabled newForm submit button still posts its value,
     // and only then is the fallback set aside -- for this submission alone, so a cancelled or later
     // save still has it. An image button posts newForm.x/newForm.y, never newForm, so it keeps the
     // fallback.
@@ -177,7 +177,7 @@ if (!eformFormDataEventSupported) {
         const submitter = event.submitter || pendingSubmitter;
         supplyLegacyNewFormDefault(form, submitter);
         if (!submitter || submitter.name !== "newForm" || submitter.type === "image"
-            || submitter.disabled || submitter.form !== form) {
+            || submitter.matches(":disabled") || submitter.form !== form) {
             return;
         }
         const fallbacks = Array.from(form.querySelectorAll("input[data-carlos-newform-fallback]"))
