@@ -26,6 +26,12 @@ password =
 pfx_file = /etc/carlos-excelleris/clinic.pfx
 pfx_password =
 
+# Product name Excelleris sees in the User-Agent header, inside the
+# "Mozilla/5.0 (Windows NT 6.2; <product>; <version>) ..." comment. Set it to
+# whatever EMR name is on file with Excelleris for this clinic, CARLOS or
+# OSCAR, regardless of which flavour below the results are uploaded to.
+product = CARLOS
+
 # Per-request timeout. The old script had none and could hang forever.
 timeout_seconds = 60
 
@@ -35,7 +41,14 @@ timeout_seconds = 60
 # ca_file = /etc/carlos-excelleris/extra-ca.pem
 
 [carlos]
-# The CARLOS base URL including the context path, no trailing slash.
+# Which EMR generation receives the results:
+#   carlos   CARLOS EMR (extensionless routes, CSRF token)      [default]
+#   oscar19  OSCAR 19   (*.do routes, logout.jsp, no CSRF layer)
+# The upload action, its parameters and its crypto are the same in both.
+flavour = carlos
+
+# The EMR base URL including the context path, no trailing slash
+# (e.g. https://emr.example.ca/oscar for OSCAR 19).
 base_url = https://emr.example.ca/carlos
 
 # A dedicated CARLOS provider login holding only the _lab security object with
