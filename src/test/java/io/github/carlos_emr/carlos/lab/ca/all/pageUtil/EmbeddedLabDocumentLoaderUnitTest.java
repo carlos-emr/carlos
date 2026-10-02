@@ -189,20 +189,55 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
-    @DisplayName("should size an over-limit payload from its encoded length without decoding past the signature")
-    void shouldClassifyTooLarge_withoutDecodingPastSignature() {
-        // A PDF whose hex breaks after the first kilobyte: a full decode fails, so classifying it
-        // as an over-limit PDF shows only the signature was read. The download path (no limit)
-        // still decodes everything and refuses it.
+    @DisplayName("should size an over-limit hex PDF from its encoded length")
+    void shouldClassifyTooLarge_fromEncodedLengthForHex() {
+        String hexPdf = HexFormat.of().formatHex(PDF).repeat(41) + "a";
+        MessageHandler handler = handlerReturning(hexPdf, "Hex");
+
+        EmbeddedLabDocumentLoader.Inspection inspection = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10);
+
+        assertThat(inspection.status()).isEqualTo(Status.TOO_LARGE);
+        assertThat(inspection.sizeBytes()).isEqualTo(hexPdf.length() / 2);
+        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.PDF);
+    }
+
+    @Test
+    @DisplayName("should not promise an over-limit hex PDF the download path refuses")
+    void shouldClassifyNotPdf_whenOverLimitHexIsCorruptPastSignature() {
+        // A PDF whose hex breaks after the first kilobyte: the full decode the download endpoint
+        // runs refuses it, so the page must not class it as a (too large) PDF either.
         String hexPdf = HexFormat.of().formatHex(PDF).repeat(20);
         String corruptTail = hexPdf + "zz" + hexPdf;
         MessageHandler handler = handlerReturning(corruptTail, "Hex");
 
         EmbeddedLabDocumentLoader.Inspection inspection = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10);
 
-        assertThat(inspection.status()).isEqualTo(Status.TOO_LARGE);
-        assertThat(inspection.sizeBytes()).isEqualTo(corruptTail.length() / 2);
         assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.NOT_PDF);
+        assertThat(inspection.status()).isEqualTo(Status.NOT_PDF);
+        assertThat(inspection.isPdf()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should agree with the download path on an over-limit base64 PDF with stray characters")
+    void shouldAgreeWithDownloadPath_whenOverLimitBase64HasStrayCharacters() {
+        // Stray characters after the signature defeat the strict decoder; the download path's
+        // lenient fallback still yields the PDF, so the capped page classification may promise it.
+        String base64 = Base64.getEncoder().encodeToString((new String(PDF, StandardCharsets.US_ASCII)
+                + "x".repeat(3000)).getBytes(StandardCharsets.US_ASCII));
+        String corruptTail = base64.substring(0, 2000) + "*%" + base64.substring(2000);
+        MessageHandler handler = handlerReturning(corruptTail, "Base64");
+
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10).status()).isEqualTo(Status.TOO_LARGE);
+        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.PDF);
+    }
+
+    @Test
+    @DisplayName("should validate hex the way the full decode does, ignoring an unmatched final character")
+    void shouldMatchDecodeHex_forDecodableHexCheck() {
+        assertThat(EmbeddedLabDocumentLoader.isDecodableHex("0aFf")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isDecodableHex("0aFfz")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isDecodableHex("0azF")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isDecodableHex("")).isTrue();
     }
 
     @Test

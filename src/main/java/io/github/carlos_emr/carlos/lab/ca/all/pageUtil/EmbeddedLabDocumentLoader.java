@@ -212,7 +212,14 @@ public final class EmbeddedLabDocumentLoader {
             long estimated = estimateDecodedSize(compact, hex);
             if (estimated > maxBytes) {
                 // Over the limit by its encoded length alone: decode only far enough to read the
-                // signature, so an oversized payload costs no more than a small one.
+                // signature, so an oversized payload costs no more than a small one. Hex is
+                // validated in full first (a linear scan, nothing decoded), because the full
+                // decode the download endpoint runs refuses any non-digit; base64 needs no such
+                // check, since the lenient decoder that full decode falls back to accepts any
+                // input and yields the same leading bytes as the capped prefix.
+                if (hex && !isDecodableHex(compact)) {
+                    return notPdf(encoding, compact, payload, 0, resultFallback);
+                }
                 long headSize = decode(compact, hex, head, null, true);
                 if (headSize < PDF_SIGNATURE.length || !isPdf(head)) {
                     return notPdf(encoding, compact, payload, headSize < 0 ? 0 : estimated, resultFallback);
@@ -275,6 +282,20 @@ public final class EmbeddedLabDocumentLoader {
             return new Classified(Status.TEXT, payload.length(), null, false);
         }
         return new Classified(Status.NOT_PDF, sizeBytes, null, false);
+    }
+
+    /**
+     * Whether {@link #decodeHex} would decode {@code compact}: every character of its complete
+     * pairs is a hex digit (an unmatched final character is dropped, never checked).
+     */
+    static boolean isDecodableHex(String compact) {
+        int end = compact.length() / 2 * 2;
+        for (int i = 0; i < end; i++) {
+            if (Character.digit(compact.charAt(i), 16) < 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
