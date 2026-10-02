@@ -409,6 +409,46 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should never buffer a large payload that is not a PDF on the uncapped load path")
+    void shouldNotBuffer_forLargeNonPdfLoad() {
+        byte[] html = ("<html>" + "x".repeat(200_000) + "</html>").getBytes(StandardCharsets.US_ASCII);
+        for (MessageHandler handler : new MessageHandler[] {
+                handlerReturning(Base64.getEncoder().encodeToString(html), "Base64"),
+                handlerReturning(HexFormat.of().formatHex(html), "Hex")}) {
+            Document document = EmbeddedLabDocumentLoader.load(handler, 0, 0, 0);
+            assertThat(document.status()).isEqualTo(Status.NOT_PDF);
+            assertThat(document.bytes()).isNull();
+            assertThat(document.sizeBytes()).isEqualTo(html.length);
+        }
+    }
+
+    @Test
+    @DisplayName("should start buffering only once the PDF signature is confirmed, whatever the chunking")
+    void shouldBufferOnlyAfterSignature_forPdfBuffer() {
+        byte[] html = "<html>not a pdf</html>".getBytes(StandardCharsets.US_ASCII);
+        EmbeddedLabDocumentLoader.PdfBuffer rejected = new EmbeddedLabDocumentLoader.PdfBuffer();
+        rejected.write(html, 0, html.length);
+        assertThat(rejected.isBuffering()).isFalse();
+        assertThat(rejected.bytes()).isNull();
+
+        // Signature split across single bytes, then the rest in one chunk.
+        EmbeddedLabDocumentLoader.PdfBuffer pdf = new EmbeddedLabDocumentLoader.PdfBuffer();
+        for (int i = 0; i < 3; i++) {
+            pdf.write(PDF[i]);
+            assertThat(pdf.isBuffering()).isFalse();
+        }
+        pdf.write(PDF, 3, PDF.length - 3);
+        assertThat(pdf.isBuffering()).isTrue();
+        assertThat(pdf.bytes()).isEqualTo(PDF);
+
+        // A retry starts from nothing.
+        pdf.reset();
+        assertThat(pdf.isBuffering()).isFalse();
+        pdf.write(html, 0, html.length);
+        assertThat(pdf.bytes()).isNull();
+    }
+
+    @Test
     @DisplayName("should estimate the decoded size exactly for strict and lenient base64 and for hex")
     void shouldEstimateDecodedSize_fromEncodedLength() {
         for (int length = 0; length <= 7; length++) {
