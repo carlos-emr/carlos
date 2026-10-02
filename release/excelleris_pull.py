@@ -125,6 +125,7 @@ import base64
 import configparser
 import dataclasses
 import fcntl
+import http.client
 import http.cookiejar
 import logging
 import lzma
@@ -429,15 +430,19 @@ def load_config(path: Path) -> Config:
             raise ConfigError(f"[{section}] ca_file not found: {path}")
         return path
 
-    product = optional("excelleris", "product", "CARLOS")
+    flavour = optional("carlos", "flavour", FLAVOUR_CARLOS).lower()
+    if flavour not in FLAVOURS:
+        raise ConfigError(f"[carlos] flavour must be one of {', '.join(FLAVOURS)}; got {flavour!r}")
+    # Unless the clinic sets it, the name Excelleris sees follows the EMR
+    # generation being fed; an explicit value always wins.
+    product = optional("excelleris", "product", "") or (
+        "OSCAR" if flavour == FLAVOUR_OSCAR19 else "CARLOS"
+    )
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}", product):
         # It is spliced into the User-Agent comment; keep it header-safe.
         raise ConfigError(
             "[excelleris] product must be 1-40 letters, digits, spaces, dots, underscores or dashes"
         )
-    flavour = optional("carlos", "flavour", FLAVOUR_CARLOS).lower()
-    if flavour not in FLAVOURS:
-        raise ConfigError(f"[carlos] flavour must be one of {', '.join(FLAVOURS)}; got {flavour!r}")
 
     cfg = Config(
         excelleris_context=optional("excelleris", "context", ""),
@@ -618,8 +623,15 @@ class HttpTransport:
                 if getattr(exc, "fp", None) is not None:
                     exc.close()
             return HttpResponse(exc.code, dict(exc.headers or {}), body)
-        except (urllib.error.URLError, OSError, TimeoutError) as exc:
-            # URLError wraps socket/TLS failures; OSError covers the rest.
+        except (
+            urllib.error.URLError,
+            OSError,
+            TimeoutError,
+            http.client.HTTPException,
+        ) as exc:
+            # URLError wraps socket/TLS failures; OSError covers connection
+            # resets and timeouts; HTTPException covers a malformed status
+            # line or a body cut off mid-read, which are not OSErrors.
             raise TransportError(f"{method} {_safe_url(url)}: {exc}") from exc
 
 
