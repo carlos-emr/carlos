@@ -1411,13 +1411,27 @@ class Archive:
         held, so the temp file cannot belong to a run still in progress.
         """
         removed = 0
-        for pattern in self.LEFTOVER_PATTERNS:
-            for p in self.cfg.inbox_dir.glob(pattern):
-                if p.is_file():
-                    p.unlink()
-                    removed += 1
-                    log.warning("removed %s left by an interrupted run", p.name)
+        for p in self._leftovers():
+            p.unlink()
+            removed += 1
+            log.warning("removed %s left by an interrupted run", p.name)
         return removed
+
+    def report_leftovers(self) -> int:
+        """Dry-run counterpart of ``sweep_leftovers``: log, do not delete."""
+        found = 0
+        for p in self._leftovers():
+            found += 1
+            log.warning("dry run: %s was left by an interrupted run (kept)", p.name)
+        return found
+
+    def _leftovers(self) -> list[Path]:
+        return sorted(
+            p
+            for pattern in self.LEFTOVER_PATTERNS
+            for p in self.cfg.inbox_dir.glob(pattern)
+            if p.is_file()
+        )
 
     def purge(self) -> int:
         """Delete done/ archives older than the retention window. 0 = keep all."""
@@ -1844,8 +1858,16 @@ class CarlosSession:
         renders when the multipart layer refuses the request, is not a
         success either; treating it as one would archive an unimported file.
         """
-        if status_in_code and resp.status != 200:
-            return resp.status, cls._DETAIL.get(resp.status, f"HTTP {resp.status}")
+        if resp.status != 200:
+            if status_in_code:
+                return resp.status, cls._DETAIL.get(resp.status, f"HTTP {resp.status}")
+            # The action only ever answers 200; a 5xx carrying an <outcome>
+            # fragment (a proxy error page quoting a cached reply, say) is
+            # not its answer and must not archive the file.
+            return 0, (
+                f"HTTP {resp.status} (the upload action answers 200 with an <outcome> "
+                "document; this reply came from elsewhere): retrying"
+            )
         match = cls._OUTCOME_RE.search(resp.body)
         if match:
             text = match.group(1).decode("utf-8", errors="replace").strip().lower()
@@ -1853,11 +1875,6 @@ class CarlosSession:
             if status is None:
                 return 0, f"unrecognised <outcome> in the upload reply ({len(text)} bytes)"
             return status, cls._DETAIL.get(status, f"HTTP {status}")
-        if resp.status != 200:
-            return 0, (
-                f"HTTP {resp.status} with no <outcome> document (the upload action answers "
-                "200 with one; this reply came from elsewhere): retrying"
-            )
         if status_in_code and not resp.body.strip():
             return 200, cls._DETAIL[200]
         return 0, (
@@ -2216,7 +2233,10 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
             VERSION,
             cfg.excelleris_context,
         )
-        archive.sweep_leftovers()  # under the lock: nothing else is writing inbox/
+        if opts.dry_run:  # a dry run touches no data: say what a real run would remove
+            archive.report_leftovers()
+        else:
+            archive.sweep_leftovers()  # under the lock: nothing else is writing inbox/
         failures: list[str] = []
         # Retry first: a backlog from a CARLOS outage goes in before new work.
         if not opts.no_upload and not opts.dry_run:

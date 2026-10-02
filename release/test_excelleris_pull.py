@@ -2230,6 +2230,18 @@ class CarlosOutcomeContractTest(CarlosSessionTest):
                 self.assertEqual(session.upload(inbox_file).status, status, text)
             inbox_file.unlink()
 
+    def test_outcome_document_on_a_non_200_is_not_believed_on_carlos(self):
+        # A proxy error page quoting a cached reply must not archive the file.
+        body = outcome("uploaded").body
+        t = FakeTransport(self.script(**{"POST /carlos/lab/newLabUpload": ok(body, 503)}))
+        inbox_file = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
+        with self.session(t) as session:
+            result = session.upload(inbox_file)
+        self.assertEqual(result.status, 0)
+        self.assertFalse(result.accepted)
+        self.assertTrue(result.transient)
+        self.assertIn("HTTP 503", result.detail)
+
     def test_bare_200_without_a_document_is_not_a_success_on_carlos(self):
         t = FakeTransport(self.script(**{"POST /carlos/lab/newLabUpload": ok("", 200)}))
         inbox_file = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
@@ -2241,6 +2253,16 @@ class CarlosOutcomeContractTest(CarlosSessionTest):
 
 
 class DryRunHousekeepingTest(_OrchestrationBase):
+    def test_dry_run_reports_but_keeps_leftovers(self):
+        ep.Archive(self.cfg)
+        part = self.cfg.inbox_dir / "20261001-090000.xml.part"
+        part.write_bytes(b"<HL7Messages>half")
+        with self.assertLogs(ep.log, level="WARNING") as captured:
+            rc = ep.run(self.cfg, ep.RunOptions(dry_run=True), self.factory)
+        self.assertEqual(rc, ep.EXIT_OK)
+        self.assertTrue(part.exists())
+        self.assertTrue(any("kept" in line for line in captured.output), captured.output)
+
     def test_dry_run_does_not_purge_retained_archives(self):
         ep.Archive(self.cfg)
         old = self.cfg.done_dir / "20200101-000000.xml.xz"

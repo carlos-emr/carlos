@@ -411,9 +411,10 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
 - One difference by design: a password is URL-encoded. The script sent it raw, which broke
   on `&`, `+`, `%`, `#` and spaces. For any other password the bytes are identical.
 - One difference by design: redirects. The script's `curl -L` followed a `Location` header
-  anywhere, plain `http://` and other hosts included, carrying the session cookie with it. The
-  tool follows a redirect only to the same `https://` host and port as the configured URL and
-  reports any other as a transport failure (negative acknowledgment, alert, retry next run).
+  anywhere, plain `http://` and other hosts included (its cookie engine decided per
+  destination whether the session cookie went along). The tool follows a redirect only to the
+  same `https://` host and port as the configured URL and reports any other as a transport
+  failure (negative acknowledgment, alert, retry next run).
 
 `ShellScriptWireParityTest` in the test file runs curl with the script's exact flags and the
 tool's real transport against one recording TLS server and compares the request heads.
