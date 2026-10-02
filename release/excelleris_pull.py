@@ -1549,7 +1549,27 @@ class Archive:
             log.warning("admitted a file placed in the inbox by hand as %s", dest.name)
         if admitted:
             self._fsync_dir(self.cfg.inbox_dir)
+        self._tighten_modes()
         return admitted, unadmitted
+
+    def _tighten_modes(self) -> None:
+        """Make every listed inbox file and sidecar owner-only.
+
+        A file restored by hand under a tool-made name (copied back from
+        ``failed/``, say) skips the rename above and would keep the mode it
+        arrived with, usually 0644, through the upload and into ``failed/``.
+        Names here are tool-made, so they may be quoted.
+        """
+        for path in self.inbox_files():
+            for p in (path, self._attempts_file(path)):
+                try:
+                    if p.is_symlink() or not p.is_file():
+                        continue
+                    if stat.S_IMODE(p.stat().st_mode) != 0o600:
+                        os.chmod(p, 0o600)
+                        log.warning("made %s owner-only (it was not)", p.name)
+                except OSError as exc:
+                    log.error("%s: could not make it owner-only: %s", p.name, exc.strerror)
 
     def _foreign_files(self) -> list[Path]:
         links = sum(1 for p in self.cfg.inbox_dir.glob("*.xml") if p.is_symlink())

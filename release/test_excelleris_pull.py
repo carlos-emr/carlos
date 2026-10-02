@@ -530,6 +530,23 @@ class ArchiveTest(TempEnv):
         self.assertEqual(stat.S_IMODE(outside.stat().st_mode), 0o644)  # untouched
         self.assertTrue(link.is_symlink() and generated_link.is_symlink())
 
+    def test_restored_files_under_tool_names_become_owner_only(self):
+        # Copied back from failed/ by hand: the name is tool-made, so no
+        # rename happens, but the mode must still end up 0600.
+        archive = ep.Archive(self.cfg)
+        restored = self.cfg.inbox_dir / "20261001-090000.xml"
+        restored.write_bytes(b"<HL7Messages/>")
+        restored.chmod(0o644)
+        sidecar = self.cfg.inbox_dir / "20261001-090000.xml.attempts"
+        sidecar.write_text("1 run")
+        sidecar.chmod(0o644)
+        with self.assertLogs(ep.log, level="WARNING") as captured:
+            self.assertEqual(archive.admit_foreign_files("20261001-090500"), (0, 0))
+        self.assertEqual(stat.S_IMODE(restored.stat().st_mode), 0o600)
+        self.assertEqual(stat.S_IMODE(sidecar.stat().st_mode), 0o600)
+        self.assertEqual(len(captured.output), 2)
+        self.assertTrue(all("owner-only" in line for line in captured.output))
+
     def test_rename_failure_names_no_file_and_keeps_the_pair(self):
         archive = ep.Archive(self.cfg)
         foreign = self.cfg.inbox_dir / "Jane Doe 1234567890.xml"
