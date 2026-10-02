@@ -93,11 +93,17 @@ function getEForm() {
  * The server adds a hidden newForm=true fallback (data-carlos-newform-fallback) when the template
  * has no control that always submits newForm. A template's own submit button named newForm posts
  * its value only when it is the submitter; the toolbar's form.submit() has no submitter, so the
- * fallback must stay for those paths. When that button itself submits the form, leave the fallback
- * out so newForm is posted exactly once, with the button's value. The form data set is built
- * synchronously right after the submit event, so the fallback is re-enabled on the next task: a
- * submission another listener cancels cannot leave it disabled for a later toolbar save.
- * Capture phase, so it runs whatever template handlers do with the event afterwards.
+ * fallback must stay for those paths. Two listeners keep newForm posted exactly once:
+ *
+ * 1. submit (capture, before any template handler): when an enabled newForm button submits, leave
+ *    the fallback out so only the button's value is posted. It is re-enabled on the next task, after
+ *    the entry list has been built, so a submission another listener cancels cannot leave it
+ *    disabled for a later toolbar save.
+ * 2. formdata (fires after every submit handler, while the entry list is built, for requestSubmit,
+ *    native clicks and form.submit() alike): if the form carries a fallback but the entry list
+ *    has no newForm at all, append newForm=true. That covers a template onsubmit (or onclick) that
+ *    disables its newForm button after step 1, which would otherwise post neither value. It never
+ *    adds a second value: it only acts when none is present.
  */
 document.addEventListener("submit", function (event) {
     const submitter = event.submitter;
@@ -112,6 +118,15 @@ document.addEventListener("submit", function (event) {
         .filter(input => !input.disabled);
     fallbacks.forEach(input => { input.disabled = true; });
     setTimeout(() => fallbacks.forEach(input => { input.disabled = false; }), 0);
+}, true);
+
+document.addEventListener("formdata", function (event) {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !event.formData || event.formData.has("newForm")
+            || !form.querySelector("input[data-carlos-newform-fallback]")) {
+        return;
+    }
+    event.formData.append("newForm", "true");
 }, true);
 
 function submitEForm() {
@@ -1121,11 +1136,9 @@ function initializeFaxRecipient() {
     // dispatches a synthetic change, so only trusted typing marks the number as typed.
     fax.addEventListener('input', event => { if (event.isTrusted) fax.dataset.typed = 'true'; });
     fax.addEventListener('change', event => { if (!event.isTrusted) delete fax.dataset.typed; });
-    if (!name) {
-        // Show the number that will be used, so the clinician can see what they are replacing.
-        fax.value = selectedEformFaxRecipient().fax;
-        return;
-    }
+    // Everything below except the name handling also runs without a recipient-name field: the
+    // displayed number must keep following the eForm's list and designer choices, because that
+    // is where Fax sends when the number has not been edited here.
     function refresh() {
         if (fax.dataset.edited === 'true') return;
         const chosen = selectedEformFaxRecipient();
@@ -1135,10 +1148,11 @@ function initializeFaxRecipient() {
         // designer or the directory stay tied to their recipient.
         if (chosen.manual) fax.dataset.typed = 'true';
         else delete fax.dataset.typed;
-        if (name.dataset.edited !== 'true') name.value = chosen.name;
+        if (name && name.dataset.edited !== 'true') name.value = chosen.name;
     }
     const fromForm = document.getElementById('remoteFaxFromForm');
     function refreshOptions() {
+        if (!fromForm) return;
         fromForm.replaceChildren(new Option("Use the eForm's fax number", ""));
         const seen = new Set();
         ['faxnumList', 'otherFaxSelect'].forEach(id => {
@@ -1155,37 +1169,40 @@ function initializeFaxRecipient() {
         });
         if (fax.dataset.edited === 'true') fromForm.value = fax.value;
     }
-    fromForm.addEventListener('change', () => {
+    if (fromForm) fromForm.addEventListener('change', () => {
         const option = fromForm.options[fromForm.selectedIndex];
         delete fax.dataset.cleared;
         if (option && option.value) {
             fax.value = option.value;
-            name.value = option.dataset.recipientName;
+            if (name) name.value = option.dataset.recipientName;
             fax.dataset.edited = 'true';
             delete fax.dataset.typed;
         } else {
             delete fax.dataset.edited;
             delete fax.dataset.typed;
-            delete name.dataset.edited;
+            if (name) delete name.dataset.edited;
             refresh();
         }
     });
-    ['input', 'change'].forEach(event => {
-        name.addEventListener(event, () => { name.dataset.edited = 'true'; });
-    });
-    // Typing a different recipient name must not keep the previous recipient's number: the fax
-    // would go there under the new name. Clear it (as an explicit empty override, so the eForm's
-    // number is not resurrected either) until a directory row or a typed number supplies one.
-    // The clear is marked separately from a number the clinician chose, so a later explicit choice
-    // on the eForm itself can still fill the number for the newly typed recipient.
-    name.addEventListener('input', event => {
-        if (!event.isTrusted || fax.dataset.typed === 'true') return;
-        fax.value = '';
-        fax.dataset.edited = 'true';
-        fax.dataset.cleared = 'true';
-        fromForm.value = '';
-    });
-    document.getElementById('remoteFaxOptions').addEventListener('toggle', () => { refreshOptions(); refresh(); });
+    if (name) {
+        ['input', 'change'].forEach(event => {
+            name.addEventListener(event, () => { name.dataset.edited = 'true'; });
+        });
+        // Typing a different recipient name must not keep the previous recipient's number: the fax
+        // would go there under the new name. Clear it (as an explicit empty override, so the eForm's
+        // number is not resurrected either) until a directory row or a typed number supplies one.
+        // The clear is marked separately from a number the clinician chose, so a later explicit choice
+        // on the eForm itself can still fill the number for the newly typed recipient.
+        name.addEventListener('input', event => {
+            if (!event.isTrusted || fax.dataset.typed === 'true') return;
+            fax.value = '';
+            fax.dataset.edited = 'true';
+            fax.dataset.cleared = 'true';
+            if (fromForm) fromForm.value = '';
+        });
+    }
+    const options = document.getElementById('remoteFaxOptions');
+    if (options) options.addEventListener('toggle', () => { refreshOptions(); refresh(); });
     document.addEventListener('change', event => {
         if (!['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) return;
         // A list or designer selection made after the name was retyped is a new, explicit source:
@@ -1196,7 +1213,7 @@ function initializeFaxRecipient() {
         }
         refresh();
     });
-    if (typeof setupFaxRecipientAutocomplete === 'function') {
+    if (name && typeof setupFaxRecipientAutocomplete === 'function') {
         setupFaxRecipientAutocomplete({contextPath: document.getElementById('context').value,
             nameInputId: name.id, faxInputId: fax.id, dropdownId: 'remoteFaxSuggestions'});
     }

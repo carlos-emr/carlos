@@ -244,6 +244,37 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0145');
+    // The displayed number keeps following the eForm's list and designer choices, and always
+    // equals the number posted.
+    await open(false, true);
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0101');
+    await page.locator('#faxnumList').selectOption('416-555-0102');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0102');
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0102');
+    await open();
+    await page.locator('#designerAddFax').click();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0191');
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0191');
+    // The shared eForm-recipients selector is filled and wired; its choice is kept over a later
+    // list change, like a number typed here.
+    await open(false, true);
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxFromForm option[value="416-555-0102"]').waitFor({state: 'attached'});
+    await page.locator('#remoteFaxFromForm').selectOption('416-555-0102');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0102');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#faxnumList').selectOption('416-555-0101');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0102');
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0102');
     await page.unroute('**/eformFloatingToolbar/eform_floating_toolbar');
     // A missing directory script must leave manual fax entry and toolbar layout usable.
     await page.route('**/js/faxRecipientAutocomplete.js', route => route.fulfill({status:200,body:''}));
@@ -380,6 +411,27 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0].getAll('newForm'), ['False']);
+    // A template onsubmit that disables its newForm button (against double submits) runs after
+    // the fallback has been set aside; newForm=true must still be posted, once.
+    await open(false, false, true);
+    await page.evaluate(() => {
+      document.forms[0].addEventListener('submit', () => {
+        document.getElementById('newFormButton').disabled = true;
+      });
+    });
+    await page.locator('#newFormButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0].getAll('newForm'), ['true']);
+    // Same with an inline onsubmit attribute.
+    await open(false, false, true);
+    await page.evaluate(() => {
+      document.forms[0].setAttribute('onsubmit', "document.getElementById('newFormButton').disabled = true;");
+    });
+    await page.locator('#newFormButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0].getAll('newForm'), ['true']);
     // A template that disables its button before submitting with it posts no button value.
     await open(false, false, true);
     await page.locator('#newFormDisablingButton').click();
