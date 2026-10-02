@@ -1218,7 +1218,9 @@
                     <%}%>
                     <%
                         //for pathl7, if it is an SG/CDC result greater than 100 characters, left justify it
-                        if ((handler.getOBXResult(j, k) != null && handler.getOBXResult(j, k).length() > 100) && isSGorCDC) {%>
+                        // Not for an ED row: a PATHL7 ED's getOBXResult is the encoded document, which the
+                        // shared cell below turns into the Download PDF link or the text value.
+                        if (embeddedDocument == null && (handler.getOBXResult(j, k) != null && handler.getOBXResult(j, k).length() > 100) && isSGorCDC) {%>
                     <td align="left"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
                     <%

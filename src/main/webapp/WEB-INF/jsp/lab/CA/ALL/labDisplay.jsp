@@ -2610,8 +2610,10 @@ input[id^='acklabel_']{
                                            	%>
 
                     <%
-                                           		//CLS textual results - use 4 columns.
-                                           		if(handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {
+                                           		//CLS textual results - use 4 columns. Never for an ED row: the shared cell below
+                                           		//renders it (isUnstructured() already requires every OBX to be TX; the guard keeps
+                                           		//a document row from getting two result cells if that ever changes).
+                                           		if(embeddedDocument == null && handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {
                                            	%>
                 <td style="text-align:left" colspan="4">
                     <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>

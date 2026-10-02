@@ -156,6 +156,21 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should keep lab-specific result cells off ED rows so each gets one result cell")
+    void shouldGuardLabSpecificResultCells_againstEmbeddedDocumentRows() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
+        String ajax = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("if(embeddedDocument == null && handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {")
+                .contains("else if(embeddedDocument == null && handler.getMsgType().equals(\"MEDITECH\")  && isUnstructuredDoc ) {")
+                .contains("} else if(embeddedDocument == null && handler.getMsgType().equals(\"MEDITECH\")  && ((MEDITECHHandler) handler).isReportData() ) { %>")
+                .doesNotContain("if(handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {");
+        assertThat(ajax)
+                .contains("if (embeddedDocument == null && (handler.getOBXResult(j, k) != null && handler.getOBXResult(j, k).length() > 100) && isSGorCDC) {%>");
+    }
+
+    @Test
     @DisplayName("should send ED rows past the HHSEMR renderer in ajax lab display")
     void shouldRouteEmbeddedDocumentRows_pastLabSpecificRendererInAjaxLabDisplay() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);
