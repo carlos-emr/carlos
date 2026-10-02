@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
 import io.github.carlos_emr.carlos.commn.model.OscarKey;
 import io.github.carlos_emr.carlos.commn.model.OtherId;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -116,6 +117,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         PublicKey clientKey = (PublicKey) clientInfo.get(0);
         String type = (String) clientInfo.get(1);
 
+        // The decrypted copy this request wrote to DOCUMENT_DIR. Until it is handed to the store
+        // step (which then owns its cleanup), a failure or rejection here removes it: nothing
+        // references it, and each sender retry writes a new copy.
+        File saved = null;
+        boolean savedHandedOff = false;
         try {
             // Validate the uploaded file to prevent path traversal attacks
             if (importFile == null) {
@@ -131,7 +137,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             try {
                 importFile = PathValidationUtils.validateUpload(importFile);
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
+                logger.error("Invalid upload source - potential path traversal");
                 outcome = OUTCOME_EXCEPTION;
                 httpCode = HttpServletResponse.SC_FORBIDDEN;
                 request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
@@ -153,6 +159,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             }
 
             File file = PathValidationUtils.validateExistingDocumentPath(filePath);
+            saved = file;
             filePath = file.getPath();
 
             if (validateSignature(clientKey, signature, file)) {
@@ -166,17 +173,25 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     filterHandler.init(hl7Data);
                     OtherId providerOtherId = OtherIdManager.searchTable(OtherIdManager.PROVIDER, "STAR", filterHandler.getClientRef());
                     if (providerOtherId == null) {
-                        logger.info("Filtering out this message, as we don't have client ref " + filterHandler.getClientRef() + " in our database (" + file + ")");
+                        logger.info("Filtering out HHS EMR lab: client reference has no matching provider");
                         outcome = "uploaded";
                         request.setAttribute("outcome", outcome);
+                        // Kept deliberately, as before: the filtered lab is acknowledged, not failed.
+                        savedHandedOff = true;
                         return SUCCESS;
                     }
                 }
 
 
                 java.util.concurrent.atomic.AtomicReference<String> parsedAudit = new java.util.concurrent.atomic.AtomicReference<>();
-                FileUploadCheck.StoreOutcome stored = FileUploadCheck.storeIfNew(file.getName(),
-                        () -> new FileInputStream(file), "0", checksumId -> {
+                // A failed duplicate lookup throws LookupFailedException, answered 500 below: a
+                // database fault must never be answered "uploaded previously", which senders treat
+                // as delivered.
+                File documentDir = PathValidationUtils.getRequiredDocumentDirectory();
+                // From here storeSavedFileIfNew owns the file: it removes it unless a stored lab may use it.
+                savedHandedOff = true;
+                FileUploadCheck.StoreOutcome stored = FileUploadCheck.storeSavedFileIfNew(file,
+                        documentDir, file.getName(), "0", checksumId -> {
                             if (msgHandler == null) {
                                 return false;
                             }
@@ -205,10 +220,21 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             outcome = OUTCOME_EXCEPTION;
             httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
         }
+        if (saved != null && !savedHandedOff) {
+            discardSaved(saved);
+        }
         request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
         request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
 
         if (request.getParameter("use_http_response_code") != null) {
+            if (httpCode < HttpServletResponse.SC_BAD_REQUEST) {
+                // A delivered lab must reach the sender as 200. sendError(200) dispatched to
+                // errorpage.jsp, which normalizes every status below 400 to 500, so each delivery
+                // was answered as a failure and the sender's retry then drew 409 (#4086). Answer
+                // with the normal result view, which carries the outcome and audit.
+                response.setStatus(httpCode);
+                return SUCCESS;
+            }
             try {
                 response.sendError(httpCode, outcome);
             } catch (IOException e) {
@@ -219,6 +245,16 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     }
 
     public LabUpload2Action() {
+    }
+
+    // Best effort: the outcome is already decided and a failed delete is logged by the helper.
+    private static void discardSaved(File saved) {
+        try {
+            FileUploadCheck.discardUnreferenced(saved, PathValidationUtils.getRequiredDocumentDirectory());
+        } catch (IOException | RuntimeException e) {
+            logger.warn("Could not resolve DOCUMENT_DIR to remove an unstored lab upload: {}",
+                    LogSafe.exceptionTrace(e));
+        }
     }
 
     /*
@@ -341,8 +377,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         try {
             OscarKeyDao oscarKeyDao = (OscarKeyDao) SpringUtils.getBean(OscarKeyDao.class);
             OscarKey oscarKey = oscarKeyDao.find("oscar");
-            logger.info("oscar key: " + oscarKey);
-
             privateKey = Base64.decodeBase64(oscarKey.getPrivateKey());
             PKCS8EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(privateKey);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");

@@ -189,6 +189,278 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should size an over-limit hex PDF from its encoded length")
+    void shouldClassifyTooLarge_fromEncodedLengthForHex() {
+        String hexPdf = HexFormat.of().formatHex(PDF).repeat(41) + "a";
+        MessageHandler handler = handlerReturning(hexPdf, "Hex");
+
+        EmbeddedLabDocumentLoader.Inspection inspection = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10);
+
+        assertThat(inspection.status()).isEqualTo(Status.TOO_LARGE);
+        assertThat(inspection.sizeBytes()).isEqualTo(hexPdf.length() / 2);
+        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.PDF);
+    }
+
+    @Test
+    @DisplayName("should not promise an over-limit hex PDF the download path refuses")
+    void shouldClassifyNotPdf_whenOverLimitHexIsCorruptPastSignature() {
+        // A PDF whose hex breaks after the first kilobyte: the full decode the download endpoint
+        // runs refuses it, so the page must not class it as a (too large) PDF either.
+        String hexPdf = HexFormat.of().formatHex(PDF).repeat(20);
+        String corruptTail = hexPdf + "zz" + hexPdf;
+        MessageHandler handler = handlerReturning(corruptTail, "Hex");
+
+        EmbeddedLabDocumentLoader.Inspection inspection = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10);
+
+        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.NOT_PDF);
+        assertThat(inspection.status()).isEqualTo(Status.NOT_PDF);
+        assertThat(inspection.isPdf()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should agree with the download path on an over-limit base64 PDF with stray characters")
+    void shouldAgreeWithDownloadPath_whenOverLimitBase64HasStrayCharacters() {
+        // Stray characters after the signature defeat the strict decoder; the download path's
+        // lenient fallback still yields the PDF, so the capped page classification may promise it.
+        String base64 = Base64.getEncoder().encodeToString((new String(PDF, StandardCharsets.US_ASCII)
+                + "x".repeat(3000)).getBytes(StandardCharsets.US_ASCII));
+        String corruptTail = base64.substring(0, 2000) + "*%" + base64.substring(2000);
+        MessageHandler handler = handlerReturning(corruptTail, "Base64");
+
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10).status()).isEqualTo(Status.TOO_LARGE);
+        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.PDF);
+    }
+
+    @Test
+    @DisplayName("should validate hex the way the full decode does, ignoring an unmatched final character")
+    void shouldMatchDecodeHex_forDecodableHexCheck() {
+        assertThat(EmbeddedLabDocumentLoader.isDecodableHex("0aFf")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isDecodableHex("0aFfz")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isDecodableHex("0azF")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isDecodableHex("")).isTrue();
+    }
+
+    @Test
+    @DisplayName("should find the signature past more than a kilobyte of skipped characters, as the full decode does")
+    void shouldAgreeWithUncappedDecode_whenJunkPrecedesPdf() {
+        // 2000 characters the lenient decoder skips, then the PDF: the capped (over-limit) path
+        // must classify it as the uncapped path does, not stop inside the junk.
+        MessageHandler handler = handlerReturning("*%".repeat(1000) + PDF_BASE64, "Base64");
+
+        assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).status()).isEqualTo(Status.PDF);
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 0).status()).isEqualTo(Status.PDF);
+        EmbeddedLabDocumentLoader.Inspection capped = EmbeddedLabDocumentLoader.inspect(handler, 0, 0, 10);
+        assertThat(capped.status()).isEqualTo(Status.TOO_LARGE);
+        assertThat(capped.isPdf()).isTrue();
+        assertThat(capped.sizeBytes()).isEqualTo(PDF.length);
+    }
+
+    @Test
+    @DisplayName("should build the capped base64 input from alphabet characters only, stopping at padding")
+    void shouldSkipNonAlphabetAndStopAtPadding_forBase64HeadInput() {
+        assertThat(EmbeddedLabDocumentLoader.base64HeadInput("**QU*%JD==QUJD")).isEqualTo("QUJD=");
+        assertThat(EmbeddedLabDocumentLoader.base64HeadInput("#".repeat(5000) + "A".repeat(5000))).hasSize(1024);
+    }
+
+    @Test
+    @DisplayName("should size a padded PDF exactly at the limit, ignoring anything after the padding")
+    void shouldClassifyPaddedPdfAtLimit_asPdf() {
+        // One byte over a multiple of three, so the base64 ends in "==".
+        byte[] pdf = "%PDF-1.4\n%%EOF\n!".getBytes(StandardCharsets.US_ASCII);
+        assertThat(pdf.length % 3).isEqualTo(1);
+        String padded = Base64.getEncoder().encodeToString(pdf);
+        assertThat(padded).endsWith("==");
+
+        for (String payload : new String[] {padded, padded + "QUJDREVG"}) {
+            MessageHandler handler = handlerReturning(payload, "Base64");
+            // The full decode stops at the padding, so the document is exactly pdf.length bytes.
+            assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, 0).bytes()).as(payload).isEqualTo(pdf);
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, pdf.length).status()).as(payload).isEqualTo(Status.PDF);
+            assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, pdf.length).status()).as(payload).isEqualTo(Status.PDF);
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, pdf.length - 1).status()).as(payload).isEqualTo(Status.TOO_LARGE);
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, pdf.length - 1).sizeBytes()).as(payload).isEqualTo(pdf.length);
+        }
+    }
+
+    @Test
+    @DisplayName("should class undeclared legacy text in OBX-5.1 as text, on both the capped and uncapped paths")
+    void shouldClassifyText_forUndeclaredLegacyText() {
+        MessageHandler handler = handlerReturning("Specimen received; see the attached note, page 2.", null);
+
+        for (long limit : new long[] {0, 10}) {
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.TEXT);
+            assertThat(EmbeddedLabDocumentLoader.load(handler, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.TEXT);
+        }
+        // A declared binary encoding is never reinterpreted as text, and base64-shaped content
+        // without a declaration stays undisplayable binary.
+        assertThat(EmbeddedLabDocumentLoader.inspect(handlerReturning("Specimen received; see note.", "Base64"), 0, 0, 0).status())
+                .isEqualTo(Status.NOT_PDF);
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped(Base64.getEncoder().encodeToString(new byte[] {1, 2}))).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("Specimenreceived;seenote.")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QU=J")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should class a base64-shaped OBX-5.1 fallback that is not a PDF as text")
+    void shouldClassifyText_forBase64ShapedResultFallback() {
+        MessageHandler fallback = handlerReturning("NONE", null);
+        when(fallback.isOBXEmbeddedDocumentResultFallback(0, 0)).thenReturn(true);
+        MessageHandler undeclaredData = handlerReturning("NONE", null);
+
+        for (long limit : new long[] {0, 1}) {
+            assertThat(EmbeddedLabDocumentLoader.inspect(fallback, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.TEXT);
+            assertThat(EmbeddedLabDocumentLoader.load(fallback, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.TEXT);
+            // The same characters in an undeclared ED.5 cannot be told from encoded bytes.
+            assertThat(EmbeddedLabDocumentLoader.inspect(undeclaredData, 0, 0, limit).status()).as("limit %d", limit).isEqualTo(Status.NOT_PDF);
+        }
+        // A PDF sent in OBX-5.1 by a legacy feed is still a PDF.
+        MessageHandler legacyPdf = handlerReturning(PDF_BASE64, null);
+        when(legacyPdf.isOBXEmbeddedDocumentResultFallback(0, 0)).thenReturn(true);
+        assertThat(EmbeddedLabDocumentLoader.inspect(legacyPdf, 0, 0, 0).status()).isEqualTo(Status.PDF);
+    }
+
+    @Test
+    @DisplayName("should treat base64 the decoder reads, URL-safe or unpadded, as binary and worded text as text")
+    void shouldMatchDecoderAlphabet_forBase64Shape() {
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("-_8A")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJ")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJDQ")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJD\r\nQUJD")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("Specimen received")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJ=")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QU=")).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJD \t")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QUJD\n")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped(" NONE")).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.isBase64Shaped("QU JD")).isFalse();
+
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, (byte) 0xFB, (byte) 0xFF};
+        String urlSafe = Base64.getUrlEncoder().withoutPadding().encodeToString(png);
+        assertThat(urlSafe).containsAnyOf("-", "_").doesNotContain("=");
+        assertThat(EmbeddedLabDocumentLoader.inspect(handlerReturning(urlSafe, null), 0, 0, 0).status()).isEqualTo(Status.NOT_PDF);
+        assertThat(EmbeddedLabDocumentLoader.inspect(handlerReturning("Specimen received", null), 0, 0, 0).status()).isEqualTo(Status.TEXT);
+    }
+
+    @Test
+    @DisplayName("should show legacy PATHL7 ED.1 text, base64-shaped or not, as the text the views print")
+    void shouldClassifyLegacyPathL7Text_asTextWithItsValue() throws Exception {
+        PATHL7Handler worded = pathL7(withEdValue("Report to follow\\.br\\see note."));
+        PATHL7Handler shaped = pathL7(withEdValue("NONE"));
+
+        assertThat(worded.isLegacy(1, 0)).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.inspect(worded, 1, 0, 0).status()).isEqualTo(Status.TEXT);
+        assertThat(worded.getOBXEmbeddedDocumentText(1, 0)).isEqualTo("Report to follow<br />see note.");
+        assertThat(EmbeddedLabDocumentLoader.inspect(shaped, 1, 0, 0).status()).isEqualTo(Status.TEXT);
+        assertThat(shaped.getOBXEmbeddedDocumentText(1, 0)).isEqualTo("NONE");
+        // A legacy PDF in ED.1 is still the PDF.
+        assertThat(EmbeddedLabDocumentLoader.inspect(pathL7(withEdValue(PDF_BASE64)), 1, 0, 0).status()).isEqualTo(Status.PDF);
+        // An undeclared base64-shaped ED.5 is not the legacy fallback and stays undisplayable.
+        PATHL7Handler undeclared = pathL7(withEdValue("^TEXT^^^" + "QUJD".repeat(30)));
+        assertThat(undeclared.isOBXEmbeddedDocumentResultFallback(1, 0)).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.inspect(undeclared, 1, 0, 0).status()).isEqualTo(Status.NOT_PDF);
+    }
+
+    @Test
+    @DisplayName("should normalise PATHL7 ED.5 text line breaks once, and leave CELLPATHR RTF as sent")
+    void shouldNormaliseStandardPathL7Text_andLeaveCellPathRtfRaw() throws Exception {
+        PATHL7Handler standard = pathL7(withEdValue("^TEXT^PLAIN^A^Line one\\.br\\Line two "));
+
+        assertThat(standard.isLegacy(1, 0)).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.inspect(standard, 1, 0, 0).status()).isEqualTo(Status.TEXT);
+        assertThat(standard.getOBXEmbeddedDocumentText(1, 0)).isEqualTo("Line one<br />Line two");
+
+        // CELLPATHR keeps raw RTF in ED.1 (declared A); its text is passed through untouched.
+        String rtf = "{\\rtf1 Diagnosis\\par\\.br\\ }";
+        PATHL7Handler cellPath = pathL7(withEdValue(rtf + "^TEXT^RTF^A^").replace("||PATH|F", "||CELLPATHR|F"));
+        assertThat(cellPath.getOBXDocumentEncoding(1, 0)).isEqualTo("A");
+        assertThat(cellPath.getOBXEmbeddedDocumentText(1, 0)).isEqualTo(cellPath.getOBXResult(1, 0));
+    }
+
+    @Test
+    @DisplayName("should return exactly the decoded document from the single classifying decode")
+    void shouldReturnExactBytes_fromSingleDecodePass() throws Exception {
+        byte[] document = (new String(PDF, StandardCharsets.US_ASCII) + "x".repeat(30000)).getBytes(StandardCharsets.US_ASCII);
+        String base64 = Base64.getEncoder().encodeToString(document);
+        String hex = HexFormat.of().formatHex(document);
+        MessageHandler[] handlers = {
+                handlerReturning(base64, "Base64"),
+                handlerReturning(base64.replaceAll("(.{76})", "$1\r\n"), null),
+                // Strict decoding fails only after several 8 KB reads have been written: the lenient
+                // retry must start from an empty buffer, not append to the partial strict output.
+                handlerReturning(base64.substring(0, 30000) + "*" + base64.substring(30000), null),
+                handlerReturning(hex, "Hex"),
+                handlerReturning(hex + "a", "Hex"),
+        };
+        for (MessageHandler handler : handlers) {
+            for (long limit : new long[] {0, document.length}) {
+                Document loaded = EmbeddedLabDocumentLoader.load(handler, 0, 0, limit);
+                assertThat(loaded.status()).isEqualTo(Status.PDF);
+                assertThat(loaded.bytes()).isEqualTo(document);
+                assertThat(loaded.sizeBytes()).isEqualTo(document.length);
+            }
+            Document overLimit = EmbeddedLabDocumentLoader.load(handler, 0, 0, document.length - 1);
+            assertThat(overLimit.status()).isEqualTo(Status.TOO_LARGE);
+            assertThat(overLimit.bytes()).isNull();
+        }
+        // Classifications that are not a PDF still carry no bytes.
+        assertThat(EmbeddedLabDocumentLoader.load(handlerReturning("Report to follow.", null), 0, 0, 0).bytes()).isNull();
+        assertThat(EmbeddedLabDocumentLoader.load(handlerReturning(
+                Base64.getEncoder().encodeToString("<html></html>".getBytes(StandardCharsets.US_ASCII)), "Base64"), 0, 0, 0).bytes()).isNull();
+    }
+
+    @Test
+    @DisplayName("should never buffer a large payload that is not a PDF on the uncapped load path")
+    void shouldNotBuffer_forLargeNonPdfLoad() {
+        byte[] html = ("<html>" + "x".repeat(200_000) + "</html>").getBytes(StandardCharsets.US_ASCII);
+        for (MessageHandler handler : new MessageHandler[] {
+                handlerReturning(Base64.getEncoder().encodeToString(html), "Base64"),
+                handlerReturning(HexFormat.of().formatHex(html), "Hex")}) {
+            Document document = EmbeddedLabDocumentLoader.load(handler, 0, 0, 0);
+            assertThat(document.status()).isEqualTo(Status.NOT_PDF);
+            assertThat(document.bytes()).isNull();
+            assertThat(document.sizeBytes()).isEqualTo(html.length);
+        }
+    }
+
+    @Test
+    @DisplayName("should start buffering only once the PDF signature is confirmed, whatever the chunking")
+    void shouldBufferOnlyAfterSignature_forPdfBuffer() {
+        byte[] html = "<html>not a pdf</html>".getBytes(StandardCharsets.US_ASCII);
+        EmbeddedLabDocumentLoader.PdfBuffer rejected = new EmbeddedLabDocumentLoader.PdfBuffer();
+        rejected.write(html, 0, html.length);
+        assertThat(rejected.isBuffering()).isFalse();
+        assertThat(rejected.bytes()).isNull();
+
+        // Signature split across single bytes, then the rest in one chunk.
+        EmbeddedLabDocumentLoader.PdfBuffer pdf = new EmbeddedLabDocumentLoader.PdfBuffer();
+        for (int i = 0; i < 3; i++) {
+            pdf.write(PDF[i]);
+            assertThat(pdf.isBuffering()).isFalse();
+        }
+        pdf.write(PDF, 3, PDF.length - 3);
+        assertThat(pdf.isBuffering()).isTrue();
+        assertThat(pdf.bytes()).isEqualTo(PDF);
+
+        // A retry starts from nothing.
+        pdf.reset();
+        assertThat(pdf.isBuffering()).isFalse();
+        pdf.write(html, 0, html.length);
+        assertThat(pdf.bytes()).isNull();
+    }
+
+    @Test
+    @DisplayName("should estimate the decoded size exactly for strict and lenient base64 and for hex")
+    void shouldEstimateDecodedSize_fromEncodedLength() {
+        for (int length = 0; length <= 7; length++) {
+            byte[] bytes = new byte[length];
+            String base64 = Base64.getEncoder().encodeToString(bytes);
+            assertThat(EmbeddedLabDocumentLoader.estimateDecodedSize(base64, false)).as("length %d", length).isEqualTo(length);
+            assertThat(EmbeddedLabDocumentLoader.estimateDecodedSize("*" + base64 + "%", false)).isEqualTo(length);
+        }
+        assertThat(EmbeddedLabDocumentLoader.estimateDecodedSize(HexFormat.of().formatHex(PDF) + "a", true)).isEqualTo(PDF.length);
+    }
+
+    @Test
     @DisplayName("should agree between inspect and load for every classification")
     void shouldAgree_betweenInspectAndLoad() {
         String hexPdf = HexFormat.of().formatHex(PDF);

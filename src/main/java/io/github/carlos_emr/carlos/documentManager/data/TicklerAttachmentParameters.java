@@ -50,6 +50,15 @@ import jakarta.servlet.http.HttpServletRequest;
  * {@code docType=HL7&docId=} forward links working. See {@link #labValue} and
  * {@link #parseLabValue}.</p>
  *
+ * <p>The Edit form also records which stored attachments it actually rendered, so a save can
+ * tell "shown and unchecked" apart from "never shown". Each viewable row is echoed under its
+ * type's {@link #renderedParameterName rendered parameter} ({@code renderedDocNo},
+ * {@code renderedLabNo}, ...) with the same value as its delegate, and
+ * {@link #RENDERED_MARKER} says the list is present. Rows the reader could not see (type or
+ * item restricted) are never echoed, so no restricted identifier reaches the browser; the sync
+ * keeps every stored row that is not in the rendered list, whatever the caller's rights at save
+ * time. See {@link #readRendered}.</p>
+ *
  * @since 2026-09-26
  */
 public final class TicklerAttachmentParameters {
@@ -57,10 +66,21 @@ public final class TicklerAttachmentParameters {
     /** Present (value {@code 1}) when the form's picker selection should replace the stored set. */
     public static final String SUBMITTED_MARKER = "attachmentsSubmitted";
 
+    /**
+     * Present (value {@code 1}) when the form carries the list of stored attachments it rendered.
+     * A submission without it (a page opened before the list existed, or another caller) is
+     * synchronised with the older save-time inference.
+     */
+    public static final String RENDERED_MARKER = "attachmentsRendered";
+
+    /** Prefix of the per-type parameters that echo the rendered stored attachments. */
+    private static final String RENDERED_PREFIX = "rendered";
+
     /** Separates the lab source from the segment id in a tickler {@code labNo} value. */
     public static final char LAB_SOURCE_SEPARATOR = ':';
 
     private static final Map<DocumentType, String> PARAMETER_NAMES;
+    private static final Map<DocumentType, String> RENDERED_PARAMETER_NAMES;
 
     static {
         Map<DocumentType, String> names = new LinkedHashMap<>();
@@ -70,6 +90,12 @@ public final class TicklerAttachmentParameters {
         names.put(DocumentType.HRM, "hrmNo");
         names.put(DocumentType.FORM, "formNo");
         PARAMETER_NAMES = Collections.unmodifiableMap(names);
+        Map<DocumentType, String> renderedNames = new LinkedHashMap<>();
+        for (Map.Entry<DocumentType, String> entry : names.entrySet()) {
+            String name = entry.getValue();
+            renderedNames.put(entry.getKey(), RENDERED_PREFIX + Character.toUpperCase(name.charAt(0)) + name.substring(1));
+        }
+        RENDERED_PARAMETER_NAMES = Collections.unmodifiableMap(renderedNames);
     }
 
     private TicklerAttachmentParameters() {
@@ -82,6 +108,15 @@ public final class TicklerAttachmentParameters {
      */
     public static String parameterName(DocumentType documentType) {
         return PARAMETER_NAMES.get(documentType);
+    }
+
+    /**
+     * @param documentType DocumentType the attachment type
+     * @return String the parameter that echoes that type's rendered stored attachments
+     *         ({@code renderedDocNo}, {@code renderedLabNo}, ...)
+     */
+    public static String renderedParameterName(DocumentType documentType) {
+        return RENDERED_PARAMETER_NAMES.get(documentType);
     }
 
     /**
@@ -110,8 +145,30 @@ public final class TicklerAttachmentParameters {
      * @return Map&lt;DocumentType, Set&lt;String&gt;&gt; the submitted ids per type, every type present
      */
     public static Map<DocumentType, Set<String>> read(HttpServletRequest request) {
+        return readValues(request, PARAMETER_NAMES);
+    }
+
+    /**
+     * Reads the stored attachments the form rendered, per type, when the form carries
+     * {@link #RENDERED_MARKER}. A type with no values maps to an empty set: nothing of that type
+     * was shown, so a sync detaches none of its stored rows.
+     *
+     * @param request HttpServletRequest the form submission
+     * @return Map&lt;DocumentType, Set&lt;String&gt;&gt; the rendered values per type, every type
+     *         present; {@code null} when the marker is absent (an older page), which tells the
+     *         sync to fall back to its save-time inference
+     */
+    public static Map<DocumentType, Set<String>> readRendered(HttpServletRequest request) {
+        if (!"1".equals(request.getParameter(RENDERED_MARKER))) {
+            return null;
+        }
+        return readValues(request, RENDERED_PARAMETER_NAMES);
+    }
+
+    private static Map<DocumentType, Set<String>> readValues(HttpServletRequest request,
+                                                             Map<DocumentType, String> parameterNames) {
         Map<DocumentType, Set<String>> submitted = new EnumMap<>(DocumentType.class);
-        for (Map.Entry<DocumentType, String> entry : PARAMETER_NAMES.entrySet()) {
+        for (Map.Entry<DocumentType, String> entry : parameterNames.entrySet()) {
             Set<String> ids = new LinkedHashSet<>();
             String[] values = request.getParameterValues(entry.getValue());
             if (values != null) {

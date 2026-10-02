@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.tickler.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import org.junit.jupiter.api.DisplayName;
@@ -96,8 +97,9 @@ class TicklerList2ActionUnitTest {
         untyped.setTableName("DOC");
 
         Map<String, Boolean> cache = new HashMap<>();
-        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, document, cache)).isFalse();
-        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, untyped, cache)).isFalse();
+        TicklerAttachmentService service = mock(TicklerAttachmentService.class);
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, service, loggedInInfo, dto, document, cache)).isFalse();
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, service, loggedInInfo, dto, untyped, cache)).isFalse();
         verify(securityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), anyString(), anyString());
     }
 
@@ -114,13 +116,46 @@ class TicklerList2ActionUnitTest {
         dto.setDemographicNo(1001);
         TicklerLinkDTO document = TicklerLinkDTO.fromTicklerDocs(new TicklerDocs(7, 11, TicklerDocs.DOCTYPE_DOC, "999998"));
         TicklerLinkDTO lab = TicklerLinkDTO.fromTicklerDocs(new TicklerDocs(7, 77, TicklerDocs.DOCTYPE_LAB, "999998"));
+        TicklerAttachmentService service = mock(TicklerAttachmentService.class);
+        when(service.canReadDocument(loggedInInfo, 11)).thenReturn(true);
 
         Map<String, Boolean> cache = new HashMap<>();
-        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, document, cache)).isTrue();
-        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, document, cache)).isTrue();
-        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, loggedInInfo, dto, lab, cache)).isFalse();
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, service, loggedInInfo, dto, document, cache)).isTrue();
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, service, loggedInInfo, dto, document, cache)).isTrue();
+        assertThat(TicklerList2Action.isLinkReadable(securityInfoManager, service, loggedInInfo, dto, lab, cache)).isFalse();
+        verify(service, org.mockito.Mockito.times(1)).canReadDocument(loggedInInfo, 11);
         verify(securityInfoManager, org.mockito.Mockito.times(1)).hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001");
         verify(securityInfoManager, org.mockito.Mockito.times(1)).hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001");
+    }
+
+    @Test
+    @DisplayName("should withhold a document id when the viewer denies its program or queue")
+    @SuppressWarnings("unchecked")
+    void shouldMarkDocumentRestricted_whenItemReadDenied() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        TicklerAttachmentService service = mock(TicklerAttachmentService.class);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ, "1001")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1001")).thenReturn(true);
+        // The patient-level _edoc right passes; the document viewer's program/queue gate denies.
+        when(service.canReadDocument(loggedInInfo, 11)).thenReturn(false);
+        TicklerListDTO dto = new TicklerListDTO();
+        dto.setId(7);
+        dto.setDemographicNo(1001);
+        dto.setLinks(List.of(TicklerLinkDTO.fromTicklerDocs(
+                new TicklerDocs(7, 11, TicklerDocs.DOCTYPE_DOC, "999998"))));
+        Map<String, Boolean> cache = new HashMap<>();
+
+        Map<String, Object> row = TicklerList2Action.buildTicklerRow(dto, 0,
+                new SimpleDateFormat("yyyy-MM-dd"), Locale.CANADA, Map.of(),
+                link -> TicklerList2Action.isLinkReadable(securityInfoManager, service,
+                        loggedInInfo, dto, link, cache));
+
+        List<Map<String, Object>> links = (List<Map<String, Object>>) row.get("links");
+        assertThat(links).hasSize(1);
+        assertThat(links.get(0)).containsEntry("restricted", Boolean.TRUE)
+                .doesNotContainKey("id").doesNotContainKey("tableId");
+        verify(service).canReadDocument(loggedInInfo, 11);
     }
 
     @Test

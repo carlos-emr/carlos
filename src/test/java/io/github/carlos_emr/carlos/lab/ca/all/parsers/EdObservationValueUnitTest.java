@@ -29,6 +29,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.EmbeddedLabDocumentLoader;
+
 /**
  * Unit tests for {@link EdObservationValue} through {@link DefaultGenericHandler}: a handler whose
  * {@code getOBXResult} reads OBX-5 component 1 still yields the ED.5 document and its ED.4
@@ -80,6 +82,30 @@ class EdObservationValueUnitTest {
     }
 
     @Test
+    @DisplayName("should keep the Excelleris OBX-4 sub-ID label on an ED text value")
+    void shouldPrefixSubId_forExcellerisEdText() throws Exception {
+        ExcellerisOntarioHandler handler = new ExcellerisOntarioHandler();
+        handler.init(message("2.3.1", "ORU^R01",
+                "OBX|2|ED|RPT^Report|A|^TEXT^PLAIN^A^First line\\.br\\Second line||||||F|||20260930100000"));
+
+        assertThat(handler.getOBXSubIdWithEmbeddedDocumentText(0, 1)).isEqualTo("A) First line<br />Second line");
+        // The OBX-5.1 form, unchanged, shows only the (empty) source application after the label.
+        assertThat(handler.getOBXSubIdWithObservationValue(0, 1)).isEqualTo("A) ");
+    }
+
+    @Test
+    @DisplayName("should label the OBX-5.1 text when an Excelleris ED value has no ED.5")
+    void shouldPrefixSubIdToResult_whenExcellerisDataComponentIsEmpty() throws Exception {
+        ExcellerisOntarioHandler handler = new ExcellerisOntarioHandler();
+        handler.init(message("2.3.1", "ORU^R01",
+                "OBX|2|ED|RPT^Report|B|Legacy text\\.br\\payload||||||F|||20260930100000"));
+
+        assertThat(handler.getOBXSubIdWithEmbeddedDocumentText(0, 1))
+                .isEqualTo(handler.getOBXSubIdWithObservationValue(0, 1))
+                .isEqualTo("B) Legacy text<br />payload");
+    }
+
+    @Test
     @DisplayName("should return ED.5 and ED.4 for a standards-compliant ED value")
     void shouldReadDataComponent_forStandardEdValue() throws Exception {
         DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^TEXT^PDF^Base64^" + PDF_BASE64 + "||||||F|||20260930100000");
@@ -92,12 +118,88 @@ class EdObservationValueUnitTest {
     }
 
     @Test
+    @DisplayName("should never return an encoded ED.5 document as display text")
+    void shouldNotReturnPayloadAsText_forBase64EdValue() throws Exception {
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^TEXT^PDF^Base64^" + PDF_BASE64 + "||||||F|||20260930100000");
+
+        assertThat(handler.getOBXEmbeddedDocumentData(0, 1)).isEqualTo(PDF_BASE64);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1))
+                .doesNotContain(PDF_BASE64)
+                .isEqualTo(handler.getOBXResult(0, 1));
+    }
+
+    @Test
     @DisplayName("should keep the OBX-5.1 payload when ED.5 is empty")
     void shouldFallBackToResult_whenDataComponentIsEmpty() throws Exception {
         DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||" + PDF_BASE64 + "||||||F|||20260930100000");
 
         assertThat(handler.getOBXEmbeddedDocumentData(0, 1)).isEqualTo(PDF_BASE64);
         assertThat(handler.getOBXDocumentEncoding(0, 1)).isNull();
+    }
+
+    @Test
+    @DisplayName("should show legacy OBX-5.1 text of an ED value as its text")
+    void shouldClassifyLegacyResultAsText_whenDataComponentIsEmpty() throws Exception {
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||Report to follow, see note.||||||F|||20260930100000");
+
+        assertThat(handler.getOBXDocumentEncoding(0, 1)).isNull();
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status())
+                .isEqualTo(EmbeddedLabDocumentLoader.Status.TEXT);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).isEqualTo("Report to follow, see note.");
+    }
+
+    @Test
+    @DisplayName("should show a base64-shaped legacy OBX-5.1 value such as NONE as its text")
+    void shouldClassifyBase64ShapedResultAsText_whenDataComponentIsEmpty() throws Exception {
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||NONE||||||F|||20260930100000");
+
+        assertThat(handler.isOBXEmbeddedDocumentResultFallback(0, 1)).isTrue();
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status())
+                .isEqualTo(EmbeddedLabDocumentLoader.Status.TEXT);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).isEqualTo("NONE");
+    }
+
+    @Test
+    @DisplayName("should show undeclared ED.5 text that the loader classes as text")
+    void shouldReturnUndeclaredDataAsText_whenNotBase64Shaped() throws Exception {
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^TEXT^PLAIN^^Culture pending\\.br\\see note.||||||F|||20260930100000");
+
+        assertThat(handler.getOBXDocumentEncoding(0, 1)).isNull();
+        assertThat(handler.isOBXEmbeddedDocumentResultFallback(0, 1)).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status())
+                .isEqualTo(EmbeddedLabDocumentLoader.Status.TEXT);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).isEqualTo("Culture pending<br />see note.");
+    }
+
+    @Test
+    @DisplayName("should ignore whitespace at the edges of an undeclared ED.5, as HAPI keeps a sender's trailing spaces")
+    void shouldIgnoreEdgeWhitespace_forUndeclaredDataShape() throws Exception {
+        String png = Base64.getEncoder().encodeToString(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
+        for (String ed5 : new String[] {png + " ", png + "\t", "NONE ", " NONE"}) {
+            DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^TEXT^PLAIN^^" + ed5 + "||||||F|||20260930100000");
+
+            // An image with a trailing space stays binary; a lone token is treated like "NONE".
+            assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status()).as("[%s]", ed5)
+                    .isEqualTo(EmbeddedLabDocumentLoader.Status.NOT_PDF);
+            assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).as("[%s]", ed5).doesNotContain(ed5.trim());
+        }
+        // Spaces inside the value still mark text.
+        DefaultGenericHandler worded = handler("OBX|2|ED|RPT^Report||^TEXT^PLAIN^^ NO GROWTH ||||||F|||20260930100000");
+        assertThat(EmbeddedLabDocumentLoader.inspect(worded, 0, 1, 0).status()).isEqualTo(EmbeddedLabDocumentLoader.Status.TEXT);
+        assertThat(worded.getOBXEmbeddedDocumentText(0, 1)).isEqualTo("NO GROWTH");
+    }
+
+    @Test
+    @DisplayName("should keep an undeclared base64-shaped ED.5 that is not a PDF undisplayable")
+    void shouldClassifyNotPdf_forUndeclaredBase64ShapedData() throws Exception {
+        String png = Base64.getEncoder().encodeToString(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
+        DefaultGenericHandler handler = handler("OBX|2|ED|RPT^Report||^IM^PNG^^" + png + "||||||F|||20260930100000");
+
+        assertThat(handler.isOBXEmbeddedDocumentResultFallback(0, 1)).isFalse();
+        assertThat(handler.getOBXDocumentEncoding(0, 1)).isNull();
+        assertThat(EmbeddedLabDocumentLoader.inspect(handler, 0, 1, 0).status())
+                .isEqualTo(EmbeddedLabDocumentLoader.Status.NOT_PDF);
+        assertThat(handler.getOBXEmbeddedDocumentText(0, 1)).doesNotContain(png);
     }
 
     @Test

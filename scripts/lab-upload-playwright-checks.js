@@ -157,6 +157,33 @@ async function postCml(page, contextPath, bytes, fileName, key) {
 }
 
 /**
+ * Counts this run's archived uploads in LAB_UPLOAD_DOCUMENT_STORE, or returns null when the store
+ * is not set. Only names built from the fixed probe prefix, this run's stamp and the uploader's
+ * millisecond suffix are counted.
+ */
+function countArchivedUploads(stamp) {
+  const store = process.env.LAB_UPLOAD_DOCUMENT_STORE;
+  if (!store) return null;
+  const prefix = `LabUpload.lab-upload-probe-${stamp}.hl7.`;
+  return fs.readdirSync(fs.realpathSync(store))
+    .filter((name) => /^LabUpload\.lab-upload-probe-[0-9A-F]{8}\.hl7\.\d+$/.test(name) && name.startsWith(prefix))
+    .length;
+}
+
+/**
+ * Asserts how many archived copies this run has left in DOCUMENT_DIR (#4086): only a stored lab
+ * keeps one; a rejected, rolled-back or duplicate upload must not leave a copy behind.
+ */
+function expectArchivedUploads(stamp, count, why) {
+  const found = countArchivedUploads(stamp);
+  if (found === null) {
+    console.log(`    SKIP archived-copy count (${why}): LAB_UPLOAD_DOCUMENT_STORE is not set`);
+    return;
+  }
+  h.assert(found === count, `${why}: expected ${count} archived LabUpload.lab-upload-probe-${stamp}.hl7.* files, found ${found}`);
+}
+
+/**
  * Deletes this run's archived uploads from LAB_UPLOAD_DOCUMENT_STORE. Only names built entirely
  * from the fixed probe prefix, this run's random stamp and the uploader's millisecond suffix match,
  * so no other document in the store can be touched.
@@ -251,6 +278,7 @@ async function workflow(session, options = {}) {
           `Invalid upload attempt ${attempt + 1} reported "${status}"`);
         h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`) === '0',
           'Rejected content left a checksum that would block its retry');
+        expectArchivedUploads(stamp, 0, `after rejected attempt ${attempt + 1}`);
       }
     } finally {
       fs.writeFileSync(filePath, content);
@@ -279,6 +307,7 @@ async function workflow(session, options = {}) {
           + (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
           + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
         'A rejected lab left its checksum or partially stored rows behind');
+        expectArchivedUploads(stamp, 0, 'after the rolled-back upload');
       } finally {
         sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
         triggerMayExist = false;
@@ -299,6 +328,7 @@ async function workflow(session, options = {}) {
     // PID carries the run patient's unique surname, DOB and sex, so matching is deterministic;
     // a lab that files but stays unmatched is a routing regression, not a pass.
     h.assert(matched === '1', `The uploaded lab was not routed to the run's patient (matched ${matched})`);
+    expectArchivedUploads(stamp, 1, 'after the stored upload');
   });
 
   await session.step('the same file again is refused as already uploaded', async () => {
@@ -306,6 +336,7 @@ async function workflow(session, options = {}) {
     h.assert(status === 'Already uploaded', `Duplicate upload reported "${status}"`);
     h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '1',
       'The duplicate upload filed a second copy of the lab');
+    expectArchivedUploads(stamp, 1, 'after the duplicate upload');
   });
 
   await session.step('lab/CMLlabUpload answers a distinct XML outcome', async () => {
@@ -327,12 +358,14 @@ async function workflow(session, options = {}) {
         h.assert(rejected === 'exception', `A CML report without patients answered "${rejected}"`);
         h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`) === '1',
           'The empty CML report committed a checksum');
+        expectArchivedUploads(stamp, 1, `after rejected CML report ${attempt + 1}`);
       }
       const duplicate = await postCml(popup, contextPath, content, fileName, key);
       h.assert(duplicate === 'uploadedPreviously',
         `An already-recorded file answered "${duplicate}" instead of uploadedPreviously`);
       h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '1',
         'The CML duplicate filed another copy of the lab');
+      expectArchivedUploads(stamp, 1, 'after the CML duplicate');
       // Exercise the legacy parser's successful database path as well as its duplicate gate.
       const hin = `999${String(Number.parseInt(stamp, 16) % 10000000).padStart(7, '0')}`;
       sql.execute(`UPDATE demographic SET hin=${h.sqlString(hin)} WHERE demographic_no=${patient}`);
@@ -348,6 +381,7 @@ async function workflow(session, options = {}) {
         'The legacy CML report was not recognized as a duplicate');
       h.assert(sql.value(`SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)}`) === '1',
         'The legacy CML duplicate created another patient report');
+      expectArchivedUploads(stamp, 2, 'after the legacy CML report and its duplicate');
     } finally {
       await popup.close().catch(() => {});
       await inbox.close().catch(() => {});
@@ -356,4 +390,4 @@ async function workflow(session, options = {}) {
 }
 
 if (require.main === module) runWorkflow('lab-upload', workflow);
-module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile };
+module.exports = { workflow, syntheticCmlLab, syntheticCmlFlatFile, openUploader };

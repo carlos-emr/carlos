@@ -2310,7 +2310,7 @@ input[id^='acklabel_']{
                 }
 
                 // An HL7 ED OBX (any lab type) whose payload is a PDF gets a Download PDF link and an inline
-                // preview row (#3977). A payload declared as text keeps the ordinary result rendering.
+                // preview row (#3977). A payload declared as text is shown as the result value.
                 // The legacy PATHL7 shape is detected server-side, so the URLs carry no legacy flag.
                 EmbeddedLabDocumentLoader.Inspection embeddedDocument = handler.isOBXEmbeddedDocument(j, k)
                         ? EmbeddedLabDocumentLoader.inspect(handler, j, k, labPdfPreviewSettings.maxBytes())
@@ -2344,7 +2344,7 @@ input[id^='acklabel_']{
                 if (handler.getMsgType().equals("EPSILON")) {
                     // Epsilon rows are filtered by header here, so ED rows are rendered in this branch rather
                     // than the shared row below: a PDF gets the Download PDF link and the preview row, other
-                    // binary payloads the "not a PDF" note (#3977, #4124).
+                    // binary payloads the "not a PDF" note, and a text ED value its ED.5 text (#3977, #4124).
                     if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && !obxName.equals("")) {
             %>
 
@@ -2363,7 +2363,7 @@ input[id^='acklabel_']{
                     <% } else if (isUndisplayableEmbeddedDocument) { %>
                     <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
                     <% } else { %>
-                    <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
+                    <carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     <% } %>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
@@ -2389,7 +2389,7 @@ input[id^='acklabel_']{
                     <% } else if (isUndisplayableEmbeddedDocument) { %>
                     <em class="lab-embedded-document-unsupported" style="margin-left:100px;"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
                     <% } else { %>
-                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                     <% } %>
                 </td>
 
@@ -2397,7 +2397,10 @@ input[id^='acklabel_']{
             <%@ include file="/WEB-INF/jspf/lab-embedded-pdf-preview.jspf" %>
             <% }
 
-            } else if (handler.getMsgType().equals("HHSEMR") || handler.getMsgType().equals("CML")) {
+            } else if (embeddedDocument == null && (handler.getMsgType().equals("HHSEMR") || handler.getMsgType().equals("CML"))) {
+                // ED rows (embeddedDocument != null) skip this and the Spire branch below for the shared
+                // rendering further down, which owns the Download PDF link, the text/unsupported value
+                // and the inline preview row (#3977).
                 if (!obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
@@ -2452,7 +2455,7 @@ input[id^='acklabel_']{
             <%
                 }
 
-            } else if (handler.getMsgType().equals("Spire")) {
+            } else if (embeddedDocument == null && handler.getMsgType().equals("Spire")) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
@@ -2527,7 +2530,10 @@ input[id^='acklabel_']{
 
             } else if (!handler.getMsgType().equals("EPSILON")) {
 
-                if (isUnstructuredDoc) {
+                // A PDF or other binary ED row in an unstructured report (PATHL7 CELLPATH, MEDITECH
+                // narrative) takes the structured row below for its Download PDF link and preview;
+                // text keeps the narrative layout (and the CELLPATHR RTF rendering).
+                if (isUnstructuredDoc && !isEmbeddedDocumentResult && !isUndisplayableEmbeddedDocument) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%="NarrativeRes"%>"><%
                                    			if(handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (obxCount>1) && ! handler.getMsgType().equals("MEDITECH") ){%>
@@ -2555,7 +2561,7 @@ input[id^='acklabel_']{
                 </td>
                     <%}else{%>
                 <td style="text-align:left">
-                    <span><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
+                    <span><carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
                 </td>
                     <%} %>
 
@@ -2623,8 +2629,10 @@ input[id^='acklabel_']{
                                            	%>
 
                     <%
-                                           		//CLS textual results - use 4 columns.
-                                           		if(handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {
+                                           		//CLS textual results - use 4 columns. Never for an ED row: the shared cell below
+                                           		//renders it (isUnstructured() already requires every OBX to be TX; the guard keeps
+                                           		//a document row from getting two result cells if that ever changes).
+                                           		if(embeddedDocument == null && handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {
                                            	%>
                 <td style="text-align:left" colspan="4">
                     <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
@@ -2634,13 +2642,13 @@ input[id^='acklabel_']{
                     <%
                                            		}
 
-                                           		else if(handler.getMsgType().equals("MEDITECH")  && isUnstructuredDoc ) {
+                                           		else if(embeddedDocument == null && handler.getMsgType().equals("MEDITECH")  && isUnstructuredDoc ) {
                                            	%>
 
                 <pre> <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
 					                             		</pre>
 
-                    <% } else if(handler.getMsgType().equals("MEDITECH")  && ((MEDITECHHandler) handler).isReportData() ) { %>
+                    <% } else if(embeddedDocument == null && handler.getMsgType().equals("MEDITECH")  && ((MEDITECHHandler) handler).isReportData() ) { %>
             <tr>
                 <td>
                     <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
@@ -2665,6 +2673,15 @@ input[id^='acklabel_']{
             <td style="text-align:<%=align%>">
                 <% if (isUndisplayableEmbeddedDocument) { %>
                 <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
+                <% } else if (embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT) { %>
+                <%-- Sender-declared text (ED.4 A): a standards-compliant value keeps it in ED.5, which
+                     getOBXResult does not read; getOBXEmbeddedDocumentText falls back to it when ED.5 is empty
+                     and normalises \.br\ like getOBXResult. An Excelleris OBX-4 sub-ID keeps its "A)" label. --%>
+                <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
+                <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithEmbeddedDocumentText(j, k) %>' context="htmlWithBreakMarkers"/></em>
+                <% } else { %>
+                <carlos:encode value='<%= handler.getOBXEmbeddedDocumentText(j, k) %>' context="htmlWithBreakMarkers"/>
+                <% } %>
                 <% } else if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
                 <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue(j, k) %>' context="htmlWithBreakMarkers"/></em>
                 <% } else { %>

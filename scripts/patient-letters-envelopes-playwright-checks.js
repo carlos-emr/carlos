@@ -348,27 +348,44 @@ async function withPreservedCleanup(body, cleanups) {
 }
 
 async function checkUnicodeEnvelope(context) {
-  const marker = `FAKE_LETTER_${stamp}`;
+  // demographic.last_name is varchar(30); an oversized marker is silently
+  // truncated by older installations before the PDF renderer sees it.
+  const marker = `FAKE_LETTER_${Date.now().toString(36)}_${process.pid}`;
   const provider = sql(`SELECT provider_no FROM security WHERE user_name=${sqlString(testUser)}`);
   if (!provider) throw new Error('Test provider was not found');
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'letter-envelope-pdf-'));
+  let patient;
   await withPreservedCleanup(async () => {
-    const patient = sql(`INSERT INTO demographic
+    patient = sql(`INSERT INTO demographic
       (first_name,last_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
       VALUES ('Łukasz Жуков',${sqlString(marker)},'1980','01','02','F','AC',${sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
     if (!/^[1-9]\d*$/.test(patient)) throw new Error('Synthetic envelope patient was not created');
+    expect(sql(`SELECT last_name FROM demographic WHERE demographic_no=${patient}`) === marker,
+      'unicode-envelope: synthetic patient name survived the database round trip', {marker});
     const response = await context.request.get(appUrl(`/report/GenerateEnvelopes?demos=${patient}`));
     const bytes = await response.body();
     expect(response.status() === 200 && isPdf(bytes), 'unicode-envelope: complete PDF returned', {status:response.status()});
     const file = path.join(temporary, 'envelope.pdf');
     fs.writeFileSync(file, bytes);
     const text = execFileSync('pdftotext', [file, '-'], {encoding:'utf8'});
-    expect(text.includes('Łukasz Жуков') && text.includes(marker), 'unicode-envelope: original patient name preserved in installed PDF', {});
+    // The envelope column may wrap between the two names; whitespace is not
+    // part of the clinical value that this extraction assertion protects.
+    const normalizedText = text.replace(/\s+/g, ' ');
+    const hasName = normalizedText.includes('Łukasz Жуков');
+    const hasMarker = normalizedText.includes(marker);
+    expect(hasName && hasMarker, 'unicode-envelope: original patient name preserved in installed PDF',
+      {hasName, hasMarker, marker, text: normalizedText.slice(0, 400)});
   }, [
     () => fs.rmSync(temporary, {recursive:true, force:true}),
     () => {
-      sql(`DELETE FROM demographic WHERE first_name='Łukasz Жуков' AND last_name=${sqlString(marker)}`);
-      if (sql(`SELECT COUNT(*) FROM demographic WHERE last_name=${sqlString(marker)}`) !== '0') throw new Error('Owned envelope patient remains');
+      // Ownership is this session's LAST_INSERT_ID, the same key the count check
+      // uses. Do not also match the stored names: the round-trip assertion above
+      // exists to catch a transformed (e.g. truncated) name, and a name-matched
+      // DELETE would then remove nothing and leave the synthetic row behind.
+      if (!patient || !/^[1-9]\d*$/.test(patient)) return;
+      sql(`DELETE FROM demographic WHERE demographic_no=${patient}`);
+      if (sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) !== '0')
+        throw new Error('Owned envelope patient remains');
     },
   ]);
 }

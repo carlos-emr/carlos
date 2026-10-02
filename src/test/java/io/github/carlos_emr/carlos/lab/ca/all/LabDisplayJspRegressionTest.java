@@ -160,6 +160,99 @@ class LabDisplayJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should encode the preview's localised text and count only rendered frames")
+    void shouldEncodePreviewMessages_andCountOnlyRenderedFrames() throws IOException {
+        String fragment = Files.readString(Path.of("src/main/webapp/WEB-INF/jspf/lab-embedded-pdf-preview.jspf"),
+                StandardCharsets.UTF_8);
+
+        assertThat(fragment)
+                .contains("title=\"<carlos:encode value=\"${labEmbeddedPdfFrameTitle}\" context=\"htmlAttribute\"/>\"")
+                .contains("<carlos:encode value=\"${labEmbeddedPdfTooLarge}\"/>")
+                .contains("<carlos:encode value=\"${labEmbeddedPdfPreview}\"/>")
+                .contains("<carlos:encode value=\"${labEmbeddedPdfFallback}\"/>");
+        // Every message is resolved into a variable, never written straight into the page, in
+        // either the self-closing or the block (<fmt:param>) form.
+        assertThat(fmtMessagesWithoutVar(fragment)).isEmpty();
+        // An over-limit PDF shows a note, not a frame, so it must not use up an expanded slot.
+        int tooLargeBranch = fragment.indexOf("EmbeddedLabDocumentLoader.Status.TOO_LARGE");
+        int frameBranch = fragment.indexOf("<% } else {", tooLargeBranch);
+        assertThat(fragment.indexOf("labPdfPreviewCount++")).isGreaterThan(frameBranch);
+        assertThat(frameBranch).isGreaterThan(tooLargeBranch);
+    }
+
+    @Test
+    @DisplayName("should flag every fmt:message without var, whatever its form or attribute order")
+    void shouldFlagFmtMessageWithoutVar_inEitherForm() {
+        assertThat(fmtMessagesWithoutVar("<fmt:message key=\"a\"/>")).hasSize(1);
+        assertThat(fmtMessagesWithoutVar("<fmt:message key=\"a\"><fmt:param value=\"1\"/></fmt:message>")).hasSize(1);
+        assertThat(fmtMessagesWithoutVar("<fmt:message\n    key=\"a\" bundle=\"${b}\">x</fmt:message>")).hasSize(1);
+        assertThat(fmtMessagesWithoutVar("<fmt:message key=\"a\" var=\"v\"/>")).isEmpty();
+        assertThat(fmtMessagesWithoutVar("<fmt:message var=\"v\" key=\"a\"><fmt:param value=\"1\"/></fmt:message>")).isEmpty();
+        // A closing tag or another tag with a similar prefix is not a message.
+        assertThat(fmtMessagesWithoutVar("</fmt:message><fmt:messageFormat key=\"a\"/>")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should send ED rows past the HHSEMR, CML and Spire renderers in lab display")
+    void shouldRouteEmbeddedDocumentRows_pastLabSpecificRenderersInLabDisplay() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("} else if (embeddedDocument == null && (handler.getMsgType().equals(\"HHSEMR\") || handler.getMsgType().equals(\"CML\"))) {")
+                .contains("} else if (embeddedDocument == null && handler.getMsgType().equals(\"Spire\")) {");
+    }
+
+    @Test
+    @DisplayName("should keep lab-specific result cells off ED rows so each gets one result cell")
+    void shouldGuardLabSpecificResultCells_againstEmbeddedDocumentRows() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
+        String ajax = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("if(embeddedDocument == null && handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {")
+                .contains("else if(embeddedDocument == null && handler.getMsgType().equals(\"MEDITECH\")  && isUnstructuredDoc ) {")
+                .contains("} else if(embeddedDocument == null && handler.getMsgType().equals(\"MEDITECH\")  && ((MEDITECHHandler) handler).isReportData() ) { %>")
+                .doesNotContain("if(handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {");
+        assertThat(ajax)
+                .contains("if (embeddedDocument == null && (handler.getOBXResult(j, k) != null && handler.getOBXResult(j, k).length() > 100) && isSGorCDC) {%>");
+    }
+
+    @Test
+    @DisplayName("should send ED rows past the HHSEMR renderer in ajax lab display")
+    void shouldRouteEmbeddedDocumentRows_pastLabSpecificRendererInAjaxLabDisplay() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("} else if (embeddedDocument == null && handler.getMsgType().equals(\"HHSEMR\")) {");
+    }
+
+    @Test
+    @DisplayName("should send PDF and binary ED rows past the unstructured-report layout in both lab views")
+    void shouldRouteEmbeddedPdfRows_pastUnstructuredLayoutInBothViews() throws IOException {
+        for (Path view : List.of(LAB_DISPLAY_JSP, LAB_DISPLAY_AJAX_JSP)) {
+            String jsp = Files.readString(view, StandardCharsets.UTF_8);
+
+            assertThat(jsp).as(view.toString())
+                    .contains("if (isUnstructuredDoc && !isEmbeddedDocumentResult && !isUndisplayableEmbeddedDocument) {")
+                    // Text ED rows stay in the narrative layout but show the ED.5 text.
+                    .contains("embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT"
+                            + " ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k)");
+        }
+    }
+
+    @Test
+    @DisplayName("should show ED text normalised and keep the Excelleris sub-ID label in both lab views")
+    void shouldRenderEmbeddedText_withExcellerisSubIdInBothViews() throws IOException {
+        for (Path view : List.of(LAB_DISPLAY_JSP, LAB_DISPLAY_AJAX_JSP)) {
+            String jsp = Files.readString(view, StandardCharsets.UTF_8);
+
+            assertThat(jsp).as(view.toString())
+                    .contains("<em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithEmbeddedDocumentText(j, k) %>' context=\"htmlWithBreakMarkers\"/></em>")
+                    .contains("<carlos:encode value='<%= handler.getOBXEmbeddedDocumentText(j, k) %>' context=\"htmlWithBreakMarkers\"/>")
+                    .doesNotContain("handler.getOBXEmbeddedDocumentData(j, k) %>");
+        }
+    }
+
+    @Test
     @DisplayName("should close inboxhub iframe after successful lab macro")
     void shouldCloseInboxhubIframe_afterSuccessfulLabMacro() throws IOException {
         String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
@@ -212,6 +305,21 @@ class LabDisplayJspRegressionTest {
                 .doesNotContain("&legacy=true");
     }
 
+    private static final Pattern FMT_MESSAGE_START_TAG = Pattern.compile("<fmt:message(?=[\\s/>])[^>]*>");
+    private static final Pattern VAR_ATTRIBUTE = Pattern.compile("\\svar\\s*=");
+
+    /** Every {@code <fmt:message>} start or self-closing tag that has no {@code var} attribute. */
+    private static List<String> fmtMessagesWithoutVar(String jsp) {
+        Matcher matcher = FMT_MESSAGE_START_TAG.matcher(jsp);
+        List<String> tags = new ArrayList<>();
+        while (matcher.find()) {
+            if (!VAR_ATTRIBUTE.matcher(matcher.group()).find()) {
+                tags.add(matcher.group());
+            }
+        }
+        return tags;
+    }
+
     /**
      * Epsilon rows are filtered by header inside their own branch, which never reaches the shared
      * ED row, so the branch itself must carry the download link, the not-a-PDF note and the preview
@@ -233,6 +341,11 @@ class LabDisplayJspRegressionTest {
                 .isEqualTo(2);
         assertThat(occurrences(branch, "<fmt:message key=\"lab.embeddedPdf.notPdf\"/>")).isEqualTo(2);
         assertThat(occurrences(branch, "<%@ include file=\"/WEB-INF/jspf/lab-embedded-pdf-preview.jspf\" %>")).isEqualTo(2);
+        // A text ED value (ED.4 A) keeps its text in ED.5, which getOBXResult does not read, so both
+        // row shapes must show getOBXEmbeddedDocumentText for it rather than an empty cell.
+        assertThat(occurrences(branch, "embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT"
+                + " ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k)")).isEqualTo(2);
+        assertThat(occurrences(branch, "<carlos:encode value='<%= handler.getOBXResult(j, k) %>'")).isZero();
     }
 
     private static int occurrences(String text, String needle) {
