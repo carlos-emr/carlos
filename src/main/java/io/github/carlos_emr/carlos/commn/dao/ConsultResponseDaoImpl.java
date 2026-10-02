@@ -122,7 +122,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         if (filter.getDemographicNo() != null && filter.getDemographicNo() > 0) {
             sql.append("and cr.demographicNo = :demographicNo ");
         }
-        if (filter.getMrpNo() != null && filter.getMrpNo() > 0) {
+        if (StringUtils.isNotBlank(filter.getMrpNo())) {
             sql.append("and d.providerNo = :mrpNo ");
         }
 
@@ -166,7 +166,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         if (filter.getDemographicNo() != null && filter.getDemographicNo() > 0) {
             query.setParameter("demographicNo", filter.getDemographicNo());
         }
-        if (filter.getMrpNo() != null && filter.getMrpNo() > 0) {
+        if (StringUtils.isNotBlank(filter.getMrpNo())) {
             query.setParameter("mrpNo", filter.getMrpNo());
         }
     }

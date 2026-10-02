@@ -218,8 +218,9 @@ async function workflow(s) {
     const stored = sql.rows(`SELECT LENGTH(message) FROM tickler WHERE ${ownedTicklers} AND message LIKE ${h.sqlString(`${marker} long tickler%`)}`);
     if (stored.length && Number(stored[0][0]) !== Buffer.byteLength(longTickler)) {
       problems.push(`tickler text: ${Buffer.byteLength(longTickler)} bytes were typed into a box with no maxlength and the tickler was saved, but ${stored[0][0]} bytes were stored (tickler.message is TEXT, 65,535 bytes); silent truncation`);
-    } else if (!stored.length && !refusal) {
-      problems.push('tickler text: a very long tickler was not saved and nothing told the user');
+    } else if (!stored.length && !b.lengthRefusal(refusal)) {
+      // As for the subject: the generic "could not be saved" alert does not tell the user the length was the problem.
+      problems.push(`tickler text: a very long tickler was not saved and the user was not told its length was the problem${refusal ? ` (alert: ${refusal})` : ''}`);
     }
     h.assert(problems.length === 0, problems.join(' || '));
   });

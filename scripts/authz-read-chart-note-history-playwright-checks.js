@@ -32,16 +32,18 @@ async function workflow(s) {
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
   const otherName = `${marker}-OTHER`;
   const text = `${marker} chart note for the revision history check`;
+  const controlText = `${marker} open-patient control note`;
   let other;
   // Independent actions: a failed login cleanup must not stop the note, audit and patient deletions.
   s.cleanup(() => cleanupAll(() => fixture.cleanup(), () => {
-    const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
+    const owners = [patient, other].filter(Boolean).join(',');
+    const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no IN (${owners})`;
     sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
-      DELETE FROM casemgmt_note WHERE demographic_no=${patient};
-      DELETE FROM eChart WHERE demographicNo=${patient}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '0', 'Owned note rows were not removed');
+      DELETE FROM casemgmt_note WHERE demographic_no IN (${owners});
+      DELETE FROM eChart WHERE demographicNo IN (${owners})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${owners})`) === '0', 'Owned note rows were not removed');
     // Saving the note and the history reads write audit rows (log.data carries the note text); remove the
     // ones about the two owned patients or carrying this run's marker.
     const demos = [patient, other].filter(Boolean).join(',');
@@ -74,8 +76,8 @@ async function workflow(s) {
     await history.close();
   });
 
-  const noteUrl = (method, demo) => `CaseManagementEntry?method=${method}&noteId=${noteId}&demographicNo=${demo}&demographic_no=${demo}`;
-  const get = (context, route) => probe(context, urlFor(config, route), { needles: [text] });
+  const noteUrl = (method, demo, id = noteId) => `CaseManagementEntry?method=${method}&noteId=${id}&demographicNo=${demo}&demographic_no=${demo}`;
+  const get = (context, route) => probe(context, urlFor(config, route), { needles: [text, controlText] });
   let clerk; let doctor;
 
   await s.step('a login holding no sec object is refused on both history methods (control: the owner is served)', async () => {
@@ -103,15 +105,31 @@ async function workflow(s) {
     const refused = await get(doctor.context, `demographic/DemographicEdit?demographic_no=${patient}`);
     const served = await get(doctor.context, `demographic/DemographicEdit?demographic_no=${other}`);
     h.assert(forbiddenByApp(refused) && classify(served) === 'served', `The lock fixture does not discriminate (${refused.status}/${served.status})`);
+    // Control: both history methods serve the doctor a note of a patient it is NOT locked out of, so a refusal on the
+    // locked patient below is the lock's doing and not the role being unable to use these routes at all.
+    const q = h.sqlString;
+    const controlNote = sql.value(`INSERT INTO casemgmt_note (update_date,observation_date,demographic_no,provider_no,note,signed,
+        signing_provider_no,history,uuid,locked,archived)
+      VALUES (NOW(),NOW(),${other},${q(provider)},${q(controlText)},1,${q(provider)},${q(controlText)},UUID(),'0',0); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(controlNote), 'The control note fixture was not created');
+    for (const method of ['notehistory', 'history']) {
+      const control = await get(doctor.context, noteUrl(method, other, controlNote));
+      h.assert(classify(control) === 'served' && control.found.includes(controlText),
+        `The doctor was not served ${method} for a patient it may read (HTTP ${control.status})`);
+    }
   });
 
   await s.step('a note history is only served for the patient the note belongs to, and not to a login locked out of that patient', async () => {
     const open = ledger();
     for (const method of ['notehistory', 'history']) {
+      // A note match is reported whatever the status (an error page that echoes the note still leaked it); an answer
+      // that is neither served-without-the-note nor a deliberate refusal decided nothing and is reported too.
       const mismatched = await get(s.context, noteUrl(method, other));
-      if (mismatched.status === 200 && mismatched.found.includes(text)) open.add(`${method} naming another patient`, 'the note id alone decides');
+      if (mismatched.found.includes(text)) open.add(`${method} naming another patient`, `HTTP ${mismatched.status}, the note id alone decides`);
+      else if (classify(mismatched) === 'error') open.add(`${method} naming another patient`, `HTTP ${mismatched.status}, not a deliberate answer`);
       const lockedOut = await get(doctor.context, noteUrl(method, patient));
-      if (lockedOut.status === 200 && lockedOut.found.includes(text)) open.add(`${method} for a patient the login is locked out of`, `HTTP ${lockedOut.status}`);
+      if (lockedOut.found.includes(text)) open.add(`${method} for a patient the login is locked out of`, `HTTP ${lockedOut.status}`);
+      else if (classify(lockedOut) !== 'refused') open.add(`${method} for a patient the login is locked out of`, `HTTP ${lockedOut.status}, not refused by CARLOS`);
     }
     open.assertEmpty('Note history was served outside its patient');
   });

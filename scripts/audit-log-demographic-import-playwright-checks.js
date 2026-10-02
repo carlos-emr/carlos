@@ -119,7 +119,7 @@ async function workflow(s) {
     const hinRows = sql.rows(`SELECT ${cols} FROM log WHERE id>${before} AND ${hinRowsWhere}`).map(toRow);
     const hinLeaks = phiLeaks(hinRows, [hin]);
     expect(!hinLeaks.length, `The patient's health card number is stored in the audit log (${hinLeaks.join(', ')})`);
-    const written = sql.rows(`SELECT ${cols} FROM log WHERE id>${before} AND (demographic_no=${id} OR contentId=${q(id)}
+    const written = sql.rows(`SELECT ${cols} FROM log WHERE id>${before} AND (demographic_no=${id} OR (content IN (${KEYED}) AND contentId=${q(id)})
       OR data REGEXP ${q(`(emographic(No|_no| id| no)?[ =:]+)${id}([^0-9]|$)`)}) AND action NOT LIKE 'read%' AND action NOT LIKE '%Manager.get%'`).map(toRow);
     expect(written.length >= 1, 'Importing a patient file (a new patient with a medication, an allergy and a clinical note) wrote no audit row naming the created patient');
     for (const r of written) {

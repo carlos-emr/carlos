@@ -4005,7 +4005,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the risk/checklist editors load a missing antenatalrecord.css.",
+      "notes": "The risk/checklist editors failed on 2026.08 loading a missing decision/annualreview/antenatalrecord.css; they now link the shared decision/antenatal/antenatalrecord.css.",
       "fixtures": "Inserts a marker-named encounterForm row (the shipped Annual form is hidden) and the owned patient's desannualreviewplan rows; both deleted. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {

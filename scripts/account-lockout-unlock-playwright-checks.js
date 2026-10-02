@@ -82,8 +82,16 @@ async function workflow(s) {
   // hijacked XMLHttpRequest adds the session token. A key that is not locked is a no-op.
   const logMark = sql.value('SELECT IFNULL(MAX(id), 0) FROM log');
   async function releaseOwnLocks() {
-    const addresses = sql.rows(`SELECT DISTINCT ip FROM log WHERE action='failed' AND content='login' AND contentId=${user}`)
+    // An address already tracked before the first probe (in `before`) carries counters this run
+    // did not create; unlock() drops the whole entry, so releasing it would erase another
+    // client's lockout state. Leave it in place and say so.
+    const ownFailureAddresses = sql.rows(`SELECT DISTINCT ip FROM log WHERE action='failed' AND content='login' AND contentId=${user}`)
       .map(row => row[0]).filter(ip => ip && ip !== 'NULL');
+    const preexisting = ownFailureAddresses.filter(ip => before.includes(ip));
+    const addresses = ownFailureAddresses.filter(ip => !before.includes(ip));
+    if (preexisting.length) {
+      console.log(`  Left ${preexisting.length} client address entr(y/ies) that were already in the lock list before this run untouched`);
+    }
     const url = h.appUrl(config.baseUrl, '/admin/UnLock');
     for (const key of [username, ...addresses]) {
       const status = await admin.evaluate(({ url, key }) => new Promise(resolve => {
@@ -106,7 +114,8 @@ async function workflow(s) {
     const verify = await probe(config.testPassword);
     await verify.page.close();
     h.assert(verify.outcome !== 'locked', 'The lock is still in place after the release POSTs; this runner or the'
-      + ' throwaway username stays blocked until login_max_duration expires');
+      + ' throwaway username stays blocked until login_max_duration expires'
+      + (preexisting.length ? ' (this runner\'s address was already tracked before the run and was deliberately not released)' : ''));
   }
 
   let frame = await openUnlock();

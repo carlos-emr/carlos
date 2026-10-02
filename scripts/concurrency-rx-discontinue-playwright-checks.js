@@ -10,8 +10,9 @@
  * for "allergy".
  *
  * Asserted: A's discontinue archives the drug with its reason and files one linked chart note
- * (control); after B's discontinue the first reason and date still stand (a refusal is fine) and the
- * chart holds exactly one discontinue note. RxDeleteRx2Action.Discontinue only checks that the drug
+ * (control); B's stale discontinue is processed (HTTP 200: every 4xx the endpoint sends today is an unrelated
+ * refusal, not a stale-write one); afterwards the first reason and date still stand and the chart holds exactly
+ * one discontinue note. RxDeleteRx2Action.Discontinue only checks that the drug
  * belongs to the patient, so a stale second discontinue overwrites archived_reason / archived_date and
  * files a second, contradictory chart note. The check fails at the reason / note step.
  *
@@ -21,7 +22,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openSecondSession, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
+const { openSecondSession } = require('./lib/concurrency-support');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 
 const isDiscontinue = response => response.request().method() === 'POST' && h.pathOnly(response.url()).endsWith('/rx/deleteRx')
@@ -84,15 +85,12 @@ async function workflow(s) {
   });
   let second;
   await s.step('session B discontinues the same medication from its stale profile', async () => {
-    const mark = failureMark(s.recorder);
     second = await discontinue(bRx, drug, 'allergy', `${marker} B`);
-    h.assert(second.status() < 500, `The stale discontinue answered HTTP ${second.status()}`);
-    // A 4xx is a valid refusal; consume exactly that one response so the strict page check after the step does not report it
-    // (the next step judges the stored state).
-    if (second.status() >= 400) {
-      await bRx.waitForTimeout(500);
-      consumeExpectedFailure(s.recorder, mark, { status: second.status(), path: /\/rx\/deleteRx$/ });
-    }
+    // RxDeleteRx2Action.Discontinue has no stale-write refusal yet, and every 4xx it sends today means the request never
+    // reached the discontinue logic (400 malformed, 403 another patient's drug / CSRF / privilege, 409 no Rx workspace):
+    // accepting one would let the next step pass on untouched state. Require the processed answer; when a stale-write
+    // refusal is added, pin its specific response here.
+    h.assert(second.status() === 200, `The stale discontinue answered HTTP ${second.status()}, so it was not processed as a discontinue`);
   });
   await s.step('the first discontinue reason stands and the chart holds one discontinue note', async () => {
     const state = sql.value(archived);

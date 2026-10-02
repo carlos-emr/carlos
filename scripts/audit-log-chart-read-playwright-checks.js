@@ -120,7 +120,9 @@ async function workflow(s) {
   });
 
   await s.step('observed: the demographic_no and provider columns of every audit row that names the patient', async () => {
-    const rows = probe.rows();
+    // ownedSince(0), not rows(): a bare contentId/data match on the demographic_no can be another entity's
+    // colliding id (a document or note id), which is not a row about this patient.
+    const rows = probe.ownedSince(0);
     const unkeyed = [...new Set(rows.filter(r => r.demographic !== String(patient)).map(label))];
     expect(!unkeyed.length, `Rows about the patient with no demographic_no column: ${unkeyed.join('; ')}`);
     const anonymous = [...new Set(rows.filter(r => !r.provider).map(label))];

@@ -221,7 +221,8 @@ public class UtilDateUtilities {
         if (curMonth > Integer.parseInt(month_of_birth)) {
             age = curYear - Integer.parseInt(year_of_birth);
         } else {
-            if (curMonth == Integer.parseInt(month_of_birth) && curDay > Integer.parseInt(date_of_birth)) {
+            // >= : a patient is a year older ON the birthday, not the day after it.
+            if (curMonth == Integer.parseInt(month_of_birth) && curDay >= Integer.parseInt(date_of_birth)) {
                 age = curYear - Integer.parseInt(year_of_birth);
             } else {
                 age = curYear - Integer.parseInt(year_of_birth) - 1;

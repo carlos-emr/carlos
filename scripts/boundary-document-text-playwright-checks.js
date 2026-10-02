@@ -6,8 +6,9 @@
  * Asserts: a description of exactly the 255-character column that carries an apostrophe, accents, CJK, an emoji,
  * "&amp;", quotes, a backslash, "%41", "+" and ";" is stored byte for byte; and, last, a description one character past the
  * column is refused or visibly limited rather than silently cut.
- * Fixtures: the owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows and the
- * stored files they name (inside the document store only; SKIP when it is not readable) and asserts they are gone.
+ * Fixtures: the owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows, the chart
+ * note and note link each upload creates, and the stored files they name (inside the document store only; SKIP when it is
+ * not readable) and asserts they are gone.
  * Implements the wave-6 "boundary values" pattern, Part 1 (document description).
  */
 const fs = require('node:fs');
@@ -49,6 +50,17 @@ async function workflow(s) {
     const files = new Set();
     for (const [no, file] of rows()) {
       h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
+      // A demographic upload also saves a "Document ... created" chart note linked to it (table_name 5 = DOCUMENT).
+      const notes = sql.rows(`SELECT l.note_id FROM casemgmt_note_link l JOIN casemgmt_note n ON n.note_id=l.note_id
+        WHERE l.table_name=5 AND l.table_id=${no} AND n.demographic_no=${patient}`);
+      for (const [note] of notes) {
+        h.assert(/^[1-9]\d*$/.test(note), 'Owned document note id is invalid');
+        sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id=${note} AND table_name=5 AND table_id=${no};
+          DELETE FROM casemgmt_issue_notes WHERE note_id=${note};
+          DELETE FROM casemgmt_note WHERE note_id=${note} AND demographic_no=${patient}`);
+      }
+      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_link WHERE table_name=5 AND table_id=${no}`) === '0',
+        'The owned document\'s chart note was not removed');
       sql.execute(`DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
       files.add(file);
     }

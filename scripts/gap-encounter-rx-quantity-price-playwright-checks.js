@@ -45,7 +45,14 @@ async function workflow(s) {
     const url = new URL(request.url());
     h.assert(request.method() === 'GET' && url.searchParams.get('qty') === '30' && url.searchParams.get('randomId') === key,
       'The price request does not carry the quantity and the card id');
-    const response = await request.response();
+    // Bounded: a request that never completes would otherwise hang until the suite kills the child before cleanup runs.
+    const response = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Timed out waiting for rx/ViewDrugPrice response')), 30000);
+      request.response().then(
+        value => { clearTimeout(timer); resolve(value); },
+        error => { clearTimeout(timer); reject(error); },
+      );
+    });
     h.assert(response && response.status() < 400, 'The price request was refused');
     h.assert(await rx.locator(`#quantity_${key}`).inputValue() === '30', 'The card lost the typed quantity');
   });

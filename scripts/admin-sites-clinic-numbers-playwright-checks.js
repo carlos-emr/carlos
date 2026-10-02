@@ -55,9 +55,10 @@ async function workflow(s) {
     'Billing/help settings were not restored to their snapshot');
   });
   // Row identities and exact values (not a count), so a save that inserts, deletes or rewrites any
-  // BC-only key -- even to another non-empty value -- changes the result.
+  // BC-only key -- even to another non-empty value -- changes the result. updateDate is included
+  // because the JSP's merge() restamps an existing preference row even when its value is unchanged.
   const storedBcValues = () => JSON.stringify([snapshotRows(sql, 'property', ['name', 'value', 'provider_no'], BC_PROPERTY_NAMES),
-    snapshotRows(sql, 'SystemPreferences', ['name', 'value'], PREFERENCE_NAMES)]);
+    snapshotRows(sql, 'SystemPreferences', preferenceColumns, PREFERENCE_NAMES)]);
   const helpRows = name => sql.rows(`SELECT value FROM property WHERE name=${h.sqlString(name)}`).map(row => row[0]);
 
   // The day sheet's own URL (the post-login landing page) lets a second tab show the day sheet

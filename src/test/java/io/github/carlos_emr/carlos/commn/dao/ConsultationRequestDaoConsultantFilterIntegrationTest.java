@@ -403,7 +403,7 @@ class ConsultationRequestDaoConsultantFilterIntegrationTest extends CarlosTestBa
         @DisplayName("should keep filtering REST search results by MRP")
         void shouldFilterRestSearch_byMrpNo() {
             ConsultationRequestSearchFilter filter = restFilter();
-            filter.setMrpNo(Integer.valueOf(mrpA.getProviderNo()));
+            filter.setMrpNo(mrpA.getProviderNo());
 
             assertThat(searchIds(filter)).containsExactlyInAnyOrder(toSmithForA.getId(), toJonesForA.getId());
             assertThat(consultRequestDao.getConsultationCount2(filter)).isEqualTo(2);
@@ -415,7 +415,7 @@ class ConsultationRequestDaoConsultantFilterIntegrationTest extends CarlosTestBa
         void shouldIntersectRestFilters_forConsultantAndMrp() {
             ConsultationRequestSearchFilter filter = restFilter();
             filter.setConsultantId(brianSmith.getId());
-            filter.setMrpNo(Integer.valueOf(mrpB.getProviderNo()));
+            filter.setMrpNo(mrpB.getProviderNo());
 
             assertThat(searchIds(filter)).containsExactly(toSmithForB.getId());
         }

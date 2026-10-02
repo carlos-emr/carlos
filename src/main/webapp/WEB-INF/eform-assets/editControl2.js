@@ -1920,6 +1920,7 @@ function startNextMeasureBatch() {
     if (activeMeasureBatch || !measureRequestQueue.length) { return; }
     var batch = measureRequestQueue.shift();
     activeMeasureBatch = batch;
+    var released = false;
     var history = measureBatchIsCurrent(batch) ? fetchMeasureHistory(batch)
         : Promise.reject(new Error('The original measurement insertion point is no longer available'));
     history.then(function(measurements) {
@@ -1943,11 +1944,13 @@ function startNextMeasureBatch() {
         }
         return batch.requests.map(function() { return {values: [], dates: [], failed: true, cancelled: !!cancelled}; });
     }).then(function(histories) {
+        // Release the save/print gate before any DOM work so a throw below cannot leave it stuck.
+        released = true;
+        measureBatchesPending--;
+        activeMeasureBatch = null;
         [batch.marker, batch.startMarker].forEach(function(marker) {
             if (marker && marker.parentNode) { marker.parentNode.removeChild(marker); }
         });
-        measureBatchesPending--;
-        activeMeasureBatch = null;
         var failedTypes = Object.keys(failedMeasureTypes);
         if (!failedTypes.length) { measureBatchFailed = false; }
         if (failedTypes.length) {
@@ -1964,6 +1967,26 @@ function startNextMeasureBatch() {
         // rather than leaving an unhandled rejection the clinician never sees.
         if (typeof console !== 'undefined' && console.error) {
             console.error('editControl: completing a measurement batch failed', error);
+        }
+        // Never leave the batch holding the save/print gate or its callers unsettled: release it if
+        // the throw came first, settle every request (re-resolving an already-settled one is a
+        // no-op), and let the queue and any deferred source-view change proceed.
+        if (!released) {
+            released = true;
+            measureBatchesPending--;
+            if (activeMeasureBatch === batch) { activeMeasureBatch = null; }
+        }
+        batch.requests.forEach(function(request) {
+            try { request.resolve({values: [], dates: [], failed: true}); } catch (ignored) { /* already settled */ }
+        });
+        try {
+            showMeasurementStatus('Measurement loading did not finish cleanly. Please retry Lab Grid or Vitals before saving.', true);
+            startNextMeasureBatch();
+            finishPendingSourceView();
+        } catch (followUpError) {
+            if (typeof console !== 'undefined' && console.error) {
+                console.error('editControl: releasing a measurement batch failed', followUpError);
+            }
         }
     });
 }
