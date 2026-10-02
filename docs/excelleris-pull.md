@@ -264,8 +264,9 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 
 - **`inbox/`** holds pulls that Excelleris has acknowledged but the EMR has not yet
   accepted. The next run retries them before pulling anything new. A non-empty inbox after
-  a run always comes with an alert, except after `--no-upload` or `--dry-run`, which by
-  design leave the inbox alone and exit 0. A transient EMR failure (5xx, a proxy error, a session
+  a run always comes with an alert, except after `--no-upload` or `--dry-run`, which exit 0
+  without that alert. `--no-upload` leaves queued files pending and can add newly pulled files
+  to `inbox/`; `--dry-run` does not pull or upload. A transient EMR failure (5xx, a proxy error, a session
   bounce, a connection that dropped during the upload) leaves the file here with a
   `.attempts` sidecar that counts one attempt per run (a run retries the backlog before and
   after the pull, but counts it once); after `max_upload_attempts` such runs it moves to
