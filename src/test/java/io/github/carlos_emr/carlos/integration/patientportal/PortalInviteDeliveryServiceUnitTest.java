@@ -1779,6 +1779,67 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
         }
 
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void shouldPreserveCommitRefusal_whenRecoveryClaimsAQueuedAttempt(boolean recordedAfterRead) {
+            PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
+            row.setOutcome(recordedAfterRead ? null : Outcome.COMMIT_REFUSED);
+            if (recordedAfterRead) {
+                when(deliveries.advance(eq(row.getId()), eq(State.QUEUED), eq(State.ABANDONING), any()))
+                        .thenAnswer(invocation -> {
+                            row.setOutcome(Outcome.COMMIT_REFUSED);
+                            Consumer<PatientPortalInviteDelivery> change = invocation.getArgument(3);
+                            change.accept(row);
+                            row.setState(State.ABANDONING);
+                            return row;
+                        });
+            }
+            PatientPortalInviteDelivery finished =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+            assertThat(finished.getState()).isEqualTo(State.ABANDONED);
+            assertThat(finished.getOutcome()).isEqualTo(Outcome.COMMIT_REFUSED);
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void shouldKeepResolvedCodeFinished_whenItsOriginalPreparationReturnsLate(boolean staleRead) {
+            AtomicLong preparations = new AtomicLong();
+            java.util.concurrent.atomic.AtomicReference<Date> resolvedAt = new java.util.concurrent.atomic.AtomicReference<>();
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenAnswer(invocation -> {
+                        if (preparations.incrementAndGet() == 1) {
+                            clock = NOW.plus(Duration.ofMinutes(16));
+                            service.recover(user, patient(), onlyRow().getId(), Decision.ABANDON, staff);
+                            resolvedAt.set(onlyRow().getUpdatedAt());
+                            clock = NOW.plus(Duration.ofMinutes(17));
+                            if (staleRead) {
+                                PatientPortalInviteDelivery snapshot = new PatientPortalInviteDelivery(
+                                        onlyRow().getDeliveryOperationId(), PATIENT, "clinic-a",
+                                        "https://portal-api.clinic.example", Channel.EMAIL, null, "999998");
+                                snapshot.setState(State.ABANDONING);
+                                snapshot.setPortalInviteId(INVITE);
+                                org.mockito.Mockito.doReturn(snapshot).when(deliveries)
+                                        .find(org.mockito.ArgumentMatchers.<Object>any());
+                            }
+                        }
+                        return prepared(invocation.getArgument(4), null);
+                    });
+            when(portal.revokeInvite(anyInt(), anyLong(), any()))
+                    .thenReturn(invite(INVITE, "revoked"))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/revoke", null));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            error -> assertThat(error.reason()).isEqualTo(Reason.STATE_CHANGED));
+            assertThat(onlyRow().getState()).isEqualTo(State.ABANDONED);
+            assertThat(onlyRow().getPortalInviteId()).isEqualTo(INVITE);
+            assertThat(onlyRow().isRevokeFailed()).isFalse();
+            assertThat(onlyRow().getUpdatedAt()).isEqualTo(resolvedAt.get());
+            verify(portal, org.mockito.Mockito.times(1)).revokeInvite(PATIENT, INVITE, staff);
+            assertThat(events).doesNotContain("send");
+        }
+
         @Test
         void shouldKeepLatePreparationRetryable_whenItsWithdrawalIsUnconfirmed() {
             AtomicLong preparations = new AtomicLong();

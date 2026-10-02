@@ -301,9 +301,15 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
     void shouldPreserveAcceptedOutcome_whenInvitationCleanupFails() throws Exception {
         EmailData email = invitationEmail();
         doThrow(new IllegalStateException("cleanup failed")).when(emailLogDao).replaceBody(any(Integer.class), anyString());
+        EmailSendResult result;
         try (MockedConstruction<EmailSender> senders = recordingSenders()) {
-            assertThat(emailManager.sendEmailWithResult(loggedInInfo, email).isTransportAccepted()).isTrue();
+            result = emailManager.sendEmailWithResult(loggedInInfo, email);
         }
+        assertThat(result.isTransportAccepted()).isTrue();
+        assertThat(result.getEmailLog().getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        verify(emailLogDao).transitionEmailStatus(eq(42), eq(EmailStatus.PENDING), eq(EmailStatus.SUCCESS),
+                anyString(), any(Date.class));
+        verify(emailLogDao, never()).transitionEmailStatus(eq(42), any(), eq(EmailStatus.FAILED), any(), any());
         assertThat(events).contains("send");
     }
 

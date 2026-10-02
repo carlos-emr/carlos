@@ -694,7 +694,7 @@ public class PortalInviteDeliveryService {
         // is what prevents a resumed sender from advancing to COMMITTED and dispatching.
         Outcome initial = row.getState() == State.ABANDONING ? row.getOutcome() : Outcome.ABANDONED_BY_STAFF;
         if (row.getState() == State.QUEUED) {
-            initial = Outcome.COMMIT_UNCONFIRMED;
+            initial = stoppedAtCommit(row);
         }
         PatientPortalInviteDelivery claimed = claimAbandonment(row.getId(), row.getState(), initial,
                 row.getPortalInviteId());
@@ -864,14 +864,16 @@ public class PortalInviteDeliveryService {
     private PatientPortalInviteDelivery tryAbandon(Long deliveryId, State expected, Outcome outcome,
             Long inviteId, PatientPortalStaffContext staff, int demographicNo) {
         PatientPortalInviteDelivery claimed = claimAbandonment(deliveryId, expected, outcome, inviteId);
-        return claimed == null ? null : finishAbandonment(claimed, outcome, inviteId, staff);
+        return claimed == null ? null : finishAbandonment(claimed, claimed.getOutcome(), inviteId, staff);
     }
 
     /** Commits before remote work. ABANDONING never returns to a state from which a sender can dispatch. */
     private PatientPortalInviteDelivery claimAbandonment(Long deliveryId, State expected, Outcome outcome,
             Long inviteId) {
         return deliveries.advance(deliveryId, expected, State.ABANDONING, r -> {
-            r.setOutcome(outcome);
+            // A gate may record definite refusal after recovery read an older QUEUED snapshot.
+            // Preserve the current proof while holding the row lock.
+            r.setOutcome(expected == State.QUEUED && r.getOutcome() != null ? r.getOutcome() : outcome);
             if (inviteId != null) {
                 r.setPortalInviteId(inviteId);
             }
@@ -920,11 +922,21 @@ public class PortalInviteDeliveryService {
         if (row == null || (row.getState() != State.ABANDONING && row.getState() != State.ABANDONED)) {
             return;
         }
+        if (row.getState() == State.ABANDONED && row.getPortalInviteId() != null) {
+            // This operation's code was already withdrawn or proved used. A duplicate late response
+            // cannot make the finished withdrawal uncertain again.
+            return;
+        }
         // Persist the late response and reopen only an abandonment, before contacting the portal.
         // Both states fence dispatch; uncertainty must remain visible and retryable.
         for (State expected : List.of(State.ABANDONING, State.ABANDONED)) {
-            PatientPortalInviteDelivery claimed = deliveries.advance(deliveryId, expected, State.ABANDONING,
-                    r -> r.setPortalInviteId(inviteId));
+            PatientPortalInviteDelivery claimed = deliveries.advance(deliveryId, expected, State.ABANDONING, r -> {
+                // Recheck under the row lock: another withdrawal may finish after our initial read.
+                if (expected == State.ABANDONED && r.getPortalInviteId() != null) {
+                    throw new PortalInviteException(Reason.STATE_CHANGED);
+                }
+                r.setPortalInviteId(inviteId);
+            });
             if (claimed != null) {
                 finishAbandonment(claimed, claimed.getOutcome(), inviteId, staff);
                 return;
