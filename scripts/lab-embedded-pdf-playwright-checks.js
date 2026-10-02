@@ -200,17 +200,27 @@ function seedLab(s) {
 /** Snapshot both preview preferences and restore them exactly, whatever the check changes. */
 function ownPreferences(s) {
   const names = "name IN ('lab_pdf_inline_preview','lab_pdf_max_size')";
-  const before = s.sql.rows(`SELECT id, name, IFNULL(HEX(value),'NULL') FROM SystemPreferences WHERE ${names} ORDER BY id`);
-  for (const [id, , hex] of before) {
-    h.assert(/^\d+$/.test(id) && (hex === 'NULL' || /^[0-9A-F]*$/i.test(hex)), 'Unexpected preference snapshot');
+  // updateDate is snapshotted too: set() and the admin save both stamp it, and a run must leave
+  // existing rows exactly as it found them. `mysql -B` prints SQL NULL as the token NULL, which
+  // the harness reads as JS null (and cannot tell from the string 'NULL'), so each nullable column
+  // is selected with a companion IS NULL flag and never through an IFNULL(...,'NULL') sentinel --
+  // the convention of demographic-edit-update-playwright-checks.js.
+  const columns = "id, name, IFNULL(HEX(value),''), value IS NULL, "
+    + "IFNULL(DATE_FORMAT(updateDate,'%Y-%m-%d %H:%i:%s'),''), updateDate IS NULL";
+  const before = s.sql.rows(`SELECT ${columns} FROM SystemPreferences WHERE ${names} ORDER BY id`);
+  for (const [id, , hex, valueNull, updated, updatedNull] of before) {
+    h.assert(/^\d+$/.test(id) && /^[01]$/.test(valueNull) && /^[01]$/.test(updatedNull)
+      && /^[0-9A-F]*$/i.test(hex)
+      && (updatedNull === '1' || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(updated)), 'Unexpected preference snapshot');
   }
   s.cleanup(() => {
     const ids = before.map(row => row[0]);
     s.sql.execute(`DELETE FROM SystemPreferences WHERE ${names}${ids.length ? ` AND id NOT IN(${ids.join(',')})` : ''}`);
-    for (const [id, , hex] of before) {
-      s.sql.execute(`UPDATE SystemPreferences SET value=${hex === 'NULL' ? 'NULL' : `UNHEX('${hex}')`} WHERE id=${id}`);
+    for (const [id, , hex, valueNull, updated, updatedNull] of before) {
+      s.sql.execute(`UPDATE SystemPreferences SET value=${valueNull === '1' ? 'NULL' : `UNHEX('${hex}')`},
+        updateDate=${updatedNull === '1' ? 'NULL' : `'${updated}'`} WHERE id=${id}`);
     }
-    h.assert(JSON.stringify(s.sql.rows(`SELECT id, name, IFNULL(HEX(value),'NULL') FROM SystemPreferences
+    h.assert(JSON.stringify(s.sql.rows(`SELECT ${columns} FROM SystemPreferences
       WHERE ${names} ORDER BY id`)) === JSON.stringify(before), 'the lab display preferences were not restored exactly');
   });
   return {
@@ -411,6 +421,25 @@ async function workflow(s) {
       'a PDF over the limit is not replaced by the use-download message');
     const download = await fetchRoute(s, `/lab/DownloadEmbeddedDocumentFromLab?${documentQuery(labNo, PDF_SEGMENT)}`);
     h.assert(download.status === 200 && download.body.equals(PDF), 'the size limit wrongly applied to the download');
+  });
+
+  await s.step('pressing Enter in the size field saves through the form, like the Save button', async () => {
+    // Implicit submission bypasses the Save button's onclick; the form's onsubmit must supply the
+    // save intent, and the POST must still carry the CSRFGuard token injected into the form.
+    const size = settingsPage.locator('#lab_pdf_max_size_mb');
+    await size.fill('7');
+    await size.focus();
+    await Promise.all([
+      settingsPage.waitForNavigation({ timeout: TIMEOUT }),
+      size.press('Enter'),
+    ]);
+    await settingsPage.locator('#labDisplaySettingsSaved').waitFor({ timeout: TIMEOUT });
+    h.assert(await settingsPage.locator('#labDisplaySettingsSaveFailed').count() === 0
+      && await settingsPage.locator('#labDisplaySettingsInvalid').count() === 0, 'the Enter-key save reported an error');
+    h.assert(preferences.value('lab_pdf_max_size') === String(7 * 1024 * 1024),
+      'pressing Enter did not store the 7 MB limit');
+    h.assert(await settingsPage.locator('#lab_pdf_max_size_mb').inputValue() === '7',
+      'the page re-rendered after the Enter-key save does not show the saved 7 MB limit');
     await settingsPage.close();
   });
 }

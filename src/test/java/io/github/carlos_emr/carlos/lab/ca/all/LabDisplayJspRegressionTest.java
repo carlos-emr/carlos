@@ -56,6 +56,26 @@ class LabDisplayJspRegressionTest {
                     + "\\s+context\\s*=\\s*(['\"])([^'\"]+)\\2\\s*/\\s*>");
     private static final int CONTEXT_GROUP = 3;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp",
+            "src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplayAjax.jsp",
+            "src/main/webapp/WEB-INF/jspf/lab-embedded-pdf-preview.jspf",
+            "src/main/webapp/WEB-INF/jsp/admin/labDisplaySettings.jsp"})
+    @DisplayName("should set the negotiated locale immediately before every oscarResources bundle")
+    void shouldSetNegotiatedLocale_beforeEveryBundle(String file) throws IOException {
+        String jsp = Files.readString(Path.of(file), StandardCharsets.UTF_8);
+        Matcher bundles = Pattern.compile("<fmt:setBundle basename=\"oscarResources\"/>").matcher(jsp);
+        int count = 0;
+        while (bundles.find()) {
+            count++;
+            String before = jsp.substring(0, bundles.start()).stripTrailing();
+            assertThat(before).as("%s: the line before setBundle", file)
+                    .endsWith("LocaleUtils.resolveBundleLocale(request) %>\"/>");
+        }
+        assertThat(count).as("%s declares the oscarResources bundle", file).isPositive();
+    }
+
     @Test
     @DisplayName("should render acknowledgement handler with htmlAttribute encoding in lab display")
     void shouldRenderAcknowledgementHandler_withHtmlAttributeEncodingInLabDisplay() throws IOException {

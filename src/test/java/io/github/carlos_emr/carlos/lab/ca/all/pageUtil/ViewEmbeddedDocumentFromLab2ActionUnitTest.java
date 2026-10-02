@@ -82,7 +82,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
 
     private static final int LAB_NO = 456;
-    private static final String DEMOGRAPHIC_NO = "123";
+    private static final int DEMOGRAPHIC_ID = 123;
+    private static final String DEMOGRAPHIC_NO = String.valueOf(DEMOGRAPHIC_ID);
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -142,7 +143,7 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
 
     private void matchToPatient() {
         when(patientLabRoutingDao.findByLabNoAndLabType(LAB_NO, "HL7"))
-                .thenReturn(List.of(new PatientLabRouting(LAB_NO, "HL7", Integer.valueOf(DEMOGRAPHIC_NO))));
+                .thenReturn(List.of(new PatientLabRouting(LAB_NO, "HL7", Integer.valueOf(DEMOGRAPHIC_ID))));
     }
 
     @Test
@@ -163,9 +164,54 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
         assertThat(response.getHeader("Content-Security-Policy"))
                 .isEqualTo("default-src 'none'; frame-ancestors 'self'; sandbox");
-        logActionMock.verify(() -> LogAction.addLog(loggedInInfo, LogConst.READ,
+        logActionMock.verify(() -> LogAction.addLogStrict(loggedInInfo, LogConst.READ,
                 AbstractEmbeddedLabDocumentAction.AUDIT_CONTENT, "456", DEMOGRAPHIC_NO,
                 "segment=1,group=0,disposition=inline"));
+    }
+
+    @Test
+    @DisplayName("should write the read audit before any PDF header is set")
+    void shouldAuditRead_beforeSettingPdfHeaders() throws Exception {
+        grantAll();
+        matchToPatient();
+        storeLab(PathL7EmbeddedDocumentMessage.message());
+        List<String> typeAtAudit = new java.util.ArrayList<>();
+        logActionMock.when(() -> LogAction.addLogStrict(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+                        anyString(), anyString()))
+                .thenAnswer(invocation -> {
+                    typeAtAudit.add(String.valueOf(response.getContentType()));
+                    typeAtAudit.add(String.valueOf(response.getHeader("Content-Disposition")));
+                    return null;
+                });
+
+        assertThat(action().execute()).isEqualTo("none");
+
+        assertThat(typeAtAudit).containsExactly("null", "null");
+        assertThat(response.getContentAsByteArray()).isEqualTo(PathL7EmbeddedDocumentMessage.PDF);
+    }
+
+    @Test
+    @DisplayName("should answer a bare 500 with no PDF headers or bytes when the audit cannot be persisted")
+    void shouldReturn500WithoutBody_whenReadAuditFails() throws Exception {
+        grantAll();
+        matchToPatient();
+        storeLab(PathL7EmbeddedDocumentMessage.message());
+        logActionMock.when(() -> LogAction.addLogStrict(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+                        anyString(), anyString()))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic audit failure"));
+
+        assertThat(action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        // setStatus, not sendError: sendError would render the HTML error page into the frame.
+        assertThat(response.getErrorMessage()).isNull();
+        assertThat(response.isCommitted()).isFalse();
+        assertThat(response.getContentLength()).isZero();
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getHeader("Content-Security-Policy")).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
     }
 
     @Test
@@ -193,7 +239,7 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
         action().execute();
 
         assertThat(response.getStatus()).isEqualTo(200);
-        logActionMock.verify(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+        logActionMock.verify(() -> LogAction.addLogStrict(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
                 isNull(), anyString()));
     }
 
@@ -239,7 +285,8 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @CsvSource({
-            "labNo, abc", "labNo, ''", "labNo, 1234567890", "labNo, 4;5",
+            "labNo, abc", "labNo, ''", "labNo, 1234567890", "labNo, 4;5", "labNo, 0", "labNo, 000",
+            "labNo, 99999999999999999999", "segment, 99999999999999999999",
             "segment, -1", "segment, 1.0", "group, x", "legacy, yes"
     })
     @DisplayName("should answer 400 for malformed parameters")
@@ -252,6 +299,19 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getContentAsByteArray()).isEmpty();
         verifyNoInteractions(hl7TextMessageDao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "000"})
+    @DisplayName("should answer 400 for a non-positive labNo before querying routing or messages")
+    void shouldReturn400_whenLabNoIsNotPositive(String labNo) throws Exception {
+        grantAll();
+        request.setParameter("labNo", labNo);
+
+        assertThat(action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(hl7TextMessageDao, patientLabRoutingDao);
     }
 
     @Test

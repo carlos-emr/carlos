@@ -49,7 +49,9 @@ class LabPdfPreviewSettingsUnitTest {
             "5MB, 5242880",
             "5 mb, 5242880",
             "1G, 104857600",
-            "2048, 2048"
+            "2048, 2048",
+            "5KB, 5120",
+            "999999999G, 104857600"
     })
     @DisplayName("should parse byte counts and K/M/G sizes, clamped to the allowed maximum")
     void shouldParseSize_withUnits(String stored, long expected) {
@@ -58,11 +60,27 @@ class LabPdfPreviewSettingsUnitTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {"abc", "-5", "0", "5TB", "1.5M", "9999999999"})
+    @ValueSource(strings = {"abc", "-5", "0", "5TB", "1.5M", "9999999999", "5B", "5b", "5 B",
+            "99999999999999999999", "99999999999999999999G"})
     @DisplayName("should use the 10 MiB default for missing, invalid or non-positive sizes")
     void shouldUseDefaultSize_forInvalidValue(String stored) {
         assertThat(LabPdfPreviewSettings.fromPreferences(null, stored).maxBytes())
                 .isEqualTo(LabPdfPreviewSettings.DEFAULT_MAX_BYTES);
+    }
+
+    @Test
+    @DisplayName("should use the default, without matching, for a value longer than the length cap")
+    void shouldUseDefaultSize_forOverLongValue() {
+        String overLong = "1" + " ".repeat(LabPdfPreviewSettings.MAX_SIZE_LENGTH) + "M";
+        String atCap = "5" + " ".repeat(LabPdfPreviewSettings.MAX_SIZE_LENGTH - 3) + "MB";
+
+        assertThat(LabPdfPreviewSettings.fromPreferences(null, overLong).maxBytes())
+                .isEqualTo(LabPdfPreviewSettings.DEFAULT_MAX_BYTES);
+        assertThat(LabPdfPreviewSettings.fromPreferences(null, "  " + "9".repeat(40) + "  ").maxBytes())
+                .isEqualTo(LabPdfPreviewSettings.DEFAULT_MAX_BYTES);
+        // Exactly at the cap still parses, so the cap rejects only over-long input.
+        assertThat(atCap).hasSize(LabPdfPreviewSettings.MAX_SIZE_LENGTH);
+        assertThat(LabPdfPreviewSettings.fromPreferences(null, atCap).maxBytes()).isEqualTo(5L * 1024 * 1024);
     }
 
     @Test

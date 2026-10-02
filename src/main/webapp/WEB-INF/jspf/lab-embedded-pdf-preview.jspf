@@ -46,7 +46,9 @@
     if (embeddedDocument != null && embeddedDocument.isPdf() && labPdfPreviewSettings.inlinePreviewEnabled()) {
         final int LAB_PDF_PREVIEWS_OPEN = 3;
 %>
-<%-- Same bundle the including pages set; repeated so the fragment stands on its own. --%>
+<%-- Same negotiated locale and bundle the including pages set; repeated so the fragment stands
+     on its own. Fully qualified because the fragment declares no page imports of its own. --%>
+<fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <tr class="lab-embedded-pdf-row">
     <td colspan="<%= labPdfPreviewColspan %>" style="padding:4px 8px 12px 24px;">
