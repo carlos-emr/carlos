@@ -567,6 +567,7 @@ const server = http.createServer((req, res) => {
     await page.locator('#remoteSubmitButton').click();
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('subject'), '');
     await open(false, false, false, 'readonly-checkbox');
     const checkboxUrl = page.url();
     await page.locator('#remote_eform_subject').fill('');
@@ -635,6 +636,8 @@ const server = http.createServer((req, res) => {
       ['cancelled-then-toolbar', ['true']],
       // An image button named newForm posts newForm.x/newForm.y, never newForm: the fallback stays.
       ['image', ['true']],
+      // onsubmit disables the button's fieldset: it submits nothing though .disabled stays false.
+      ['fieldset-onsubmit-disables', ['true']],
     ];
     for (const [legacyCase, expected] of legacyCases) {
       await open(false, false, true);
@@ -653,6 +656,13 @@ const server = http.createServer((req, res) => {
           document.body.append(button);
         } else if (kind === 'onsubmit-disables') {
           form.addEventListener('submit', () => { document.getElementById('newFormButton').disabled = true; });
+        } else if (kind === 'fieldset-onsubmit-disables') {
+          const button = document.getElementById('newFormButton');
+          const fieldset = document.createElement('fieldset');
+          fieldset.id = 'newFormFieldset';
+          button.replaceWith(fieldset);
+          fieldset.append(button);
+          form.addEventListener('submit', () => { fieldset.disabled = true; });
         } else if (kind === 'image') {
           const image = document.createElement('input');
           image.id = 'imageNewFormButton';
@@ -687,10 +697,23 @@ const server = http.createServer((req, res) => {
     // Without formdata, a name-only template's form default is supplied by a temporary input: its
     // own value posts alone, and when its script disables the control newForm=true posts, once,
     // through the toolbar's save, a native submit button and a direct form.submit().
-    for (const path of ['toolbar', 'native', 'native-onsubmit', 'form.submit']) {
+    for (const path of ['toolbar', 'native', 'native-onsubmit', 'form.submit', 'fieldset-button']) {
       for (const disable of [false, true]) {
         await open(false, false, 'named');
-        if (disable && path === 'native-onsubmit') {
+        if (path === 'fieldset-button') {
+          // The name-only control is off, so only a newForm submit button in a fieldset can
+          // contribute; when onsubmit disables that fieldset nothing does, and the default applies.
+          await page.evaluate((disableFieldset) => {
+            const form = document.forms[0];
+            document.getElementById('namedNewForm').disabled = true;
+            const fieldset = document.createElement('fieldset');
+            fieldset.innerHTML = '<button id="fieldsetNewFormButton" type="submit" name="newForm" value="False">Save</button>';
+            form.prepend(fieldset);
+            if (disableFieldset) {
+              form.addEventListener('submit', () => { fieldset.disabled = true; });
+            }
+          }, disable);
+        } else if (disable && path === 'native-onsubmit') {
           // Disabled by the template's own onsubmit, after the click but before serialization.
           await page.evaluate(() => {
             document.forms[0].setAttribute('onsubmit', "document.getElementById('namedNewForm').disabled = true;");
@@ -700,6 +723,7 @@ const server = http.createServer((req, res) => {
         }
         if (path === 'toolbar') await page.locator('#remoteSubmitButton').click();
         else if (path === 'form.submit') await page.evaluate(() => document.forms[0].submit());
+        else if (path === 'fieldset-button') await page.locator('#fieldsetNewFormButton').click();
         else await page.evaluate(() => document.querySelector('input[name=SubmitButton]').click());
         await page.waitForURL('**/eform/addEForm');
         assert.equal(requests.length, 1, `legacy named ${path} ${disable}`);
