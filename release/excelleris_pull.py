@@ -158,6 +158,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -861,11 +862,11 @@ class HttpTransport:
         headers: Optional[dict[str, str]] = None,
         body: Optional[bytes] = None,
     ) -> HttpResponse:
-        req = urllib.request.Request(url, data=body, method=method)
-        req.add_header("User-Agent", USER_AGENT)
-        for name, value in (headers or {}).items():
-            req.add_header(name, value)
         try:
+            req = urllib.request.Request(url, data=body, method=method)
+            req.add_header("User-Agent", USER_AGENT)
+            for name, value in (headers or {}).items():
+                req.add_header(name, value)
             with self._opener.open(req, timeout=self.timeout) as resp:
                 return HttpResponse(resp.status, dict(resp.headers), _read_capped(resp))
         except urllib.error.HTTPError as exc:
@@ -883,11 +884,16 @@ class HttpTransport:
             OSError,
             TimeoutError,
             http.client.HTTPException,
+            ValueError,
         ) as exc:
             # URLError wraps socket/TLS failures; OSError covers connection
             # resets and timeouts; HTTPException covers a malformed status
-            # line or a body cut off mid-read, which are not OSErrors.
-            raise TransportError(f"{method} {_safe_url(url)}: {exc}") from exc
+            # line or a body cut off mid-read, which are not OSErrors;
+            # ValueError is Request() refusing the URL itself. Several of
+            # these quote the full request target (http.client.InvalidURL,
+            # "unknown url type"), which for the Excelleris login holds the
+            # password, so the exception's own text is redacted too.
+            raise TransportError(f"{method} {_safe_url(url)}: {_redact(str(exc), url)}") from exc
 
 
 def _read_capped(resp) -> bytes:
@@ -921,6 +927,31 @@ def _read_capped(resp) -> bytes:
             f"response truncated: {len(data)} of the {expected} bytes announced arrived"
         )
     return data
+
+
+_CREDENTIAL_QUERY = re.compile(r"(?i)\b(UserID|Password|Login|PIN|username)=[^&\s'\"<>]*")
+
+
+def _redact(text: str, url: str = "") -> str:
+    """``text`` with the request's query string, and any credential-looking
+    query value, blanked.
+
+    ``_safe_url`` keeps the URL this tool prints clean, but an exception's
+    own message may quote the request target in full: ``http.client``
+    rejects a path with a control character by echoing the whole target, and
+    ``Request()`` echoes a URL with an unknown scheme. For the Excelleris
+    login that target carries the password. The query is replaced wholesale
+    when the URL is known; the key-based pass catches a credential quoted by
+    an exception this tool did not expect.
+    """
+    if url:
+        try:
+            query = urllib.parse.urlsplit(url).query
+        except ValueError:
+            query = ""
+        if query:
+            text = text.replace(query, "<query redacted>")
+    return _CREDENTIAL_QUERY.sub(r"\1=<redacted>", text)
 
 
 def _safe_url(url: str) -> str:
@@ -1662,16 +1693,22 @@ class Archive:
             if p.is_file()
         )
 
-    def purge(self) -> int:
-        """Delete done/ archives older than the retention window. 0 = keep all."""
+    def purge(self) -> tuple[int, int]:
+        """Delete done/ archives older than the retention window: (removed,
+        could not remove). ``retention_days`` 0 keeps all.
+
+        A failure is counted, not raised: the caller turns it into the run's
+        alert (PHI past its retention is a reportable condition, not a quiet
+        one), while the rest of the directory is still purged.
+        """
         days = self.cfg.retention_days
         if days == 0:
             log.warning(
                 "retention_days is 0: compressed results in %s are kept forever", self.cfg.done_dir
             )
-            return 0
+            return 0, 0
         cutoff = time.time() - days * 86400
-        removed = 0
+        removed = kept = 0
         for p in self.cfg.done_dir.glob("*.xz"):
             try:
                 if self._is_regular(p) and p.stat().st_mtime < cutoff:
@@ -1680,6 +1717,7 @@ class Archive:
             except OSError as exc:
                 # Same naming rule as the inbox: a hand-placed archive's path
                 # must not reach the log through the exception's message.
+                kept += 1
                 log.error(
                     "could not purge %s (%s)",
                     self._loggable_name(p),
@@ -1687,7 +1725,7 @@ class Archive:
                 )
         if removed:
             log.info("purged %d archived result file(s) older than %d days", removed, days)
-        return removed
+        return removed, kept
 
     def has_done_copy(self, path: Path) -> bool:
         """True if done/ holds an archive of exactly the bytes in ``path``.
@@ -2566,7 +2604,12 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
             # only re-send, in the same run, the files it just failed on.
             failures += upload_step(cfg, archive, run_token, opts, make_transport)
         if not opts.dry_run:  # a dry run touches no data, retained archives included
-            archive.purge()
+            _, unpurged = archive.purge()
+            if unpurged:
+                failures.append(
+                    f"{unpurged} archived result file(s) past retention could not be removed "
+                    "from done/; see the log"
+                )
         if failures:
             notifier.failure(run_id, "run", "; ".join(failures))
             log.error("<<<<< run %s finished WITH ERRORS", run_id)
@@ -2582,8 +2625,13 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
         notifier.failure(run_id, "configuration", str(exc))
         return EXIT_CONFIG
     except Exception as exc:  # noqa: BLE001 - last resort: alert rather than die silently
-        log.exception("unhandled error")
-        notifier.failure(run_id, "internal error", f"{type(exc).__name__}: {exc}")
+        # The message is redacted and the traceback printed without it: an
+        # unexpected exception may quote a request target or a credential.
+        detail = _redact(f"{type(exc).__name__}: {exc}")
+        log.error(
+            "unhandled error: %s\n%s", detail, "".join(traceback.format_tb(exc.__traceback__))
+        )
+        notifier.failure(run_id, "internal error", detail)
         return EXIT_FAILED
     finally:
         if lock is not None:

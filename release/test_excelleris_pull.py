@@ -524,7 +524,7 @@ class ArchiveTest(TempEnv):
 
         with mock.patch.object(Path, "unlink", failing_unlink):
             with self.assertLogs(ep.log, level="ERROR") as captured:
-                self.assertEqual(archive.purge(), 0)
+                self.assertEqual(archive.purge(), (0, 1))
         self.assertTrue(stuck.exists())
         self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
         self.assertIn("could not purge a .xml.xz file with a name not made", captured.output[0])
@@ -677,7 +677,7 @@ class ArchiveTest(TempEnv):
         new = archive.mark_done(archive.save_inbox("new", b"<a/>"))
         past = time.time() - 31 * 86400
         os.utime(old, (past, past))
-        self.assertEqual(archive.purge(), 1)
+        self.assertEqual(archive.purge(), (1, 0))
         self.assertFalse(old.exists())
         self.assertTrue(new.exists())
 
@@ -763,6 +763,33 @@ class ExcellerisSessionTest(TempEnv):
         t = FakeTransport(self.script(**{"excelleris:logout": ep.TransportError("boom")}))
         with ep.ExcellerisSession(self.cfg, t):
             pass  # no exception escapes __exit__
+
+    def test_redact_blanks_the_query_and_credential_values(self):
+        url = "https://h/p.aspx?UserID=u&Password=s3cretvalue"
+        text = "URL can't contain control characters. '/p.aspx?UserID=u&Password=s3cretvalue'"
+        self.assertEqual(
+            ep._redact(text, url),
+            "URL can't contain control characters. '/p.aspx?<query redacted>'",
+        )
+        # Without the URL, any credential-looking key=value still goes.
+        self.assertEqual(
+            ep._redact("unknown url type: 'x://h/p?UserID=u&Password=s3cretvalue'"),
+            "unknown url type: 'x://h/p?UserID=<redacted>&Password=<redacted>'",
+        )
+        self.assertEqual(ep._redact("read timed out"), "read timed out")
+
+    def test_transport_errors_never_quote_the_login_query(self):
+        transport = ep.HttpTransport(timeout=1, ssl_context=None, follow_redirects=False)
+        # A space in the path makes http.client echo the whole request target.
+        url = "https://127.0.0.1:1/hl7 pull.aspx?UserID=u&Password=s3cretvalue"
+        with self.assertRaises(ep.TransportError) as caught:
+            transport.request("GET", url)
+        self.assertNotIn("s3cretvalue", str(caught.exception))
+        self.assertIn("GET https://127.0.0.1:1/hl7 pull.aspx", str(caught.exception))
+        # A scheme Request() refuses is a transport error too, not a crash.
+        with self.assertRaises(ep.TransportError) as caught:
+            transport.request("GET", "x://h/p?Password=s3cretvalue")
+        self.assertNotIn("s3cretvalue", str(caught.exception))
 
     def test_safe_url_drops_query(self):
         self.assertEqual(ep._safe_url("https://h/p.aspx?Password=x"), "https://h/p.aspx")
@@ -1117,6 +1144,39 @@ class OrchestrationTest(_OrchestrationBase):
         self.assertTrue(stuck.exists())
         self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
         self.assertTrue(any("could not be removed" in line for line in captured.output))
+
+    def test_run_alerts_when_a_purge_fails(self):
+        archive = ep.Archive(self.cfg)
+        old = archive.mark_done(archive.save_inbox("20260101-090000", b"<HL7Messages/>"))
+        past = time.time() - 365 * 86400
+        os.utime(old, (past, past))
+        real_unlink = Path.unlink
+
+        def failing_unlink(self_path, *a, **kw):
+            if self_path.suffix == ".xz":
+                raise PermissionError(1, "Operation not permitted", str(self_path))
+            real_unlink(self_path, *a, **kw)
+
+        with mock.patch.object(Path, "unlink", failing_unlink):
+            with self.assertLogs(ep.log, level="ERROR") as captured:
+                rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)  # alerted: PHI stayed past retention
+        self.assertTrue(old.exists())
+        self.assertTrue(any("past retention could not be removed" in m for m in captured.output))
+
+    def test_unhandled_errors_are_alerted_without_credentials(self):
+        secret = "s3cret" + "value"  # assembled, so the traceback's source line lacks it
+
+        def crash(_m, _u, _h, _b):
+            raise RuntimeError(f"bad target 'https://h/p?Password={secret}'")
+
+        self.script["POST /carlos/lab/newLabUpload"] = crash
+        with self.assertLogs(ep.log, level="ERROR") as captured:
+            self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        joined = "\n".join(captured.output)
+        self.assertNotIn("s3cretvalue", joined)
+        self.assertIn("unhandled error: RuntimeError: bad target", joined)
+        self.assertIn("in crash", joined)  # the stack is still printed, without the message
 
     def test_excelleris_down_is_a_reported_failure_not_a_crash(self):
         self.script["excelleris:login"] = ep.TransportError("connect timed out")

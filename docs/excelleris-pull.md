@@ -274,7 +274,8 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
   `failed/` so a file that fails every time still surfaces. A connection failure on one file
   does not stop the others: the tool goes on to the next file, and only gives up on the pass
   (keeping the rest for the next run) after two files in a row could not be sent.
-- **`done/`** holds `.xml.xz` copies of imported pulls until `retention_days` expires.
+- **`done/`** holds `.xml.xz` copies of imported pulls until `retention_days` expires. An
+  archive the purge cannot delete is alerted, since it keeps results on disk past retention.
 - **`failed/`** holds files the EMR rejected for a reason in the request itself (400, 403, a
   406 signature failure), files that exhausted their transient-failure attempts, pulls too
   large for the EMR's upload limit (see Known limits), and, on OSCAR 19, a `409` for a file
@@ -329,6 +330,7 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `unreachable` | The EMR could not be reached (login failed to connect, or two files in a row could not be sent). Everything in `inbox/` waits for the next run. |
 | `duplicate (409) with no record in done/` | OSCAR 19 only. The EMR already holds the file's checksum but this tool has no archive of an import of those bytes; the results may not be in the EMR. Verify in the EMR inbox (see Operations). |
 | `could not be removed` | A temp file left by an interrupted run could not be deleted from `inbox/`; see the log line for the error. |
+| `past retention could not be removed` | A `done/` archive older than `retention_days` could not be deleted, so imported results stayed on disk past their retention; see the log line for the error. |
 | `signature validation failed` (406) | `service` does not match the key name, or the client private key is not the one the EMR generated for it. |
 | `upload-source validation` (403, CARLOS) | CARLOS refused the upload before checking the signature; see the CARLOS log. |
 | `instead of an upload result` | The EMR answered HTTP 200 with a page, not a result: usually the multipart layer refused the request (size limit). The file stays in `inbox/`. |
