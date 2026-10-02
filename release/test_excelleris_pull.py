@@ -693,6 +693,17 @@ class ArchiveTest(TempEnv):
         self.assertEqual(archive.bump_attempts(f, "run-2"), 2)  # counts again after forgiving
         self.assertEqual(list(self.cfg.inbox_dir.glob("*.tmp")), [])
 
+    def test_dotted_state_dir_is_refused_at_config_load(self):
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv)
+        text = self.conf.read_text().replace(
+            f"state_dir = {self.cfg.state_dir}", f"state_dir = {self.tmp}/x/../state"
+        )
+        assert text != self.conf.read_text()
+        self.conf.write_text(text)  # codeql[py/clear-text-storage-sensitive-data]: fixture
+        with self.assertRaisesRegex(ep.ConfigError, "without '.' or '..'"):
+            ep.load_config(self.conf)
+
     def test_symlinked_state_directories_are_refused(self):
         real = self.tmp / "elsewhere"
         real.mkdir()
@@ -718,11 +729,18 @@ class ArchiveTest(TempEnv):
         with self.assertRaisesRegex(ep.ConfigError, "resolves through a symbolic link"):
             ep.Archive(via_link)
         self.assertEqual(list(real.iterdir()), [])
-        # ".." without any link is only an unusual spelling: accepted and normalised.
-        dotted = dataclasses.replace(self.cfg, state_dir=self.tmp / "elsewhere" / ".." / "dotted")
-        ep.Archive(dotted)
-        self.assertEqual(stat.S_IMODE((self.tmp / "dotted").stat().st_mode), 0o700)
-        self.assertTrue((self.tmp / "dotted" / "inbox").is_dir())
+        # ".." is refused outright, with its own message: after a link it resolves
+        # through the link, so it cannot be normalised lexically and then checked.
+        # The regression case: link/../dotted, whose lexical form looks clean.
+        # (A single "." never reaches the check: pathlib drops it when parsing.)
+        for dotted in (
+            self.tmp / "elsewhere" / ".." / "dotted",
+            self.tmp / "link" / ".." / "dotted",
+        ):
+            with self.assertRaisesRegex(ep.ConfigError, "without '.' or '..'"):
+                ep.Archive(dataclasses.replace(self.cfg, state_dir=dotted))
+        self.assertEqual(list(real.iterdir()), [])
+        self.assertFalse((self.tmp / "dotted").exists())
 
     def test_state_directory_owned_by_someone_else_is_refused(self):
         self.cfg.state_dir.mkdir(mode=0o750, exist_ok=True)

@@ -213,7 +213,7 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 
 | Key | Required | Meaning |
 |---|---|---|
-| `state_dir` | yes | Absolute path to a directory dedicated to this tool. The tool creates it, and `inbox/`, `done/` and `failed/` under it, mode 0700, plus `run.lock` (mode 0600). The path must be the real path (no symbolic link in it, at any level), and a directory that already exists is accepted only if it is a real directory owned by the user the tool runs as; otherwise the run stops with a configuration error before anything is written or any permission is changed, so a mistaken path cannot tighten another service's directory or send PHI through a link. Lab results live here: keep it on local, encrypted storage and out of any backup that is not itself PHI-grade. |
+| `state_dir` | yes | Absolute path to a directory dedicated to this tool. The tool creates it, and `inbox/`, `done/` and `failed/` under it, mode 0700, plus `run.lock` (mode 0600). The path must be the real path, written out in full (no symbolic link at any level, no `.` or `..` components), and a directory that already exists is accepted only if it is a real directory owned by the user the tool runs as; otherwise the run stops with a configuration error before anything is written or any permission is changed, so a mistaken path cannot tighten another service's directory or send PHI through a link. Lab results live here: keep it on local, encrypted storage and out of any backup that is not itself PHI-grade. |
 | `log_file` | yes | Absolute path. Never contains result content or credentials. |
 | `retention_days` | no | Days to keep compressed, already-imported pulls in `done/`. Default 90. `0` keeps forever and logs a warning every run. |
 
@@ -311,7 +311,7 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
   file an attempt (on OSCAR 19 the in-flight marker is taken back), skips the second pass of
   that run, and alerts with the `Retry-After` value and the number of files waiting. The next
   run continues from where it stopped, oldest first. Where the limit is enforced, a backlog
-  of more than 30 files therefore drains over several runs rather than burning attempts.
+  of more than 30 files may therefore drain over several runs rather than burning attempts.
 - **Interrupted runs.** A pull is written to `inbox/` as a `.xml.part` file and renamed into
   place before Excelleris is acknowledged; a kill, reboot or power loss in between leaves the
   `.part` behind. Each run removes such leftovers (and stale `.attempts.tmp` files) first, under

@@ -708,6 +708,8 @@ def load_config(path: Path) -> Config:
     )
     if not cfg.state_dir.is_absolute() or not cfg.log_file.is_absolute():
         raise ConfigError("[paths] state_dir and log_file must be absolute paths")
+    if _has_dot_components(cfg.state_dir):
+        raise ConfigError(_DOTTED_STATE_DIR)
     return cfg
 
 
@@ -1360,6 +1362,13 @@ class ExcellerisSession:
 # ---------------------------------------------------------------------------
 
 
+_DOTTED_STATE_DIR = "[paths] state_dir must be written out in full, without '.' or '..' components"
+
+
+def _has_dot_components(path: Path) -> bool:
+    return any(part in (".", "..") for part in path.parts)
+
+
 class Archive:
     """Private on-disk state: inbox/ (awaiting upload), done/ (compressed),
     failed/ (rejected by CARLOS, for an operator to look at).
@@ -1390,9 +1399,13 @@ class Archive:
         the real path, or every later write would follow the link out of the
         tree the operator thinks they configured.
         """
-        # abspath normalises ".." lexically, which is only right when no link
-        # is involved; realpath then tells whether one is.
-        d = Path(os.path.abspath(d))
+        # No "." or ".." components: a ".." after a link resolves through the
+        # link, so the only way to compare the configured path with its real
+        # path is to require the configured one to be written out in full.
+        # load_config enforces this too; here is the backstop for a Config
+        # built directly.
+        if _has_dot_components(d):
+            raise ConfigError(_DOTTED_STATE_DIR)
         real = Path(os.path.realpath(d))
         if real != d:
             raise ConfigError(
