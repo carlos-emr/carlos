@@ -883,6 +883,19 @@
       ]
     },
     {
+      "name": "csrf-runtime-forms",
+      "script": "scripts/csrf-runtime-forms-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": []
+    },
+    {
       "name": "eform-image-delete",
       "script": "scripts/eform-image-delete-playwright-checks.js",
       "tiers": [

@@ -28,6 +28,28 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    eForm Groups administration: lists the eForm groups and the forms in the selected group, and
+    posts the group changes (add group, delete group, add form to group, remove form from group).
+
+    Reached through the ViewEFormPage2Action gate (route eform/efmmanageformgroups, _eform write),
+    either as a standalone page or as HTML inserted into the Administration panel. In the panel case
+    (RequestNegotiation.isAjax) the host page already carries jQuery, so it is loaded only for the
+    standalone page.
+
+    Parameters:
+      group_view  - group to show (request parameter, or request attribute from a forward); defaults
+                    to the first group.
+      orderby     - form_subject | form_name | file_name; absent or any other value sorts by date.
+      scheduleNav - when canonical (ScheduleNav), keeps the schedule-navigation shell.
+
+    Every group-changing form is a POST to its action with groupListContextFields, so the actions'
+    redirect back (EFormListRedirect.toGroup) preserves the sort order and navigation shell. The
+    CSRF token reaches these forms, including when they arrive in inserted HTML, through the
+    patched CSRFGuard client (issue #4130).
+
+    @since 2026-08-04
+--%>
 <%@page import="java.net.URLEncoder" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
@@ -58,11 +80,25 @@
     }
 
     String orderByRequest = request.getParameter("orderby");
-    String orderBy = "";
-    if (orderByRequest == null) orderBy = EFormUtil.DATE;
-    else if (orderByRequest.equals("form_subject")) orderBy = EFormUtil.SUBJECT;
-    else if (orderByRequest.equals("form_name")) orderBy = EFormUtil.NAME;
-    else if (orderByRequest.equals("file_name")) orderBy = EFormUtil.FILE_NAME;
+    // Anything but the three recognised keys sorts by date: listEForms(..., group, ...) rejects an
+    // unknown sort column with IllegalArgumentException, so an empty default would fail the page.
+    String orderBy = EFormUtil.DATE;
+    if ("form_subject".equals(orderByRequest)) orderBy = EFormUtil.SUBJECT;
+    else if ("form_name".equals(orderByRequest)) orderBy = EFormUtil.NAME;
+    else if ("file_name".equals(orderByRequest)) orderBy = EFormUtil.FILE_NAME;
+    // Carried into every group-changing POST so the redirect back (EFormListRedirect.toGroup)
+    // keeps this sort order and the schedule-navigation shell (issue #4130). Only the
+    // recognised sort keys are echoed.
+    StringBuilder groupListContextFields = new StringBuilder();
+    if ("form_subject".equals(orderByRequest) || "form_name".equals(orderByRequest) || "file_name".equals(orderByRequest)) {
+        groupListContextFields.append("<input type=\"hidden\" name=\"orderby\" value=\"")
+                .append(io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(orderByRequest)).append("\">");
+    }
+    if (io.github.carlos_emr.carlos.utility.ScheduleNav.isActive(request)) {
+        groupListContextFields.append("<input type=\"hidden\" name=\"")
+                .append(io.github.carlos_emr.carlos.utility.ScheduleNav.PARAM).append("\" value=\"")
+                .append(io.github.carlos_emr.carlos.utility.ScheduleNav.ENABLED).append("\">");
+    }
 %>
 <!DOCTYPE html>
 <html>
@@ -86,6 +122,16 @@
 
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+<%
+    // Loaded into the Administration panel this is an AJAX fragment and the shell
+    // already provides jQuery. Rendered standalone -- where every group change now
+    // redirects (issue #4130) -- the page and efmFooter.jspf need their own copy.
+    // Same split as efmformmanager.jsp.
+    if (!io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request)) {
+%>
+        <script type="text/javascript" src="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath()) %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script type="text/javascript" src="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath()) %>/library/jquery/jquery-compat.js"></script>
+<% } %>
 <%@ include file="eformBootstrapScript.jspf" %>
     </head>
 
@@ -98,7 +144,7 @@
 
             <!--ADD GROUP-->
             <form action="<%= request.getContextPath() %>/eform/addGroup" method="post" id="addGroupForm"
-                  class="d-flex flex-wrap align-items-center gap-2">
+                  class="d-flex flex-wrap align-items-center gap-2"><%= groupListContextFields %>
                 <div>
                     <div class="input-group">
                         <input type="text" name="groupName" class="check"
@@ -141,7 +187,7 @@
                 <tr>
                     <%}%>
                     <td>
-                        <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup" style="display:inline;">
+                        <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup" style="display:inline;"><%= groupListContextFields %>
                             <input type="hidden" name="group_name" value="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"/>
                             <a href="javascript:void(0);"
                                class="btn btn-sm btn-secondary" title="delete this group"
@@ -209,7 +255,7 @@
                     data-bs-trigger="hover" data-bs-placement="bottom">
 
                     <td>
-                        <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup" style="display:inline;">
+                        <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup" style="display:inline;"><%= groupListContextFields %>
                             <input type="hidden" name="fid" value="<carlos:encode value='<%= (String) curForm.get("fid") %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="groupName" value="<carlos:encode value='<%= groupView %>' context="htmlAttribute"/>"/>
                             <a href="javascript:void(0);"
@@ -251,7 +297,7 @@
         </div>
         <!--modal-->
                 <% if (!groupView.equals("")) { %>
-        <form action="${pageContext.request.contextPath}/eform/addToGroup" method="post" id="eformToGroupForm">
+        <form action="${pageContext.request.contextPath}/eform/addToGroup" method="post" id="eformToGroupForm"><%= groupListContextFields %>
         <div id="myModal" class="modal fade" tabindex="-1" aria-labelledby="myModalLabel"
              aria-hidden="true">
             <div class="modal-dialog"><div class="modal-content">
@@ -295,8 +341,13 @@
             <%@ include file="efmFooter.jspf" %>
 
         <script>
-            registerFormSubmit('addGroupForm', 'dynamic-content');
-            registerFormSubmit('eformToGroupForm', 'dynamic-content');
+            // registerFormSubmit() belongs to the Administration shell. After a group
+            // change redirects here (issue #4130) the page is standalone, where the
+            // forms post normally and the action redirects straight back.
+            if (typeof registerFormSubmit === 'function') {
+                registerFormSubmit('addGroupForm', 'dynamic-content');
+                registerFormSubmit('eformToGroupForm', 'dynamic-content');
+            }
 
 
             $(function () {

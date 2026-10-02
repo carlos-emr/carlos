@@ -211,6 +211,14 @@ Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" sty
 
 Header validation takes precedence over body-parameter validation when both are present.
 
+**Forms built in script and forms in inserted HTML** need no hand-rolled token. CARLOS serves a
+patched CSRFGuard client (`src/main/resources/csrfguard/carlos-csrfguard.js`, issue #4130). It
+adds the token when a same-origin POST form is submitted, through `form.submit()` or a submit
+event, and it reaches forms nested in HTML inserted after load (the Administration panel). It
+also survives numerically named controls. Give such forms `method="post"` and a real
+same-origin `action`. Before upgrading CSRFGuard, read
+`docs/csrf-protection-architecture.md` → "CARLOS patches to the client template".
+
 **Content-Security-Policy interaction.** The bootstrap fragment is an *inline* `<script>`. A page
 that sets its own `script-src` without `'unsafe-inline'` silently gets no token: the input stays
 empty, every POST is rejected with an HTML error page, and nothing is reported except a console
