@@ -9,11 +9,14 @@
 const h = require('./playwright-harness');
 const ui = require('./playwright-ui');
 const { catalogueLinks, dedupe } = require('./playwright-link-audit');
-const { payload, Findings, Seeder, walkLinks, waitForProviderCache, freeProviderNo, trackServiceScript } = require('./xss-poison-helpers');
+const { payload, Findings, Seeder, walkLinks, waitForProviderCache, freeProviderNo, trackServiceScript, fieldIds } = require('./xss-poison-helpers');
 
-// The schedule top bar repeats inside the panel; those openers have their own checks. Inbox, Tickler and Msg carry
-// a live count suffix ("Tickler3") that changes with whatever other checks left open.
-const TOP_BAR = /^(Schedule|Search|Inbox\d*|U|Tickler\d*|Msg\d*|Consultations\d*|eDoc|Report|Administration|Administration Panel|doctor carlosdoc|Messages)$/i;
+// The schedule top bar (#firstTable) repeats inside the panel; those openers have their own checks. It is
+// recognised by where the link sits, not by its text: the panel's own menu has items with the same words (its
+// Messenger section's "Messages"), and those are this walk's to open. The text list is only a fallback for a
+// top-bar link drawn outside #firstTable; Inbox, Tickler and Msg carry a live count suffix ("Tickler3").
+const TOP_BAR_ID = 'firstTable';
+const TOP_BAR = /^(Schedule|Search|Inbox\d*|U|Tickler\d*|Msg\d*|Consultations\d*|eDoc|Report|Administration|Administration Panel|doctor carlosdoc)$/i;
 const SKIP = [
   { match: /update\s*drugref/i }, { match: /database\/document download/i }, { match: /^log\s*out$/i },
 ];
@@ -43,7 +46,10 @@ async function workflow(s, part = 1) {
     seed.insert('OscarJobType', { name: P('job type name'), description: P('job type description'), className: 'io.github.carlos_emr.carlos.jobs.OscarOnCallClinic', enabled: 0, updated: { raw: 'NOW()' } }, { key: 'id' });
     const list = seed.insert('LookupList', { name: `xp${hex}`, listTitle: P('lookup list title', 50), description: P('lookup list description'), categoryId: 1, active: 1, createdBy: '999998' }, { key: 'id' });
     seed.insert('LookupListItem', { lookupListId: list, value: P('lookup item value', 50), label: P('lookup item label'), displayOrder: 1, active: 1, createdBy: '999998' }, { key: 'id' });
-    seed.insert('LookupListItem', { lookupListId: 2, value: `xp${hex}`, label: P('consult instruction label'), displayOrder: 99, active: 1, createdBy: '999998' }, { key: 'id' });
+    // Customize Consult Appointment Instructions edits the list named consultApptInst; find it by that name.
+    const consultList = s.sql.value("SELECT id FROM LookupList WHERE name='consultApptInst'");
+    h.assert(/^[1-9]\d*$/.test(consultList), 'The consultApptInst lookup list (Customize Consult Appointment Instructions) does not exist');
+    seed.insert('LookupListItem', { lookupListId: Number(consultList), value: `xp${hex}`, label: P('consult instruction label'), displayOrder: 99, active: 1, createdBy: '999998' }, { key: 'id' });
     seed.insert('quickList', { quickListName: P('dx quick list name'), createdByProvider: '999998', dxResearchCode: '250', codingSystem: 'icd9' }, { key: 'id' });
     seed.insert('documentDescriptionTemplate', { doctype: 'consult', description: P('document description template'), descriptionShortcut: P('doc template shortcut', 20), provider_no: '999998' }, { key: 'id' });
     seed.insert('ctl_doctype', { module: 'demographic', doctype: P('document type', 60), status: 'A' }, { key: 'id' });
@@ -79,13 +85,29 @@ async function workflow(s, part = 1) {
     h.assertStrictPage(s.recorder, ['login', 'administration']);
   });
   await step('walk every Administration item and inspect it for injected markup', async () => {
-    const all = dedupe(await catalogueLinks(admin)).filter(item => !TOP_BAR.test(item.text));
+    const all = dedupe((await catalogueLinks(admin, { identity: true }))
+      .filter(item => !item.identity.ancestorIds.includes(TOP_BAR_ID) && !TOP_BAR.test(item.text))
+      // Located by catalogue position, as before; the identity was needed only to see where each link sits.
+      .map(({ identity, ...item }) => item));
     h.assert(all.length > 40, 'Administration offered too few items');
     // Half of the menu per run; the split point is the first item of the Reports group.
     const split = all.findIndex(item => /^Query By Example$/i.test(item.text));
     h.assert(split > 10, 'The Administration menu no longer has the Reports group the split is anchored on');
     const items = part === 2 ? all.slice(split) : all.slice(0, split);
-    await walkLinks({ context: s.context, recorder: s.recorder, host: admin, items, findings: f, fields, timeout: 40000, label: 'admin', skip: SKIP });
+    // Items of this half that must be opened, with the seeded values each is known to show (live runs on the
+    // packaged install): a menu that drifts away from them is a MISSING finding, not a quieter pass.
+    const E = (...names) => fieldIds(fields, ...names);
+    const expect = part === 2
+      // Appointment Type List is opened but its seeded row not required: appointment types are served from a
+      // 30-minute cache (CacheConfig.APPOINTMENT_TYPES) that a run minutes earlier leaves warm.
+      ? [{ match: /^Appointment Type List$/, fields: [] }, { match: /^Manage Lookup Lists$/, fields: E('lookup list title') },
+        { match: /^Jobs Management$/, fields: E('job name') }, { match: /^REST Clients$/, fields: E('rest client name') }, { match: /^Messages$/, fields: [] }]
+      : [{ match: /^Manage eForms$/, fields: E('eform name', 'eform subject') }, { match: /^Add New Queue$/, fields: E('queue name') },
+        { match: /^Manage Payment Type$/, fields: E('payment type') }, { match: /^Add Billing Location$/, fields: E('billing location') },
+        // Opened, but its seeded label is not required: LookupListManager serves lists from a 30-minute cache
+        // (CacheConfig.LOOKUP_LISTS) that only its own writes evict, so a row INSERTed by SQL is not listed yet.
+        { match: /^Customize Consult Appointment Instructions$/, fields: [] }];
+    await walkLinks({ context: s.context, recorder: s.recorder, host: admin, items, findings: f, fields, timeout: 40000, label: 'admin', skip: SKIP, expect });
   });
   await step('the walk found no output-encoding defect', async () => { f.assertNone('Administration walk'); });
 }

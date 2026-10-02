@@ -3,17 +3,19 @@
 // Stored-markup walk of the Administration pages that list a stored value only after a further click.
 // User path: Schedule > Administration > Search/Edit/Delete Groups (own group);
 // Search/Edit Provider Records > search by provider number > the record; Report by Template > a template;
-// Document Description Template > a document type; Insert a Template; Customize Disease Registry Quick List.
+// Document Description Template > a document type; Insert a Template; Customize Disease Registry Quick List >
+// Edit Quick List.
 // Fixtures (INSERTed, bypassing the WAF): a doctor with a group and a custom lookup list, a report template, a
 // document type and description template, an encounter template and a dx quick list, every text column
 // carrying inert markup. Cleanup removes exactly those rows by key and asserts they are gone.
-// Asserted per surface: literal text visible, no `[data-xp]` element in any frame, no script error;
-// findings are collected for the whole walk and the check fails once at the end.
+// Asserted per surface: literal text visible, no `[data-xp]` element in any frame, no script error, and the
+// seeded values that surface lists are shown; a surface that cannot be reached is a MISSING finding. Findings
+// are collected for the whole walk and the check fails once at the end.
 // Implements: wave-6 xss-poison (stored markup / output-encoding walk).
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const ui = require('./lib/playwright-ui');
-const { payload, inspect, Findings, Seeder, clickAdminItem, freeProviderNo } = require('./lib/xss-poison-helpers');
+const { payload, inspect, Findings, Seeder, clickAdminItem, freeProviderNo, fieldIds } = require('./lib/xss-poison-helpers');
 
 async function workflow(s) {
   const fields = {};
@@ -44,10 +46,13 @@ async function workflow(s) {
     seed.insert('LookupListItem', { lookupListId: list, value: P('lookup item value', 50), label: P('lookup item label'), displayOrder: 1, active: 1, createdBy: '999998' }, { key: 'id' });
     seed.insert('quickList', { quickListName: P('dx quick list name'), createdByProvider: '999998', dxResearchCode: '250', codingSystem: 'icd9' }, { key: 'id' });
     seed.insert('ctl_doctype', { module: 'demographic', doctype: P('document type', 60), status: 'A' }, { key: 'id' });
-    seed.insert('documentDescriptionTemplate', { doctype: 'consult', description: P('document description template'), descriptionShortcut: P('doc template shortcut', 20), provider_no: '999998' }, { key: 'id' });
+    // Administration opens the clinic-default templates (setDefault=true), which are the rows with no provider.
+    seed.insert('documentDescriptionTemplate', { doctype: 'consult', description: P('document description template'), descriptionShortcut: P('doc template shortcut', 20), provider_no: null }, { key: 'id' });
     const templateName = P('encounter template name', 50);
     seed.insert('encountertemplate', { encountertemplate_name: templateName, encountertemplate_value: P('encounter template value'), creator: '999998', createdatetime: { raw: 'NOW()' } }, { where: `encountertemplate_name=${h.sqlString(templateName)}` });
-    templateId = seed.insert('reportTemplates', { templatetitle: P('report template title', 80), templatedescription: P('report template description'), templatesql: 'SELECT 1', templatexml: '<report id="9991" title="xp" description="xp" active="1"><query>SELECT 1</query><parameters/></report>', active: 1, type: 'sql', uuid: `xd${hex}` }, { key: 'templateid' });
+    // The template XML has the shape of a working template (no empty <parameters/>, which the run page refuses
+    // with "Parameter Parsing Exception" before it shows anything).
+    templateId = seed.insert('reportTemplates', { templatetitle: P('report template title', 80), templatedescription: P('report template description'), templatesql: 'SELECT 1', templatexml: '<report id="9991" title="xp" description="xp" active="1"><query>SELECT 1</query></report>', active: 1, type: 'sql', uuid: `xd${hex}` }, { key: 'templateid' });
   });
   const f = new Findings(s.recorder);
   const step = f.stepper(s);
@@ -59,41 +64,52 @@ async function workflow(s) {
     admin = opened.page; adminIsPopup = opened.isPopup;
   });
   const scope = async () => ((await admin.locator('#dynamic-content iframe').count()) ? admin.frameLocator('#dynamic-content iframe').first() : admin);
-  const reach = async (surface, action) => {
+  // Every surface below is claimed coverage: one that cannot be reached, or that does not show the seeded values
+  // it lists, is a MISSING finding (with the links the page did offer, to make navigation drift easy to see).
+  const reach = async (surface, expect, action) => {
     const since = f.mark();
-    try { await action(); } catch (error) {
+    let popup = null;
+    try { popup = await action(); } catch (error) {
       const links = await (await scope()).locator('a').evaluateAll(a => a.map(x => (x.getAttribute('href') || x.getAttribute('onclick') || '').slice(0, 70)).filter(Boolean).slice(0, 25)).catch(() => []);
-      f.note(surface, `not reached: ${String(error.message).split('\n')[0].slice(0, 100)} | links: ${links.join(' ; ')}`);
+      f.missing(surface, `not reached: ${String(error.message).split('\n')[0].slice(0, 100)} | links: ${links.join(' ; ')}`);
       return;
     }
-    await admin.waitForLoadState('networkidle').catch(() => {});
-    await admin.waitForTimeout(500);
-    await inspect(f, surface, admin, fields, since);
+    // The admin frame loads after the click resolves, and the page reached networkidle long before: settle on the
+    // frame's own load, then inspect (a popup the action opened is inspected instead, then closed).
+    const target = popup || admin;
+    for (const frame of target.frames()) await frame.waitForLoadState('load', { timeout: 10000 }).catch(() => {});
+    await target.waitForTimeout(1500);
+    await inspect(f, surface, target, fields, since, { expect: fieldIds(fields, ...expect) });
+    if (popup) await popup.close();
   };
   await step('lists reached by one more click show stored values as text', async () => {
-    await reach('group members', async () => {
+    await reach('group members', ['own group member last', 'own group member first'], async () => {
       await clickAdminItem(admin, 'Search/Edit/Delete Groups');
       await (await scope()).locator('tr', { hasText: `${grp}b` }).first().waitFor({ timeout: 10000 });
     });
-    await reach('provider search results', async () => {
+    await reach('provider search results', ['provider last', 'provider first'], async () => {
       await clickAdminItem(admin, 'Search/Edit Provider Records');
       await (await scope()).locator('input[name="search_mode"][value="search_providerno"]').check();
       await (await scope()).locator('input[name="keyword"]').fill(provNo);
       await (await scope()).locator('input[type="submit"]').first().click();
     });
-    await reach('provider edit form', async () => {
+    await reach('provider edit form', ['provider last', 'provider first', 'provider address', 'provider email'], async () => {
       await (await scope()).locator('a[href*="ViewProviderUpdateProvider"]').first().click();
     });
-    await reach('report template run page', async () => {
+    await reach('report template run page', ['report template title'], async () => {
       await clickAdminItem(admin, 'Report by Template');
       await (await scope()).locator(`a[href*="templateid=${templateId}"], a[href*="reportId=${templateId}"]`).first().click();
     });
-    await reach('document description templates', async () => {
+    await reach('document description templates', ['document description template', 'doc template shortcut'], async () => {
       await clickAdminItem(admin, 'Document Description Template');
-      await (await scope()).locator('select').first().selectOption({ index: 1 });
+      // The seeded description template is keyed to the 'consult' document type: show that type's templates.
+      await (await scope()).locator('select').first().selectOption('consult');
     });
-    await reach('insert a template', async () => { await clickAdminItem(admin, 'Insert a Template'); });
-    await reach('dx quick list customization', async () => { await clickAdminItem(admin, 'Customize Disease Registry Quick List'); });
+    await reach('insert a template', ['encounter template name'], async () => { await clickAdminItem(admin, 'Insert a Template'); });
+    await reach('dx quick list customization (Edit Quick List)', ['dx quick list name'], async () => {
+      await clickAdminItem(admin, 'Customize Disease Registry Quick List');
+      return ui.clickOpensPopup(admin, (await scope()).locator('input[onclick*="dxResearchLoadQuickList"]'), { context: s.context, label: 'dx-quick-list', recorder: s.recorder, timeout: 20000 });
+    });
     if (adminIsPopup) await admin.close(); else await s.schedule.goto(dayUrl);
   });
   await step('the walk found no output-encoding defect', async () => { f.assertNone('Administration detail walk'); });

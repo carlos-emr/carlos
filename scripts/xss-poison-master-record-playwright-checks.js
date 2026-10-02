@@ -6,8 +6,9 @@
 // Fixtures: one owned FAKE patient whose text columns carry inert markup (INSERTed, bypassing the WAF),
 // a doctor/nurse provider whose names carry markup (they fill the Edit form's provider selects), and
 // contacts/relationship rows. Cleanup removes exactly these rows by key and asserts they are gone.
-// Asserted per page: literal text visible, no `[data-xp]` element in any frame, no script error. Findings
-// are collected across the walk and the check fails once at the end.
+// Asserted per page: literal text visible, no `[data-xp]` element in any frame, no script error, and the
+// seeded values the record and the named links show are shown; a link that cannot be opened is a NOT-OPENED
+// finding. Findings are collected across the walk and the check fails once at the end.
 // Implements: wave-6 xss-poison (stored markup / output-encoding walk).
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -15,7 +16,7 @@ const ui = require('./lib/playwright-ui');
 const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { SKIP_ITEMS } = require('./master-record-tabs-playwright-checks');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
-const { payload, inspect, Findings, Seeder, walkLinks, freeProviderNo } = require('./lib/xss-poison-helpers');
+const { payload, inspect, Findings, Seeder, walkLinks, freeProviderNo, fieldIds } = require('./lib/xss-poison-helpers');
 const { seedPatient } = require('./lib/xss-poison-patient');
 
 // Create Invoice puts the patient's name into the request URL, and the front door's WAF refuses the markup
@@ -31,7 +32,7 @@ async function workflow(s) {
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
   const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-8);
-  const chartNo = `XP${hex.slice(0, 6)}`;
+  const chartNo = `XP${hex}`;
   let demo;
   await s.step('seed the poisoned patient, provider and contacts', async () => {
     // One provider per role the Edit form offers (doctor, nurse, midwife); the role lists come from secUserRole.
@@ -61,6 +62,8 @@ async function workflow(s) {
   });
   const f = new Findings(s.recorder);
   const step = f.stepper(s);
+  const E = (...names) => fieldIds(fields, ...names);
+  const patient = E('patient last name', 'patient first name');
   let search;
   await step('search the owned patient by chart number from the schedule', async () => {
     ({ page: search } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#search a').first(),
@@ -71,7 +74,7 @@ async function workflow(s) {
     const row = search.locator('a[title="Master Demographic File"]');
     h.assert(await row.count() === 1, 'The chart-number search did not return exactly the owned patient');
     const since = f.mark();
-    await inspect(f, 'patient search results', search, fields, since);
+    await inspect(f, 'patient search results', search, fields, since, { expect: patient });
   });
   let master;
   await step('open the Master Record and inspect the view', async () => {
@@ -79,18 +82,28 @@ async function workflow(s) {
       { context: s.context, label: 'master-record', recorder: s.recorder, timeout: 20000 });
     await master.locator('#editBtn').waitFor({ state: 'visible', timeout: 20000 });
     const since = f.mark();
-    await inspect(f, 'master record view', master, fields, since);
+    await inspect(f, 'master record view', master, fields, since,
+      { expect: [...patient, ...E('patient address', 'patient email', 'doctor last name', 'contact role', 'patient alert')] });
   });
   await step('open the Edit form and inspect the provider selects and fields', async () => {
     await master.locator('#editBtn').click();
     await master.locator('#editDemographic').waitFor({ state: 'visible', timeout: 20000 });
     const since = f.mark();
-    await inspect(f, 'master record edit form', master, fields, since);
+    await inspect(f, 'master record edit form', master, fields, since,
+      { expect: [...patient, ...E('doctor last name', 'nurse last name', 'midwife last name')] });
   });
   await step('walk every Master Record link', async () => {
     const items = dedupe(await catalogueLinks(master));
     h.assert(items.length > 0, 'The Master Record offered no links');
     await walkLinks({ context: s.context, recorder: s.recorder, host: master, items, findings: f, fields, timeout: 40000, label: 'master', skip: [...SKIP_ITEMS, ...FRONT_DOOR_SKIP],
+      // Named links the walk must open, with the seeded values each is known to show.
+      expect: [
+        { match: /^Tickler$/, fields: [...patient, ...E('tickler message', 'tickler comment')] },
+        { match: /^Manage Contacts$/, fields: E('contact relationship note') },
+        { match: /^Documents$/, fields: patient },
+        { match: /^Appointment History$/, fields: patient },
+        { match: /^Consultations$/, fields: patient },
+      ],
       beforeClose: page => releaseChartLocks(s.context, s.config.baseUrl, [page]).catch(() => {}) });
   });
   await step('the walk found no output-encoding defect', async () => { f.assertNone('Master Record walk'); });

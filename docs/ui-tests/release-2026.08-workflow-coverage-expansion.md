@@ -183,7 +183,17 @@ controls a user clicks and asserts, per page and frame: the value is shown liter
 element exists, no inline handler or script block carrying the payload fails to compile, and no
 script error was raised. Findings are collected across the walk and the check fails once at the end,
 so one run reports every defect it reached. Shared code: `scripts/lib/xss-poison-helpers.js`,
-`xss-poison-patient.js`, `xss-poison-admin-walk.js`.
+`scripts/lib/xss-poison-patient.js`, `scripts/lib/xss-poison-admin-walk.js`.
+
+**Coverage is asserted, not assumed.** Each surface declares the seeded fields it is known to show, and
+a surface that does not show them (or cannot be reached) is a `MISSING` finding; a catalogued link that
+cannot be opened is `NOT-OPENED` unless the fixture itself cannot back it (a document row with no file, a
+dated chart entry the page re-renders), which is noted with that reason. A click that changes nothing is
+noted and never inspected as its own destination, and a frame the inspector could not read is
+`INSPECT-FAILED`, so none of these can pass as an encoded page. The summary also lists the seeded fields
+no surface reached. The schedule check and both Administration halves wait out the five-minute
+active-provider cache once each (about fifteen minutes of a full sweep), so the provider selects are
+inspected with the fixture present.
 
 **Report, don't encode** applies as everywhere else: a check passes when the screen encodes and fails
 at the defect. The one allowance is a field a page renders as sanitised rich text by design (the
@@ -197,19 +207,23 @@ those keys and asserts them gone, also after a failed run. Natural-key inserts r
 already exists. A run killed outright is recovered by key, from its ledger, by the next `xss-poison`
 run; when no other `xss-poison` run is alive that run also sweeps every row carrying `<i data-xp=`
 (with the rows hanging off such patients and providers) and asserts none is left. Each check owns a
-range of payload numbers, so a concurrent run's rows are never attributed to it.
-`scripts/xss-poison-helpers.test.js` pins these rules.
+range of payload numbers, so a concurrent run's rows are never attributed to it. Rows a check borrows
+rather than inserts itself (the billing check's session patient and the billing provider, provider
+sites, claim and items of `createBillingFixture`) are recorded in the same ledger before the first
+write, so a killed billing run is recovered by key like any other; a check opens its ledger (and with
+it the first-run payload sweep) before it poisons anything, so the sweep can never neutralise the run's
+own fixture. `scripts/xss-poison-helpers.test.js` pins these rules.
 
 | Check | Provinces | Result on the packaged 2026.08 install |
 |---|---|---|
 | `xss-poison-master-record` | all | FAIL on confirmed defects (findings 117, 118): Master Record view and Edit form, Documents and Manage Contacts print stored values raw. Create Invoice is skipped because the WAF refuses its URL, which carries the patient name. |
-| `xss-poison-echart` | all | FAIL on confirmed defects (findings 117, 119): left navbar titles (Rx, Tickler, eForms), the Rx drug list and the Disease Registry header. |
-| `xss-poison-schedule` | all | FAIL on a confirmed defect (finding 123): the month view's provider select. Day sheet, week view, appointment popups, tickler list and edit, Add Appointment and Search encode. |
+| `xss-poison-echart` | all | FAIL on confirmed defects (findings 117, 119, 120, 128): left navbar titles (Rx, Tickler, eForms), the Rx drug list, the Allergies page, the Disease Registry, Documents and CDM Indicators flowsheet headers, and the consultation form the chart opens (which of them a run reaches varies with popup timing). |
+| `xss-poison-schedule` | all | FAIL on confirmed defects (findings 123, 126, 127): the month view's provider select and holiday name, and Schedule Setting ▸ Template Setting's template select. Day sheet, week view, appointment popups, tickler list and edit, Add Appointment, Search and the Schedule Setting provider selects encode. |
 | `xss-poison-documents-inbox` | all | FAIL on a confirmed defect (finding 117): Master Record ▸ Documents. Inbox, eDoc provider list and document Edit encode. |
-| `xss-poison-eform` | all | FAIL on confirmed defects (finding 121); the Deleted eForms list also hits finding 77 (TypeError on unload). |
-| `xss-poison-messenger-consult` | all | FAIL on confirmed defects (findings 117, 120): Msg inbox patient name; the consultation form's letterhead script breaks. |
-| `xss-poison-billing` | ON | PASS: Billing History, Create Invoice, Invoice Reports, Billing Correction and the billing administration lists encode. The seeded service code, diagnostic code and payer are not shown by any surface it reaches. |
-| `xss-poison-admin-detail` | all | FAIL on confirmed defects (finding 122): group members and document types. |
+| `xss-poison-eform` | all | FAIL on confirmed defects (findings 121, 125), including the Deleted patient-independent list; the Deleted eForms list also hits finding 77 (TypeError on unload). |
+| `xss-poison-messenger-consult` | all | FAIL on confirmed defects (findings 117, 120, 78, 124): Msg inbox patient name; the consultation form's letterhead script breaks; Compose's Search Demographic popup closes itself on load; a specialist whose specialty type is text cannot be opened (500). Message view, consultation list, specialist list and services encode. |
+| `xss-poison-billing` | ON | PASS: Billing History, Create Invoice, Invoice Reports, Billing Correction with its diagnostic-code and payer searches, Manage Billing Service Code and the billing administration lists encode. Only the billing form's group name is not shown by any surface it reaches. |
+| `xss-poison-admin-detail` | all | FAIL on confirmed defects (finding 122): group members and document types. The report template run page, description templates, Insert a Template and the dx quick list encode. |
 | `xss-poison-admin-users-billing` | all | FAIL on a confirmed defect (finding 121): the eForm upload form's role select. |
 | `xss-poison-admin-reports-system` | all | FAIL on confirmed defects (findings 63, 122): ten Administration report and system pages. |
 

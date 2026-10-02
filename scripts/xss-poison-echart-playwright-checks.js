@@ -6,8 +6,10 @@
 // Fixtures: one owned FAKE patient and chart rows (progress note, CPP notes, allergy, drug, measurement,
 // prevention, document, eForm instance, tickler, consultation request) whose text columns carry inert
 // markup (INSERTed, bypassing the WAF). Cleanup removes exactly these rows by key and asserts they are gone.
-// Asserted per page: literal text visible, no `[data-xp]` element in any frame, no script error; the
-// findings are collected across the walk and the check fails once at the end.
+// Asserted per page: literal text visible, no `[data-xp]` element in any frame, no script error, and the
+// seeded values the chart and the named modules show are shown; a navbar link that cannot be opened is a
+// NOT-OPENED finding unless the fixture cannot back it. Findings are collected across the walk and the check
+// fails once at the end.
 // Implements: wave-6 xss-poison (stored markup / output-encoding walk).
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -15,7 +17,7 @@ const ui = require('./lib/playwright-ui');
 const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { NAVBAR_SELECTOR, SKIP_ITEMS, openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
-const { payload, inspect, Findings, Seeder, openMasterByChartNo, walkLinks } = require('./lib/xss-poison-helpers');
+const { payload, inspect, Findings, Seeder, openMasterByChartNo, walkLinks, fieldIds } = require('./lib/xss-poison-helpers');
 const { seedPatient } = require('./lib/xss-poison-patient');
 
 async function workflow(s) {
@@ -26,7 +28,7 @@ async function workflow(s) {
   const P = (name, max = 255) => { n += 1; fields[n] = name; return payload(n, max); };
   const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-8);
-  const chartNo = `XE${hex.slice(0, 6)}`;
+  const chartNo = `XE${hex}`;
   let demo;
   await s.step('seed the poisoned patient and chart rows', async () => {
     demo = seedPatient(seed, P, '999998', chartNo);
@@ -50,7 +52,9 @@ async function workflow(s) {
     seed.insert('preventionsExt', { prevention_id: Number(prev), keyval: 'location', val: P('prevention location') }, { key: 'id' });
     const doc = seed.insert('document', { doctype: 'consult', docdesc: P('document description'), docfilename: 'xp.pdf', doccreator: '999998', responsible: '999998', source: P('document source', 60), sourceFacility: P('document source facility', 120), updatedatetime: { raw: 'NOW()' }, status: 'A', contenttype: 'application/pdf', contentdatetime: { raw: 'NOW()' }, public1: 0, observationdate: { raw: 'CURDATE()' }, number_of_pages: 1, restrictToProgram: 0, abnormal: 0, reviewer: '' }, { key: 'document_no' });
     seed.insert('ctl_document', { module: 'demographic', module_id: d, document_no: Number(doc), status: 'A' }, { where: `module='demographic' AND module_id=${d} AND document_no=${doc}` });
+    // The instance must hang off an active template, or no eForm screen lists it and its coverage is silently lost.
     const eform = s.sql.value('SELECT MIN(fid) FROM eform WHERE status=1');
+    h.assert(/^[1-9]\d*$/.test(eform), 'No active eForm template exists to attach the seeded eForm instance to');
     seed.insert('eform_data', { fid: Number(eform), form_name: P('eform instance name'), subject: P('eform instance subject'), demographic_no: d, status: 1, form_date: { raw: 'CURDATE()' }, form_time: { raw: 'CURTIME()' }, form_provider: '999998', form_data: '<html><body><form name="FormName" method="post" action=""><input type="text" name="note"></form></body></html>', showLatestFormOnly: 0, patient_independent: 0 }, { key: 'fdid' });
     seed.insert('tickler', { demographic_no: d, message: P('tickler message'), status: 'A', update_date: { raw: 'NOW()' }, service_date: { raw: 'DATE_SUB(NOW(), INTERVAL 1 DAY)' }, creator: '999998', priority: 'Normal', task_assigned_to: '999998' }, { key: 'tickler_no' });
     seed.insert('consultationRequests', { referalDate: { raw: 'CURDATE()' }, serviceId: 1, reason: P('consult reason'), clinicalInfo: P('consult clinical info'), currentMeds: P('consult current meds'), allergies: P('consult allergies'), providerNo: '999998', demographicNo: d, status: '1', statusText: P('consult status text'), concurrentProblems: P('consult concurrent problems'), urgency: '2', appointmentInstructions: P('consult appointment instructions', 256), patientWillBook: 0, site_name: P('consult site name'), letterheadName: P('consult letterhead name'), letterheadAddress: P('consult letterhead address'), lastUpdateDate: { raw: 'NOW()' } }, { key: 'requestId' });
@@ -59,6 +63,8 @@ async function workflow(s) {
   const step = f.stepper(s);
   // The seeded document row has no file behind it, so its viewer legitimately answers 500: fixture limit, not a finding.
   f.ignoredPaths.push('/documentManager/ManageDocument');
+  const E = (...names) => fieldIds(fields, ...names);
+  const patient = E('patient last name', 'patient first name');
   let master;
   await step('open the E-Chart from the Master Record', async () => {
     ({ master } = await openMasterByChartNo(s, chartNo));
@@ -69,15 +75,29 @@ async function workflow(s) {
     await waitForNavbars(chart, 20000);
     await chart.waitForLoadState('networkidle').catch(() => {});
     const since = f.mark();
-    await inspect(f, 'e-chart', chart, fields, since);
+    await inspect(f, 'e-chart', chart, fields, since, { expect: [...patient, ...E('progress note', 'CPP social history note', 'CPP medical history note',
+      'allergy description', 'drug instructions', 'document description', 'eform instance name', 'tickler message')] });
   });
   await step('walk every E-Chart navigation link', async () => {
     const items = dedupe(await catalogueLinks(chart, { selector: NAVBAR_SELECTOR, identity: true }));
     h.assert(items.length > 0, 'The E-Chart offered no navigation links');
+    const [docField] = E('document description');
     await walkLinks({ context: s.context, recorder: s.recorder, host: chart, items, findings: f, fields, timeout: 40000, label: 'echart', skip: SKIP_ITEMS,
+      // Named modules the walk must reach, with the seeded values each is known to show.
+      expect: [
+        { match: /^Medications$/, fields: E('drug instructions') },
+        { match: /^Tickler$/, fields: [...patient, ...E('tickler message')] },
+        { match: /^eForms$/, fields: [...patient, ...E('eform instance name')] },
+        { match: /^Disease Registry$/, fields: patient },
+      ],
+      optional: [
+        { match: /^\d{2}-[A-Za-z]{3}-\d{4}$/, reason: 'a dated encounter entry the chart re-renders while it is walked' },
+        { match: /^[\u25cb\u26a0]\s/, reason: 'a prevention-due entry the chart redraws once a prevention page has been opened' },
+        { match: new RegExp(`data-xp="?${docField}[">]`), reason: 'the seeded document has no file behind it, so its viewer never finishes loading' },
+      ],
       beforeItem: () => waitForNavbars(chart, 20000),
       beforeClose: page => releaseChartLocks(s.context, s.config.baseUrl, [page]).catch(() => {}) });
-    await releaseChartLocks(s.context, s.config.baseUrl, [chart]).catch(() => {});
+    await releaseChartLocks(s.context, s.config.baseUrl, [chart]);
   });
   await step('the walk found no output-encoding defect', async () => { f.assertNone('E-Chart walk'); });
 }

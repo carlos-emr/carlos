@@ -6,14 +6,22 @@
 
 // Rows the application itself may add under the patient while the sweep walks the chart (locks, temp
 // saves, archive copies, audit rows). They are recorded right after the patient row, so the Seeder (which
-// unwinds in reverse) removes them after this run's own child rows and before the patient itself.
-const SUPPORT = [
-  ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'], ['demographicExt', 'demographic_no'],
-  ['demographicArchive', 'demographic_no'], ['demographiccust', 'demographic_no'], ['measurementsDeleted', 'demographicNo'],
-  ['demographicaccessory', 'demographic_no'], ['eChart', 'demographicNo'], ['reportagesex', 'demographic_no'], ['log', 'demographic_no'],
-];
+// unwinds in reverse) removes them after this run's own child rows and before the patient itself. Derived from
+// the payload sweep's PATIENT_TABLES, less the tables the checks seed themselves (and so record by key), so the
+// per-run cleanup and the killed-run sweep always cover the same application-added tables.
+const h = require('./playwright-harness');
+const { PATIENT_TABLES } = require('./xss-poison-helpers');
+
+const SEEDED_BY_CHECKS = new Set(['allergies', 'drugs', 'measurements', 'preventions', 'eform_data', 'tickler',
+  'consultationRequests', 'relationships', 'waitingList']);
+const SUPPORT = PATIENT_TABLES.filter(([table]) => !SEEDED_BY_CHECKS.has(table));
 
 function seedPatient(seed, P, provider, chartNo) {
+  // The checks find this patient by chart number and require exactly one result, so a number already in use
+  // (by real data or another run) must stop the run here rather than fail the search later.
+  if (seed.sql.value(`SELECT COUNT(*) FROM demographic WHERE chart_no=${h.sqlString(chartNo)}`) !== '0') {
+    throw new Error(`xss-poison patient chart number ${chartNo} is already in use`);
+  }
   const demographicNo = seed.insert('demographic', {
     last_name: P('patient last name', 30), first_name: P('patient first name', 30), middleNames: P('patient middle names', 100),
     alias: P('patient alias', 70), pref_name: P('patient preferred name', 30), address: P('patient address', 60),

@@ -28,14 +28,19 @@ function payload(n, max = 255) {
 
 const norm = text => String(text || '').replace(/[\u00a0\s]+/g, ' ').trim();
 
-/** Everything a user could read in one frame: rendered text plus option, textarea, input and title text. */
+/**
+ * Everything a user could read in one frame: rendered text plus option, textarea, input, title, alt,
+ * placeholder and aria-label text. An evaluation failure is returned as `error`, never as an empty frame,
+ * so a frame the sweep could not read cannot pass as one that encoded everything.
+ */
 async function frameFacts(frame) {
   return frame.evaluate(() => {
     const parts = [document.body ? document.body.innerText : ''];
     for (const e of document.querySelectorAll('option,textarea,button,label,a,td,span,div,li'))
       if (e.children.length === 0) parts.push(e.textContent);
     for (const e of document.querySelectorAll('input,textarea')) parts.push(e.value || '');
-    for (const e of document.querySelectorAll('[title],[alt]')) parts.push(e.getAttribute('title') || '', e.getAttribute('alt') || '');
+    for (const e of document.querySelectorAll('[title],[alt],[placeholder],[aria-label]'))
+      for (const name of ['title', 'alt', 'placeholder', 'aria-label']) parts.push(e.getAttribute(name) || '');
     const injected = [...document.querySelectorAll('[data-xp]')].map(e => ({
       tag: e.tagName.toLowerCase(), id: e.getAttribute('data-xp'),
       context: (e.parentElement ? e.parentElement.tagName.toLowerCase() : '') + '>' + e.tagName.toLowerCase(),
@@ -66,7 +71,40 @@ async function frameFacts(frame) {
       }
     }
     return { text: parts.join('\n'), injected, handlers, scripts, url: location.pathname };
-  }).catch(() => ({ text: '', injected: [], handlers: [], scripts: [], url: '' }));
+  }).catch(error => ({ text: '', injected: [], handlers: [], scripts: [], url: '', error: String(error.message).split('\n')[0].slice(0, 120) }));
+}
+
+const ENTITY_SHOWN = /&(?:amp;amp|lt|gt|quot|#\d+|#x[0-9a-f]+);/;
+
+/**
+ * How field `n` shows in a frame's visible text (normalised, lower case): `null` when its marker is not
+ * there at all, 'ok' when the literal payload is shown (whole, or cut short by the page: a list column, an
+ * option label), 'mangled' when it is shown but altered (an entity shown re-encoded or decoded twice, a
+ * backslash dropped, the marker head itself broken). A value cut short stops at an arbitrary character, so
+ * only a stop that is itself one of those alterations counts against it.
+ */
+function classifyText(text, n) {
+  if (!text.includes(`data-xp="${n}"`) && !text.includes(`data-xp=${n}>`)) return null;
+  const lits = TIERS.map(tier => norm(tier(n)).toLowerCase());
+  if (lits.some(lit => text.includes(lit))) return 'ok';
+  for (const lit of lits) {
+    const head = [`<i data-xp="${n}">`, `<i data-xp=${n}>`].find(hd => lit.includes(hd));
+    if (!head) continue;
+    const off = lit.indexOf(head);
+    for (let at = text.indexOf(head); at >= 0; at = text.indexOf(head, at + 1)) {
+      const start = at - off;
+      if (start < 0 || text.slice(start, at) !== lit.slice(0, off)) continue;
+      let k = off + head.length;
+      while (k < lit.length && start + k < text.length && text[start + k] === lit[k]) k += 1;
+      if (k === lit.length) return 'ok';
+      const rest = text.slice(start + k);
+      if (ENTITY_SHOWN.test(text.slice(Math.max(start, start + k - 5), start + k + 9))) return 'mangled';
+      if (lit.slice(k - 1).startsWith('&amp;') && text[start + k - 1] === '&') return 'mangled';
+      if (lit[k] === '\\' && rest.startsWith(lit.slice(k + 1, k + 4))) return 'mangled';
+      return 'ok';
+    }
+  }
+  return 'mangled';
 }
 
 /** Collects findings across surfaces so a sweep reports every defect, then fails once at the end. */
@@ -78,12 +116,18 @@ class Findings {
     this.coverage = [];
     this.seenInjected = new Set();
     this.ignoredPaths = [];
+    // Every seeded field and whether any surface showed it, so the summary can say what was never reached.
+    this.fields = {};
+    this.shown = new Set();
     // Fields a surface renders as sanitised rich text BY DESIGN (Markdown through DOMPurify): inert markup in
     // them is expected to become markup there, so it is noted, not reported. Each entry is { field, path }.
     this.richText = [];
   }
   isRichText(field, url) {
     return this.richText.some(r => String(r.field) === String(field) && String(url).endsWith(r.path));
+  }
+  isIgnored(url) {
+    try { return this.ignoredPaths.some(p => new URL(url).pathname.endsWith(p)); } catch { return false; }
   }
   mark() {
     const r = this.recorder;
@@ -94,16 +138,20 @@ class Findings {
   drain(surface, since) {
     const r = this.recorder;
     for (const e of r.pageErrors.splice(since.pageErrors)) this.add(surface, 'SCRIPT-ERROR', e.text.split('\n')[0]);
-    const responses = r.badResponses.splice(since.responses);
-    const ignored = responses.filter(e => this.ignoredPaths.some(p => new URL(e.url).pathname.endsWith(p)));
     for (const e of r.consoleIssues.splice(since.console)) {
       // A fixture limitation (for example a document row with no file behind it) is not a finding: skip the
-      // resource-load console line that belongs to an ignored response, nothing else.
-      if (ignored.length && /Failed to load resource/.test(e.text)) continue;
+      // resource-load console line OF an ignored response (the browser reports the resource as its location),
+      // and nothing else.
+      if (/Failed to load resource/.test(e.text) && e.location && this.isIgnored(e.location.url)) continue;
       this.add(surface, 'CONSOLE', `${e.type}: ${e.text.split('\n')[0]}`);
     }
-    for (const e of responses) if (!ignored.includes(e)) this.add(surface, 'HTTP', `${e.status} ${new URL(e.url).pathname}`);
-    for (const e of r.requestFailures.splice(since.failures)) this.add(surface, 'REQUEST-FAILED', `${new URL(e.url).pathname}`);
+    for (const e of r.badResponses.splice(since.responses)) if (!this.isIgnored(e.url)) this.add(surface, 'HTTP', `${e.status} ${new URL(e.url).pathname}`);
+    for (const e of r.requestFailures.splice(since.failures)) {
+      // A subresource the browser abandoned because the sweep's own click moved the page on (a web font still
+      // loading) says nothing about the application; any other failure is reported.
+      if (/ERR_ABORTED/.test(e.errorText || '')) { this.note(surface, `request abandoned by navigation: ${new URL(e.url).pathname}`); continue; }
+      this.add(surface, 'REQUEST-FAILED', `${new URL(e.url).pathname}`);
+    }
     for (const e of r.unexpectedDialogs.splice(since.dialogs)) this.add(surface, 'DIALOG', `${e.type}: ${e.text.slice(0, 80)}`);
   }
   /**
@@ -119,12 +167,16 @@ class Findings {
   }
   add(surface, kind, detail) { this.items.push({ surface, kind, detail }); }
   note(surface, text) { this.observed.push({ surface, text }); }
+  /** A surface the check claims to cover was not there: a blocking finding, never a silent pass. */
+  missing(surface, detail) { this.add(surface, 'MISSING', detail); }
   summary() {
     return this.items.map(i => `[${i.surface}] ${i.kind} ${i.detail}`).join(' | ');
   }
   assertNone(what) {
     for (const o of this.observed) console.log(`  NOTE ${o.surface}: ${o.text}`);
     for (const c of this.coverage) console.log(`  ENCODED-OK ${c.surface}: fields ${c.ok.join(',') || '-'}`);
+    const never = Object.keys(this.fields).filter(id => !this.shown.has(id));
+    if (never.length) console.log(`  NOTE coverage: seeded fields no surface reached showed: ${never.map(id => `${id} (${this.fields[id]})`).join(', ')}`);
     for (const i of this.items) console.log(`  FINDING [${i.surface}] ${i.kind} ${i.detail}`);
     h.assert(this.items.length === 0, `${what}: ${this.items.length} output-encoding defect(s): ${this.summary()}`.slice(0, 3500));
   }
@@ -132,11 +184,27 @@ class Findings {
 
 /**
  * Inspect `page` and every frame in it for the three signals. `fields` maps field number -> label for
- * the values this surface is expected to show; a field that is not visible at all is only noted.
+ * the values this check seeded. `expect` lists the fields this surface is known to show: one that is not
+ * shown at all (encoded, injected or mangled) is a MISSING finding, so an empty, misrouted or changed
+ * surface cannot pass as an encoded one. Returns the set of fields the surface showed.
  */
-async function inspect(findings, surface, page, fields = {}, since = null) {
+async function inspect(findings, surface, page, fields = {}, since = null, { expect = [] } = {}) {
+  Object.assign(findings.fields, fields);
   const all = [];
-  for (const frame of page.frames()) all.push(await frameFacts(frame));
+  for (const frame of page.frames()) {
+    let facts = await frameFacts(frame);
+    // A frame caught mid-navigation answers "Execution context was destroyed"; read it once more when it settles.
+    if (facts.error && !frame.isDetached()) {
+      await frame.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+      facts = await frameFacts(frame);
+    }
+    if (facts.error) {
+      if (frame.isDetached() || !/^https?:/.test(frame.url())) findings.note(surface, `frame ${frame.url() || '(no url)'} not inspected: ${facts.error}`);
+      else findings.add(surface, 'INSPECT-FAILED', `frame ${new URL(frame.url()).pathname} could not be read: ${facts.error}`);
+      continue;
+    }
+    all.push(facts);
+  }
   // Case-insensitive: stylesheets such as text-transform:uppercase change the visible text, not the encoding.
   const text = norm(all.map(a => a.text).join('\n')).toLowerCase();
   // One finding per page and field: a raw unclosed <i> makes the parser re-create it in every later
@@ -169,24 +237,41 @@ async function inspect(findings, surface, page, fields = {}, since = null) {
     findings.seenInjected.add(key);
     findings.add(surface, 'SCRIPT-SYNTAX', `field ${x.id} (${fields[x.id] || '?'}) breaks an inline script on ${a.url} (${x.error}): ...${x.snippet}...`);
   }
-  const injectedIds = new Set(all.flatMap(a => a.injected.map(i => String(i.id))));
+  // A field counts as shown whether it was encoded, injected or broke a script: each proves the surface
+  // rendered the stored value.
+  const shown = new Set([
+    ...all.flatMap(a => a.injected.map(i => String(i.id))),
+    ...all.flatMap(a => [...(a.handlers || []), ...(a.scripts || [])].map(x => String(x.id))),
+  ]);
   const okFields = [];
   for (const [n, name] of Object.entries(fields)) {
-    const seen = text.includes(`data-xp="${n}"`) || text.includes(`data-xp=${n}>`);
-    if (!seen) continue;
-    // A page may legitimately cut a long value short ("..."); only the first 32 characters carry the markup
-    // characters under test, so an intact head is still proof of encoding.
-    if (TIERS.some(tier => { const lit = norm(tier(n)).toLowerCase(); return text.includes(lit) || (lit.length > 40 && text.includes(lit.slice(0, 32))); })) okFields.push(n);
-    else if (!injectedIds.has(String(n)) && !all.some(a => findings.isRichText(n, a.url))) {
+    const how = classifyText(text, n);
+    if (!how) continue;
+    shown.add(String(n));
+    if (how === 'ok') okFields.push(n);
+    else if (!all.some(a => a.injected.some(i => String(i.id) === String(n))) && !all.some(a => findings.isRichText(n, a.url))) {
       const at = Math.max(text.indexOf(`data-xp="${n}"`), text.indexOf(`data-xp=${n}>`));
       findings.add(surface, 'TEXT-MANGLED', `field ${n} (${name}) visible but not literally: ...${text.slice(Math.max(0, at - 12), at + 70)}`);
     }
   }
+  for (const id of shown) if (fields[id]) findings.shown.add(id);
+  const absent = expect.map(String).filter(id => !shown.has(id));
+  if (absent.length) findings.missing(surface, `expected field(s) not shown: ${absent.map(id => `${id} (${fields[id] || '?'})`).join(', ')}`);
   findings.coverage.push({ surface, ok: okFields });
   if (since) findings.drain(surface, since);
+  return shown;
 }
 
-module.exports = { payload, inspect, Findings, norm, frameFacts, TIERS };
+/** The field numbers a check gave these labels (for `expect`); a label that was never seeded is a check bug. */
+function fieldIds(fields, ...names) {
+  return names.map(name => {
+    const id = Object.keys(fields).find(k => fields[k] === name);
+    if (!id) throw new Error(`xss-poison check expects an unseeded field: ${name}`);
+    return Number(id);
+  });
+}
+
+module.exports = { payload, inspect, Findings, norm, frameFacts, classifyText, fieldIds, TIERS };
 
 /*
  * FIXTURE LIFECYCLE. Poisoned rows are global: a provider, a lookup item or a document type carrying the
@@ -235,10 +320,15 @@ function withLock(body) {
   for (;;) {
     try { fs.mkdirSync(lock); break; } catch (error) {
       if (error.code !== 'EEXIST') throw error;
-      let holder = NaN; let age = 0;
-      try { holder = Number(fs.readFileSync(path.join(lock, 'pid'), 'utf8')); } catch { /* not written yet */ }
+      // The holder writes its pid just after the mkdir, so the file can still be missing or empty:
+      // only a whole positive pid is evidence the holder died; anything else is left to the age check.
+      let holder = 0; let age = 0;
+      try {
+        const raw = fs.readFileSync(path.join(lock, 'pid'), 'utf8').trim();
+        if (/^[1-9]\d*$/.test(raw)) holder = Number(raw);
+      } catch { /* not written yet */ }
       try { age = Date.now() - fs.statSync(lock).mtimeMs; } catch { continue; }
-      if ((!Number.isNaN(holder) && !pidAlive(holder)) || age > 600000) { fs.rmSync(lock, { recursive: true, force: true }); continue; }
+      if ((holder > 0 && !pidAlive(holder)) || age > 600000) { fs.rmSync(lock, { recursive: true, force: true }); continue; }
       h.assert(Date.now() < deadline, 'Another xss-poison run held the fixture lock for three minutes');
       sleepSync(250);
     }
@@ -514,10 +604,19 @@ module.exports.openMasterByChartNo = openMasterByChartNo;
  * Click each catalogued link the way an operator does, inspect whatever it produced (popup, in-place
  * navigation or an injected panel) BEFORE leaving it, then put the host back. Unlike auditCatalogue this
  * hands the destination to the sweep, which is the point: auditCatalogue closes it first.
+ *
+ * Coverage is reported, not assumed. An item that cannot be opened is a NOT-OPENED finding unless it
+ * matches `optional` (each entry `{ match, reason }`: a link whose destination the fixture cannot provide,
+ * or a dated entry the page re-renders), which is noted. A click that produced no navigation, popup or
+ * in-place change is noted as inert and NOT inspected: the unchanged host is not that item's destination.
+ * `expect` entries `{ match, fields }` name items that must be opened and the fields each must show; an
+ * expected item that was never opened is a MISSING finding. Returns `{ opened, inert, failed }`.
  */
 async function walkLinks({ context, recorder, host, items, findings, fields, label, skip = [], timeout = 20000,
-  beforeItem = null, beforeClose = null, limit = 0 }) {
+  beforeItem = null, beforeClose = null, limit = 0, optional = [], expect = [] }) {
   const audit = require('./playwright-link-audit');
+  const stats = { opened: [], inert: [], failed: [] };
+  const reached = new Set();
   let count = 0;
   const knownPages = new Set(context.pages());
   for (const item of items) {
@@ -530,12 +629,14 @@ async function walkLinks({ context, recorder, host, items, findings, fields, lab
     const surface = `${label}:${item.text}`;
     const since = findings.mark();
     const hostUrl = host.url();
+    const wanted = expect.filter(e => e.match.test(item.text));
     let popup = null;
     let navigated = false;
     let lastWhere = '?';
     try {
       if (beforeItem) await beforeItem(item);
       const link = await audit.resolveAuditLink(host, item, timeout);
+      let outcome;
       try {
         await audit.revealAuditLink(host, link, timeout);
         await link.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
@@ -561,36 +662,50 @@ async function walkLinks({ context, recorder, host, items, findings, fields, lab
         // noWaitAfter: the outcome race below observes the navigation/popup itself; waiting inside click() made one
         // slow popup stall the host and every later item behind it.
         await link.click({ timeout, noWaitAfter: true });
-        const outcome = await first;
+        outcome = await first;
         navigated = outcome === 'navigated';
         if (navigated) await host.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
       } finally {
         if (item.identity && typeof link.dispose === 'function') await link.dispose().catch(() => {});
       }
-      const target = popup || host;
-      if (popup) {
-        await popup.waitForURL(u => String(u) !== 'about:blank', { timeout }).catch(() => {});
-        await popup.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+      if (outcome === 'nothing') {
+        // Inconclusive, not coverage: inspecting the unchanged host would credit it to this item.
+        stats.inert.push(item.text);
+        findings.note(surface, 'the click produced no navigation, popup or change in place; not inspected');
+      } else {
+        const target = popup || host;
+        if (popup) {
+          await popup.waitForURL(u => String(u) !== 'about:blank', { timeout }).catch(() => {});
+          await popup.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+        }
+        // Some pages poll and never go idle; a short settle is enough for the inspection that follows.
+        await target.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
+        // Panes such as the eForm upload form load into frames after the list itself.
+        for (const frame of target.frames()) await frame.waitForLoadState('load', { timeout: 3000 }).catch(() => {});
+        await target.waitForTimeout(600);
+        const where = new URL(target.url()).pathname.replace(/^.*\/carlos/, '');
+        lastWhere = where;
+        const body = await target.locator('body').innerText({ timeout }).catch(() => '');
+        // An error page the fixture itself causes (a document row with no file behind it) is not a finding.
+        if (audit.ERROR_PAGE_RE.test(body) && !findings.isIgnored(target.url())) findings.add(surface, 'ERROR-PAGE', body.replace(/\s+/g, ' ').slice(0, 100));
+        await inspect(findings, `${surface} -> ${where}`, target, fields, null, { expect: wanted.flatMap(e => e.fields || []) });
+        stats.opened.push(item.text);
+        for (const e of wanted) reached.add(e);
+        if (beforeClose && popup) await beforeClose(popup);
       }
-      // Some pages poll and never go idle; a short settle is enough for the inspection that follows.
-      await target.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
-      // Panes such as the eForm upload form load into frames after the list itself.
-      for (const frame of target.frames()) await frame.waitForLoadState('load', { timeout: 3000 }).catch(() => {});
-      await target.waitForTimeout(600);
-      const body = await target.locator('body').innerText({ timeout }).catch(() => '');
-      if (audit.ERROR_PAGE_RE.test(body)) findings.add(surface, 'ERROR-PAGE', body.replace(/\s+/g, ' ').slice(0, 100));
-      const where = new URL(target.url()).pathname.replace(/^.*\/carlos/, '');
-      lastWhere = where;
-      await inspect(findings, `${surface} -> ${where}`, target, fields);
-      if (beforeClose && popup) await beforeClose(popup);
     } catch (error) {
-      // Inconclusive, not a defect: the menu changed under the sweep or the click was swallowed.
-      findings.note(surface, `not opened: ${String(error.message).split('\n')[0].slice(0, 110)}`);
+      const why = `not opened: ${String(error.message).split('\n')[0].slice(0, 110)}`;
+      stats.failed.push(item.text);
+      const allowed = optional.find(o => o.match.test(item.text));
+      if (allowed) findings.note(surface, `${why} (optional: ${allowed.reason})`);
+      else findings.add(surface, 'NOT-OPENED', why);
     } finally {
       findings.drain(`${surface} -> ${lastWhere}`, since);
       for (const extra of context.pages()) if (extra !== host && extra !== popup && !knownPages.has(extra)) await extra.close().catch(() => {});
       if (popup) await popup.close().catch(() => {});
-      else if (navigated && host.url() !== hostUrl) {
+      // Restore the host by its URL, not by the outcome that won the race: a link can open a popup AND move
+      // the host, and the popup poll usually wins, which would leave every later item clicking the wrong page.
+      if (host.url() !== hostUrl) {
         await host.goBack({ timeout }).catch(() => {});
         await host.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
       }
@@ -602,6 +717,9 @@ async function walkLinks({ context, recorder, host, items, findings, fields, lab
       }
     }
   }
+  for (const e of expect) if (!reached.has(e)) findings.missing(label, `the walk never opened an item matching ${e.match}`);
+  console.log(`  walk ${label}: ${stats.opened.length} opened, ${stats.inert.length} inert, ${stats.failed.length} not opened`);
+  return stats;
 }
 module.exports.walkLinks = walkLinks;
 
@@ -622,6 +740,11 @@ module.exports.clickAdminItem = clickAdminItem;
  * DAO's own save/update evicts it, so a provider INSERTed by SQL is not listed in the provider selects until
  * the cache entry written before the insert expires. Wait that out once so the selects are inspected with the
  * fixture present, rather than sometimes, depending on what ran before.
+ *
+ * The wait is deliberate and unconditional: about five minutes of wall clock in each check that calls it (the
+ * schedule check and both Administration halves), so about fifteen minutes of a full sweep. Polling a select for
+ * the fixture would end early only when the cache happened to be cold, and any earlier check that loaded a
+ * schedule leaves it warm, so the budget is spent either way.
  */
 async function waitForProviderCache(session, label = 'wait for the five-minute active-provider cache to expire') {
   await session.step(label, async () => { await new Promise(resolve => setTimeout(resolve, 305000)); });

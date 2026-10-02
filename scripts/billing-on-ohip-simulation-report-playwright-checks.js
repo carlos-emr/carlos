@@ -70,8 +70,15 @@ function scheduleFee(sql, code) {
  * the test login with its own OHIP/group numbers, placed in the operator's sites
  * (the billing pages list only site-sharing providers under _site_access_privacy).
  * Cleanup is registered before the first INSERT and removes the provider last.
+ *
+ * `record(table, where)`, when given, is told every row set this fixture will create before the first
+ * INSERT, keyed by the fresh provider number (and the run marker the provider and every claim header
+ * carry). A caller with a durable ledger (the xss-poison Seeder) can then delete a SIGKILLed run's rows by
+ * key on its next start; the cleanups below still remove them on an ordinary exit. The entries are listed
+ * parents first, so a ledger that unwinds in reverse removes repository, ext and item rows before their
+ * claim header, and the provider last.
  */
-function createBillingFixture(s) {
+function createBillingFixture(s, { record = null } = {}) {
   const { sql, marker, patient, provider } = s;
   const owned = { providerNo: '', ohipNo: '', groupNo: '', headerIds: [] };
   s.cleanup(() => {
@@ -121,6 +128,20 @@ function createBillingFixture(s) {
   };
   const columns = columnsOf(sql, 'provider');
   owned.providerNo = providerNo; // Record intent before the INSERT can fail.
+  if (record) {
+    const quoted = h.sqlString(providerNo);
+    // Every claim header this fixture writes names the owned provider and starts its comment with the marker.
+    const owns = `provider_no=${quoted} AND comment1 LIKE ${h.sqlString(`${marker}%`)}`;
+    const headers = `SELECT id FROM billing_on_cheader1 WHERE ${owns}`;
+    record('provider', `provider_no=${quoted} AND last_name=${h.sqlString(marker)}`);
+    record('providersite', `provider_no=${quoted}`);
+    record('billing_on_cheader1', owns);
+    record('billing_on_item', `ch1_id IN (${headers})`);
+    record('billing_on_ext', `billing_no IN (${headers})`);
+    record('billing_on_proc', `object IN (SELECT CAST(id AS CHAR) FROM billing_on_cheader1 WHERE ${owns})`);
+    record('billing_on_repo', `(category='billing_on_cheader1' AND h_id IN (${headers}))
+      OR (category='billing_on_item' AND h_id IN (SELECT id FROM billing_on_item WHERE ch1_id IN (${headers})))`);
+  }
   sql.execute(`INSERT INTO provider (${columns.map(c => `\`${c}\``).join(',')})
     SELECT ${columns.map(c => overrides[c] || `\`${c}\``).join(',')} FROM provider WHERE provider_no=${h.sqlString(provider)};
     INSERT IGNORE INTO providersite (provider_no, site_id) SELECT ${h.sqlString(providerNo)}, site_id
