@@ -103,10 +103,7 @@ public class ForwardingRules {
 
     private static boolean appliesTo(IncomingLabRules rule, String labType) {
         if (labType == null) return true;
-        // Forwarding categories are HL7 (including legacy CML/MDS/BCP labs), DOC and HRM.
-        // Rows predating source selection have no type children and retain all three categories.
-        String category = "DOC".equals(labType) || "HRM".equals(labType) ? labType : "HL7";
-        return rule.getForwardTypeStrings().contains(category);
+        return rule.appliesToLabType(labType);
     }
 
     public boolean isSet(String providerNo) {
