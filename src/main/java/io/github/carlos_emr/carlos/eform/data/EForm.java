@@ -1580,14 +1580,24 @@ public class EForm extends EFormBase {
         return displaySize(select) == 1 && options.stream().anyMatch(option -> !optionDisabled(option));
     }
 
-    /** A non-multiple select's display size: a valid {@code size} above zero, otherwise 1. */
+    /**
+     * A non-multiple select's display size, classified as 1 (single-line) or 2 (list box, any
+     * size above 1). Follows the HTML rules for parsing non-negative integers: leading
+     * whitespace and a "+" are skipped, the leading run of digits is read (leading zeros allowed,
+     * trailing text ignored), and a missing, unparsable or zero value means 1. The digits are
+     * compared as text, so an arbitrarily long value cannot overflow and still counts as above 1.
+     */
     private static int displaySize(Element select) {
-        String size = select.attr("size").trim();
-        if (!size.matches("\\d{1,9}")) {
-            return 1;
+        String size = select.attr("size").replaceFirst("^[\\t\\n\\f\\r ]+", "");
+        if (size.startsWith("+")) {
+            size = size.substring(1);
         }
-        int value = Integer.parseInt(size);
-        return value > 0 ? value : 1;
+        int end = 0;
+        while (end < size.length() && size.charAt(end) >= '0' && size.charAt(end) <= '9') {
+            end++;
+        }
+        String digits = size.substring(0, end).replaceFirst("^0+", "");
+        return digits.isEmpty() || "1".equals(digits) ? 1 : 2;
     }
 
     private static boolean optionDisabled(Element option) {

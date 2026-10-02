@@ -131,6 +131,8 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
             "<select name='newForm'><optgroup disabled><option value='True'>True</option></optgroup></select>",
             "<select name='newForm' multiple><option value='True'>True</option></select>",
             "<select name='newForm' size='2'><option value='True'>True</option></select>",
+            "<select name='newForm' size='0000000002'><option value='True'>True</option></select>",
+            "<select name='newForm' size='99999999999'><option value='True'>True</option></select>",
             "<button type='button' name='newForm' value='False'>Toggle</button>",
             "<button type='submit' name='newForm' value='False' disabled>Save</button>",
             "<select name='newForm'><option value='True' selected>True</option><option value='x' selected disabled>x</option></select>"})
@@ -158,6 +160,7 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
             "<select name='newForm' multiple><option value='True' selected>True</option></select>",
             "<select name='newForm' size='1'><option value='True'>True</option></select>",
             "<select name='newForm' size='0'><option value='True'>True</option></select>",
+            "<select name='newForm' size='00000001'><option value='True'>True</option></select>",
             "<select name='newForm' size='2'><option value='True' selected>True</option></select>",
             "<button name='newForm' value='False'>Save</button>",
             "<button type='submit' name='newForm' value='False'>Save</button>",
