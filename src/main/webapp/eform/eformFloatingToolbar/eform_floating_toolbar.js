@@ -334,6 +334,13 @@ function eFormValidationBlocked() {
 		&& (templateSubject.tagName !== "INPUT" || MIRRORED_REQUIRED_INPUT_TYPES.includes(templateSubjectType));
 	const templateSubjectDisabled = !!templateSubject && ((typeof templateSubject.matches === "function"
 		&& templateSubject.matches(":disabled")) || templateSubjectReadOnly);
+	// The only custom error on the toolbar field is the select check below, and it is recomputed from
+	// the current value on every save. Clear it first: a template script can correct the subject and
+	// fire input, and moveSubjectReverse() then copies the value over without the toolbar's own input
+	// event, so a stale error would otherwise keep blocking a now-valid subject.
+	if (toolbarSubject && typeof toolbarSubject.setCustomValidity === "function") {
+		toolbarSubject.setCustomValidity("");
+	}
 	if (templateSubject && templateSubject.required === true && templateSubjectRequirementApplies
 			&& !templateSubjectDisabled && toolbarSubject
 			&& typeof toolbarSubject.checkValidity === "function") {
@@ -361,6 +368,10 @@ function eFormValidationBlocked() {
 		if (templateSubject.tagName === "SELECT" && typeof toolbarSubject.setCustomValidity === "function"
 				&& !(typeof templateSubject.matches === "function" && templateSubject.matches(":disabled"))
 				&& (templateSubject.value !== subjectValue
+					// A disabled option (or one in a disabled optgroup) can be selected by value but is
+					// never submitted, so a non-empty subject that lands on one would also be lost.
+					|| (subjectValue !== "" && templateSubject.selectedIndex >= 0
+						&& templateSubject.options[templateSubject.selectedIndex].matches(":disabled"))
 					|| (typeof templateSubject.checkValidity === "function" && !templateSubject.checkValidity()))) {
 			toolbarSubject.setCustomValidity(templateSubject.validationMessage || subjectNotAnOptionMessage());
 			toolbarSubject.addEventListener("input", function () { toolbarSubject.setCustomValidity(""); },
@@ -1327,6 +1338,15 @@ function initializeFaxRecipient() {
     if (options) options.addEventListener('toggle', () => { refreshOptions(); refresh(); });
     document.addEventListener('change', event => {
         if (!['otherFaxInput', 'faxnumList', 'otherFaxSelect'].includes(event.target.id)) return;
+        if (event.isTrusted) {
+            // The clinician chose a number on the eForm itself after a toolbar or directory choice:
+            // the latest explicit choice wins. Programmatic copies (untrusted) never lift an override.
+            delete fax.dataset.edited;
+            delete fax.dataset.typed;
+            delete fax.dataset.cleared;
+            refresh();
+            return;
+        }
         // A list or designer selection made after the name was retyped is a new, explicit source:
         // lift only the pending clear (never a typed or menu-chosen number) and let it fill in.
         if (fax.dataset.cleared === 'true') {

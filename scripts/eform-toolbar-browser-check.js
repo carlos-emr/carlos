@@ -136,6 +136,20 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0199');
     assert.equal(requests[0].get('recipient'),'Example, Specialist');
+    // A number the clinician then types into the eForm's own fax field is the latest explicit choice
+    // and replaces the directory selection (a programmatic copy would not).
+    await open(true);
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxRecipient').fill('Example');
+    await pickDirectoryRow();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(),'416-555-0199');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#otherFaxInput').fill('416-555-0155');
+    await page.locator('#otherFaxInput').press('Tab');
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length,1);
+    assert.equal(requests[0].get('recipientFaxNumber'),'416-555-0155');
     // Retyping the name after a directory selection must not keep the selected recipient's number.
     await open();
     await page.locator('#remoteFaxOptions summary').click();
@@ -608,6 +622,42 @@ const server = http.createServer((req, res) => {
       await page.waitForURL('**/eform/addEForm');
       assert.equal(requests[0].get('subject'), 'Referral', selectVariant);
     }
+    // A disabled option, or one in a disabled optgroup, is never submitted: typing its value blocks
+    // like a non-option, while an empty optional subject still saves.
+    for (const [typed, expectBlocked] of [['Archived', true], ['Legacy', true], ['', false]]) {
+      await open(false, false, false, 'empty-optional-select');
+      await page.evaluate(() => {
+        const select = document.getElementById('subject');
+        select.insertAdjacentHTML('beforeend',
+          '<option value="Archived" disabled>Archived</option><optgroup label="Old" disabled><option value="Legacy">Legacy</option></optgroup>');
+      });
+      const optionUrl = page.url();
+      await page.locator('#remote_eform_subject').fill(typed);
+      await page.locator('#remoteSubmitButton').click();
+      if (expectBlocked) {
+        assert.equal(await page.evaluate(() => document.getElementById('remote_eform_subject').validity.customError), true, typed);
+        assert.equal(page.url(), optionUrl);
+        assert.equal(requests.length, 0, typed);
+      } else {
+        await page.waitForURL('**/eform/addEForm');
+        assert.equal(requests[0].get('subject'), '');
+      }
+    }
+    // A stale option error must not outlive a correction the template makes to its own subject
+    // (moveSubjectReverse() copies it to the toolbar without the toolbar's input event).
+    await open(false, false, false, 'empty-select');
+    await page.locator('#remote_eform_subject').fill('Not an option');
+    await page.locator('#remoteSubmitButton').click();
+    assert.equal(requests.length, 0);
+    await page.evaluate(() => {
+      const select = document.getElementById('subject');
+      select.value = 'Referral';
+      select.dispatchEvent(new Event('input'));
+    });
+    assert.equal(await page.locator('#remote_eform_subject').inputValue(), 'Referral');
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests[0].get('subject'), 'Referral');
     // A disabled select subject, directly or through a disabled fieldset, is neither validated nor
     // submitted, so non-option text does not block the save (and no subject is posted).
     for (const disabledBy of ['attribute', 'fieldset']) {
