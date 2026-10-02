@@ -284,6 +284,12 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0102');
     await page.locator('#remoteFaxRecipient').fill('Different Recipient');
     assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipient'), 'Different Recipient');
+    assert.equal(requests[0].get('recipientFaxNumber'), '');
     await open();
     await page.locator('#remoteFaxOptions summary').click();
     await page.locator('#remoteFaxNumber').fill('');
@@ -335,6 +341,8 @@ const server = http.createServer((req, res) => {
       await page.locator('#remoteSubmitButton').click();
       await page.waitForURL('**/eform/addEForm');
       assert.equal(requests.length, 1);
+      // The disabled template subject is not a successful control, so no subject is posted.
+      assert.equal(requests[0].get('subject'), null);
     }
     // A template subject without the constraint still saves with an empty subject.
     await open();
