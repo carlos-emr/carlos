@@ -1921,6 +1921,9 @@ function startNextMeasureBatch() {
     var batch = measureRequestQueue.shift();
     activeMeasureBatch = batch;
     var released = false;
+    // Outcome handed to the completion step; kept so its error path can settle callers with what
+    // was actually inserted rather than reporting failure (and inviting a duplicate retry).
+    var settled = null;
     var history = measureBatchIsCurrent(batch) ? fetchMeasureHistory(batch)
         : Promise.reject(new Error('The original measurement insertion point is no longer available'));
     history.then(function(measurements) {
@@ -1944,6 +1947,7 @@ function startNextMeasureBatch() {
         }
         return batch.requests.map(function() { return {values: [], dates: [], failed: true, cancelled: !!cancelled}; });
     }).then(function(histories) {
+        settled = histories;
         // Release the save/print gate before any DOM work so a throw below cannot leave it stuck.
         released = true;
         measureBatchesPending--;
@@ -1976,11 +1980,17 @@ function startNextMeasureBatch() {
             measureBatchesPending--;
             if (activeMeasureBatch === batch) { activeMeasureBatch = null; }
         }
-        batch.requests.forEach(function(request) {
-            try { request.resolve({values: [], dates: [], failed: true}); } catch (ignored) { /* already settled */ }
+        // When insertMeasureBatch already ran, settle with those histories: reporting them as failed
+        // would prompt a retry that inserts the same measurements twice.
+        var insertedOk = !!settled && settled.every(function(history) { return history && !history.failed; });
+        batch.requests.forEach(function(request, index) {
+            var outcome = settled && settled[index] ? settled[index] : {values: [], dates: [], failed: true};
+            try { request.resolve(outcome); } catch (ignored) { /* already settled */ }
         });
         try {
-            showMeasurementStatus('Measurement loading did not finish cleanly. Please retry Lab Grid or Vitals before saving.', true);
+            if (!insertedOk) {
+                showMeasurementStatus('Measurement loading did not finish cleanly. Please retry Lab Grid or Vitals before saving.', true);
+            }
             startNextMeasureBatch();
             finishPendingSourceView();
         } catch (followUpError) {

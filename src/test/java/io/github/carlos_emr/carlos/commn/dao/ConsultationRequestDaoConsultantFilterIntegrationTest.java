@@ -411,6 +411,24 @@ class ConsultationRequestDaoConsultantFilterIntegrationTest extends CarlosTestBa
 
         @Test
         @Tag("search")
+        @DisplayName("should keep leading zeros of a REST MRP provider number")
+        void shouldMatchRestMrp_withLeadingZeroProviderNo() throws Exception {
+            // Provider numbers are strings: "0xxxxx" must not be narrowed to the integer "xxxxx".
+            String zeroPadded = "0" + (10000 + (int) (System.nanoTime() % 80000));
+            Provider padded = saveProvider(zeroPadded, "Delta" + uid, "Dee");
+            ConsultationRequest toSmithForPadded = saveConsult(saveDemographic(padded.getProviderNo()), brianSmith,
+                    DateUtils.parseDate("2026-03-10", DATE_FORMAT));
+            hibernateTemplate.flush();
+
+            ConsultationRequestSearchFilter filter = restFilter();
+            filter.setMrpNo(zeroPadded);
+
+            assertThat(searchIds(filter)).containsExactly(toSmithForPadded.getId());
+            assertThat(consultRequestDao.getConsultationCount2(filter)).isEqualTo(1);
+        }
+
+        @Test
+        @Tag("search")
         @DisplayName("should intersect REST consultant and MRP filters")
         void shouldIntersectRestFilters_forConsultantAndMrp() {
             ConsultationRequestSearchFilter filter = restFilter();

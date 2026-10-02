@@ -126,7 +126,7 @@ async function workflow(s) {
       // that is neither served-without-the-note nor a deliberate refusal decided nothing and is reported too.
       const mismatched = await get(s.context, noteUrl(method, other));
       if (mismatched.found.includes(text)) open.add(`${method} naming another patient`, `HTTP ${mismatched.status}, the note id alone decides`);
-      else if (classify(mismatched) === 'error') open.add(`${method} naming another patient`, `HTTP ${mismatched.status}, not a deliberate answer`);
+      else if (!['served', 'refused'].includes(classify(mismatched))) open.add(`${method} naming another patient`, `HTTP ${mismatched.status}, not a deliberate answer`);
       const lockedOut = await get(doctor.context, noteUrl(method, patient));
       if (lockedOut.found.includes(text)) open.add(`${method} for a patient the login is locked out of`, `HTTP ${lockedOut.status}`);
       else if (classify(lockedOut) !== 'refused') open.add(`${method} for a patient the login is locked out of`, `HTTP ${lockedOut.status}, not refused by CARLOS`);
