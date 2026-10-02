@@ -48,7 +48,7 @@ test('cleanup predicate still removes rows of an owned entity registered with ow
 test('cleanup leaves ambiguous rows written during the run (another check may own them)', { skip: !DatabaseSync }, () => {
   const db = new DatabaseSync(':memory:');
   db.function('regexp', (pattern, value) => 0);
-  db.exec('CREATE TABLE log (id INTEGER PRIMARY KEY, provider_no TEXT, action TEXT, content TEXT, contentId TEXT, demographic_no INTEGER, data TEXT)');
+  db.exec('CREATE TABLE log (id INTEGER PRIMARY KEY, dateTime TEXT, provider_no TEXT, action TEXT, content TEXT, contentId TEXT, ip TEXT, demographic_no INTEGER, data TEXT)');
   const insert = db.prepare('INSERT INTO log (id, provider_no, action, content, contentId, demographic_no, data) VALUES (?,?,?,?,?,?,?)');
   const sql = {
     execute(statement) { db.exec(statement); },
@@ -59,6 +59,8 @@ test('cleanup leaves ambiguous rows written during the run (another check may ow
   insert.run(1, '999', 'read', 'demographic', '777', 777, null);           // provably the patient's: deleted
   insert.run(2, '999', 'DemographicManager.get', null, null, null, '777'); // bare numeric data: ambiguous, kept
   insert.run(3, '999', 'read', 'tickler', '777', null, null);              // a colliding tickler id: kept
+  // A same-provider row whose contentId merely collides is not evidence about the patient either.
+  assert.deepEqual(probe.ownedSince(0).map(row => row.id), [1]);
   probe.cleanup();
   assert.deepEqual(db.prepare('SELECT id FROM log ORDER BY id').all().map(row => row.id), [2, 3]);
 });

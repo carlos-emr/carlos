@@ -58,12 +58,14 @@ async function workflow(s) {
     // could be another check's (the Patient List by Appointment Time export, say).
     const own = probe.byProvider(provider, before, `(action='export' OR action LIKE '%eport%' OR content LIKE '%eport%')
       AND (action LIKE '%emographic%' OR content LIKE '%emographic%' OR data LIKE '%emographic%')`);
-    const aboutPatient = probe.since(before, `action NOT LIKE 'read%' AND action NOT LIKE 'DemographicManager.%' AND action NOT LIKE 'PatientConsentManager.%'`);
+    // Only rows that provably name the patient count as evidence; a colliding id from a concurrent check must not.
+    const aboutPatient = probe.ownedSince(before, `action NOT LIKE 'read%' AND action NOT LIKE 'DemographicManager.%' AND action NOT LIKE 'PatientConsentManager.%'`);
     const accepted = [...new Map([...own, ...aboutPatient].map(r => [r.id, r])).values()];
     h.assert(accepted.length >= 1,
       'Running the Demographic Report Tool (a listing of patient names and ids) wrote no audit row');
     h.assert(accepted.every(r => Boolean(r.ip)), `The report audit row carries no client address (${accepted.filter(r => !r.ip).map(r => label(r, { maskContent: true })).join(', ')})`);
-    const leaks = phiLeaks([...probe.rows(`id>${before}`), ...own], [marker]);
+    // The fixture's first name too: a row carrying only it is still patient text.
+    const leaks = phiLeaks([...probe.rows(`id>${before}`), ...own], [marker, 'Workflow']);
     h.assert(!leaks.length, `A report audit row carries patient text (${leaks.join(', ')})`);
     h.assert(aboutPatient.every(r => r.provider === provider), `A report row is attributed to another provider (${aboutPatient.map(r => label(r, { maskContent: true })).join(', ')})`);
   });

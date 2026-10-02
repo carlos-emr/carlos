@@ -131,8 +131,10 @@ test('forgetPage drops findings seen only on the filed page and keeps any also s
   ledger.add('admin:Unlock Account', 'java-leak', 'visible text: "java.lang.NullPointerException"');
   ledger.add('admin:Unlock Account', 'unresolved-el', 'visible text: "${...}"');
   ledger.add('admin:Other Page', 'unresolved-el', 'visible text: "${...}"');
+  ledger.add('admin:Unlock Account', 'off-host-request', 'image request to https://example.invalid/x was blocked');
   ledger.forgetPage(/^admin:Unlock Account$/, 'filed');
-  assert.deepEqual(ledger.list().map(entry => entry.kind), ['unresolved-el']);
+  // Only the error page's own text kinds are forgiven; an independent off-host request on the same page stays.
+  assert.deepEqual(ledger.list().map(entry => entry.kind).sort(), ['off-host-request', 'unresolved-el']);
   assert.deepEqual(ledger.suppressedSummary(), ['x1 (known: filed)']);
 });
 

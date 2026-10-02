@@ -112,6 +112,14 @@ function auditProbe({ sql, patient = null }) {
     },
     /** Rows whose id is above `after` (a value returned by mark()). */
     since(after, extra = '1=1') { return rows(`id>${Number(after)} AND (${extra})`); },
+    /**
+     * Like since(), but only rows that provably name the patient or a registered owned entity (ownedPredicate()). Use it
+     * when a row is accepted as evidence: a bare id collision (another check's note or tickler id equal to this
+     * patient's number) must not satisfy an assertion.
+     */
+    ownedSince(after, extra = '1=1') {
+      return sql.rows(`SELECT ${selectList()} FROM log WHERE ${ownedPredicate()} AND id>${Number(after)} AND (${extra}) ORDER BY id`).map(toRow);
+    },
     /** High-water mark of the whole table; rows written afterwards have a larger id. */
     mark() { return Number(sql.value('SELECT COALESCE(MAX(id),0) FROM log')); },
     /** Poll until `accept(rows)` is true, then give late duplicates a moment to land and return the rows. */

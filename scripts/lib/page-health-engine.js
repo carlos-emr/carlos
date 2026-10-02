@@ -336,12 +336,15 @@ function createLedger() {
       map.set(key, { kind, detail, why: why || '', count: 1, pages: [page] });
     },
     /**
-     * Drop text findings recorded only on pages matching `pattern` (the body of an already-filed error page,
-     * e.g. its exception class names), counting them as known; a finding also seen on any other page stays.
+     * Drop text findings of the error-page kinds (`kinds`) recorded only on pages matching `pattern` (the body of an
+     * already-filed error page, e.g. its exception class names), counting them as known; a finding also seen on any
+     * other page, or of another kind, stays.
      */
-    forgetPage(pattern, reason) {
+    forgetPage(pattern, reason, kinds = /^(?:java-leak|unresolved-(?:el|ognl|scriptlet)|missing-resource-key|literal-(?:null|undefined|nan))$/) {
       for (const [key, entry] of map) {
-        if (entry.pages.every(page => pattern.test(page)) && entry.count === entry.pages.length) {
+        // Only the kinds an error page's own body produces; an off-host request or a missing header seen on the same
+        // page is independent of the filed defect and stays a finding.
+        if (kinds.test(entry.kind) && entry.pages.every(page => pattern.test(page)) && entry.count === entry.pages.length) {
           map.delete(key);
           this.known(reason);
         }
