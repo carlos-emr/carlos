@@ -162,6 +162,29 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
         assertThat(document.select("[name=newForm]")).hasSize(1);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "<form><input type='hidden' id='newForm' value='True'></form>",
+            "<div id='newForm'>True</div><form></form>",
+            "<form><input type='hidden' id='newForm' name='newForm' value='True' disabled></form>"})
+    void shouldSupplyNewFormByNameOnly_whenIdBelongsToElementThatSubmitsNothing(String html) {
+        EForm form = new EForm();
+        form.setFormHtml(html);
+        form.ensureNewFormInput();
+        form.ensureNewFormInput();
+        var document = Jsoup.parse(form.getFormHtml());
+        var fallbacks = document.select("form input").stream()
+                .filter(input -> "newForm".equals(input.attr("name")) && !input.hasAttr("disabled"))
+                .toList();
+        assertThat(fallbacks).hasSize(1);
+        assertThat(fallbacks.get(0).val()).isEqualTo("true");
+        assertThat(fallbacks.get(0).hasAttr("id")).isFalse();
+        // The template keeps the only element with that id.
+        assertThat(document.select("[id=newForm]")).hasSize(1);
+        assertThat(document.getElementById("newForm").val() + document.getElementById("newForm").text())
+                .isEqualTo("True");
+    }
+
     @Test
     void shouldSupplyNewFormFlag_whenTemplateHasNone() {
         EForm form = new EForm();
