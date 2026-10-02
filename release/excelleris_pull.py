@@ -1571,7 +1571,7 @@ class Archive:
         for p in self._leftovers():
             p.unlink()
             removed += 1
-            log.warning("removed %s left by an interrupted run", p.name)
+            log.warning("removed %s left by an interrupted run", self._loggable_name(p))
         return removed
 
     def report_leftovers(self) -> int:
@@ -1579,8 +1579,24 @@ class Archive:
         found = 0
         for p in self._leftovers():
             found += 1
-            log.warning("dry run: %s was left by an interrupted run (kept)", p.name)
+            log.warning("dry run: %s was left by an interrupted run (kept)", self._loggable_name(p))
         return found
+
+    _GENERATED_LEFTOVER = re.compile(r"^\d{8}-\d{6}(-manual)?(-\d+)*\.xml(\.part|\.attempts\.tmp)$")
+
+    @classmethod
+    def _loggable_name(cls, p: Path) -> str:
+        """The file's name if this tool made it, else a description of its kind.
+
+        A leftover is normally one of this tool's own temp files, but a file
+        placed under one of these suffixes by hand would carry a name chosen
+        by a person, which may hold a patient's name or number: the same rule
+        as for inbox files, only tool-made names are ever quoted.
+        """
+        if cls._GENERATED_LEFTOVER.match(p.name):
+            return p.name
+        kind = ".attempts.tmp" if p.name.endswith(".attempts.tmp") else ".xml.part"
+        return f"a {kind} file with a name not made by this tool"
 
     def _leftovers(self) -> list[Path]:
         return sorted(

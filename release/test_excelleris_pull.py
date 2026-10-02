@@ -478,6 +478,18 @@ class ArchiveTest(TempEnv):
         self.assertTrue(all("interrupted run" in line for line in captured.output))
         self.assertEqual(archive.sweep_leftovers(), 0)
 
+    def test_hand_named_leftovers_are_removed_without_being_named(self):
+        archive = ep.Archive(self.cfg)
+        (self.cfg.inbox_dir / "Jane Doe 1234567890.xml.part").write_bytes(b"x")
+        (self.cfg.inbox_dir / "Jane Doe 1234567890.xml.attempts.tmp").write_text("1 run")
+        with self.assertLogs(ep.log, level="WARNING") as captured:
+            self.assertEqual(archive.report_leftovers(), 2)
+            self.assertEqual(archive.sweep_leftovers(), 2)
+        self.assertEqual(len(captured.output), 4)
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        self.assertTrue(any("not made by this tool" in line for line in captured.output))
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+
     def test_hand_placed_files_are_renamed_before_use(self):
         archive = ep.Archive(self.cfg)
         pulled = archive.save_inbox("20261001-090000", b"<HL7Messages/>")
