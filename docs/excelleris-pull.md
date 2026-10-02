@@ -18,7 +18,9 @@ difference is whether Mule sits in between. This guide covers the Python option.
 No change to CARLOS or OSCAR is needed. The upload uses the lab-upload route both EMRs
 already expose to external lab senders (`lab/newLabUpload`), which is exactly what the
 Mule bridge spoke. CARLOS checksums every upload and answers `409` for a file it already
-imported, which is what makes the tool's retry logic safe.
+imported, which is what makes the tool's retry logic safe. OSCAR 19 records the checksum
+before it imports, so there a `409` that follows a failed attempt is not proof of import; the
+tool moves such a file to `failed/` for a person to verify (see Operations).
 
 Files:
 
@@ -259,7 +261,12 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
   406 signature failure) or that exhausted their transient-failure attempts. They are not retried. Fix the cause, then move the file back into
   `inbox/` or run it through the EMR's own upload page.
 - **Duplicates** are harmless. If a positive acknowledgment was lost and Excelleris re-sends,
-  the EMR answers `409` and the tool treats that as success.
+  the EMR answers `409` and the tool treats that as success. One exception, on OSCAR 19 only:
+  its upload action records the file's checksum before it parses, so a `409` that follows an
+  earlier failed attempt (a 5xx, or a connection lost mid-upload) does not prove the results
+  were imported. The tool moves that file to `failed/` and alerts. Check the EMR inbox for
+  the results; if they are missing, an administrator must delete the file's row from the
+  `fileUploadCheck` table before the same bytes can be uploaded again.
 - **Lock contention** (exit 3) means the previous run is still working, usually because the
   EMR is slow. It is not a failure and does not email.
 - **Logs** carry one `>>>>>` line per run start and one `<<<<<` line per finish. Nothing
@@ -277,6 +284,7 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `redirected the login to its logout page; check [carlos] flavour` | CARLOS routes were sent to an OSCAR 19, or the base URL is wrong. |
 | `unexpected reply HTTP 404` on login | OSCAR 19 routes were sent to a CARLOS. |
 | `could not obtain a CSRF token` | The CARLOS session was not established, or the base URL is wrong. |
+| `duplicate (409) after an earlier failed attempt` | OSCAR 19 only. The checksum was recorded by an attempt that then failed; the results may not be in the EMR. Verify in the EMR inbox (see Operations). |
 | `signature validation failed` (406) | `service` does not match the key name, or the client private key is not the one the EMR generated for it. |
 | `upload-source validation` (403, CARLOS) | CARLOS refused the upload before checking the signature; see the CARLOS log. |
 | `instead of an upload result` | The EMR answered HTTP 200 with a page, not a result: usually the multipart layer refused the request (size limit). The file stays in `inbox/`. |
@@ -325,7 +333,7 @@ enrolment with LifeLabs or a new key in OSCAR. Default install root is `/opt/gof
 4. Run `--check-config`, then `--dry-run` against the same `base_url` GoFetchRover used,
    then one real pull against the LifeLabs test host if the site still has test
    credentials. A result file that GoFetchRover had already handed to Mule is answered
-   with 409 by OSCAR and treated as success.
+   with 409 by OSCAR and treated as success (no failed attempt of this tool precedes it).
 5. Schedule the tool and remove the Rover cron, or the whole `rover` service from
    `docker-compose.yml`.
 
@@ -383,14 +391,15 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
 `ShellScriptWireParityTest` in the test file runs curl with the script's exact flags and the
 tool's real transport against one recording TLS server and compares the request heads.
 
-On the host side: the same `YYYYMMDD-HHMMSS.xml` file names and `.xz` archives, one run at a
-time under a lock, an email on failure. What the script handed to Mule, the tool uploads
+On the host side: the same `YYYYMMDD-HHMMSS.xml` file names, the same `xz` compression of
+the kept copy (the script ran `xz` on its own copy and on Mule's done directory; the tool
+compresses into `done/`), one run at a time under a lock, an email on failure. What the script handed to Mule, the tool uploads
 itself.
 
 | `ExcellerisDownload.sh` flag | `excelleris_pull.py` |
 |---|---|
 | `-s` (suppress the Mule hand-off) | `--no-upload` |
-| `-a` (push the backlog even when nothing was pulled) | Not needed: every run uploads whatever is in `inbox/` before and after the pull. |
+| `-a` (go on to the Mule hand-off even when nothing was pulled) | Every run already uploads whatever is in `inbox/` before and after the pull; `--upload-only` does only that, without a pull. |
 | `-v` | `-v` / `--verbose` |
 | `-h` | `--help` |
 

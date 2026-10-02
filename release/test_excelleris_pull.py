@@ -15,6 +15,7 @@ Requires python3-cryptography, like the tool itself.
 from __future__ import annotations
 
 import base64
+import dataclasses
 import datetime as dt
 import email
 import lzma
@@ -648,7 +649,9 @@ class CarlosSessionTest(TempEnv):
 # ---------------------------------------------------------------------------
 
 
-class OrchestrationTest(TempEnv):
+class _OrchestrationBase(TempEnv):
+    """Scripted-transport fixture: a CARLOS-flavour config and the labels helper."""
+
     def setUp(self):
         super().setUp()
         self.script = {
@@ -675,6 +678,8 @@ class OrchestrationTest(TempEnv):
     def labels(self):
         return [FakeTransport.label(m, u) for t in self.transports for m, u, _, _ in t.calls]
 
+
+class OrchestrationTest(_OrchestrationBase):
     def test_full_run_pulls_acks_uploads_and_archives(self):
         rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
         self.assertEqual(rc, ep.EXIT_OK)
@@ -1014,6 +1019,14 @@ class FakeCarlosHandler(_QuietHandler):
                 return self._reply(406, b"validation failed")
             if plaintext in srv.seen:
                 return self._reply(409, b"uploaded previously")
+            if getattr(srv, "fail_next_import", False):
+                srv.fail_next_import = False
+                if getattr(srv, "oscar19", False):
+                    # OSCAR 19: FileUploadCheck.addFile runs before the parse,
+                    # so a failed import still leaves the checksum behind.
+                    srv.seen.append(plaintext)
+                srv.log.append(("upload-failed", parts["importFile"].get_filename()))
+                return self._reply(500, b"")
             srv.seen.append(plaintext)
             srv.log.append(
                 (
@@ -1183,6 +1196,18 @@ class LiveServersTest(TempEnv):
         self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # kept for the next run
         self.assertEqual([c[0] for c in self.carlos.log], ["login"])
 
+    def test_retry_after_failed_import(self):
+        """CARLOS: the checksum rolls back with a failed import, so the retry
+        imports and the file is archived."""
+        self.carlos.fail_next_import = True
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions()), ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 1)
+        self.excelleris.next_pull = b"<HL7Messages/>"
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions()), ep.EXIT_OK)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 1)
+        self.assertEqual(list(self.cfg.failed_dir.glob("*")), [])
+
     def test_untrusted_server_certificate_is_refused(self):
         text = self.conf.read_text().replace(f"ca_file = {self.ca_pem}\n", "")
         self.conf.write_text(text)
@@ -1217,7 +1242,7 @@ class ConfigFlavourTest(TempEnv):
         with self.assertRaisesRegex(ep.ConfigError, "product must be CARLOS or OSCAR"):
             ep.load_config(self.conf)
 
-    def test_product_defaults_to_carlos_forEveryFlavour(self):
+    def test_product_defaults_to_carlos_for_every_flavour(self):
         _, _, c, srv = make_keys()
         self.write_conf(c, srv, extra_carlos="flavour = oscar19")
         cfg = ep.load_config(self.conf)
@@ -1329,6 +1354,18 @@ class LiveOscar19Test(LiveServersTest):
         self.assertIsNone(upload[3], "no CSRF header must reach OSCAR 19")
         self.assertEqual(upload[4], "/carlos/lab/newLabUpload")  # the fake stripped .do
         self.assertTrue(all(c[3] == ep.USER_AGENT_OSCAR19_SCRIPT for c in self.excelleris.log))
+
+    def test_retry_after_failed_import(self):
+        """OSCAR 19: the checksum was recorded before the failed parse, so the
+        retry's 409 proves nothing; the file goes to failed/ for a person."""
+        self.carlos.fail_next_import = True
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions()), ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 1)
+        self.excelleris.next_pull = b"<HL7Messages/>"
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions()), ep.EXIT_FAILED)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+        self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
+        self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
 
     def test_carlos_flavour_against_oscar19_fails_loudly(self):
         text = self.conf.read_text().replace("flavour = oscar19", "flavour = carlos")
@@ -1788,7 +1825,7 @@ class LivePemPairTest(LiveServersTest):
         self.cfg = ep.load_config(self.conf)
 
 
-class RetryClassificationTest(OrchestrationTest):
+class RetryClassificationTest(_OrchestrationBase):
     """Transient EMR failures keep the pull in the inbox, up to a cap."""
 
     def test_transient_500_stays_in_inbox_until_the_cap(self):
@@ -1825,6 +1862,94 @@ class RetryClassificationTest(OrchestrationTest):
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
         self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 1)
         self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
+
+
+def _replies(*responses):
+    """A scripted handler answering each call with the next item; an exception
+    instance is raised instead of returned."""
+    queue = list(responses)
+
+    def handler(_m, _u, _h, _b):
+        item = queue.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    return handler
+
+
+class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
+    """OSCAR 19 records the checksum before it parses: a 409 that follows a
+    failed attempt must not be archived as imported."""
+
+    def setUp(self):
+        super().setUp()
+        text = self.conf.read_text().replace("[carlos]\n", "[carlos]\nflavour = oscar19\n", 1)
+        self.conf.write_text(
+            text
+        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        self.cfg = ep.load_config(self.conf)
+        self.script["POST /carlos/login.do"] = ok('{"success":true}')
+        self.script["GET /carlos/logout.jsp"] = ok("")
+
+    def test_409_after_a_500_goes_to_failed(self):
+        self.script["POST /carlos/lab/newLabUpload.do"] = _replies(ok("", 500), ok("", 409))
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.xml"))), 1)
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])  # sidecar gone too
+        self.assertEqual(list(self.cfg.done_dir.glob("*")), [])
+        self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
+
+    def test_409_after_a_transport_error_goes_to_failed(self):
+        # The upload request may have reached the EMR before the connection died.
+        self.script["POST /carlos/lab/newLabUpload.do"] = _replies(
+            ep.TransportError("connection reset"), ok("", 409)
+        )
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.inbox_dir.glob("*.attempts"))), 1)
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*.tmp")), [])
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.assertEqual(len(list(self.cfg.failed_dir.glob("*.xml"))), 1)
+
+    def test_plain_409_is_still_a_duplicate(self):
+        self.script["POST /carlos/lab/newLabUpload.do"] = ok("", 409)
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 1)
+
+
+class CarlosDuplicateAfterFailureTest(_OrchestrationBase):
+    def test_409_after_a_500_is_an_import_on_carlos(self):
+        # storeIfNew commits the checksum with the import, so a 409 is proof.
+        self.script["POST /carlos/lab/newLabUpload"] = _replies(ok("", 500), ok("", 409))
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        self.script["excelleris:pull"] = ok("<HL7Messages/>")
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
+        self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 1)
+
+
+class AlertHeaderTest(TempEnv):
+    def test_line_breaks_in_alert_addresses_are_rejected(self):
+        text = self.conf.read_text().replace(
+            "[alerts]\nemail = \n",
+            "[alerts]\nemail = it@example.test\n  Bcc: other@example.test\n",
+            1,
+        )
+        assert "Bcc" in text
+        self.conf.write_text(
+            text
+        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        with self.assertRaisesRegex(ep.ConfigError, "control characters"):
+            ep.load_config(self.conf)
+
+    def test_notifier_never_raises(self):
+        # Even a header EmailMessage refuses must not turn the alert into a crash.
+        cfg = dataclasses.replace(
+            self.cfg, alert_email="it@example.test\nBcc: x", sendmail="/bin/true"
+        )
+        ep.Notifier(cfg).failure("run", "step", "detail")
 
 
 class TrustAnchorTest(TempEnv):
@@ -1882,8 +2007,9 @@ class CertificateCleanupTest(TempEnv):
         tmpdir = cert.pem_path.parent
         original = ep.shutil.rmtree
 
-        def broken(path, onerror=None, **kw):
-            onerror(None, str(path), None)
+        def broken(path, onerror=None, onexc=None, **kw):
+            # rmtree passes onexc from 3.12, onerror before.
+            (onexc or onerror)(None, str(path), None)
 
         ep.shutil.rmtree = broken
         try:

@@ -248,7 +248,7 @@ class TransportError(Exception):
     """The network layer failed: DNS, TCP, TLS, timeout, or a truncated body.
 
     Distinct from an HTTP error status, which the caller interprets itself:
-    a 409 from CARLOS is good news and a 403 is a definitive rejection, neither
+    a 409 from the EMR is normally good news and a 406 is a rejection, neither
     of which is a transport problem.
     """
 
@@ -383,6 +383,16 @@ def _require_trusted_file(path: Path, what: str) -> None:
         )
     if st.st_uid not in (os.geteuid(), 0):
         raise ConfigError(f"{what} {path} is not owned by the running user or root")
+
+
+def _header_safe(value: str, what: str) -> str:
+    """Reject control characters in a value that becomes a mail header or a
+    command path. INI continuation lines make a CR/LF-bearing value possible,
+    and EmailMessage refuses such a header at send time, which would turn the
+    failure alert itself into an exception."""
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        raise ConfigError(f"{what} must not contain control characters (line breaks included)")
+    return value
 
 
 def _read_key_material(section: configparser.SectionProxy, key: str) -> str:
@@ -622,9 +632,14 @@ def load_config(path: Path) -> Config:
         state_dir=Path(need("paths", "state_dir")),
         log_file=Path(need("paths", "log_file")),
         retention_days=positive_int("paths", "retention_days", "90", 0),
-        alert_email=optional("alerts", "email", ""),
-        alert_from=optional("alerts", "from", f"carlos-excelleris@{socket.gethostname()}"),
-        sendmail=optional("alerts", "sendmail", "/usr/sbin/sendmail"),
+        alert_email=_header_safe(optional("alerts", "email", ""), "[alerts] email"),
+        alert_from=_header_safe(
+            optional("alerts", "from", f"carlos-excelleris@{socket.gethostname()}"),
+            "[alerts] from",
+        ),
+        sendmail=_header_safe(
+            optional("alerts", "sendmail", "/usr/sbin/sendmail"), "[alerts] sendmail"
+        ),
     )
     if not cfg.state_dir.is_absolute() or not cfg.log_file.is_absolute():
         raise ConfigError("[paths] state_dir and log_file must be absolute paths")
@@ -1220,7 +1235,7 @@ class Archive:
             dest.unlink(missing_ok=True)
             raise
         path.unlink()
-        self._attempts_file(path).unlink(missing_ok=True)
+        self._forget_attempts(path)
         self._fsync_dir(self.cfg.inbox_dir)
         return dest
 
@@ -1228,8 +1243,13 @@ class Archive:
         """Move a file the EMR definitively rejected out of the retry path."""
         dest = self._unique(self.cfg.failed_dir, path.name)
         os.rename(path, dest)
-        self._attempts_file(path).unlink(missing_ok=True)
+        self._forget_attempts(path)
         return dest
+
+    def _forget_attempts(self, path: Path) -> None:
+        sidecar = self._attempts_file(path)
+        sidecar.unlink(missing_ok=True)
+        sidecar.with_name(sidecar.name + ".tmp").unlink(missing_ok=True)
 
     @staticmethod
     def _fsync_dir(directory: Path) -> None:
@@ -1244,27 +1264,44 @@ class Archive:
         # Sidecar beside the inbox file; not matched by the *.xml listing.
         return path.with_name(path.name + ".attempts")
 
+    def _read_attempts(self, path: Path) -> tuple[int, str]:
+        """(count, token of the run that last counted) from the sidecar; (0, "") if none."""
+        try:
+            count_text, _, last_run = self._attempts_file(path).read_text().strip().partition(" ")
+            return int(count_text or "0"), last_run
+        except (OSError, ValueError):
+            return 0, ""
+
+    def attempts(self, path: Path) -> int:
+        """Upload attempts recorded for ``path`` that did not end in an accepted
+        or permanent reply."""
+        return self._read_attempts(path)[0]
+
     def bump_attempts(self, path: Path, run_token: str) -> int:
-        """Record a transient upload failure for ``path``; return the total.
+        """Record a failed upload attempt for ``path``; return the total.
 
         One run uploads twice (the backlog before the pull, everything after
         it), so the sidecar remembers which run last counted: a second failure
         in the same run is retried but not counted again, keeping
         ``max_upload_attempts`` equal to the number of runs a file survives.
+
+        Written atomically and durably (temp file, fsync, rename, fsync of the
+        directory): a crash mid-write must not reset the count to zero, which
+        on OSCAR 19 would let a later 409 pass as an import (see upload_step).
         """
         sidecar = self._attempts_file(path)
-        count, last_run = 0, ""
-        try:
-            count_text, _, last_run = sidecar.read_text().strip().partition(" ")
-            count = int(count_text or "0")
-        except (OSError, ValueError):
-            count = 0
+        count, last_run = self._read_attempts(path)
         if last_run == run_token:
             return count
         count += 1
-        fd = os.open(sidecar, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        tmp = sidecar.with_name(sidecar.name + ".tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as fh:
             fh.write(f"{count} {run_token}\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, sidecar)
+        self._fsync_dir(self.cfg.inbox_dir)
         return count
 
     def purge(self) -> int:
@@ -1409,7 +1446,8 @@ class UploadOutcome:
     @property
     def accepted(self) -> bool:
         # 200: imported now. 409: the EMR already holds a byte-identical file
-        # (FileUploadCheck); that is the retry path working as designed.
+        # (FileUploadCheck); that is the retry path working as designed. On
+        # OSCAR 19 upload_step adds one condition: no failed attempt before it.
         return self.status in (200, 409)
 
     @property
@@ -1726,6 +1764,12 @@ class Notifier:
         if not self.cfg.alert_email:
             log.warning("no [alerts] email configured; alert not sent")
             return
+        try:
+            self._send(host, run_id, step, detail)
+        except Exception as exc:  # noqa: BLE001 - the alert channel must never mask the failure
+            log.error("could not send alert email via %s: %s", self.cfg.sendmail, exc)
+
+    def _send(self, host: str, run_id: str, step: str, detail: str) -> None:
         msg = EmailMessage()
         msg["From"] = self.cfg.alert_from
         msg["To"] = self.cfg.alert_email
@@ -1740,18 +1784,14 @@ class Notifier:
             f"Inbox:  {self.cfg.inbox_dir} (files here have been pulled but not yet imported)\n"
             f"Failed: {self.cfg.failed_dir} (files CARLOS rejected; need a person)\n"
         )
-        try:
-            subprocess.run(
-                [self.cfg.sendmail, "-t", "-oi"],
-                input=msg.as_bytes(),
-                check=True,
-                timeout=60,
-                capture_output=True,
-            )
-            log.info("alert emailed to %s", self.cfg.alert_email)
-        except (OSError, subprocess.SubprocessError) as exc:
-            # The alert channel failing must not mask the original failure.
-            log.error("could not send alert email via %s: %s", self.cfg.sendmail, exc)
+        subprocess.run(
+            [self.cfg.sendmail, "-t", "-oi"],
+            input=msg.as_bytes(),
+            check=True,
+            timeout=60,
+            capture_output=True,
+        )
+        log.info("alert emailed to %s", self.cfg.alert_email)
 
 
 # ---------------------------------------------------------------------------
@@ -1829,6 +1869,13 @@ def pull_step(
             raise StepError("excelleris transport", str(exc)) from exc
 
 
+OSCAR19_409_AFTER_FAILURE = (
+    "duplicate (409) after an earlier failed attempt; OSCAR 19 records a file's checksum "
+    "before importing it, so this file may never have been imported: verify it in the EMR "
+    "inbox before discarding it"
+)
+
+
 def upload_step(
     cfg: Config,
     archive: Archive,
@@ -1856,8 +1903,35 @@ def upload_step(
             if opts.dry_run:
                 log.info("dry run: CARLOS login and CSRF token verified; skipping upload")
             for path in files:
-                outcome = session.upload(path)
+                try:
+                    outcome = session.upload(path)
+                except TransportError:
+                    # The request may have reached the EMR before the connection
+                    # died (a timeout during a slow import, say). Count it, so
+                    # the OSCAR 19 rule below knows a 409 may follow an import
+                    # that never completed.
+                    archive.bump_attempts(path, run_token)
+                    raise
                 if outcome.accepted:
+                    if (
+                        outcome.status == 409
+                        and cfg.carlos_flavour == FLAVOUR_OSCAR19
+                        and archive.attempts(path) > 0
+                    ):
+                        # OSCAR 19's LabUploadAction records the checksum
+                        # (FileUploadCheck.addFile) BEFORE it parses, so after a
+                        # failed attempt a 409 only proves the checksum exists,
+                        # not that the results were imported. CARLOS' storeIfNew
+                        # commits the checksum with the import, so its 409 is
+                        # proof and needs no such rule.
+                        dest = archive.mark_failed(path)
+                        failures.append(
+                            f"{path.name}: {OSCAR19_409_AFTER_FAILURE}; moved to {dest}"
+                        )
+                        log.error(
+                            "%s: %s: %s", cfg.carlos_flavour, path.name, OSCAR19_409_AFTER_FAILURE
+                        )
+                        continue
                     dest = archive.mark_done(path)
                     log.info(
                         "%s: %s -> %s (%s)",
