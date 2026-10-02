@@ -617,6 +617,8 @@ const server = http.createServer((req, res) => {
     await page.addInitScript(() => {
       delete window.FormDataEvent;
       Object.defineProperty(SubmitEvent.prototype, 'submitter', {configurable: true, get() { return undefined; }});
+      // Chromium still dispatches formdata; a browser without the event never delivers it.
+      window.addEventListener('formdata', event => event.stopImmediatePropagation(), true);
     });
     const legacyCases = [
       ['toolbar', ['true']],
@@ -624,6 +626,8 @@ const server = http.createServer((req, res) => {
       ['external', ['False']],
       ['onsubmit-disables', ['true']],
       ['cancelled-then-toolbar', ['true']],
+      // An image button named newForm posts newForm.x/newForm.y, never newForm: the fallback stays.
+      ['image', ['true']],
     ];
     for (const [legacyCase, expected] of legacyCases) {
       await open(false, false, true);
@@ -642,6 +646,14 @@ const server = http.createServer((req, res) => {
           document.body.append(button);
         } else if (kind === 'onsubmit-disables') {
           form.addEventListener('submit', () => { document.getElementById('newFormButton').disabled = true; });
+        } else if (kind === 'image') {
+          const image = document.createElement('input');
+          image.id = 'imageNewFormButton';
+          image.type = 'image';
+          image.name = 'newForm';
+          image.alt = 'Save as image';
+          image.style.cssText = 'display:inline-block;width:40px;height:20px;';
+          form.prepend(image);
         } else if (kind === 'cancelled-then-toolbar') {
           form.addEventListener('submit', event => { event.preventDefault(); window.cancelledSubmit = true; }, {once: true});
         }
@@ -650,6 +662,8 @@ const server = http.createServer((req, res) => {
         await page.locator('#remoteSubmitButton').click();
       } else if (legacyCase === 'external') {
         await page.locator('#externalNewFormButton').click();
+      } else if (legacyCase === 'image') {
+        await page.locator('#imageNewFormButton').click();
       } else {
         await page.locator('#newFormButton').click();
       }
@@ -662,6 +676,21 @@ const server = http.createServer((req, res) => {
       await page.waitForURL('**/eform/addEForm');
       assert.equal(requests.length, 1, legacyCase);
       assert.deepEqual(requests[0].getAll('newForm'), expected, `legacy ${legacyCase}`);
+    }
+    // Without formdata, a name-only template's form default is supplied by a temporary input: its
+    // own value posts alone, and when its script disables the control newForm=true posts, once,
+    // through both the toolbar's save and a native submit button.
+    for (const path of ['toolbar', 'native']) {
+      for (const disable of [false, true]) {
+        await open(false, false, 'named');
+        if (disable) await page.evaluate(() => { document.getElementById('namedNewForm').disabled = true; });
+        if (path === 'toolbar') await page.locator('#remoteSubmitButton').click();
+        else await page.evaluate(() => document.querySelector('input[name=SubmitButton]').click());
+        await page.waitForURL('**/eform/addEForm');
+        assert.equal(requests.length, 1, `legacy named ${path} ${disable}`);
+        assert.deepEqual(requests[0].getAll('newForm'), disable ? ['true'] : ['False'],
+          `legacy named via ${path}, disabled=${disable}`);
+      }
     }
     await page.emulateMedia({media:'print'});
     assert.deepEqual(errors,[]);
