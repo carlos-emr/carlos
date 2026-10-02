@@ -29,7 +29,7 @@ const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url(
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
-  const probe = auditProbe({ sql, patient, provider });
+  const probe = auditProbe({ sql, patient });
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
   const text = `${marker} audit read-path note`;

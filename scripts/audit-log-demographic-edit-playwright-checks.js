@@ -22,7 +22,7 @@ const { auditProbe, phiLeaks, incomplete } = require('./lib/audit-log-helpers');
 
 async function workflow(s) {
   const { sql, marker, patient, provider, master } = s;
-  const probe = auditProbe({ sql, patient, provider });
+  const probe = auditProbe({ sql, patient });
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
   s.cleanup(() => {

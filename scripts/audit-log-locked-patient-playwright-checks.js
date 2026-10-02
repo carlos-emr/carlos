@@ -29,7 +29,7 @@ const { auditProbe, label } = require('./lib/audit-log-helpers');
 async function workflow(s) {
   const { sql, marker, patient, provider, config } = s;
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
-  const probe = auditProbe({ sql, patient, provider });
+  const probe = auditProbe({ sql, patient });
   let doctor;
   s.cleanup(() => cleanupAll(() => fixture.cleanup(), () => probe.cleanup()));
   let attemptedAfter;

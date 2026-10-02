@@ -28,7 +28,7 @@ const { stageCustomDrug, clearOwnedPrescriptionRows } = require('./rx-stash-pati
 
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
-  const probe = auditProbe({ sql, patient, provider });
+  const probe = auditProbe({ sql, patient });
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
   const drugName = `${marker}-drug`;

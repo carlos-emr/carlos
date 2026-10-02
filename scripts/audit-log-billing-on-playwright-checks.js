@@ -29,7 +29,7 @@ async function workflow(s) {
   const { sql, patient, provider } = s;
   const owned = createBillingFixture(s);
   g.registerOwnedBillCleanup(s);
-  const probe = auditProbe({ sql, patient, provider });
+  const probe = auditProbe({ sql, patient });
   s.cleanup(() => probe.cleanup());
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };

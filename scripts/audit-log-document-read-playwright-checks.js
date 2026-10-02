@@ -40,7 +40,7 @@ async function workflow(s) {
   const { sql, patient, marker, provider } = s;
   const store = process.env.DOCUMENT_DIR;
   if (!store || !fs.existsSync(store)) throw new h.SkipCheck('DOCUMENT_DIR (the document store) is not readable here');
-  const probe = auditProbe({ sql, patient, provider });
+  const probe = auditProbe({ sql, patient });
   const defects = [];
   const expect = (ok, message) => { if (!ok) defects.push(message); };
   const description = `${marker} audit document`;

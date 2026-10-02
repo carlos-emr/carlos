@@ -27,7 +27,7 @@ const TIMEOUT = 30000;
 
 async function workflow(s) {
   const { sql, marker, patient, provider, context, recorder } = s;
-  const probe = auditProbe({ sql, patient, provider });
+  const probe = auditProbe({ sql, patient });
   s.cleanup(() => probe.cleanup());
   let before;
 
