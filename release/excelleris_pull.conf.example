@@ -1,4 +1,5 @@
 # excelleris_pull.conf - configuration for release/excelleris_pull.py
+# Full setup and operations guide: docs/excelleris-pull.md
 #
 # Copy to a location only the service user can read, then:
 #     chown carlos-excelleris:carlos-excelleris pull.conf

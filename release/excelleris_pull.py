@@ -19,6 +19,11 @@
 """
 Pull lab results from Excelleris and upload them straight into CARLOS EMR.
 
+The full setup and operations guide, including the OSCAR 19 variant, the
+configuration reference, alert meanings and the migration table from the
+shell script, is docs/excelleris-pull.md in the CARLOS repository. The notes
+below are the short form.
+
 WHAT THIS DOES
 ==============
 
