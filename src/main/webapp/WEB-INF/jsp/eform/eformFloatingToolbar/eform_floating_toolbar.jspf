@@ -51,9 +51,11 @@
      server localizes, so script-side prompts travel as data-* attributes on its root element (the
      script keeps an English fallback for when the fragment failed to load). --%>
 <fmt:message key="eform.floatingToolbar.printSaveUneditedConfirm" var="printSaveUneditedConfirm"/>
+<fmt:message key="eform.floatingToolbar.subjectNotAnOption" var="subjectNotAnOption"/>
 
 <div id="eform_floating_toolbar" class="no-print DoNotPrint d-print-none"
-	data-print-save-unedited-confirm="${carlos:forHtmlAttribute(printSaveUneditedConfirm)}">
+	data-print-save-unedited-confirm="${carlos:forHtmlAttribute(printSaveUneditedConfirm)}"
+	data-subject-not-an-option="${carlos:forHtmlAttribute(subjectNotAnOption)}">
 	<nav id="eform_floating_toolbar_nav" class="navbar bg-light no-print DoNotPrint d-print-none" data-bs-theme="light">
 		<form class="d-flex" onsubmit="return false;">
 			<div class="input-group">
