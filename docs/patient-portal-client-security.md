@@ -121,9 +121,11 @@ before the send are a commit whose answer is lost twice, and a commit the portal
 not record (a failed database write, or a crash, after which staff stop the attempt). CARLOS withdraws
 the new code, which never left, and records the commit as unconfirmed, never refused: since the portal
 may already have retired the old code while activating the new, the page tells staff that a replaced
-invitation may no longer work and a new one should be sent. Every queued attempt stopped by staff
-keeps activation unconfirmed: a remote commit may still complete after a status lookup, so observing
-the earlier invitation pending cannot prove that its replacement was never activated.
+invitation may no longer work and a new one should be sent. A queued attempt without a recorded
+commit refusal keeps activation unconfirmed when stopped by staff: a remote commit may still complete
+after a status lookup, so observing the earlier invitation pending cannot prove that its replacement
+was never activated. A recorded commit refusal is preserved under the database row lock, including
+when the gate records it after recovery has read an older snapshot.
 
 Why an attempt stands where it does is stored as an `outcome` code (`PatientPortalInviteDelivery.Outcome`),
 with a separate `revoke_failed` flag when code withdrawal remains unconfirmed and needs a retry. The row holds no prose and nothing from a portal response; the staff page translates the codes.

@@ -61,8 +61,8 @@
             }
             if (delivery.outcome === 'commit_unconfirmed' && delivery.supersededInviteId) {
                 // The portal retires the old code as it activates a replacement, so an unconfirmed
-                // replacement may have taken the old code with it. Every queued replacement staff stop
-                // retains this uncertainty because the remote commit may still have been running.
+                // replacement may have taken the old code with it. A queued replacement with no recorded
+                // refusal retains this uncertainty because the remote commit may still have been running.
                 parts.push(text('deliveries.replacementMayBeLost'));
             }
             return parts;
