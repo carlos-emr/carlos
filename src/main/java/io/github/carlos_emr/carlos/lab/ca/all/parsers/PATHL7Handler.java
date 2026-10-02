@@ -591,8 +591,15 @@ public class PATHL7Handler implements MessageHandler {
     }
 
     /**
-     * For the legacy shape, the ED.1 text the loader classified, normalised like the other result
-     * accessors; {@link #getOBXResult(int, int)} reads ED.5 there and would return nothing.
+     * The text of an ED value, normalised once like the other result accessors (trimmed, HL7
+     * {@code \.br\} to the {@code <br />} marker):
+     * <ul>
+     *   <li>legacy shape: the ED.1 text the loader classified ({@link #getOBXResult(int, int)}
+     *       reads ED.5 there and would return nothing);</li>
+     *   <li>CELLPATHR raw RTF in ED.1: returned exactly as {@code getOBXResult} gives it, since it
+     *       is RTF for the RTF renderer, not HL7 text;</li>
+     *   <li>otherwise: the ED.5 value {@code getOBXResult} returns raw for ED.</li>
+     * </ul>
      */
     @Override
     public String getOBXEmbeddedDocumentText(int i, int j) {
@@ -600,7 +607,28 @@ public class PATHL7Handler implements MessageHandler {
             String legacy = getLegacyOBXResult(i, j);
             return legacy == null ? "" : EdObservationValue.normaliseText(legacy);
         }
-        return MessageHandler.super.getOBXEmbeddedDocumentText(i, j);
+        String text = MessageHandler.super.getOBXEmbeddedDocumentText(i, j);
+        if (!isOBXEmbeddedDocument(i, j) || isCellPathRtf(i, j)) {
+            return text;
+        }
+        return EdObservationValue.normaliseText(text);
+    }
+
+    /** Whether {@link #getOBXResult(int, int)} returns this CELLPATHR OBX's raw RTF from ED.1. */
+    private boolean isCellPathRtf(int i, int j) {
+        try {
+            if (!"CELLPATHR".equals(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR()
+                    .getObr24_DiagnosticServiceSectionID().getValue())) {
+                return false;
+            }
+            Varies[] values = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j)
+                    .getOBX().getObx5_ObservationValue();
+            return values != null && values.length > 0 && values[0] != null
+                    && values[0].getData() instanceof ED ed
+                    && !StringUtils.isEmpty(ed.getEd1_SourceApplication().getHd1_NamespaceID().getValue());
+        } catch (HL7Exception e) {
+            return false;
+        }
     }
 
     public String getLegacyOBXResult(int i, int j) {
