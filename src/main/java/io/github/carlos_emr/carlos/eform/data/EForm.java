@@ -1469,19 +1469,27 @@ public class EForm extends EFormBase {
     /**
      * Preserve a template's case-sensitive newForm flag and its submitted name.
      *
-     * <p>The fallback is added only when the template has neither a {@code newForm} id nor a
-     * {@code name=newForm} control in its form. Templates that declare the flag by name alone
-     * would otherwise submit two conflicting values, and {@code form.newForm} would become a
-     * RadioNodeList whose {@code value} no longer reads the template's own flag.
+     * <p>The fallback is added only when the form has no successful control named exactly
+     * {@code newForm}; see {@link #hasSubmittableNewFormControl(Element)}. Templates that already
+     * submit the flag would otherwise send two conflicting values, and {@code form.newForm} would
+     * become a RadioNodeList whose {@code value} no longer reads the template's own flag.
+     *
+     * <p>An element that merely has {@code id="newForm"} (an unnamed input, a {@code div}, a
+     * disabled control) submits nothing, so it does not suppress the fallback. It does keep the
+     * id: the fallback is then added by name only, so template scripts that read
+     * {@code getElementById("newForm")} still find their own element and the page never carries
+     * a duplicate id.
      */
     public void ensureNewFormInput() {
         Element form = getDocument().selectFirst("form");
-        // getElementById is case-sensitive; the name check must be too (jsoup's [name=...]
-        // selector ignores case, but "newform" is a different field to browsers and scripts).
-        if (form != null && getDocument().getElementById("newForm") == null
-                && !hasSubmittableNewFormControl(form)) {
-            form.appendElement("input").attr("type", "hidden").attr("id", "newForm")
-                    .attr("name", "newForm").attr("value", "true");
+        if (form == null || hasSubmittableNewFormControl(form)) {
+            return;
+        }
+        Element fallback = form.appendElement("input").attr("type", "hidden")
+                .attr("name", "newForm").attr("value", "true");
+        // getElementById is case-sensitive, matching the browser.
+        if (getDocument().getElementById("newForm") == null) {
+            fallback.attr("id", "newForm");
         }
     }
 
