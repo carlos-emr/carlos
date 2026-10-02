@@ -248,6 +248,19 @@ class InspectPullTest(unittest.TestCase):
         body = b'<HL7Messages MessageCount="1">\n  <Message MsgID="1"><![CDATA[MSH|x]]></Message>\n</HL7Messages>\n'
         self.assertEqual(ep.inspect_pull(body).message_count, 1)
 
+    def test_message_count_mismatch_is_a_problem(self):
+        # Header says three, body holds two: refuse the batch so Excelleris
+        # keeps it pending, rather than acknowledge a message we never saw.
+        body = PULL_WITH_RESULTS.replace(b'MessageCount="2"', b'MessageCount="3"')
+        s = ep.inspect_pull(body)
+        self.assertEqual(s.message_count, 2)
+        self.assertFalse(s.has_results)
+        self.assertIn("MessageCount=3", s.problem)
+        self.assertIn("2 Message elements", s.problem)
+        # A matching count, or no count at all, is fine.
+        self.assertIsNone(ep.inspect_pull(PULL_WITH_RESULTS).problem)
+        self.assertIsNone(ep.inspect_pull(b"<HL7Messages><Message/></HL7Messages>").problem)
+
     def test_empty_forms_have_no_results(self):
         for body in (
             b"<HL7Messages/>",
@@ -845,6 +858,17 @@ class OrchestrationTest(_OrchestrationBase):
         names = sorted(p.name for p in self.cfg.failed_dir.glob("*.xml"))
         self.assertEqual(len(names), 2, names)  # the hand-placed file and the pull
         self.assertTrue(all(ep.Archive._GENERATED_NAME.match(n) for n in names), names)
+
+    def test_message_count_mismatch_gets_a_negative_ack_and_is_not_stored(self):
+        self.script["excelleris:pull"] = ok(
+            PULL_WITH_RESULTS.replace(b'MessageCount="2"', b'MessageCount="3"')
+        )
+        rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)
+        self.assertIn("excelleris:ack:Negative", self.labels())
+        self.assertNotIn("excelleris:ack:Positive", self.labels())
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
+        self.assertNotIn("POST /carlos/lab/newLabUpload", self.labels())
 
     def test_excelleris_down_is_a_reported_failure_not_a_crash(self):
         self.script["excelleris:login"] = ep.TransportError("connect timed out")

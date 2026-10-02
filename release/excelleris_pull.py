@@ -1092,9 +1092,12 @@ def inspect_pull(body: bytes) -> PullSummary:
     the line breaks fall and also recognises an error document.
 
     ElementTree is used because the input arrives over mutual TLS from one
-    known peer and the parser does not resolve external entities; the
-    cross-check against ``MessageCount`` is logged, never trusted over the
-    actual element count.
+    known peer and the parser does not resolve external entities. A
+    ``MessageCount`` that disagrees with the number of ``Message`` elements
+    is a problem, as it was for the Mule bridge: acknowledging such a batch
+    positively would let Excelleris drop a message its own header says is
+    there, so the batch is refused (negative acknowledgment, alert) and
+    Excelleris keeps it pending for the next run.
     """
     try:
         root = ET.fromstring(body)
@@ -1108,8 +1111,10 @@ def inspect_pull(body: bytes) -> PullSummary:
     count = sum(1 for child in root if child.tag == "Message")
     declared = root.get("MessageCount")
     if declared is not None and declared.isdigit() and int(declared) != count:
-        log.warning(
-            "pull declares MessageCount=%s but contains %d Message elements", declared, count
+        return PullSummary(
+            count,
+            None,
+            f"pull declares MessageCount={declared} but contains {count} Message elements",
         )
     return PullSummary(count, None, None)
 

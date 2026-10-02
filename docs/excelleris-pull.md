@@ -370,7 +370,7 @@ enrolment with LifeLabs or a new key in OSCAR. Default install root is `/opt/gof
 |---|---|
 | Sends the Excelleris parameters as a POST body. | Sends them as a GET query, as the OSCAR shell script always did. Excelleris accepts both. |
 | Queries with `Pending=Yes`. | Same. |
-| Refuses the pull and sends a negative ack when `MessageCount` disagrees with the number of `Message` elements. | Logs the disagreement and trusts the actual elements; results are not left pending over a header count. |
+| Refuses the pull and sends a negative ack when `MessageCount` disagrees with the number of `Message` elements. | Same: the batch is refused with an alert and Excelleris keeps it pending, rather than acknowledging a message the header says is there but the body does not hold. |
 | Writes the XML to `volumes/rover/xml/` and copies it to the Mule inbox; Mule uploads and moves it to `completedHL7dir`. | Writes once to `inbox/`, uploads directly, compresses into `done/`. |
 | Positive ack after the copy to the Mule folder, before the upload. | Positive ack after the file is fsync'd locally, before the upload. Same ordering, same recovery: an unsent file is retried next run and a duplicate is a 409. |
 | Error mail from Mule via SMTP. | Alert mail from the tool via sendmail, naming the failing step. |
@@ -411,9 +411,11 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
 - The same client certificate from the same PFX, with server verification on.
 - The same acknowledgment rule: positive only when the pull holds at least one `<Message>`
   (the script tested the first line for `<Message `; the tool parses the document), negative
-  otherwise, including after a failed download; `ReturnCode="0"` accepted. One difference: an
-  acknowledgment reply that is neither form (a maintenance page, say) is an alert here, where the
-  script only logged it.
+  otherwise, including after a failed download; `ReturnCode="0"` accepted. Two differences: a
+  `MessageCount` that disagrees with the number of `<Message>` elements is refused with a
+  negative acknowledgment and an alert (the script never looked at the count; the Mule bridge
+  refused it too), and an acknowledgment reply that is neither form (a maintenance page, say)
+  is an alert here, where the script only logged it.
 - One difference by design: a password is URL-encoded. The script sent it raw, which broke
   on `&`, `+`, `%`, `#` and spaces. For any other password the bytes are identical.
 - One difference by design: redirects. The script's `curl -L` followed a `Location` header
