@@ -1472,8 +1472,13 @@ class Archive:
             sidecar = self._attempts_file(path)
             dest_sidecar = self._attempts_file(dest)
             try:
+                # Owner-only before anything else: a file copied in by hand
+                # usually arrived 0644, and the tool's invariant is that
+                # result files are 0600 wherever they sit.
+                os.chmod(path, 0o600)
                 had_sidecar = sidecar.exists()
                 if had_sidecar:
+                    os.chmod(sidecar, 0o600)
                     os.rename(sidecar, dest_sidecar)
                 try:
                     os.rename(path, dest)

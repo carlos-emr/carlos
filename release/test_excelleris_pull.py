@@ -483,7 +483,9 @@ class ArchiveTest(TempEnv):
         pulled = archive.save_inbox("20261001-090000", b"<HL7Messages/>")
         foreign = self.cfg.inbox_dir / "Jane Doe 1234567890.xml"
         foreign.write_bytes(b"<HL7Messages/>")
+        foreign.chmod(0o644)  # a copy made by hand usually arrives world-readable
         (self.cfg.inbox_dir / "Jane Doe 1234567890.xml.attempts").write_text("2 run")
+        (self.cfg.inbox_dir / "Jane Doe 1234567890.xml.attempts").chmod(0o644)
         self.assertEqual(archive.inbox_files(), [pulled])  # never listed under its own name
         with self.assertLogs(ep.log, level="WARNING") as captured:
             self.assertEqual(archive.admit_foreign_files("20261001-090500"), (1, 0))
@@ -492,6 +494,10 @@ class ArchiveTest(TempEnv):
         admitted = self.cfg.inbox_dir / "20261001-090500-manual.xml"
         self.assertTrue(admitted.exists())
         self.assertEqual(archive.attempts(admitted), 2)  # sidecar moved with the file
+        self.assertEqual(stat.S_IMODE(admitted.stat().st_mode), 0o600)
+        self.assertEqual(
+            stat.S_IMODE((self.cfg.inbox_dir / f"{admitted.name}.attempts").stat().st_mode), 0o600
+        )
         self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
         self.assertEqual(archive.admit_foreign_files("20261001-090600"), (0, 0))  # idempotent
 
