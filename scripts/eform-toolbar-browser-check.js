@@ -275,6 +275,33 @@ const server = http.createServer((req, res) => {
     assert.equal(requests.length, 1);
     assert.equal(requests[0].get('recipient'), 'Manual Recipient');
     assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0122');
+    // Promoting the typed number with the form's AddOtherFax helper keeps it the clinician's.
+    await open(true);
+    await page.locator('#otherFaxInput').fill('416-555-0124');
+    await page.evaluate(() => AddOtherFax());
+    await page.locator('#remoteFaxOptions summary').click();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0124');
+    await page.locator('#remoteFaxRecipient').fill('Promoted Recipient');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0124');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipient'), 'Promoted Recipient');
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0124');
+    // A designer number copied in after typing is the designer's: retyping the name clears it.
+    await open(true);
+    await page.locator('#otherFaxInput').fill('416-555-0124');
+    await page.locator('#designerAddFax').click();
+    await page.locator('#remoteFaxOptions summary').click();
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0191');
+    await page.locator('#remoteFaxRecipient').fill('Designer Recipient');
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipientFaxNumber'), '');
     // A list choice made after it is the list's again: retyping the name clears it.
     await open(true, true);
     await page.locator('#otherFaxInput').fill('416-555-0122');
