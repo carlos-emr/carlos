@@ -260,6 +260,64 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `could not import the file` | The handler type on the key is wrong for the feed, or the EMR log has the parse error. |
 | `uses a cipher this OpenSSL does not enable` | The PFX uses a legacy cipher. Re-export it with the command in the message. |
 
+## Converting a GoFetchRover (LifeLabs/Rover) installation
+
+GoFetchRover (GetWellClinic, AGPL-3) is a Docker bundle in which a `rover` container pulls
+from Excelleris and drops the XML into a folder that a `muled` container (the same Mule 1.3.3
+bridge) uploads to OSCAR. Nothing from it is reused here, but everything it already holds
+maps onto this tool's configuration, so a switch is a copy of existing material, not a new
+enrolment with LifeLabs or a new key in OSCAR. Default install root is `/opt/gofetchrover`.
+
+### What to copy, and where it goes
+
+| GoFetchRover location | Holds | `pull.conf` |
+|---|---|---|
+| `volumes/rover/rover_config.json` → `base_url` | `https://api.on.excelleris.com/` or the `ontest` host, trailing slash | `[excelleris] url` = that value with `hl7pull.aspx` appended, no trailing slash before it |
+| `rover_config.json` → `user_id`, `password` | LifeLabs credentials | `[excelleris] user_id`, `password` |
+| `volumes/secrets/*.pfx` | The PFX LifeLabs issued (uploaded there before the extract step) | `[excelleris] pfx_file`, `pfx_password`, if the passphrase is still known |
+| `volumes/secrets/client_certificate*.pem` and `client_key*.pem` | The PEM pair the extract step produced (`openssl pkcs12 -clcerts` / `-nocerts -nodes`) | `[excelleris] client_cert_file`, `client_key_file`, when the PFX or its passphrase is gone. The key file must be mode 0600. |
+| `volumes/secrets/root_certificate*.pem` | LifeLabs root for the **test** host; production uses public CAs | `[excelleris] ca_file` only for the test host; leave unset for production |
+| `rover_config.json` → `app_name`, `app_version` | The User-Agent LifeLabs conformance-tested the site under (`GoFetchRover`, `1.0.0-alpha`) | `[excelleris] user_agent` with that exact string if the site wants to keep it; otherwise `product` |
+| `volumes/keys/<Service>.key` | The OSCAR Key Manager download, one per lab; `LifelabsHL7` (type `ExcellerisON`) for Ontario, `LifelabsRover` (type `EXCELLERIS`) for BC in their naming | `[carlos] key_pair_file` pointing at the LifeLabs one. The service name inside the file is used; `service` may stay empty. |
+| `volumes/LabProperties.properties` → `oscarURL` | `https://host:8443/oscar/lab/newLabUpload.do` | `[carlos] base_url` = that URL without `/lab/newLabUpload.do`; `flavour = oscar19` when the URL ends in `.do` |
+| `LabProperties.properties` → `smtpServer`, `recipientEmailAddress` | Mule's error mail | `[alerts] email`; delivery is through the host's sendmail rather than an SMTP setting |
+| `volumes/incoming/<KeyName>/`, `volumes/completedHL7dir/`, `volumes/errorHL7dir/` | Mule's inbox, done and error folders | `[paths] state_dir` with `inbox/`, `done/`, `failed/` created by the tool |
+| `volumes/rover/gfr.log`, `rover_error.log` | Rover's logs | `[paths] log_file` |
+| `Docker/rover/Dockerfile` cron line (`1 8,20 * * *` by default) | Pull schedule | The cron entry or timer for this tool |
+
+### Steps
+
+1. Stop only the Rover container (`docker stop gofetchrover-rover-1`). Leave `muled` running
+   if Dynacare, Alpha Labs or Med-Health still feed it; this tool replaces the LifeLabs leg
+   only, and Mule keeps serving the other labs untouched.
+2. Create the service user and directories as in the host setup above, and copy the files in
+   the table into `/etc/carlos-excelleris/` with mode 0600 (the certificate PEM may stay
+   world-readable; the key, PFX, key pair and config must not be).
+3. Fill in `pull.conf` from the table. Three details that differ from GoFetchRover:
+   - `url` is the full endpoint. GoFetchRover appends `hl7pull.aspx` itself.
+   - A self-signed Excelleris endpoint is not accepted. GoFetchRover allows
+     `"root_cert_path": false`; here, put the endpoint's certificate in `ca_file` instead.
+   - The OSCAR login (`username`, `password`, `pin`) is not needed for `flavour = oscar19`.
+     Leave all three empty and the upload is session-less, exactly as Mule's was.
+4. Run `--check-config`, then `--dry-run` against the same `base_url` GoFetchRover used,
+   then one real pull against the LifeLabs test host if the site still has test
+   credentials. A result file that GoFetchRover had already handed to Mule is answered
+   with 409 by OSCAR and treated as success.
+5. Schedule the tool and remove the Rover cron, or the whole `rover` service from
+   `docker-compose.yml`.
+
+### Behaviour differences worth knowing
+
+| GoFetchRover | This tool |
+|---|---|
+| Sends the Excelleris parameters as a POST body. | Sends them as a GET query, as the OSCAR shell script always did. Excelleris accepts both. |
+| Queries with `Pending=Yes`. | Same. |
+| Refuses the pull and sends a negative ack when `MessageCount` disagrees with the number of `Message` elements. | Logs the disagreement and trusts the actual elements; results are not left pending over a header count. |
+| Writes the XML to `volumes/rover/xml/` and copies it to the Mule inbox; Mule uploads and moves it to `completedHL7dir`. | Writes once to `inbox/`, uploads directly, compresses into `done/`. |
+| Positive ack after the copy to the Mule folder, before the upload. | Positive ack after the file is fsync'd locally, before the upload. Same ordering, same recovery: an unsent file is retried next run and a duplicate is a 409. |
+| Error mail from Mule via SMTP. | Alert mail from the tool via sendmail, naming the failing step. |
+| Runs as a container; secrets in `volumes/secrets`. | Runs as a service user; refuses root; refuses group- or world-readable secrets. |
+
 ## What the Mule bridge did, and what this tool does instead
 
 Read from `hl7_file_management` (Bitbucket `oscaremr/hl7_file_management`, `Uploader.java`

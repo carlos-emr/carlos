@@ -100,7 +100,9 @@ ONE-TIME SETUP ON THE HOST
     that user, never as root.
   - Put the config file (see ``excelleris_pull.conf.example``) somewhere only
     that user can read, mode 0600. The tool refuses to start otherwise.
-  - Put the Excelleris PFX next to it, also mode 0600.
+  - Put the Excelleris PFX next to it, also mode 0600. If only the PEM files a
+    previous tool extracted from it remain (GoFetchRover's volumes/secrets),
+    use ``client_cert_file`` and ``client_key_file`` instead.
   - ``excelleris_pull.py --config /etc/carlos-excelleris/pull.conf --check-config``
     validates the file, loads the keys and the PFX, and prints the config with
     secrets masked, without touching the network.
@@ -164,6 +166,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 try:
+    from cryptography import x509
     from cryptography.exceptions import UnsupportedAlgorithm
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -260,11 +263,14 @@ class Config:
     excelleris_url: str
     excelleris_user_id: str
     excelleris_password: str
-    pfx_file: Path
+    pfx_file: Optional[Path]  # the Excelleris PFX, or None when the PEM pair below is used
     pfx_password: str
+    client_cert_file: Optional[Path]  # PEM certificate (+chain) extracted from the PFX
+    client_key_file: Optional[Path]  # PEM private key extracted from the PFX, unencrypted
     excelleris_timeout: int
     excelleris_ca_file: Optional[Path]  # extra trust anchor; None = system CA store
     excelleris_product: str  # product name placed in the User-Agent: CARLOS or OSCAR
+    excelleris_user_agent: str  # the full header actually sent
     # [carlos]
     carlos_base_url: str
     carlos_username: str
@@ -505,8 +511,30 @@ def load_config(path: Path) -> Config:
     if not service:
         raise ConfigError("[carlos] service is required (or comes from key_pair_file)")
 
-    pfx_file = Path(need("excelleris", "pfx_file"))
-    _require_private_file(pfx_file, "[excelleris] pfx_file")
+    # Client certificate: the PFX Excelleris issued, or the PEM pair a previous
+    # tool extracted from it (GoFetchRover keeps client_certificate*.pem and
+    # client_key*.pem under volumes/secrets). Exactly one of the two forms.
+    pfx_raw = optional("excelleris", "pfx_file", "")
+    cert_raw = optional("excelleris", "client_cert_file", "")
+    key_raw = optional("excelleris", "client_key_file", "")
+    if pfx_raw and (cert_raw or key_raw):
+        raise ConfigError(
+            "[excelleris] set pfx_file or client_cert_file + client_key_file, not both"
+        )
+    if not pfx_raw and not (cert_raw and key_raw):
+        raise ConfigError(
+            "[excelleris] pfx_file, or client_cert_file and client_key_file, is required"
+        )
+    pfx_file = client_cert_file = client_key_file = None
+    if pfx_raw:
+        pfx_file = Path(pfx_raw)
+        _require_private_file(pfx_file, "[excelleris] pfx_file")
+    else:
+        client_cert_file = Path(cert_raw)
+        client_key_file = Path(key_raw)
+        if not client_cert_file.is_file():
+            raise ConfigError(f"[excelleris] client_cert_file not found: {client_cert_file}")
+        _require_private_file(client_key_file, "[excelleris] client_key_file")
 
     def ca_file(section: str) -> Optional[Path]:
         """Optional PEM bundle to trust in addition to the system store."""
@@ -528,6 +556,12 @@ def load_config(path: Path) -> Config:
         raise ConfigError(
             "[excelleris] product must be 1-40 letters, digits, spaces, dots, underscores or dashes"
         )
+    # A site that passed Excelleris conformance testing under another tool's
+    # header (GoFetchRover sends its own name and version) may keep that exact
+    # string. Explicit user_agent wins over product.
+    ua = optional("excelleris", "user_agent", "") or user_agent(product)
+    if not re.fullmatch(r"[ -~]{1,200}", ua):
+        raise ConfigError("[excelleris] user_agent must be 1-200 printable ASCII characters")
 
     cfg = Config(
         excelleris_context=optional("excelleris", "context", ""),
@@ -536,9 +570,12 @@ def load_config(path: Path) -> Config:
         excelleris_password=need("excelleris", "password"),
         pfx_file=pfx_file,
         pfx_password=optional("excelleris", "pfx_password", ""),
+        client_cert_file=client_cert_file,
+        client_key_file=client_key_file,
         excelleris_timeout=positive_int("excelleris", "timeout_seconds", "60", 5),
         excelleris_ca_file=ca_file("excelleris"),
         excelleris_product=product,
+        excelleris_user_agent=ua,
         carlos_base_url=carlos_base_url,
         carlos_username=username,
         carlos_password=password,
@@ -743,19 +780,32 @@ def _safe_url(url: str) -> str:
 
 
 class ClientCertificate:
-    """Unpack the Excelleris PFX into a PEM that ssl can load, for one run.
+    """Unpack the Excelleris PFX, or an extracted PEM pair, into one PEM that
+    ssl can load, for one run.
 
     Context manager: the PEM lives in a fresh 0700 temp directory as a 0600
     file and is removed on exit, even on failure.
     """
 
-    def __init__(self, pfx_file: Path, pfx_password: str):
+    def __init__(
+        self,
+        pfx_file: Optional[Path],
+        pfx_password: str,
+        cert_file: Optional[Path] = None,
+        key_file: Optional[Path] = None,
+    ):
         self.pfx_file = pfx_file
         self.pfx_password = pfx_password
+        self.cert_file = cert_file
+        self.key_file = key_file
         self._tmpdir: Optional[str] = None
         self.pem_path: Optional[Path] = None
 
-    def __enter__(self) -> "ClientCertificate":
+    @classmethod
+    def from_config(cls, cfg: Config) -> "ClientCertificate":
+        return cls(cfg.pfx_file, cfg.pfx_password, cfg.client_cert_file, cfg.client_key_file)
+
+    def _load_from_pfx(self):
         try:
             raw = self.pfx_file.read_bytes()
         except OSError as exc:
@@ -779,14 +829,39 @@ class ClientCertificate:
             ) from exc
         if key is None or cert is None:
             raise ConfigError(f"PFX {self.pfx_file} does not contain both a key and a certificate")
+        return key, [cert] + list(extra or [])
+
+    def _load_from_pem(self):
+        """The PEM pair ``openssl pkcs12 -nocerts -nodes`` / ``-clcerts`` produce,
+        which is what a GoFetchRover installation already has on disk."""
+        try:
+            key_bytes = self.key_file.read_bytes()
+            cert_bytes = self.cert_file.read_bytes()
+        except OSError as exc:
+            raise ConfigError(f"cannot read client certificate material: {exc}") from exc
+        try:
+            key = serialization.load_pem_private_key(key_bytes, password=None)
+        except TypeError as exc:
+            raise ConfigError(
+                f"{self.key_file} is passphrase-protected; export it unencrypted (-nodes)"
+            ) from exc
+        except ValueError as exc:
+            raise ConfigError(f"{self.key_file} is not a PEM private key: {exc}") from exc
+        try:
+            certs = x509.load_pem_x509_certificates(cert_bytes)
+        except ValueError as exc:
+            raise ConfigError(f"{self.cert_file} holds no PEM certificate: {exc}") from exc
+        return key, certs
+
+    def __enter__(self) -> "ClientCertificate":
+        key, certs = self._load_from_pfx() if self.pfx_file else self._load_from_pem()
         pem = key.private_bytes(
             serialization.Encoding.PEM,
             serialization.PrivateFormat.PKCS8,
             serialization.NoEncryption(),
         )
-        pem += cert.public_bytes(serialization.Encoding.PEM)
-        for chain_cert in extra or []:
-            pem += chain_cert.public_bytes(serialization.Encoding.PEM)
+        for cert in certs:
+            pem += cert.public_bytes(serialization.Encoding.PEM)
 
         self._tmpdir = tempfile.mkdtemp(prefix="excelleris-cert-")  # mkdtemp is 0700
         self.pem_path = Path(self._tmpdir) / "client.pem"
@@ -896,7 +971,7 @@ class ExcellerisSession:
             url,
             headers={
                 "Accept": "text/xml, */*",
-                "User-Agent": user_agent(self.cfg.excelleris_product),
+                "User-Agent": self.cfg.excelleris_user_agent,
             },
         )
 
@@ -1534,7 +1609,7 @@ def pull_step(
     cfg: Config, archive: Archive, run_id: str, opts: RunOptions, make_transport=default_transport
 ) -> Optional[Path]:
     """Excelleris login -> pull -> store -> ack -> logout. Returns the inbox file or None."""
-    with ClientCertificate(cfg.pfx_file, cfg.pfx_password) as cert:
+    with ClientCertificate.from_config(cfg) as cert:
         transport = make_transport(
             cfg.excelleris_timeout, cert.ssl_context(cfg.excelleris_ca_file), True
         )
@@ -1689,7 +1764,7 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
 def check_config(cfg: Config) -> int:
     """Validate keys and PFX offline and print the masked configuration."""
     LabUploadEnvelope(cfg.client_private_key, cfg.server_public_key)
-    with ClientCertificate(cfg.pfx_file, cfg.pfx_password) as cert:
+    with ClientCertificate.from_config(cfg) as cert:
         # Also proves the optional ca_file bundles parse, so a bad PEM is found
         # here rather than on the first scheduled run.
         try:
