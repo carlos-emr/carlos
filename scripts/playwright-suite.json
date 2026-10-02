@@ -559,6 +559,23 @@
       ]
     },
     {
+      "name": "rewrite-tag-routes",
+      "script": "scripts/rewrite-tag-routes-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient, one prevention and one PDF written into DOCUMENT_DIR; local disposable database only."
+    },
+    {
       "name": "incoming-pdf-extraction",
       "script": "scripts/incoming-pdf-extraction-playwright-checks.js",
       "tiers": [

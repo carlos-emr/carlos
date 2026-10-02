@@ -75,6 +75,13 @@ public class ViewExample2Action extends ActionSupport {
 - Forms, links, redirects, JavaScript, popup URLs, and Java-generated HTML should target the action path, not the JSP.
 - Internal forwards should use `/WEB-INF/jsp/...` only when they are deliberately internal server-side dispatches.
 - New code should not generate `.do` URLs.
+- Never build a link from `request.getRequestURI()` inside a view. After the gate action forwards, it
+  returns the internal `/WEB-INF/jsp/...` path, so a "relative to this page" link points into
+  `WEB-INF` and answers 404 (issue #4132: Prevention Print and eDoc Combine PDF). Use
+  `${pageContext.request.contextPath}` plus the route, or `<rewrite:reWrite jspPage="/module/route"/>`
+  with a leading `/`, which is resolved against the context path.
+  `FullPathReWriteJspRegressionTest` fails the build when a `<rewrite:reWrite>` target is
+  page-relative or names a route that no `struts-*.xml` maps.
 
 ## Choosing the Right Pattern
 

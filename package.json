@@ -55,6 +55,7 @@
     "test:document-pagination-playwright": "node scripts/document-pagination-playwright-checks.js",
     "test:document-add-link-playwright": "node scripts/document-add-link-playwright-checks.js",
     "test:document-upload-playwright": "node scripts/document-upload-playwright-checks.js",
+    "test:rewrite-tag-routes-playwright": "node scripts/rewrite-tag-routes-playwright-checks.js",
     "test:pr-hardening-playwright": "node scripts/pr-hardening-playwright-checks.js",
     "test:error-sanitization-playwright": "node scripts/error-sanitization-playwright-checks.js",
     "test:eform-admin-schedule-nav-playwright": "node scripts/eform-admin-schedule-navigation-playwright-checks.js",

@@ -800,9 +800,7 @@
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
                 <input type="button" value="<fmt:message key='dms.documentReport.btnCombinePDF'/>" class="btn btn-secondary"
-                       <%-- The combine action is the extensionless route; rewrite:reWrite resolved
-                            "combinePDFs" against this JSP's /WEB-INF/ path and posted to a 404. --%>
-                       onclick="return submitForm('${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/documentManager/combinePDFs');"/>
+                       onclick="return submitForm('<rewrite:reWrite jspPage="/documentManager/combinePDFs" context="javaScriptAttribute"/>');"/>
             </div>
 
         </form>
