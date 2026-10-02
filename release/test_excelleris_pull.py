@@ -2537,6 +2537,27 @@ class DryRunHousekeepingTest(_OrchestrationBase):
 
 
 class ConfigRobustnessTest(TempEnv):
+    def test_parse_errors_do_not_echo_the_offending_line(self):
+        # ConfigParser quotes the bad line in its message; here that line may
+        # be a password, so only the error kind and line number are reported.
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv)
+        text = self.conf.read_text().replace("[carlos]\n", "[carlos]\npassword SUPER_SECRET_X\n", 1)
+        self.conf.write_text(text)
+        with self.assertRaises(ep.ConfigError) as ctx:
+            ep.load_config(self.conf)
+        message = str(ctx.exception)
+        self.assertNotIn("SUPER_SECRET_X", message)
+        self.assertIn("ParsingError", message)
+        self.assertRegex(message, r"at line \d+")
+        # A duplicated key, the other common slip, is reported the same way.
+        text = self.conf.read_text().replace("password SUPER_SECRET_X\n", "pin = 1234\n", 1)
+        self.conf.write_text(text)
+        with self.assertRaises(ep.ConfigError) as ctx:
+            ep.load_config(self.conf)
+        self.assertIn("DuplicateOptionError", str(ctx.exception))
+        self.assertRegex(str(ctx.exception), r"at line \d+")
+
     def test_non_utf8_config_is_a_config_error(self):
         self.conf.write_bytes(b"\xff\xfe[excelleris]\n")
         with self.assertRaisesRegex(ep.ConfigError, "cannot parse"):

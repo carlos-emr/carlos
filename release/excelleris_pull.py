@@ -492,6 +492,19 @@ def _strip_key_armour(text: str) -> str:
     return "".join(lines)
 
 
+def _describe_parse_error(exc: configparser.Error) -> str:
+    """Name a configparser failure without echoing the file's text."""
+    kind = type(exc).__name__
+    lines: list[int] = []
+    for lineno, _text in getattr(exc, "errors", None) or []:  # ParsingError
+        lines.append(int(lineno))
+    lineno = getattr(exc, "lineno", None)  # DuplicateOption/Section, MissingSectionHeader
+    if lineno is not None:
+        lines.append(int(lineno))
+    where = f" at line {', '.join(str(n) for n in sorted(set(lines)))}" if lines else ""
+    return f"{kind}{where} (the line itself is not shown: it may hold a secret)"
+
+
 def load_config(path: Path) -> Config:
     """Parse and validate the INI config; raise ConfigError on any problem.
 
@@ -502,8 +515,13 @@ def load_config(path: Path) -> Config:
     try:
         with path.open(encoding="utf-8") as fh:
             parser.read_file(fh)
-    except (OSError, UnicodeDecodeError, configparser.Error) as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise ConfigError(f"cannot parse {path}: {exc}") from exc
+    except configparser.Error as exc:
+        # The parser's own message quotes the offending line, which in this
+        # file may be a password. Report the kind of error and the line
+        # numbers only; the operator has the file.
+        raise ConfigError(f"cannot parse {path}: {_describe_parse_error(exc)}") from exc
 
     def need(section: str, key: str) -> str:
         if not parser.has_section(section):
