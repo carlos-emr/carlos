@@ -7480,6 +7480,57 @@
       ],
       "fixtures": "Part 2 of the Administration walk (scripts/lib/xss-poison-admin-walk.js, payload numbers from 101): the same poisoned row set as part 1. Inserts GLOBALLY VISIBLE poisoned rows while it runs (all of them, including an active provider): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
       "notes": "Expected to FAIL at the last step (finding 122): raw stored values on Report by Template (oscarReport/reportByTemplate/homePage.jsp:129,131), Age-Sex Report (oscarReport/oscarReportAgeSex.jsp:192), Disease Registry report (oscarReport/oscarReportDxReg.jsp:168,247), Add a Group (admin/adminnewgroup.jsp:177), Access Control (admin/groupnoacl.jsp:162,180), Document Description Template (admin/displayDocumentDescriptionTemplate.jsp:291), Manage Faxes (admin/manageFaxes.jsp:371), Demographic Export (demographic/demographicExport.jsp:483), Fix notes with invalid role (admin/fixRolesOnNotes.jsp:93) and Jobs Management (admin/jobs.jsp:214, finding 63). Manage Lookup Lists, Jobs Management and REST Clients must show their seeded rows; Appointment Type List (30-minute cache) and the panel's own Messages item must open. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+    },
+    {
+      "name": "messenger-pdf-attachments-server-render",
+      "script": "scripts/messenger-pdf-attachments-server-render-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD"
+      ]
+    },
+    {
+      "name": "report-by-template-editor-front-door",
+      "script": "scripts/report-by-template-editor-front-door-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD"
+      ]
+    },
+    {
+      "name": "report-query-by-example-front-door",
+      "script": "scripts/report-query-by-example-front-door-playwright-checks.js",
+      "tiers": [
+        "core",
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD"
+      ]
     }
   ]
 }

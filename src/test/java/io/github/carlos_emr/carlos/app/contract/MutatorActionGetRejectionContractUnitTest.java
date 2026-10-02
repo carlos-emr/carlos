@@ -229,6 +229,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
                     "_admin", "r"),
+            // Report by Template upload stores template SQL; POST-only after the read gate (#4133).
+            Arguments.of("io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action",
+                    "_admin", "r"),
             // --- signature ---
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
                     "_con", "w"),
@@ -351,6 +354,12 @@ class MutatorActionGetRejectionContractUnitTest {
         // Incoming PDF navigation permits GET; pdfAction mutations require POST and write access.
         // Focused method/privilege tests: ViewIncomingDocuments2ActionUnitTest.
         "io.github.carlos_emr.carlos.documentManager.gate.ViewIncomingDocuments2Action",
+        // Report by Template editor (#4133): the bare page permits GET; action=add|edit|delete
+        // must be a POST. Covered by ManageTemplates2ActionUnitTest.
+        "io.github.carlos_emr.carlos.report.reportByTemplate.actions.ManageTemplates2Action",
+        // Message view (#4133): viewing permits GET; linkMsgDemo=true writes a msgDemoMap row and
+        // must be a POST. Covered by MsgViewMessage2ActionUnitTest.
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         // Lab display settings (#3977): the view permits GET; dboperation=Save must be a POST.
         // Covered by LabDisplaySettings2ActionUnitTest.

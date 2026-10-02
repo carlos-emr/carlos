@@ -235,11 +235,14 @@
 
     <div id="optionsDiv" class="form-actions">
         <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewViewTemplate?templateid=<carlos:encode value='<%= curreport.getTemplateId() %>' context="uriComponent"/>" class="link">View Template XML</a>
+        <%-- Template changes need _report write (ManageTemplates2Action); readers do not get controls that would only end in a security error. --%>
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="w">
         <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<carlos:encode value='<%= curreport.getTemplateId() %>' context="uriComponent"/>&amp;opentext=1" class="link">Edit
             Template</a>
         <a href="javascript:void(0);" onclick="deleteTemplate('<carlos:encode value='<%= curreport.getTemplateId() %>' context="javaScriptAttribute"/>');" class="link">
             Delete Template
         </a>
+        </security:oscarSec>
     </div>
 
 </html>

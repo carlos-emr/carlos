@@ -178,9 +178,10 @@ async function workflow(s) {
     h.assert(status(controlId) === 'new', 'Unarchive changed the control message');
   });
 
-  // Kept last: in this build the Search Patient popup closes itself on load and the
-  // Link to Patient form posts without a CSRF token (see report). The step asserts
-  // the correct behaviour, so it fails until both are fixed.
+  // Kept last: the step asserts the correct behaviour end to end. Both defects it found
+  // are fixed (issue #4133): the Search Patient popup closed itself on load
+  // (msgSearchDemo.jsp), and the view shown after Link to Patient read the attached
+  // patients before writing the link (MsgViewMessage2Action).
   await s.step('Search Patient (DemographicLinkMsg) picks the patient and Link to Patient writes the map row', async () => {
     await backToInbox();
     await openMessage(controlId);
