@@ -570,6 +570,11 @@ class ExcellerisSessionTest(TempEnv):
     def test_safe_url_drops_query(self):
         self.assertEqual(ep._safe_url("https://h/p.aspx?Password=x"), "https://h/p.aspx")
 
+    def test_safe_url_drops_userinfo_and_fragment(self):
+        # A Location header is untrusted input; its userinfo must not reach a log.
+        self.assertEqual(ep._safe_url("https://u:pw@h:8443/p#f?x=1"), "https://h:8443/p")
+        self.assertEqual(ep._safe_url("http://Secret:Word@H.Example/p"), "http://h.example/p")
+
 
 # ---------------------------------------------------------------------------
 # CARLOS session

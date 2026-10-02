@@ -879,13 +879,17 @@ def _read_capped(resp) -> bytes:
 
 
 def _safe_url(url: str) -> str:
-    """A URL with its query string removed, safe to put in logs or errors.
+    """A URL reduced to scheme, host, port and path, safe for logs and errors.
 
-    The Excelleris login query carries the password; it must never leak into
-    an exception message that ends up in a log or an alert email.
+    The Excelleris login query carries the password, and a Location header
+    from the far side may carry ``user:password@`` userinfo; neither may leak
+    into an exception message that ends up in a log or an alert email.
     """
     parts = urllib.parse.urlsplit(url)
-    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    host = parts.hostname or ""
+    if parts.port is not None:
+        host = f"{host}:{parts.port}"
+    return urllib.parse.urlunsplit((parts.scheme, host, parts.path, "", ""))
 
 
 # ---------------------------------------------------------------------------
