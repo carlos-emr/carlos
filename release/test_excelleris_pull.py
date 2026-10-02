@@ -2418,7 +2418,16 @@ class ShellScriptWireParityTest(TempEnv):
         lines = head.decode().split("\r\n")[1:]
         return {k.strip().lower(): v.strip() for k, v in (line.split(":", 1) for line in lines)}
 
-    def test_requests_match_the_shell_script_byte_for_byte(self):
+    @staticmethod
+    def _script_user_agent() -> str:
+        """The header ExcellerisDownload.sh sends, read from the script itself:
+        bash keeps the backslashes inside double quotes, so they are on the wire."""
+        script = Path(__file__).with_name("ExcellerisDownload.sh").read_text()
+        match = re.search(r'^USER_AGENT="([^"]*)"', script, re.MULTILINE)
+        assert match, "USER_AGENT line not found in ExcellerisDownload.sh"
+        return match.group(1)
+
+    def test_requests_match_the_shell_script_except_the_user_agent(self):
         _, _, c, srv = make_keys()
         # A password without reserved characters: the script sent the value raw,
         # the tool URL-encodes it, so only plain values can be compared.
@@ -2440,13 +2449,13 @@ class ShellScriptWireParityTest(TempEnv):
         tool = self.recorder.heads[:]
         del self.recorder.heads[:]
 
-        # ExcellerisDownload.sh, step by step. --cacert and --noproxy only make the
-        # stand-in reachable; they add nothing to the request. The User-Agent is
-        # the tool's: the script's string is not in the format Excelleris
-        # requires (see user_agent), so that header differs on purpose.
+        # ExcellerisDownload.sh, step by step, with its own User-Agent. --cacert
+        # and --noproxy only make the stand-in reachable; they add nothing to
+        # the request.
         jar = self.tmp / "cookie.txt"
+        script_ua = self._script_user_agent()
         common = [
-            "curl", "-s", "-S", "-G", "-L", "-A", ep.USER_AGENT,
+            "curl", "-s", "-S", "-G", "-L", "-A", script_ua,
             "--cert-type", "P12", "--cert", f"{self.pfx}:pfx-secret",
             "--cacert", str(self.ca_pem), "--noproxy", "*",
         ]  # fmt: skip
@@ -2468,8 +2477,15 @@ class ShellScriptWireParityTest(TempEnv):
             # Request line: method, path and query string, parameter order included.
             self.assertEqual(ours.split(b"\r\n", 1)[0], theirs.split(b"\r\n", 1)[0])
             h_ours, h_theirs = self._headers(ours), self._headers(theirs)
-            for name in ("host", "user-agent", "accept", "cookie"):
+            for name in ("host", "accept", "cookie"):
                 self.assertEqual(h_ours.get(name), h_theirs.get(name), name)
+            # The one header that differs, on purpose: the script's carries a
+            # literal backslash before every slash, which is not the format
+            # Excelleris requires; the tool sends the required format.
+            self.assertEqual(h_theirs["user-agent"], script_ua)
+            self.assertIn("\\/", script_ua)
+            self.assertEqual(h_ours["user-agent"], ep.USER_AGENT)
+            self.assertNotIn("\\", ep.USER_AGENT)
             # urllib's connection handling adds exactly these two; curl adds none.
             self.assertEqual(set(h_ours) - set(h_theirs), {"accept-encoding", "connection"})
             self.assertEqual(h_ours["accept-encoding"], "identity")
