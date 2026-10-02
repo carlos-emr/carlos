@@ -80,7 +80,8 @@ No code change. All of this is done through the existing administration pages.
 ### OSCAR 19
 
 Set `[carlos] flavour = oscar19`. The OSCAR 19 line (Bitbucket `oscaremr/oscar`, branch
-`stable` and tag `OSCAR_19_RC1`) has the same upload action, parameters, `ExcellerisON` and
+`stable` and tag `OSCAR_19_RC1`; the `oscar-emr` Debian package is built from `stable` by
+`release/make_deb.sh`, and its `source.txt` names that branch) has the same upload action, parameters, `ExcellerisON` and
 `PATHL7` handlers and cryptography; it differs only in Struts 1 `*.do` routes, a
 `GET logout.jsp`, and having no CSRF layer. The flavour switch covers exactly those three
 things. Two parts of the setup are simpler than on CARLOS:
