@@ -2029,28 +2029,31 @@ def upload_step(
                     # the OSCAR 19 rule below knows a 409 may follow an import
                     # that never completed.
                     consecutive_transport_failures += 1
-                    failures.append(f"{path.name}: {exc}; left in inbox for retry")
                     log.error("%s: %s: %s", cfg.carlos_flavour, path.name, exc)
                     try:
                         attempts = archive.bump_attempts(path, run_token)
-                    except OSError as exc:
+                    except OSError as marker_exc:
                         # The transport error is still the one to report; say
                         # that the count may be short so a later 409 is treated
                         # with care by whoever reads the alert.
-                        log.error("%s: %s: attempt marker: %s", cfg.carlos_flavour, path.name, exc)
+                        log.error(
+                            "%s: %s: attempt marker: %s", cfg.carlos_flavour, path.name, marker_exc
+                        )
                         failures.append(
-                            f"{path.name}: attempt marker could not be written after a failed "
-                            f"send ({exc}); if the next run reports a duplicate, verify the EMR inbox"
+                            f"{path.name}: {exc}; left in inbox for retry, but the attempt marker "
+                            f"could not be written ({marker_exc}): if the next run reports a "
+                            "duplicate, verify the EMR inbox"
                         )
                     else:
                         if attempts >= cfg.max_upload_attempts:
                             # The same cap as a transient status: a file that
                             # breaks the connection every time (too large for
                             # a proxy, say) must surface, not retry forever.
+                            # One alert line per file: parked, not "kept".
                             dest = archive.mark_failed(path)
                             failures.append(
-                                f"{path.name}: the upload connection failed {attempts} times "
-                                f"(max_upload_attempts); moved to {dest}"
+                                f"{path.name}: {exc}; the upload connection failed {attempts} "
+                                f"times (max_upload_attempts); moved to {dest}"
                             )
                             log.error(
                                 "%s: %s: gave up after %d failed connections",
@@ -2058,6 +2061,8 @@ def upload_step(
                                 path.name,
                                 attempts,
                             )
+                        else:
+                            failures.append(f"{path.name}: {exc}; left in inbox for retry")
                     if consecutive_transport_failures >= 2:
                         # Two files in a row could not be sent: the EMR, not the
                         # file, is the problem. Stop the pass rather than time

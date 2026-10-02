@@ -1951,10 +1951,15 @@ class RetryClassificationTest(_OrchestrationBase):
         self.script["POST /carlos/lab/newLabUpload"] = ep.TransportError("connection reset")
         self.assertEqual(ep.run(cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
         self.assertEqual(len(list(cfg.inbox_dir.glob("*.xml"))), 1)  # attempt 1 of 2
-        self.script["excelleris:pull"] = ok("<HL7Messages/>")
-        self.assertEqual(ep.run(cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
+        failures = ep.upload_step(
+            cfg, ep.Archive(cfg), "run-2", ep.RunOptions(upload_only=True), self.factory
+        )
         self.assertEqual(list(cfg.inbox_dir.glob("*")), [])  # gave up, sidecar gone
         self.assertEqual(len(list(cfg.failed_dir.glob("*.xml"))), 1)
+        # One line for the file, saying where it went; nothing claims it was kept.
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("moved to", failures[0])
+        self.assertNotIn("left in inbox", failures[0])
 
     def test_recovery_clears_the_attempt_count(self):
         self.script["POST /carlos/lab/newLabUpload"] = ok("", 503)
