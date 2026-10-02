@@ -20,8 +20,7 @@ already expose to external lab senders (`lab/newLabUpload`), which is exactly wh
 Mule bridge spoke. CARLOS checksums every upload and answers `409` for a file it already
 imported, which is what makes the tool's retry logic safe. OSCAR 19 records the checksum
 before it imports, so on OSCAR 19 a `409` that follows a failed attempt is not proof of
-import; the
-tool moves such a file to `failed/` for a person to verify (see Operations).
+import; the tool moves such a file to `failed/` for a person to verify (see Operations).
 
 Files:
 
