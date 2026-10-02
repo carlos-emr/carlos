@@ -825,6 +825,11 @@ class _FollowRedirects(urllib.request.HTTPRedirectHandler):
     urllib's redirect limit still applies.
     """
 
+    # urllib learnt 308 (Permanent Redirect) in Python 3.11; on 3.10, the
+    # tool's floor, a 308 would otherwise surface as an error reply instead
+    # of being followed.
+    http_error_308 = urllib.request.HTTPRedirectHandler.http_error_302
+
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401
         if urllib.parse.urlsplit(newurl).scheme != "https":
             raise TransportError(

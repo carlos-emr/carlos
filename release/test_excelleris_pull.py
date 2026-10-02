@@ -1991,6 +1991,11 @@ class RedirectPolicyTest(unittest.TestCase):
             self.assertEqual(req.data, b"a=1&b=2")
             self.assertEqual(req.get_header("Content-type"), "text/plain")
 
+    def test_308_is_handled_on_every_supported_python(self):
+        # Python 3.10 has no http_error_308 on HTTPRedirectHandler.
+        handler = ep._FollowRedirects()
+        self.assertEqual(handler.http_error_308.__func__, handler.http_error_302.__func__)
+
     def test_plain_http_is_refused(self):
         with self.assertRaisesRegex(ep.TransportError, "non-https"):
             self._redirect("http://lab.example/hl7pull.aspx")
