@@ -12,6 +12,8 @@
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
+    "test:gap-records-autocomplete-labels-playwright": "node scripts/gap-records-autocomplete-labels-playwright-checks.js",
+    "test:flowsheet-editor-height-playwright": "node scripts/flowsheet-editor-height-playwright-checks.js",
     "test:playwright": "node scripts/run-playwright-suite.js",
     "test:inbox-document-dates-playwright": "node scripts/inbox-document-dates-playwright-checks.js",
     "test:inbox-document-forwarding-scope-playwright": "node scripts/inbox-document-forwarding-scope-playwright-checks.js",

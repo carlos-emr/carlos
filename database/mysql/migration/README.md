@@ -39,6 +39,7 @@ migration/
            V1.0.43__consultation_eform_lab_sources.sql
            V1.0.45__consultation_request_indexes.sql
            V1.0.46__field_note_report_privilege.sql
+           V1.0.47__align_measurements_deleted_columns.sql
            V1.0.52__enforce_provider_signature_identity.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
@@ -56,7 +57,7 @@ migration/
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
 `V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.52`.
-`V1.0.47`–`V1.0.51` are claimed by open pull requests; the next unallocated number for ANY
+`V1.0.48`–`V1.0.51` are claimed by open pull requests; the next unallocated number for ANY
 location — shared or province — is `V1.0.53`.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
@@ -123,9 +124,9 @@ already have run past `V1.0.31` and Flyway (no `outOfOrder`) would never apply i
 rule above, PR #3694 was renumbered above the high-water mark, first to `V1.0.40` and then to
 `V1.0.44` after release 2026.08 shipped `V1.0.40`–`V1.0.43`. Release 2026.08 then merged
 `common/V1.0.45` (consultation request indexes, #3976) and `common/V1.0.46` (field-note report
-privilege), so databases on this line may already have run past `V1.0.44`; with `V1.0.47`–`V1.0.51`
-claimed by open pull requests, PR #3694 now uses `V1.0.52`. `V1.0.31` and `V1.0.44`, like the other
-gaps, stay unused.
+privilege), so databases on this line may already have run past `V1.0.44`. With `V1.0.47`–`V1.0.51`
+then claimed by open pull requests (`V1.0.47` has since merged), PR #3694 now uses `V1.0.52`.
+`V1.0.31` and `V1.0.44`, like the other gaps, stay unused.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 
@@ -198,7 +199,8 @@ Messenger membership coordination (PR #3986, issue #3964) adds
 upgraded installs through `common/V1.0.41__rtl_provider_stamp_fields.sql`. Tickler and
 consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`. The
 Consultations list filter indexes (#3976) add `common/V1.0.45`, and the field-note report privilege
-adds `common/V1.0.46`. Provider signature identity is enforced by
+adds `common/V1.0.46`. `common/V1.0.47` aligns the `measurementsDeleted` columns with
+`measurements`. Provider signature identity is enforced by
 `common/V1.0.52__enforce_provider_signature_identity.sql`. The next unallocated version is
 `V1.0.53`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before

@@ -15,7 +15,7 @@ Forward deltas (not part of the frozen baseline):
 Applied together with `common/` for an Ontario install (`flyway.locations=filesystem:.../migration/common,filesystem:.../migration/on` (see `flyway.conf` for the real paths)). New
 Ontario-only changes go here as `V1.0.N__short_description.sql` (sequential, next free version number).
 The version line is global across every location. The highest migration in this branch is
-`common/V1.0.52`; `V1.0.47`–`V1.0.51` are claimed by open pull requests, so the next unallocated
+`common/V1.0.52`; `V1.0.48`–`V1.0.51` are claimed by open pull requests, so the next unallocated
 version is `V1.0.53`.
 See `../README.md` for migration ordering, and why numbers at or below the
 global high-water mark must never be reused.
