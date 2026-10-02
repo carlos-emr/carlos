@@ -104,11 +104,19 @@
 
 			function updateAjax() {
 				let parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-				if( parentAjaxId !== "null" ) {
-					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
-					window.opener.updateNeeded = true;
+				// Same guard as efmpatientformlist.jsp: reached from the master record this
+				// page has no opener, an absent parentAjaxId encodes to "" (not "null"), and
+				// the unguarded access threw a TypeError on unload -- including during the
+				// Restore submission itself (issue #4130).
+				try {
+					if (parentAjaxId && parentAjaxId !== "null" && window.opener && !window.opener.closed
+							&& window.opener.document && window.opener.document.forms['encForm']) {
+						window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
+						window.opener.updateNeeded = true;
+					}
+				} catch (e) {
+					// Cross-origin or closed opener — nothing to update; ignore.
 				}
-
 			}
 
 			$(document).ready(function() {
