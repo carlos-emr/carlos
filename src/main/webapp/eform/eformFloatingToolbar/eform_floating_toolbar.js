@@ -192,7 +192,11 @@ function eFormValidationBlocked() {
 	// actually edits, so hiding the original does not silently drop the author's constraint.
 	const templateSubject = ef && ef.elements ? ef.elements["subject"] : null;
 	const toolbarSubject = document.getElementById("remote_eform_subject");
-	if (templateSubject && templateSubject.required === true && toolbarSubject
+	// A disabled template subject (directly or through a disabled fieldset) is barred from
+	// native constraint validation, so its requirement must not carry over either.
+	const templateSubjectDisabled = !!templateSubject && typeof templateSubject.matches === "function"
+		&& templateSubject.matches(":disabled");
+	if (templateSubject && templateSubject.required === true && !templateSubjectDisabled && toolbarSubject
 			&& typeof toolbarSubject.checkValidity === "function") {
 		toolbarSubject.required = true;
 		if (!toolbarSubject.checkValidity()) {

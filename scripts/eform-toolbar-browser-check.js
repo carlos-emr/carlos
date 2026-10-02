@@ -296,6 +296,23 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.equal(requests[0].get('subject'), 'Toolbar subject');
+    // A required but disabled template subject is excluded from validation, directly or
+    // through a disabled fieldset, so an empty toolbar subject still saves.
+    for (const disable of ['direct', 'fieldset']) {
+      await open();
+      await page.evaluate(mode => {
+        const subject = document.getElementById('subject');
+        if (mode === 'direct') { subject.disabled = true; return; }
+        const fieldset = document.createElement('fieldset');
+        fieldset.disabled = true;
+        subject.replaceWith(fieldset);
+        fieldset.append(subject);
+      }, disable);
+      await page.locator('#remote_eform_subject').fill('');
+      await page.locator('#remoteSubmitButton').click();
+      await page.waitForURL('**/eform/addEForm');
+      assert.equal(requests.length, 1);
+    }
     // A template subject without the constraint still saves with an empty subject.
     await open();
     await page.evaluate(() => { document.getElementById('subject').required = false; });
