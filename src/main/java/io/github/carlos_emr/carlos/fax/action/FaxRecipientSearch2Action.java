@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
@@ -45,16 +44,20 @@ import org.apache.struts2.ServletActionContext;
 import java.util.List;
 
 /**
- * GET-only JSON autocomplete endpoint returning combined provider, pharmacy and specialist fax recipients.
+ * GET-only JSON autocomplete endpoint returning combined specialist, provider and pharmacy fax recipients.
  *
- * <p>Requires {@code _fax} read privilege. Returns up to {@value #MAX_RESULTS} results.
+ * <p>Requires {@code _fax} read privilege. Returns up to {@value #MAX_RESULTS} results, filled in
+ * that order: specialists first, then active providers with a {@code faxnumber} user property,
+ * then pharmacies, each source using only the rows the earlier ones left.
  *
  * <p>Response shape per item:
  * <ul>
- *   <li>{@code name} – display name (specialist: "Last, First"; pharmacy: "Name (City)")</li>
+ *   <li>{@code name} – display name (specialist and provider: "Last, First", or whichever part is
+ *       present; pharmacy: "Name (City)")</li>
  *   <li>{@code fax}  – fax number string</li>
- *   <li>{@code badge} – label for the Bootstrap badge ("pharmacy" or service description)</li>
- *   <li>{@code type} – "PHARMACY" or "SPECIALIST"</li>
+ *   <li>{@code badge} – label for the Bootstrap badge (specialist: service description, or
+ *       "Specialist" when blank; provider: "Provider"; pharmacy: "pharmacy")</li>
+ *   <li>{@code type} – "SPECIALIST", "PROVIDER" or "PHARMACY"</li>
  * </ul>
  *
  * <p>Specialist entries respect {@code hideFromView}: specialists with that flag set are excluded.
@@ -70,12 +73,20 @@ public class FaxRecipientSearch2Action extends ActionSupport {
 
     // transient: ActionSupport is Serializable but these Spring collaborators are not, and a
     // Struts action is built fresh per request, so none of them is state worth carrying.
-    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final transient PharmacyInfoDao pharmacyInfoDao = SpringUtils.getBean(PharmacyInfoDao.class);
-    private final transient ServiceSpecialistsDao serviceSpecialistsDao =
-            SpringUtils.getBean(ServiceSpecialistsDao.class);
-    private final transient ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient PharmacyInfoDao pharmacyInfoDao;
+    private final transient ServiceSpecialistsDao serviceSpecialistsDao;
+    private final transient ProviderDao providerDao;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** Constructor-injected by the Struts Spring object factory. */
+    public FaxRecipientSearch2Action(SecurityInfoManager securityInfoManager, PharmacyInfoDao pharmacyInfoDao,
+                                     ServiceSpecialistsDao serviceSpecialistsDao, ProviderDao providerDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.pharmacyInfoDao = pharmacyInfoDao;
+        this.serviceSpecialistsDao = serviceSpecialistsDao;
+        this.providerDao = providerDao;
+    }
 
     @Override
     // Sonar flags the constant NONE return. That is the contract for a direct-response action:
@@ -132,7 +143,8 @@ public class FaxRecipientSearch2Action extends ActionSupport {
             Provider provider = (Provider) row[0];
             ObjectNode item = objectMapper.createObjectNode();
             item.put("name", displayName(provider.getLastName(), provider.getFirstName()));
-            item.put("fax", (String) row[1]);
+            // The query filters on TRIM(value); return the same trimmed number it matched on.
+            item.put("fax", StringUtils.trimToEmpty((String) row[1]));
             item.put("badge", "Provider");
             item.put("type", "PROVIDER");
             results.add(item);

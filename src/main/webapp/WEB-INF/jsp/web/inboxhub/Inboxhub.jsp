@@ -70,6 +70,19 @@
     <title><fmt:message key="inboxhub.title"/></title>
 </head>
 <body>
+<%-- The paging retry must remain visible while the search sidebar is collapsed. --%>
+<div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 11; display: none;">
+    <div id="ajaxErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+        <div class="d-flex">
+            <div class="toast-body">
+                <fmt:message key="inboxhub.form.ajaxError"/>
+                <button id="retryInboxhubPage" type="button" class="btn btn-sm btn-outline-light ms-2"
+                        onclick="retryInboxhubPage();"><fmt:message key="inboxhub.form.retryLoad"/></button>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="<fmt:message key='global.btnClose'/>"></button>
+        </div>
+    </div>
+</div>
 <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <c:if test="${param.scheduleNav eq '1'}">
     <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>

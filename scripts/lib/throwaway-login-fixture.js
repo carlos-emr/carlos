@@ -127,10 +127,26 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
       if (!state.created) return;
       const providerNo = sqlString(state.providerNo);
       const user = sqlString(username);
-      // Ownership first: the provider row must still carry this run's marker and
-      // the security row must still be the throwaway's before anything is deleted.
-      assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${providerNo} AND last_name<>${sqlString(marker)}`) === '0',
-        'Throwaway provider ownership changed; refusing to delete');
+      // Ownership first: exactly one provider row must still carry this run's marker
+      // and the security row must still be the throwaway's before anything keyed by
+      // the provider number is deleted. A missing row proves nothing about who owns
+      // the number now, so it is not treated as "nothing to protect".
+      // Every row this fixture can leave under the number or the username.
+      const remaining = () => sql.value(`SELECT ${[
+        `(SELECT COUNT(*) FROM log WHERE ${ownedLogPredicate()})`,
+        `(SELECT COUNT(*) FROM SecurityArchive WHERE user_name=${user} OR provider_no=${providerNo})`,
+        ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${providerNo})`),
+        ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${providerNo})`),
+        `(SELECT COUNT(*) FROM security WHERE user_name=${user} OR provider_no=${providerNo})`,
+        `(SELECT COUNT(*) FROM provider WHERE provider_no=${providerNo})`,
+      ].join('+')}`);
+      const owned = sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${providerNo} AND last_name=${sqlString(marker)}`);
+      // Nothing at all under the number or the username: the provider INSERT itself
+      // failed (create() asserts it before writing anything else), so there is
+      // nothing to remove. Any leftover with the parent rows gone falls through to
+      // the ownership assertion and fails cleanup instead of being reported clean.
+      if (owned === '0' && remaining() === '0') return;
+      assert(owned === '1', 'Throwaway provider row is missing or changed; refusing to delete provider-keyed rows');
       assert(sql.value(`SELECT COUNT(*) FROM security WHERE provider_no=${providerNo} AND user_name<>${user}`) === '0',
         'Throwaway security ownership changed; refusing to delete');
       const statements = [
@@ -142,15 +158,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
         `DELETE FROM provider WHERE provider_no=${providerNo} AND last_name=${sqlString(marker)}`,
       ];
       sql.execute(statements.join(';'));
-      const remaining = [
-        `(SELECT COUNT(*) FROM log WHERE ${ownedLogPredicate()})`,
-        `(SELECT COUNT(*) FROM SecurityArchive WHERE user_name=${user} OR provider_no=${providerNo})`,
-        ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${providerNo})`),
-        ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${providerNo})`),
-        `(SELECT COUNT(*) FROM security WHERE user_name=${user} OR provider_no=${providerNo})`,
-        `(SELECT COUNT(*) FROM provider WHERE provider_no=${providerNo})`,
-      ];
-      assert(sql.value(`SELECT ${remaining.join('+')}`) === '0', 'Throwaway login rows were not all removed');
+      assert(remaining() === '0', 'Throwaway login rows were not all removed');
     },
   };
 }

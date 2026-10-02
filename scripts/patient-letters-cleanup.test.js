@@ -114,3 +114,58 @@ test('follow-up cleanup refuses invalid patient identities before reading or del
     assert.deepEqual(f.removed, []);
   }
 });
+
+test('unicode envelope cleanup removes the owned patient even when its stored name was transformed', async () => {
+  const { execFileSync } = require('node:child_process');
+  const { sqlString } = require('./lib/playwright-harness');
+  const queries = [];
+  const findings = [];
+  const removedDirs = [];
+  let deleted = false;
+  const start = source.indexOf('async function withPreservedCleanup(');
+  const end = source.indexOf('async function checkEnvelopePdf(', start);
+  const context = vm.createContext({
+    AggregateError, Buffer, path, sqlString, testUser: 'carlosdoc', console: { error() {} },
+    process: { pid: 4242 },
+    os: { tmpdir: () => '/fixture/tmp' },
+    fs: { mkdtempSync: prefix => `${prefix}x`, rmSync: dir => removedDirs.push(dir), writeFileSync() {} },
+    execFileSync: () => '',
+    isPdf: () => false,
+    appUrl: route => route,
+    expect: (condition, label) => { if (!condition) findings.push(label); },
+    sql: query => {
+      queries.push(query);
+      if (query.startsWith('SELECT provider_no')) return '999998';
+      if (query.startsWith('INSERT INTO demographic')) return '55';
+      // The failure mode under test: the database stored a truncated last_name.
+      if (query.startsWith('SELECT last_name')) return 'FAKE_LETTER_trunc';
+      if (query.startsWith('DELETE FROM demographic')) { deleted = true; return ''; }
+      if (query.startsWith('SELECT COUNT')) return deleted ? '0' : '1';
+      return '';
+    },
+  });
+  vm.runInContext(source.slice(start, end), context);
+  const request = { get: async () => ({ status: () => 500, body: async () => Buffer.from('') }) };
+  await context.checkUnicodeEnvelope({ request });
+
+  assert.ok(findings.includes('unicode-envelope: synthetic patient name survived the database round trip'),
+    'the round-trip assertion must report the transformed name');
+  const deletion = queries.find(query => query.startsWith('DELETE FROM demographic'));
+  assert.ok(deletion, 'the owned patient must be deleted');
+  const verification = queries.find(query => query.startsWith('SELECT COUNT(*) FROM demographic'));
+  assert.ok(verification, 'the owned patient deletion must be verified');
+  // Run the real statements against a row whose name no longer matches the marker.
+  const remaining = execFileSync('python3', ['-c', `
+import json, sqlite3, sys
+delete, verify = json.load(sys.stdin)
+db = sqlite3.connect(':memory:')
+db.executescript("""
+CREATE TABLE demographic(demographic_no INTEGER, first_name TEXT, last_name TEXT);
+INSERT INTO demographic VALUES(55,'Lukasz ?????','FAKE_LETTER_trunc'),(56,'Other','Patient');
+""")
+db.execute(delete)
+print(json.dumps([db.execute(verify).fetchone()[0], [r[0] for r in db.execute('SELECT demographic_no FROM demographic')]]))
+`], { input: JSON.stringify([deletion, verification]), encoding: 'utf8' });
+  assert.deepEqual(JSON.parse(remaining), [0, [56]], 'only the owned synthetic patient is removed');
+  assert.deepEqual(removedDirs, ['/fixture/tmp/letter-envelope-pdf-x']);
+});

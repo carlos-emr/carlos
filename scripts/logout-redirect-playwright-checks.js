@@ -81,7 +81,7 @@ const visited = [];
 
 const pageRoutes = [
   { label: 'dms-index', path: '/documentManager/inboxManage?method=prepareForIndexPage' },
-  { label: 'dms-content', path: '/documentManager/inboxManage?method=prepareForContentPage&page=1&pageSize=20&view=all&status=N' },
+  { label: 'dms-content', path: '/documentManager/inboxManage?method=prepareForContentPage&page=1&pageSize=20&view=all&status=N', fragment: true },
   { label: 'dms-queues', path: '/documentManager/inboxManage?method=getDocumentsInQueues' },
 ];
 
@@ -288,6 +288,30 @@ async function login(context) {
 }
 
 async function checkAuthenticatedPageRoute(context, route) {
+  if (route.fragment) {
+    // The DMS content endpoint returns an HTML fragment whose scripts use
+    // jQuery supplied by the DMS index. Navigating directly to the fragment
+    // executes those scripts outside their host page and invents a pageerror.
+    // The index is opened separately above; verify this endpoint as a response.
+    const response = await context.request.get(appUrl(route.path));
+    const body = await response.text();
+    visited.push({ label: `authenticated:${route.label}`, url: safeUrl(response.url()) });
+    if (!response.ok()) {
+      findings.push({ label: `authenticated:${route.label}`, type: 'bad-navigation-status',
+        status: response.status(), url: safeUrl(response.url()) });
+    }
+    // The request follows redirects, so an expired session arrives as a 200 login/logout page.
+    // Judge by URL only: the fragment's own text may legitimately mention a login or session.
+    if (isLoginOrLogoutPage('', response.url())) {
+      findings.push({ label: `authenticated:${route.label}`, type: 'unexpected-auth-redirect',
+        url: safeUrl(response.url()), ...summarizeText(body) });
+    }
+    if (!body.trim() || isErrorPageText(body)) {
+      findings.push({ label: `authenticated:${route.label}`, type: 'invalid-fragment',
+        url: safeUrl(response.url()), ...summarizeText(body) });
+    }
+    return;
+  }
   const page = await context.newPage();
   wirePage(page, `authenticated:${route.label}`);
   const response = await safeGoto(page, `authenticated:${route.label}`, route.path);

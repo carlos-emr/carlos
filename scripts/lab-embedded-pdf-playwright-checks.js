@@ -240,9 +240,10 @@ async function openLabFromInbox(s, labNo, label) {
 }
 
 async function workflow(s) {
-  // The Inbox patient search matches a routed lab through d.hin LIKE '%...%', which a NULL HIN
-  // never satisfies; the owned fixture patient has none, so give it an empty one.
-  s.sql.execute(`UPDATE demographic SET hin='' WHERE demographic_no=${s.patient} AND hin IS NULL`);
+  // The owned fixture patient has no HIN (NULL): the Inbox patient search must still find it.
+  // Assert that premise, or this check would silently stop covering the NULL-HIN search.
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${s.patient} AND hin IS NULL`) === '1',
+    'The fixture patient must have a NULL HIN for the Inbox search check');
   const labNo = seedLab(s);
   const preferences = ownPreferences(s);
   // Start from the shipped defaults whatever this database holds.
@@ -389,5 +390,6 @@ async function workflow(s) {
 
 if (require.main === module) runWorkflow('lab-embedded-pdf', workflow, { openMaster: false });
 module.exports = {
-  workflow, buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, PDF, HTML_PAYLOAD, PDF_SEGMENT, HTML_SEGMENT,
+  workflow, buildMessage, headerMap, assertInlinePdfResponse, assertRefusal, ownPreferences, PDF, HTML_PAYLOAD,
+  PDF_SEGMENT, HTML_SEGMENT,
 };

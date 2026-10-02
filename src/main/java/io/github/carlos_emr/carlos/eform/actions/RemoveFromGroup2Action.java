@@ -58,8 +58,19 @@ public class RemoveFromGroup2Action extends ActionSupport {
         String fid = request.getParameter("fid");
         String groupName = request.getParameter("groupName");
         EFormUtil.remEFormFromGroup(groupName, fid);
-        request.setAttribute("group_view", groupName);
+        redirectTarget = EFormListRedirect.toGroup(request, groupName);
         return SUCCESS;
     }
 
+    private String redirectTarget;
+
+    /**
+     * The Struts redirect target: the eForm Groups page for the affected group. A redirect,
+     * not a forward, because the page's gate rejects the POST a forward would carry (405).
+     *
+     * @return the application-relative redirect location
+     */
+    public String getRedirectTarget() {
+        return redirectTarget;
+    }
 }

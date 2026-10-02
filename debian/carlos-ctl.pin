@@ -12,12 +12,3 @@
 # raise the pin when a CLI release should reach operators with the next
 # carlos release.
 tag=1.1.1
-#
-# Until that tag is PUBLISHED, CI (debian-python-tests.yml,
-# script-regressions.yml) checks out this commit of carlos-emr/carlos-ctl
-# instead and annotates the run with a warning: a carlos change that lands
-# together with a CLI change can be validated against the exact CLI commit
-# before the CLI release exists. The release build never uses it
-# (debian/fetch-carlos-ctl.sh downloads the tag's published asset or
-# fails). Drop the line, or leave it: once the tag exists it is not read.
-fallback=a37970916ddc818a51720a0f8fe8a29920e63a52

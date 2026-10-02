@@ -1,0 +1,124 @@
+# excelleris_pull.conf - configuration for release/excelleris_pull.py
+# Full setup and operations guide: docs/excelleris-pull.md
+#
+# Copy to a location only the service user can read, then:
+#     chown carlos-excelleris:carlos-excelleris pull.conf
+#     chmod 600 pull.conf
+# The tool refuses to start if group or other can read this file.
+#
+# Values are taken literally: '%' and ';' inside a value are fine. Do not quote.
+# Lines starting with '#' are comments.
+
+[excelleris]
+# Informational only; appears in alert emails so a clinic running several
+# feeds can tell them apart. Mirrors CONTEXT in the old config_inc.txt.
+context = Example Family Practice
+
+# Ontario test:        https://api.ontest.excelleris.com/hl7pull.aspx
+# Ontario production:  https://api.on.excelleris.com/hl7pull.aspx
+# BC:                  replace "on" with "bc"
+url = https://api.ontest.excelleris.com/hl7pull.aspx
+
+# Clinic Excelleris user id and password (what USERNAME/PASSWORD were before).
+user_id =
+password =
+
+# The PFX Excelleris issued for this clinic, also mode 0600, and its passphrase.
+# EITHER the PFX ...
+pfx_file = /etc/carlos-excelleris/clinic.pfx
+pfx_password =
+# ... OR the PEM pair extracted from it (what GoFetchRover keeps under
+# volumes/secrets: client_certificate*.pem and the unencrypted client_key*.pem).
+# client_cert_file = /etc/carlos-excelleris/client_certificate.pem
+# client_key_file = /etc/carlos-excelleris/client_key.pem
+
+# The application name Excelleris sees in the User-Agent header, which it uses
+# to enable features per client. The header is sent in the format Excelleris
+# requires, Mozilla/5.0 (Windows NT 6.2; <name>; <tool version>) Gecko/20100101
+# Firefox/32.0, with CARLOS (the default) or OSCAR19 (product = OSCAR) as the
+# name. This is independent of the flavour below: changing the EMR that
+# receives the results never changes this header.
+product = CARLOS
+
+# Or override the whole header. A site that completed Excelleris conformance
+# testing under GoFetchRover may keep that tool's exact string:
+# user_agent = Mozilla/5.0 (Windows NT 6.2; GoFetchRover; 1.0.0-alpha) Gecko/20100101 Firefox/113.0
+
+# Per-request timeout. The old script had none and could hang forever.
+timeout_seconds = 60
+
+# Optional extra PEM bundle to trust in addition to the system CA store.
+# Not needed for Excelleris' public certificates; here for a TLS-intercepting
+# proxy or a test endpoint.
+# ca_file = /etc/carlos-excelleris/extra-ca.pem
+
+[carlos]
+# Which EMR generation receives the results:
+#   carlos   CARLOS EMR (extensionless routes, CSRF token)      [default]
+#   oscar19  OSCAR 19   (*.do routes, logout.jsp, no CSRF layer)
+# The upload action, its parameters and its crypto are the same in both.
+flavour = carlos
+
+# The EMR base URL including the context path, no trailing slash
+# (e.g. https://emr.example.ca/oscar for OSCAR 19).
+base_url = https://emr.example.ca/carlos
+
+# A dedicated EMR provider login holding only the _lab security object with
+# write access. No MFA, no pending forced password reset, one facility.
+# Required for flavour = carlos. Optional for flavour = oscar19: leave all three
+# empty to upload without logging in, exactly as the Mule bridge did (OSCAR 19
+# exempts the upload route from its login filter).
+username =
+password =
+pin =
+
+# The key name created in Administration > Key Manager > Create Key, with type
+# "OTHER" / "ExcellerisON" (Ontario). The EMR picks the import handler from the
+# key, so this one name selects both the signature check and the parser.
+# Leave empty when key_pair_file is set: the file names the service, and a
+# different name here is rejected (the file's key only signs for its own name).
+service = excelleris
+
+# EITHER point at the keyPair.key file the Create Key page downloaded (this is
+# the file a Mule installation already has; it holds the service name, the
+# client private key and the server public key). It holds a private key, so
+# it must be mode 0600 and owned by the service user ...
+# key_pair_file = /etc/carlos-excelleris/keyPair.key
+# ... OR give the two keys separately below.
+
+# Keys as base64 copied from the EMR. Either paste inline or point at a file
+# (mode 0600) with the *_file variant; PEM armour and line breaks are tolerated.
+#   client_private_key: "base64EncodedPrivateKey" from
+#                       <base_url>/admin/keygen/getPublicKey?id=<service>
+#   server_public_key:  the block shown at the top of the Key Manager page
+client_private_key_file = /etc/carlos-excelleris/client-private-key.b64
+server_public_key_file = /etc/carlos-excelleris/server-public-key.b64
+
+timeout_seconds = 120
+
+# Runs with a transient upload failure (5xx, proxy errors, a session bounce)
+# tolerated for one file before it is moved to failed/ (24 = a day at hourly).
+# Permanent rejections (400, 403, 406) move at once.
+max_upload_attempts = 24
+
+# Optional PEM bundle for a CARLOS served under a private or internal CA.
+# ca_file = /etc/carlos-excelleris/clinic-ca.pem
+
+[paths]
+# Private working directory; the tool creates inbox/, done/, failed/ under it
+# with mode 0700. Lab results live here, so keep it on local encrypted storage
+# and out of any backup that is not itself PHI-grade.
+state_dir = /var/lib/carlos-excelleris
+
+# Run log. Never contains result content or credentials.
+log_file = /var/log/carlos-excelleris/pull.log
+
+# Days to keep compressed, already-imported pulls in done/. 0 keeps forever
+# (and logs a warning every run). Set this to what your records policy allows.
+retention_days = 90
+
+[alerts]
+# Failure alerts are emailed here through sendmail. Leave empty to disable.
+email = clinic-it@example.ca
+from = carlos-excelleris@emr.example.ca
+sendmail = /usr/sbin/sendmail

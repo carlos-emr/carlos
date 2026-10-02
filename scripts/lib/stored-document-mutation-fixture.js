@@ -34,6 +34,29 @@ function fileProof(file, store) {
 }
 function equal(actual, expected, message) {h.assert(JSON.stringify(actual) === JSON.stringify(expected), message);}
 
+/** A split's inbox routing applies active forwarding rules to every source recipient. */
+function expectedSplitRecipients(sql, sourceNo, provider) {
+  const recipients = new Set([provider]);
+  for (const [sourceProvider] of sql.rows(`SELECT DISTINCT provider_no FROM providerLabRouting
+    WHERE lab_no=${id(sourceNo)} AND lab_type='DOC'`)) recipients.add(sourceProvider);
+  const pending = [...recipients];
+  while (pending.length) {
+    const current = pending.shift();
+    for (const [forwarded] of sql.rows(`SELECT r.frwdProvider_no FROM incomingLabRules r
+      JOIN provider p ON p.provider_no=r.frwdProvider_no
+      WHERE r.provider_no=${h.sqlString(current)} AND r.archive<>'1'
+      AND (NOT EXISTS (SELECT 1 FROM incomingLabRulesType t WHERE t.forward_rule_id=r.id)
+        OR EXISTS (SELECT 1 FROM incomingLabRulesType t WHERE t.forward_rule_id=r.id AND t.type='DOC'))`)) {
+      h.assert(forwarded && typeof forwarded === 'string', 'Invalid active inbox forwarding recipient');
+      if (recipients.has(forwarded)) continue;
+      recipients.add(forwarded);
+      h.assert(recipients.size <= 1000, 'Inbox forwarding chain is unexpectedly large');
+      pending.push(forwarded);
+    }
+  }
+  return [...recipients].sort();
+}
+
 /** Only proven non-document discriminator values may relax a legacy-name match. */
 function externalDocumentReferences(references, number, fields, known) {
   const merged = new Map();
@@ -371,8 +394,9 @@ function createStoredDocumentFixture(session, program, recovery, options = {}) {
       const links = sql.rows(`SELECT module,module_id FROM ctl_document WHERE document_no=${number}`);
       equal(links, [['demographic', patient]], 'Split did not retain exactly the owned patient link');
       equal(sql.rows(`SELECT demographic_no FROM patientLabRouting WHERE lab_no=${number} AND lab_type='DOC'`), [[patient]], 'Split lost patient routing');
-      const providers = sql.rows(`SELECT DISTINCT provider_no FROM providerLabRouting WHERE lab_no=${number} AND lab_type='DOC'`);
-      equal(providers, [[provider]], 'Split changed provider routing ownership');
+      const providers = sql.rows(`SELECT DISTINCT provider_no FROM providerLabRouting WHERE lab_no=${number} AND lab_type='DOC'`)
+        .map(row => row[0]).sort();
+      equal(providers, expectedSplitRecipients(sql, sourceId, provider), 'Split changed provider routing ownership');
       equal(sql.rows(`SELECT queue_id,status FROM queue_document_link WHERE document_id=${number}`), [['1', 'A']], 'Split lost queue routing');
       const file = path.join(store, row[0][0]);
       documents.set(number, {file, fileProof: fileProof(file, store), snapshot: snapshot(number)});
@@ -393,4 +417,4 @@ async function recoverStoredDocumentFixture(session, program, options) {
   await fixture.cleanup();
   return {sourceId: fixture.sourceId, cleaned: fixture.isCleaned(), recoveryJournal: fixture.journal};
 }
-module.exports = {createStoredDocumentFixture, recoverStoredDocumentFixture, externalDocumentReferences, fileProof, inspect};
+module.exports = {createStoredDocumentFixture, recoverStoredDocumentFixture, expectedSplitRecipients, externalDocumentReferences, fileProof, inspect};
