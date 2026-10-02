@@ -1115,11 +1115,17 @@ def inspect_pull(body: bytes) -> PullSummary:
     declared = root.get("MessageCount")
     if declared is not None:
         # A count that cannot be read is as unverifiable as one that is wrong.
-        if not declared.strip().isdigit():
+        # int() rather than isdigit(): the latter admits superscripts and
+        # other digit-class characters that int() then refuses.
+        try:
+            declared_count = int(declared.strip())
+        except ValueError:
+            declared_count = -1
+        if declared_count < 0:
             return PullSummary(
                 count, None, f"pull declares a MessageCount that is not a number ({declared!r})"
             )
-        if int(declared) != count:
+        if declared_count != count:
             return PullSummary(
                 count,
                 None,
@@ -2343,7 +2349,9 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
         else:
             # Under the lock: nothing else is writing inbox/.
             archive.sweep_leftovers()
-            _, unadmitted = archive.admit_foreign_files(run_id)
+            # Admission serves the upload; --no-upload leaves inbox files as
+            # they are, so the next real run renames them.
+            _, unadmitted = archive.admit_foreign_files(run_id) if not opts.no_upload else (0, 0)
             if unadmitted:
                 failures.append(
                     f"{unadmitted} file(s) placed in the inbox by hand could not be renamed "

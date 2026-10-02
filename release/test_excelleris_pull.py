@@ -257,7 +257,7 @@ class InspectPullTest(unittest.TestCase):
         self.assertFalse(s.has_results)
         self.assertIn("MessageCount=3", s.problem)
         self.assertIn("2 Message elements", s.problem)
-        for bad in (b"unknown", b"-1", b"2.0", b""):
+        for bad in (b"unknown", b"-1", b"2.0", b"", "\u00b2".encode()):  # superscript two
             s = ep.inspect_pull(
                 PULL_WITH_RESULTS.replace(b'MessageCount="2"', b'MessageCount="' + bad + b'"')
             )
@@ -932,6 +932,18 @@ class OrchestrationTest(_OrchestrationBase):
         self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
         self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload"), 1)  # the pull only
         self.assertTrue((self.cfg.inbox_dir / "Jane Doe 1234567890.xml").exists())
+
+    def test_no_upload_leaves_hand_placed_files_alone(self):
+        ep.Archive(self.cfg)
+        foreign = self.cfg.inbox_dir / "Jane Doe 1234567890.xml"
+        foreign.write_bytes(PULL_WITH_RESULTS)
+        with self.assertLogs(ep.log, level="DEBUG") as captured:
+            rc = ep.run(self.cfg, ep.RunOptions(no_upload=True), self.factory)
+        self.assertEqual(rc, ep.EXIT_OK)
+        self.assertTrue(foreign.exists())  # not renamed, not sent, not logged
+        self.assertEqual(list(self.cfg.inbox_dir.glob("*-manual*")), [])
+        self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
+        self.assertNotIn("POST /carlos/lab/newLabUpload", self.labels())
 
     def test_excelleris_down_is_a_reported_failure_not_a_crash(self):
         self.script["excelleris:login"] = ep.TransportError("connect timed out")
