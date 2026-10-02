@@ -123,6 +123,7 @@ async function workflow(s) {
       'The first pharmacy was not linked');
     await entry(a).waitFor();
     await rx.waitForLoadState('networkidle');
+    h.assert(order(a) === '1', 'The first chosen pharmacy must have preferred order 1');
     await row(b).locator('.pharmacyName').click();
     await expectValue(sql, `SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no=${patient} AND pharmacyID=${b} AND status='1'`, '1',
       'The second pharmacy was not linked');
@@ -130,6 +131,12 @@ async function workflow(s) {
     h.assert(order(a) === '1' && order(b) === '2',
       `The preferred orders are ${order(a)} then ${order(b)}, not 1 then 2, in the order the pharmacies were chosen`);
     h.assert(JSON.stringify(await preferred()) === JSON.stringify([a, b]), 'The preferred list is not in the order the pharmacies were chosen');
+  });
+
+  await s.step('choosing an already preferred pharmacy changes neither stored order', async () => {
+    const dialogs = await h.withExpectedDialogs(rx, () => row(a).locator('.pharmacyName').click());
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'A repeated selection did not alert');
+    h.assert(order(a) === '1' && order(b) === '2', 'A repeated selection changed the preferred order');
   });
 }
 

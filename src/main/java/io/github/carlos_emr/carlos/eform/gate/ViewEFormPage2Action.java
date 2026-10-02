@@ -26,9 +26,17 @@ import org.apache.struts2.ActionContext;
  * @since 2026-04-15
  */
 public class ViewEFormPage2Action extends BaseEFormView2Action {
+    private static final String FIELDNOTE_SELECTION = "eform/fieldNoteReport/fieldnoteselect";
 
     @Override
     protected boolean isMethodAllowed(HttpServletRequest request) {
+        ActionContext actionContext = ActionContext.getContext();
+        if (actionContext != null && FIELDNOTE_SELECTION.equals(actionContext.getActionName())) {
+            if (request.getParameter("selected_eform") != null || request.getParameter("unselect_eform") != null) {
+                return "POST".equals(request.getMethod());
+            }
+            return super.isMethodAllowed(request) || "POST".equals(request.getMethod());
+        }
         if (super.isMethodAllowed(request)) {
             return true;
         }
@@ -49,7 +57,8 @@ public class ViewEFormPage2Action extends BaseEFormView2Action {
     @Override
     protected String allowedMethods() {
         ActionContext ctx = ActionContext.getContext();
-        if (ctx != null && "eform/efmformmanageredit".equals(ctx.getActionName())) {
+        if (ctx != null && ("eform/efmformmanageredit".equals(ctx.getActionName())
+                || FIELDNOTE_SELECTION.equals(ctx.getActionName()))) {
             return "GET, HEAD, POST";
         }
         return super.allowedMethods();

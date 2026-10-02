@@ -118,6 +118,14 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM prescription WHERE script_no=${scriptNo} AND rx_comments=${q(note)}`, '1',
       'The note typed in the print window was not stored exactly on the prescription');
     await previewShows(script, note, 'The printable preview does not show the typed note');
+    // A pharmacy change reloads this frame. It must restore the current editor text,
+    // including an edit made since the outer print window was rendered.
+    const preview = script.childFrames().find(f => /\/rx\/ViewPreview2\?/.test(f.url()));
+    await Promise.all([
+      preview.waitForNavigation({ waitUntil: 'load' }),
+      preview.evaluate(() => window.location.reload())
+    ]);
+    await previewShows(script, note, 'Reloading the preview restored the old note');
     await consumeNoteBodies();
   });
 

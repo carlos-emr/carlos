@@ -210,6 +210,29 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
                         && eform.isCurrent()));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldRejectFailedOrEmptyLegacyArchive_withoutSuccess(boolean invalidEntry) throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path archive = tempDir.resolve("legacy.zip");
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+            if (invalidEntry) {
+                output.putNextEntry(new ZipEntry("invalid.xml"));
+                output.write("<Results/>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                output.closeEntry();
+            }
+        }
+        FrmXmlUpload2Action action = new FrmXmlUpload2Action();
+        action.setFile1(archive.toFile());
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
+        assertThat(action.getActionErrors()).hasSize(1);
+        assertThat(request.getAttribute("actionErrors")).isEqualTo(action.getActionErrors());
+        verify(eformDao, never()).persist(any(EForm.class));
+    }
+
     @Test
     @DisplayName("should detect an eForm archive whose marker entry uses a different case or backslash separators")
     void shouldSaveEFormArchive_whenMarkerEntryIsCaseVariant() throws Exception {

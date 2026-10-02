@@ -142,6 +142,8 @@ async function workflow(s) {
     h.assert(response.status() < 400, `Add to Favorites on a drug with no instructions answered HTTP ${response.status()}`);
     await expectValue(sql, `SELECT COUNT(*) FROM favorites WHERE provider_no=${q(provider)} AND favoritename=${q(empty)}`, '1',
       'A drug with no instructions could not be saved as a favourite');
+    const [saved] = favouriteRows(empty);
+    h.assert(saved[3] === '', 'The instruction-free favourite must store empty instructions');
   });
 }
 

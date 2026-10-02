@@ -99,13 +99,14 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM document d JOIN ctl_document c ON c.document_no=d.document_no
       WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc=${q(subject)}`, '1',
       'Add to Documents did not file exactly one eDocument for the patient');
-    const [row] = sql.rows(`SELECT d.document_no, d.doctype, d.contenttype, d.status, d.responsible, d.docfilename, c.status
+    const [row] = sql.rows(`SELECT d.document_no, d.doctype, d.contenttype, d.status, d.responsible, d.docfilename, c.status, d.doccreator
       FROM document d JOIN ctl_document c ON c.document_no=d.document_no
       WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc=${q(subject)}`);
     [documentNo, , , , , docFile] = row;
     h.assert(row[1] === 'eForm' && row[2] === 'application/pdf' && row[3] === 'A' && row[6] === 'A',
       'The eDocument row is not an active eForm PDF linked to the patient');
     h.assert(row[4] === provider, 'The eDocument is not attributed to the saving provider');
+    h.assert(row[7] === provider, 'The eDocument creator is not the authenticated saving provider');
     files.push(docFile);
   });
 

@@ -588,7 +588,9 @@
                     return;
                 }
                 if (!previewDocument) return;
-                var initialComment = '<%=SafeEncode.forJavaScript(comment)%>';
+                // Reloads must use the current edit, not the value rendered when this window opened.
+                var editor = document.getElementById('additionalNotes');
+                var initialComment = editor ? editor.value : '<%=SafeEncode.forJavaScript(comment)%>';
                 var notes = previewDocument.getElementById('additNotes');
                 if (notes) {
                     notes.style.whiteSpace = 'pre-wrap';
@@ -1442,7 +1444,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 				<td>
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
-                                        <iframe id='preview' name='preview' width=420px height=890px
+                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
 							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>

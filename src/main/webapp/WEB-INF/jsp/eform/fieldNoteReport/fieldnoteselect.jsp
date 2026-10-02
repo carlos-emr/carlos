@@ -39,15 +39,18 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%
+    FieldNoteManager fieldNoteManager = new FieldNoteManager();
     String[] selectedEforms = request.getParameterValues("selected_eform");
     String unselectEform = request.getParameter("unselect_eform");
     String customName = request.getParameter("custom_name");
 
-    FieldNoteManager.selectFieldNoteEforms(selectedEforms);
-    FieldNoteManager.unSelectFieldNoteEform(unselectEform);
+    if ("POST".equals(request.getMethod())) {
+        fieldNoteManager.selectFieldNoteEforms(selectedEforms);
+        fieldNoteManager.unSelectFieldNoteEform(unselectEform);
+    }
 
-    TreeSet<Integer> fieldNoteEforms = FieldNoteManager.getFieldNoteEforms();
-    TreeSet<Integer> fieldNoteNameEforms = FieldNoteManager.getFieldNoteNameEforms(customName);
+    TreeSet<Integer> fieldNoteEforms = fieldNoteManager.getFieldNoteEforms();
+    TreeSet<Integer> fieldNoteNameEforms = fieldNoteManager.getFieldNoteNameEforms(customName);
 
     EFormDao eformDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
 %>
@@ -73,7 +76,7 @@
     <input type="button" value="<fmt:message key="admin.fieldNote.back"/>"
            onclick="window.location.href='fieldnotereport'"/>
 
-    <form name="selectFieldNoteForm" action="fieldnoteselect">
+    <form name="selectFieldNoteForm" action="fieldnoteselect" method="post">
 
         <input type="hidden" name="unselect_eform"/>
         <table class="elements" width="100%">

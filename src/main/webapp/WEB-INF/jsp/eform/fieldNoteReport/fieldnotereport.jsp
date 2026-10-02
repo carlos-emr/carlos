@@ -38,6 +38,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%
+    FieldNoteManager fieldNoteManager = new FieldNoteManager();
     Calendar c = Calendar.getInstance();
     int year = c.get(Calendar.YEAR);
     if (c.get(Calendar.MONTH) < 7) year--;
@@ -71,15 +72,15 @@
         invalidDate = true;
     }
 
-    TreeSet<Integer> fieldNoteEforms = FieldNoteManager.getFieldNoteEforms();
+    TreeSet<Integer> fieldNoteEforms = fieldNoteManager.getFieldNoteEforms();
     TreeMap<String, String> residentNameList = new TreeMap<String, String>();
     TreeMap<String, TreeMap<String, Integer>> supervisorResidentCountList = new TreeMap<String, TreeMap<String, Integer>>();
     TreeMap<String, Integer> supervisorCountList = new TreeMap<String, Integer>();
     int totalCount = 0;
 
-    if (showData) {
-        residentNameList = FieldNoteManager.getResidentNameList(fieldNoteEforms, startDate, endDate);
-        supervisorResidentCountList = FieldNoteManager.getSupervisorResidentCountList();
+    if (showData && !invalidDate) {
+        residentNameList = fieldNoteManager.getResidentNameList(fieldNoteEforms, startDate, endDate);
+        supervisorResidentCountList = fieldNoteManager.getSupervisorResidentCountList();
         for (String supervisor : supervisorResidentCountList.keySet()) {
             int noteCount = 0;
             for (Integer count : supervisorResidentCountList.get(supervisor).values()) {

@@ -90,7 +90,7 @@ async function workflow(s) {
   const supervisor = fixture.providerNo;
   supervisorName = `${marker}, Throwaway`;
   sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
-    VALUES (${q(supervisor)},'_admin.fieldnote','r',0,${q(provider)})`);
+    VALUES (${q(supervisor)},'_admin.fieldnote','x',0,${q(provider)})`);
   const ctx = await h.newContext(s.context.browser(), config);
   ctx.on('page', page => h.wireStrictPage(page, 'fieldnote-user', s.recorder));
   s.cleanup(() => ctx.close().catch(() => {}));
@@ -152,7 +152,7 @@ async function workflow(s) {
     const box = report.locator(`input[name="selected_eform"][value="${fid}"]`);
     await box.waitFor({ state: 'attached', timeout: 20000 });
     await box.check();
-    await Promise.all([report.waitForURL(/fieldnoteselect\?.*selected_eform=/), report.locator('input[type="submit"]').click()]);
+    await Promise.all([report.waitForNavigation({ waitUntil: 'load' }), report.locator('input[type="submit"]').click()]);
     await settle(report);
     await expectValue(sql, `SELECT COUNT(*) FROM property WHERE name='fieldNoteEform' AND FIND_IN_SET(${fid}, value)>0`, '1',
       'Submitting the select page did not store the owned eForm in property fieldNoteEform');
@@ -232,7 +232,7 @@ async function workflow(s) {
     await report.locator('input[type="button"][onclick*="fieldnoteselect"]').click();
     await report.waitForURL(/fieldnoteselect/);
     await settle(report);
-    await Promise.all([report.waitForURL(/unselect_eform=/), report.locator(`a[onclick*="remove_select(${fid})"]`).click()]);
+    await Promise.all([report.waitForNavigation({ waitUntil: 'load' }), report.locator(`a[onclick*="remove_select(${fid})"]`).click()]);
     await settle(report);
     await expectValue(sql, `SELECT COUNT(*) FROM property WHERE name='fieldNoteEform' AND FIND_IN_SET(${fid}, COALESCE(value,''))>0`, '0',
       'Unselect left the eForm in property fieldNoteEform');
