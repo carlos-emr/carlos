@@ -595,6 +595,21 @@
       ]
     },
     {
+      "name": "lab-upload-signed-feed",
+      "script": "scripts/lab-upload-signed-feed-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ]
+    },
+    {
       "name": "document-add-link",
       "script": "scripts/document-add-link-playwright-checks.js",
       "tiers": [
