@@ -178,9 +178,10 @@ async function workflow(s) {
     h.assert(status(controlId) === 'new', 'Unarchive changed the control message');
   });
 
-  // Kept last: the step asserts the correct behaviour end to end. The Search Patient
-  // popup no longer closes itself on load (msgSearchDemo.jsp, issue #4133); the view
-  // shown after Link to Patient does not yet list the linked patient (see report).
+  // Kept last: the step asserts the correct behaviour end to end. Both defects it found
+  // are fixed (issue #4133): the Search Patient popup closed itself on load
+  // (msgSearchDemo.jsp), and the view shown after Link to Patient read the attached
+  // patients before writing the link (MsgViewMessage2Action).
   await s.step('Search Patient (DemographicLinkMsg) picks the patient and Link to Patient writes the map row', async () => {
     await backToInbox();
     await openMessage(controlId);

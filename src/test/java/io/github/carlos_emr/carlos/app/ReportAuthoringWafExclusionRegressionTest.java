@@ -166,6 +166,15 @@ class ReportAuthoringWafExclusionRegressionTest {
         // blank-line boundary was lost and another rule's actions are being read as this one's.
         assertThat(rule.indexOf("SecRule REQUEST_URI", 1)).as("exclusion %s is read on its own", ruleId).isLessThan(0);
         assertThat(rule).as("exclusion %s is chained to a method match", ruleId).contains("SecRule REQUEST_METHOD");
+        // One chain, end to end: every link but the last says chain, and no second id starts a
+        // detached rule whose actions would apply without the route and POST conditions.
+        String[] links = rule.split("SecRule ", -1);
+        for (int i = 1; i < links.length - 1; i++) {
+            assertThat(links[i]).as("exclusion %s link %d chains to the next", ruleId, i).contains("chain");
+        }
+        assertThat(rule.split("\"id:", -1)).as("exclusion %s carries a single rule id", ruleId).hasSize(2);
+        assertThat(links[links.length - 1]).as("exclusion %s ends with the ctl actions", ruleId)
+                .contains("ctl:ruleRemoveTargetByTag");
         return rule;
     }
 

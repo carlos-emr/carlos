@@ -9,8 +9,9 @@
 // rendered as text), the CSV bytes parse back to the SQL rows, the XLS is an OLE2 workbook carrying
 // the values, leaving the result page fires the ViewClearSession beacon, the textarea edit persists,
 // an edit whose SQL is a write statement is refused when saved (the stored template and the
-// database are unchanged and the typed XML stays in the textarea), and the confirm()-gated delete
-// removes the row.
+// database are unchanged and the typed XML stays in the textarea), a write statement already stored
+// in a template is refused at run time and writes nothing, and the confirm()-gated delete removes
+// the row.
 // Fixtures: the owned synthetic patient (runWorkflow) plus a second owned FAKE patient with the
 // same marker surname; one template titled with the marker. Cleanup deletes only marker rows and
 // asserts they are gone. Group membership and upload validation live in
@@ -76,8 +77,8 @@ async function workflow(s) {
   const expectedRows = sex => s.sql.rows(`SELECT demographic_no, last_name, first_name, sex FROM demographic
     WHERE last_name=${h.sqlString(s.marker)} AND sex=${h.sqlString(sex)} ORDER BY demographic_no`);
   let templateId;
-  const templateRow = () => s.sql.rows(`SELECT templatetitle,templatedescription,templatesql,active,uuid
-    FROM reportTemplates WHERE templateid=${Number(templateId)}`);
+  const templateRow = (id = templateId) => s.sql.rows(`SELECT templatetitle,templatedescription,templatesql,active,uuid
+    FROM reportTemplates WHERE templateid=${Number(id)}`);
 
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     {context: s.context, recorder: s.recorder, label: 'rbt-administration', timeout: 20000});
@@ -252,17 +253,20 @@ async function workflow(s) {
       'CSV export did not quote the comma/quote-bearing value back to the SQL row');
   });
 
+  const writeTitle = `${s.marker} RBT write`;
+  let writeId;
+  let write;
   await s.step('Edit Template refuses a write statement when saved and keeps the typed XML', async () => {
     await leaveResult(frame.getByRole('link', {name: 'Template Library', exact: true}), 'Template Library (write)');
-    const writeTitle = `${s.marker} RBT write`;
     const select = 'SELECT templateid FROM reportTemplates WHERE templateid = 0';
-    const write = `UPDATE reportTemplates SET templatedescription = 'FAKE-PW-written' WHERE templateid = ${templateId}`;
-    const writeId = await uploadTemplate(templateXml(writeTitle, `${s.marker} write probe`, select), writeTitle);
+    write = `UPDATE reportTemplates SET templatedescription = 'FAKE-PW-written' WHERE templateid = ${templateId}`;
+    writeId = await uploadTemplate(templateXml(writeTitle, `${s.marker} write probe`, select), writeTitle);
     await openFromLibrary(writeTitle, writeId);
     await frameClick(frame.getByRole('link', {name: 'Edit Template', exact: true}), 'Edit Template (write)');
     const textarea = frame.locator('textarea#xmltext');
     h.assert((await textarea.inputValue()).includes(select), 'Edit page did not load the stored XML');
-    const before = JSON.stringify(templateRow());
+    // Both rows: the edited template, and the one the UPDATE statement targets.
+    const before = JSON.stringify([templateRow(writeId), templateRow()]);
     await textarea.fill(templateXml(writeTitle, `${s.marker} write probe`, write));
     await frameClick(frame.locator('input[type="submit"][name="done"]'), 'Edit Done (write)');
     // Refused at save (issue #4133): the editor answers with the reason and the author's XML.
@@ -271,7 +275,24 @@ async function workflow(s) {
       'The refused edit did not keep the typed XML in the textarea');
     h.assert(s.sql.value(`SELECT templatesql FROM reportTemplates WHERE templateid=${writeId}`) === select,
       'A refused edit replaced the stored template SQL');
-    h.assert(JSON.stringify(templateRow()) === before, 'Saving the write-statement edit changed the database');
+    h.assert(JSON.stringify([templateRow(writeId), templateRow()]) === before,
+      'Saving the write-statement edit changed the database');
+  });
+
+  await s.step('a write statement already stored in a template is refused at run time and writes nothing', async () => {
+    // Templates saved before the save-time check (or written to the table directly) never passed
+    // it, so Run Query keeps its own refusal. Seed one such row and run it from the configuration.
+    s.sql.execute(`UPDATE reportTemplates SET templatesql=${h.sqlString(write)} WHERE templateid=${Number(writeId)}`);
+    h.assert(s.sql.value(`SELECT templatesql FROM reportTemplates WHERE templateid=${writeId}`) === write,
+      'The stored write statement was not seeded');
+    await openFromLibrary(writeTitle, writeId);
+    const before = JSON.stringify([templateRow(writeId), templateRow()]);
+    await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Result report (write)');
+    await frame.locator('.alert-danger', {hasText: 'Only SELECT statements are allowed'}).waitFor();
+    h.assert(await frame.locator('table#report2').count() === 0, 'A write statement produced a result table');
+    h.assert(JSON.stringify([templateRow(writeId), templateRow()]) === before,
+      'Running the write-statement template changed the database');
+    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (write)');
   });
 
   await s.step('Delete Template asks for confirmation and removes the template row', async () => {

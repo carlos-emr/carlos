@@ -226,6 +226,17 @@ public class MsgViewMessage2Action extends ActionSupport {
             return NONE;
         }
 
+        // Handle demographic linking if requested. Done before the attached-patient list below is
+        // read, so the page shown after Link to Patient already lists the patient just linked.
+        if (linkMsgDemo != null && demographic_no != null) {
+            if (linkMsgDemo.equalsIgnoreCase("true")) {
+                Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
+                if (parsedDemoNo > 0) {
+                    messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageNo, parsedDemoNo);
+                }
+            }
+        }
+
         // Get demographics already attached to this message
         Integer msgId = ConversionUtils.fromIntString(msgDisplayMessage.getMessageId());
         Map<Integer, String> attachedDemographics = (msgId > 0)
@@ -262,16 +273,6 @@ public class MsgViewMessage2Action extends ActionSupport {
             Long msgIdLong = ConversionUtils.fromLongString(msgDisplayMessage.getMessageId());
             if (msgIdLong > 0L) {
                 messagingManager.setMessageRead(loggedInInfo, msgIdLong, providerNo);
-            }
-        }
-
-        // Handle demographic linking if requested
-        if (linkMsgDemo != null && demographic_no != null) {
-            if (linkMsgDemo.equalsIgnoreCase("true")) {
-                Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
-                if (parsedDemoNo > 0) {
-                    messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageNo, parsedDemoNo);
-                }
             }
         }
 

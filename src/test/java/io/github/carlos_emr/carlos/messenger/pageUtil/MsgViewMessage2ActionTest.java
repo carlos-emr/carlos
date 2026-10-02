@@ -211,6 +211,32 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
         verify(mockDemoManager, never()).attachDemographicToMessage(any(), anyInt(), anyInt());
     }
 
+    @Test
+    @DisplayName("should link the patient before reading the attached patients the page shows")
+    void shouldListLinkedPatient_whenLinkMsgDemoRequested() throws Exception {
+        // Given
+        allowPrivilege("_msg", "r");
+        addRequestParameter("messageID", "100");
+        addRequestParameter("linkMsgDemo", "true");
+        addRequestParameter("demographic_no", "42");
+
+        MsgDisplayMessage msg = createMockMessage("100");
+        when(mockMessagingManager.getInboxMessage(any(LoggedInInfo.class), eq(100)))
+                .thenReturn(msg);
+        HashMap<Integer, String> attached = new HashMap<>();
+        attached.put(42, "FAKE-Doe, Pat");
+        when(mockDemoManager.getAttachedDemographicNameMap(any(), eq(100)))
+                .thenReturn(attached);
+
+        // When
+        executeAction(action);
+
+        // Then - the link is written first, so the list the page renders includes it
+        InOrder order = inOrder(mockDemoManager);
+        order.verify(mockDemoManager).attachDemographicToMessage(any(), eq(100), eq(42));
+        order.verify(mockDemoManager).getAttachedDemographicNameMap(any(), eq(100));
+    }
+
     private MsgDisplayMessage createMockMessage(String messageId) {
         MsgDisplayMessage msg = new MsgDisplayMessage();
         msg.setMessageId(messageId);
