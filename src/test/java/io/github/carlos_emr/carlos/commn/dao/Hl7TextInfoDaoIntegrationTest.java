@@ -252,4 +252,27 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
             assertThat(searchByName("Nullhinsearched", "12345", mixLabsAndDocs)).isEmpty();
         }
     }
+
+    @Test
+    void shouldFindLabWithoutHealthNumber_whenNameSearchLeavesHinBlank() {
+        var info = createHl7TextInfo("PLR-NO-HIN", "QueryFixture", "NoHin", null);
+        info.setLabNumber(9834002);
+        info.setObrDate("2026-09-27 10:00:00");
+        hibernateTemplate.flush();
+        var routing = new io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel();
+        routing.setLabNo(9834002);
+        routing.setLabType("HL7");
+        routing.setProviderNo("999998");
+        routing.setStatus("N");
+        entityManager.persist(routing);
+        entityManager.flush();
+
+        var matches = hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "QueryFixture", "NoHin", "",
+                "N", false, 0, 100, true, null, true, true, null, null);
+        assertThat(matches).hasSize(1);
+        assertThat(((Number) matches.get(0)[1]).intValue()).isEqualTo(9834002);
+        assertThat(hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "QueryFixture", "NoHin", "other-hin",
+                "N", false, 0, 100, true, null, true, true, null, null)).isEmpty();
+    }
+
 }

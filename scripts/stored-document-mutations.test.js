@@ -149,7 +149,18 @@ test('file proof rejects symlinks and paths outside the owned store', () => {
   } finally {fs.rmSync(store, {recursive: true, force: true});}
 });
 
-const {createStoredDocumentFixture, recoverStoredDocumentFixture} = require('./lib/stored-document-mutation-fixture');
+const {createStoredDocumentFixture, recoverStoredDocumentFixture, expectedSplitRecipients} = require('./lib/stored-document-mutation-fixture');
+
+test('split fixture expects the active forwarding closure without losing source recipients', () => {
+  const rules = { '999998': ['999996'], '999996': ['999997'], '999997': ['999998'] };
+  const sql = { rows(query) {
+    if (query.includes('FROM providerLabRouting')) return [['999998'], ['999995']];
+    const provider = /provider_no='([^']+)'/.exec(query)?.[1];
+    return (rules[provider] || []).map(forwarded => [forwarded]);
+  } };
+  assert.deepEqual(expectedSplitRecipients(sql, '42', '999998'),
+    ['999995', '999996', '999997', '999998']);
+});
 function ownedFixture({references = [], discriminator = true} = {}) {
   const store = fs.mkdtempSync(path.join(os.tmpdir(), 'stored-document-cleanup-test-'));
   const saved = {DOCUMENT_DIR: process.env.DOCUMENT_DIR, RX_FAX_DOCUMENT_DIR: process.env.RX_FAX_DOCUMENT_DIR,

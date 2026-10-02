@@ -54,7 +54,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** Pins the duplicate lookup and the store-once transaction that, unlike addFile, do not swallow failures.
+/** Pins the duplicate lookup and the store-once transaction, which never swallow failures.
  * @since 2026-09-24
  */
 @Tag("unit")
@@ -109,7 +109,7 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
     void shouldPropagatePersistFailure_whenRecordingFile() {
         doThrow(new IllegalStateException("database unavailable")).when(dao).persist(any());
 
-        // Unlike addFile, the failure reaches the caller's transaction so it rolls back.
+        // The failure reaches the caller's transaction so it rolls back.
         assertThatThrownBy(() -> FileUploadCheck.recordFile("lab.hl7", new ByteArrayInputStream(CONTENT), "999998"))
                 .isInstanceOf(IllegalStateException.class);
     }
@@ -118,7 +118,7 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
     void shouldPropagateDatabaseFailure_whenLookupThrows() {
         when(dao.findByMd5Sum(anyString())).thenThrow(new IllegalStateException("database unavailable"));
 
-        // addFile would turn this into UNSUCCESSFUL_SAVE; this lookup must not look like "not recorded".
+        // A database fault must look neither like "not recorded" nor like "already uploaded" (#4086).
         assertThatThrownBy(() -> FileUploadCheck.isFileRecorded(new ByteArrayInputStream(CONTENT)))
                 .isInstanceOf(IllegalStateException.class);
     }
@@ -266,12 +266,13 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldMakeAddFileWait_whileSameContentIsStoring() throws Exception {
+    void shouldReportDuplicateAfterCommit_whenSameContentArrivesWhileStoring() throws Exception {
         java.util.concurrent.atomic.AtomicBoolean committed = new java.util.concurrent.atomic.AtomicBoolean();
         when(dao.findByMd5Sum(anyString())).thenAnswer(invocation -> committed.get()
                 ? List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()) : List.of());
         java.util.concurrent.atomic.AtomicReference<Thread> worker = new java.util.concurrent.atomic.AtomicReference<>();
-        java.util.concurrent.atomic.AtomicReference<CompletableFuture<Integer>> claim = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<CompletableFuture<FileUploadCheck.StoreOutcome>> retry =
+                new java.util.concurrent.atomic.AtomicReference<>();
         var lock = FileUploadCheck.contentLock(DigestUtils.md5Hex(CONTENT));
         try {
             FileUploadCheck.storeIfNew("lab.hl7", () -> new ByteArrayInputStream(CONTENT), "999998", checksumId -> {
@@ -282,9 +283,12 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
                         committed.set(true);
                     }
                 });
-                claim.set(onWorker(() -> {
+                retry.set(onWorker(() -> {
                     worker.set(Thread.currentThread());
-                    return FileUploadCheck.addFile("again.hl7", new ByteArrayInputStream(CONTENT), "999998");
+                    return FileUploadCheck.storeIfNew("again.hl7", () -> new ByteArrayInputStream(CONTENT), "999998",
+                            id -> {
+                                throw new AssertionError("content stored while its first upload was in flight");
+                            });
                 }));
                 long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
                 while ((worker.get() == null || !lock.hasQueuedThread(worker.get())) && System.nanoTime() < deadline) {
@@ -294,12 +298,12 @@ class FileUploadCheckUnitTest extends CarlosUnitTestBase {
                 // observing an unscheduled future after an arbitrary sleep.
                 assertThat(worker.get()).isNotNull();
                 assertThat(lock.hasQueuedThread(worker.get())).isTrue();
-                assertThat(claim.get()).isNotDone();
+                assertThat(retry.get()).isNotDone();
                 return true;
             });
         } finally {
-            if (claim.get() != null) {
-                assertThat(claim.get().get(10, TimeUnit.SECONDS)).isEqualTo(FileUploadCheck.UNSUCCESSFUL_SAVE);
+            if (retry.get() != null) {
+                assertThat(retry.get().get(10, TimeUnit.SECONDS)).isEqualTo(FileUploadCheck.StoreOutcome.ALREADY_RECORDED);
             }
         }
         verify(dao, org.mockito.Mockito.times(1)).persist(any());

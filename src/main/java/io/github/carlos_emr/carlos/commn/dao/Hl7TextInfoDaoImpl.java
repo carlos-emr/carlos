@@ -539,4 +539,3 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
     }
 }
-

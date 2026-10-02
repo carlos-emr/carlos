@@ -59,7 +59,8 @@ import java.util.Date;
  *
  * <p>Attachments are synchronised only when the form carries the picker marker
  * ({@link TicklerAttachmentParameters#SUBMITTED_MARKER}); an edit that never opened the picker
- * leaves the stored set untouched.</p>
+ * leaves the stored set untouched. The form also echoes the stored rows it rendered
+ * ({@link TicklerAttachmentParameters#RENDERED_MARKER}), and only those can be detached.</p>
  */
 public class EditTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -170,6 +171,33 @@ public class EditTickler2Action extends ActionSupport {
             return "failure";
         }
 
+        // A user may change only the attachments. Keep field, comment, history and attachment
+        // writes in one transaction, and synchronise only an explicitly submitted selection.
+        // Attachments are synchronised first, before the tickler is mutated or updateTickler
+        // runs: an attachment refusal (patient, program, queue, deleted document) then returns
+        // before any field, comment or history write is attempted, rather than relying only on
+        // the rollback below. syncAttachments needs only the tickler's id and patient, which
+        // this edit does not change, and it takes the tickler row lock for the whole edit.
+        if (TicklerAttachmentParameters.isSubmitted(request)) {
+            try {
+                // The rendered list (null from a page opened before it existed) limits removals
+                // to rows the form actually showed, so a row hidden at render survives a
+                // permission change made while the page was open.
+                ticklerAttachmentService.syncAttachments(loggedInInfo, t, TicklerAttachmentParameters.read(request),
+                        TicklerAttachmentParameters.readRendered(request));
+            } catch (SecurityException | IllegalArgumentException e) {
+                logger.warn("Refused tickler attachments: ticklerNo={}: {}",
+                        LogSafe.sanitize(String.valueOf(ticklerNo)), LogSafe.sanitize(e.getMessage()));
+                addActionError(getText("tickler.ticklerEdit.attachments.error"));
+                return "error";
+            } catch (Exception e) {
+                logger.error("Failed to store tickler attachments: ticklerNo={}",
+                        LogSafe.sanitize(String.valueOf(ticklerNo)), e);
+                addActionError(getText("tickler.ticklerEdit.attachments.error"));
+                return "error";
+            }
+        }
+
         Date now = new Date();
 
         boolean isComment = false;
@@ -257,24 +285,6 @@ public class EditTickler2Action extends ActionSupport {
             } catch (Exception e) {
                 logger.error("Tickler update failed: {}", e.getClass().getSimpleName());
                 addActionError(getText("tickler.ticklerEdit.arg.error"));
-                return "error";
-            }
-        }
-
-        // A user may change only the attachments. Keep field, comment, history and attachment
-        // writes in one transaction, and synchronise only an explicitly submitted selection.
-        if (TicklerAttachmentParameters.isSubmitted(request)) {
-            try {
-                ticklerAttachmentService.syncAttachments(loggedInInfo, t, TicklerAttachmentParameters.read(request));
-            } catch (SecurityException | IllegalArgumentException e) {
-                logger.warn("Refused tickler attachments: ticklerNo={}: {}",
-                        LogSafe.sanitize(String.valueOf(ticklerNo)), LogSafe.sanitize(e.getMessage()));
-                addActionError(getText("tickler.ticklerEdit.attachments.error"));
-                return "error";
-            } catch (Exception e) {
-                logger.error("Failed to store tickler attachments: ticklerNo={}",
-                        LogSafe.sanitize(String.valueOf(ticklerNo)), e);
-                addActionError(getText("tickler.ticklerEdit.attachments.error"));
                 return "error";
             }
         }

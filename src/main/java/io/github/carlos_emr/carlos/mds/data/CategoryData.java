@@ -430,7 +430,10 @@ public class CategoryData {
                 + (providerSearch ? " AND plr.provider_no = ? " : "")
                 + labAbnormalSql
                 + labDateSql
-                + " GROUP BY demographic_no, info.accessionNum ";
+                // Qualified: both patientLabRouting (cd) and demographic (d) carry demographic_no.
+                // MariaDB resolves the bare name to the select-list d.demographic_no, but H2 and
+                // stricter SQL engines reject it as ambiguous; d. states the intended column.
+                + " GROUP BY d.demographic_no, info.accessionNum ";
 
         List<Object> params = new ArrayList<>();
         addPatientSearchParams(params);
@@ -486,7 +489,8 @@ public class CategoryData {
             sql.append(" AND plr.provider_no = ? ");
         }
         
-        sql.append(" GROUP BY demographic_no ");
+        // Qualified for the same reason as getLabCountForPatientSearch: cd and d both have demographic_no.
+        sql.append(" GROUP BY d.demographic_no ");
         
         List<Object> params = new ArrayList<>();
         params.add(demographicNo);

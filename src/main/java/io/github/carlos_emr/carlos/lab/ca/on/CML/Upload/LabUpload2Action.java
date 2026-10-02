@@ -86,7 +86,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
         String key = request.getParameter("key");
         String keyToMatch = CarlosProperties.getInstance().getProperty("CML_UPLOAD_KEY");
-        _logger.debug("upload key present: {}", key != null);
+        _logger.debug("Checking whether the CML upload key was supplied");
         String outcome = "";
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
@@ -128,8 +128,10 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
                 if (localFileName != null) {
                     File localFile;
+                    File documentDir;
                     try {
                         localFile = PathValidationUtils.validateExistingDocumentPath(localFileName);
+                        documentDir = PathValidationUtils.getRequiredDocumentDirectory();
                     } catch (IOException | SecurityException e) {
                         // localFileName is the generated saved-file path, whose basename embeds the
                         // caller-supplied lab filename; log the rejection, not the path.
@@ -142,10 +144,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     // storeIfNew records the checksum in the same transaction as the parsed lab, so
                     // a failure leaves neither and a retry stores the lab, while a real duplicate is
                     // refused. It holds the checksum lock throughout, so no concurrent upload is told
-                    // uploadedPreviously for a lab that is still in flight.
+                    // uploadedPreviously for a lab that is still in flight. The archived copy is removed
+                    // for a duplicate, a failed lookup or a rolled-back store, so it is not orphaned.
                     FileUploadCheck.StoreOutcome stored;
                     try {
-                        stored = FileUploadCheck.storeIfNew(filename, () -> new FileInputStream(localFile), proNo,
+                        stored = FileUploadCheck.storeSavedFileIfNew(localFile, documentDir, filename, proNo,
                                 checksumId -> {
                                     storeLab(localFile);
                                     return true;

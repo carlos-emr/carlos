@@ -125,7 +125,6 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
             Map<?, ?> statuses = (Map<?, ?>) request.getAttribute("filesStatusMap");
             assertThat(statuses.get("source.hl7").toString()).isEqualTo("COMPLETED");
             assertThat(transactions.commits).isEqualTo(1);
-            duplicateCheck.verify(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), anyString()), never());
             try (var children = Files.list(documentDir)) {
                 var archived = children.toList();
                 assertThat(archived).hasSize(1);
@@ -154,6 +153,8 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(statuses.get("duplicate.hl7").toString()).isEqualTo("EXISTS");
             handlers.verifyNoInteractions();
             assertThat(transactions.begun).isEqualTo(1);
+            // #4086: the duplicate's saved copy is not left behind in DOCUMENT_DIR.
+            assertNoSavedCopy(documentDir);
         }
     }
 
@@ -180,6 +181,7 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(statuses.get("rejected.hl7").toString()).isEqualTo("INVALID");
             assertThat(transactions.rollbacks).isEqualTo(1);
             assertThat(transactions.commits).isZero();
+            assertNoSavedCopy(documentDir);
         }
     }
 
@@ -205,6 +207,13 @@ class InsideLabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(statuses.get("broken.hl7").toString()).isEqualTo("FAILED");
             assertThat(transactions.rollbacks).isEqualTo(1);
             assertThat(transactions.commits).isZero();
+            assertNoSavedCopy(documentDir);
+        }
+    }
+
+    private static void assertNoSavedCopy(Path documentDir) throws java.io.IOException {
+        try (var children = Files.list(documentDir)) {
+            assertThat(children.toList()).isEmpty();
         }
     }
 

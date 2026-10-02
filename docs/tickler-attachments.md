@@ -79,11 +79,22 @@ data-migration gaps in that PR closed rather than copied.
   macro (`ReportMacro2Action`) checks before any side effect and refuses the whole macro,
   acknowledgement included, when the lab may not be attached to that patient; otherwise it
   acknowledges, persists the tickler and attaches through `syncAttachments`.
-- Restricted types on edit: a reader who lacks read on an attachment's type still sees that
-  something is attached. The Edit form carries those rows through as `data-restricted` hidden
-  delegates, so a save after opening the picker resubmits them unchanged; `syncAttachments`
-  leaves a type the caller cannot read alone when the submitted set equals the stored set and
-  refuses any difference. The tickler list JSON (`ListTicklers`) applies the same per-type gate:
+- Restricted types on edit: a reader who lacks read on an attachment's type (or, for documents,
+  the document's program or queue access) still sees that something is attached, but the page
+  carries no identifier for it. The panel echoes only the rows it rendered as
+  `renderedDocNo`/`renderedLabNo`/`renderedEFormNo`/`renderedHrmNo`/`renderedFormNo` (same
+  values as the delegates) plus `attachmentsRendered=1`, and
+  `syncAttachments(loggedInInfo, tickler, submitted, rendered)` detaches only stored rows that
+  were rendered and are now absent. A row the page never rendered is kept whatever the caller's
+  rights at save time, so type or item access granted while the Edit page is open cannot turn
+  "never shown" into "unchecked"; a type with nothing rendered is only ever added to. The
+  rendered list can only narrow removals: a value naming a row that is not stored has no effect,
+  and every add-side check still applies. Submissions without the marker (a page opened before
+  the list existed; new-tickler flows such as `DbTicklerAdd2Action` and the lab macro, which have
+  no stored rows to protect) use the three-argument overload and its save-time inference: an
+  empty submission for a type the caller cannot read leaves it alone, and a document the caller
+  cannot read is kept. A caller who cannot read a type at save time may still only resubmit its
+  stored set unchanged; any difference is refused. The tickler list JSON (`ListTicklers`) applies the same per-type gate:
   such links are returned as `{tableName, restricted: true}` with no identifier at all (neither
   the item id nor the `ticklerdocs` row id), and `ticklerMain.jsp` renders an unlinked, titled
   paperclip. The REST `TicklerConverter` applies the gate too and leaves denied rows out, since

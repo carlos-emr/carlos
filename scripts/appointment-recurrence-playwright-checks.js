@@ -106,6 +106,9 @@ async function main() {
     await daySheet.locator(`a.adhour[onclick*="provider_no=${booked.provider}&"]`).first().click();
     const block = await pending;
     wirePage(block, 'recurring-block', fixture.recorder);
+    await block.waitForURL(url => String(url) !== 'about:blank', {
+      timeout: 45000, waitUntil: 'domcontentloaded',
+    });
     await block.waitForLoadState('domcontentloaded');
     await block.locator('#keyword').fill(`${fixture.stamp}_blocked_time`);
     await block.locator('#reason').fill(`${fixture.stamp}_blocked_reason`);
