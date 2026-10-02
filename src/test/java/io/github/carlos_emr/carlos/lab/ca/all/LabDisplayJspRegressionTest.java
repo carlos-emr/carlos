@@ -321,6 +321,11 @@ class LabDisplayJspRegressionTest {
                 .isEqualTo(2);
         assertThat(occurrences(branch, "<fmt:message key=\"lab.embeddedPdf.notPdf\"/>")).isEqualTo(2);
         assertThat(occurrences(branch, "<%@ include file=\"/WEB-INF/jspf/lab-embedded-pdf-preview.jspf\" %>")).isEqualTo(2);
+        // A text ED value (ED.4 A) keeps its text in ED.5, which getOBXResult does not read, so both
+        // row shapes must show getOBXEmbeddedDocumentText for it rather than an empty cell.
+        assertThat(occurrences(branch, "embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT"
+                + " ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k)")).isEqualTo(2);
+        assertThat(occurrences(branch, "<carlos:encode value='<%= handler.getOBXResult(j, k) %>'")).isZero();
     }
 
     private static int occurrences(String text, String needle) {

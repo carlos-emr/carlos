@@ -1082,7 +1082,7 @@
                     if (handler.getMsgType().equals("EPSILON")) {
                         // Epsilon rows are filtered by header here, so ED rows are rendered in this branch rather
                         // than the shared row below: a PDF gets the Download PDF link and the preview row, other
-                        // binary payloads the "not a PDF" note (#3977, #4124).
+                        // binary payloads the "not a PDF" note, and a text ED value its ED.5 text (#3977, #4124).
                         if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && !obxName.equals("")) {
                 %>
 
@@ -1096,7 +1096,7 @@
                         <% } else if (isUndisplayableEmbeddedDocument) { %>
                         <em class="lab-embedded-document-unsupported"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
                         <% } else { %>
-                        <carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
+                        <carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                         <% } %>
                     </td>
 
@@ -1121,7 +1121,7 @@
                         <% } else if (isUndisplayableEmbeddedDocument) { %>
                         <em class="lab-embedded-document-unsupported" style="margin-left:100px;"><fmt:message key="lab.embeddedPdf.notPdf"/></em>
                         <% } else { %>
-                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= embeddedDocument != null && embeddedDocument.status() == EmbeddedLabDocumentLoader.Status.TEXT ? handler.getOBXEmbeddedDocumentText(j, k) : handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/></pre>
                         <% } %>
                     </td>
                 </tr>
