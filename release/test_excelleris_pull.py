@@ -547,6 +547,27 @@ class ArchiveTest(TempEnv):
         self.assertEqual(len(captured.output), 2)
         self.assertTrue(all("owner-only" in line for line in captured.output))
 
+    def test_a_file_that_cannot_be_made_owner_only_is_not_sent(self):
+        archive = ep.Archive(self.cfg)
+        stuck = self.cfg.inbox_dir / "20261001-090000.xml"
+        stuck.write_bytes(b"<HL7Messages/>")
+        stuck.chmod(0o644)
+        fine = archive.save_inbox("20261001-090100", b"<HL7Messages/>")
+        real_chmod = os.chmod
+
+        def failing_chmod(path, mode, **kw):
+            if str(path).endswith("20261001-090000.xml"):
+                raise PermissionError(1, "Operation not permitted", str(path))
+            real_chmod(path, mode, **kw)
+
+        with mock.patch.object(ep.os, "chmod", failing_chmod):
+            with self.assertLogs(ep.log, level="ERROR") as captured:
+                archive.admit_foreign_files("20261001-090500")
+        self.assertIn("not sent until it is", captured.output[0])
+        self.assertEqual(archive.inbox_files(), [fine])  # the stuck file is left out
+        self.assertEqual(archive.untightened, {stuck})
+        self.assertEqual(stat.S_IMODE(stuck.stat().st_mode), 0o644)
+
     def test_rename_failure_names_no_file_and_keeps_the_pair(self):
         archive = ep.Archive(self.cfg)
         foreign = self.cfg.inbox_dir / "Jane Doe 1234567890.xml"
@@ -1004,6 +1025,25 @@ class OrchestrationTest(_OrchestrationBase):
         self.assertEqual(list(self.cfg.inbox_dir.glob("*-manual*")), [])
         self.assertFalse(any("Jane" in line for line in captured.output), captured.output)
         self.assertNotIn("POST /carlos/lab/newLabUpload", self.labels())
+
+    def test_run_alerts_and_skips_a_file_it_cannot_make_owner_only(self):
+        ep.Archive(self.cfg)
+        stuck = self.cfg.inbox_dir / "20261001-090000.xml"
+        stuck.write_bytes(PULL_WITH_RESULTS)
+        stuck.chmod(0o644)
+        real_chmod = os.chmod
+
+        def failing_chmod(path, mode, **kw):
+            if str(path).endswith("20261001-090000.xml"):
+                raise PermissionError(1, "Operation not permitted", str(path))
+            real_chmod(path, mode, **kw)
+
+        with mock.patch.object(ep.os, "chmod", failing_chmod):
+            rc = ep.run(self.cfg, ep.RunOptions(), self.factory)
+        self.assertEqual(rc, ep.EXIT_FAILED)  # alerted
+        self.assertEqual(self.labels().count("POST /carlos/lab/newLabUpload"), 1)  # the pull only
+        self.assertTrue(stuck.exists())
+        self.assertEqual(stat.S_IMODE(stuck.stat().st_mode), 0o644)
 
     def test_excelleris_down_is_a_reported_failure_not_a_crash(self):
         self.script["excelleris:login"] = ep.TransportError("connect timed out")

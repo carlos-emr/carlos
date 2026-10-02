@@ -1316,6 +1316,7 @@ class Archive:
 
     def __init__(self, cfg: Config):
         self.cfg = cfg
+        self.untightened: set[Path] = set()  # inbox files whose mode could not be tightened
         for d in (cfg.state_dir, cfg.inbox_dir, cfg.done_dir, cfg.failed_dir):
             d.mkdir(
                 parents=True, exist_ok=True, mode=0o700
@@ -1356,7 +1357,11 @@ class Archive:
 
         Only names this tool generated: a file placed here by hand is listed
         once ``admit_foreign_files`` has renamed it, never under its own name.
+        A file whose mode could not be made owner-only this run is left out.
         """
+        return [p for p in self._listed_inbox_files() if p not in self.untightened]
+
+    def _listed_inbox_files(self) -> list[Path]:
         return sorted(
             p
             for p in self.cfg.inbox_dir.glob("*.xml")
@@ -1553,14 +1558,17 @@ class Archive:
         return admitted, unadmitted
 
     def _tighten_modes(self) -> None:
-        """Make every listed inbox file and sidecar owner-only.
+        """Make every listed inbox file and sidecar owner-only, or set it aside.
 
         A file restored by hand under a tool-made name (copied back from
         ``failed/``, say) skips the rename above and would keep the mode it
         arrived with, usually 0644, through the upload and into ``failed/``.
-        Names here are tool-made, so they may be quoted.
+        A file whose mode cannot be tightened (owned by root, say) is not
+        sent: ``inbox_files`` leaves it out until it can be, and the run
+        alerts with a count. Names here are tool-made, so they may be quoted.
         """
-        for path in self.inbox_files():
+        self.untightened = set()
+        for path in self._listed_inbox_files():
             for p in (path, self._attempts_file(path)):
                 try:
                     if p.is_symlink() or not p.is_file():
@@ -1569,7 +1577,12 @@ class Archive:
                         os.chmod(p, 0o600)
                         log.warning("made %s owner-only (it was not)", p.name)
                 except OSError as exc:
-                    log.error("%s: could not make it owner-only: %s", p.name, exc.strerror)
+                    self.untightened.add(path)
+                    log.error(
+                        "%s: could not make it owner-only (%s); not sent until it is",
+                        p.name,
+                        exc.strerror,
+                    )
 
     def _foreign_files(self) -> list[Path]:
         links = sum(1 for p in self.cfg.inbox_dir.glob("*.xml") if p.is_symlink())
@@ -2466,6 +2479,11 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
             if unadmitted:
                 failures.append(
                     f"{unadmitted} file(s) placed in the inbox by hand could not be renamed "
+                    "and were not sent; see the log"
+                )
+            if archive.untightened:
+                failures.append(
+                    f"{len(archive.untightened)} inbox file(s) could not be made owner-only "
                     "and were not sent; see the log"
                 )
         # Retry first: a backlog from a CARLOS outage goes in before new work.
