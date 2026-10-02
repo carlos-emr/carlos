@@ -1,0 +1,93 @@
+{
+  "agent": "fixed NHS source excerpts; no model",
+  "patients": [
+    {
+      "fixture": "NHSSYN001",
+      "documentId": 40,
+      "checks": [
+        "login",
+        "search",
+        "eChart",
+        "summary review link",
+        "access audit persisted",
+        "real CSRF rejection",
+        "GET mutation rejection",
+        "controlled 403 access refusal",
+        "generation without writes",
+        "exact source evidence",
+        "review token rejection",
+        "edited reminder persisted",
+        "reminder source link",
+        "other edits retained",
+        "approval reset",
+        "refresh-safe GET",
+        "signed history persisted",
+        "history source link",
+        "dismissal without writes",
+        "durable replay without duplicates",
+        "mobile layout"
+      ],
+      "proposals": 3,
+      "existingReceipts": 2
+    },
+    {
+      "fixture": "NHSSYN002",
+      "documentId": 41,
+      "checks": [
+        "login",
+        "search",
+        "eChart",
+        "summary review link",
+        "access audit persisted",
+        "real CSRF rejection",
+        "GET mutation rejection",
+        "controlled 403 access refusal",
+        "generation without writes",
+        "exact source evidence",
+        "review token rejection",
+        "edited reminder persisted",
+        "reminder source link",
+        "other edits retained",
+        "approval reset",
+        "refresh-safe GET",
+        "signed history persisted",
+        "history source link",
+        "dismissal without writes",
+        "durable replay without duplicates",
+        "mobile layout"
+      ],
+      "proposals": 3,
+      "existingReceipts": 2
+    },
+    {
+      "fixture": "NHSSYN003",
+      "documentId": 42,
+      "checks": [
+        "login",
+        "search",
+        "eChart",
+        "summary review link",
+        "access audit persisted",
+        "real CSRF rejection",
+        "GET mutation rejection",
+        "controlled 403 access refusal",
+        "generation without writes",
+        "exact source evidence",
+        "review token rejection",
+        "edited reminder persisted",
+        "reminder source link",
+        "other edits retained",
+        "approval reset",
+        "refresh-safe GET",
+        "signed history persisted",
+        "history source link",
+        "dismissal without writes",
+        "durable replay without duplicates",
+        "mobile layout"
+      ],
+      "proposals": 3,
+      "existingReceipts": 2
+    }
+  ],
+  "passed": true
+}

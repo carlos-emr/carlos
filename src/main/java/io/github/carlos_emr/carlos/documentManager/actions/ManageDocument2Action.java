@@ -80,6 +80,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.*;
@@ -1176,7 +1177,9 @@ public class ManageDocument2Action extends ActionSupport {
      * the appropriate content type. Supports both file-system-stored documents and
      * legacy HTML documents stored in the docxml database field.
      *
-     * @throws Exception if the document file does not exist and no docxml fallback is available
+     * Returns HTTP 404 when the file is missing and no stored HTML fallback exists.
+     *
+     * @throws Exception if the document cannot otherwise be read
      * @throws SecurityException if the user lacks _edoc read privilege
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
@@ -1214,14 +1217,15 @@ public class ManageDocument2Action extends ActionSupport {
 
         Path file = PathValidationUtils.validateExistingPath(new File(DOCUMENT_DIR, filename), PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR")).toPath();
 
-        if (Files.exists(file)) {
+        try {
             contentBytes = Files.readAllBytes(file);
-        } else {
-            if (docxml == null || docxml.trim().equals("")) {
-                // No stored HTML fallback is available, so fail before any response bytes are written.
-                log.warn("Local document file is missing for eDoc. documentId={}, fileName={}",
-                        LogSafe.sanitizeObject(d.getId()), LogSafe.sanitizeObject(file.getFileName()));
-                throw new IllegalStateException("Local document file is missing");
+        } catch (NoSuchFileException missing) {
+            if (docxml == null || docxml.isBlank()) {
+                log.warn("Local document file is missing for eDoc. documentId={}",
+                        LogSafe.sanitizeObject(d.getId()));
+                response.sendError(HttpServletResponse.SC_NOT_FOUND,
+                        "The original document file is missing. Contact an administrator to restore it.");
+                return;
             }
         }
 

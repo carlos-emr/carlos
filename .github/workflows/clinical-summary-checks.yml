@@ -1,0 +1,45 @@
+# Exercise the synthetic AI contracts on every affected PR, including stacked prototypes.
+# Licensed under the repository's LICENSE.
+name: Clinical Summary Checks
+
+on:
+  pull_request:
+    paths:
+      - 'src/main/java/io/github/carlos_emr/carlos/clinical/summary/**'
+      - 'src/test/java/io/github/carlos_emr/carlos/clinical/summary/**'
+      - 'src/main/resources/clinical/summary/**'
+      - 'src/main/webapp/WEB-INF/jsp/documentManager/ai*.jsp'
+      - 'src/main/webapp/js/ai-chart-updates*.js'
+      - 'src/main/webapp/css/ai-chart-updates*.css'
+      - 'src/main/webapp/WEB-INF/jspf/chart-update-error-dialog.jspf'
+      - 'src/main/webapp/WEB-INF/jspf/chart-update-workflow-dialog.jspf'
+      - 'src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'
+      - 'src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp'
+      - 'src/main/webapp/WEB-INF/jsp/documentManager/documentReport.jsp'
+      - 'tools/ai-clinical-summary-draft/**'
+      - '.github/workflows/clinical-summary-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Synthetic AI contracts (no model calls)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Run Python contracts and gateway tests
+        working-directory: tools/ai-clinical-summary-draft
+        run: python3 -m unittest discover -s tests -v
+
+  # The normal Maven workflow already covers integration branches. These two
+  # prototype bases need the same build, test, JSP and source checks while stacked.
+  stacked-build:
+    if: github.base_ref == 'codex/single-document-summarizer' || github.base_ref == 'draft/ai-clinical-summary-prototype'
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/maven-project.yml

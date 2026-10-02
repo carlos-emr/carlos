@@ -43,6 +43,21 @@
             <result name="dms_page">/WEB-INF/jsp/oscarMDS/Page.jsp</result>
             <result name="document_in_queues">/WEB-INF/jsp/oscarMDS/documentsInQueues.jsp</result>
         </action>
+        <action name="documentManager/AiChartUpdates" class="io.github.carlos_emr.carlos.clinical.summary.web.AiChartUpdates2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/aiChartUpdates.jsp</result>
+        </action>
+        <action name="documentManager/GenerateAiChartUpdates" class="io.github.carlos_emr.carlos.clinical.summary.web.AiChartUpdates2Action" method="generate">
+            <result name="success">/WEB-INF/jsp/documentManager/aiChartUpdates.jsp</result>
+            <allowed-methods>generate</allowed-methods>
+        </action>
+        <action name="documentManager/ApplyAiChartUpdate" class="io.github.carlos_emr.carlos.clinical.summary.web.AiChartUpdates2Action" method="apply">
+            <result name="success">/WEB-INF/jsp/documentManager/aiChartUpdates.jsp</result>
+            <allowed-methods>apply</allowed-methods>
+        </action>
+        <action name="documentManager/DismissAiChartUpdate" class="io.github.carlos_emr.carlos.clinical.summary.web.AiChartUpdates2Action" method="dismiss">
+            <result name="success">/WEB-INF/jsp/documentManager/aiChartUpdates.jsp</result>
+            <allowed-methods>dismiss</allowed-methods>
+        </action>
         <action name="documentManager/AiDocumentSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiDocumentSummary2Action">
             <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
         </action>

@@ -18,6 +18,14 @@ public final class ClinicalSummaryAgents {
         return configuredDocument(CarlosProperties.getInstance());
     }
 
+    /** Dedicated operation: the agent returns proposals, never chart-write instructions. */
+    public static ClinicalSummaryAgent configuredChartUpdates() {
+        Properties properties = new Properties();
+        properties.putAll(CarlosProperties.getInstance());
+        properties.setProperty("clinical.ai_document_summary.http.path", "/v1/chart-update-proposals");
+        return configuredDocument(properties);
+    }
+
     static ClinicalSummaryAgent configuredDocument(Properties properties) {
         if (!"http".equals(properties.getProperty(PREFIX + "agent", "ollama"))) {
             return configured(properties);

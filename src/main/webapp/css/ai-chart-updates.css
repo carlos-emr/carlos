@@ -1,0 +1,65 @@
+/* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
+/* Use CARLOS global.css for the page header, palette, buttons and focus states. */
+body { background: #fff; font-size: 14px; }
+.review-header .page-header-title { white-space: normal; }
+.review-content { padding: 0 15px 15px; }
+.review-context p { margin-bottom: .5rem; }
+.review-guidance { padding: .5rem .75rem; border: 1px solid var(--carlos-border); background: var(--carlos-bg-light); }
+.chart-update-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1rem; align-items: start; margin-top: 1rem; }
+.chart-update-layout > * { min-width: 0; }
+.chart-update-layout h2 { font-size: 18px; }
+.review-progress { font-weight: 600; }
+.suggestions-help, .field-help { color: #555; font-size: 13px; }
+.field-help { margin: .35rem 0 0; }
+.past-date { color: #84431a; font-weight: 600; margin: .35rem 0 0; }
+.proposal { border: 1px solid var(--carlos-border); border-radius: 4px; }
+.proposal .card-body { padding: .75rem; }
+.proposal-heading { display: flex; align-items: baseline; gap: .4rem; margin: -.75rem -.75rem .75rem; padding: .5rem .75rem; background: var(--carlos-bg-light); border-bottom: 1px solid var(--carlos-border); border-radius: 4px 4px 0 0; }
+.proposal-heading h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.proposal-number { font-weight: 600; }
+.proposal-evidence { margin-bottom: .75rem; }
+.source-text { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; margin-top: .5rem; }
+blockquote { border-left: 3px solid var(--carlos-border); padding-left: .75rem; margin-bottom: 0; }
+.proposal-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .75rem; margin-top: .25rem; }
+.form-label { font-weight: 600; }
+.form-control, .form-select { font-size: inherit; }
+.approval-confirmation { display: flex; align-items: start; gap: .5rem; margin: .75rem 0; }
+.approval-confirmation input { flex-shrink: 0; margin-top: .2rem; width: 1rem; height: 1rem; }
+.proposal-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.chart-reference { padding: .75rem; background: #fff; border: 1px solid var(--carlos-border); border-radius: 4px; position: sticky; top: .75rem; max-height: calc(100vh - 1.5rem); overflow: auto; }
+.chart-reference h2 { margin: -.75rem -.75rem .75rem; padding: .5rem .75rem; background: var(--carlos-bg-light); border-bottom: 1px solid var(--carlos-border); font-size: 15px; font-weight: 600; }
+summary { cursor: pointer; }
+summary:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset: 3px; }
+@media (max-width: 800px) {
+    .chart-update-layout, .proposal-fields { grid-template-columns: 1fr; }
+    .chart-reference { position: static; max-height: none; }
+}
+
+.review-steps { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.review-steps[hidden], .proposal[hidden] { display: none; }
+.review-in-modal .review-header .page-header-title { display: none; }
+.review-in-modal .review-header { justify-content: end; }
+
+.source-viewer { max-height: 40vh; overflow: auto; border: 1px solid var(--carlos-border); padding: .5rem; }
+.source-viewer .source-text { margin: 0; }
+.source-viewer:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset: 2px; }
+.source-highlight { background: #fff0a6; color: #222; padding: 0; box-shadow: 0 1px 0 #b89100; }
+.current-chart { margin-top: 1rem; }
+.chart-match-notice, .related-proposal-notice { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .5rem .75rem; margin-bottom: .75rem; }
+.chart-match-notice p, .related-proposal-notice p { margin: 0 0 .35rem; }
+.chart-match-links { margin-bottom: 0; padding-left: 1.25rem; }
+.chart-entry-match { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .4rem .5rem; }
+
+.native-chart-review { width: 96vw; height: 94vh; max-width: none; max-height: 96vh; box-sizing: border-box; overflow: auto; padding: 12px; border: 1px solid #777; }
+.native-chart-review::backdrop { background: rgba(0, 0, 0, .4); }
+.native-chart-review[open] { display: flex; flex-direction: column; gap: .5rem; }
+.native-chart-review > :not(iframe) { flex-shrink: 0; }
+.native-chart-review iframe { width: 100%; flex: 1 1 auto; min-height: 160px; height: auto; border: 1px solid #ccc; }
+.native-chart-review .native-review-source { max-height: 15vh; overflow: auto; white-space: pre-wrap; }
+
+.coverage-audit { border: 1px solid #9db6cf; padding: .6rem; margin-bottom: 1rem; background: #f5f8fb; }
+.coverage-audit summary { cursor: pointer; color: #24496d; }
+.coverage-section, .coverage-rejected { border-top: 1px solid #c5d3e0; margin-top: .5rem; padding-top: .5rem; }
+.coverage-audit blockquote { max-height: 18rem; overflow: auto; margin: .5rem 0; padding: .5rem; background: white; }
+.coverage-section a { display: inline-block; margin: .3rem; }
+.coverage-gap { border-left: 3px solid #986e1c; }

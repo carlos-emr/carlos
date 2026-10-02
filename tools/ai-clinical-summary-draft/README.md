@@ -8,9 +8,14 @@ read-only extract for an explicitly selected, authorized demographic. The chart
 view reproduces recorded fields and available source text; it is **not an AI-generated
 summary**. Optional agent generation is limited to the three checksum-verified
 NHS development fixtures. Ollama is the default; a versioned HTTP interface also
-supports replaceable agents. There are no chart writes, on-disk runtime drafts or
+supports replaceable agents. The base summary view has no chart writes, on-disk runtime drafts or
 database migrations. Validated Ollama drafts can be reused from a bounded process-memory cache. HTTP agents control their own downstream data
 handling. The separate Python runner remains synthetic-only.
+
+The separately flagged [reviewed chart-update add-on](CHART_UPDATES.md) (#3910)
+can append a clinician-approved reminder or signed history entry from a selected
+document. It has its own receipt migration and defaults to disabled. Read its
+scope and deployment safeguards before enabling it in a test environment.
 
 ## CARLOS view
 

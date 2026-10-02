@@ -86,6 +86,9 @@
     pageContext.setAttribute("popupPatientAge", popupPatientAge);
     pageContext.setAttribute("popupDemographicNo", demoNo);
     pageContext.setAttribute("summaryDemographicNo", Integer.parseInt(demoNo));
+    pageContext.setAttribute("chartUpdatesEnabled", java.util.List.of(
+            "clinical.ai_summary_generation.enabled", "clinical.ai_document_summary.enabled", "clinical.ai_chart_updates.enabled")
+            .stream().allMatch(flag -> "true".equals(CarlosProperties.getInstance().getProperty(flag, "false"))));
     pageContext.setAttribute("summaryPrototypeEnabled", "true".equals(CarlosProperties.getInstance()
             .getProperty("clinical.ai_summary_prototype.enabled", "false")));
 
@@ -239,6 +242,10 @@ function fallbackCopy(text) {
         <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}"
            onclick="window.open('${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}', 'ClinicalCalculators', 'width=800,height=650,scrollbars=yes,resizable=yes'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
     </div>
+    <c:if test="${chartUpdatesEnabled}">
+        <div><a class="chart-update-launch chart-update-workflow-link" aria-haspopup="dialog" target="_blank" rel="noopener noreferrer"
+                href="${carlos:forHtmlAttribute(ctx)}/documentManager/ViewDocumentReport?function=demographic&amp;functionid=${carlos:forUriComponent(popupDemographicNo)}&amp;chartUpdates=1"><fmt:message key="chartUpdates.title"/></a></div>
+    </c:if>
     <c:if test="${summaryPrototypeEnabled}">
         <div><a target="_blank" rel="noopener noreferrer" href="${carlos:forHtmlAttribute(ctx)}/clinical/AiSummaryPrototype?demographicNo=${carlos:forHtmlAttribute(summaryDemographicNo)}">Patient overview</a></div>
     </c:if>
