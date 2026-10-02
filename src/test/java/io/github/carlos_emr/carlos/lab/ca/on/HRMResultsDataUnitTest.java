@@ -7,9 +7,19 @@ import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemogr
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import java.util.Date;
+import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -21,6 +31,66 @@ import static org.mockito.Mockito.*;
  */
 @Tag("unit")
 class HRMResultsDataUnitTest extends CarlosUnitTestBase {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"1234567890"})
+    void shouldKeepMatchedReportVisible_withMissingOrPresentHealthNumber(String hin) {
+        Demographic patient = new Demographic();
+        patient.setFirstName("Test");
+        patient.setLastName("Patient");
+        patient.setHin(hin);
+        LabResultData result = loadReport(patient, "Patient,Test");
+        assertThat(result.isMatchedToPatient).isTrue();
+        assertThat(result.patientName).isEqualTo("Patient,Test");
+        assertThat(result.healthNumber).isEqualTo(hin);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"Patient", "Patient,", "Patient,Test"})
+    void shouldKeepUnmatchedReportVisible_withIncompletePatientName(String name) {
+        LabResultData result = loadReport(null, name);
+        assertThat(Boolean.TRUE.equals(result.isMatchedToPatient)).isFalse();
+        assertThat(result.patientName).isEqualTo(name);
+    }
+
+    private LabResultData loadReport(Demographic patient, String reportName) {
+        var providers = mock(HRMDocumentToProviderDao.class);
+        var documents = mock(HRMDocumentDao.class);
+        var matches = mock(HRMDocumentToDemographicDao.class);
+        var demographics = mock(DemographicManager.class);
+        registerMock(HRMDocumentToProviderDao.class, providers);
+        registerMock(HRMDocumentDao.class, documents);
+        registerMock(HRMDocumentToDemographicDao.class, matches);
+        registerMock(DemographicManager.class, demographics);
+        var info = mock(LoggedInInfo.class);
+        var route = new HRMDocumentToProvider();
+        route.setHrmDocumentId(42);
+        when(providers.findByProviderNoLimit(anyString(), anyList(), anyBoolean(), any(), any(),
+                anyInt(), anyInt(), anyBoolean(), anyInt(), anyInt())).thenReturn(List.of(route));
+        var document = mock(HRMDocument.class);
+        when(document.getId()).thenReturn(42);
+        when(document.getTimeReceived()).thenReturn(new Date());
+        when(document.getReportFile()).thenReturn("synthetic-report.xml");
+        when(documents.findById(42)).thenReturn(List.of(document));
+        if (patient != null) {
+            var match = new HRMDocumentToDemographic();
+            match.setDemographicNo(100);
+            when(matches.findByHrmDocumentId(42)).thenReturn(List.of(match));
+            when(demographics.getDemographic(info, 100)).thenReturn(patient);
+        } else {
+            when(matches.findByHrmDocumentId(42)).thenReturn(List.of());
+        }
+        var report = mock(HRMReport.class);
+        when(report.getLegalName()).thenReturn(reportName);
+        try (var parser = mockStatic(HRMReportParser.class)) {
+            parser.when(() -> HRMReportParser.parseReport(info, "synthetic-report.xml")).thenReturn(report);
+            var results = new HRMResultsData().populateHRMdocumentsResultsData(info, "999998", "", null, null, false, 0, 100);
+            assertThat(results).hasSize(1);
+            return results.iterator().next();
+        }
+    }
+
     @ParameterizedTest
     @CsvSource(value = {"N,0", "A,1", "F,1", "'',2", "NULL,0"}, nullValues = "NULL")
     void shouldFilterBySignOffIndependentlyOfViewedState_whenReviewStatusSelected(String status, int signedOff) {

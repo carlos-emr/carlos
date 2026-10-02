@@ -93,6 +93,14 @@ public class PatientMatch2Action extends ActionSupport {
         this.mrpRoutingService = mrpRoutingService;
     }
 
+    /**
+     * Matches a lab to a patient through an authorized POST. Fetch callers explicitly
+     * accepting application/json receive HTTP 204; normal form callers retain the chart redirect.
+     *
+     * @return no Struts view because the HTTP response is completed here
+     * @throws ServletException if servlet processing fails
+     * @throws IOException if the response cannot be written
+     */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
@@ -132,7 +140,11 @@ public class PatientMatch2Action extends ActionSupport {
             return NONE;
         }
 
-        response.sendRedirect(newURL);
+        if ("application/json".equals(request.getHeader("Accept"))) {
+            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        } else {
+            response.sendRedirect(newURL);
+        }
         return NONE;
     }
 

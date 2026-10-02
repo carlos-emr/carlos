@@ -147,13 +147,12 @@ async function workflow(s) {
       matching.waitForResponse(r => r.request().method() === 'POST' && /\/oscarMDS\/PatientMatch/.test(r.url()), { timeout: TIMEOUT }),
       rows.first().click(),
     ]);
-    h.assert(post.status() < 400, `Patient Match answered HTTP ${post.status()}`);
+    h.assert(post.status() === 204, `Patient Match answered HTTP ${post.status()}`);
     await expectValue(sql, `SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${labNo}`, patient,
       'Picking the patient did not link the lab to the owned patient');
     // Read now, before the named lab window is reused below, and asserted in the last step.
     await lab.waitForTimeout(2000);
-    // PatientMatch answers with a redirect to oscarMDS/ViewOpenEChart; the popup's fetch() follows it and the popup's
-    // window.close() then aborts that chart-gate page load (N11, asserted in the last step, not as a harness failure).
+    // A fetch match must complete without following a chart redirect that closing the popup aborts.
     for (let i = recorder.requestFailures.length - 1; i >= 0; i--) {
       const failure = recorder.requestFailures[i];
       if (failure.label === 'patient-link-match' && /\/oscarMDS\/ViewOpenEChart/.test(failure.url) && /ERR_ABORTED/.test(failure.errorText || '')) {

@@ -442,6 +442,17 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
 
     <script type="text/javascript">
         // alternately refer to this function in oscarMDSindex.js as labDisplayAjax.jsp does
+        // Receive a successful match even when COOP severs the patient-search opener.
+        if (typeof BroadcastChannel !== 'undefined') {
+            const matchChannel = new BroadcastChannel('lab-patient-match-${carlos:forJavaScript(pageContext.request.contextPath)}');
+            matchChannel.onmessage = function(event) {
+                const match = event.data;
+                if (match && match.type === 'patient-matched' && match.labType === 'HL7'
+                        && typeof match.labNo === 'string' && /^\d+$/.test(match.labNo)) {
+                    updateLabDemoStatus(match.labNo);
+                }
+            };
+        }
         function updateLabDemoStatus(labno) {
             if (document.getElementById("DemoTable" + labno)) {
                 document.getElementById("DemoTable" + labno).style.backgroundColor = "#FFF";

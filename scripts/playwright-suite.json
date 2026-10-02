@@ -3736,6 +3736,21 @@
       "fixtures": "Owns a FAKE- patient, a UI-created and a seeded quick list (FAKE<base36>, at most 10 chars), and dx_associations rows whose code starts with the run marker; never saves a bill; removes only owned rows."
     },
     {
+      "name": "flowsheet-editor-height",
+      "script": "scripts/flowsheet-editor-height-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient and two patient flowsheet customizations; all deleted and verified by the shared workflow cleanup.",
+      "notes": "Exercises the served UpdateFlowsheet JSP height assignment and persists warning/target rules. The full flowsheet-patient-customization workflow separately covers tracker and print."
+    },
+    {
       "name": "flowsheet-patient-customization",
       "script": "scripts/flowsheet-patient-customization-playwright-checks.js",
       "tiers": [
@@ -5966,7 +5981,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient only; its demographicArchive rows are removed with it.",
-      "notes": "Fails at its last step on 2026.08: changing Roster Status throws TypeError (edit.jsp:854 updateEnrolledTo calls rosterSelect.getValue(), which a <select> lacks), so the 'enrol to the MRP' confirmation never runs. Every earlier step passes."
+      "notes": "Verifies roster history and native-select enrollment confirmations without script errors (issue #4176)."
     },
     {
       "name": "gap-records-label-print-setting",
@@ -5998,7 +6013,7 @@
         "DOCUMENT_DIR"
       ],
       "fixtures": "The runWorkflow FAKE- patient, one marker formRourke2009 row (all checkbox columns set to 0), one marker-named patient set; the run's dataExport row and its zip in DOCUMENT_DIR are found by the marker contact name and deleted and checked gone.",
-      "notes": "Fails at its last step on 2026.08: the previous-reports table prints the typed contact user name as markup (rourkeExport.jsp unencoded getUser/getFile/setName) and its file link points at eRourkeExport?method=getFile, a parameter the action never dispatches on, so no zip is sent."
+      "notes": "Verifies encoded patient-set/contact labels, a persisted one-patient export, and a byte-for-byte matching ZIP download (issue #4176)."
     },
     {
       "name": "gap-records-usage-report",
@@ -6013,7 +6028,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "An idle demo provider (no patients or activity of any kind, else SKIP) given six active patients, one inactive patient, five appointments, three encounter notes and four prescriptions carrying the marker; all deleted in cleanup and checked gone. Counts are scoped to that provider.",
-      "notes": "Fails at its last step on 2026.08: Scheduled Appts and Encounter Note exclude rows dated on the End Date, and percentages print float noise (16.66666716337204%). Roster size, age/sex shares, Rx count and the form validation pass first."
+      "notes": "Verifies inclusive calendar end dates, exclusion of next-day midnight, bounded percentage precision, roster size, age/sex shares, Rx counts, and form validation (issue #4176)."
     },
     {
       "name": "gap-records-document-annotate-save",
@@ -6045,7 +6060,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient; the one DemographicContact association is deleted in cleanup and checked gone. SKIPs when DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM is off.",
-      "notes": "Fails at its last step on 2026.08: embedded in the Master Record edit form the panel prints '???demographic.manageHealthCareTeam.*???' for its heading, labels, Add/Search buttons and placeholders (manageHealthCareTeam.jsp sets its fmt bundle only inside the detached-view branch). Add and Remove pass first."
+      "notes": "Verifies translated labels in the embedded panel and persisted Add/Remove membership changes (issue #4176)."
     },
     {
       "name": "gap-records-hrm-report-actions",
@@ -6080,6 +6095,21 @@
       "notes": "PASS expected; fails at the criterion step naming the owned patients listed versus the owned patients that match."
     },
     {
+      "name": "gap-records-autocomplete-labels",
+      "script": "scripts/gap-records-autocomplete-labels-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient, removed by runWorkflow. Reads the logged-in provider; no flowsheet is saved.",
+      "notes": "Patient and provider suggestions render match spans as HTML and select the expected record on the patient flowsheet and lab provider-selection pages."
+    },
+    {
       "name": "gap-records-lab-patient-link",
       "script": "scripts/gap-records-lab-patient-link-playwright-checks.js",
       "tiers": [
@@ -6094,7 +6124,7 @@
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
       "fixtures": "The runWorkflow FAKE- patient (NULL HIN set to the empty HIN) and one synthetic CML HL7 lab (unique accession, patient name marker-U); cleanup removes the lab rows and its archived upload file and asserts them gone.",
-      "notes": "Fails at its last step on 2026.08: (ISSUES L220) the matching popup is redirected and loses its opener, so the open lab display keeps its unmatched highlight after a patient is chosen; and (N11) PatientMatch answers a fetch() with a redirect to oscarMDS/ViewOpenEChart that the popup then aborts. Upload, popup, search, match and reopen/E-Chart steps pass first. Any other session's NULL-HIN HRM fixture (N9) makes the Inbox list steps answer 500."
+      "notes": "Verifies upload, matching, fetch completion with HTTP 204, cross-window removal of the unmatched highlight, and opening the matched patient chart (issue #4176)."
     },
     {
       "name": "gap-records-hrm-inbox-null-hin",
@@ -6109,7 +6139,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "EXCLUSIVE=1 (while the fixture exists every session's any-provider Inbox list is broken). The runWorkflow FAKE- patient with its HIN left NULL, one owned HRM XML file with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows, all removed in cleanup and checked gone.",
-      "notes": "Fails at its only step on 2026.08: the Inbox list answers HTTP 500 (HRMResultsData.java:180 NPE on the NULL health number). Run with EXCLUSIVE=1."
+      "notes": "Verifies that the Inbox returns HTTP 200 and lists an HRM report matched to a NULL-HIN patient (issue #4176). Run with EXCLUSIVE=1."
     },
     {
       "name": "authz-read-role-matrix",

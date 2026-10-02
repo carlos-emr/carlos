@@ -649,7 +649,7 @@
                      + '&CSRF-TOKEN=' + encodeURIComponent(token);
             fetch('${pageContext.request.contextPath}/oscarMDS/PatientMatch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
                 body: body
             }).then(function(response) {
                 if (!response.ok) {
@@ -658,6 +658,12 @@
                 // Notify lab display row (may be null due to COOP on action-served pages)
                 if (window.opener && typeof window.opener.updateLabDemoStatus === 'function') {
                     try { window.opener.updateLabDemoStatus(labNo); } catch (e) {}
+                }
+                // COOP can detach the opener. Notify only lab views in this application.
+                if (typeof BroadcastChannel !== 'undefined') {
+                    var matchChannel = new BroadcastChannel('lab-patient-match-${carlos:forJavaScript(pageContext.request.contextPath)}');
+                    matchChannel.postMessage({ type: 'patient-matched', labNo: labNo, labType: labType });
+                    matchChannel.close();
                 }
                 // Notify inboxhub list to refresh (BroadcastChannel is unaffected by COOP)
                 try {

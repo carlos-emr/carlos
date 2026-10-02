@@ -79,7 +79,7 @@ async function workflow(s) {
     const note = (when, key) => sql.execute(`INSERT INTO casemgmt_note (note, history, uuid, provider_no, observation_date, update_date,
       demographic_no, signed, archived, program_no) VALUES ('Usage fixture note', 'Usage fixture note', ${q(marker + key)}, ${q(prov)},
       ${q(when)}, ${q(when)}, ${ids[0]}, 1, 0, '10000')`);
-    note('2024-05-15 09:00:00', 'a'); note('2024-05-31 10:00:00', 'b'); note('2024-06-02 10:00:00', 'c');
+    note('2024-05-15 09:00:00', 'a'); note('2024-05-31 10:00:00', 'b'); note('2024-06-01 00:00:00', 'c'); note('2024-05-31 23:59:59', 'd');
     const rx = (date, demo) => sql.execute(`INSERT INTO drugs (provider_no, demographic_no, written_date, rx_date, end_date, special, position,
       lastUpdateDate, dispenseInternal, archived) VALUES (${q(prov)}, ${demo}, ${q(date)}, ${q(date)}, ${q(date)}, ${q(marker)}, 1, NOW(), 0, 0)`);
     rx('2024-05-12', ids[0]); rx('2024-05-13', ids[0]); rx('2024-05-14', ids[1]); rx('2024-07-01', ids[2]);
@@ -141,7 +141,7 @@ async function workflow(s) {
     const { counts, rows } = numbers;
     const problems = [];
     if (counts[0] !== 3) problems.push(`Scheduled Appts counts ${counts[0]} not 3 (the 2024-05-31 appointment is dropped)`);
-    if (counts[2] !== 2) problems.push(`Encounter Note counts ${counts[2]} not 2 (the note written on 2024-05-31 is dropped)`);
+    if (counts[2] !== 3) problems.push(`Encounter Note counts ${counts[2]} not 3 (the full end date must be included and next-day midnight excluded)`);
     const dirty = rows.flatMap(row => row.slice(1)).filter(cell => !/^(---|\d+(\.\d{1,2})?%)$/.test(cell));
     if (dirty.length) problems.push(`percentages carry float noise (${dirty.slice(0, 2).join(', ')})`);
     h.assert(problems.length === 0, `Usage Report: ${problems.join('; ')}`);

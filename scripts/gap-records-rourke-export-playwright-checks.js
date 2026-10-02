@@ -10,9 +10,9 @@
  * owned patient (and only the owned patient's Rourke form); the previous-reports table lists the run
  * and renders the typed contact user name as TEXT (markup must not be interpreted); last, the
  * file link downloads the zip (it points at eRourkeExport?method=getFile, a request parameter the
- * action never dispatches on, so the link re-renders the form instead of sending the file).
+ * action must dispatch to the recorded export download rather than re-rendering the form).
  * Fixtures: the runWorkflow FAKE- patient, one formRourke2009 row (marker in c_pName), one
- * marker-named patient set ('PW'+16 hex; set_name is varchar(20)); the run's dataExport row and
+ * marker-named patient set containing quote/markup characters (set_name is varchar(20)); the run's dataExport row and
  * its zip are found by the marker contact user. Cleanup deletes exactly those and asserts them gone.
  */
 const fs = require('node:fs');
@@ -34,7 +34,7 @@ function zipText(file) {
 
 async function workflow(s) {
   const { sql, patient, marker, context, recorder } = s;
-  const setName = `PW${marker.slice(-16)}`;
+  const setName = `P${marker.slice(-8)}"<b>s</b>`;
   const contactUser = `${marker}<b>u</b>`;
   const docDir = process.env.DOCUMENT_DIR;
   if (!docDir) throw new h.SkipCheck('DOCUMENT_DIR is not set: the export zip location is unknown');
@@ -82,7 +82,8 @@ async function workflow(s) {
     const rourke = exporter.getByRole('link', { name: /Rourke/i });
     await rourke.first().waitFor({ timeout: TIMEOUT });
     await rourke.first().click();
-    await exporter.locator('select#patientSet').waitFor({ timeout: TIMEOUT });
+    // The export landing page also has #patientSet; wait for the Rourke form itself.
+    await exporter.locator('input[name="contactUserName"]').waitFor({ timeout: TIMEOUT });
     await h.assertNotErrorPage(exporter, 'rourke export form');
     const named = exporter.locator('select#patientSet option').filter({ hasText: setName });
     h.assert(await named.count() === 1, 'The Rourke export form does not offer the owned patient set by name');
@@ -128,7 +129,7 @@ async function workflow(s) {
       problems.push('the file link sends no zip (it points at eRourkeExport?method=getFile, a request parameter the action never dispatches on, so the form is shown again)');
     } else {
       const saved = await outcome.download.path();
-      if (fs.statSync(saved).size !== fs.statSync(path.join(docDir, zipName)).size) problems.push('the downloaded zip differs from the stored export');
+      if (!fs.readFileSync(saved).equals(fs.readFileSync(path.join(docDir, zipName)))) problems.push('the downloaded zip differs from the stored export');
     }
     h.assert(problems.length === 0, `Previous reports: ${problems.join('; ')}`);
   });

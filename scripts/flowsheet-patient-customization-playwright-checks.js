@@ -24,7 +24,7 @@ async function navigate(page, locator) {
   await h.assertNotErrorPage(page, new URL(page.url()).pathname);
 }
 
-async function workflow(s) {
+async function workflow(s, { editorOnly = false } = {}) {
   const { sql, patient, provider, marker } = s;
   const items = { WT: `${marker} Weight`, HT: `${marker} Height` };
   const warning = `${marker} weight above 100`;
@@ -72,8 +72,19 @@ async function workflow(s) {
   });
 
   await s.step('Update Flowsheet stores a warning rule and a target colour for the item', async () => {
+    // Supply the parent tracker container in this standalone popup, so the served JSP's
+    // height assignment is exercised (JSP EL must not consume the JavaScript height).
+    await page.addInitScript(() => {
+      document.addEventListener('DOMContentLoaded', () => {
+        const tracker = document.createElement('div');
+        tracker.id = 'trackerSlim';
+        tracker.hidden = true;
+        document.body.appendChild(tracker);
+      }, { once: true });
+    });
     await navigate(page, editorRow('WT').locator('a[title="Edit"]'));
     h.assert(/\/ViewUpdateFlowsheet$/.test(new URL(page.url()).pathname), 'The pencil did not open Update Flowsheet');
+    await page.waitForFunction(() => parseFloat(document.getElementById('trackerSlim').style.height) > 0);
     await page.locator('select[name="strength1"]').selectOption('warning');
     await page.locator('input[name="text1"]').fill(warning);
     await page.locator('select[name="type1c1"]').selectOption('lastValueAsInt');
@@ -93,6 +104,9 @@ async function workflow(s) {
       && payload.includes('<condition type="getDataAsDouble" param="" value="&gt;100" />'),
     'The stored update lost the target colour entered on Update Flowsheet');
   });
+
+  // The focused editor check stops here; the default workflow still tests tracker and print.
+  if (editorOnly) return;
 
   const seed = (type, value) => sql.value(`INSERT INTO measurements(type,demographicNo,providerNo,dataField,
     measuringInstruction,comments,dateObserved,dateEntered) VALUES(${h.sqlString(type)},${patient},
