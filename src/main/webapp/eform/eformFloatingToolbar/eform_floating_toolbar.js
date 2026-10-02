@@ -209,11 +209,12 @@ function editorStillLoading() {
  * known until the save is actually attempted, so by this point the flag is already on the form and
  * a later plain Save would otherwise ride it into a download/fax/email.</p>
  */
-/** Input types the readonly attribute applies to (HTML spec); it is ignored on all others. */
-const READONLY_INPUT_TYPES = ["text", "search", "url", "tel", "email", "password", "date", "month",
-	"week", "time", "datetime-local", "number"];
-
 function eFormValidationBlocked() {
+	// Input types the readonly attribute applies to (HTML spec); it is ignored on all others.
+	// Function-scoped on purpose: this is a classic script sharing the global lexical scope with
+	// eForm template scripts, so a top-level const could collide with a template's own name.
+	const READONLY_INPUT_TYPES = ["text", "search", "url", "tel", "email", "password", "date", "month",
+		"week", "time", "datetime-local", "number"];
 	const ef = getEForm();
 	// moveSubjectReverse() turns the template's subject input into type="hidden", which the browser
 	// excludes from constraint validation, and the toolbar's own subject lives in a separate form
