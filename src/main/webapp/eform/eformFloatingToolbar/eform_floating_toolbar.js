@@ -355,8 +355,11 @@ function eFormValidationBlocked() {
 		templateSubject.value = subjectValue;
 		// A select takes only one of its options; any other toolbar text leaves it unselected, which
 		// would save an empty subject even when the select is optional. Report it on the toolbar
-		// field (the select itself is hidden), with the select's own message when it has one.
+		// field (the select itself is hidden), with the select's own message when it has one. A
+		// disabled select (directly or through a fieldset) is neither validated nor submitted, so it
+		// keeps its existing save behaviour.
 		if (templateSubject.tagName === "SELECT" && typeof toolbarSubject.setCustomValidity === "function"
+				&& !(typeof templateSubject.matches === "function" && templateSubject.matches(":disabled"))
 				&& (templateSubject.value !== subjectValue
 					|| (typeof templateSubject.checkValidity === "function" && !templateSubject.checkValidity()))) {
 			toolbarSubject.setCustomValidity(templateSubject.validationMessage || subjectNotAnOptionMessage());
