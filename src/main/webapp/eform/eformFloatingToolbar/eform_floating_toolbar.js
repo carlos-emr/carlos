@@ -102,8 +102,12 @@ function getEForm() {
  *   (requestSubmit, a native click, the toolbar's form.submit()) after all submit handlers,
  *   appends the fallback's current value only when the entry list has no newForm at all.
  *
- * Browsers without the formdata event (Safari before 15) keep the fallback enabled and submit it
- * as before; there a template newForm control that starts contributing after load also posts.
+ * Browsers without the formdata event (Safari before 15) keep the fallback enabled and submit it.
+ * There the one case that matters is a template's own newForm submit button: it would post its
+ * value beside the fallback, and for a button associated with the form from outside it the
+ * fallback comes first, so the server would read true. The fallback is therefore set aside for a
+ * native submission whose submitter is an enabled newForm button (see below). A template newForm
+ * checkbox or list box that starts contributing after load still posts beside the fallback there.
  */
 const eformFormDataEventSupported = typeof window.FormDataEvent === "function";
 
@@ -113,6 +117,37 @@ function disableNewFormFallbacks() {
 }
 // The server places the fallback inside the form, which is parsed before this body-end script.
 disableNewFormFallbacks();
+
+if (!eformFormDataEventSupported) {
+    // These browsers also lack SubmitEvent.submitter, so the submitter is taken from the click that
+    // starts a native submission (implicit Enter submission dispatches that click too).
+    let pendingNewFormSubmitter = null;
+    document.addEventListener("click", function (event) {
+        const control = event.target instanceof Element
+            ? event.target.closest("button, input[type=submit], input[type=image]") : null;
+        if (!control || control.name !== "newForm" || (control.type !== "submit" && control.type !== "image")) {
+            return;
+        }
+        pendingNewFormSubmitter = control;
+        setTimeout(function () { pendingNewFormSubmitter = null; }, 0);
+    }, true);
+    // Bubble phase on document: runs after the template's own submit handlers, which may cancel the
+    // submission or disable the button. Only an enabled submitter still posts its value, and only
+    // then is the fallback set aside -- for this submission alone, so a cancelled or later save
+    // still has it.
+    document.addEventListener("submit", function (event) {
+        const form = event.target;
+        const submitter = event.submitter || pendingNewFormSubmitter;
+        if (event.defaultPrevented || !(form instanceof HTMLFormElement) || !submitter
+            || submitter.name !== "newForm" || submitter.disabled || submitter.form !== form) {
+            return;
+        }
+        const fallbacks = Array.from(form.querySelectorAll("input[data-carlos-newform-fallback]"))
+            .filter(function (input) { return !input.disabled; });
+        fallbacks.forEach(function (input) { input.disabled = true; });
+        setTimeout(function () { fallbacks.forEach(function (input) { input.disabled = false; }); }, 0);
+    });
+}
 
 document.addEventListener("formdata", function (event) {
     const form = event.target;
