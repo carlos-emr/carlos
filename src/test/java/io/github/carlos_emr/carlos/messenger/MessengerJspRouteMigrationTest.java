@@ -157,9 +157,14 @@ class MessengerJspRouteMigrationTest {
 
         assertThat(jsp).containsOnlyOnce("getDemographic(loggedInInfo, demographic_no)");
         int gate = jsp.indexOf("if (canDemographic) {");
-        assertThat(gate).as("the lookup sits inside the demographic item's gate")
-                .isGreaterThan(jsp.indexOf("boolean canDemographic ="))
-                .isLessThan(jsp.indexOf("getDemographic(loggedInInfo, demographic_no)"));
+        assertThat(gate).as("the gate follows the privilege check")
+                .isGreaterThan(jsp.indexOf("boolean canDemographic ="));
+        // The block the gate opens, up to its closing brace at the same indentation.
+        int blockEnd = jsp.indexOf("\n    }\n", gate);
+        assertThat(blockEnd).as("the demographic gate is closed").isGreaterThan(gate);
+        assertThat(jsp.substring(gate, blockEnd))
+                .as("the lookup sits inside the demographic item's gate")
+                .contains("getDemographic(loggedInInfo, demographic_no)");
     }
 
     @Test
