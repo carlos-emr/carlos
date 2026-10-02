@@ -23,6 +23,8 @@ const newFormMarkup = {
   checkbox: '<input type="checkbox" id="newFormControl" name="newForm" value="False">',
   listbox: '<select id="newFormControl" name="newForm" size="2"><option value="False">False</option></select>',
   disabled: '<input type="hidden" id="newFormControl" name="newForm" value="False" disabled>',
+  // Submits newForm by name only: the server adds no fallback input, only the form default.
+  named: '<input type="hidden" id="namedNewForm" name="newForm" value="False">',
 };
 const fixture = (owned = false, withList = false, newFormVariant = '', subjectVariant = '') => `<!doctype html><html><head>
 <script src="/library/jquery/jquery-3.7.1.min.js"></script>
@@ -32,7 +34,7 @@ const fixture = (owned = false, withList = false, newFormVariant = '', subjectVa
 <script src="/js/faxRecipientAutocomplete.js"></script>
 <link rel="stylesheet" href="/library/bootstrap/5.3.8/css/bootstrap.min.css">
 <link rel="stylesheet" href="/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css">
-</head><body><form name="saveEForm" action="/eform/addEForm" method="post">
+</head><body><form name="saveEForm" action="/eform/addEForm" method="post"${newFormVariant === 'named' ? ' data-carlos-newform-default="true"' : ''}>
 <input id="context" value="" type="hidden"><input id="fid" value="1" type="hidden">
 <input id="demographicNo" value="1" type="hidden"><label for="subject">Subject</label>
 <span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : subjectVariant === 'readonly-textbox' ? ' type="textbox" readonly' : ''}></span>
@@ -40,7 +42,7 @@ ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : '
 ${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option><option value="">No list recipient</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
 <button id="designerAddFax" type="button" onclick="document.getElementById('otherFaxInput').value=document.getElementById('designerFax').value; AddOtherFax();">Use designer number</button>
-${newFormMarkup[newFormVariant] ? newFormMarkup[newFormVariant] + fallbackInput : ''}
+${newFormMarkup[newFormVariant] ? newFormMarkup[newFormVariant] + (newFormVariant === 'named' ? '' : fallbackInput) : ''}
 <input name="recipient" value="Existing name"><input name="recipientFaxNumber" value="416-555-0000">
 <input name="SubmitButton" type="submit" value="Submit">
 <input name="PrintButton" type="button" value="Print" onclick="window.print()">
@@ -493,6 +495,21 @@ const server = http.createServer((req, res) => {
           assert.deepEqual(requests[0].getAll('newForm'), changed ? ['False'] : ['true'],
             `${variant} via ${path}, changed=${changed}`);
         }
+      }
+    }
+    // A template that submits newForm by name only gets no fallback input, just the form default:
+    // its own value posts alone, and if its script disables the control newForm=true still posts.
+    for (const path of ['toolbar', 'form.submit']) {
+      for (const disable of [false, true]) {
+        await open(false, false, 'named');
+        assert.equal(await page.locator('input[data-carlos-newform-fallback]').count(), 0);
+        if (disable) await page.evaluate(() => { document.getElementById('namedNewForm').disabled = true; });
+        if (path === 'toolbar') await page.locator('#remoteSubmitButton').click();
+        else await page.evaluate(() => document.forms[0].submit());
+        await page.waitForURL('**/eform/addEForm');
+        assert.equal(requests.length, 1, `named ${path} ${disable}`);
+        assert.deepEqual(requests[0].getAll('newForm'), disable ? ['true'] : ['False'],
+          `named via ${path}, disabled=${disable}`);
       }
     }
     // The template's subject is required; hiding it must not let an empty toolbar subject save.

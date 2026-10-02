@@ -1471,6 +1471,14 @@ public class EForm extends EFormBase {
     public static final String NEW_FORM_FALLBACK_ATTRIBUTE = "data-carlos-newform-fallback";
 
     /**
+     * Form-level newForm default for the eForm page script, used only when a submission carries no
+     * newForm at all. Set where the template already submits newForm by name but has no element
+     * with {@code id="newForm"}: the pre-2026.08 code added a {@code true} input there, so a
+     * template script that later disables its own control still saved {@code true}.
+     */
+    public static final String NEW_FORM_DEFAULT_ATTRIBUTE = "data-carlos-newform-default";
+
+    /**
      * Preserve a template's case-sensitive newForm flag and its submitted name.
      *
      * <p>The fallback is added only when the form has no successful control named exactly
@@ -1486,7 +1494,15 @@ public class EForm extends EFormBase {
      */
     public void ensureNewFormInput() {
         Element form = getDocument().selectFirst("form");
-        if (form == null || hasSubmittableNewFormControl(form)) {
+        if (form == null) {
+            return;
+        }
+        if (hasSubmittableNewFormControl(form)) {
+            // No second same-named input (form.newForm would become a RadioNodeList); keep the
+            // earlier true default as metadata instead, for a submission that ends up with none.
+            if (getDocument().getElementById("newForm") == null) {
+                form.attr(NEW_FORM_DEFAULT_ATTRIBUTE, "true");
+            }
             return;
         }
         // Marked for the eForm page script (eform_floating_toolbar.js), which disables it and, at
