@@ -949,7 +949,9 @@ class FakeCarlosHandler(_QuietHandler):
             srv.log.append(("logout",))
             return self._reply(302, b"", {"Location": "/carlos/index"})
         if path == "/carlos/lab/newLabUpload":
-            if "JSESSIONID=sess1" not in (self.headers.get("Cookie") or ""):
+            if not getattr(srv, "oscar19", False) and "JSESSIONID=sess1" not in (
+                self.headers.get("Cookie") or ""
+            ):
                 return self._reply(302, b"", {"Location": "/carlos/index"})
             if not getattr(srv, "oscar19", False) and (
                 self.headers.get("CSRF-TOKEN") != "LIVE-TOKEN"
@@ -1312,3 +1314,142 @@ class TransportErrorClassificationTest(unittest.TestCase):
                 t.request("GET", "https://example.invalid/x?Password=secret")
             except ep.TransportError as caught:
                 self.assertNotIn("secret", str(caught))  # query never leaks into the error
+
+
+KEY_PAIR_TEMPLATE = (
+    "-------- Service Name --------\n{service}\n------------------------------\n"
+    "----- Client Private Key -----\n{priv}\n------------------------------\n"
+    "------ Oscar Public Key ------\n{pub}\n------------------------------"
+)
+
+
+class CredentialRulesTest(TempEnv):
+    def test_carlos_requires_all_three(self):
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, username="", cpassword="", pin="")
+        with self.assertRaisesRegex(ep.ConfigError, "required for flavour=carlos"):
+            ep.load_config(self.conf)
+
+    def test_oscar19_credentials_optional_but_all_or_none(self):
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, username="", cpassword="", pin="", extra_carlos="flavour = oscar19")
+        cfg = ep.load_config(self.conf)
+        self.assertEqual(cfg.carlos_username, "")
+        self.write_conf(
+            c, srv, username="svc", cpassword="", pin="", extra_carlos="flavour = oscar19"
+        )
+        with self.assertRaisesRegex(ep.ConfigError, "together, or none"):
+            ep.load_config(self.conf)
+
+
+class KeyPairFileTest(TempEnv):
+    def test_reads_the_create_key_download(self):
+        _, _, c, srv = make_keys()
+        kp = self.tmp / "keyPair.key"
+        kp.write_text(KEY_PAIR_TEMPLATE.format(service="mulesvc", priv=c, pub=srv))
+        kp.chmod(0o600)
+        self.assertEqual(ep.read_key_pair_file(kp), ("mulesvc", c, srv))
+        # Config: service comes from the file, keys load, envelope builds.
+        self.write_conf("", "", service="", extra_carlos=f"key_pair_file = {kp}")
+        text = (
+            self.conf.read_text()
+            .replace("client_private_key = \n", "")
+            .replace("server_public_key = \n", "")
+        )
+        self.conf.write_text(text)
+        cfg = ep.load_config(self.conf)
+        self.assertEqual(cfg.carlos_service, "mulesvc")
+        ep.LabUploadEnvelope(cfg.client_private_key, cfg.server_public_key)
+
+    def test_rejects_combination_and_malformed(self):
+        _, _, c, srv = make_keys()
+        kp = self.tmp / "keyPair.key"
+        kp.write_text(KEY_PAIR_TEMPLATE.format(service="x", priv=c, pub=srv))
+        kp.chmod(0o600)
+        self.write_conf(c, srv, extra_carlos=f"key_pair_file = {kp}")
+        with self.assertRaisesRegex(ep.ConfigError, "cannot be combined"):
+            ep.load_config(self.conf)
+        kp.write_text("not a key pair file")
+        with self.assertRaisesRegex(ep.ConfigError, "no 'Service Name' section"):
+            ep.read_key_pair_file(kp)
+
+
+class SessionlessOscar19Test(Oscar19SessionTest):
+    def setUp(self):
+        TempEnv.setUp(self)
+        _, _, c, srv = make_keys()
+        self.write_conf(c, srv, username="", cpassword="", pin="", extra_carlos="flavour = oscar19")
+        self.cfg = ep.load_config(self.conf)
+
+    def test_routes_and_no_csrf(self):
+        # Mule-identical: no login, no logout, just the signed upload.
+        t = FakeTransport(self.script())
+        f = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
+        with self.session(t) as s:
+            self.assertTrue(s.session_less)
+            self.assertTrue(s.upload(f).accepted)
+        labels = [FakeTransport.label(m, u) for m, u, _, _ in t.calls]
+        self.assertEqual(labels, ["POST /carlos/lab/newLabUpload.do"])
+
+    def test_wrong_flavour_is_explained(self):
+        self.skipTest("login is not performed in session-less mode")
+
+
+class OutcomeBodyTest(unittest.TestCase):
+    """A build that ignores use_http_response_code renders the <outcome> XML
+    the Mule bridge parsed, always with HTTP 200. That must not read as success."""
+
+    def body(self, outcome):
+        return f'<?xml version="1.0"?><root><outcome>{outcome}</outcome><audit>success</audit></root>'.encode()
+
+    def test_outcome_overrides_bare_200(self):
+        for text, status in (
+            ("uploaded", 200),
+            ("uploaded previously", 409),
+            ("validation failed", 406),
+            ("failed to validate", 406),
+            ("upload failed", 500),
+            ("exception", 500),
+            ("something new", 500),
+        ):
+            resp = ep.HttpResponse(200, {}, self.body(text))
+            self.assertEqual(ep.CarlosSession._status_from_outcome_body(resp), status, text)
+        self.assertEqual(
+            ep.CarlosSession._status_from_outcome_body(ep.HttpResponse(200, {}, b"")), 200
+        )
+        self.assertEqual(
+            ep.CarlosSession._status_from_outcome_body(
+                ep.HttpResponse(409, {}, self.body("uploaded"))
+            ),
+            409,
+        )
+
+
+class LiveOscar19SessionlessTest(LiveOscar19Test):
+    """The OSCAR 19 live run with no EMR credentials at all, as Mule ran."""
+
+    def setUp(self):
+        super().setUp()
+        text = self.conf.read_text()
+        for key in ("username = excelleris", "password = Secret#1", "pin = 1234"):
+            assert key in text, key
+            text = text.replace(key, key.split(" =")[0] + " =")
+        self.conf.write_text(text)
+        self.cfg = ep.load_config(self.conf)
+
+    def test_full_pipeline_over_tls(self):
+        rc = ep.run(self.cfg, ep.RunOptions())
+        self.assertEqual(rc, ep.EXIT_OK)
+        self.assertEqual([c[0] for c in self.carlos.log], ["upload"])  # no login, no logout
+        self.assertEqual(self.carlos.seen, [PULL_WITH_RESULTS])
+        self.assertEqual(self.excelleris.acks, ["Positive"])
+
+    def test_dry_run_live(self):
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(dry_run=True)), ep.EXIT_OK)
+        self.assertEqual([c[0] for c in self.carlos.log], [])  # nothing to prove without a login
+
+    def test_wrong_carlos_credentials_keep_pull_for_retry(self):
+        self.skipTest("no credentials in session-less mode")
+
+    def test_carlos_flavour_against_oscar19_fails_loudly(self):
+        self.skipTest("covered by LiveOscar19Test")

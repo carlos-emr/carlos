@@ -79,14 +79,21 @@ No code change. All of this is done through the existing administration pages.
 
 ### OSCAR 19
 
-Set `[carlos] flavour = oscar19`. OSCAR 19 has the same upload action, parameters and
-cryptography; it differs only in Struts 1 `*.do` routes, a `GET logout.jsp`, and having no
-CSRF layer. The flavour switch covers exactly those three things.
+Set `[carlos] flavour = oscar19`. The OSCAR 19 line (Bitbucket `oscaremr/oscar`, branch
+`stable` and tag `OSCAR_19_RC1`) has the same upload action, parameters, `ExcellerisON` and
+`PATHL7` handlers and cryptography; it differs only in Struts 1 `*.do` routes, a
+`GET logout.jsp`, and having no CSRF layer. The flavour switch covers exactly those three
+things. Two parts of the setup are simpler than on CARLOS:
 
-- A site that ran the Mule bridge already has a registered service key, because Mule used
-  the same `publicKeys` table. Reuse that service name and its type. On stock OSCAR 19 the
-  Excelleris type is `PATHL7`; `ExcellerisON` does not exist there.
-- The Key Manager is at `admin/keygen/`. The private key comes from
+- **No login is needed.** OSCAR 19 exempts the upload route from its login filter and its
+  upload action makes no privilege check. That is how the Mule bridge uploaded, with no OSCAR
+  credentials at all. Leave `username`, `password` and `pin` empty to do the same. Set all
+  three to log in first instead; either way works.
+- **The Mule key file is reusable.** A site that ran the Mule bridge has a `keyPair.key`, the
+  Create Key download that holds the service name, the client private key and the server
+  public key. Point `[carlos] key_pair_file` at it and nothing else in `[carlos]` beyond
+  `flavour` and `base_url` is required. The key's type stays whatever it was registered with.
+- The Key Manager is at `admin/keygen/`. The private key is also available from
   `admin/keygen/getPublicKey.json?id=<service>`, the server public key from
   `admin/keygen/keyManager.jsp`.
 - `base_url` is the OSCAR context path, for example `https://emr.example.ca/oscar`.
@@ -153,12 +160,13 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 |---|---|---|
 | `flavour` | no | `carlos` (default) or `oscar19`. |
 | `base_url` | yes | EMR base URL including the context path, no trailing slash. |
-| `username` | yes | Service account login, 1 to 30 letters or digits. |
-| `password` | yes | Service account password. |
-| `pin` | yes | Four digits. |
-| `service` | yes | Key name registered in Key Manager. The EMR picks the upload handler from the key's type. |
-| `client_private_key` or `client_private_key_file` | one of | Base64 PKCS#8 private key from the Key Manager JSON endpoint. PEM armour and line breaks are tolerated. |
-| `server_public_key` or `server_public_key_file` | one of | Base64 X.509 public key from the Key Manager page. |
+| `username` | carlos: yes; oscar19: optional | Service account login, 1 to 30 letters or digits. For `oscar19`, leaving all three credentials empty uploads without a session, as Mule did. Set all three or none. |
+| `password` | as above | Service account password. |
+| `pin` | as above | Four digits. |
+| `service` | yes, unless `key_pair_file` names it | Key name registered in Key Manager. The EMR picks the upload handler from the key's type. |
+| `key_pair_file` | alternative to the two keys | The `keyPair.key` file the Create Key page downloads (service name, client private key, server public key). Mode 0600. Cannot be combined with the keys below. |
+| `client_private_key` or `client_private_key_file` | one of, unless `key_pair_file` | Base64 PKCS#8 private key from the Key Manager JSON endpoint. PEM armour and line breaks are tolerated. |
+| `server_public_key` or `server_public_key_file` | one of, unless `key_pair_file` | Base64 X.509 public key from the Key Manager page. |
 | `timeout_seconds` | no | Per-request timeout, default 120, minimum 5. |
 | `ca_file` | no | PEM bundle for an EMR served under a private CA. |
 
@@ -244,6 +252,23 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `signature validation failed` | `service` does not match the key name, or the client private key is not the one CARLOS generated for it. |
 | `could not import the file` | The handler type on the key is wrong for the feed, or the EMR log has the parse error. |
 | `uses a cipher this OpenSSL does not enable` | The PFX uses a legacy cipher. Re-export it with the command in the message. |
+
+## What the Mule bridge did, and what this tool does instead
+
+Read from `hl7_file_management` (Bitbucket `oscaremr/hl7_file_management`, `Uploader.java`
+and `mule-config*.xml`), so the comparison is against the actual bridge, not a guess.
+
+| Mule bridge | This tool |
+|---|---|
+| Polled an incoming directory every second for `*.hl7` and `*.xml` dropped by any producer. | Pulls from Excelleris itself and drops the result in `inbox/`; anything else placed in `inbox/` as `*.xml` is uploaded on the next run too. One feed (one service key) per configuration file; run several configurations for several feeds. |
+| Read the service name and both keys from `keyPair.key`. | Same file via `key_pair_file`, or the two keys separately. |
+| Signed with MD5withRSA, encrypted with AES then RSA PKCS#1 v1.5, posted `importFile`, `key`, `signature`, `service` as multipart to `lab/newLabUpload.do`. | Identical envelope and fields, plus `use_http_response_code`. Verified by tests that decrypt and verify exactly as the EMR does. |
+| Never logged in. OSCAR 19 exempts the route from its login filter. | Same on `oscar19` when no credentials are configured. CARLOS requires a logged-in `_lab` session, so the tool logs in there. |
+| Parsed `<outcome>` from the `uploadComplete.jsp` XML reply. | Reads the HTTP status, and still parses `<outcome>` if a build returns the XML, so a rejection is never archived as a success. |
+| Moved files to `completed` or `error` directories, renamed with a timestamp; emailed on error. | `done/` (compressed, with retention) and `failed/`; alert email with the failing step. |
+| Accepted any server certificate (`EasySSLProtocolSocketFactory`). | Verifies the server certificate; `ca_file` adds a private CA. |
+| 8 second connection timeout, no read timeout. | Configurable timeout on connect and read. |
+| For MDS results, appended the audit text to a `CURHST.0` file. | Not implemented. MDS is a different lab feed; an Excelleris upload's audit is always `success`. |
 
 ## Switching from `ExcellerisDownload.sh`
 

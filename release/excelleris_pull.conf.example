@@ -52,16 +52,26 @@ flavour = carlos
 # (e.g. https://emr.example.ca/oscar for OSCAR 19).
 base_url = https://emr.example.ca/carlos
 
-# A dedicated CARLOS provider login holding only the _lab security object with
-# write access. No MFA, no pending forced password reset.
+# A dedicated EMR provider login holding only the _lab security object with
+# write access. No MFA, no pending forced password reset, one facility.
+# Required for flavour = carlos. Optional for flavour = oscar19: leave all three
+# empty to upload without logging in, exactly as the Mule bridge did (OSCAR 19
+# exempts the upload route from its login filter).
 username =
 password =
 pin =
 
 # The key name created in Administration > Key Manager > Create Key, with type
-# "OTHER" / "ExcellerisON" (Ontario). CARLOS picks the import handler from the
+# "OTHER" / "ExcellerisON" (Ontario). The EMR picks the import handler from the
 # key, so this one name selects both the signature check and the parser.
+# May be left empty when key_pair_file is set (the file names the service).
 service = excelleris
+
+# EITHER point at the keyPair.key file the Create Key page downloaded (this is
+# the file a Mule installation already has; it holds the service name, the
+# client private key and the server public key) ...
+# key_pair_file = /etc/carlos-excelleris/keyPair.key
+# ... OR give the two keys separately below.
 
 # Keys as base64 copied from CARLOS. Either paste inline or point at a file
 # (mode 0600) with the *_file variant; PEM armour and line breaks are tolerated.
