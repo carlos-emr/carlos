@@ -72,11 +72,11 @@ unprivileged account behind an nginx/ModSecurity front door.
   `RourkeEform*.sql`, `Document/`, `OPR-2017*.png`, `4422-84v9-1.png`,
   `labDecisionSupport.js`, `editControl2.js`).
 - Operational helpers that are clinical rather than packaging concerns:
-  `excelleris_pull.py` (Excelleris lab pull and direct upload into CARLOS;
-  config in `excelleris_pull.conf.example`, tests in
-  `test_excelleris_pull.py`), `ExcellerisDownload.sh` (its shell-and-Mule
-  predecessor, superseded), `run_rxquery.sh`,
-  `drugrefUpdate.cron`.
+  `excelleris_pull.py` (Excelleris lab pull and direct upload into CARLOS or
+  OSCAR 19; setup and operations guide in `docs/excelleris-pull.md`, config in
+  `excelleris_pull.conf.example`, tests in `test_excelleris_pull.py`),
+  `ExcellerisDownload.sh` (its shell-and-Mule predecessor, superseded),
+  `run_rxquery.sh`, `drugrefUpdate.cron`.
 
 These are not installed by the `carlos-emr` package: they are optional
 site-by-site data loads. Apply one with, for example:
