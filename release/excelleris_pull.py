@@ -1393,8 +1393,8 @@ class Archive:
         real = Path(os.path.realpath(d))
         if real != d:
             raise ConfigError(
-                f"[paths] state directory {d} resolves through a symbolic link to {real}; "
-                "configure the real path"
+                f"[paths] state directory {d} is not its real path ({real}): it resolves "
+                "through a symbolic link or '..'; configure the real path"
             )
         try:
             st = os.lstat(d)

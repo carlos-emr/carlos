@@ -714,7 +714,7 @@ class ArchiveTest(TempEnv):
         link = self.tmp / "link"
         link.symlink_to(real)
         via_link = dataclasses.replace(self.cfg, state_dir=link / "state")
-        with self.assertRaisesRegex(ep.ConfigError, "resolves through a symbolic link"):
+        with self.assertRaisesRegex(ep.ConfigError, "is not its real path"):
             ep.Archive(via_link)
         self.assertEqual(list(real.iterdir()), [])
 
