@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
@@ -233,7 +236,15 @@ class EFormSubjectInputUnitTest extends CarlosUnitTestBase {
         var fallback = Jsoup.parse(form.getFormHtml()).getElementById("newForm");
         assertThat(fallback).isNotNull();
         assertThat(fallback.hasAttr(EForm.NEW_FORM_FALLBACK_ATTRIBUTE)).isTrue();
-        assertThat(EForm.NEW_FORM_FALLBACK_ATTRIBUTE).isEqualTo("data-carlos-newform-fallback");
+    }
+
+    @Test
+    void shouldShareFallbackAttribute_withTheToolbarScript() throws Exception {
+        // The page script that drops the fallback on a newForm submitter selects it by this
+        // attribute; keep the Java constant and the script in step.
+        String script = Files.readString(Path.of(
+                "src/main/webapp/eform/eformFloatingToolbar/eform_floating_toolbar.js"));
+        assertThat(script).contains("input[" + EForm.NEW_FORM_FALLBACK_ATTRIBUTE + "]");
     }
 
     @Test
