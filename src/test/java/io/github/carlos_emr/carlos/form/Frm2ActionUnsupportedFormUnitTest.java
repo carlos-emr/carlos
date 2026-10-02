@@ -134,6 +134,17 @@ class Frm2ActionUnsupportedFormUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should forward to failure when an allowed form record cannot be constructed")
+    void shouldForwardFailure_whenRecordConstructionThrows() {
+        // FrmBCAR2007Record resolves DemographicExtDao in its constructor; none is registered here.
+        mockRequest.setParameter("form_class", "BCAR2007");
+        mockRequest.setParameter("demographic_no", "1");
+
+        assertThat(new Frm2Action().execute()).isEqualTo("failure");
+        assertThat(mockResponse.getStatus()).isNotEqualTo(400);
+    }
+
+    @Test
     @DisplayName("should not echo the rejected class name into the error message")
     void shouldNotEchoClassName_inErrorMessage() {
         // The value is caller-controlled and the container renders this message into an error

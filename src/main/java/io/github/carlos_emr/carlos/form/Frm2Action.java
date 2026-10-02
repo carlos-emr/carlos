@@ -82,8 +82,17 @@ public final class Frm2Action extends ActionSupport {
         String actionForward = where;
         boolean saveSuccess = Boolean.FALSE;
         String formClassName = request.getParameter("form_class");
-        FrmRecordFactory recorder = new FrmRecordFactory();
-        rec = recorder.factory(formClassName);
+        try {
+            rec = new FrmRecordFactory().factory(formClassName);
+        } catch (RuntimeException ex) {
+            // factory() only absorbs the reflective checked exceptions, so a record whose
+            // constructor or static initializer throws (e.g. a missing Spring bean) escapes it.
+            // That used to be caught by the method-level catch and forwarded to "failure";
+            // keep that outcome now that the lookup runs ahead of the try block.
+            log.error("Could not instantiate form {}", LogSafe.sanitize(formClassName), ex); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("saveSuccess", saveSuccess);
+            return actionForward;
+        }
 
         // factory() returns null by design: it is the guard on reflective instantiation and
         // refuses any class not on ALLOWED_FORM_CLASSES, as well as one that fails to
