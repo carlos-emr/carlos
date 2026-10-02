@@ -866,6 +866,19 @@
       ]
     },
     {
+      "name": "csrf-runtime-forms",
+      "script": "scripts/csrf-runtime-forms-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": []
+    },
+    {
       "name": "eform-image-delete",
       "script": "scripts/eform-image-delete-playwright-checks.js",
       "tiers": [
@@ -1492,6 +1505,21 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "lab-epsilon",
+      "script": "scripts/lab-epsilon-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ]
     },
     {
       "name": "lab-embedded-pdf",
@@ -3052,6 +3080,21 @@
       "env": []
     },
     {
+      "name": "inbox-document-forwarding-scope",
+      "script": "scripts/inbox-document-forwarding-scope-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FORWARDING_SCOPE_DOCUMENT_STORE"
+      ]
+    },
+    {
       "name": "provider-linking-rules",
       "script": "scripts/provider-linking-rules-playwright-checks.js",
       "tiers": [
@@ -3192,6 +3235,23 @@
         "FORM_PRINT_NAME",
         "FORM_PRINT_TIMEOUT_MS"
       ]
+    },
+    {
+      "name": "page-script-repairs",
+      "script": "scripts/page-script-repairs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "fixtures": "Stores two owned PDFs under DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) plus one owned document type, and turns on the test provider's edoc_browser_in_document_report preference (restored exactly); do not run it concurrently with another check that reads that preference."
     }
   ]
 }

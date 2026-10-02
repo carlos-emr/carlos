@@ -108,8 +108,7 @@
             var add2List = confirm("The patient already has an appointment, do you still want to add him/her to the waiting list?");
             if (add2List) {
                 <c:set var="__enc_1"><carlos:encode value='<%= wlDemoNo %>' context="uriComponent"/></c:set>
-                document.add2WLFrm.action = "<%= request.getContextPath() %>/wa                
-itinglist/Add2WaitingList";
+                document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList";
             } else {
                 document.add2WLFrm.action = "DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScript"/>";
             }

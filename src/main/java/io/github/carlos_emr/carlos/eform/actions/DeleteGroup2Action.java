@@ -57,7 +57,20 @@ public class DeleteGroup2Action extends ActionSupport {
 
         String groupName = request.getParameter("group_name");
         EFormUtil.delEFormGroup(groupName);
+        // The group is gone; show the page's default group.
+        redirectTarget = EFormListRedirect.toGroup(request, null);
         return SUCCESS;
     }
 
+    private String redirectTarget;
+
+    /**
+     * The Struts redirect target: the eForm Groups page for the affected group. A redirect,
+     * not a forward, because the page's gate rejects the POST a forward would carry (405).
+     *
+     * @return the application-relative redirect location
+     */
+    public String getRedirectTarget() {
+        return redirectTarget;
+    }
 }
