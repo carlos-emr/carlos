@@ -86,8 +86,17 @@ from the backup; do not pick an arbitrary signature.
 The same duplicate-key failure, with the source untouched, also occurs when two provider
 numbers differ in bytes but compare equal under the column collation (for example `T099`,
 `t099` and `T099 `), even when their signatures match. The rows are not merged, because they
-may belong to different providers. Check each value against `provider.provider_no`, correct
-or remove the row whose number does not match the provider record, and then retry. For the DEB deployment, inspect
+may belong to different providers. Compare each value byte for byte with the provider record,
+for example `SELECT provider_no FROM provider WHERE BINARY provider_no = BINARY '<value>'`; a plain
+comparison uses the same collation and would match every variant. In the shipped schema
+`provider.provider_no` is the primary key under that same collation, so at most one variant can
+match a provider byte for byte. Keep that row, correct the others to the exact provider number
+or remove them, and then retry; if their signatures then differ, resolve them as a conflicting
+signature above. If no variant matches, find the intended provider with the site before
+changing anything. If several variants match distinct provider records, the site's `provider`
+table uses a collation that distinguishes them while `providerExt` does not, so those
+providers cannot share this identity rule as installed: stop and resolve the schema mismatch
+with the site rather than editing rows. For the DEB deployment, inspect
 `sudo carlos-ctl db-info` and the migration error. Once the data conflict is resolved and
 all published migration files are unchanged, run `sudo carlos-ctl db-repair`, then
 `sudo carlos-ctl db-migrate` and `sudo carlos-ctl db-validate`. Do not use repair to accept
