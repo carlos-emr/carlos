@@ -35,7 +35,7 @@ const fixture = (owned = false, withList = false, newFormVariant = '', subjectVa
 </head><body><form name="saveEForm" action="/eform/addEForm" method="post">
 <input id="context" value="" type="hidden"><input id="fid" value="1" type="hidden">
 <input id="demographicNo" value="1" type="hidden"><label for="subject">Subject</label>
-<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : ''}></span>
+<span id="nativeSubjectRow">Subject: <input id="subject" name="subject" value="Designer subject" required${subjectVariant === 'readonly-checkbox' ? ' type="checkbox" readonly checked' : subjectVariant === 'readonly-text' ? ' type="text" readonly' : subjectVariant === 'readonly-textbox' ? ' type="textbox" readonly' : ''}></span>
 ${owned ? '<input id="otherFaxInput" name="otherFaxInput" value="original">' : ''}
 ${withList ? '<select id="faxnumList"><option value="416-555-0101">Default clinic</option><option value="416-555-0102">Changed clinic</option><option value="">No list recipient</option></select>' : ''}
 <input id="designerFax" value="416-555-0191">
@@ -528,6 +528,12 @@ const server = http.createServer((req, res) => {
     // Template-authored readonly: a text subject is exempt, but readonly does not apply to a
     // checkbox, so a required readonly checkbox subject still enforces the requirement.
     await open(false, false, false, 'readonly-text');
+    await page.locator('#remote_eform_subject').fill('');
+    await page.locator('#remoteSubmitButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    // An unknown type such as "textbox" is a text field to the browser, so readonly applies.
+    await open(false, false, false, 'readonly-textbox');
     await page.locator('#remote_eform_subject').fill('');
     await page.locator('#remoteSubmitButton').click();
     await page.waitForURL('**/eform/addEForm');

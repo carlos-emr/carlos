@@ -927,8 +927,9 @@ function moveSubjectReverse() {
         // Record the template's own type before hiding the field: the save-time subject check
         // needs it to know whether readonly applied (an unknown or missing type is text).
         if (!subjectElement.dataset.carlosOriginalType) {
-            const type = (subjectElement.getAttribute("type") || "text").toLowerCase();
-            subjectElement.dataset.carlosOriginalType = type;
+            // The DOM type, not the attribute: it is lower-cased and maps a missing or unknown
+            // type (e.g. "textbox") to "text", which is how the browser treated the field.
+            subjectElement.dataset.carlosOriginalType = subjectElement.type;
         }
         subjectElement.type = "hidden";
     }
