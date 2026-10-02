@@ -89,6 +89,27 @@ function getEForm() {
 	return ef;
 }
 
+/*
+ * The server adds a hidden newForm=true fallback (data-carlos-newform-fallback) when the template
+ * has no control that always submits newForm. A template's own submit button named newForm posts
+ * its value only when it is the submitter; the toolbar's form.submit() has no submitter, so the
+ * fallback must stay for those paths. When that button itself submits the form, leave the fallback
+ * out so newForm is posted exactly once, with the button's value. The form data set is built
+ * synchronously right after the submit event, so the fallback is re-enabled on the next task: a
+ * submission another listener cancels cannot leave it disabled for a later toolbar save.
+ * Capture phase, so it runs whatever template handlers do with the event afterwards.
+ */
+document.addEventListener("submit", function (event) {
+    const submitter = event.submitter;
+    if (!submitter || submitter.name !== "newForm" || submitter.type === "image") {
+        return;
+    }
+    const fallbacks = Array.from(event.target.querySelectorAll("input[data-carlos-newform-fallback]"))
+        .filter(input => !input.disabled);
+    fallbacks.forEach(input => { input.disabled = true; });
+    setTimeout(() => fallbacks.forEach(input => { input.disabled = false; }), 0);
+}, true);
+
 function submitEForm() {
 	const ef = getEForm();
 	if (!ef) {
