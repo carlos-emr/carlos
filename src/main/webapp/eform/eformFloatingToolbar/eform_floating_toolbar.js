@@ -219,8 +219,11 @@ function eFormValidationBlocked() {
 	const toolbarSubject = document.getElementById("remote_eform_subject");
 	// A disabled template subject (directly or through a disabled fieldset) is barred from
 	// native constraint validation, so its requirement must not carry over either.
-	const templateSubjectDisabled = !!templateSubject && typeof templateSubject.matches === "function"
-		&& templateSubject.matches(":disabled");
+	// A readonly input or textarea is barred as well. (:read-only is broader: it also matches
+	// controls the attribute does not apply to, so check the property on those two elements.)
+	const templateSubjectDisabled = !!templateSubject && ((typeof templateSubject.matches === "function"
+		&& templateSubject.matches(":disabled"))
+		|| (["INPUT", "TEXTAREA"].includes(templateSubject.tagName) && templateSubject.readOnly === true));
 	if (templateSubject && templateSubject.required === true && !templateSubjectDisabled && toolbarSubject
 			&& typeof toolbarSubject.checkValidity === "function") {
 		toolbarSubject.required = true;
@@ -1087,7 +1090,23 @@ function selectedEformFaxRecipient() {
 function initializeFaxRecipient() {
     const fax = document.getElementById('remoteFaxNumber');
     const name = document.getElementById('remoteFaxRecipient');
-    if (!fax || !name) return;
+    if (!fax) return;
+    // Edit tracking for the number does not depend on the name field: without it a replacement
+    // number typed here was never marked edited, and Fax sent the eForm's own recipient instead.
+    ['input', 'change'].forEach(event => {
+        // Any number entered or chosen in the field itself replaces the pending cleared state.
+        fax.addEventListener(event, () => { fax.dataset.edited = 'true'; delete fax.dataset.cleared; });
+    });
+    // A number the clinician typed is theirs; one filled in from the directory, the eForm or the
+    // list belongs to the recipient it was chosen for. Directory selection assigns both fields and
+    // dispatches a synthetic change, so only trusted typing marks the number as typed.
+    fax.addEventListener('input', event => { if (event.isTrusted) fax.dataset.typed = 'true'; });
+    fax.addEventListener('change', event => { if (!event.isTrusted) delete fax.dataset.typed; });
+    if (!name) {
+        // Show the number that will be used, so the clinician can see what they are replacing.
+        fax.value = selectedEformFaxRecipient().fax;
+        return;
+    }
     function refresh() {
         if (fax.dataset.edited === 'true') return;
         const chosen = selectedEformFaxRecipient();
@@ -1133,15 +1152,8 @@ function initializeFaxRecipient() {
         }
     });
     ['input', 'change'].forEach(event => {
-        // Any number entered or chosen in the field itself replaces the pending cleared state.
-        fax.addEventListener(event, () => { fax.dataset.edited = 'true'; delete fax.dataset.cleared; });
         name.addEventListener(event, () => { name.dataset.edited = 'true'; });
     });
-    // A number the clinician typed is theirs; one filled in from the directory, the eForm or the
-    // list belongs to the recipient it was chosen for. Directory selection assigns both fields and
-    // dispatches a synthetic change, so only trusted typing marks the number as typed.
-    fax.addEventListener('input', event => { if (event.isTrusted) fax.dataset.typed = 'true'; });
-    fax.addEventListener('change', event => { if (!event.isTrusted) delete fax.dataset.typed; });
     // Typing a different recipient name must not keep the previous recipient's number: the fax
     // would go there under the new name. Clear it (as an explicit empty override, so the eForm's
     // number is not resurrected either) until a directory row or a typed number supplies one.

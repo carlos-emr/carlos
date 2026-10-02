@@ -230,6 +230,21 @@ const server = http.createServer((req, res) => {
     assert.equal(requests.length, 1);
     assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0144');
     assert.equal(requests[0].get('recipient'), '');
+    // A toolbar without the name field from the start still tracks a typed replacement number.
+    await page.route('**/eformFloatingToolbar/eform_floating_toolbar', route => route.fulfill({
+      status: 200, contentType: 'text/html',
+      body: toolbar.replace(/<input[^>]*id="remoteFaxRecipient"[^>]*>/, '')}));
+    await open();
+    assert.equal(await page.locator('#remoteFaxRecipient').count(), 0);
+    assert.equal(await page.locator('#remoteFaxNumber').inputValue(), '416-555-0123');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxNumber').fill('416-555-0145');
+    await page.locator('#remoteFaxOptions summary').click();
+    await page.locator('#remoteFaxButton').click();
+    await page.waitForURL('**/eform/addEForm');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].get('recipientFaxNumber'), '416-555-0145');
+    await page.unroute('**/eformFloatingToolbar/eform_floating_toolbar');
     // A missing directory script must leave manual fax entry and toolbar layout usable.
     await page.route('**/js/faxRecipientAutocomplete.js', route => route.fulfill({status:200,body:''}));
     await open();
@@ -396,12 +411,13 @@ const server = http.createServer((req, res) => {
     await page.waitForURL('**/eform/addEForm');
     assert.equal(requests.length, 1);
     assert.equal(requests[0].get('subject'), 'Toolbar subject');
-    // A required but disabled template subject is excluded from validation, directly or
-    // through a disabled fieldset, so an empty toolbar subject still saves.
-    for (const disable of ['direct', 'fieldset']) {
+    // A required but disabled (directly or through a disabled fieldset) or readonly template
+    // subject is excluded from validation, so an empty toolbar subject still saves.
+    for (const disable of ['direct', 'fieldset', 'readonly']) {
       await open();
       await page.evaluate(mode => {
         const subject = document.getElementById('subject');
+        if (mode === 'readonly') { subject.readOnly = true; return; }
         if (mode === 'direct') { subject.disabled = true; return; }
         const fieldset = document.createElement('fieldset');
         fieldset.disabled = true;
@@ -412,8 +428,9 @@ const server = http.createServer((req, res) => {
       await page.locator('#remoteSubmitButton').click();
       await page.waitForURL('**/eform/addEForm');
       assert.equal(requests.length, 1);
-      // The disabled template subject is not a successful control, so no subject is posted.
-      assert.equal(requests[0].get('subject'), null);
+      // A disabled template subject is not a successful control, so no subject is posted; a
+      // readonly one still submits (empty).
+      assert.equal(requests[0].get('subject'), disable === 'readonly' ? '' : null);
     }
     // A template subject without the constraint still saves with an empty subject.
     await open();
