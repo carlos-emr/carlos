@@ -95,7 +95,7 @@ public class PatientMatch2Action extends ActionSupport {
 
     /**
      * Matches a lab to a patient through an authorized POST. Fetch callers explicitly
-     * accepting application/json receive HTTP 204; normal form callers retain the chart redirect.
+     * accepting application/json receive a JSON success response; normal form callers retain the chart redirect.
      *
      * @return no Struts view because the HTTP response is completed here
      * @throws ServletException if servlet processing fails
@@ -141,7 +141,8 @@ public class PatientMatch2Action extends ActionSupport {
         }
 
         if ("application/json".equals(request.getHeader("Accept"))) {
-            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"success\":true}");
         } else {
             response.sendRedirect(newURL);
         }

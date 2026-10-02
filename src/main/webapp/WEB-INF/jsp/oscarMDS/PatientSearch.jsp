@@ -655,6 +655,12 @@
                 if (!response.ok) {
                     throw new Error('PatientMatch failed');
                 }
+                // Consume the response before closing; closing on headers alone can abort fetch.
+                return response.json();
+            }).then(function(result) {
+                if (!result || result.success !== true) {
+                    throw new Error('PatientMatch did not confirm success');
+                }
                 // Notify lab display row (may be null due to COOP on action-served pages)
                 if (window.opener && typeof window.opener.updateLabDemoStatus === 'function') {
                     try { window.opener.updateLabDemoStatus(labNo); } catch (e) {}

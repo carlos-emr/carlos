@@ -139,16 +139,17 @@ class PatientMatch2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should complete a fetch match without redirecting to the chart")
-    void shouldReturnNoContent_whenFetchMatchesPatient() throws Exception {
+    void shouldReturnJsonSuccess_whenFetchMatchesPatient() throws Exception {
         when(security.hasPrivilege(loggedInInfo, "_lab", "w", null)).thenReturn(true);
         request.addHeader("Accept", "application/json");
 
         assertThat(new PatientMatch2Action(mrpRouting).execute()).isEqualTo(ActionSupport.NONE);
 
         verify(mrpRouting).matchPatientLab("555", "HL7", 42, "999998");
-        assertThat(response.getStatus()).isEqualTo(204);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("application/json");
         assertThat(response.getRedirectedUrl()).isNull();
-        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentAsString()).isEqualTo("{\"success\":true}");
     }
 
     @Test

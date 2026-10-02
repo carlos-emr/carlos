@@ -147,7 +147,7 @@ async function workflow(s) {
       matching.waitForResponse(r => r.request().method() === 'POST' && /\/oscarMDS\/PatientMatch/.test(r.url()), { timeout: TIMEOUT }),
       rows.first().click(),
     ]);
-    h.assert(post.status() === 204, `Patient Match answered HTTP ${post.status()}`);
+    h.assert(post.status() === 200, `Patient Match answered HTTP ${post.status()}`);
     await expectValue(sql, `SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${labNo}`, patient,
       'Picking the patient did not link the lab to the owned patient');
     // Read now, before the named lab window is reused below, and asserted in the last step.

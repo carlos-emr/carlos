@@ -6124,7 +6124,7 @@
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
       "fixtures": "The runWorkflow FAKE- patient (NULL HIN set to the empty HIN) and one synthetic CML HL7 lab (unique accession, patient name marker-U); cleanup removes the lab rows and its archived upload file and asserts them gone.",
-      "notes": "Verifies upload, matching, fetch completion with HTTP 204, cross-window removal of the unmatched highlight, and opening the matched patient chart (issue #4176)."
+      "notes": "Verifies upload, matching, consumed JSON success without a redirect, cross-window removal of the unmatched highlight, and opening the matched patient chart (issue #4176)."
     },
     {
       "name": "gap-records-hrm-inbox-null-hin",
