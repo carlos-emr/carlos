@@ -7,7 +7,7 @@ import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayInputStream;
@@ -27,8 +27,8 @@ class EFormExportZipIntegrationTest extends CarlosTestBase {
     @Autowired private EFormDao dao;
 
     @ParameterizedTest
-    @ValueSource(strings = {"Well Baby 0/6 months", "Ça \"va\" Łódź"})
-    void shouldExportOriginalDatabaseContent_whenDisplayNameRequiresEncoding(String title) throws Exception {
+    @CsvSource(delimiter = '|', value = {"Well Baby 0/6 months|WellBaby0_6months", "Ça \"va\" Łódź|Ça_va_Łódź"})
+    void shouldExportOriginalDatabaseContent_whenDisplayNameRequiresEncoding(String title, String folder) throws Exception {
         EForm stored = new EForm();
         EntityDataGenerator.generateTestDataForModelClass(stored);
         stored.setFormName(title);
@@ -36,19 +36,21 @@ class EFormExportZipIntegrationTest extends CarlosTestBase {
         stored.setFormHtml("<html>Zoë Ł &amp; bébé\r\n</html>");
         dao.persist(stored);
         hibernateTemplate.flush();
+        hibernateTemplate.clear();
         var loaded = new io.github.carlos_emr.carlos.eform.data.EForm(stored.getId().toString(), "1");
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         new EFormExportZip().exportForms(List.of(loaded), bytes);
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
-            assertThat(zip.getNextEntry().getName()).endsWith("/eform.properties");
+            assertThat(zip.getNextEntry().getName()).isEqualTo(folder + "/eform.properties");
             Properties properties = new Properties();
             properties.load(new ByteArrayInputStream(zip.readAllBytes()));
             assertThat(properties.getProperty("form.name")).isEqualTo(title);
             assertThat(properties.getProperty("form.htmlFilename")).isEqualTo("fixture.html");
-            assertThat(zip.getNextEntry().getName()).endsWith("/fixture.html");
+            assertThat(zip.getNextEntry().getName()).isEqualTo(folder + "/fixture.html");
             assertThat(new String(zip.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo(stored.getFormHtml());
             assertThat(zip.getNextEntry()).isNull();
         }
+        hibernateTemplate.clear();
         assertThat(dao.find(stored.getId()).getFormName()).isEqualTo(title);
     }
 }

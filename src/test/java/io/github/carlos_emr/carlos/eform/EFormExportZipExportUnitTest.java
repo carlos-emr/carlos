@@ -126,6 +126,16 @@ class EFormExportZipExportUnitTest {
         assertThat(new String(archive.get("A_B-2/form.html"), StandardCharsets.UTF_8)).isEqualTo("second");
     }
 
+    @Test
+    void shouldKeepCaseDistinctForms_whenRecipientFilesystemIsCaseInsensitive() throws Exception {
+        Map<String, byte[]> archive = entries(eform("Foo", "form.html", "first"),
+                eform("Foo-2", "form.html", "second"), eform("foo", "form.html", "third"));
+        assertThat(archive).hasSize(6);
+        assertThat(new String(archive.get("Foo/form.html"), StandardCharsets.UTF_8)).isEqualTo("first");
+        assertThat(new String(archive.get("Foo-2/form.html"), StandardCharsets.UTF_8)).isEqualTo("second");
+        assertThat(new String(archive.get("foo-3/form.html"), StandardCharsets.UTF_8)).isEqualTo("third");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"../evil.html", "nested/form.html", "C:\\evil.html"})
     void shouldRejectStoredPaths_whenFilenameIsNotAComponent(String fileName) {

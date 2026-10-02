@@ -24,11 +24,11 @@ import static org.mockito.Mockito.*;
 class ManageEForm2ActionUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
-            "Well Baby 0/6 months|Well Baby 0_6 months.zip",
-            "Export Plain|Export Plain.zip",
-            "Ça \"va\" Łódź|Ça \"va\" Łódź.zip",
-            "../outside|__outside.zip"})
-    void shouldDownloadNamedArchive_whenExportTitleContainsSpecialCharacters(String title, String filename) throws Exception {
+            "Well Baby 0/6 months|Well Baby 0_6 months.zip|WellBaby0_6months",
+            "Export Plain|Export Plain.zip|ExportPlain",
+            "Ça \"va\" Łódź|Ça \"va\" Łódź.zip|Ça_va_Łódź",
+            "../outside|__outside.zip|__outside"})
+    void shouldDownloadNamedArchive_whenExportTitleContainsSpecialCharacters(String title, String filename, String folder) throws Exception {
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         LoggedInInfo user = mock(LoggedInInfo.class);
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -49,12 +49,12 @@ class ManageEForm2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(new ManageEForm2Action().exportEForm()).isNull();
             assertThat(response.getContentType()).isEqualTo("application/zip");
             String header = response.getHeader("Content-Disposition");
-            assertThat(header).isNotNull().matches("[\\x20-\\x7E\\xA0-\\xFF]+").contains("filename*=UTF-8''");
+            assertThat(header).isNotNull().matches("[\\x20-\\x7E\\xA0-\\xFF]+").contains("filename*=UTF-8''", "; filename=\"");
             assertThat(ContentDisposition.parse(header).getFilename()).isEqualTo(filename);
             try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(response.getContentAsByteArray()))) {
-                assertThat(zip.getNextEntry()).isNotNull();
+                assertThat(zip.getNextEntry().getName()).isEqualTo(folder + "/eform.properties");
                 assertThat(zip.readAllBytes()).isNotEmpty();
-                assertThat(zip.getNextEntry()).isNotNull();
+                assertThat(zip.getNextEntry().getName()).isEqualTo(folder + "/form.html");
                 assertThat(new String(zip.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("<p>Zoë Ł</p>");
                 assertThat(zip.getNextEntry()).isNull();
             }

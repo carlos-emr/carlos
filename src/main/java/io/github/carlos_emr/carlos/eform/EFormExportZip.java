@@ -79,7 +79,7 @@ public class EFormExportZip {
     public void exportForms(List<EForm> eForms, OutputStream os) throws IOException, Exception {
         ZipOutputStream zos = new ZipOutputStream(os);
         zos.setLevel(9);
-        Set<String> folders = new HashSet<>();
+        Set<String> folders = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
         for (EForm eForm : eForms) {
             if (eForm.getFormName() == null || eForm.getFormName().equals("")) {
