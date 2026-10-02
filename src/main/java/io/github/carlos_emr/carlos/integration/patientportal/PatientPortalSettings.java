@@ -351,9 +351,24 @@ public record PatientPortalSettings(
      * the query string.
      */
     private static String validatedBaseUrl(String configured) {
+        String origin = validatedHttpsUrl(configured, BASE_URL_KEY);
+        // Checked here, not in validatedHttpsUrl: patient_portal.public_base_url shares that
+        // validator and may carry the prefix the portal's patient pages are served under.
+        if (!URI.create(origin).getRawPath().isEmpty()) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, PATH_MESSAGE, BASE_URL_KEY));
+        }
+        return origin;
+    }
+
+    /**
+     * Validates an {@code https://} URL read from {@code key}: a host, a valid port, no user-info, no
+     * query or fragment. Trailing slashes are removed. Messages name the key, never the value.
+     */
+    static String validatedHttpsUrl(String configured, String key) {
         if (!configured.startsWith(REQUIRED_SCHEME_PREFIX)) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, PLAINTEXT_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, PLAINTEXT_MESSAGE, key));
         }
         URI uri;
         try {
@@ -362,28 +377,23 @@ public record PatientPortalSettings(
             // URISyntaxException repeats the complete input, including malformed user-info. Keep a
             // bad URL from carrying an embedded password into a later log through its cause chain.
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, MALFORMED_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, MALFORMED_MESSAGE, key));
         }
         if (uri.getHost() == null) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, NO_HOST_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, NO_HOST_MESSAGE, key));
         }
         if (uri.getPort() == 0 || uri.getPort() > 65535) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, PORT_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, PORT_MESSAGE, key));
         }
         if (uri.getUserInfo() != null) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, USER_INFO_MESSAGE, BASE_URL_KEY));
-        }
-        String path = uri.getRawPath();
-        if (path != null && !path.chars().allMatch(c -> c == '/')) {
-            throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, PATH_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, USER_INFO_MESSAGE, key));
         }
         if (uri.getQuery() != null || uri.getFragment() != null) {
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, QUERY_MESSAGE, BASE_URL_KEY));
+                    String.format(Locale.ROOT, QUERY_MESSAGE, key));
         }
         return stripTrailingSlashes(configured);
     }

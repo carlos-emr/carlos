@@ -72,13 +72,15 @@ forward-merge.
 
 `V1.0.42__portal_email_delivery.sql` adds the portal password lifecycle columns to `emailLog`
 (state, opaque source reference, secret ID, original portal origin and clinic). It never stores a
-password. `V1.0.43` is reserved for the portal invite delivery migration (#3856), which merges
-after this one.
+password.
+
+`V1.0.43__patient_portal_invite_delivery.sql` adds `patient_portal_invite_delivery`, one row per
+attempt to deliver a portal invitation, recording how far the prepare, store, commit and send
+sequence got. It never stores the invitation code.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.42`
-(also the highest shared one), `V1.0.43` is reserved for #3856, and `release/2026.08` holds
-versions up to `V1.0.40`, so the next free version for ANY location is `V1.0.44` (see
-`../README.md`).
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.43`
+(also the highest shared one), and `release/2026.08` holds versions up to `V1.0.40`, so the next
+free version for ANY location is `V1.0.44` (see `../README.md`).

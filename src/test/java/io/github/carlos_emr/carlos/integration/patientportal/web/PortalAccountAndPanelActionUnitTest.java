@@ -37,12 +37,14 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountAcknowledgementDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInviteDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -256,6 +258,63 @@ class PortalAccountAndPanelActionUnitTest {
             verify(patientPortalService, never())
                     .setAccountAccess(anyInt(), org.mockito.ArgumentMatchers.anyBoolean(),
                             anyString(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"moved\naway", "moved\u0000away", "moved\u202Eyawa", "moved\u200Baway",
+                "moved\u2028away", "moved\tSTATUS=ok", "moved\uFEFFaway", "moved\u2066away\u2069",
+                "moved\uDB40\uDC41away"})
+        @DisplayName("should refuse a reason with line breaks, control or formatting characters")
+        void shouldRefuseDisable_whenTheReasonHasHiddenCharacters(String reason) throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", reason);
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getContentAsString()).contains("must not contain line breaks");
+            verify(patientPortalService, never())
+                    .setAccountAccess(anyInt(), org.mockito.ArgumentMatchers.anyBoolean(),
+                            anyString(), any());
+        }
+
+        @Test
+        @DisplayName("should accept accented and non-Latin reasons")
+        void shouldDisableAccount_whenTheReasonIsPlainNonLatinText() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "  Déménagé — 患者の依頼  ");
+            when(patientPortalService.setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), anyString(), any()))
+                    .thenReturn(acknowledgement());
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            verify(patientPortalService)
+                    .setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq("Déménagé — 患者の依頼"), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                // Persian "wants", whose letters a zero-width non-joiner keeps apart
+                "\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u062F",
+                // An emoji sequence joined by a zero-width joiner: woman, health worker
+                "moved away \uD83D\uDC69\u200D\u2695\uFE0F",
+                // A soft hyphen marking where a long word may break
+                "re\u00ADlocated"})
+        @DisplayName("should accept the formatting characters the portal keeps for ordinary text")
+        void shouldDisableAccount_whenTheReasonNeedsAJoinerOrSoftHyphen(String reason) throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", reason);
+            when(patientPortalService.setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), anyString(), any()))
+                    .thenReturn(acknowledgement());
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            verify(patientPortalService).setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq(reason), any());
         }
 
         @Test
@@ -511,6 +570,66 @@ class PortalAccountAndPanelActionUnitTest {
             assertThat(payload.get("ok").booleanValue()).isFalse();
             assertThat(payload.get("invites").get(0).has("inviteId")).isTrue();
             assertThat(payload.get("accountError").asText()).isEqualTo("unavailable");
+        }
+    }
+
+    @Nested
+    @DisplayName("panel delivery attempts")
+    class PanelDeliveries {
+
+        private final PortalInviteDeliveryService invites = mock(PortalInviteDeliveryService.class);
+
+        private PatientPortalAccountDto account() {
+            return new PatientPortalAccountDto(
+                    5L, "clinic-a", DEMOGRAPHIC_NO, "active", false, false, null, null);
+        }
+
+        private PortalPanel2Action panelWithDeliveries() {
+            return new PortalPanel2Action(securityInfoManager, patientPortalService, staffContextResolver, invites);
+        }
+
+        @Test
+        @DisplayName("should list the patient's recent delivery attempts from CARLOS")
+        void shouldListDeliveries_fromCarlos() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(404, "/x", "portal account not found"));
+            PatientPortalInviteDelivery row = new PatientPortalInviteDelivery("inv-1", DEMOGRAPHIC_NO, "clinic",
+                    "https://portal-api.example", PatientPortalInviteDelivery.Channel.EMAIL, null, "999998");
+            row.setState(PatientPortalInviteDelivery.State.SEND_UNCERTAIN);
+            row.setOutcome(PatientPortalInviteDelivery.Outcome.SEND_UNCONFIRMED);
+            when(invites.recentFor(DEMOGRAPHIC_NO)).thenReturn(List.of(row));
+            when(invites.isRecoverable(row)).thenReturn(true);
+            when(invites.isOnCurrentConnection(row)).thenReturn(true);
+
+            panelWithDeliveries().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isTrue();
+            assertThat(payload.get("deliveries").size()).isEqualTo(1);
+            assertThat(payload.get("deliveries").get(0).get("state").asText()).isEqualTo("send_uncertain");
+            // Codes, not prose: the staff page translates them.
+            assertThat(payload.get("deliveries").get(0).get("outcome").asText()).isEqualTo("send_unconfirmed");
+            assertThat(payload.get("deliveries").get(0).get("revokeFailed").booleanValue()).isFalse();
+            assertThat(payload.get("deliveries").get(0).has("message")).isFalse();
+            assertThat(payload.get("deliveries").get(0).get("decisions").get(0).asText()).isEqualTo("confirmSent");
+        }
+
+        @Test
+        @DisplayName("should report the deliveries section unavailable rather than empty when it cannot be read")
+        void shouldReportDeliveriesUnavailable_whenTheReadFails() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
+            when(invites.recentFor(DEMOGRAPHIC_NO)).thenThrow(new IllegalStateException("database unavailable"));
+
+            panelWithDeliveries().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isFalse();
+            assertThat(payload.has("deliveries")).isFalse();
+            assertThat(payload.get("deliveriesError").asText()).isEqualTo("unavailable");
         }
     }
 
