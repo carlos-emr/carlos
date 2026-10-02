@@ -443,6 +443,32 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should size HEAD from the non-retaining inspection, matching GET, without loading the bytes")
+    void shouldAnswerHeadWithoutLoading_whenSizingTheDocument() throws Exception {
+        grantAll();
+        storeLab(PathL7EmbeddedDocumentMessage.message());
+        action().execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        int getLength = response.getContentAsByteArray().length;
+        assertThat(getLength).isPositive();
+        assertThat(response.getContentLength()).isEqualTo(getLength);
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setMethod("HEAD");
+        try (MockedStatic<EmbeddedLabDocumentLoader> loaderMock = org.mockito.Mockito.mockStatic(
+                EmbeddedLabDocumentLoader.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            action().execute();
+            loaderMock.verify(() -> EmbeddedLabDocumentLoader.load(any(), anyInt(), anyInt(),
+                    org.mockito.ArgumentMatchers.anyLong()), org.mockito.Mockito.never());
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentLength()).isEqualTo(getLength);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
     @DisplayName("should not query anything when the lab id is malformed even with routing present")
     void shouldNotResolveRouting_whenLabNoMalformed() throws Exception {
         grantAll();

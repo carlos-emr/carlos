@@ -177,9 +177,23 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
             return status(response, HttpServletResponse.SC_NOT_FOUND);
         }
 
-        EmbeddedLabDocumentLoader.Document document =
-                EmbeddedLabDocumentLoader.load(handler, segment, group, maxBytes());
-        switch (document.status()) {
+        // HEAD writes no body, so it classifies through the non-retaining inspect() (a streaming
+        // byte count) rather than load(): the download has no size cap, and a HEAD must not cost a
+        // full in-memory copy of a large report just to answer with headers.
+        EmbeddedLabDocumentLoader.Document document = null;
+        EmbeddedLabDocumentLoader.Status status;
+        long contentLength;
+        if (head) {
+            EmbeddedLabDocumentLoader.Inspection inspection =
+                    EmbeddedLabDocumentLoader.inspect(handler, segment, group, maxBytes());
+            status = inspection.status();
+            contentLength = inspection.sizeBytes();
+        } else {
+            document = EmbeddedLabDocumentLoader.load(handler, segment, group, maxBytes());
+            status = document.status();
+            contentLength = document.bytes() == null ? 0 : document.bytes().length;
+        }
+        switch (status) {
             case EMPTY:
                 return status(response, HttpServletResponse.SC_NOT_FOUND);
             case NOT_PDF:
@@ -208,9 +222,8 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
             }
         }
 
-        byte[] bytes = document.bytes();
         response.setContentType("application/pdf");
-        response.setContentLength(bytes.length);
+        response.setContentLengthLong(contentLength);
         response.setHeader("Content-Disposition", disposition() + "; filename=\"Lab-" + labNo.intValue() + ".pdf\"");
         noStore(response);
         response.setHeader("X-Content-Type-Options", "nosniff");
@@ -220,7 +233,7 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
         }
 
         OutputStream output = response.getOutputStream();
-        output.write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- verified %PDF- bytes served as application/pdf with nosniff
+        output.write(document.bytes()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- verified %PDF- bytes served as application/pdf with nosniff
         output.flush();
         return NONE;
     }
