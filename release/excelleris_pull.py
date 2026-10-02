@@ -502,7 +502,7 @@ def load_config(path: Path) -> Config:
     try:
         with path.open(encoding="utf-8") as fh:
             parser.read_file(fh)
-    except (OSError, configparser.Error) as exc:
+    except (OSError, UnicodeDecodeError, configparser.Error) as exc:
         raise ConfigError(f"cannot parse {path}: {exc}") from exc
 
     def need(section: str, key: str) -> str:
@@ -541,6 +541,10 @@ def load_config(path: Path) -> Config:
             raise ConfigError(f"{label} must be an https:// URL")
         if parsed.username or parsed.password:
             raise ConfigError(f"{label} must not embed credentials")
+        if parsed.query or parsed.fragment:
+            # Query parameters and routes are appended later; a query string
+            # or fragment here would corrupt every request built from it.
+            raise ConfigError(f"{label} must not carry a query string or fragment")
 
     flavour = optional("carlos", "flavour", FLAVOUR_CARLOS).lower()
     if flavour not in FLAVOURS:
@@ -1535,9 +1539,9 @@ class CarlosSession:
                                  CSRF-exempt
         GET  /csrfguard          same-domain Referer -> JS containing
                                  masterTokenValue = '<token>' (session-wide)
-        POST /lab/newLabUpload   multipart: service, key, signature,
-                                 use_http_response_code, one file;
-                                 CSRF-TOKEN header + X-Requested-With
+        POST /lab/newLabUpload   multipart: service, key, signature, one
+                                 file; CSRF-TOKEN header + X-Requested-With;
+                                 reply: uploadComplete.jsp <outcome> XML, HTTP 200
         POST /logout             (GET gets a 405; CSRF-exempt)
 
       flavour = oscar19 (Struts 1, *.do routes, no CSRF layer at all)
@@ -1546,13 +1550,19 @@ class CarlosSession:
                                  ajaxResponse=true after the session is built;
                                  {"success":false,"error":...} on a bad login)
         (no token step)
-        POST /lab/newLabUpload.do same multipart, no CSRF headers
+        POST /lab/newLabUpload.do same multipart plus use_http_response_code,
+                                 no CSRF headers; reply: the outcome as the
+                                 HTTP status (sendError), as the Mule bridge read it
         GET  /logout.jsp
 
-    Both report the upload outcome as the HTTP status when
-    use_http_response_code is set: 200 uploaded, 409 uploaded previously,
-    406 signature failure, 500 import failed. CARLOS alone also answers 403
-    when its upload-source validation refuses the request.
+    Outcomes: uploaded (200), uploaded previously (409), validation failed
+    (406, signature), upload failed / exception (500). Both actions report
+    them either as the <outcome> element of uploadComplete.jsp or, with
+    use_http_response_code, as the HTTP status via sendError. The flag is
+    sent to OSCAR 19 only: CARLOS registers a default <error-page> in
+    web.xml, so Tomcat routes every sendError reply through errorpage.jsp,
+    which normalises any status below 400 to 500 and would report every
+    successful import as a failure. OSCAR 19 has no default error page.
     """
 
     _TOKEN_RE = re.compile(r"""masterTokenValue\s*=\s*["']([^"']+)["']""")
@@ -1721,17 +1731,13 @@ class CarlosSession:
             self.fetch_csrf_token()
         plaintext = path.read_bytes()  # size already checked by upload_step
         ciphertext, key_b64, sig_b64 = self.envelope.seal(plaintext)
-        content_type, body = encode_multipart(
-            {
-                "service": self.cfg.carlos_service,
-                "key": key_b64,
-                "signature": sig_b64,
-                "use_http_response_code": "true",
-            },
-            "importFile",
-            path.name,
-            ciphertext,
-        )
+        fields = {"service": self.cfg.carlos_service, "key": key_b64, "signature": sig_b64}
+        status_in_code = self.flavour == FLAVOUR_OSCAR19
+        if status_in_code:
+            # Mule parity on OSCAR 19. Never on CARLOS: see the class docstring
+            # (its default error page turns sendError(200) into a 500).
+            fields["use_http_response_code"] = "true"
+        content_type, body = encode_multipart(fields, "importFile", path.name, ciphertext)
         headers = {
             "Content-Type": content_type,
             "Referer": self.cfg.carlos_base_url + "/",
@@ -1746,7 +1752,7 @@ class CarlosSession:
         resp = self.transport.request(
             "POST", self._url(self.routes["upload"] or ""), headers=headers, body=body
         )
-        status, detail = self._classify_reply(resp)
+        status, detail = self._classify_reply(resp, status_in_code)
         return UploadOutcome(status, detail)
 
     _OUTCOME_RE = re.compile(rb"<outcome>\s*([^<]*?)\s*</outcome>")
@@ -1768,16 +1774,18 @@ class CarlosSession:
     }
 
     @classmethod
-    def _classify_reply(cls, resp: HttpResponse) -> tuple[int, str]:
+    def _classify_reply(cls, resp: HttpResponse, status_in_code: bool) -> tuple[int, str]:
         """Map the reply to (status, detail), accepting 200 only when it is
         really an upload result.
 
-        With ``use_http_response_code`` the action answers ``sendError(status)``
-        and an empty body. A build that ignores the parameter renders
-        ``uploadComplete.jsp``, the ``<outcome>`` XML the Mule bridge parsed.
-        Anything else with HTTP 200, such as the HTML page Struts renders when
-        the multipart layer refuses the request, is not a success, whatever
-        the status says; treating it as one would archive an unimported file.
+        A non-200 status speaks for itself. With HTTP 200, an ``<outcome>``
+        document (``uploadComplete.jsp``, what the Mule bridge parsed) is the
+        result; a bare 200 is a success only when ``status_in_code`` is set
+        (OSCAR 19 with ``use_http_response_code``: ``sendError(200)`` and no
+        body). Anything else with HTTP 200, such as the HTML page Struts
+        renders when the multipart layer refuses the request, is not a
+        success, whatever the status says; treating it as one would archive
+        an unimported file.
         """
         if resp.status != 200:
             return resp.status, cls._DETAIL.get(resp.status, f"HTTP {resp.status}")
@@ -1788,11 +1796,11 @@ class CarlosSession:
             if status is None:
                 return 0, f"unrecognised <outcome> in the upload reply ({len(text)} bytes)"
             return status, cls._DETAIL.get(status, f"HTTP {status}")
-        if not resp.body.strip():
+        if status_in_code and not resp.body.strip():
             return 200, cls._DETAIL[200]
         return 0, (
-            f"HTTP 200 with a {len(resp.body)}-byte page instead of an upload result "
-            "(request refused before the upload action ran?)"
+            f"HTTP 200 with a {len(resp.body)}-byte reply that is not an upload result "
+            "(no <outcome> document: request refused before the upload action ran?)"
         )
 
 
@@ -2102,7 +2110,8 @@ def run(cfg: Config, opts: RunOptions, make_transport=default_transport) -> int:
                 failures.append(f"{exc.step}: {exc.detail}")
         if not opts.no_upload:
             failures += upload_step(cfg, archive, run_token, opts, make_transport)
-        archive.purge()
+        if not opts.dry_run:  # a dry run touches no data, retained archives included
+            archive.purge()
         if failures:
             notifier.failure(run_id, "run", "; ".join(failures))
             log.error("<<<<< run %s finished WITH ERRORS", run_id)

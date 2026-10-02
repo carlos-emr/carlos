@@ -111,6 +111,11 @@ class FakeTransport:
         return handler
 
 
+def outcome(text: str) -> "FakeResponse":
+    """What CARLOS answers: uploadComplete.jsp's <outcome> document, HTTP 200."""
+    return ok(f"<labUploadResult><outcome>{text}</outcome><audit>x</audit></labUploadResult>")
+
+
 def ok(body: bytes | str, status: int = 200, headers=None) -> FakeResponse:
     if isinstance(body, str):
         body = body.encode()
@@ -559,7 +564,9 @@ class CarlosSessionTest(TempEnv):
                 "", 302, {"Location": "/carlos/provider/providercontrol?year=2026"}
             ),
             "GET /carlos/csrfguard": ok("var x; masterTokenValue = 'TOKEN-123'; var y;"),
-            "POST /carlos/lab/newLabUpload": ok("", upload_status),
+            "POST /carlos/lab/newLabUpload": (
+                outcome("uploaded") if upload_status == 200 else ok("", upload_status)
+            ),
             "POST /carlos/logout": ok("", 302, {"Location": "/carlos/index"}),
         }
         s.update(over)
@@ -594,7 +601,9 @@ class CarlosSessionTest(TempEnv):
         )
         parts = {p.get_param("name", header="content-disposition"): p for p in msg.get_payload()}
         self.assertEqual(parts["service"].get_payload(), "excelleris")
-        self.assertEqual(parts["use_http_response_code"].get_payload(), "true")
+        # Never sent to CARLOS: its default error page would turn the
+        # sendError(200) success into a 500 (see CarlosSession docstring).
+        self.assertNotIn("use_http_response_code", parts)
         self.assertEqual(parts["importFile"].get_filename(), "r.xml")
         # the file field is the ciphertext, not the plaintext
         self.assertNotEqual(parts["importFile"].get_payload(decode=True), PULL_WITH_RESULTS)
@@ -666,7 +675,7 @@ class _OrchestrationBase(TempEnv):
                 "", 302, {"Location": "/carlos/provider/providercontrol?year=2026"}
             ),
             "GET /carlos/csrfguard": ok("masterTokenValue='T'"),
-            "POST /carlos/lab/newLabUpload": ok("", 200),
+            "POST /carlos/lab/newLabUpload": outcome("uploaded"),
             "POST /carlos/logout": ok(""),
         }
         self.transports: list[FakeTransport] = []
@@ -1018,9 +1027,9 @@ class FakeCarlosHandler(_QuietHandler):
                     hashes.MD5(),
                 )
             except Exception:  # noqa: BLE001 - this is the server's rejection path
-                return self._reply(406, b"validation failed")
+                return self._outcome("validation failed", parts)
             if plaintext in srv.seen:
-                return self._reply(409, b"uploaded previously")
+                return self._outcome("uploaded previously", parts)
             if getattr(srv, "fail_next_import", False):
                 srv.fail_next_import = False
                 if getattr(srv, "oscar19", False):
@@ -1028,7 +1037,7 @@ class FakeCarlosHandler(_QuietHandler):
                     # so a failed import still leaves the checksum behind.
                     srv.seen.append(plaintext)
                 srv.log.append(("upload-failed", parts["importFile"].get_filename()))
-                return self._reply(500, b"")
+                return self._outcome("upload failed", parts)
             srv.seen.append(plaintext)
             srv.log.append(
                 (
@@ -1039,8 +1048,34 @@ class FakeCarlosHandler(_QuietHandler):
                     _up.urlsplit(self.path).path,
                 )
             )
-            return self._reply(200, b"")
+            return self._outcome("uploaded", parts)
         return self._reply(404, b"")
+
+    _OUTCOME_CODES = {
+        "uploaded": 200,
+        "uploaded previously": 409,
+        "validation failed": 406,
+        "upload failed": 500,
+    }
+
+    def _outcome(self, text: str, parts) -> None:
+        """Answer the way each real action does.
+
+        OSCAR 19 honours use_http_response_code with sendError(status) and no
+        body (no default error page there). CARLOS without the flag renders
+        uploadComplete.jsp; with the flag, web.xml's default <error-page>
+        sends sendError(status) through errorpage.jsp, which turns a status
+        below 400 into 500 with an HTML body, so a success reads as a failure.
+        """
+        code = self._OUTCOME_CODES[text]
+        flag = "use_http_response_code" in parts
+        if getattr(self.server, "oscar19", False):
+            return self._reply(code, b"" if code == 200 else text.encode())
+        if flag:
+            self.server.log.append(("flag-on-carlos", text))
+            return self._reply(500 if code < 400 else code, b"<html>CARLOS Error</html>")
+        body = f"<labUploadResult><outcome>{text}</outcome><audit>x</audit></labUploadResult>"
+        return self._reply(200, body.encode(), {"Content-Type": "text/xml; charset=UTF-8"})
 
 
 class FakeOscar19Handler(FakeCarlosHandler):
@@ -1488,7 +1523,7 @@ class OutcomeBodyTest(unittest.TestCase):
         return f'<?xml version="1.0"?><root><outcome>{outcome}</outcome><audit>success</audit></root>'.encode()
 
     def classify(self, status, body):
-        return ep.CarlosSession._classify_reply(ep.HttpResponse(status, {}, body))[0]
+        return ep.CarlosSession._classify_reply(ep.HttpResponse(status, {}, body), True)[0]
 
     def test_outcome_xml_maps_to_status(self):
         for text, status in (
@@ -1506,10 +1541,10 @@ class OutcomeBodyTest(unittest.TestCase):
         self.assertEqual(self.classify(200, b""), 200)
         self.assertEqual(self.classify(200, b"  \r\n"), 200)
         html = b"<html><body>Upload rejected: file too large</body></html>"
-        status, detail = ep.CarlosSession._classify_reply(ep.HttpResponse(200, {}, html))
+        status, detail = ep.CarlosSession._classify_reply(ep.HttpResponse(200, {}, html), True)
         self.assertEqual(status, 0)
         self.assertTrue(ep.UploadOutcome(status, detail).transient)
-        self.assertIn("instead of an upload result", detail)
+        self.assertIn("not an upload result", detail)
 
     def test_non_200_passes_through(self):
         self.assertEqual(self.classify(409, self.body("uploaded")), 409)
@@ -1853,7 +1888,7 @@ class RetryClassificationTest(_OrchestrationBase):
     def test_recovery_clears_the_attempt_count(self):
         self.script["POST /carlos/lab/newLabUpload"] = ok("", 503)
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
-        self.script["POST /carlos/lab/newLabUpload"] = ok("", 200)
+        self.script["POST /carlos/lab/newLabUpload"] = outcome("uploaded")
         self.script["excelleris:pull"] = ok("<HL7Messages/>")
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
         self.assertEqual(list(self.cfg.inbox_dir.glob("*")), [])
@@ -1991,6 +2026,66 @@ class CarlosDuplicateAfterFailureTest(_OrchestrationBase):
         self.script["excelleris:pull"] = ok("<HL7Messages/>")
         self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
         self.assertEqual(len(list(self.cfg.done_dir.glob("*.xz"))), 1)
+
+
+class CarlosOutcomeContractTest(CarlosSessionTest):
+    """CARLOS answers with uploadComplete.jsp's <outcome> document and HTTP
+    200; the flag that asks for sendError is never sent there."""
+
+    def test_outcomes_are_read_from_the_document(self):
+        for text, status in (
+            ("uploaded", 200),
+            ("uploaded previously", 409),
+            ("validation failed", 406),
+            ("upload failed", 500),
+            ("exception", 500),
+        ):
+            t = FakeTransport(self.script(**{"POST /carlos/lab/newLabUpload": outcome(text)}))
+            inbox_file = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
+            with self.session(t) as session:
+                self.assertEqual(session.upload(inbox_file).status, status, text)
+            inbox_file.unlink()
+
+    def test_bare_200_without_a_document_is_not_a_success_on_carlos(self):
+        t = FakeTransport(self.script(**{"POST /carlos/lab/newLabUpload": ok("", 200)}))
+        inbox_file = ep.Archive(self.cfg).save_inbox("r", PULL_WITH_RESULTS)
+        with self.session(t) as session:
+            result = session.upload(inbox_file)
+        self.assertEqual(result.status, 0)
+        self.assertFalse(result.accepted)
+        self.assertTrue(result.transient)
+
+
+class DryRunHousekeepingTest(_OrchestrationBase):
+    def test_dry_run_does_not_purge_retained_archives(self):
+        ep.Archive(self.cfg)
+        old = self.cfg.done_dir / "20200101-000000.xml.xz"
+        old.write_bytes(b"x")
+        os.utime(old, (0, 0))  # far older than any retention window
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(dry_run=True), self.factory), ep.EXIT_OK)
+        self.assertTrue(old.exists())
+        self.assertEqual(ep.run(self.cfg, ep.RunOptions(), self.factory), ep.EXIT_OK)
+        self.assertFalse(old.exists())  # a real run purges it
+
+
+class ConfigRobustnessTest(TempEnv):
+    def test_non_utf8_config_is_a_config_error(self):
+        self.conf.write_bytes(b"\xff\xfe[excelleris]\n")
+        with self.assertRaisesRegex(ep.ConfigError, "cannot parse"):
+            ep.load_config(self.conf)
+
+    def test_urls_must_not_carry_query_or_fragment(self):
+        _, _, c, srv = make_keys()
+        for bad in (
+            "https://api.ontest.excelleris.com/hl7pull.aspx?x=1",
+            "https://h/hl7pull.aspx#f",
+        ):
+            self.write_conf(c, srv, url=bad)
+            with self.assertRaisesRegex(ep.ConfigError, "query string or fragment"):
+                ep.load_config(self.conf)
+        self.write_conf(c, srv, base_url="https://emr.example.test/carlos#top")
+        with self.assertRaisesRegex(ep.ConfigError, "query string or fragment"):
+            ep.load_config(self.conf)
 
 
 class UploadSizeLimitTest(_OrchestrationBase):
