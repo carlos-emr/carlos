@@ -71,16 +71,25 @@ ONE-TIME SETUP IN CARLOS (no code change)
 RUNNING AGAINST OSCAR 19 INSTEAD
 ================================
 
-  Set ``[carlos] flavour = oscar19``. OSCAR 19 (Bitbucket oscaremr/oscar,
-  master) has the same upload action with the same parameters and crypto; it
-  differs only in Struts 1 ``*.do`` routes, a GET ``logout.jsp``, and having
-  no CSRF layer, and the flavour switch covers exactly those. Its Key Manager
-  is at ``admin/keygen/`` and the private key comes from
-  ``admin/keygen/getPublicKey.json?id=<service>``. A site that ran the Mule
-  bridge already has a registered service key: reuse that name and type (on
-  stock OSCAR 19 the Excelleris type is ``PATHL7``; ``ExcellerisON`` does not
-  exist there). ``[excelleris] product`` sets the product name Excelleris sees
-  in the User-Agent ("CARLOS" or "OSCAR") independently of the flavour.
+  Set ``[carlos] flavour = oscar19``. The OSCAR 19 line (Bitbucket
+  oscaremr/oscar, branch ``stable`` and tag ``OSCAR_19_RC1``) has the same
+  upload action with the same parameters, the same ``ExcellerisON`` and
+  ``PATHL7`` handlers and the same crypto; it differs only in Struts 1 ``*.do``
+  routes, a GET ``logout.jsp``, and having no CSRF layer, and the flavour
+  switch covers exactly those. Two things are simpler than on CARLOS:
+
+  * OSCAR 19 exempts the upload route from its login filter and makes no
+    privilege check, which is how the Mule bridge uploaded with no login.
+    Leave ``username``, ``password`` and ``pin`` empty to do the same; set all
+    three to log in first instead.
+  * A site that ran the Mule bridge already has its ``keyPair.key`` (the
+    Create Key download): point ``[carlos] key_pair_file`` at it and the
+    service name and both keys are read from there.
+
+  Its Key Manager is at ``admin/keygen/``; the private key is also available
+  from ``admin/keygen/getPublicKey.json?id=<service>``. ``[excelleris]
+  product`` sets the product name Excelleris sees in the User-Agent ("CARLOS"
+  or "OSCAR") independently of the flavour.
 
 ONE-TIME SETUP ON THE HOST
 ==========================
@@ -357,6 +366,44 @@ def _read_key_material(section: configparser.SectionProxy, key: str) -> str:
     return _strip_key_armour(inline)
 
 
+def read_key_pair_file(path: Path) -> tuple[str, str, str]:
+    """Parse the ``keyPair.key`` download from Create Key (CARLOS and OSCAR).
+
+    Format, as both ``createKey.jsp`` pages write it and as the Mule bridge's
+    ``Uploader.parseKeyFile`` reads it (lines 2, 5 and 8)::
+
+        -------- Service Name --------
+        <service>
+        ------------------------------
+        ----- Client Private Key -----
+        <base64 PKCS#8>
+        ------------------------------
+        ------ Oscar Public Key ------
+        <base64 X.509>
+        ------------------------------
+
+    Returns (service, client_private_key_b64, server_public_key_b64).
+    """
+    try:
+        lines = [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines()]
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigError(f"[carlos] key_pair_file {path}: {exc}") from exc
+    lines = [ln for ln in lines if ln]
+
+    def after(header: str) -> str:
+        for i, ln in enumerate(lines):
+            if ln.startswith("-") and header.lower() in ln.lower() and i + 1 < len(lines):
+                return lines[i + 1]
+        raise ConfigError(f"[carlos] key_pair_file {path}: no '{header}' section")
+
+    service = after("Service Name")
+    private_key = after("Client Private Key")
+    public_key = after("Public Key")
+    if private_key.startswith("-") or public_key.startswith("-"):
+        raise ConfigError(f"[carlos] key_pair_file {path}: a key section is empty")
+    return service, private_key, public_key
+
+
 def _strip_key_armour(text: str) -> str:
     """Reduce PEM-or-bare-base64 text to one bare base64 string."""
     lines = [ln.strip() for ln in text.strip().splitlines()]
@@ -414,14 +461,49 @@ def load_config(path: Path) -> Config:
         if parsed.username or parsed.password:
             raise ConfigError(f"{label} must not embed credentials")
 
-    pin = need("carlos", "pin")
-    if not re.fullmatch(r"[0-9]{4}", pin):
-        # Login2Action rejects anything else before checking the password, so
-        # catch it here where the message can say what is wrong.
-        raise ConfigError("[carlos] pin must be exactly four digits")
-    username = need("carlos", "username")
-    if not re.fullmatch(r"[a-zA-Z0-9]{1,30}", username):
-        raise ConfigError("[carlos] username must be 1-30 letters/digits (Login2Action rule)")
+    flavour = optional("carlos", "flavour", FLAVOUR_CARLOS).lower()
+    if flavour not in FLAVOURS:
+        raise ConfigError(f"[carlos] flavour must be one of {', '.join(FLAVOURS)}; got {flavour!r}")
+    # EMR credentials. CARLOS always needs them: its upload action checks the
+    # _lab privilege of a logged-in session. OSCAR 19 exempts the upload route
+    # from its LoginFilter and its action makes no privilege check, which is
+    # exactly how the Mule bridge uploaded: no login at all. So for oscar19
+    # the three are optional, and leaving them out means "session-less, like
+    # Mule". Setting some but not all of them is a mistake, not a choice.
+    username = optional("carlos", "username", "")
+    password = optional("carlos", "password", "")
+    pin = optional("carlos", "pin", "")
+    if flavour == FLAVOUR_CARLOS and not (username and password and pin):
+        raise ConfigError("[carlos] username, password and pin are required for flavour=carlos")
+    if (username or password or pin) and not (username and password and pin):
+        raise ConfigError("[carlos] set username, password and pin together, or none of them")
+    if username:
+        if not re.fullmatch(r"[0-9]{4}", pin):
+            # The login action rejects anything else before checking the
+            # password, so catch it here where the message can say what is wrong.
+            raise ConfigError("[carlos] pin must be exactly four digits")
+        if not re.fullmatch(r"[a-zA-Z0-9]{1,30}", username):
+            raise ConfigError("[carlos] username must be 1-30 letters/digits (login rule)")
+
+    # Keys: either the two base64 values (inline or *_file), or the keyPair.key
+    # file the EMR's Create Key page downloads, which carries the service name,
+    # the client private key and the server public key in one place and is
+    # what a Mule installation already has on disk.
+    service = optional("carlos", "service", "")
+    key_pair_file = optional("carlos", "key_pair_file", "")
+    if key_pair_file:
+        for key in ("client_private_key", "server_public_key"):
+            if optional("carlos", key, "") or optional("carlos", f"{key}_file", ""):
+                raise ConfigError(f"[carlos] key_pair_file cannot be combined with {key}")
+        path = Path(key_pair_file)
+        _require_private_file(path, "[carlos] key_pair_file")
+        pair_service, client_private_key, server_public_key = read_key_pair_file(path)
+        service = service or pair_service
+    else:
+        client_private_key = _read_key_material(parser["carlos"], "client_private_key")
+        server_public_key = _read_key_material(parser["carlos"], "server_public_key")
+    if not service:
+        raise ConfigError("[carlos] service is required (or comes from key_pair_file)")
 
     pfx_file = Path(need("excelleris", "pfx_file"))
     _require_private_file(pfx_file, "[excelleris] pfx_file")
@@ -436,9 +518,6 @@ def load_config(path: Path) -> Config:
             raise ConfigError(f"[{section}] ca_file not found: {path}")
         return path
 
-    flavour = optional("carlos", "flavour", FLAVOUR_CARLOS).lower()
-    if flavour not in FLAVOURS:
-        raise ConfigError(f"[carlos] flavour must be one of {', '.join(FLAVOURS)}; got {flavour!r}")
     # Unless the clinic sets it, the name Excelleris sees follows the EMR
     # generation being fed; an explicit value always wins.
     product = optional("excelleris", "product", "") or (
@@ -462,11 +541,11 @@ def load_config(path: Path) -> Config:
         excelleris_product=product,
         carlos_base_url=carlos_base_url,
         carlos_username=username,
-        carlos_password=need("carlos", "password"),
+        carlos_password=password,
         carlos_pin=pin,
-        carlos_service=need("carlos", "service"),
-        client_private_key=_read_key_material(parser["carlos"], "client_private_key"),
-        server_public_key=_read_key_material(parser["carlos"], "server_public_key"),
+        carlos_service=service,
+        client_private_key=client_private_key,
+        server_public_key=server_public_key,
         carlos_timeout=positive_int("carlos", "timeout_seconds", "120", 5),
         carlos_ca_file=ca_file("carlos"),
         carlos_flavour=flavour,
@@ -1165,13 +1244,28 @@ class CarlosSession:
     def _url(self, route: str) -> str:
         return f"{self.cfg.carlos_base_url}{route}"
 
+    @property
+    def session_less(self) -> bool:
+        """No EMR credentials configured: upload without logging in, exactly as
+        the Mule bridge did. Only OSCAR 19 permits this (load_config enforces
+        credentials for CARLOS)."""
+        return not self.cfg.carlos_username
+
     def __enter__(self) -> "CarlosSession":
-        self.login()
+        if self.session_less:
+            log.info(
+                "%s: no credentials configured; uploading without a session (as Mule did)",
+                self.flavour,
+            )
+        else:
+            self.login()
         if self.uses_csrf:
             self.fetch_csrf_token()
         return self
 
     def __exit__(self, *_exc) -> None:
+        if self.session_less:
+            return
         try:
             if self.flavour == FLAVOUR_OSCAR19:
                 # OSCAR 19 logs out by rendering logout.jsp, which invalidates
@@ -1324,6 +1418,7 @@ class CarlosSession:
         resp = self.transport.request(
             "POST", self._url(self.routes["upload"] or ""), headers=headers, body=body
         )
+        status = self._status_from_outcome_body(resp)
         detail = {
             200: "uploaded",
             400: "bad request (no file received)",
@@ -1331,8 +1426,43 @@ class CarlosSession:
             406: "signature validation failed (service name / client key mismatch)",
             409: "uploaded previously (duplicate, already imported)",
             500: "the EMR could not import the file (see its log)",
-        }.get(resp.status, f"HTTP {resp.status}")
-        return UploadOutcome(resp.status, detail)
+        }.get(status, f"HTTP {status}")
+        return UploadOutcome(status, detail)
+
+    _OUTCOME_RE = re.compile(rb"<outcome>\s*([^<]*?)\s*</outcome>")
+    _OUTCOME_STATUS = {
+        "uploaded": 200,
+        "uploaded previously": 409,
+        "validation failed": 406,
+        "failed to validate": 406,  # the string the Mule bridge matched on
+        "upload failed": 500,
+        "exception": 500,
+    }
+
+    @classmethod
+    def _status_from_outcome_body(cls, resp: HttpResponse) -> int:
+        """Trust an ``<outcome>`` element over a bare 200.
+
+        With ``use_http_response_code`` the EMR answers with the status alone.
+        If a build ignores that parameter it renders ``uploadComplete.jsp``,
+        the ``<outcome>`` XML the Mule bridge parsed, with HTTP 200 whatever
+        happened. Reading it is what stops a rejected upload being archived
+        as a success.
+        """
+        if resp.status != 200:
+            return resp.status
+        match = cls._OUTCOME_RE.search(resp.body)
+        if not match:
+            return 200
+        text = match.group(1).decode("utf-8", errors="replace").strip().lower()
+        status = cls._OUTCOME_STATUS.get(text)
+        if status is None:
+            log.warning(
+                "upload reply carried an unrecognised <outcome> (%d bytes); treating as failed",
+                len(text),
+            )
+            return 500
+        return status
 
 
 # ---------------------------------------------------------------------------
