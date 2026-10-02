@@ -361,6 +361,22 @@ class EmbeddedLabDocumentLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should normalise PATHL7 ED.5 text line breaks once, and leave CELLPATHR RTF as sent")
+    void shouldNormaliseStandardPathL7Text_andLeaveCellPathRtfRaw() throws Exception {
+        PATHL7Handler standard = pathL7(withEdValue("^TEXT^PLAIN^A^Line one\\.br\\Line two "));
+
+        assertThat(standard.isLegacy(1, 0)).isFalse();
+        assertThat(EmbeddedLabDocumentLoader.inspect(standard, 1, 0, 0).status()).isEqualTo(Status.TEXT);
+        assertThat(standard.getOBXEmbeddedDocumentText(1, 0)).isEqualTo("Line one<br />Line two");
+
+        // CELLPATHR keeps raw RTF in ED.1 (declared A); its text is passed through untouched.
+        String rtf = "{\\rtf1 Diagnosis\\par\\.br\\ }";
+        PATHL7Handler cellPath = pathL7(withEdValue(rtf + "^TEXT^RTF^A^").replace("||PATH|F", "||CELLPATHR|F"));
+        assertThat(cellPath.getOBXDocumentEncoding(1, 0)).isEqualTo("A");
+        assertThat(cellPath.getOBXEmbeddedDocumentText(1, 0)).isEqualTo(cellPath.getOBXResult(1, 0));
+    }
+
+    @Test
     @DisplayName("should estimate the decoded size exactly for strict and lenient base64 and for hex")
     void shouldEstimateDecodedSize_fromEncodedLength() {
         for (int length = 0; length <= 7; length++) {
