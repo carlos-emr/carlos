@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.sms.model;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
@@ -65,6 +66,7 @@ public class SmsTransaction extends AbstractModel<Long> {
     private static final int MAX_ERROR_MESSAGE_LENGTH = 1024;
     private static final int MAX_CLAIM_TOKEN_LENGTH = 64;
     private static final String WEBHOOK_REQUIRED_MESSAGE = "webhook is required";
+    private static final String DECISION_REQUIRED_MESSAGE = "decision is required";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -127,6 +129,19 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     @Column(name = "consent_reason_code", length = MAX_REASON_CODE_LENGTH)
     private String consentReasonCode;
+
+    // Consent audit snapshot: the consent state, Consent row and that row's edit date the decision relied
+    // on. consent_id is deliberately not a foreign key so the SMS record survives consent-table cleanup.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "consent_status", length = 32)
+    private SmsConsentStatus consentStatus;
+
+    @Column(name = "consent_id")
+    private Integer consentId;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "consent_last_update_date")
+    private Date consentLastUpdateDate;
 
     @Column(name = "error_code", length = MAX_REASON_CODE_LENGTH)
     private String errorCode;
@@ -244,17 +259,59 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     public void markConsentBlocked(SmsConsentDecisionDto decision) {
-        Objects.requireNonNull(decision, "decision is required");
+        Objects.requireNonNull(decision, DECISION_REQUIRED_MESSAGE);
         if (decision.allowed()) {
             throw new IllegalArgumentException("a blocking consent decision is required");
         }
         status = decision.blockedStatus();
         messageBody = null;
         nextAttemptAt = null;
+        applyConsentSnapshot(decision);
         consentReasonCode = trimTo(decision.reasonCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(decision.operatorMessage(), MAX_ERROR_MESSAGE_LENGTH);
         clearClaim();
         touch();
+    }
+
+    /**
+     * Stores the consent record a permitted send relied on, leaving the row's status untouched.
+     * Blocking decisions go through {@link #markConsentBlocked}, which records the same snapshot.
+     */
+    public void recordConsentDecision(SmsConsentDecisionDto decision) {
+        Objects.requireNonNull(decision, DECISION_REQUIRED_MESSAGE);
+        if (!decision.allowed()) {
+            throw new IllegalArgumentException("a permitting consent decision is required");
+        }
+        if (decision.consentStatus() == null) {
+            // A send with no recorded consent state is exactly what the audit snapshot exists to rule out.
+            throw new IllegalArgumentException("a permitting consent decision must name the consent state it relied on");
+        }
+        applyConsentSnapshot(decision);
+        touch();
+    }
+
+    /**
+     * @return {@code true} when the stored snapshot already names the consent state, record and edit date
+     *         the given decision relied on, so recording it again would change nothing
+     */
+    public boolean hasConsentSnapshot(SmsConsentDecisionDto decision) {
+        Objects.requireNonNull(decision, DECISION_REQUIRED_MESSAGE);
+        // Epoch millis rather than equals(): a loaded row holds a java.sql.Timestamp, which never equals a Date.
+        Long storedUpdate = consentLastUpdateDate == null ? null : consentLastUpdateDate.getTime();
+        Long decisionUpdate = decision.consentLastUpdateDate() == null
+                ? null
+                : decision.consentLastUpdateDate().toEpochMilli();
+        return consentStatus == decision.consentStatus()
+                && Objects.equals(consentId, decision.consentId())
+                && Objects.equals(storedUpdate, decisionUpdate);
+    }
+
+    private void applyConsentSnapshot(SmsConsentDecisionDto decision) {
+        consentStatus = decision.consentStatus();
+        consentId = decision.consentId();
+        consentLastUpdateDate = decision.consentLastUpdateDate() == null
+                ? null
+                : Date.from(decision.consentLastUpdateDate());
     }
 
     public void markSending(Date attemptAt) {
@@ -345,6 +402,27 @@ public class SmsTransaction extends AbstractModel<Long> {
         touch();
     }
 
+    /**
+     * @return whether this is a message CARLOS sent and whose delivery is still open: it has a recipient
+     *         (a placeholder row created from an unmatched callback has none) and its status is
+     *         {@code SENDING} or {@code SENT}
+     */
+    public boolean isAwaitingCarrierOutcome() {
+        return !isBlank(toPhoneNumber) && (status == SmsStatus.SENDING || status == SmsStatus.SENT);
+    }
+
+    private boolean isBlockedByConsent() {
+        return status == SmsStatus.CONSENT_BLOCKED || status == SmsStatus.OPTOUT_BLOCKED;
+    }
+
+    /**
+     * A real message waiting in the queue, for its first attempt or for a retry. A placeholder row
+     * created from an unmatched callback has no recipient and only ever records callbacks.
+     */
+    private boolean isWaitingInQueue() {
+        return !isBlank(toPhoneNumber) && status == SmsStatus.QUEUED;
+    }
+
     public void markDeliveryEvent(SmsDeliveryWebhookDto webhook) {
         Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
         SmsStatus webhookStatus = webhook.status() == null ? SmsStatus.FAILED : webhook.status();
@@ -414,7 +492,27 @@ public class SmsTransaction extends AbstractModel<Long> {
         if (webhookEventAt != null && providerEventAt != null && webhookEventAt.before(providerEventAt)) {
             return true;
         }
+        if (isBlockedByConsent()) {
+            // The message was never sent, so no callback can be about it, and the record of the consent
+            // block must stay as it is.
+            return true;
+        }
+        if (isWaitingInQueue() && webhookStatus == SmsStatus.FAILED) {
+            // Either the message has not gone out yet, or this is a late failure report for an earlier
+            // attempt and a retry is already scheduled. Failing it here would cancel a send that is still
+            // due. A report that it was sent or delivered is still applied, which stops the retry.
+            return true;
+        }
         if (status == SmsStatus.DELIVERED && webhookStatus != SmsStatus.DELIVERED) {
+            return true;
+        }
+        if (status == SmsStatus.FAILED && webhookStatus == SmsStatus.SENT && providerEventAt != null
+                && (webhookEventAt == null || !webhookEventAt.after(providerEventAt))) {
+            // The failure came from a carrier report, and this "sent" report is not newer than it, so it
+            // says nothing new. Accepting it would reopen the row, and the same two callbacks replayed in
+            // turn would fail it again and again. A newer one is applied. So is any "sent" report for a
+            // failure CARLOS recorded itself (no carrier report yet), such as an unknown outcome: the
+            // message did go out.
             return true;
         }
         return status == SmsStatus.DELIVERED
@@ -558,6 +656,18 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public String getConsentReasonCode() {
         return consentReasonCode;
+    }
+
+    public SmsConsentStatus getConsentStatus() {
+        return consentStatus;
+    }
+
+    public Integer getConsentId() {
+        return consentId;
+    }
+
+    public Date getConsentLastUpdateDate() {
+        return copyOf(consentLastUpdateDate);
     }
 
     public String getErrorCode() {

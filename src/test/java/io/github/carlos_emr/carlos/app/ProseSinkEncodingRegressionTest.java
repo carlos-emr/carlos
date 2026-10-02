@@ -111,6 +111,24 @@ class ProseSinkEncodingRegressionTest {
                 .doesNotContain("text/html");
     }
 
+    /**
+     * Not prose, but admin-entered the same way: the consent type key names and identifies the
+     * chart's consent inputs and is passed to the Clear button's script.
+     */
+    @Test
+    @DisplayName("the chart edit form should encode the consent type key everywhere it prints it")
+    void shouldEncodeConsentTypeKey_inChartEditForm() throws IOException {
+        String source = Files.readString(
+                resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp")),
+                StandardCharsets.UTF_8);
+
+        assertThat(source)
+                .as("no attribute or script prints the key raw")
+                .doesNotContainPattern("\\$\\{\\s*consentType\\.type\\s*\\}")
+                .contains("consentClearBtn('${carlos:forJavaScript(consentType.type)}')")
+                .contains("name=\"${carlos:forHtmlAttribute(consentType.type)}\"");
+    }
+
     @ParameterizedTest(name = "{0}: {2}")
     @MethodSource("sinks")
     @DisplayName("each prose sink should render through the null-safe encoder")

@@ -14,10 +14,18 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 
+import jakarta.mail.Address;
 import jakarta.mail.MessagingException;
+import jakarta.mail.SendFailedException;
 import jakarta.mail.internet.MimeMessage;
+
+import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
+import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -29,6 +37,7 @@ import io.github.carlos_emr.carlos.email.core.OutboundEmailTransport;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.EmailSendingException.Refusal;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -76,6 +85,12 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     static final long MAX_PREPARED_MESSAGE_BYTES = 50L * 1024L * 1024L;
     static final int SMTP_CONNECTION_TIMEOUT_MILLIS = 30_000;
     static final int SMTP_IO_TIMEOUT_MILLIS = 60_000;
+    /** Bounds the walk over per-recipient refusals when logging them. */
+    private static final int MAX_LOGGED_REFUSALS = 64;
+    /** The command prefix Angus sends for the envelope sender ({@code SMTPTransport.mailFrom}). */
+    private static final String MAIL_FROM_COMMAND = "MAIL FROM:";
+    /** The command Angus sends to start the message content; the content follows only a 354 reply. */
+    private static final String DATA_COMMAND = "DATA";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
@@ -243,8 +258,9 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         } catch (MailAuthenticationException | MailPreparationException e) {
             throw new EmailSendingException("SMTP failed before accepting the message.", e);
         } catch (Exception e) {
-            if (isDefinitelyUnsent(e)) {
-                throw new EmailSendingException("SMTP failed before accepting the message.", e);
+            Optional<Refusal> unsent = definitelyUnsent(e);
+            if (unsent.isPresent()) {
+                throw new EmailSendingException("SMTP failed before accepting the message.", e, unsent.get());
             }
             // A lost SMTP acknowledgement cannot prove non-delivery; do not invite a duplicate.
             throw new EmailSendingException(
@@ -254,17 +270,158 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         }
     }
 
-    private boolean isDefinitelyUnsent(Exception failure) {
+    /**
+     * Returns which address the server refused when the failure proves the message never left
+     * ({@link Refusal#NONE} when no address was refused), or empty when it cannot be shown.
+     */
+    private Optional<Refusal> definitelyUnsent(Exception failure) {
         if (!(failure instanceof org.springframework.mail.MailSendException sendFailure)) {
+            return Optional.empty();
+        }
+        // This sender dispatches exactly one message, and only four shapes prove it never left:
+        // - connect time: Spring reports the same exception as both the top-level cause and that
+        //   message's failure;
+        // - refused at MAIL FROM: see isRefusedAtSender;
+        // - refused at RCPT TO: see isRefusedAtRecipients;
+        // - the DATA command itself refused, before any content: see isRefusedAtData.
+        // Failures once the content has been sent have no top-level cause and are none of the
+        // refusal shapes, and closing an accepted connection has no failed message; both stay
+        // uncertain. Do not infer the stage from a TLS/timeout exception type or from remote
+        // diagnostic text.
+        Exception[] messageFailures = sendFailure.getMessageExceptions();
+        if (messageFailures.length != 1) {
+            return Optional.empty();
+        }
+        if (sendFailure.getCause() != null && messageFailures[0] == sendFailure.getCause()) {
+            return Optional.of(Refusal.NONE);
+        }
+        if (isRefusedAtSender(messageFailures[0])) {
+            SMTPSendFailedException refused = (SMTPSendFailedException) messageFailures[0];
+            logSenderRefusal(refused);
+            return Optional.of(refusesSenderAddress(refused.getReturnCode()) ? Refusal.SENDER : Refusal.NONE);
+        }
+        if (isRefusedAtRecipients(messageFailures[0])) {
+            logRecipientRefusal((SendFailedException) messageFailures[0]);
+            return Optional.of(Refusal.RECIPIENT);
+        }
+        if (isRefusedAtData(messageFailures[0])) {
+            logDataRefusal((SMTPSendFailedException) messageFailures[0]);
+            // Neither address was refused, so staff get no address-specific hint.
+            return Optional.of(Refusal.NONE);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Recognises a failed MAIL FROM, for example a relay that will not send for the clinic's
+     * domain. Angus sends MAIL FROM before any RCPT TO or DATA and on any reply other than 250,
+     * including a dropped connection it reads as code -1, throws {@code SMTPSendFailedException}
+     * carrying the command it sent, so no part of the message has been transmitted.
+     *
+     * <p>The signal is CARLOS's own command, not the server's text. The same exception class is
+     * thrown after the message content (command {@code "."}), where acceptance cannot be ruled
+     * out, so matching on the class alone would be wrong. Angus never lists a sent address in this exception; the check keeps a future
+     * library change from turning a possibly delivered message into a definite failure.</p>
+     */
+    private static boolean isRefusedAtSender(Exception messageFailure) {
+        if (!(messageFailure instanceof SMTPSendFailedException refused)) {
             return false;
         }
-        // This sender dispatches exactly one message. Spring's connectTransport failure reports
-        // the same exception as both the top-level cause and that message's failure. Failures
-        // during DATA have no top-level cause; closing an accepted connection has no failed message.
-        // Do not infer the stage from a TLS/timeout exception type or from remote diagnostic text.
-        Exception[] messageFailures = sendFailure.getMessageExceptions();
-        return sendFailure.getCause() != null && messageFailures.length == 1
-                && messageFailures[0] == sendFailure.getCause();
+        String command = refused.getCommand();
+        return command != null && command.startsWith(MAIL_FROM_COMMAND)
+                && isEmpty(refused.getValidSentAddresses());
+    }
+
+    /**
+     * Recognises the server refusing the DATA command itself, for example a temporary 451 or a
+     * policy 554 after the recipients were accepted. Angus sends DATA, and on any reply other than
+     * 354 ("start mail input"), including a dropped connection it reads as code -1, throws
+     * {@code SMTPSendFailedException} carrying that command. The content is sent only after a 354.
+     *
+     * <p>The command is matched exactly. A failure after the content carries {@code "."} as its
+     * command and may follow acceptance, so it must never match. BDAT (chunking) would send content
+     * with the command; CARLOS does not enable it, and Angus reports its failures differently, but
+     * the exact match keeps it out regardless. As at MAIL FROM, a listed sent address keeps the
+     * outcome uncertain.</p>
+     *
+     * <p>Only an orderly close or an unreadable reply becomes code -1. A read error at DATA (a
+     * timeout or reset), or a failure of the RSET Angus sends after the refusal, surfaces as a
+     * plain {@code MessagingException} instead and stays uncertain.</p>
+     */
+    private static boolean isRefusedAtData(Exception messageFailure) {
+        return messageFailure instanceof SMTPSendFailedException refused
+                && DATA_COMMAND.equals(refused.getCommand())
+                && isEmpty(refused.getValidSentAddresses());
+    }
+
+    /**
+     * Recognises the server refusing recipients at RCPT TO (#3857). Spring reports that failure
+     * with no top-level cause, so the connect-time shape misses it.
+     *
+     * <p>The signal is the mail library's own address accounting, not the server's text. When any
+     * recipient is refused (5xx, or 4xx such as greylisting) and partial sends are off, which
+     * {@link #applyAllOrNothingRecipients} pins, the transport resets the session before DATA and
+     * throws exactly {@code SendFailedException}: no valid-sent address, and every address listed
+     * as invalid or valid-but-unsent. The exact class matters. {@code SMTPSendFailedException} is
+     * a subclass, and at the end of the content (command {@code "."}) a failure may follow
+     * acceptance, so it must never match. Any valid-sent address likewise means a copy may have gone out.</p>
+     */
+    private static boolean isRefusedAtRecipients(Exception messageFailure) {
+        if (messageFailure == null || messageFailure.getClass() != SendFailedException.class) {
+            return false;
+        }
+        SendFailedException refused = (SendFailedException) messageFailure;
+        return isEmpty(refused.getValidSentAddresses())
+                && !(isEmpty(refused.getInvalidAddresses()) && isEmpty(refused.getValidUnsentAddresses()));
+    }
+
+    private static boolean isEmpty(Address[] addresses) {
+        return addresses == null || addresses.length == 0;
+    }
+
+    /**
+     * Logs why the server refused, for an operator telling a mistyped address (550) from a relay
+     * or policy block (551/553/554) or a temporary refusal (4xx). Only counts and numeric reply
+     * codes are logged: the addresses and the server's text can identify the patient.
+     */
+    private void logRecipientRefusal(SendFailedException refused) {
+        // One SMTPAddressFailedException per refused RCPT, 5xx and 4xx alike. The invalid-address
+        // list alone would miss temporary refusals, and valid-unsent also holds accepted addresses.
+        Set<Integer> replyCodes = new TreeSet<>();
+        int refusedRecipients = 0;
+        Exception next = refused.getNextException();
+        for (int depth = 0; next != null && depth < MAX_LOGGED_REFUSALS; depth++) {
+            if (next instanceof SMTPAddressFailedException addressFailure) {
+                refusedRecipients++;
+                replyCodes.add(addressFailure.getReturnCode());
+            }
+            next = next instanceof MessagingException messaging ? messaging.getNextException() : null;
+        }
+        logger.warn("SMTP server refused the message at RCPT TO; refusedRecipients={}, replyCodes={}",
+                refusedRecipients, replyCodes);
+    }
+
+    /**
+     * Whether a failed MAIL FROM is the server refusing the sending address, which staff can act
+     * on, rather than the server going away: 421 is "service closing" and -1 is Angus's code for
+     * a dropped connection or an unreadable reply. Those are still definite failures.
+     */
+    private static boolean refusesSenderAddress(int replyCode) {
+        return replyCode >= 400 && replyCode <= 599 && replyCode != 421;
+    }
+
+    /**
+     * Logs the reply code for an operator telling a policy block (5xx) from a temporary refusal
+     * (4xx) or a dropped connection (-1). Not the command or the server's text: both can carry an
+     * address.
+     */
+    private void logSenderRefusal(SMTPSendFailedException refused) {
+        logger.warn("SMTP server did not accept MAIL FROM; replyCode={}", refused.getReturnCode());
+    }
+
+    /** Logs only the reply code for a refused DATA command; the server's text can carry an address. */
+    private void logDataRefusal(SMTPSendFailedException refused) {
+        logger.warn("SMTP server did not accept DATA; replyCode={}", refused.getReturnCode());
     }
 
     /**
@@ -407,6 +564,7 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         properties.put("mail.debug", "false");
 
         applySmtpTimeouts(properties);
+        applyAllOrNothingRecipients(properties);
         mailSender.setJavaMailProperties(properties);
         return mailSender;
     }
@@ -442,6 +600,20 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     protected EmailSendingException invalidConfiguration(EmailConfig emailConfig) {
         String senderEmail = emailConfig != null ? emailConfig.getSenderEmail() : "unknown";
         return new EmailSendingException("Invalid credentials configured for " + senderEmail);
+    }
+
+    /**
+     * Pins the transport to all-or-nothing recipients: one refused recipient means nobody is sent
+     * the message, which is the behaviour {@link #isRefusedAtRecipients} reports as FAILED. With
+     * partial sends on, the other recipients would receive it. The exact-class check there does
+     * not depend on this pin; the pin keeps the delivery behaviour from changing silently.
+     * {@code reportsuccess} is pinned off too: with it on, Angus throws a
+     * {@code SendFailedException} even after a successful send, so every delivered email would be
+     * recorded as unconfirmed.
+     */
+    static void applyAllOrNothingRecipients(Properties properties) {
+        properties.put("mail.smtp.sendpartial", "false");
+        properties.put("mail.smtp.reportsuccess", "false");
     }
 
     static void applySmtpTimeouts(Properties properties) {
