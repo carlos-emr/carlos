@@ -220,6 +220,7 @@ Ontario, Canada
 
 <html>
     <head>
+        <fmt:message key="appointment.type.reason.length.error" var="typeReasonLengthError"/>
         <script src="<%=request.getContextPath()%>/js/appointmentTypeReason.js"></script>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
@@ -522,6 +523,7 @@ Ontario, Canada
                 document.forms[0].resources.value = "<carlos:encode value='<%= apptObj.getResources() %>' context="javaScriptBlock"/>";
                 document.forms[0].type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
                 document.forms[0].type.dataset.previousReason = document.forms[0].type.selectedOptions[0]?.dataset.reason || '';
+                document.forms[0].type.dataset.previousType = document.forms[0].type.value;
                 document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
                 if ('<carlos:encode value='<%= apptObj.getUrgency() %>' context="javaScriptBlock"/>' == 'critical') {
                     document.forms[0].urgency.checked = "checked";
@@ -556,6 +558,7 @@ Ontario, Canada
             function setType(typeSel, reasonSel, locSel, durSel, notesSel, resSel) {
                 document.forms['ADDAPPT'].type.value = typeSel;
                 document.forms['ADDAPPT'].type.dataset.previousReason = document.forms['ADDAPPT'].type.selectedOptions[0]?.dataset.reason || '';
+                document.forms['ADDAPPT'].type.dataset.previousType = document.forms['ADDAPPT'].type.value;
                 document.forms['ADDAPPT'].reason.value = reasonSel;
                 document.forms['ADDAPPT'].duration.value = durSel;
                 document.forms['ADDAPPT'].notes.value = notesSel;
@@ -669,6 +672,7 @@ Ontario, Canada
 
                 // Track the previous autofill separately from text entered by the user.
                 document.getElementById('type').dataset.previousReason = $('#type option:selected').attr('data-reason') || '';
+                document.getElementById('type').dataset.previousType = $('#type').val();
                 // render custom selectmenu
                 $('#type').myselectmenu({
                     change: function (event, data) {
@@ -676,7 +680,14 @@ Ontario, Canada
                         origReason = $("textarea[name='reason']").val();
                         reason = data.item.element.attr("data-reason");
                         var nextTypeReason = reason || '';
-                        reason = appointmentTypeReason(origReason, this.dataset.previousReason || '', nextTypeReason);
+                        try {
+                            reason = appointmentTypeReason(origReason, this.dataset.previousReason || '', nextTypeReason);
+                        } catch (error) {
+                            if (!(error instanceof RangeError)) throw error;
+                            $(this).val(this.dataset.previousType).myselectmenu('refresh');
+                            alert("<carlos:encode value="${typeReasonLengthError}" context="javaScriptBlock"/>");
+                            return;
+                        }
                         this.dataset.previousReason = nextTypeReason;
                         loc = data.item.element.attr("data-loc");
                         dur = data.item.element.attr("data-dur");

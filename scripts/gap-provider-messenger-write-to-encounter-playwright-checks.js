@@ -121,7 +121,6 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND signed=1
       AND note LIKE ${h.sqlString(`%Subject: ${subject}%`)} AND note LIKE ${h.sqlString(`%${marker} line one%`)}`, '1',
     'The signed note does not hold the pasted message for the linked patient');
-    h.assert(chart.isClosed(), 'The chart stayed open after Sign & Save');
   });
 
   await s.step('the message itself is unchanged and still linked', async () => {

@@ -53,7 +53,11 @@ async function workflow(s) {
   const field = (popup, name) => popup.locator(`form#addappt [name="${name}"]`);
   const chooseType = async (popup, type) => {
     await popup.locator('#type-button').click();
-    await popup.locator('.ui-selectmenu-menu .ui-menu-item', { hasText: type.name }).first().click();
+    const item = popup.locator('.ui-selectmenu-menu .ui-menu-item', { hasText: type.name }).first();
+    // Move within the item before clicking: jQuery UI caches the last menu pointer position,
+    // so teleporting to identical coordinates on a reopened menu can leave the old item active.
+    await item.hover({ position: { x: 5, y: 5 } });
+    await item.click();
   };
   const minutes = value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
   let popup;
@@ -84,6 +88,17 @@ async function workflow(s) {
     h.assert(await field(popup, 'resources').inputValue() === types[0].resources, 'The resources were not filled from the type');
     h.assert(await field(popup, 'duration').inputValue() === String(types[0].duration), 'The duration was not filled from the type');
     h.assert(await field(popup, 'type').inputValue() === types[0].name, 'The type field does not hold the chosen type name');
+  });
+
+  await s.step('an overlong combined reason is refused without changing the type or losing text', async () => {
+    const manual = 'm'.repeat(80);
+    await field(popup, 'reason').fill(manual);
+    const dialogs = await h.withExpectedDialogs(popup, () => chooseType(popup, types[1]));
+    h.assert(dialogs.length === 1 && /80 characters/i.test(dialogs[0].text), 'The reason overflow was not explained');
+    h.assert(await field(popup, 'type').inputValue() === types[0].name, 'Overflow changed the previous type');
+    h.assert(await field(popup, 'reason').inputValue() === manual, 'Overflow discarded or truncated manual text');
+    h.assert(await field(popup, 'notes').inputValue() === types[0].notes
+      && await field(popup, 'duration').inputValue() === String(types[0].duration), 'Overflow changed dependent fields');
   });
 
   await s.step('the user\'s own reason text is kept after the type\'s reason when a type is chosen over it', async () => {

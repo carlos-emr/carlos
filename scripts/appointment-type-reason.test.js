@@ -22,3 +22,14 @@ test('empty types preserve only manual text and never add a separator', () => {
     assert.equal(reason('', '', 'Type A'), 'Type A');
     assert.equal(reason(), '');
 });
+
+test('accepts the exact field boundary without truncating either part', () => {
+    const manual = 'm'.repeat(35);
+    const type = 't'.repeat(41);
+    assert.equal(reason(manual, '', type), type + ' -- ' + manual);
+    assert.equal(reason('old', 'old', 't'.repeat(80)), 't'.repeat(80));
+});
+test('reports overflow before the caller changes form state', () => {
+    assert.throws(() => reason('m'.repeat(35), '', 't'.repeat(42)), RangeError);
+    assert.throws(() => reason('', '', 't'.repeat(81)), RangeError);
+});
