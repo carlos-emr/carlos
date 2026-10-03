@@ -805,11 +805,11 @@ public class Utility {
 
     /**
      * Applies the {@link io.github.carlos_emr.carlos.util.UtilDateUtilities#calcAge(String, String, String) shared age contract}
-     * with legacy error handling: an unparseable component returns -1 instead of throwing.
+     * with legacy error handling: returns -1 when the delegate throws {@link NumberFormatException}.
      * @param year_of_birth decimal birth year
      * @param month_of_birth decimal birth month (normally 1–12)
      * @param date_of_birth decimal birth day (normally 1–31)
-     * @return completed years on the current local date, or -1 for an unparseable component
+     * @return completed years on the current local date, or -1 when parsing performed by the delegate fails
      */
     public static int calcAge(String year_of_birth, String month_of_birth, String date_of_birth) {
         try {
