@@ -39,6 +39,13 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.util.Date;
+import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.sql.Timestamp;
+import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
+import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -273,6 +280,42 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
         assertThat(((Number) matches.get(0)[1]).intValue()).isEqualTo(9834002);
         assertThat(hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "QueryFixture", "NoHin", "other-hin",
                 "N", false, 0, 100, true, null, true, true, null, null)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"serviceObservation,true", "serviceObservation,false", "receivedCreated,true", "receivedCreated,false"})
+    void shouldIncludeWholeEndDay_whenInboxHasObservationAndReceivedTimestamps(String mode, boolean mixed) {
+        entityManager.createQuery("delete from SystemPreferences p where p.name = :name")
+                .setParameter("name", "inboxDateSearchType").executeUpdate();
+        entityManager.persist(new SystemPreferences("inboxDateSearchType", mode));
+        List<Integer> expected = new ArrayList<>();
+        List<String> timestamps = List.of("2026-03-02 23:59:59", "2026-03-03", "2026-03-03 00:00:00",
+                "2026-03-05 14:30:00", "2026-03-05 23:59:59.999", "2026-03-06", "2026-03-06 00:00:00");
+        for (int i = 0; i < timestamps.size(); i++) {
+            String timestamp = timestamps.get(i);
+            LocalDateTime received = LocalDateTime.parse((timestamp.length() == 10 ? timestamp + " 00:00:00" : timestamp).replace(' ', 'T'));
+            Hl7TextMessage message = new Hl7TextMessage();
+            ReflectionTestUtils.setField(message, "created", Timestamp.valueOf(received));
+            entityManager.persist(message);
+            entityManager.flush();
+            int labNo = message.getId();
+            Hl7TextInfo info = createHl7TextInfo("DATE-BOUNDARY-" + labNo, "Boundary", "Endday", "");
+            info.setLabNumber(labNo);
+            info.setObrDate(timestamp);
+            hibernateTemplate.flush();
+            ProviderLabRoutingModel routing = new ProviderLabRoutingModel();
+            routing.setLabNo(labNo);
+            routing.setLabType("HL7");
+            routing.setProviderNo("999998");
+            routing.setStatus("N");
+            entityManager.persist(routing);
+            if (i >= 1 && i <= 4) expected.add(labNo);
+        }
+        entityManager.flush();
+        var rows = hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "Boundary", "Endday", "",
+                "N", false, 0, 100, mixed, null, true, true,
+                java.sql.Date.valueOf("2026-03-03"), java.sql.Date.valueOf("2026-03-05"));
+        assertThat(rows).extracting(row -> ((Number) row[1]).intValue()).containsExactlyInAnyOrderElementsOf(expected);
     }
 
 }
