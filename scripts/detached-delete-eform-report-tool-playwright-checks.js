@@ -43,6 +43,8 @@ async function workflow(s) {
   });
   const removeOwned = () => {
     for (const table of ownedTables()) {
+      // name is validated against an alphanumeric/underscore allowlist above.
+      // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
       h.assert(new RegExp(`^ERT_${name}[0-7]*$`).test(table), 'Refusing to drop a table this check does not own');
       sql.execute(`DROP TABLE IF EXISTS \`${table}\``);
     }

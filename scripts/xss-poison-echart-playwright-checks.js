@@ -93,6 +93,8 @@ async function workflow(s) {
       optional: [
         { match: /^\d{2}-[A-Za-z]{3}-\d{4}$/, reason: 'a dated encounter entry the chart re-renders while it is walked' },
         { match: /^[\u25cb\u26a0]\s/, reason: 'a prevention-due entry the chart redraws once a prevention page has been opened' },
+        // docField is built from generated numeric fixture field IDs.
+        // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
         { match: new RegExp(`data-xp="?${docField}[">]`), reason: 'the seeded document has no file behind it, so its viewer never finishes loading' },
       ],
       beforeItem: () => waitForNavbars(chart, 20000),

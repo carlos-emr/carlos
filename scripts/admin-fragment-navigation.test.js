@@ -11,10 +11,14 @@ test('loading OHIP simulation initializes its own form without hijacking shell n
   const marker = "registerFormSubmit('serviceform'";
   const markerAt = source.indexOf(marker);
   const openingTag = '<script type="text/javascript">';
+  // extracts trusted repository JSP code for a mocked VM regression, not application-user input.
+  // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
   const start = source.lastIndexOf(openingTag, markerAt);
   const end = source.indexOf('</script>', markerAt);
   assert.ok(markerAt >= 0 && start >= 0 && end > markerAt,
     'The billing simulation initialization script was not found');
+  // extracts trusted repository JSP code for a mocked VM regression, not application-user input.
+  // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
   const script = source.slice(start + openingTag.length, end);
   const registered = [], dates = [], listeners = [];
   vm.runInNewContext(script, {

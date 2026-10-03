@@ -100,7 +100,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             final int digitalSignatureId;
             try {
                 digitalSignatureId = Integer.parseInt(signatureIdParam);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // \d+ admits digit strings beyond Integer range; an over-range id is a bad request,
                 // not a server error.
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid digitalSignatureId");
@@ -170,6 +170,8 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 bos.write(image); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- image/jpeg binary write
                 bos.flush();
 
+                // only image.length is logged, not image content or request text.
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("Streamed eForm signature image to render browser ({} bytes)", image.length);
                 return;
             }

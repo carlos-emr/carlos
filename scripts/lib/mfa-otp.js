@@ -54,6 +54,8 @@ function totp(secretBase32, { timeMs = Date.now(), offsetSteps = 0, stepSeconds 
   const counter = Math.floor(timeMs / 1000 / stepSeconds) + offsetSteps;
   const message = Buffer.alloc(8);
   message.writeBigUInt64BE(BigInt(counter));
+  // RFC 6238 TOTP uses HMAC-SHA1; ordinary SHA-1 collision attacks do not apply to this use.
+  // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm
   const hmac = createHmac('sha1', base32Decode(secretBase32)).update(message).digest();
   const offset = hmac[hmac.length - 1] & 0x0f;
   const binary = hmac.readUInt32BE(offset) & 0x7fffffff;

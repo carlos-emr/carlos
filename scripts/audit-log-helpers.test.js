@@ -9,6 +9,8 @@ try { ({ DatabaseSync } = require('node:sqlite')); } catch (error) { /* older No
 
 test('cleanup predicate keeps an unrelated row whose contentId equals the patient id', { skip: !DatabaseSync }, () => {
   const db = new DatabaseSync(':memory:');
+  // auditProbe supplies a fixed predicate and validated numeric fixture patient ID.
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
   db.function('regexp', (pattern, value) => (value !== null && new RegExp(pattern).test(String(value)) ? 1 : 0));
   db.exec('CREATE TABLE log (id INTEGER PRIMARY KEY, action TEXT, content TEXT, contentId TEXT, demographic_no INTEGER, data TEXT)');
   const insert = db.prepare('INSERT INTO log (id, action, content, contentId, demographic_no, data) VALUES (?,?,?,?,?,?)');

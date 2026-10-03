@@ -1450,8 +1450,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "listCPPNotes";
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     /** Bind a new note to this chart's appointment, without changing an existing note's visit. */
     static int resolveNoteAppointmentNo(CaseManagementNote note, String requestAppointmentNo,
                                         String sessionAppointmentNo,
@@ -1474,6 +1472,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 id -> SpringUtils.getBean(OscarAppointmentDao.class).find(id)));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: compares on/persist/null/empty form flags and sentinels, not provider identities or secrets.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive form flags and null/empty sentinels; provider identities and secrets are not case-folded")
     private long noteSave() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2990,6 +2990,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 textStr = this.caseManagementMgr.getNote(noteIds[idx]).getNote();
             }
             textStr = SafeEncode.forHtmlContent(textStr).replace("\n", "<br>");
+            // textStr is SafeEncode.forHtmlContent output followed only by fixed br tags.
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
             out.println(textStr);
             out.println("<br><br>");
         }

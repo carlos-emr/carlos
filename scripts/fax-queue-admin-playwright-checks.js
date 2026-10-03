@@ -155,6 +155,8 @@ async function workflow(s) {
 
   await s.step('the patient filter lists every seeded row with its type, status, message, timestamp and actions', async () => {
     const chosen = await typeAutocomplete(queue, '#autocompletedemo', marker,
+      // escapeRegExp quotes all regex metacharacters in the generated fixture marker.
+      // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
       {option: new RegExp(escapeRegExp(marker), 'i'), hidden: '#demographic_no', timeout: TIMEOUT});
     h.assert(chosen === patient, 'The patient typeahead did not select the owned patient');
     const rows = await ownedRendered(await fetchQueue());
