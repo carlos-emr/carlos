@@ -180,7 +180,7 @@ public class PdfRecordPrinter {
     /**
      * Initializes the PDF document, fonts, and writer. Must be called before any print methods.
      *
-     * <p>Creates Helvetica fonts (normal and bold at 10pt), opens a US Letter-sized document,
+     * <p>Creates embedded Unicode DejaVu Sans fonts (normal and bold at 10pt), opens a US Letter-sized document,
      * and configures strict image sequencing for proper photo/diagram ordering.</p>
      *
      * @throws DocumentException if the PDF writer cannot be initialized
@@ -241,7 +241,7 @@ public class PdfRecordPrinter {
         this.newPage = b;
     }
 
-    /** @return BaseFont the Helvetica base font used for PDF rendering */
+    /** @return BaseFont the embedded Unicode base font used for PDF rendering */
     public BaseFont getBaseFont() {
         return bf;
     }

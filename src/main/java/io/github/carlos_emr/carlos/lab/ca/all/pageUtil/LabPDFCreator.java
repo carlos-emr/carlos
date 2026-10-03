@@ -1175,7 +1175,6 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
             Rectangle page = document.getPageSize();
             PdfContentByte cb = writer.getDirectContent();
-            BaseFont bf = PdfFonts.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             int pageNum = document.getPageNumber();
             float width = page.getWidth();
             float height = page.getHeight();

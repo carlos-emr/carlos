@@ -204,7 +204,7 @@ public class CaseManagementPrintPdf {
                 };
             }
         }
-        //Header will be printed at top of every page beginning with p2
+        // Document.addHeader stores metadata; visible page content is rendered separately below.
         Phrase headerPhrase = new Phrase(LEADING, title, font);
         document.addHeader("", headerPhrase.getContent());
 

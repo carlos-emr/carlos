@@ -34,7 +34,11 @@ class DemographicLabelUnicodeIntegrationTest {
             row.put("date_of_birth", "02");
             var print = JasperFillManager.fillReport(report, new HashMap<>(), new JRMapCollectionDataSource(List.of(row)));
             try (var pdf = Loader.loadPDF(JasperExportManager.exportReportToPdf(print))) {
-                assertThat(new PDFTextStripper().getText(pdf)).contains("Nguyễn", "Łukasz");
+                String text = new PDFTextStripper().getText(pdf);
+                assertThat(text).contains("Nguyễn", "Łukasz");
+                if (name.equals("label.xml") || name.equals("Chartlabel.xml")) {
+                    assertThat(text).contains("İstanbul");
+                }
                 for (var page : pdf.getPages()) {
                     assertThat(page.getResources().getFontNames()).isNotEmpty();
                     for (var fontName : page.getResources().getFontNames()) {

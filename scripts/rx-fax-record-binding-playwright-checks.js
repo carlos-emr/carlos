@@ -38,8 +38,8 @@
  * real CSRFGuard token exactly as the browser's own submit does.
  *
  * The check reads the generated PDF from disk (the servlet's only durable
- * output) with a small text-run extractor over the content streams; OpenPDF
- * writes each rendered line as its own `(...) Tj`, so a rendered line is a run.
+ * output) with Poppler pdftotext, including embedded Unicode fonts.
+ * Assertions compare the extracted text lines.
  * Nothing from the PDF is printed: identity is reported as present/absent.
  *
  * Fixtures this run seeds and REMOVES (keyed on per-run-unique values, never a
@@ -80,6 +80,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const pdf = require('./lib/export-content-helpers');
+const { SkipCheck } = require('./lib/playwright-harness');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { browserErrorClass } = require('./browser-error-class');
 const {
@@ -1072,6 +1073,7 @@ async function runChecks(context, cancellation) {
   const cancellation = createGracefulSignalCancellation({ graceMs: faxRoundTripTimeoutMs + 60000 });
   let browser;
   let exitCode = 0;
+  let skipped;
   try {
     pdf.requirePoppler('pdftotext');
     browser = await chromium.launch({
@@ -1086,7 +1088,10 @@ async function runChecks(context, cancellation) {
     await runChecks(context, cancellation);
     await context.close();
   } catch (error) {
-    if (!cancellation.isCancellation(error)) {
+    if (error instanceof SkipCheck) {
+      exitCode = 2;
+      skipped = error.message;
+    } else if (!cancellation.isCancellation(error)) {
       findings.push({ label: 'run', type: 'exception', text: browserErrorClass(error) });
     }
   } finally {
@@ -1095,7 +1100,7 @@ async function runChecks(context, cancellation) {
     cancellation.dispose();
   }
 
-  const summary = { baseUrl: `${baseUrl.origin}${baseUrl.pathname}`, visited, findings };
+  const summary = { baseUrl: `${baseUrl.origin}${baseUrl.pathname}`, visited, findings, skipped };
   try {
     const out = buildArtifactPath(artifactDir, 'rx-fax-record-binding', '.json');
     fs.writeFileSync(out, JSON.stringify(summary, null, 2));
@@ -1104,7 +1109,9 @@ async function runChecks(context, cancellation) {
     console.log(`artifact not written: ${browserErrorClass(error)}`);
   }
   console.log(JSON.stringify({ visited }, null, 2));
-  if (findings.length) {
+  if (skipped) {
+    console.log(`SKIP: ${skipped}`);
+  } else if (findings.length) {
     exitCode = 1;
     console.error(`FAIL: ${findings.length} finding(s)`);
     for (const f of findings) console.error(` - [${f.label}] ${f.type}: ${f.text || ''}`);

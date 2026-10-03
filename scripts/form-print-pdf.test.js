@@ -29,5 +29,5 @@ test('the client reference matches the rendered form and captures its whole id',
   assert.equal(CLIENT_REFERENCE.exec('Client Reference No. : 30')[1], '30');
   assert.equal(CLIENT_REFERENCE.exec('M9A 3N5'), null);
   assert.equal(CLIENT_REFERENCE.exec('30'), null);
-  assert.notEqual(CLIENT_REFERENCE.exec('Client Reference No.:3')[1], '30');
+  assert.equal(CLIENT_REFERENCE.exec('Client Reference No.:3')[1], '3');
 });

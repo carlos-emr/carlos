@@ -44,6 +44,7 @@ class PdfFontsUnitTest {
     void shouldRetainSymbolEncoding_whenUsingSymbolFont() throws Exception {
         var font = PdfFonts.createFont(BaseFont.ZAPFDINGBATS, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         assertThat(font.getPostscriptFontName()).isEqualTo(BaseFont.ZAPFDINGBATS);
+        assertThat(font.getEncoding()).isEqualTo(BaseFont.CP1252);
     }
 
     @Test
