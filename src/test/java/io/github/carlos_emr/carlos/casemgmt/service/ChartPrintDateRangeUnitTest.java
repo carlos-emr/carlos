@@ -57,7 +57,7 @@ class ChartPrintDateRangeUnitTest {
 
     @Test
     void shouldRejectReversedDays_whenEndPrecedesStart() {
-        Calendar start = GregorianCalendar.from(LocalDate.of(2026, 10, 3).atStartOfDay(ZoneId.of("UTC")));
+        Calendar start = GregorianCalendar.from(LocalDate.of(2026, java.time.Month.OCTOBER, 3).atStartOfDay(ZoneId.of("UTC")));
         Calendar end = (Calendar) start.clone();
         end.add(Calendar.DATE, -1);
         assertThatIllegalArgumentException().isThrownBy(() -> ChartPrintDateRange.from(start, end));

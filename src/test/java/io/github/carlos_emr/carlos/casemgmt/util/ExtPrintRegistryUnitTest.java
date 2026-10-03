@@ -82,7 +82,7 @@ class ExtPrintRegistryUnitTest {
                     try {
                         ExtPrintRegistry.addEntry(name, "bean");
                         return true;
-                    } catch (IllegalStateException full) {
+                    } catch (IllegalStateException _) {
                         return false;
                     }
                 }));

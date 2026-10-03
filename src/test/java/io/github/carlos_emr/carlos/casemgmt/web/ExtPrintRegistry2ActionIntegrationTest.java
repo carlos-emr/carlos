@@ -89,7 +89,8 @@ class ExtPrintRegistry2ActionIntegrationTest extends CarlosWebTestBase {
     void shouldRejectDirectRegistration_withoutPrivilege() {
         mockRequest.setMethod("POST");
         denyPrivilege("_demographic", "w");
-        assertThatThrownBy(() -> new ExtPrintRegistry2Action().register()).isInstanceOf(SecurityException.class);
+        ExtPrintRegistry2Action action = new ExtPrintRegistry2Action();
+        assertThatThrownBy(action::register).isInstanceOf(SecurityException.class);
     }
 
     @Test

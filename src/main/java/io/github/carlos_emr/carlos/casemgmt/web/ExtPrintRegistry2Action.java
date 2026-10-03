@@ -101,10 +101,10 @@ public class ExtPrintRegistry2Action extends ActionSupport {
         }
         try {
             ExtPrintRegistry.addEntry(name, bean);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print extension registration");
             return NONE;
-        } catch (IllegalStateException e) {
+        } catch (IllegalStateException _) {
             response.sendError(HttpServletResponse.SC_CONFLICT, "Print extension registry is full");
             return NONE;
         }

@@ -36,6 +36,9 @@ import java.util.Objects;
  * @param endExclusive first instant to exclude
  * @since 2026-10-03
  */
+// Calendar/Date are compatibility boundaries for existing print callers and DAO entities;
+// all day-boundary calculations use java.time.
+@SuppressWarnings("java:S2143")
 public record ChartPrintDateRange(Instant startInclusive, Instant endExclusive) {
     /**
      * Builds the interval in the calendars' time zones without mutating either calendar.
