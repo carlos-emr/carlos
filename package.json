@@ -379,6 +379,7 @@
     "test:gap-billing-inr-calendar-popup-playwright": "node scripts/gap-billing-inr-calendar-popup-playwright-checks.js",
     "test:gap-billing-create-invoice-no-appointment-playwright": "node scripts/gap-billing-create-invoice-no-appointment-playwright-checks.js",
     "test:gap-billing-moh-return-files-playwright": "node scripts/gap-billing-moh-return-files-playwright-checks.js",
+    "test:billing-review-failed-calculation-playwright": "node scripts/billing-review-failed-calculation-playwright-checks.js",
     "test:gap-billing-bill-form-validations-playwright": "node scripts/gap-billing-bill-form-validations-playwright-checks.js",
     "test:gap-records-demographic-add-fields-playwright": "node scripts/gap-records-demographic-add-fields-playwright-checks.js",
     "test:gap-records-demographic-edit-clinical-playwright": "node scripts/gap-records-demographic-edit-clinical-playwright-checks.js",

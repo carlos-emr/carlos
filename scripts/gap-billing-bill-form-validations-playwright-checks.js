@@ -122,8 +122,9 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && /decimal number in the service code percent/.test(dialogs[0].text)
       && (await onForm(form)), 'A malformed percent was not stopped by the decimal-number alert');
     h.assert(claims() === '0', 'A rejected review or a malformed percent wrote a claim');
-    {
-      // Bypass client validation to exercise the authoritative server boundary.
+    for (const unsafe of ['abc', '1E+600000000', '12345']) {
+      // Bypass both maxlength and client validation to exercise the server boundary.
+      await form.locator('input[name="serviceAt0"]').evaluate((input, value) => { input.value = value; }, unsafe);
       await Promise.all([
         form.waitForNavigation({ waitUntil: 'domcontentloaded' }),
         form.locator('form[name="titlesearch"]').evaluate(element => HTMLFormElement.prototype.submit.call(element)),
@@ -134,6 +135,12 @@ async function workflow(s) {
       h.assert(await form.locator('input[type="submit"][value="Save"]').count() === 0,
         'The server offered Save for a malformed percent');
       h.assert(claims() === '0', 'A malformed-percent review wrote a claim');
+      await Promise.all([
+        form.waitForResponse(response => response.request().method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/billing/CA/ON/BillingONSave')),
+        form.locator('input[type="submit"][value="Back to Edit"]').click(),
+      ]);
+      await form.locator('input[name="serviceCode0"]').waitFor({ state: 'visible' });
     }
     await form.close();
 

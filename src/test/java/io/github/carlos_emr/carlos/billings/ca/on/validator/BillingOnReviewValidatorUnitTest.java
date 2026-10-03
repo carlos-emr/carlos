@@ -370,7 +370,7 @@ class BillingOnReviewValidatorUnitTest {
         when(billingServiceDao.findBillingCodesByCodeAndTerminationDate(anyString(), any(Date.class)))
                 .thenReturn(List.of("A007A"));
         for (String field : List.of("serviceUnit0", "serviceAt0")) {
-            for (String invalid : List.of("abc", "NaN", "Infinity", "1.2.3")) {
+            for (String invalid : List.of("abc", "NaN", "Infinity", "1.2.3", "1E+600000000", "1E999999999", "12345", "0.001")) {
                 request.setParameter(field, invalid);
                 var result = newValidator().validate(request, "1", "2026-04-26");
                 assertThat(result.codeValid()).as(field + "=" + invalid).isFalse();
@@ -378,7 +378,7 @@ class BillingOnReviewValidatorUnitTest {
             }
             request.removeParameter(field);
         }
-        for (String valid : List.of("", " ", "1", "0.5", "-0.5", " 0.5 ")) {
+        for (String valid : List.of("", " ", "1", "0.5", "-0.5", " 0.5 ", "9999", "1.00")) {
             request.setParameter("serviceAt0", valid);
             assertThat(newValidator().validate(request, "1", "2026-04-26").codeValid()).as(valid).isTrue();
         }

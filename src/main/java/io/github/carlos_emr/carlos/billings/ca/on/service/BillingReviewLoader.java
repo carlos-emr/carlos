@@ -132,9 +132,8 @@ public class BillingReviewLoader {
             // calculate fee
             BigDecimal bigFee;
             try {
-                bigFee = new BigDecimal(fee).multiply(new BigDecimal(row.unit()))
-                        .multiply(new BigDecimal(row.servicedAt())).setScale(2, RoundingMode.HALF_UP);
-            } catch (NumberFormatException | ArithmeticException ex) {
+                bigFee = calculateServiceFee(fee, row);
+            } catch (NumberFormatException | ArithmeticException _) {
                 ret.add(new BillingReviewCodeItem(row.code(), row.unit(), "0", "0", row.servicedAt(),
                         "<b>Invalid service fee, units or percent. Please go back to correct it.</b>", codeDescription));
                 continue;
@@ -151,6 +150,21 @@ public class BillingReviewLoader {
                     codeDescription));
         }
         return ret;
+    }
+
+    /** Bounds request multipliers and configured fee scale before any potentially expanding arithmetic. */
+    private static BigDecimal calculateServiceFee(String fee, BillingReviewServiceParam row) {
+        if (!BillingReviewServiceParam.isValidMultiplier(row.unit())
+                || !BillingReviewServiceParam.isValidMultiplier(row.servicedAt())) {
+            throw new NumberFormatException("Unsupported service multiplier");
+        }
+        BigDecimal codeFee = new BigDecimal(fee);
+        // Bound legacy configured fees as well before setScale can expand exponent notation.
+        if (codeFee.precision() > 16 || codeFee.scale() < -8 || codeFee.scale() > 8) {
+            throw new NumberFormatException("Unsupported configured fee magnitude");
+        }
+        return codeFee.multiply(new BigDecimal(defaultParamValue(row.unit())))
+                .multiply(new BigDecimal(defaultParamValue(row.servicedAt()))).setScale(2, RoundingMode.HALF_UP);
     }
 
     // get perc code item display
@@ -295,7 +309,7 @@ public class BillingReviewLoader {
     }
 
     // default value to 1 if it is empty
-    private String defaultParamValue(String val) {
+    private static String defaultParamValue(String val) {
         return val == null || val.isBlank() ? "1" : val.trim();
     }
 

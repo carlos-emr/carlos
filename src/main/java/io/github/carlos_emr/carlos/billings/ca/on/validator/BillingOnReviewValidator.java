@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.validator;
 
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewServiceParam;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -119,11 +121,11 @@ public class BillingOnReviewValidator {
             if (serviceCode.isEmpty()) {
                 continue;
             }
-            if (!isDecimalParameter(request.getParameter("serviceUnit" + i))
-                    || !isDecimalParameter(request.getParameter("serviceAt" + i))) {
+            if (!BillingReviewServiceParam.isValidMultiplier(request.getParameter("serviceUnit" + i))
+                    || !BillingReviewServiceParam.isValidMultiplier(request.getParameter("serviceAt" + i))) {
                 codeValid = false;
                 messages.add(new Message(Message.Severity.ERROR,
-                        "Service units and percent must be decimal numbers. Please go back to correct them."));
+                        "Service units and percent must be decimal numbers of at most four characters. Please go back to correct them."));
             }
             // Pass the code through unescaped. The DAO compares with JPQL '=' and a bound
             // parameter, where '_' is already a literal. The old LIKE-style '\_' escaping made
@@ -250,16 +252,6 @@ public class BillingOnReviewValidator {
 
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
-    }
-    /** Empty fields retain the form's default multiplier of one. */
-    private static boolean isDecimalParameter(String value) {
-        if (value == null || value.isBlank()) return true;
-        try {
-            new java.math.BigDecimal(value.trim());
-            return true;
-        } catch (NumberFormatException ex) {
-            return false;
-        }
     }
 
 }

@@ -60,6 +60,7 @@ async function workflow(s) {
     const admission = form.locator('#xml_vdate');
     const visit = form.locator('select[name="xml_visittype"]');
     const options = await visit.locator('option').evaluateAll(rows => rows.map(row => row.value));
+    await form.waitForFunction(() => Boolean(document.getElementById('xml_vdate')?._flatpickr), null, { timeout: 10000 });
     for (const code of ['02', '04']) {
       await admission.evaluate(input => input._flatpickr.setDate('2026-01-15', true, 'Y-m-d'));
       h.assert(await admission.inputValue() === '2026-01-15', 'The admission date picker did not set the fixture');

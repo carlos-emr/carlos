@@ -24,6 +24,7 @@
   Purpose: Supports billingON in the Ontario billing workflow.
   Expected request model data includes: formModel.
   Features: validates entered percent values and retains admission dates for visit types 02/04.
+  @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -203,7 +204,7 @@
             var regInt = /^-?\d+(\.\d+)?$/;
             jQuery("input[name^='serviceAt']").each(function () {
                 var val = this.value.trim();
-                if (val.length > 0 && !regInt.test(val)) {
+                if (val.length > 4 || (val.length > 0 && !regInt.test(val))) {
                     ret = false;
                     return false;
                 }

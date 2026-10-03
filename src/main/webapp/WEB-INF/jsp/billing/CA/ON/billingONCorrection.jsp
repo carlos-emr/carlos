@@ -24,6 +24,7 @@
   Purpose: Supports billingONCorrection in the Ontario billing workflow.
   Expected request model data includes: correctionModel.
   Parameters: billing_no or claim_no selects a bill; admin/adminSubmit presence preserves Administration navigation.
+  @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -357,6 +358,7 @@
 
                 <div class="col-md-2">
                     <a href="#" onclick="return sanityCheck('${carlos:forJavaScriptAttribute(correctionModel.billingNo)}', ${correctionModel.billNoErr});"><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
+                    <label for="billing_no" class="visually-hidden"><fmt:message key="billing.billingCorrection.formInvoiceNo"/></label>
                     <input type="text" id="billing_no" name="billing_no" value="${carlos:forHtmlAttribute(correctionModel.billingNo)}" class="col-md-2">
                 </div>
 

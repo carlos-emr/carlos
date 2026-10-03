@@ -39,7 +39,7 @@ test('service percent validates live named inputs, including previously empty bo
     fields[1].value = value;
     assert.equal(context.checkServicePercent(), true, value);
   }
-  for (const value of ['abc', 'NaN', '1.2.3', '0.5oops']) {
+  for (const value of ['abc', 'NaN', '1.2.3', '0.5oops', '12345', '1E999999999']) {
     fields[1].value = value;
     assert.equal(context.checkServicePercent(), false, value);
   }

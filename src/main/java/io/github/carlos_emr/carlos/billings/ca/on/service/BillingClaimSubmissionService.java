@@ -62,6 +62,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class BillingClaimSubmissionService {
+    private static final String PAYMENT_METHOD_PARAMETER = "payMethod";
+
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingOnClaimPersister claimPersister;
     private final BillingOnLookupService lookupService;
@@ -555,10 +557,10 @@ public class BillingClaimSubmissionService {
         valsMap.put("provider_no", val.getParameter("provider_no"));
         valsMap.put("gst", val.getParameter("gst"));
 
-        if (val.getParameter("payMethod") != null) {
-            valsMap.put("payMethod", val.getParameter("payMethod"));
+        if (val.getParameter(PAYMENT_METHOD_PARAMETER) != null) {
+            valsMap.put(PAYMENT_METHOD_PARAMETER, val.getParameter(PAYMENT_METHOD_PARAMETER));
         } else {
-            valsMap.put("payMethod", "1");
+            valsMap.put(PAYMENT_METHOD_PARAMETER, "1");
         }
         return valsMap;
     }

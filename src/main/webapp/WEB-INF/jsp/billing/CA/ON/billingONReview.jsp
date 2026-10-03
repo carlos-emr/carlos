@@ -25,6 +25,7 @@
   and potentially print bills specified in billingON.jsp
   Expected request model data includes: reviewModel.
   Features: invalid reviews allow Back to Edit; public bills do not require private-payment total fields.
+  @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -763,6 +764,7 @@
     </tr>
     <tr>
         <td colspan='2' align='center' bgcolor="silver">
+            <c:if test="${not reviewModel.totalsParseFailed and not reviewModel.dupServiceCode}">
             <input type="submit" value="<carlos:encode value='${msgBtnSavePrint}' context='htmlAttribute'/>" class="btn btn-secondary"
                    style="width: 150px;"
                    onclick="document.getElementById('billingAction').value='SAVE_PRINT';"/>
@@ -770,6 +772,7 @@
                    value="<carlos:encode value='${msgBtnSettlePrint}' context='htmlAttribute'/>"
                    style="width: 160px;"
                    onclick="document.getElementById('billingAction').value='SETTLE_PRINT'; document.forms['titlesearch'].submit(); popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"/>
+            </c:if>
             <input type="hidden" name="total_payment" id="total_payment" value="0.00"/>
             <input type="hidden" name="total_discount" id="total_discount" value="0.00"/>
             <input type="hidden" name="refund" id="refund" value="0.00"/>

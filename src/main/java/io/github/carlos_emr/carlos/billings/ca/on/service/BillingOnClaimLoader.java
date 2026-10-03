@@ -363,7 +363,7 @@ public class BillingOnClaimLoader {
     private static Date parseDateOrSentinel(String s) {
         try {
             return new SimpleDateFormat("yyyy-MM-dd").parse(s);
-        } catch (ParseException | NullPointerException e) {
+        } catch (ParseException | NullPointerException _) {
             _logger.debug("comparator: malformed billing_date {}; sorting to epoch sentinel",
                     LogSafe.sanitize(s));
             return COMPARATOR_DATE_SENTINEL;
@@ -377,7 +377,7 @@ public class BillingOnClaimLoader {
     private static int parseIntOrSentinel(String s) {
         try {
             return Integer.parseInt(s);
-        } catch (NumberFormatException | NullPointerException e) {
+        } catch (NumberFormatException | NullPointerException _) {
             _logger.debug("comparator: malformed demographic_no {}; sorting to MIN sentinel",
                     LogSafe.sanitize(s));
             return Integer.MIN_VALUE;
@@ -462,7 +462,6 @@ public class BillingOnClaimLoader {
                 ch1Obj = ch1Obj.withRecordId(bi.getDx());
                 ch1Obj = ch1Obj.withTransactionId(bi.getServiceCode());
 
-                retval.add(ch1Obj);
                 prevId = ch1Obj.getId();
                 prevPaid = ch1.getPaid().toString();
 
@@ -501,6 +500,7 @@ public class BillingOnClaimLoader {
                     ch1Obj = ch1Obj.withProviderName(provider.getFormattedName());
                 }
 
+                retval.add(ch1Obj);
             }
         } catch (Exception e) {
             throw billingLoadFailure("Failed to load billing list with service filters", e,

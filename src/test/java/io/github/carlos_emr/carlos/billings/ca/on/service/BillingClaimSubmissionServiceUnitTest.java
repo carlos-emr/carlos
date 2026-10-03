@@ -520,8 +520,11 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
             request.setParameter("totalItem", "0");
             request.setParameter("payMethod", "123");
             assertThat(service.getSubmission(request).header().getPayee()).as(billType).isEqualTo("P");
-            assertThat(request.getParameter("payMethod")).isEqualTo("123");
+            when(mockPersister.add3rdBillExt(anyMap(), eq(1234))).thenReturn(true);
+            assertThat(service.addPrivateBillExtRecord(request, 1234)).isTrue();
         }
+        org.mockito.Mockito.verify(mockPersister, org.mockito.Mockito.times(6)).add3rdBillExt(
+                org.mockito.ArgumentMatchers.argThat(values -> "123".equals(values.get("payMethod"))), eq(1234));
         var request = hospitalBillingRequest();
         request.setParameter("totalItem", "0");
         request.setParameter("payMethod", "123");

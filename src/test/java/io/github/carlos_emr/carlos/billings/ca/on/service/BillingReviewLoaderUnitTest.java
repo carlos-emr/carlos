@@ -120,12 +120,24 @@ class BillingReviewLoaderUnitTest {
         when(claimLoader.getCodeFeeResult("A001A", "2026-05-01"))
                 .thenReturn(BillingOnClaimLoader.FeeLookupResult.found("10.00"));
         for (var row : List.of(new BillingReviewServiceParam("A001A", "1", "abc"),
-                new BillingReviewServiceParam("A001A", "bad", "1"))) {
+                new BillingReviewServiceParam("A001A", "bad", "1"),
+                new BillingReviewServiceParam("A001A", "1", "1E+600000000"),
+                new BillingReviewServiceParam("A001A", "1E999999999", "1"),
+                new BillingReviewServiceParam("A001A", "1", "12345"))) {
             var result = loader.getServiceCodeReviewItems(List.of(row), "2026-05-01");
             assertThat(result).hasSize(1);
             assertThat(result.getFirst().getMsg()).contains("Invalid service fee, units or percent");
             assertThat(result.getFirst().getCodeTotal()).isEqualTo("0");
         }
+    }
+
+    @Test
+    void shouldRejectPathologicalConfiguredFee_beforeDecimalExpansion() {
+        when(claimLoader.getCodeFeeResult("A001A", "2026-05-01"))
+                .thenReturn(BillingOnClaimLoader.FeeLookupResult.found("1E999999"));
+        var rows = loader.getServiceCodeReviewItems(
+                List.of(new BillingReviewServiceParam("A001A", "1", "1")), "2026-05-01");
+        assertThat(rows.getFirst().getMsg()).contains("Invalid service fee");
     }
 
 }

@@ -14,10 +14,9 @@
  * owned invoice loads its code, dx, status and the RA claim number of its radetail row; Rebill OHIP
  * turns a submitted bill (B) back to O with a header audit snapshot; Settle All
  * turns an open bill to S; Reprint shows the invoice of that
- * bill. The LAST step asserts three behaviours the page lacks today: Settle All writes the payment
- * record its service means to (billing_on_payment), a Save from the Administration entry keeps the
- * frame on the correction page with the saved banner (the search form drops ?admin), and an OHIP
- * claim number typed alone finds its bill (the form's invoice-number field is required).
+ * bill. A Save from Administration keeps the correction page and saved banner; an OHIP claim
+ * number alone finds its bill. The last step separately checks #4152: Settle All must also write
+ * the billing_on_payment record.
  *
  * Fixtures: two owned bills (seedOwnedBill, billed under an active OHIP provider the correction page
  * lists) and an owned raheader/radetail pair giving the first bill its claim number. Cleanup removes
@@ -110,6 +109,7 @@ async function workflow(s) {
     const before = audits();
     const [response] = await Promise.all([
       context.waitForEvent('response', { timeout: 20000, predicate: r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(UPDATE) }),
+      frame.waitForNavigation({ waitUntil: 'load', timeout: 30000 }),
       frame.locator('#rebillLink').click(),
     ]);
     h.assert(response.status() === 200, `Rebill OHIP answered HTTP ${response.status()}`);
@@ -130,6 +130,7 @@ async function workflow(s) {
     await frame.locator('form[action$="/billing/CA/ON/UpdateBillingONCorrection"]').waitFor({ state: 'visible', timeout: 20000 });
     const [response] = await Promise.all([
       context.waitForEvent('response', { timeout: 20000, predicate: r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(UPDATE) }),
+      frame.waitForNavigation({ waitUntil: 'load', timeout: 30000 }),
       frame.locator('#settleLink').click(),
     ]);
     h.assert(response.status() === 200, `Settle All answered HTTP ${response.status()}`);
@@ -163,7 +164,7 @@ async function workflow(s) {
       'Searching by OHIP claim number alone did not load its bill');
   });
 
-  // Separate regression L267 (#4152): keep this assertion independent of lookup/navigation.
+  // Separate regression L267 (#4152) runs last so lookup/navigation results remain visible.
   await s.step('Settle All records a payment', async () => {
     h.assert(settlePayments === '1', 'Settle All settled the bill without writing its payment record');
   });
