@@ -23,6 +23,7 @@
 <%--
   Purpose: Supports billingONCorrection in the Ontario billing workflow.
   Expected request model data includes: correctionModel.
+  Parameters: billing_no or claim_no selects a bill; admin/adminSubmit presence preserves Administration navigation.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -345,15 +346,18 @@
             <fmt:message key="billing.billingCorrection.msgLastUpdate"/>: <carlos:encode value="${correctionModel.createTimestamp}" context="html"/>
             </c:if>
 
-            <c:set var="__formAction" value="${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection${not empty correctionModel.requestParamEchoes['admin'] ? '?admin' : ''}"/>
+            <c:set var="adminContext" value="${correctionModel.requestParamEchoes.containsKey('admin') or correctionModel.requestParamEchoes.containsKey('adminSubmit')}"/>
+            <c:set var="__formAction" value="${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection"/>
             <form name="form1" method="get"
                   action="${carlos:forHtmlAttribute(__formAction)}">
+                <c:if test="${adminContext}">
+                    <input type="hidden" name="admin" value="true"/>
+                </c:if>
                 <input type="hidden" id="billTotal" value="${carlos:forHtmlAttribute(correctionModel.billTotal)}"/>
 
                 <div class="col-md-2">
                     <a href="#" onclick="return sanityCheck('${carlos:forJavaScriptAttribute(correctionModel.billingNo)}', ${correctionModel.billNoErr});"><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
-                    <input type="text" id="billing_no" name="billing_no" value="${carlos:forHtmlAttribute(correctionModel.billingNo)}" class="col-md-2"
-                           required>
+                    <input type="text" id="billing_no" name="billing_no" value="${carlos:forHtmlAttribute(correctionModel.billingNo)}" class="col-md-2">
                 </div>
 
                 <div class="col-md-2">
@@ -818,7 +822,7 @@
 
                     <c:if test="${correctionModel.canEditBilling}">
                     <c:choose>
-                    <c:when test="${not empty correctionModel.requestParamEchoes['admin'] or not empty correctionModel.requestParamEchoes['adminSubmit']}">
+                    <c:when test="${adminContext}">
                     <input type="hidden" name="adminSubmit" value="adminSubmit">
                     <input class="btn btn-primary" type="submit" name="submit" onclick="return validateAllItems();"
                            value="Save">

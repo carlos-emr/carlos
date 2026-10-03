@@ -363,8 +363,8 @@ public class BillingClaimSubmissionService {
 
         // acc_num - billing no
         claim1Header = claim1Header.withPayProgram(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
-        claim1Header = claim1Header.withPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
-                : BillingOnConstants.CLAIMHEADER1_PAYEE);
+        // Claim payee is the MOH recipient code; payment-method IDs belong to payment/ext records.
+        claim1Header = claim1Header.withPayee(BillingOnConstants.CLAIMHEADER1_PAYEE);
         claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
         claim1Header = claim1Header.withFacilityNumber(prefix(requiredParam(val, "xml_location"), "xml_location", 4));
@@ -467,8 +467,8 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withDob(val.getParameter("demographic_dob"));
         // acc_num - billing no
         claim1Header = claim1Header.withPayProgram(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
-        claim1Header = claim1Header.withPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
-                : BillingOnConstants.CLAIMHEADER1_PAYEE);
+        // Claim payee is the MOH recipient code; payment-method IDs belong to payment/ext records.
+        claim1Header = claim1Header.withPayee(BillingOnConstants.CLAIMHEADER1_PAYEE);
         claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
         claim1Header = claim1Header.withFacilityNumber(prefix(requiredParam(val, "xml_location"), "xml_location", 4));

@@ -23,6 +23,7 @@
 <%--
   Purpose: Supports billingON in the Ontario billing workflow.
   Expected request model data includes: formModel.
+  Features: validates entered percent values and retains admission dates for visit types 02/04.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -199,8 +200,8 @@
 
         function checkServicePercent() {
             var ret = true;
-            var regInt = /^-?\d+\.\d+$/;
-            jQuery("input[id^='serviceAt'][value!='']").each(function () {
+            var regInt = /^-?\d+(\.\d+)?$/;
+            jQuery("input[name^='serviceAt']").each(function () {
                 var val = this.value.trim();
                 if (val.length > 0 && !regInt.test(val)) {
                     ret = false;
@@ -248,7 +249,8 @@
         }
 
         function updateDate() {
-            if (!document.forms[0].xml_visittype.options[2].selected || !document.forms[0].xml_visittype.options[4].selected) {
+            var visitType = document.forms[0].xml_visittype.value.split("|")[0].trim();
+            if (visitType !== "02" && visitType !== "04") {
                 document.getElementById("xml_vdate").value = "";  //only nursing homes and hospitals have admission dates
             }
         }

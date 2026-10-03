@@ -191,24 +191,19 @@ async function workflow(s) {
     h.assert(invoices(rows) === wanted([one]), 'Claim No did not narrow the list to the claim of that RA claim number');
   });
 
-  // Last: both fail today (a legacy query path and a null visit location in the sort comparator).
-  await s.step('emptying the Serv. Code box keeps the unpaid claims and the LOCATION header sorts them', async () => {
-    const problems = [];
-    const rows = await report({ serviceCode: '' });
-    if (invoices(rows) !== wanted([one, two, three])) {
-      problems.push('clearing the Serv. Code box hides every claim without a payment record (the report then joins billing_on_payment)');
-    }
+  await s.step('LOCATION sorts claims with missing visit locations in both directions', async () => {
     await report();
-    try {
-      const asc = await sortBy('LOCATION');
-      const desc = await sortBy('LOCATION');
-      if (asc.length !== 3 || asc.map(c => c[12]).join(',') !== desc.map(c => c[12]).reverse().join(',')) {
-        problems.push('the LOCATION sort is not reversed by a second click');
-      }
-    } catch (error) {
-      problems.push('sorting by the LOCATION header failed (the page answers HTTP 500 when a claim has no visit location)');
-    }
-    h.assert(!problems.length, problems.join('; '));
+    const asc = await sortBy('LOCATION');
+    const desc = await sortBy('LOCATION');
+    h.assert(asc.length === 3 && asc.map(c => c[12]).join(',') === desc.map(c => c[12]).reverse().join(','),
+      'The LOCATION sort did not preserve all rows and reverse on the second click');
+  });
+
+  // Separate regression L270 (#4153): keep the empty-filter path independently observable.
+  await s.step('emptying the Serv. Code box keeps the unpaid claims', async () => {
+    const rows = await report({ serviceCode: '' });
+    h.assert(invoices(rows) === wanted([one, two, three]),
+      'Clearing the Serv. Code box hides claims without a payment record');
   });
 }
 

@@ -130,15 +130,15 @@ public class BillingReviewLoader {
                 continue;
 
             // calculate fee
-            BigDecimal bigCodeFee = new BigDecimal(fee);
-            BigDecimal bigCodeUnit = new BigDecimal(row.unit());
-            BigDecimal bigCodeAt = new BigDecimal(row.servicedAt());
-
-            BigDecimal bigFee = bigCodeFee.multiply(bigCodeUnit);
-
-            bigFee = bigFee.multiply(bigCodeAt);
-
-            bigFee = bigFee.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal bigFee;
+            try {
+                bigFee = new BigDecimal(fee).multiply(new BigDecimal(row.unit()))
+                        .multiply(new BigDecimal(row.servicedAt())).setScale(2, RoundingMode.HALF_UP);
+            } catch (NumberFormatException | ArithmeticException ex) {
+                ret.add(new BillingReviewCodeItem(row.code(), row.unit(), "0", "0", row.servicedAt(),
+                        "<b>Invalid service fee, units or percent. Please go back to correct it.</b>", codeDescription));
+                continue;
+            }
             MiscUtils.getLogger().debug("big end: " + bigFee.toString());
 
             ret.add(new BillingReviewCodeItem(
@@ -296,12 +296,7 @@ public class BillingReviewLoader {
 
     // default value to 1 if it is empty
     private String defaultParamValue(String val) {
-        String ret = "1";
-        if (val != null && !val.equals("")) {
-            ret = val;
-        }
-
-        return ret;
+        return val == null || val.isBlank() ? "1" : val.trim();
     }
 
     /**

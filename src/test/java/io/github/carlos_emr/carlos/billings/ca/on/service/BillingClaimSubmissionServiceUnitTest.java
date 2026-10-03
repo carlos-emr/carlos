@@ -513,4 +513,19 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         request.setParameter("discount", "");
         return request;
     }
+    @Test
+    void shouldKeepClaimPayeeSeparate_fromThirdPartyPaymentMethod() {
+        for (String billType : List.of("PAT", "IFH", "CPP", "STD", "OCF", "ODS")) {
+            var request = standardBillingRequest(billType, "Save");
+            request.setParameter("totalItem", "0");
+            request.setParameter("payMethod", "123");
+            assertThat(service.getSubmission(request).header().getPayee()).as(billType).isEqualTo("P");
+            assertThat(request.getParameter("payMethod")).isEqualTo("123");
+        }
+        var request = hospitalBillingRequest();
+        request.setParameter("totalItem", "0");
+        request.setParameter("payMethod", "123");
+        assertThat(service.getHospitalSubmission(request, "2026-04-28", "0.00", List.of()).header().getPayee()).isEqualTo("P");
+    }
+
 }

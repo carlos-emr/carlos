@@ -151,22 +151,21 @@ async function workflow(s) {
     h.assert((await frame.locator('body').innerText()).replace(/\s+/g, ' ').includes(money(fee)), 'The reprinted invoice does not show the bill total');
   });
 
-  await s.step('Settle All records a payment, a Save keeps the Administration page and an OHIP claim number alone finds its bill', async () => {
-    const problems = [];
-    if (settlePayments !== '1') problems.push('Settle All settled the bill without writing its payment record');
-    if (afterSave.closePage || !afterSave.banner) {
-      problems.push('a Save from the Administration correction page left the frame on the "close this window" page without the saved banner');
-    }
+  await s.step('a Save keeps the Administration page and its saved banner', async () => {
+    h.assert(!afterSave.closePage && afterSave.banner,
+      'A Save from Administration left the frame on the close page without the saved banner');
+  });
+
+  await s.step('an OHIP claim number alone finds its bill', async () => {
     await reopen();
-    await frame.locator('input[name="claim_no"]').fill(claimNo);
-    const navigated = admin.waitForEvent('framenavigated', { predicate: f => f === frame, timeout: 5000 });
-    navigated.catch(() => {});
-    await frame.locator('form[name="form1"] input[type="submit"]').click();
-    await navigated.catch(() => {});
-    if (await frame.locator(`input[name="xml_billing_no"][value="${rebill.headerId}"]`).count() !== 1) {
-      problems.push('searching by the OHIP claim number alone did not load its bill (the invoice number field is required)');
-    }
-    h.assert(!problems.length, problems.join('; '));
+    await search('', claimNo);
+    h.assert(await frame.locator(`input[name="xml_billing_no"][value="${rebill.headerId}"]`).count() === 1,
+      'Searching by OHIP claim number alone did not load its bill');
+  });
+
+  // Separate regression L267 (#4152): keep this assertion independent of lookup/navigation.
+  await s.step('Settle All records a payment', async () => {
+    h.assert(settlePayments === '1', 'Settle All settled the bill without writing its payment record');
   });
 }
 

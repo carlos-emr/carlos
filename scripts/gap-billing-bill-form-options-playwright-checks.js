@@ -56,6 +56,20 @@ async function workflow(s) {
     await g.chooseBillingPhysician(form, owned.providerNo);
   });
 
+  await s.step('hospital and nursing-home visits retain the admission date and outpatient visits clear it', async () => {
+    const admission = form.locator('#xml_vdate');
+    const visit = form.locator('select[name="xml_visittype"]');
+    const options = await visit.locator('option').evaluateAll(rows => rows.map(row => row.value));
+    for (const code of ['02', '04']) {
+      await admission.evaluate(input => input._flatpickr.setDate('2026-01-15', true, 'Y-m-d'));
+      h.assert(await admission.inputValue() === '2026-01-15', 'The admission date picker did not set the fixture');
+      await visit.selectOption(options.find(value => value.startsWith(code + '|')) || options.find(value => value.startsWith(code)));
+      h.assert(await admission.inputValue() === '2026-01-15', `Visit ${code} cleared its admission date`);
+    }
+    await visit.selectOption(options.find(value => value.startsWith('01')));
+    h.assert(await admission.inputValue() === '', 'An outpatient visit retained an admission date');
+  });
+
   await s.step('visit type, location, SLI code, manual review, dx codes and typed codes with units and percent are accepted', async () => {
     await form.locator('select[name="xml_visittype"]').selectOption({ index: 1 }); // 01| Outpatient Visit
     const locations = await form.locator('select[name="xml_location"] option').evaluateAll(o => o.map(x => x.value));

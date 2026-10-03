@@ -22,6 +22,7 @@
 --%>
 <%--
   Purpose: Supports billingEAreport in the Ontario billing workflow.
+  Features: renders parsed MOH batch acknowledgement records using the Ontario billing stylesheet.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -36,7 +37,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>Billing Reconcilliation</title>
-        <link rel="stylesheet" href="${pageContext.request.contextPath}/billing.css">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/billing/CA/ON/billing.css">
         <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
     </head>
 
@@ -192,7 +193,7 @@
             <td class="fieldName" width="12%">Batch Process Date</td>
             <td class="fieldName" width="15%">Reject Reason</td>
         </tr>
-        <c:forEach var="batchAck" items="${batchAcks.batchAckReportBeanVector}">
+        <c:forEach var="batchAck" items="${batchAcks.batchAcknowledgementRecords}">
             <tr>
                 <td class="dataTable" width="5%">${carlos:forHtml(batchAck.batchNumber)}</td>
                 <td class="dataTable" width="5%">${carlos:forHtml(batchAck.operatorNumber)}</td>

@@ -119,6 +119,12 @@ public class BillingOnReviewValidator {
             if (serviceCode.isEmpty()) {
                 continue;
             }
+            if (!isDecimalParameter(request.getParameter("serviceUnit" + i))
+                    || !isDecimalParameter(request.getParameter("serviceAt" + i))) {
+                codeValid = false;
+                messages.add(new Message(Message.Severity.ERROR,
+                        "Service units and percent must be decimal numbers. Please go back to correct them."));
+            }
             // Pass the code through unescaped. The DAO compares with JPQL '=' and a bound
             // parameter, where '_' is already a literal. The old LIKE-style '\_' escaping made
             // every underscore code (the "_"-prefixed private codes, e.g. _OMA_A003) miss and
@@ -245,4 +251,15 @@ public class BillingOnReviewValidator {
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
     }
+    /** Empty fields retain the form's default multiplier of one. */
+    private static boolean isDecimalParameter(String value) {
+        if (value == null || value.isBlank()) return true;
+        try {
+            new java.math.BigDecimal(value.trim());
+            return true;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
+    }
+
 }

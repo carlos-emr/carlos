@@ -23,6 +23,7 @@
 <%--
   Purpose: Supports billingLreport in the Ontario billing workflow.
   Expected request model data includes: lreportModel.
+  Features: displays MOH report rows with the Ontario billing stylesheet.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -45,7 +46,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>MOH Report</title>
-        <link rel="stylesheet" href="${pageContext.request.contextPath}/billing.css">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/billing/CA/ON/billing.css">
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
 

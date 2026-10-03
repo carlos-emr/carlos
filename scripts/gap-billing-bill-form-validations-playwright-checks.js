@@ -38,7 +38,8 @@ async function workflow(s) {
   const third = g.seedAppointment(s, { time: '16:30:00' });
   await g.showSeededAppointments(s);
   const claims = () => sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`);
-  const onForm = form => !/ViewBillingONReview|BillingONSave/.test(form.url());
+  // Back to Edit forwards the form from BillingONSave, so the URL cannot identify the view.
+  const onForm = async form => form.locator('#titlesearch input[name="serviceCode0"]').isVisible();
   let form;
 
   await s.step('Next with nothing selected and an empty Dx are stopped by the form', async () => {
@@ -49,7 +50,7 @@ async function workflow(s) {
     let dialogs = await h.withExpectedDialogs(form, () => next.click());
     h.assert(dialogs.length === 1 && /haven't selected any billing item/.test(dialogs[0].text),
       'Next with no service code did not alert that no billing item is selected');
-    h.assert(onForm(form), 'Next with no service code left the bill form');
+    h.assert((await onForm(form)), 'Next with no service code left the bill form');
 
     await form.locator('input[name="serviceCode0"]').fill('A007A');
 
@@ -57,7 +58,7 @@ async function workflow(s) {
     dialogs = await h.withExpectedDialogs(form, () => next.click(), { accept: false });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && /diagnostic code/.test(dialogs[0].text),
       'An empty Dx did not ask for confirmation');
-    h.assert(onForm(form) && await form.locator('input[name="dxCode"]').evaluate(el => el === document.activeElement),
+    h.assert((await onForm(form)) && await form.locator('input[name="dxCode"]').evaluate(el => el === document.activeElement),
       'Cancelling the empty-Dx confirmation did not stay on the form with the Dx box focused');
     h.assert(claims() === '0', 'A stopped Next wrote a claim');
   });
@@ -81,7 +82,6 @@ async function workflow(s) {
   // Last: the review page of an invalid or duplicated code throws a script error on load, and the
   // percent box check is dead code; both are judged together so each is reported.
   await s.step('the review page marks an unknown and a duplicated code, and a malformed percent is stopped', async () => {
-    const problems = [];
     form = await g.openBillForm(s, second);
     await g.chooseBillingPhysician(form, owned.providerNo);
     await form.locator('input[name="serviceCode0"]').fill('ZZZ99');
@@ -119,10 +119,22 @@ async function workflow(s) {
       await form.locator('#titlesearch input[type="submit"][name="submit"]').click();
       await form.waitForLoadState('domcontentloaded');
     });
-    if (!(dialogs.length === 1 && /decimal number in the service code percent/.test(dialogs[0].text) && onForm(form))) {
-      problems.push('a malformed percent (abc) was not stopped by the decimal-number alert');
-    }
+    h.assert(dialogs.length === 1 && /decimal number in the service code percent/.test(dialogs[0].text)
+      && (await onForm(form)), 'A malformed percent was not stopped by the decimal-number alert');
     h.assert(claims() === '0', 'A rejected review or a malformed percent wrote a claim');
+    {
+      // Bypass client validation to exercise the authoritative server boundary.
+      await Promise.all([
+        form.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+        form.locator('form[name="titlesearch"]').evaluate(element => HTMLFormElement.prototype.submit.call(element)),
+      ]);
+      await h.assertNotErrorPage(form, 'malformed-percent review');
+      h.assert((await form.locator('body').innerText()).includes('Service units and percent must be decimal numbers'),
+        'The server did not explain the invalid service percent');
+      h.assert(await form.locator('input[type="submit"][value="Save"]').count() === 0,
+        'The server offered Save for a malformed percent');
+      h.assert(claims() === '0', 'A malformed-percent review wrote a claim');
+    }
     await form.close();
 
     // A fee edited on the review page is saved as the item fee and the claim total.
@@ -148,7 +160,6 @@ async function workflow(s) {
     // Same effective-date bound as g.scheduleFee(): a future-dated fee is not the one the bill was priced with.
     h.assert(sql.value("SELECT value FROM billingservice WHERE service_code='A007A' AND billingservice_date<=CURDATE() ORDER BY billingservice_date DESC LIMIT 1") === fee,
       'Editing a line fee changed the schedule of benefits');
-    h.assert(!problems.length, problems.join('; '));
   });
 }
 

@@ -406,7 +406,8 @@ public class BillingOnClaimLoader {
 
     public static final Comparator<BillingClaimHeaderDto> VISIT_LOCATION_COMPARATOR = new Comparator<BillingClaimHeaderDto>() {
         public int compare(BillingClaimHeaderDto arg0, BillingClaimHeaderDto arg1) {
-            return arg0.facilityNumber().compareTo(arg1.facilityNumber());
+            return Comparator.nullsFirst(Comparator.<String>naturalOrder())
+                    .compare(arg0.facilityNumber(), arg1.facilityNumber());
         }
     };
 

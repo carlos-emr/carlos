@@ -24,6 +24,7 @@
   Purpose: This page provides an opportunity to review
   and potentially print bills specified in billingON.jsp
   Expected request model data includes: reviewModel.
+  Features: invalid reviews allow Back to Edit; public bills do not require private-payment total fields.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -110,7 +111,9 @@
             if (el != null) {
                 document.getElementById('payMethod_0').checked = true;
             }
-            var subtotal = document.getElementById("total").value;
+            var totalField = document.getElementById("total");
+            if (!totalField) return;
+            var subtotal = totalField.value;
             var element = document.getElementById("stotal");
             if (element != null)
                 element.value = subtotal;
@@ -163,11 +166,15 @@
         }
 
         function updateElement(eId, data) {
-            document.getElementById(eId).value = data;
+            var element = document.getElementById(eId);
+            if (element) element.value = data;
         }
 
         function checkTotal() {
-            var totValue = document.getElementById("total").value;
+            var totalField = document.getElementById("total");
+            // Invalid/duplicate reviews offer only Back to Edit and no total field.
+            if (!totalField) return !bClick;
+            var totValue = totalField.value;
             if (isNaN(totValue)) {
                 alert("${carlos:forJavaScript(msgEnterValidFee)}");
                 return false;
@@ -822,9 +829,9 @@
                 total = total.toFixed(2);
             }
         });
-        document.getElementById("total").value = total;
-        document.getElementById("gstBilledTotal").value = total;
-        document.getElementById("stotal").value = total;
+        updateElement("total", total);
+        updateElement("gstBilledTotal", total);
+        updateElement("stotal", total);
     }
 
     function onTotalChanged() {
@@ -837,8 +844,8 @@
         }
 
         var total = document.getElementById("total").value;
-        document.getElementById("gstBilledTotal").value = total;
-        document.getElementById("stotal").value = total;
+        updateElement("gstBilledTotal", total);
+        updateElement("stotal", total);
     }
 
     function addToDiseaseRegistry() {
