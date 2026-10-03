@@ -282,7 +282,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             }
             try {
                 ids.add(Integer.parseInt(trimmed));
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 logger.warn("Skipping non-integer patient ID: {}", LogSafe.sanitize(trimmed));
             }
         }

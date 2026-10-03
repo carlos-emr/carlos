@@ -62,6 +62,8 @@ public class ImportLogDownload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     
+    // Struts creates this action per request; its Spring service is not serialized.
+    @SuppressWarnings("java:S1948")
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws FileNotFoundException, IOException {

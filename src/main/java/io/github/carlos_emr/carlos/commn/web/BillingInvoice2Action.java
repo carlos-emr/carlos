@@ -161,7 +161,7 @@ public class BillingInvoice2Action extends ActionSupport {
                     String filename = "BillingInvoice" + invoiceNo + "_" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf";
                     String savePath = CarlosProperties.getInstance().getProperty("INVOICE_DIR") + "/" + filename;
                     // savePath combines configured INVOICE_DIR, a parsed integer invoice ID and a timestamp.
-                    // nosemgrep: semgrep.carlos.httpservlet-path-traversal
+                    // nosemgrep: carlos.httpservlet-path-traversal
                     try (OutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(savePath)))) {
                         if (renderPrintPDF(invoiceNo, request.getLocale(), fos)) {
                             fileList.add(savePath);

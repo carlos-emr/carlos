@@ -715,7 +715,7 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         // only a collection size is logged; it cannot contain control characters.
-        // nosemgrep: semgrep.carlos.crlf-injection-logs
+        // nosemgrep: carlos.crlf-injection-logs
         logger.debug("FETCHED {} NOTES", notes.size());
 
         startTime = System.currentTimeMillis();
@@ -1592,7 +1592,7 @@ public class CaseManagementView2Action extends ActionSupport {
             logger.debug("FOUND: {}", LogSafe.sanitize(String.valueOf(result)));
             for (NoteDisplay nd : result.getNotes()) {
                 // the note ID is LogSafe-sanitized; the other value is a Java class name.
-                // nosemgrep: semgrep.carlos.crlf-injection-logs
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("   {} noteId={}", nd.getClass().getSimpleName(), LogSafe.sanitize(String.valueOf(nd.getNoteId())));
             }
         }

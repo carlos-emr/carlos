@@ -105,7 +105,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                 // the stored signature), and provider-scoped resolution happens downstream from
                 // grant.providerNo() in EFormApCacheForPdfGenerationServlet.
                 // formDataId is parsed as an Integer before this log statement.
-                // nosemgrep: semgrep.carlos.crlf-injection-logs
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("EFormBrowserRenderPageServlet authorized browser-render via render grant: fdid={}", formDataId);
             } else {
                 LoggedInInfo loggedInInfo = authorizedEformReadRequest(request, formDataId);
@@ -126,7 +126,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     return;
                 }
                 // formDataId is parsed as an Integer before this log statement.
-                // nosemgrep: semgrep.carlos.crlf-injection-logs
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("EFormBrowserRenderPageServlet authorized via _eform session: fdid={}", formDataId);
             }
 
@@ -256,7 +256,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                         null,
                         null);
                 connectSource = endpoint.toASCIIString();
-            } catch (java.net.URISyntaxException ignored) {
+            } catch (java.net.URISyntaxException _) {
                 // Fail closed: APCache is disabled when a safe exact endpoint cannot be formed.
             }
         }
@@ -273,7 +273,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     private static Integer parseFormDataId(String id, HttpServletResponse response) throws IOException {
         try {
             return Integer.parseInt(id);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid parameter: fdid must be a valid number");
             return null;
         }

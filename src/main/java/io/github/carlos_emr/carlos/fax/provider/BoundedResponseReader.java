@@ -109,7 +109,7 @@ final class BoundedResponseReader {
                 }
                 logger.warn("{}={} is not positive; using the {} MiB default",
                         MAX_RESPONSE_MB_PROPERTY, configured, DEFAULT_MAX_RESPONSE_MB);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 logger.warn("{}={} is not a number; using the {} MiB default",
                         MAX_RESPONSE_MB_PROPERTY, configured, DEFAULT_MAX_RESPONSE_MB);
             }
@@ -184,7 +184,7 @@ final class BoundedResponseReader {
                 if (parsed != null && parsed.getCharset() != null) {
                     charset = parsed.getCharset();
                 }
-            } catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException _) {
                 // A malformed Content-Type (unknown or illegal charset name)
                 // must not escape as an unchecked exception past callers that
                 // catch IOException — that would bypass the fax pipeline's

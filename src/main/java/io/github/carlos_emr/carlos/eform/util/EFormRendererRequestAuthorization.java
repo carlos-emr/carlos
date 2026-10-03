@@ -215,7 +215,7 @@ public final class EFormRendererRequestAuthorization {
                 }
             }
             return "/" + String.join("/", segments);
-        } catch (URISyntaxException e) {
+        } catch (URISyntaxException _) {
             return null;
         }
     }
@@ -233,7 +233,7 @@ public final class EFormRendererRequestAuthorization {
         }
         try {
             return InetAddress.getByName(remoteAddress).isLoopbackAddress();
-        } catch (UnknownHostException e) {
+        } catch (UnknownHostException _) {
             return false;
         }
     }
@@ -275,7 +275,7 @@ public final class EFormRendererRequestAuthorization {
                     }
                     String base = candidate.path().substring(0, candidate.path().lastIndexOf('/') + 1);
                     collectCssReferences(css, base, contextPath, authorized, pendingCss);
-                } catch (IOException ignored) {
+                } catch (IOException _) {
                     // The browser/network completeness gate reports the actual load failure. This
                     // discovery pass never broadens access when a stylesheet cannot be inspected.
                 }
@@ -299,7 +299,7 @@ public final class EFormRendererRequestAuthorization {
                                 grant,
                                 EFormRenderPdfHtmlComposer.referencedApCacheKeys(javascript));
                     }
-                } catch (IOException ignored) {
+                } catch (IOException _) {
                     // The renderer will surface the actual missing script; never broaden the grant.
                 }
             }
@@ -375,7 +375,7 @@ public final class EFormRendererRequestAuthorization {
                 resolved = URI.create(basePath).resolve(path).getPath();
             }
             return normalizeApplicationPath(resolved, contextPath);
-        } catch (IllegalArgumentException | URISyntaxException e) {
+        } catch (IllegalArgumentException | URISyntaxException _) {
             return null;
         }
     }

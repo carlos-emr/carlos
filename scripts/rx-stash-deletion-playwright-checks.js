@@ -305,8 +305,7 @@ async function workflow(session) {
     h.assert(/^[1-9]\d*$/.test(source), 'the discontinued-drug fixture has no source id');
     const reason = `Patient's choice </script><script>window.__rxArchiveInjected=true</script>`;
     // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- fixed hostile XSS regression fixture, SQL-quoted before insertion into this disposable test database; source is validated numeric above.
-    sql.execute(`UPDATE drugs SET archived=1, archived_date=NOW(), archived_reason=${h.sqlString(reason)},
-      ATC='', regional_identifier='' WHERE drugid=${source /* nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- intentional, SQL-quoted XSS regression payload; source and patient are owned numeric fixture IDs. */} AND demographic_no=${patient}`);
+    sql.execute(`UPDATE drugs SET archived=1, archived_date=NOW(), archived_reason=${h.sqlString(reason)},\n      ATC='', regional_identifier='' WHERE drugid=${source} AND demographic_no=${patient}`);
     const page = await session.context.newPage();
     await h.gotoApp(page, config.baseUrl, `/rx/ViewStaticScript2?demographicNo=${patient}&cn=${encodeURIComponent(name)}`);
     await h.assertNotErrorPage(page, 'discontinued-drug history');

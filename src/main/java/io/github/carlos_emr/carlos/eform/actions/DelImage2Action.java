@@ -97,7 +97,7 @@ public class DelImage2Action extends ActionSupport {
         // Construct the file using the base directory and sanitized filename only
         File imageDir = new File(imgpath);
         // the basename is containment-checked by validateExistingPath below, before Files.delete.
-        // nosemgrep: semgrep.carlos.httpservlet-path-traversal
+        // nosemgrep: carlos.httpservlet-path-traversal
         File image = new File(imageDir, sanitizedFilename);
         
         try {

@@ -136,7 +136,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             response.setContentType(contentType);
             response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
             // getImageFile validates containment in the configured image directory before this read.
-            // nosemgrep: semgrep.carlos.httpservlet-path-traversal
+            // nosemgrep: carlos.httpservlet-path-traversal
             try (InputStream stream = new FileInputStream(file)) {
                 OutputStream outputStream = response.getOutputStream();
                 IOUtils.copy(stream, outputStream);

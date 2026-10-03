@@ -142,7 +142,7 @@ async function workflow(s) {
     await master.locator('textarea[name="alert"]').fill('SHOULD NOT BE STORED');
     await master.locator('#updateButton input[type="submit"]').first().click();
     await master.getByText(/already in use by/i).waitFor({ timeout: TIMEOUT });
-    // other is the generated hexadecimal workflow marker plus the fixed -B suffix.
+    // other is FAKE-PW plus a random hexadecimal suffix and fixed -B; no regex operators are introduced.
     // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     h.assert(await master.getByRole('link', { name: new RegExp(other, 'i') }).count() === 1,
       'The duplicate-HIN message does not name the patient holding the number');

@@ -47,7 +47,7 @@ Semgrep honors `nosemgrep` by treating those findings as ignored, but still incl
 
 Do not use broad `.semgrepignore` entries, blanket rule disables, or bare `nosemgrep` comments to clear PR noise unless a narrower option is impossible and the rationale is documented.
 
-### Reviewed 2026.08 exceptions
+## Reviewed 2026.08 exceptions
 
 The October 2026 review covered 111 alert IDs: 105 false positives and six
 intentional regression-fixture exceptions. Source changes are matched to
@@ -56,8 +56,8 @@ of reviewed alerts, including duplicate reports at the same source location,
 not a promise about the result count of a future scan.
 
 The 92 Semgrep reports use exact-rule comments at the reported expression, or
-remove misleading SQL examples from comments. The test SQL template literals
-keep their suppression comments **inside JavaScript interpolations**, so the
+remove misleading SQL examples from comments. Multiline test SQL templates
+place their suppression comments **inside JavaScript interpolations**, so the
 comments do not become SQL or alter the fixture data. The existing SARIF filter
 removes only results marked suppressed by Semgrep. No file or rule is globally
 excluded.
@@ -73,7 +73,7 @@ The six deliberate fixtures are the ECB receiver tests (27421, 27422), MD5
 protocol tests (27427, 27428, 27440), and the 0755-to-0700 directory regression
 (27443). Their exceptions do not apply to production cryptography or permissions.
 
-### CodeQL exceptions
+## CodeQL exceptions
 
 This repository uses GitHub's CodeQL default setup. Source comments such as
 `# codeql[...]` or `// codeql[...]` do **not** suppress its findings. Keep the

@@ -143,7 +143,7 @@ async function modalVisibleText(page, randomId) {
  */
 async function waitForModalDocument(page, randomId) {
   await page.waitForFunction(
-    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the id is passed as an argument, never interpolated into the page script
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the id is passed as an argument, never interpolated into the page script
     (id) => {
       const frame = document.getElementById('xmaskframe');
       const doc = frame && frame.contentDocument;
@@ -207,7 +207,7 @@ async function assertSpecialInstructionsRevealed(page, randomId) {
 
 /** The randomIds of everything currently staged on the prescription pane. */
 async function stagedRandomIds(page) {
-  return page.evaluate(() => Array.from(document.querySelectorAll("[id^='instructions_']")) // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed function over the page's own DOM, nothing interpolated
+  return page.evaluate(() => Array.from(document.querySelectorAll("[id^='instructions_']")) // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- fixed function over the page's own DOM, nothing interpolated
     .map((el) => el.id.split('_')[1])
     .filter((id) => /^\d+$/.test(id)));
 }
@@ -236,7 +236,7 @@ async function stageUnprescribedCustomDrug(page, recorder, drugName) {
   await page.locator('#searchString').fill(drugName);
   await page.locator('#customDrug').click();
   await page.waitForFunction(
-    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the count is passed as an argument, never interpolated into the page script
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the count is passed as an argument, never interpolated into the page script
     (previousCount) => document.querySelectorAll("[id^='instructions_']").length > previousCount,
     before.size,
     { timeout: 30000 },
@@ -374,7 +374,7 @@ async function openPreviousInstructions(page, randomId) {
     // setup, not the behaviour under test, so reaching past the UI for it costs
     // nothing — the CLICK that follows is still the real control.
     await rxPage.evaluate(
-      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the selector is passed as an argument, never interpolated into the page script
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the selector is passed as an argument, never interpolated into the page script
       (selector) => {
         const el = document.querySelector(selector);
         if (el) el.value = '';
@@ -389,7 +389,7 @@ async function openPreviousInstructions(page, randomId) {
 
     await chosenRow.click();
     await rxPage.waitForFunction(
-      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the selector is passed as an argument, never interpolated into the page script
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the selector is passed as an argument, never interpolated into the page script
       (selector) => {
         const el = document.querySelector(selector);
         return !!el && el.value.trim().length > 0;
@@ -457,7 +457,7 @@ async function openPreviousInstructions(page, randomId) {
         (r) => r.url().includes(LIST_PREVIOUS_INSTRUCTIONS) && r.request().method() === 'POST',
         { timeout: 30000 },
       ),
-      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the id is passed as an argument, never interpolated into the page script, and is derived from a numeric id this script generated
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the id is passed as an argument, never interpolated into the page script, and is derived from a numeric id this script generated
       rxPage.evaluate((id) => window.displayMedHistory(id), strayId),
     ]);
     const strayStatus = strayResponse.status();

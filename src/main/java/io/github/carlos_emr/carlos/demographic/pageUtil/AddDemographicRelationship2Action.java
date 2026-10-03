@@ -59,11 +59,15 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
+    // Struts creates this action per request; its Spring service is not serialized.
+    @SuppressWarnings("java:S1948")
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    // Struts creates this action per request; its Spring service is not serialized.
+    @SuppressWarnings("java:S1948")
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public AddDemographicRelationship2Action() {
-
+        // Struts requires a public no-argument constructor; field initializers obtain the services.
     }
 
     /**
@@ -171,7 +175,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         }
         try {
             return Integer.parseInt(demographicNo) > 0;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }
