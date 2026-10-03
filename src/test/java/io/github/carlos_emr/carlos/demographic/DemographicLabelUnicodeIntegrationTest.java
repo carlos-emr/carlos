@@ -36,6 +36,7 @@ class DemographicLabelUnicodeIntegrationTest {
             try (var pdf = Loader.loadPDF(JasperExportManager.exportReportToPdf(print))) {
                 assertThat(new PDFTextStripper().getText(pdf)).contains("Nguyễn", "Łukasz");
                 for (var page : pdf.getPages()) {
+                    assertThat(page.getResources().getFontNames()).isNotEmpty();
                     for (var fontName : page.getResources().getFontNames()) {
                         assertThat(page.getResources().getFont(fontName).isEmbedded()).isTrue();
                     }

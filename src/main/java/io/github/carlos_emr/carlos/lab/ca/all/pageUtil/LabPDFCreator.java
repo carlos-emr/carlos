@@ -171,7 +171,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
             document.open();
 
             //Create the fonts that we are going to use
-            bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             font = new Font(bf, 11, Font.NORMAL);
             boldFont = new Font(bf, 12, Font.BOLD);
 
