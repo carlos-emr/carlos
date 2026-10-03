@@ -72,6 +72,13 @@ public class SecurityAddSecurityHelper {
         pageContext.setAttribute("message", message);
     }
 
+    private String validatePassword(String password, String confirmation) {
+        if (password == null || password.isEmpty()) return "admin.securityaddsecurity.msgPasswordInvalid";
+        if (!password.equals(confirmation)) return "admin.securityrecord.msgPasswordNotConfirmed";
+        return PasswordPolicy.validate(password, CarlosProperties.getInstance()).isValid()
+                ? null : "admin.securityaddsecurity.msgPasswordInvalid";
+    }
+
     private String process(PageContext pageContext) {
         ServletRequest request = pageContext.getRequest();
 
@@ -82,15 +89,8 @@ public class SecurityAddSecurityHelper {
         }
 
         String password = request.getParameter("password");
-        if (password == null || password.isEmpty()) {
-            return "admin.securityaddsecurity.msgPasswordInvalid";
-        }
-        if (!password.equals(request.getParameter("conPassword"))) {
-            return "admin.securityrecord.msgPasswordNotConfirmed";
-        }
-        if (!PasswordPolicy.validate(password, CarlosProperties.getInstance()).isValid()) {
-            return "admin.securityaddsecurity.msgPasswordInvalid";
-        }
+        String passwordError = validatePassword(password, request.getParameter("conPassword"));
+        if (passwordError != null) return passwordError;
 
         boolean isUserRecordAlreadyCreatedForProvider = !securityDao.findByProviderNo(request.getParameter("provider_no")).isEmpty();
         if (isUserRecordAlreadyCreatedForProvider) return "admin.securityaddsecurity.msgLoginAlreadyExistsForProvider";

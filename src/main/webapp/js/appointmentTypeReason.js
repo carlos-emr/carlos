@@ -24,10 +24,7 @@
  * Replaces only the previous type's autofill, preserving reason text entered by the user.
  * Empty types remove the old autofill without introducing a separator.
  */
-function appointmentTypeReason(current, previous, next) {
-    current = current || '';
-    previous = previous || '';
-    next = next || '';
+function appointmentTypeReason(current = '', previous = '', next = '') {
     let manual = current;
     if (previous && current === previous) manual = '';
     else if (previous && current.startsWith(previous + ' -- ')) manual = current.slice(previous.length + 4);

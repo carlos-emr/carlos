@@ -521,6 +521,7 @@ Ontario, Canada
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
                 document.forms[0].resources.value = "<carlos:encode value='<%= apptObj.getResources() %>' context="javaScriptBlock"/>";
                 document.forms[0].type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
+                document.forms[0].type.dataset.previousReason = document.forms[0].type.selectedOptions[0]?.dataset.reason || '';
                 document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
                 if ('<carlos:encode value='<%= apptObj.getUrgency() %>' context="javaScriptBlock"/>' == 'critical') {
                     document.forms[0].urgency.checked = "checked";
@@ -554,6 +555,7 @@ Ontario, Canada
 
             function setType(typeSel, reasonSel, locSel, durSel, notesSel, resSel) {
                 document.forms['ADDAPPT'].type.value = typeSel;
+                document.forms['ADDAPPT'].type.dataset.previousReason = document.forms['ADDAPPT'].type.selectedOptions[0]?.dataset.reason || '';
                 document.forms['ADDAPPT'].reason.value = reasonSel;
                 document.forms['ADDAPPT'].duration.value = durSel;
                 document.forms['ADDAPPT'].notes.value = notesSel;
@@ -666,7 +668,7 @@ Ontario, Canada
                 });
 
                 // Track the previous autofill separately from text entered by the user.
-                var previousTypeReason = $('#type option:selected').attr('data-reason') || '';
+                document.getElementById('type').dataset.previousReason = $('#type option:selected').attr('data-reason') || '';
                 // render custom selectmenu
                 $('#type').myselectmenu({
                     change: function (event, data) {
@@ -674,8 +676,8 @@ Ontario, Canada
                         origReason = $("textarea[name='reason']").val();
                         reason = data.item.element.attr("data-reason");
                         var nextTypeReason = reason || '';
-                        reason = appointmentTypeReason(origReason, previousTypeReason, nextTypeReason);
-                        previousTypeReason = nextTypeReason;
+                        reason = appointmentTypeReason(origReason, this.dataset.previousReason || '', nextTypeReason);
+                        this.dataset.previousReason = nextTypeReason;
                         loc = data.item.element.attr("data-loc");
                         dur = data.item.element.attr("data-dur");
                         notes = data.item.element.attr("data-notes");

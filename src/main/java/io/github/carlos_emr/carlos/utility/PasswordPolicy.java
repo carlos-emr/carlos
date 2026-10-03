@@ -55,12 +55,12 @@ public final class PasswordPolicy {
         if (Boolean.parseBoolean(properties.getProperty("IGNORE_PASSWORD_REQUIREMENTS"))) {
             return new Validation(null, 0, null, null);
         }
-        int length = intProperty(properties, "password_min_length", DEFAULT_POLICY_MIN_LENGTH);
+        int length = intProperty(properties, "password_min_length", DEFAULT_POLICY_MIN_LENGTH, 1, Integer.MAX_VALUE);
         if (password == null || password.length() < length) {
             return new Validation("password.policy.violation.msgPasswordLengthError", length,
                     "password.policy.violation.msgSymbols", "password_policy_min_length");
         }
-        int groups = intProperty(properties, "password_min_groups", DEFAULT_POLICY_MIN_GROUPS);
+        int groups = intProperty(properties, "password_min_groups", DEFAULT_POLICY_MIN_GROUPS, 1, 4);
         if (countGroups(password,
                 properties.getProperty("password_group_lower_chars", DEFAULT_POLICY_LOWER_CHARS),
                 properties.getProperty("password_group_upper_chars", DEFAULT_POLICY_UPPER_CHARS),
@@ -98,44 +98,18 @@ public final class PasswordPolicy {
             return 0;
         }
 
-        boolean lower = false;
-        boolean upper = false;
-        boolean digit = false;
-        boolean special = false;
-        for (int i = 0; i < password.length(); i++) {
-            char ch = password.charAt(i);
-            if (!lower && containsChar(lowerChars, ch)) {
-                lower = true;
-            }
-            if (!upper && containsChar(upperChars, ch)) {
-                upper = true;
-            }
-            if (!digit && containsChar(digitChars, ch)) {
-                digit = true;
-            }
-            if (!special && containsChar(specialChars, ch)) {
-                special = true;
-            }
-        }
-
-        int groups = 0;
-        if (lower) {
-            groups++;
-        }
-        if (upper) {
-            groups++;
-        }
-        if (digit) {
-            groups++;
-        }
-        if (special) {
-            groups++;
-        }
-        return groups;
+        return (containsAny(password, lowerChars) ? 1 : 0)
+                + (containsAny(password, upperChars) ? 1 : 0)
+                + (containsAny(password, digitChars) ? 1 : 0)
+                + (containsAny(password, specialChars) ? 1 : 0);
     }
 
-    private static boolean containsChar(String chars, char ch) {
-        return chars != null && chars.indexOf(ch) >= 0;
+    private static boolean containsAny(String password, String characters) {
+        if (characters == null) return false;
+        for (int i = 0; i < password.length(); i++) {
+            if (characters.indexOf(password.charAt(i)) >= 0) return true;
+        }
+        return false;
     }
 
     /**
@@ -144,13 +118,17 @@ public final class PasswordPolicy {
      * <p>Misconfigured policy values should not make password changes impossible. Invalid values
      * are logged for operators and the conservative application default remains in force.</p>
      */
-    private static int intProperty(CarlosProperties properties, String key, int defaultValue) {
+    private static int intProperty(CarlosProperties properties, String key, int defaultValue, int minimum, int maximum) {
         String value = properties.getProperty(key);
         if (value == null) {
             return defaultValue;
         }
         try {
-            return Integer.parseInt(value.trim());
+            int parsed = Integer.parseInt(value.trim());
+            if (parsed < minimum || parsed > maximum) {
+                throw new NumberFormatException("Policy value outside supported range");
+            }
+            return parsed;
         } catch (NumberFormatException _) {
             MiscUtils.getLogger().warn("Invalid integer property {}={}, using default {}", key, LogSafe.sanitize(value), // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     defaultValue);

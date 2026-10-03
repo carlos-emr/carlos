@@ -47,6 +47,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctProgram" %>
 <%@ page import="java.net.URLEncoder" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="java.util.ArrayList" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -147,7 +148,7 @@
         "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
         "&appointmentNo=" + (bean.appointmentNo != null ? bean.appointmentNo : "") +
         "&reason=" + URLEncoder.encode(bean.reason != null ? bean.reason : "", StandardCharsets.UTF_8) +
-        (bean.oscarMsgID != null && !bean.oscarMsgID.isEmpty() ? "&msgId=" + URLEncoder.encode(bean.oscarMsgID, StandardCharsets.UTF_8) : "") +
+        (bean.oscarMsgID != null && !bean.oscarMsgID.isEmpty() ? "&msgId=" + SafeEncode.forUriComponent(bean.oscarMsgID) : "") +
         "&reasonCode=" + (bean.reasonCode != null ? bean.reasonCode : "") +
         "&appointmentDate=" + (bean.appointmentDate != null ? bean.appointmentDate : "") +
         "&start_time=" + (bean.startTime != null ? bean.startTime : "") +

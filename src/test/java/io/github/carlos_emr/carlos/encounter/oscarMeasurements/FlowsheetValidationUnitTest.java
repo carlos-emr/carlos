@@ -45,7 +45,7 @@ class FlowsheetValidationUnitTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {" ", "<unrelated/>", "<flowsheet/>", "<flowsheet name=' '/>",
+    @ValueSource(strings = {" ", "<unrelated/>", "<flowsheet/>", "<flowsheet name=' '/>", "<x:flowsheet xmlns:x='urn:unrelated' name='fixture'/>",
             "<unrelated name='fixture'><measurement type='NEVER_IMPORT'/></unrelated>", "<flowsheet"})
     void shouldRejectWithoutImports_whenXmlIsNotANamedFlowsheet(String xml) {
         try (var imports = mockConstruction(ImportMeasurementTypes.class)) {

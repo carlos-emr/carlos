@@ -133,6 +133,7 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
         new SecurityAddSecurityHelper().addProvider(page);
         ArgumentCaptor<Security> row = ArgumentCaptor.forClass(Security.class);
         verify(records).persist(row.capture());
+        verify(passwords).encodePassword("Valid1!Password");
         assertThat(row.getValue().getPassword()).isEqualTo("encoded-test-password");
         assertThat(row.getValue().getUserName()).isEqualTo("fixture4167");
         verify(page).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");

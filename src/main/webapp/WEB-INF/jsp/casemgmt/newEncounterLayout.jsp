@@ -192,6 +192,7 @@
 
 
             // Keep the draft in this chart, independent of sidebar requests rebuilding the session bean.
+            // Define even an empty value: a new chart must not inherit another tab's shared message.
             var pendingEncounterMessage = "<carlos:encode value='<%= request.getAttribute("encounterMessage") == null ? "" : (String) request.getAttribute("encounterMessage") %>' context="javaScriptBlock"/>";
 
             function assembleMainChartParams(displayFullChart) {

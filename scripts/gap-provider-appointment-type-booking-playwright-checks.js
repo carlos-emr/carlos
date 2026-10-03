@@ -115,7 +115,20 @@ async function workflow(s) {
     h.assert(await edit.locator('#reason').inputValue() === types[0].reason, 'The edit popup does not show the saved reason');
     h.assert(await edit.locator('[name="type"]').first().inputValue() === types[0].name, 'The edit popup does not show the saved type');
     h.assert(await edit.locator('#duration').inputValue() === String(types[0].duration), 'The edit popup does not show the saved duration');
-    await edit.close();
+    const copied = edit.waitForEvent('close', { timeout: 20000 });
+    await edit.locator('a[onclick*="appointmentcopyrecord"]').click();
+    await copied;
+  });
+
+  await s.step('changing type after a pasted booking replaces the copied autofill', async () => {
+    const pasted = await ui.clickOpensPopup(schedule, schedule.locator(`a.adhour[onclick*="provider_no=${fixture.providerNo}&"]`).nth(12),
+      { context, recorder, label: 'paste-type-appointment', timeout: 20000 });
+    await pasted.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    h.assert(await field(pasted, 'type').inputValue() === types[0].name
+      && await field(pasted, 'reason').inputValue() === types[0].reason, 'The copied type/reason were not pasted');
+    await chooseType(pasted, types[1]);
+    h.assert(await field(pasted, 'reason').inputValue() === types[1].reason, 'The pasted autofill was retained after changing types');
+    await pasted.close();
   });
 
   await s.step('switching type A to type B replaces the first type\'s autofill instead of stacking it', async () => {

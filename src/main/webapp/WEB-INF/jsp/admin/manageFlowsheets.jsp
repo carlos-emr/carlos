@@ -102,7 +102,7 @@
 
     <body>
     <c:if test="${not empty sessionScope.flashError}">
-        <div class="alert alert-danger" role="alert"><c:out value="${sessionScope.flashError}"/></div>
+        <div class="alert alert-danger" role="alert"><carlos:encode value="${sessionScope.flashError}" context="html"/></div>
         <c:remove var="flashError" scope="session"/>
     </c:if>
 

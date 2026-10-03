@@ -145,10 +145,10 @@ async function workflow(s) {
     await frame.locator('form[name="searchprovider"] input[name="CSRF-TOKEN"]').first().waitFor({ state: 'attached' });
     await frame.waitForFunction(() => document.querySelector('form[name="searchprovider"] input[name="CSRF-TOKEN"]')?.value);
     const token = await frame.locator('form[name="searchprovider"] input[name="CSRF-TOKEN"]').first().inputValue();
-    for (const [label, password, confirmation] of [
-      ['weak confirmed password', 'ab1', 'ab1'],
-      ['mismatched strong password', GOOD, `${GOOD}x`],
-      ['missing password', '', ''],
+    for (const [label, password, confirmation, messageKey] of [
+      ['weak confirmed password', 'ab1', 'ab1', 'admin.securityaddsecurity.msgPasswordInvalid'],
+      ['mismatched strong password', GOOD, `${GOOD}x`, 'admin.securityrecord.msgPasswordNotConfirmed'],
+      ['missing password', '', '', 'admin.securityaddsecurity.msgPasswordInvalid'],
     ]) {
       const answer = await s.context.request.post(`${config.baseUrl}/admin/SecurityAddSecurity`, {
         headers: { 'CSRF-TOKEN': token },
@@ -156,7 +156,9 @@ async function workflow(s) {
           pin: '', conPin: '', b_ExpireSet: '0', date_ExpireDate: '2100-01-01', forcePasswordReset: '0' },
         maxRedirects: 0,
       });
-      h.assert(answer.status() < 500, `${label} POST answered HTTP ${answer.status()}`);
+      h.assert(answer.status() === 200, `${label} POST answered HTTP ${answer.status()}`);
+      h.assert((await answer.text()).includes(message(messageKey, messageKey)),
+        `${label} POST did not reach the expected password validation refusal`);
       h.assert(securityRows() === '0', `Add a Login Record accepted a ${label}`);
       h.assert(auditRows() === '0', `The refused ${label} wrote a creation audit row`);
     }

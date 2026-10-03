@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -67,8 +69,9 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
                 .setParameter("marker", "PW_RECURRENCE_INTEGRATION").getResultList();
     }
 
-    @Test
-    void shouldRejectEntireSeries_whenALaterOccurrenceOverlapsDoNotBook() {
+    @ParameterizedTest
+    @ValueSource(strings = {"t", "N"})
+    void shouldRejectEntireSeries_whenALaterOccurrenceOverlapsDoNotBook(String status) {
         Appointment block = new Appointment();
         block.setProviderNo("999998");
         block.setAppointmentDate(Date.valueOf("2027-02-07"));
@@ -77,7 +80,7 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
         block.setName("Do_Not_Book");
         block.setProgramId(10016);
         block.setDemographicNo(0);
-        block.setStatus("t");
+        block.setStatus(status);
         appointments.persist(block);
         em.flush();
         assertThatThrownBy(() -> service.apply(user, values, 10016))

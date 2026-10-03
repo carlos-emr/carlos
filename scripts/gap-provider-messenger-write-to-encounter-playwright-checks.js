@@ -130,6 +130,16 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM messagelisttbl WHERE message=${messageId} AND provider_no=${provider}`) === '1',
       'Writing the message to the chart removed its delivery row');
   });
+
+  await s.step('invalid message IDs receive a controlled bad-request response', async () => {
+    for (const messageId of ['not-a-number', '2147483648', '0']) {
+      const response = await s.context.request.get(`${s.config.baseUrl}/CaseManagementEntry`, {
+        params: { method: 'setUpMainEncounter', demographicNo: patient, msgId: messageId }, maxRedirects: 0,
+      });
+      h.assert(response.status() === 400, `Invalid msgId ${messageId} answered HTTP ${response.status()}`);
+    }
+  });
+
 }
 
 if (require.main === module) runWorkflow('gap-provider-messenger-write-to-encounter', workflow, { openPatient: true, openMaster: false });

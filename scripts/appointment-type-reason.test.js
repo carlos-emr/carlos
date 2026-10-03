@@ -20,4 +20,5 @@ test('empty types preserve only manual text and never add a separator', () => {
     assert.equal(reason('Type A', 'Type A', ''), '');
     assert.equal(reason('Patient request', '', ''), 'Patient request');
     assert.equal(reason('', '', 'Type A'), 'Type A');
+    assert.equal(reason(), '');
 });

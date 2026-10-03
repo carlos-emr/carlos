@@ -992,6 +992,12 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         return d;
     }
 
+    private static boolean isNamedFlowsheet(Element root) {
+        String name = root.getAttributeValue("name");
+        return "flowsheet".equals(root.getName()) && root.getNamespaceURI().isEmpty()
+                && name != null && !name.isBlank();
+    }
+
     /**
      * Validates a flowsheet XML string by attempting to parse it into a {@link MeasurementFlowSheet}.
      *
@@ -1024,8 +1030,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
             // Reject unrelated XML before importing any measurement types or modifying registries.
-            String name = root.getAttributeValue("name");
-            if (!"flowsheet".equals(root.getName()) || name == null || name.isBlank()) return null;
+            if (!isNamedFlowsheet(root)) return null;
 
 
             XMLOutputter outp = new XMLOutputter();

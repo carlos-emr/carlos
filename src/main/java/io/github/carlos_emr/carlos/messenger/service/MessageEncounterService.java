@@ -61,9 +61,11 @@ public class MessageEncounterService {
      * @throws IllegalArgumentException if the message no longer exists
      */
     public String load(LoggedInInfo loggedInInfo, int messageId, int demographicNo) {
-        if (!security.hasPrivilege(loggedInInfo, "_msg", "r", null)
-                || !security.hasPrivilege(loggedInInfo, "_eChart", "r", Integer.toString(demographicNo))) {
-            throw new SecurityException("Missing message or chart read permission");
+        if (!security.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
+            throw new SecurityException("missing required sec object (_msg)");
+        }
+        if (!security.hasPrivilege(loggedInInfo, "_eChart", "r", Integer.toString(demographicNo))) {
+            throw new SecurityException("missing required sec object (_eChart)");
         }
         if (links.findByMessageId(messageId).stream()
                 .noneMatch(link -> Integer.valueOf(demographicNo).equals(link.getDemographic_no()))) {

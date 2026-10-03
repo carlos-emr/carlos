@@ -972,6 +972,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     document.forms["caseManagementEntryForm"].noteId.value = "<%=savedId%>";
 
+    // Empty means absent or already consumed in this chart; only legacy layouts use the shared bean.
     var encounterMessage = typeof pendingEncounterMessage === 'string'
         ? pendingEncounterMessage : "<carlos:encode value='<%= oscarMsg %>' context="javaScriptBlock"/>";
     if (encounterMessage && document.getElementById(caseNote)) {
