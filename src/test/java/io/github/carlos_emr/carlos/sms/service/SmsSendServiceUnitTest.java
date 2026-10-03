@@ -12,6 +12,8 @@ import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -105,7 +107,7 @@ class SmsSendServiceUnitTest {
                 command -> CONSENTED,
                 new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
-                providerType -> true,
+                providerType -> events.add("tryAcquire"),
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
@@ -115,6 +117,7 @@ class SmsSendServiceUnitTest {
         assertThat(events).containsExactly(
                 "recordOutboundAttempt",
                 "markSending",
+                "tryAcquire",
                 "providerSend",
                 "markProviderResult"
         );
@@ -126,7 +129,7 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send does not call the SMS provider when the queued row is already claimed")
+    @DisplayName("send neither calls the SMS provider nor takes a rate-limit permit when the row is already claimed")
     void shouldSkipProviderSend_whenClaimConflictOccurs() {
         List<String> events = new ArrayList<>();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events) {
@@ -141,7 +144,7 @@ class SmsSendServiceUnitTest {
                 command -> CONSENTED,
                 new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
                 recorder,
-                providerType -> true,
+                providerType -> events.add("tryAcquire"),
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
@@ -160,9 +163,43 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send leaves the message queued and skips the SMS provider when rate limited")
+    @DisplayName("send releases its claim, leaves the message queued and skips the SMS provider when rate limited")
     void shouldLeaveQueued_whenRateLimited() {
-        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> !events.add("tryAcquire"),
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isTrue();
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+        assertThat(result.providerMessageId()).isNull();
+        assertThat(events).containsExactly("recordOutboundAttempt", "markSending", "tryAcquire", "releaseClaim");
+        assertThat(recorder.transactions()).singleElement()
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                    assertThat(transaction.getProviderMessageId()).isNull();
+                    assertThat(transaction.getAttemptCount()).isZero();
+                    assertThat(transaction.getNextAttemptAt()).isNotNull();
+                });
+    }
+
+    @Test
+    @DisplayName("send reports the failure when the claim cannot be handed back after a rate-limit denial")
+    void shouldReportFailure_whenReleaseFailsAfterRateLimitDenial() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService() {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+                throw new IllegalStateException("release failed");
+            }
+        };
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 command -> CONSENTED,
@@ -172,14 +209,95 @@ class SmsSendServiceUnitTest {
                 new SmsDefaultProviderResolver(() -> "STUB")
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendCommand command =
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998");
 
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("release failed");
+    }
+
+    @Test
+    @DisplayName("send confirms a queued result when the limiter fails and the claim is released")
+    void shouldReleaseClaim_whenRateLimiterThrows() {
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events);
+        IllegalStateException limiterFailure = new IllegalStateException("rate-limit row lock timed out");
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
+                recorder,
+                providerType -> {
+                    events.add("tryAcquire");
+                    throw limiterFailure;
+                },
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
         assertThat(result.accepted()).isTrue();
         assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
-        assertThat(result.providerMessageId()).isNull();
+
+        // Nothing was sent, so the row must not be left SENDING for stale recovery to misjudge.
+        assertThat(events).containsExactly("recordOutboundAttempt", "markSending", "tryAcquire", "releaseClaim");
         assertThat(recorder.transactions()).singleElement()
-                .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
-                .containsExactly(SmsStatus.QUEUED, null);
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                    assertThat(transaction.getAttemptCount()).isZero();
+                });
+    }
+
+    @Test
+    @DisplayName("send logs only safe diagnostics when the limiter fails and release succeeds")
+    void shouldLogSafeWarning_whenLimiterFailsAndClaimIsReleased() {
+        String sensitiveCanary = "FAKE-PHI query parameters and credential canary";
+        IllegalStateException limiterFailure = new IllegalStateException(
+                sensitiveCanary, new IllegalArgumentException(sensitiveCanary));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())), recorder,
+                type -> { throw limiterFailure; }, new SmsDefaultProviderResolver(() -> "STUB"));
+
+        try (LogCapture logs = LogCapture.forLogger(SmsSendService.class)) {
+            SmsSendResultDto result = service.send(
+                    SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic log regression", "999998"));
+
+            assertThat(result.accepted()).isTrue();
+            assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+            assertThat(logs.events()).singleElement().satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getParameters()).containsExactly(SmsStatus.QUEUED, "IllegalStateException");
+            });
+            assertThat(logs.messages()).containsExactly(
+                    "SMS rate limiter failed; claim release returned QUEUED. Failure type: IllegalStateException");
+            assertThat(logs.messages()).allSatisfy(message -> assertThat(message).doesNotContain(sensitiveCanary));
+        }
+    }
+
+    @Test
+    @DisplayName("send preserves the limiter failure when releasing its claim also fails")
+    void shouldPreserveFailure_whenLimiterAndClaimReleaseThrow() {
+        IllegalStateException limiterFailure = new IllegalStateException("synthetic limiter failure");
+        IllegalStateException releaseFailure = new IllegalStateException("synthetic release failure");
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService() {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+                throw releaseFailure;
+            }
+        };
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())), recorder,
+                type -> { throw limiterFailure; }, new SmsDefaultProviderResolver(() -> "STUB"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic failure", "999998")))
+                .isSameAs(limiterFailure);
+        assertThat(limiterFailure.getSuppressed()).containsExactly(releaseFailure);
+        assertThat(recorder.transactions()).singleElement()
+                .extracting(SmsTransaction::getStatus).isEqualTo(SmsStatus.SENDING);
     }
 
     @Test

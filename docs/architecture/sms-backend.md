@@ -50,13 +50,35 @@ Also not covered yet: an exception from the admission-time consent check propaga
 
 ## Admission, dispatch and recovery
 
-1. Validate the request and evaluate consent before persisting it. A consent exception or missing decision must not leave claimable work behind.
+1. Validate the request and evaluate consent before persisting it. A consent exception or missing decision must not leave claimable work behind. A body must fit one encoded SMS segment: 160 GSM-7 septets (extension characters such as `€` or `{` count twice), or 70 UTF-16 units when any character needs UCS-2 (supplementary characters such as emoji count twice). VoIP.ms rejects SMS over 160 characters and does not guarantee delivery of accented characters. `SYSTEM_TEST` messages are synthetic and need no patient.
 2. Persist the consent decision with the initial row in one transaction. A blocked row retains the body length/hash but discards the full body.
-3. Before a queued send, recheck consent, including the current system-test switch, then acquire a rate-limit permit. Send and worker entry points suspend any caller transaction so the claim commits before the external send. If the recheck itself throws (for example the consent tables are unreachable, or one patient's consent rows cannot be loaded), nothing is sent on the unverified consent state. The attempt counts and the row is rescheduled with the normal retry backoff (`QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED`), so a row that keeps failing cannot head the queue on every run; at the retry limit it ends `FAILED` with `QUEUE_CONSENT_CHECK_FAILED_RETRY_EXHAUSTED` for manual review. The worker stops draining that SMS backend until the next run so an outage costs one row an attempt per run. Consent-check failures share the send retry budget, so an outage of the consent tables lasting past the backoff window terminally fails the rows it touches even though their consent may be valid; they are surfaced by the `QUEUE_CONSENT_CHECK_FAILED_RETRY_EXHAUSTED` code and the send-failed event, and must be re-sent by an operator. If the reschedule cannot be written either, the row stays `SENDING` and the other SMS backends still drain; stale recovery then fails it for manual review unless the SMS provider's status lookup can confirm it was never received (the stub provider cannot).
+3. Before a queued send, recheck consent, including the current system-test switch, then acquire a rate-limit permit. Both the direct send and the worker claim the row before taking a permit, and release the claim back to `QUEUED` if the permit is denied, so losing the claim never uses up a permit. If the direct-send limiter throws and the release is confirmed, the response also says queued so the caller does not retry an already accepted request. A concurrent change that prevents release is reflected in the response: a newer delivered/sent result is preserved, and an unresolved sending claim carries a warning not to resend manually. A release exception still reaches the caller. A conflict writing the dispatch-time consent snapshot after the permit can still spend one without sending; that only adds throttling. Send and worker entry points suspend any caller transaction so the claim commits before the external send. If the recheck itself throws (for example the consent tables are unreachable, or one patient's consent rows cannot be loaded), nothing is sent on the unverified consent state. The attempt counts and the row is rescheduled with the normal retry backoff (`QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED`), so a row that keeps failing cannot head the queue on every run; at the retry limit it ends `FAILED` with `QUEUE_CONSENT_CHECK_FAILED_RETRY_EXHAUSTED` for manual review. The worker stops draining that SMS backend until the next run so an outage costs one row an attempt per run. Consent-check failures share the send retry budget, so an outage of the consent tables lasting past the backoff window terminally fails the rows it touches even though their consent may be valid; they are surfaced by the `QUEUE_CONSENT_CHECK_FAILED_RETRY_EXHAUSTED` code and the send-failed event, and must be re-sent by an operator. If the reschedule cannot be written either, the row stays `SENDING` and the other SMS backends still drain; stale recovery then fails it for manual review unless the SMS provider's status lookup can confirm it was never received (the stub provider cannot).
 4. Of the SMS provider's answers, only a definite rejection is eligible for a retry. An exception, null result or explicit uncertain result leaves the row `SENDING`, with an operator message explaining that its outcome is unknown.
 5. Stale `SENDING` rows are reconciled through provider status lookup. A confirmed result updates the row; a definitive not-found result permits a bounded retry. An unavailable lookup ends in a failure requiring manual review. A timeout is not evidence that nothing was sent. Do not manually resend without reconciling with the provider.
 
 A direct-send response reflects the persisted result, including a delivery webhook that arrived before the adapter response was saved. Callback identifiers must match the stored outbound message and its authenticated SMS backend. Callbacks cannot introduce internal queue/consent states. Opaque provider identifiers are case-sensitive and must not be silently truncated. A delivery callback that moves a message CARLOS sent (`SENDING` or `SENT`) into `FAILED` publishes `SmsSendFailedEvent`, which failure listeners receive only after the write commits. Nothing is published for a message that is already `FAILED` (a replay, including `SENT` and `FAILED` callbacks replayed in turn, because a failed message ignores a later `SENT`), for a callback the message ignores (out of order, or after `DELIVERED`), or for a callback that matches no stored message, including later callbacks for the placeholder row it created. A message blocked by consent ignores every callback, so the record of the block stays. A message waiting in the queue, for its first attempt or a retry, ignores a failure report, so the send that is still due stands; a report that it was sent or delivered is applied. A message the carrier reported as failed accepts a `SENT` report only when that report is newer than the failure; a message CARLOS marked failed itself (for example an unknown outcome) accepts any `SENT` report. Adapters must echo the client reference in callbacks: a callback that carries only a provider message id and arrives before the send response is saved matches no row.
+
+## Rate-limit locking and regression check
+
+Each permit uses a separate transaction. An atomic `INSERT ... ON DUPLICATE KEY UPDATE` creates the
+provider row or locks the existing row without changing its counter. The subsequent `FOR UPDATE`
+read and counter update run in that same transaction. This avoids the gap-lock deadlock from reading
+an absent key first, and the shared-lock upgrade deadlock from `INSERT IGNORE`. The window time is
+sampled after locking, so waiting callers cannot reset a newer window using an old timestamp.
+
+`JpaSmsSendRateLimitMariaDbIntegrationTest` is an opt-in check against real MariaDB with repeatable
+read and snapshot isolation enabled. Set `SMS_TEST_DB_URL` to a `jdbc:mysql://` server URL ending in `/`,
+`SMS_TEST_DB_USER`, and `SMS_TEST_DB_PASSWORD` through the test environment, then run:
+
+```sh
+mvn -Dtest=JpaSmsSendRateLimitMariaDbIntegrationTest test
+```
+
+The account needs permission to create and drop databases. The test creates a unique temporary
+schema and drops it afterwards; it does not write application rows. It checks concurrent seeded and
+missing rows, lock release on commit/rollback, failed-permit retry, and the `REQUIRES_NEW` boundary.
+Without `SMS_TEST_DB_URL` the test is skipped. Supplying it makes connection or isolation failures
+fail the test. H2 tests cover ordinary DAO behavior but cannot establish MariaDB lock behavior.
 
 ## Configuration and validation
 
@@ -94,10 +116,10 @@ The actions that check `_sms` and `_admin.sms` arrive with #3836, #3838, #3839 a
 ## Required before real SMS traffic
 
 - Real provider clients, credentials, sender selection, status lookup and authenticated webhook endpoints.
-- The send action must set `SmsMessagePurpose` server-side, never from request data. `SYSTEM_TEST` skips patient consent whenever `sms.systemTest.enabled` is on, and nothing yet stops a system-test command from naming a real patient and phone number.
+- The send action must set `SmsMessagePurpose` server-side, never from request data. `SYSTEM_TEST` skips patient consent whenever `sms.systemTest.enabled` is on. `SmsSendValidator` refuses a system test that names a patient or an appointment, so it cannot be filed on a patient's record, but it cannot tell whose phone number it is given: only offer system tests to administrators.
 - Compliance sign-off on the seeded SMS consent wording, phone-number and message-type consent scoping, and STOP-reply opt-out (issue #2674). Recording SMS consent needs no new UI once the consent type is activated: the patient record's consent section lists every active consent type.
 - Message-body encryption, retention and purge policy. Allowed system-test and inbound bodies still use clear database text; keep them synthetic. Hashes are correlation data, not anonymization.
 - Authorized, redacted UI/API DTOs and operational views for queue backlog, uncertain sends and failures. Do not expose JPA entities or internal send commands directly.
-- Carrier-level integration tests, encoding/segment billing limits and operational rollout validation. The current 160-character input limit does not guarantee one encoded SMS segment for every alphabet.
+- Carrier-level integration tests and operational rollout validation, including how the chosen provider handles UCS-2 text within its limits.
 
 Record diagnostics are redacted. Full body retrieval goes through authorization and a committed audit record. These code boundaries do not replace database access controls or the production data policy above.
