@@ -90,8 +90,8 @@ class MessageEncounterServiceUnitTest extends CarlosUnitTestBase {
         message.setTime(java.sql.Time.valueOf("12:34:56"));
         message.setSubject("Subject <>&"); message.setMessage("line one\nline two </script>");
         when(messages.find(7)).thenReturn(message);
-        assertThat(service.load(caller, 7, 42)).startsWith("From: Sender\nTo: Recipient\nDate: ")
-                .contains("12:34:56", "\nSubject: Subject <>&\nline one\nline two </script>");
+        assertThat(service.load(caller, 7, 42)).isEqualTo("From: Sender\nTo: Recipient\nDate: 2026-10-03 12:34:56"
+                + "\nSubject: Subject <>&\nline one\nline two </script>");
         verify(messages, never()).merge(any());
         verify(messages, never()).persist(any());
     }
